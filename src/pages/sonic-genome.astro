@@ -2,89 +2,296 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Icon from '../components/Icon.astro';
 import Katex from '../components/Katex.astro';
-import SonicVisualizerCanvas from '../components/SonicVisualizerCanvas.astro';
-import SonicControls from '../components/SonicControls.astro';
-import SonicTrackScroller from '../components/SonicTrackScroller.astro';
+import { SONIC_PRESETS } from '../data/sonicPresets';
 
-const title = "Sonic Genome — Real-Time DNA Audio Synthesizer & Web Audio Playground";
-const description = "Transform biological DNA sequences into ambient acoustic soundscapes in real time. Powered by native Web Audio API, harmonic musical scale mapping, GC-content filter modulation, and transcription factor percussion triggers.";
+const title = "Sonic Genome — Real-Time DNA Audio Synthesizer & Acoustic Playground";
+const description = "A full-screen interactive biological DNA synthesizer and ambient soundscape playground. Transform raw nucleotides, codons, GC-content filter sweeps, and transcription factor motifs into real-time harmonic music.";
 ---
 
-<BaseLayout title={title} description={description} type="article">
-  <div class="sonic-page-container container">
-    <!-- Back to Lab Navigation -->
-    <nav class="sonic-nav-back">
-      <a href="/lab/" class="sonic-back-link">
-        <Icon name="arrow-left" size={14} /> Back to Lab & Playgrounds
-      </a>
-    </nav>
+<BaseLayout title={title} description={description} bare={true}>
+  <main class="sonic-viewport" id="sonic-root">
+    <!-- Fullscreen Audio-Reactive Canvas -->
+    <canvas id="sonic-canvas" class="sonic-canvas" role="img" aria-label="Sonic Genome real-time audio visualizer"></canvas>
 
-    <!-- Page Header -->
-    <header class="sonic-hero-header">
-      <div class="sonic-badge-pill">
-        <span class="sonic-badge-dot"></span>
-        <span>Interactive Web Audio Synth</span>
+    <!-- Top Floating Navigation & Telemetry Bar -->
+    <header class="sonic-topbar">
+      <div class="sonic-brand">
+        <span class="sonic-pulse" aria-hidden="true"></span>
+        <h1 class="sonic-title">SONIC GENOME 🧬</h1>
+        <span class="sonic-badge" id="sonic-badge-status">Web Audio Synth</span>
       </div>
-      <h1 class="sonic-page-title">SONIC GENOME 🧬</h1>
-      <p class="sonic-page-subtitle">
-        Transforming raw nucleotides (<Katex tex="A, C, G, T" />) and biological motifs into real-time harmonic music, dynamic ambient filters, and synthesized percussion.
-      </p>
+
+      <!-- Quick Telemetry Strip -->
+      <div class="sonic-telemetry-strip" aria-label="Live acoustic DNA telemetry" role="status">
+        <span class="t-pill" title="Current nucleotide base">Base: <strong id="t-base">--</strong></span>
+        <span class="t-pill" title="Current codon triplet">Codon: <strong id="t-codon">--</strong></span>
+        <span class="t-pill" title="Translated amino acid">AA: <strong id="t-aa">--</strong></span>
+        <span class="t-pill t-pill--gc" title="Sliding window GC-content (Filter cutoff)">GC%: <strong id="t-gc">--%</strong></span>
+        <span class="t-pill" title="Synthesizer fundamental frequency">Freq: <strong id="t-freq">-- Hz</strong></span>
+        <span class="t-pill t-pill--motif" title="Active regulatory motif percussion trigger">Motif: <strong id="t-motif">NONE</strong></span>
+        <span class="t-pill t-pill--fps" title="Visualizer frame rate"><strong id="t-fps">60</strong> FPS</span>
+      </div>
+
+      <!-- Top Actions: Theme Switcher & Sibling Playground Navigation -->
+      <div class="sonic-top-actions">
+        <!-- Theme Switcher Menu -->
+        <div class="sonic-theme-menu">
+          <button
+            type="button"
+            class="sonic-action-btn"
+            id="sonic-theme-btn"
+            aria-expanded="false"
+            aria-haspopup="true"
+            title="Switch Visual Theme"
+          >
+            <span aria-hidden="true">🎨</span>
+            <span id="sonic-theme-name">Theme</span>
+            <span class="caret" aria-hidden="true">▾</span>
+          </button>
+          <div class="sonic-theme-popover" id="sonic-theme-popover" role="menu" hidden>
+            <button type="button" class="theme-option" data-theme="dark">
+              <span class="theme-dot theme-dot--dark"></span> Dark
+            </button>
+            <button type="button" class="theme-option" data-theme="light">
+              <span class="theme-dot theme-dot--light"></span> Light
+            </button>
+            <button type="button" class="theme-option" data-theme="parchment">
+              <span class="theme-dot theme-dot--parchment"></span> Parchment
+            </button>
+            <button type="button" class="theme-option" data-theme="nord">
+              <span class="theme-dot theme-dot--nord"></span> Nord
+            </button>
+            <button type="button" class="theme-option" data-theme="monokai">
+              <span class="theme-dot theme-dot--monokai"></span> Monokai
+            </button>
+            <button type="button" class="theme-option" data-theme="cyberdeck">
+              <span class="theme-dot theme-dot--cyberdeck"></span> Cyberdeck
+            </button>
+          </div>
+        </div>
+
+        <!-- Sibling Playgrounds -->
+        <a href="/lab/" class="sonic-action-btn sonic-action-btn--sibling" title="Cell Lab: Cellular Automata Microscope">
+          <span aria-hidden="true">🔬</span>
+          <span>Cell Lab</span>
+        </a>
+
+        <a href="/chromatin/" class="sonic-action-btn sonic-action-btn--sibling" title="Chromatin 3D Compaction Playground">
+          <span aria-hidden="true">🧬</span>
+          <span>Chromatin</span>
+        </a>
+
+        <a href="/" class="sonic-action-btn sonic-action-btn--exit" title="Return to main site">
+          <span aria-hidden="true">←</span>
+          <span>Exit to Site</span>
+        </a>
+      </div>
     </header>
 
-    <!-- Studio Grid Layout -->
-    <div class="sonic-studio-layout">
-      <!-- Left / Top: Interactive 3D Visualizer -->
-      <section aria-label="Acoustic Visualizer">
-        <SonicVisualizerCanvas />
-      </section>
+    <!-- Floating Bottom Scientific Control Dock -->
+    <nav class="sonic-dock" id="sonic-dock" aria-label="Interactive Synthesizer Biological Dock">
+      <!-- Main Transport Controls -->
+      <div class="dock-section dock-section--transport">
+        <button type="button" id="btn-play" class="dock-btn dock-btn--play" title="Play or Pause (Space)">
+          <span id="dock-icon-play"><Icon name="play" size={16} /></span>
+          <span id="dock-icon-pause" hidden><Icon name="pause" size={16} /></span>
+          <span id="dock-play-label">Play</span>
+        </button>
 
-      <!-- Synthesizer Controls Panel -->
-      <section aria-label="Synthesizer Controls">
-        <SonicControls />
-      </section>
+        <button type="button" id="btn-reset" class="dock-btn" title="Reset Playhead (R)">
+          <Icon name="arrow-left" size={15} />
+          <span>Reset</span>
+        </button>
 
-      <!-- Sequence Stream & Input Studio -->
-      <section aria-label="Genomic Sequence Track">
-        <SonicTrackScroller />
-      </section>
-    </div>
+        <button type="button" id="btn-loop" class="dock-btn is-active" title="Toggle Looping">
+          <Icon name="sparkles" size={14} />
+          <span>Loop</span>
+        </button>
+      </div>
 
-    <!-- Educational & Biophysical Mapping Monograph -->
-    <section class="sonic-explainer-card">
-      <h2 class="sonic-explainer-title">
-        <Icon name="sparkles" size={16} /> How the Sonic Genome Engine Works
-      </h2>
-      <div class="sonic-explainer-grid">
-        <div class="explainer-item">
-          <h3>1. Harmonic Scale Mapping</h3>
-          <p>
-            Each nucleotide base maps to harmonic scale degrees: <strong>Adenine (A)</strong> to the root, <strong>Thymine (T)</strong> to the 3rd, <strong>Cytosine (C)</strong> to the 5th, and <strong>Guanine (G)</strong> to the 7th or upper octave. Codons (<Katex tex="3\text{ bp}" />) trigger full harmonic chord voicings.
-          </p>
-        </div>
+      <div class="dock-divider"></div>
 
-        <div class="explainer-item">
-          <h3>2. Dynamic GC% Filter Sweeps</h3>
-          <p>
-            The local GC-content percentage (<Katex tex="GC\%" />) across a 15 bp sliding window continuously modulates a 24 dB/octave low-pass filter: high GC regions open the acoustic cutoff up to <Katex tex="6,000\text{ Hz}" />, while AT-rich domains create dark, muffled subterranean resonance.
-          </p>
-        </div>
-
-        <div class="explainer-item">
-          <h3>3. Regulatory Motif Percussion</h3>
-          <p>
-            Canonical biological motifs trigger synthetic analog drums: <strong>TATA box promoters</strong> trigger sub-bass 808 kicks, <strong>E-boxes (MYC)</strong> trigger snares, <strong>CTCF insulators</strong> trigger crisp woodblocks, and <strong>Poly-A tails</strong> trigger shimmering delay arpeggios.
-          </p>
-        </div>
-
-        <div class="explainer-item">
-          <h3>4. Amino Acid Timbre & Polarity</h3>
-          <p>
-            Every 3-base codon is translated into its corresponding amino acid. Hydrophobic residues produce warm analog sine/triangle timbres, basic residues add sharp FM harmonics, and acidic residues modulate delay depth.
-          </p>
+      <!-- Quick Preset Selector Cartridges -->
+      <div class="dock-section dock-section--presets" aria-label="Genomic Soundtracks">
+        <span class="dock-label">SOUNDTRACK:</span>
+        <div class="dock-chips">
+          {SONIC_PRESETS.map((p, idx) => (
+            <button
+              type="button"
+              class={`preset-chip ${idx === 0 ? 'is-active' : ''}`}
+              data-preset-id={p.id}
+              title={`${p.name} — ${p.organism}`}
+            >
+              {p.name.split('(')[0].trim()}
+            </button>
+          ))}
         </div>
       </div>
-    </section>
-  </div>
+
+      <div class="dock-divider"></div>
+
+      <!-- Visualizer Mode Buttons -->
+      <div class="dock-section dock-section--modes">
+        <button type="button" class="mode-btn is-active" data-mode="helix" title="3D Rotating DNA Double Helix">
+          <Icon name="sparkles" size={14} /> 3D Helix
+        </button>
+        <button type="button" class="mode-btn" data-mode="oscilloscope" title="Holographic Oscilloscope">
+          <Icon name="activity" size={14} /> Scope
+        </button>
+        <button type="button" class="mode-btn" data-mode="matrix" title="Genomic Stream Matrix">
+          <Icon name="list" size={14} /> Matrix
+        </button>
+      </div>
+
+      <div class="dock-divider"></div>
+
+      <!-- Drawer Popover Triggers -->
+      <div class="dock-section dock-section--drawers">
+        <button type="button" id="btn-toggle-tuning" class="dock-btn dock-btn--drawer" title="Tuning & Audio Controls">
+          <Icon name="sliders" size={14} />
+          <span>Tuning</span>
+        </button>
+
+        <button type="button" id="btn-toggle-seq" class="dock-btn dock-btn--drawer" title="Sequence Inspector & Text-to-Codon Encoder">
+          <Icon name="code" size={14} />
+          <span>Sequence</span>
+        </button>
+
+        <button type="button" id="btn-toggle-info" class="dock-btn dock-btn--drawer" title="Scientific Biophysics Guide">
+          <Icon name="book" size={14} />
+          <span>Science</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Drawer 1: Tuning & Synth Parameters Popover -->
+    <aside id="drawer-tuning" class="sonic-drawer" hidden aria-label="Synthesizer Tuning Parameters">
+      <div class="drawer-header">
+        <h3><Icon name="sliders" size={15} /> ACOUSTIC SYNTHESIS TUNING</h3>
+        <button type="button" class="drawer-close" data-close="tuning" title="Close">✕</button>
+      </div>
+
+      <div class="drawer-body">
+        <div class="setting-row">
+          <label for="drawer-select-scale">Harmonic Scale:</label>
+          <select id="drawer-select-scale" class="drawer-select">
+            <option value="aeolian">Aeolian Minor (Dramatic / Cinematic)</option>
+            <option value="lydian">Lydian Ambient (Bright / Dreamy)</option>
+            <option value="dorian">Dorian Space (Sci-Fi / Melancholic)</option>
+            <option value="pentatonic">Major Pentatonic (Euphoric / Consonant)</option>
+            <option value="hirajoshi">Hirajoshi (Japanese Zen / Mysterious)</option>
+            <option value="wholetone">Whole Tone (Cyberpunk / Floating)</option>
+          </select>
+        </div>
+
+        <div class="setting-row">
+          <label for="drawer-select-timbre">Synth Timbre:</label>
+          <select id="drawer-select-timbre" class="drawer-select">
+            <option value="ethereal-glass">Ethereal Glass (Sine Harmonics)</option>
+            <option value="ambient-pad">Ambient Pad (Detuned Chorus)</option>
+            <option value="crystal-chimes">Crystal Chimes (2-Op FM Bell)</option>
+            <option value="cyber-saw">Cyberpunk Saw (Analog Lead)</option>
+            <option value="chiptune">8-Bit Chiptune (Retro Pulse)</option>
+          </select>
+        </div>
+
+        <div class="setting-row">
+          <label for="drawer-slider-bpm">Tempo (<span id="drawer-val-bpm">105</span> BPM):</label>
+          <input type="range" id="drawer-slider-bpm" class="drawer-slider" min="60" max="240" step="2" value="105" />
+        </div>
+
+        <div class="setting-row">
+          <label for="drawer-slider-vol">Master Volume (<span id="drawer-val-vol">75</span>%):</label>
+          <input type="range" id="drawer-slider-vol" class="drawer-slider" min="0" max="100" step="1" value="75" />
+        </div>
+
+        <div class="setting-row">
+          <label for="drawer-slider-reverb">Reverb Acoustic Space (<span id="drawer-val-reverb">40</span>%):</label>
+          <input type="range" id="drawer-slider-reverb" class="drawer-slider" min="0" max="100" step="5" value="40" />
+        </div>
+      </div>
+    </aside>
+
+    <!-- Drawer 2: Sequence Inspector & Text-to-Codon Encoder -->
+    <aside id="drawer-seq" class="sonic-drawer sonic-drawer--wide" hidden aria-label="Sequence Inspector and Encoder">
+      <div class="drawer-header">
+        <h3><Icon name="code" size={15} /> SEQUENCE INSPECTOR & ENCODER</h3>
+        <button type="button" class="drawer-close" data-close="seq" title="Close">✕</button>
+      </div>
+
+      <div class="drawer-body">
+        <!-- Live Scrolling Sequence Ribbon -->
+        <div class="stream-wrap">
+          <div class="stream-header">
+            <span>LIVE BASE-PAIR TRACK</span>
+            <span class="stream-stats">
+              <strong id="drawer-seq-len">0</strong> bp • GC: <strong id="drawer-seq-gc">0.0</strong>% • Motifs: <strong id="drawer-seq-motifs">0</strong>
+            </span>
+          </div>
+          <div class="stream-scroll-box" id="stream-scroll-box">
+            <div class="stream-ribbon" id="stream-ribbon"></div>
+          </div>
+        </div>
+
+        <!-- Custom FASTA input and Text-to-Codon Tools -->
+        <div class="seq-tools-grid">
+          <div class="tool-card">
+            <h4>Paste Custom DNA / FASTA</h4>
+            <textarea id="textarea-custom" class="drawer-textarea" rows="3" placeholder=">custom_locus\nATGCGATCGATC..."></textarea>
+            <div class="tool-actions">
+              <button type="button" id="btn-load-custom" class="drawer-action-btn">Load Sequence</button>
+              <button type="button" id="btn-mutate" class="drawer-action-btn drawer-action-btn--alt">Random Mutation</button>
+            </div>
+          </div>
+
+          <div class="tool-card">
+            <h4>Text-to-Genome Encoder</h4>
+            <p class="tool-sub">Type any phrase to encode into biological codons:</p>
+            <div class="encoder-row">
+              <input type="text" id="input-text-dna" class="drawer-input" value="Kuan-Hao Chao" placeholder="Type text..." />
+              <button type="button" id="btn-encode" class="drawer-action-btn">Encode & Play</button>
+            </div>
+            <div class="encoder-result">
+              Encoded: <code id="encoded-dna-preview">ATG...</code>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Drawer 3: Biophysics & Science Monograph -->
+    <aside id="drawer-info" class="sonic-drawer" hidden aria-label="Biophysical Mapping Monograph">
+      <div class="drawer-header">
+        <h3><Icon name="book" size={15} /> BIOPHYSICAL ACOUSTIC MAPPING</h3>
+        <button type="button" class="drawer-close" data-close="info" title="Close">✕</button>
+      </div>
+
+      <div class="drawer-body drawer-body--scroll">
+        <article class="science-monograph">
+          <h4>1. Harmonic Scale Degree Mapping</h4>
+          <p>
+            Individual nucleotides map to scale intervals: <strong>Adenine (A)</strong> to the root tonic, <strong>Thymine (T)</strong> to the mediant 3rd, <strong>Cytosine (C)</strong> to the dominant 5th, and <strong>Guanine (G)</strong> to the 7th or upper octave. Codon triads (<Katex tex="3\text{ bp}" />) trigger full harmonic chord voicings.
+          </p>
+
+          <h4>2. Dynamic GC% Low-Pass Filter Sweeps</h4>
+          <p>
+            The sliding window GC-content ratio (<Katex tex="GC\%" />) dynamically modulates a <Katex tex="24\text{ dB/octave}" /> low-pass filter: high GC opens cutoff frequencies up to <Katex tex="6,000\text{ Hz}" />, whereas AT-rich regions create dark subterranean resonance.
+          </p>
+
+          <h4>3. Regulatory Motif Drum Synthesis</h4>
+          <p>
+            Genomic regulatory motifs trigger synthesized analog percussion:
+          </p>
+          <ul>
+            <li><strong>TATA Box Promoters (<Katex tex="\text{TATAWAW}" />)</strong>: Sub-bass 808 kick drum</li>
+            <li><strong>E-Box Motif (<Katex tex="\text{CACGTG}" />)</strong>: Snare drum</li>
+            <li><strong>CTCF Insulators (<Katex tex="\text{CCGCGNGGNGGC}" />)</strong>: Resonant woodblock</li>
+            <li><strong>Polyadenylation (<Katex tex="\text{AATAAA}" />)</strong>: Shimmering high arpeggios</li>
+          </ul>
+        </article>
+      </div>
+    </aside>
+  </main>
 </BaseLayout>
 
 <script>
@@ -116,50 +323,68 @@ const description = "Transform biological DNA sequences into ambient acoustic so
   let stepTimer: number | null = null;
   let noteEvents: GenomicNoteEvent[] = [];
 
+  // FPS Telemetry Tracking
+  let lastFrameTime = performance.now();
+  let frameCount = 0;
+  let fps = 60;
+
   // DOM Elements
-  const btnPlayPause = document.getElementById('btn-play-pause');
-  const btnStop = document.getElementById('btn-stop');
-  const btnLoop = document.getElementById('btn-loop');
-  const iconPlay = document.getElementById('icon-play');
-  const iconPause = document.getElementById('icon-pause');
-  const textPlayPause = document.getElementById('text-play-pause');
-
-  const sliderBpm = document.getElementById('slider-bpm') as HTMLInputElement | null;
-  const valBpm = document.getElementById('val-bpm');
-  const sliderVolume = document.getElementById('slider-volume') as HTMLInputElement | null;
-  const valVolume = document.getElementById('val-volume');
-  const sliderReverb = document.getElementById('slider-reverb') as HTMLInputElement | null;
-  const valReverb = document.getElementById('val-reverb');
-
-  const selectPreset = document.getElementById('select-preset') as HTMLSelectElement | null;
-  const selectScale = document.getElementById('select-scale') as HTMLSelectElement | null;
-  const selectTimbre = document.getElementById('select-timbre') as HTMLSelectElement | null;
-
   const canvas = document.getElementById('sonic-canvas') as HTMLCanvasElement | null;
-  const streamRibbon = document.getElementById('sonic-stream-ribbon');
+  const btnPlay = document.getElementById('btn-play');
+  const btnReset = document.getElementById('btn-reset');
+  const btnLoop = document.getElementById('btn-loop');
+  const dockIconPlay = document.getElementById('dock-icon-play');
+  const dockIconPause = document.getElementById('dock-icon-pause');
+  const dockPlayLabel = document.getElementById('dock-play-label');
 
-  const telemetryBase = document.getElementById('telemetry-base');
-  const telemetryCodon = document.getElementById('telemetry-codon');
-  const telemetryAa = document.getElementById('telemetry-aa');
-  const telemetryGc = document.getElementById('telemetry-gc');
-  const telemetryFreq = document.getElementById('telemetry-freq');
-  const telemetryMotif = document.getElementById('telemetry-motif');
+  const presetChips = document.querySelectorAll('.preset-chip');
+  const modeButtons = document.querySelectorAll('.mode-btn');
 
-  const statLength = document.getElementById('stat-length');
-  const statGc = document.getElementById('stat-gc');
-  const statMotifs = document.getElementById('stat-motifs');
+  const tBase = document.getElementById('t-base');
+  const tCodon = document.getElementById('t-codon');
+  const tAa = document.getElementById('t-aa');
+  const tGc = document.getElementById('t-gc');
+  const tFreq = document.getElementById('t-freq');
+  const tMotif = document.getElementById('t-motif');
+  const tFps = document.getElementById('t-fps');
 
-  const tabButtons = document.querySelectorAll('.sonic-tab-btn');
-  const modeButtons = document.querySelectorAll('.sonic-mode-btn');
+  // Drawers
+  const drawerTuning = document.getElementById('drawer-tuning');
+  const drawerSeq = document.getElementById('drawer-seq');
+  const drawerInfo = document.getElementById('drawer-info');
+  const btnToggleTuning = document.getElementById('btn-toggle-tuning');
+  const btnToggleSeq = document.getElementById('btn-toggle-seq');
+  const btnToggleInfo = document.getElementById('btn-toggle-info');
+  const drawerCloseButtons = document.querySelectorAll('.drawer-close');
 
-  const textareaCustom = document.getElementById('textarea-custom-seq') as HTMLTextAreaElement | null;
+  const drawerSelectScale = document.getElementById('drawer-select-scale') as HTMLSelectElement | null;
+  const drawerSelectTimbre = document.getElementById('drawer-select-timbre') as HTMLSelectElement | null;
+  const drawerSliderBpm = document.getElementById('drawer-slider-bpm') as HTMLInputElement | null;
+  const drawerValBpm = document.getElementById('drawer-val-bpm');
+  const drawerSliderVol = document.getElementById('drawer-slider-vol') as HTMLInputElement | null;
+  const drawerValVol = document.getElementById('drawer-val-vol');
+  const drawerSliderReverb = document.getElementById('drawer-slider-reverb') as HTMLInputElement | null;
+  const drawerValReverb = document.getElementById('drawer-val-reverb');
+
+  const streamRibbon = document.getElementById('stream-ribbon');
+  const drawerSeqLen = document.getElementById('drawer-seq-len');
+  const drawerSeqGc = document.getElementById('drawer-seq-gc');
+  const drawerSeqMotifs = document.getElementById('drawer-seq-motifs');
+
+  const textareaCustom = document.getElementById('textarea-custom') as HTMLTextAreaElement | null;
   const btnLoadCustom = document.getElementById('btn-load-custom');
-  const btnMutate = document.getElementById('btn-mutate-seq');
-  const inputTextToDna = document.getElementById('input-text-to-dna') as HTMLInputElement | null;
-  const btnEncodeText = document.getElementById('btn-encode-text');
+  const btnMutate = document.getElementById('btn-mutate');
+  const inputTextDna = document.getElementById('input-text-dna') as HTMLInputElement | null;
+  const btnEncode = document.getElementById('btn-encode');
   const encodedPreview = document.getElementById('encoded-dna-preview');
 
-  function initStudio() {
+  // Theme Dropdown
+  const themeBtn = document.getElementById('sonic-theme-btn');
+  const themePopover = document.getElementById('sonic-theme-popover');
+  const themeName = document.getElementById('sonic-theme-name');
+  const themeOptions = document.querySelectorAll('.theme-option');
+
+  function initInstrument() {
     audioEngine = new SonicAudioEngine();
 
     if (canvas) {
@@ -170,7 +395,23 @@ const description = "Transform biological DNA sequences into ambient acoustic so
     }
 
     loadPreset(currentPresetId);
-    setupEventListeners();
+    setupEvents();
+    startFpsTracker();
+  }
+
+  function startFpsTracker() {
+    const calcFps = () => {
+      const now = performance.now();
+      frameCount++;
+      if (now - lastFrameTime >= 1000) {
+        fps = Math.round((frameCount * 1000) / (now - lastFrameTime));
+        if (tFps) tFps.textContent = fps.toString();
+        frameCount = 0;
+        lastFrameTime = now;
+      }
+      requestAnimationFrame(calcFps);
+    };
+    requestAnimationFrame(calcFps);
   }
 
   function loadPreset(presetId: string) {
@@ -180,11 +421,14 @@ const description = "Transform biological DNA sequences into ambient acoustic so
     currentTimbre = preset.recommendedPreset;
     currentBpm = preset.recommendedBpm;
 
-    if (selectPreset) selectPreset.value = preset.id;
-    if (selectScale) selectScale.value = currentScale;
-    if (selectTimbre) selectTimbre.value = currentTimbre;
-    if (sliderBpm) sliderBpm.value = currentBpm.toString();
-    if (valBpm) valBpm.textContent = currentBpm.toString();
+    if (drawerSelectScale) drawerSelectScale.value = currentScale;
+    if (drawerSelectTimbre) drawerSelectTimbre.value = currentTimbre;
+    if (drawerSliderBpm) drawerSliderBpm.value = currentBpm.toString();
+    if (drawerValBpm) drawerValBpm.textContent = currentBpm.toString();
+
+    presetChips.forEach((chip) => {
+      chip.classList.toggle('is-active', chip.getAttribute('data-preset-id') === preset.id);
+    });
 
     loadSequence(preset.sequence);
   }
@@ -195,12 +439,12 @@ const description = "Transform biological DNA sequences into ambient acoustic so
     currentIndex = 0;
 
     // Update stats
-    if (statLength) statLength.textContent = cleaned.length.toLocaleString();
+    if (drawerSeqLen) drawerSeqLen.textContent = cleaned.length.toLocaleString();
     const gcVals = computeRollingGcContent(cleaned, cleaned.length);
     const overallGc = gcVals.length > 0 ? (gcVals[0] * 100).toFixed(1) : '0.0';
-    if (statGc) statGc.textContent = overallGc;
+    if (drawerSeqGc) drawerSeqGc.textContent = overallGc;
     const motifs = scanMotifs(cleaned);
-    if (statMotifs) statMotifs.textContent = motifs.length.toString();
+    if (drawerSeqMotifs) drawerSeqMotifs.textContent = motifs.length.toString();
 
     renderStreamRibbon();
 
@@ -217,13 +461,13 @@ const description = "Transform biological DNA sequences into ambient acoustic so
 
   function renderStreamRibbon() {
     if (!streamRibbon) return;
-    streamRibbon.innerHTML = '';
+    streamRibbon.replaceChildren();
 
     const fragment = document.createDocumentFragment();
     noteEvents.forEach((ev, idx) => {
       const node = document.createElement('button');
       node.type = 'button';
-      node.className = `sonic-node sonic-node--${ev.base.toLowerCase()}${ev.isMotif ? ' is-motif' : ''}`;
+      node.className = `ribbon-node ribbon-node--${ev.base.toLowerCase()}${ev.isMotif ? ' is-motif' : ''}`;
       node.dataset.index = idx.toString();
       node.title = `Pos ${idx + 1}: ${ev.base}${ev.codon ? ` (${ev.codon} → ${ev.aminoAcid})` : ''}${ev.motif ? ` [${ev.motif.name}]` : ''}`;
 
@@ -283,23 +527,23 @@ const description = "Transform biological DNA sequences into ambient acoustic so
 
   function updateTelemetry(ev: GenomicNoteEvent | null) {
     if (!ev) return;
-    if (telemetryBase) telemetryBase.textContent = ev.base;
-    if (telemetryCodon) telemetryCodon.textContent = ev.codon || '--';
-    if (telemetryAa) telemetryAa.textContent = ev.aminoAcid ? `${ev.aminoName} (${ev.aminoAcid})` : '--';
-    if (telemetryGc) telemetryGc.textContent = `${(ev.gcRatio * 100).toFixed(0)}%`;
-    if (telemetryFreq) telemetryFreq.textContent = `${Math.round(ev.frequency)} Hz`;
-    if (telemetryMotif) {
+    if (tBase) tBase.textContent = ev.base;
+    if (tCodon) tCodon.textContent = ev.codon || '--';
+    if (tAa) tAa.textContent = ev.aminoAcid ? `${ev.aminoName} (${ev.aminoAcid})` : '--';
+    if (tGc) tGc.textContent = `${(ev.gcRatio * 100).toFixed(0)}%`;
+    if (tFreq) tFreq.textContent = `${Math.round(ev.frequency)} Hz`;
+    if (tMotif) {
       if (ev.motif) {
-        telemetryMotif.textContent = ev.motif.name;
-        telemetryMotif.classList.add('is-active');
+        tMotif.textContent = ev.motif.name;
+        tMotif.classList.add('is-active');
       } else {
-        telemetryMotif.textContent = 'NONE';
-        telemetryMotif.classList.remove('is-active');
+        tMotif.textContent = 'NONE';
+        tMotif.classList.remove('is-active');
       }
     }
   }
 
-  async function togglePlayPause() {
+  async function togglePlay() {
     if (!audioEngine) return;
     await audioEngine.init();
 
@@ -313,13 +557,13 @@ const description = "Transform biological DNA sequences into ambient acoustic so
   function startPlayback() {
     if (noteEvents.length === 0) return;
     isPlaying = true;
-    updatePlayButtonUI(true);
+    updatePlayUI(true);
 
     if (visualizer) {
       visualizer.updateState({ isPlaying: true });
     }
 
-    scheduleNextStep();
+    scheduleStep();
   }
 
   function pausePlayback() {
@@ -328,14 +572,14 @@ const description = "Transform biological DNA sequences into ambient acoustic so
       clearTimeout(stepTimer);
       stepTimer = null;
     }
-    updatePlayButtonUI(false);
+    updatePlayUI(false);
 
     if (visualizer) {
       visualizer.updateState({ isPlaying: false });
     }
   }
 
-  function stopPlayback() {
+  function resetPlayback() {
     pausePlayback();
     currentIndex = 0;
     highlightRibbonNode(0);
@@ -345,7 +589,7 @@ const description = "Transform biological DNA sequences into ambient acoustic so
     }
   }
 
-  function scheduleNextStep() {
+  function scheduleStep() {
     if (!isPlaying || noteEvents.length === 0) return;
 
     const ev = noteEvents[currentIndex];
@@ -363,7 +607,6 @@ const description = "Transform biological DNA sequences into ambient acoustic so
       });
     }
 
-    // Step duration based on BPM (quarter note = 60/BPM, sixteenth note = 15/BPM)
     const stepDurationMs = (60 / currentBpm / 2) * 1000;
 
     currentIndex++;
@@ -376,70 +619,62 @@ const description = "Transform biological DNA sequences into ambient acoustic so
       }
     }
 
-    stepTimer = window.setTimeout(scheduleNextStep, stepDurationMs);
+    stepTimer = window.setTimeout(scheduleStep, stepDurationMs);
   }
 
-  function updatePlayButtonUI(playing: boolean) {
-    if (iconPlay) iconPlay.hidden = playing;
-    if (iconPause) iconPause.hidden = !playing;
-    if (textPlayPause) textPlayPause.textContent = playing ? 'Pause Studio' : 'Play Genome';
+  function updatePlayUI(playing: boolean) {
+    if (dockIconPlay) dockIconPlay.hidden = playing;
+    if (dockIconPause) dockIconPause.hidden = !playing;
+    if (dockPlayLabel) dockPlayLabel.textContent = playing ? 'Pause' : 'Play';
+    if (btnPlay) btnPlay.classList.toggle('is-playing', playing);
   }
 
-  function setupEventListeners() {
-    btnPlayPause?.addEventListener('click', togglePlayPause);
-    btnStop?.addEventListener('click', stopPlayback);
+  function toggleDrawer(drawer: HTMLElement | null, btn: HTMLElement | null) {
+    if (!drawer) return;
+    const isHidden = drawer.hasAttribute('hidden');
+
+    // Close others
+    [drawerTuning, drawerSeq, drawerInfo].forEach((d) => {
+      if (d && d !== drawer) d.setAttribute('hidden', 'true');
+    });
+    [btnToggleTuning, btnToggleSeq, btnToggleInfo].forEach((b) => {
+      if (b && b !== btn) b.classList.remove('is-active');
+    });
+
+    if (isHidden) {
+      drawer.removeAttribute('hidden');
+      btn?.classList.add('is-active');
+    } else {
+      drawer.setAttribute('hidden', 'true');
+      btn?.classList.remove('is-active');
+    }
+  }
+
+  function setupEvents() {
+    btnPlay?.addEventListener('click', togglePlay);
+    btnReset?.addEventListener('click', resetPlayback);
 
     btnLoop?.addEventListener('click', () => {
       isLooping = !isLooping;
       btnLoop.classList.toggle('is-active', isLooping);
     });
 
-    sliderBpm?.addEventListener('input', (e) => {
-      currentBpm = parseInt((e.target as HTMLInputElement).value, 10);
-      if (valBpm) valBpm.textContent = currentBpm.toString();
+    presetChips.forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const pid = chip.getAttribute('data-preset-id');
+        if (pid) {
+          const wasPlaying = isPlaying;
+          if (wasPlaying) pausePlayback();
+          loadPreset(pid);
+          if (wasPlaying) startPlayback();
+        }
+      });
     });
 
-    sliderVolume?.addEventListener('input', (e) => {
-      const vol = parseInt((e.target as HTMLInputElement).value, 10);
-      if (valVolume) valVolume.textContent = vol.toString();
-      if (audioEngine) audioEngine.setMasterVolume(vol / 100);
-    });
-
-    sliderReverb?.addEventListener('input', (e) => {
-      const rev = parseInt((e.target as HTMLInputElement).value, 10);
-      if (valReverb) valReverb.textContent = rev.toString();
-      if (audioEngine) audioEngine.setReverbLevel(rev / 100);
-    });
-
-    selectPreset?.addEventListener('change', (e) => {
-      const val = (e.target as HTMLSelectElement).value;
-      if (val !== 'custom') {
-        const wasPlaying = isPlaying;
-        if (wasPlaying) pausePlayback();
-        loadPreset(val);
-        if (wasPlaying) startPlayback();
-      }
-    });
-
-    selectScale?.addEventListener('change', (e) => {
-      currentScale = (e.target as HTMLSelectElement).value as MusicalScale;
-      const rawSeq = noteEvents.map((n) => n.base).join('');
-      loadSequence(rawSeq);
-    });
-
-    selectTimbre?.addEventListener('change', (e) => {
-      currentTimbre = (e.target as HTMLSelectElement).value as SynthPreset;
-    });
-
-    // Visualizer Mode Switcher
     modeButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
-        modeButtons.forEach((b) => {
-          b.classList.remove('is-active');
-          b.setAttribute('aria-selected', 'false');
-        });
+        modeButtons.forEach((b) => b.classList.remove('is-active'));
         btn.classList.add('is-active');
-        btn.setAttribute('aria-selected', 'true');
         const mode = btn.getAttribute('data-mode') as VisualizerMode;
         if (visualizer && mode) {
           visualizer.setMode(mode);
@@ -447,31 +682,54 @@ const description = "Transform biological DNA sequences into ambient acoustic so
       });
     });
 
-    // Tabs Switcher
-    tabButtons.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        tabButtons.forEach((b) => {
-          b.classList.remove('is-active');
-          b.setAttribute('aria-selected', 'false');
-        });
-        btn.classList.add('is-active');
-        btn.setAttribute('aria-selected', 'true');
+    // Drawer triggers
+    btnToggleTuning?.addEventListener('click', () => toggleDrawer(drawerTuning, btnToggleTuning));
+    btnToggleSeq?.addEventListener('click', () => toggleDrawer(drawerSeq, btnToggleSeq));
+    btnToggleInfo?.addEventListener('click', () => toggleDrawer(drawerInfo, btnToggleInfo));
 
-        const tab = btn.getAttribute('data-tab');
-        const contents = document.querySelectorAll('.sonic-tab-content');
-        contents.forEach((c) => (c.setAttribute('hidden', 'true')));
-
-        const activeContent = document.getElementById(`tab-${tab}-content`);
-        if (activeContent) activeContent.removeAttribute('hidden');
+    drawerCloseButtons.forEach((cb) => {
+      cb.addEventListener('click', () => {
+        const type = cb.getAttribute('data-close');
+        if (type === 'tuning') toggleDrawer(drawerTuning, btnToggleTuning);
+        if (type === 'seq') toggleDrawer(drawerSeq, btnToggleSeq);
+        if (type === 'info') toggleDrawer(drawerInfo, btnToggleInfo);
       });
     });
 
-    // Custom DNA input
+    // Tuning inputs
+    drawerSelectScale?.addEventListener('change', (e) => {
+      currentScale = (e.target as HTMLSelectElement).value as MusicalScale;
+      const rawSeq = noteEvents.map((n) => n.base).join('');
+      loadSequence(rawSeq);
+    });
+
+    drawerSelectTimbre?.addEventListener('change', (e) => {
+      currentTimbre = (e.target as HTMLSelectElement).value as SynthPreset;
+    });
+
+    drawerSliderBpm?.addEventListener('input', (e) => {
+      currentBpm = parseInt((e.target as HTMLInputElement).value, 10);
+      if (drawerValBpm) drawerValBpm.textContent = currentBpm.toString();
+    });
+
+    drawerSliderVol?.addEventListener('input', (e) => {
+      const vol = parseInt((e.target as HTMLInputElement).value, 10);
+      if (drawerValVol) drawerValVol.textContent = vol.toString();
+      if (audioEngine) audioEngine.setMasterVolume(vol / 100);
+    });
+
+    drawerSliderReverb?.addEventListener('input', (e) => {
+      const rev = parseInt((e.target as HTMLInputElement).value, 10);
+      if (drawerValReverb) drawerValReverb.textContent = rev.toString();
+      if (audioEngine) audioEngine.setReverbLevel(rev / 100);
+    });
+
+    // Sequence tools
     btnLoadCustom?.addEventListener('click', () => {
       if (!textareaCustom) return;
       const raw = textareaCustom.value.trim();
       if (raw) {
-        if (selectPreset) selectPreset.value = 'custom';
+        presetChips.forEach((c) => c.classList.remove('is-active'));
         const wasPlaying = isPlaying;
         if (wasPlaying) pausePlayback();
         loadSequence(raw);
@@ -479,7 +737,6 @@ const description = "Transform biological DNA sequences into ambient acoustic so
       }
     });
 
-    // Mutate Sequence
     btnMutate?.addEventListener('click', () => {
       if (noteEvents.length === 0) return;
       const seqArray = noteEvents.map((n) => n.base);
@@ -493,14 +750,13 @@ const description = "Transform biological DNA sequences into ambient acoustic so
       jumpToPosition(randIdx);
     });
 
-    // Text to DNA encoder
-    btnEncodeText?.addEventListener('click', () => {
-      if (!inputTextToDna) return;
-      const text = inputTextToDna.value.trim();
+    btnEncode?.addEventListener('click', () => {
+      if (!inputTextDna) return;
+      const text = inputTextDna.value.trim();
       if (text) {
         const dna = textToCodonSequence(text);
-        if (encodedPreview) encodedPreview.textContent = dna.slice(0, 60) + (dna.length > 60 ? '...' : '');
-        if (selectPreset) selectPreset.value = 'custom';
+        if (encodedPreview) encodedPreview.textContent = dna.slice(0, 48) + (dna.length > 48 ? '...' : '');
+        presetChips.forEach((c) => c.classList.remove('is-active'));
         const wasPlaying = isPlaying;
         if (wasPlaying) pausePlayback();
         loadSequence(dna);
@@ -508,186 +764,722 @@ const description = "Transform biological DNA sequences into ambient acoustic so
       }
     });
 
-    // Keyboard Shortcuts (Space = Play/Pause, R = Reset)
+    // Theme selector menu
+    themeBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const hidden = themePopover?.hasAttribute('hidden');
+      if (hidden) themePopover?.removeAttribute('hidden');
+      else themePopover?.setAttribute('hidden', 'true');
+    });
+
+    document.addEventListener('click', () => {
+      themePopover?.setAttribute('hidden', 'true');
+    });
+
+    themeOptions.forEach((opt) => {
+      opt.addEventListener('click', () => {
+        const targetTheme = opt.getAttribute('data-theme');
+        if (targetTheme && typeof window !== 'undefined' && (window as any).__khcTheme) {
+          (window as any).__khcTheme.set(targetTheme);
+          if (themeName) themeName.textContent = targetTheme.charAt(0).toUpperCase() + targetTheme.slice(1);
+        }
+        themePopover?.setAttribute('hidden', 'true');
+      });
+    });
+
+    // Keyboard Shortcuts
     window.addEventListener('keydown', (e) => {
       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
       if (e.code === 'Space') {
         e.preventDefault();
-        togglePlayPause();
+        togglePlay();
       } else if (e.code === 'KeyR') {
         e.preventDefault();
-        stopPlayback();
+        resetPlayback();
       }
     });
   }
 
-  // Auto-init on page mount
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initStudio);
+    document.addEventListener('DOMContentLoaded', initInstrument);
   } else {
-    initStudio();
+    initInstrument();
   }
 </script>
 
 <style>
-  .sonic-page-container {
-    padding-top: var(--space-4, 1.5rem);
-    padding-bottom: var(--space-8, 3rem);
+  /* Full-viewport scientific instrument container */
+  .sonic-viewport {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background: radial-gradient(circle at center, #0e1526 0%, #050811 100%);
+    font-family: var(--font-sans, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+    color: var(--color-text, #f8fafc);
   }
 
-  .sonic-nav-back {
-    margin-bottom: var(--space-3, 1rem);
+  .sonic-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    z-index: 1;
   }
 
-  .sonic-back-link {
+  /* Topbar */
+  .sonic-topbar {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    right: 1rem;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.5rem 1rem;
+    background: rgba(18, 24, 36, 0.85);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  }
+
+  .sonic-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .sonic-pulse {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 10px #10b981;
+    animation: sonic-pulse 2s infinite ease-in-out;
+  }
+
+  @keyframes sonic-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  .sonic-title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    margin: 0;
+    color: #ffffff;
+  }
+
+  .sonic-badge {
+    padding: 0.15rem 0.5rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    background: rgba(56, 189, 248, 0.15);
+    color: var(--color-accent, #38bdf8);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 999px;
+    text-transform: uppercase;
+  }
+
+  /* Telemetry Strip */
+  .sonic-telemetry-strip {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.76rem;
+  }
+
+  .t-pill {
+    padding: 0.2rem 0.55rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    color: #94a3b8;
+  }
+
+  .t-pill strong {
+    color: #ffffff;
+  }
+
+  .t-pill--gc strong {
+    color: #10b981;
+  }
+
+  .t-pill--motif strong.is-active {
+    color: #f43f5e;
+  }
+
+  .t-pill--fps strong {
+    color: var(--color-accent, #38bdf8);
+  }
+
+  /* Top Actions */
+  .sonic-top-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .sonic-action-btn {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
-    font-size: var(--fs-small, 0.85rem);
+    padding: 0.35rem 0.7rem;
+    font-size: 0.78rem;
     font-weight: 600;
+    color: #cbd5e1;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.15s ease;
+  }
+
+  .sonic-action-btn:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+
+  .sonic-action-btn--exit {
+    background: rgba(56, 189, 248, 0.12);
     color: var(--color-accent, #38bdf8);
-    transition: transform 0.15s ease;
+    border-color: rgba(56, 189, 248, 0.3);
   }
 
-  .sonic-back-link:hover {
-    transform: translateX(-3px);
-  }
-
-  .sonic-hero-header {
-    text-align: center;
-    margin-bottom: var(--space-6, 2rem);
-  }
-
-  .sonic-badge-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.25rem 0.75rem;
-    background: rgba(56, 189, 248, 0.1);
-    border: 1px solid rgba(56, 189, 248, 0.3);
-    border-radius: 999px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--color-accent, #38bdf8);
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    margin-bottom: 0.75rem;
-  }
-
-  .sonic-badge-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
+  .sonic-action-btn--exit:hover {
     background: var(--color-accent, #38bdf8);
+    color: #041226;
   }
 
-  .sonic-page-title {
-    font-size: var(--fs-h1, 2.25rem);
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    color: var(--color-text, #ffffff);
-    margin-bottom: 0.5rem;
+  /* Theme Dropdown */
+  .sonic-theme-menu {
+    position: relative;
   }
 
-  .sonic-page-subtitle {
-    max-width: 680px;
-    margin: 0 auto;
-    font-size: 1rem;
-    line-height: 1.6;
-    color: var(--color-text-muted, #94a3b8);
-  }
-
-  .sonic-studio-layout {
+  .sonic-theme-popover {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    width: 140px;
+    background: #121824;
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 8px;
+    padding: 0.35rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: 2px;
+    z-index: 200;
   }
 
-  /* Node styling in stream ribbon */
-  :global(.sonic-node) {
+  .theme-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #cbd5e1;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+  }
+
+  .theme-option:hover {
+    background: rgba(56, 189, 248, 0.15);
+    color: #ffffff;
+  }
+
+  .theme-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .theme-dot--dark { background: #0f1413; border: 1px solid #444; }
+  .theme-dot--light { background: #fafaf8; }
+  .theme-dot--parchment { background: #fbf5e6; }
+  .theme-dot--nord { background: #88c0d0; }
+  .theme-dot--monokai { background: #a6e22e; }
+  .theme-dot--cyberdeck { background: #00ffcc; }
+
+  /* Floating Bottom Biological Dock */
+  .sonic-dock {
+    position: absolute;
+    bottom: 1.25rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.85rem;
+    background: rgba(18, 24, 36, 0.88);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 14px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(56, 189, 248, 0.1);
+    max-width: 95vw;
+    overflow-x: auto;
+  }
+
+  .dock-section {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .dock-divider {
+    width: 1px;
+    height: 24px;
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .dock-label {
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    color: #94a3b8;
+  }
+
+  .dock-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #cbd5e1;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .dock-btn:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.14);
+  }
+
+  .dock-btn.is-active {
+    color: var(--color-accent, #38bdf8);
+    background: rgba(56, 189, 248, 0.15);
+    border-color: rgba(56, 189, 248, 0.4);
+  }
+
+  .dock-btn--play {
+    background: var(--color-accent, #38bdf8);
+    color: #041226;
+    font-weight: 700;
+    padding: 0.45rem 1rem;
+  }
+
+  .dock-btn--play:hover {
+    background: #0284c7;
+    color: #ffffff;
+    box-shadow: 0 0 16px rgba(56, 189, 248, 0.4);
+  }
+
+  .dock-btn--play.is-playing {
+    background: #f43f5e;
+    color: #ffffff;
+  }
+
+  .dock-chips {
+    display: flex;
+    gap: 0.3rem;
+  }
+
+  .preset-chip {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: #94a3b8;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+  }
+
+  .preset-chip:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .preset-chip.is-active {
+    color: var(--color-accent, #38bdf8);
+    background: rgba(56, 189, 248, 0.15);
+    border-color: rgba(56, 189, 248, 0.4);
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+  }
+
+  .mode-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #94a3b8;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .mode-btn:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .mode-btn.is-active {
+    color: var(--color-accent, #38bdf8);
+    background: rgba(56, 189, 248, 0.12);
+    border-color: rgba(56, 189, 248, 0.3);
+  }
+
+  /* Popover Drawers */
+  .sonic-drawer {
+    position: absolute;
+    bottom: 5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 420px;
+    max-width: 90vw;
+    background: rgba(18, 24, 36, 0.94);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 14px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+    z-index: 150;
+    overflow: hidden;
+    animation: drawer-fade-up 0.18s ease-out;
+  }
+
+  .sonic-drawer--wide {
+    width: 680px;
+  }
+
+  @keyframes drawer-fade-up {
+    from { opacity: 0; transform: translate(-50%, 10px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+  }
+
+  .drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .drawer-header h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    margin: 0;
+    color: #ffffff;
+  }
+
+  .drawer-close {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+
+  .drawer-close:hover {
+    color: #ffffff;
+  }
+
+  .drawer-body {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .drawer-body--scroll {
+    max-height: 55vh;
+    overflow-y: auto;
+  }
+
+  .setting-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .setting-row label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #94a3b8;
+  }
+
+  .drawer-select {
+    padding: 0.45rem 0.7rem;
+    font-size: 0.82rem;
+    background: #090e18;
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    outline: none;
+  }
+
+  .drawer-select:focus {
+    border-color: var(--color-accent, #38bdf8);
+  }
+
+  .drawer-slider {
+    width: 100%;
+    accent-color: var(--color-accent, #38bdf8);
+    cursor: pointer;
+  }
+
+  /* Sequence Stream Ribbon */
+  .stream-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .stream-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #94a3b8;
+  }
+
+  .stream-stats strong {
+    color: #ffffff;
+  }
+
+  .stream-scroll-box {
+    height: 75px;
+    background: #090e18;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0.5rem;
+  }
+
+  .stream-ribbon {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 100%;
+    min-width: max-content;
+  }
+
+  :global(.ribbon-node) {
     display: inline-flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-width: 28px;
-    height: 60px;
+    min-width: 24px;
+    height: 50px;
     border-radius: 4px;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
     cursor: pointer;
+    padding: 1px;
     transition: all 0.12s ease;
-    padding: 2px;
   }
 
-  :global(.sonic-node:hover) {
+  :global(.ribbon-node:hover) {
     transform: translateY(-2px);
     background: rgba(255, 255, 255, 0.15);
   }
 
-  :global(.sonic-node.is-playing) {
-    transform: scale(1.12);
+  :global(.ribbon-node.is-playing) {
+    transform: scale(1.15);
     border-color: #ffffff;
-    box-shadow: 0 0 12px currentColor;
+    box-shadow: 0 0 10px currentColor;
     z-index: 10;
   }
 
-  :global(.sonic-node--a) { color: #38bdf8; border-bottom: 3px solid #38bdf8; }
-  :global(.sonic-node--t) { color: #f43f5e; border-bottom: 3px solid #f43f5e; }
-  :global(.sonic-node--c) { color: #fbbf24; border-bottom: 3px solid #fbbf24; }
-  :global(.sonic-node--g) { color: #10b981; border-bottom: 3px solid #10b981; }
-  :global(.sonic-node.is-motif) {
-    background: rgba(168, 85, 247, 0.18);
+  :global(.ribbon-node--a) { color: #38bdf8; border-bottom: 2px solid #38bdf8; }
+  :global(.ribbon-node--t) { color: #f43f5e; border-bottom: 2px solid #f43f5e; }
+  :global(.ribbon-node--c) { color: #fbbf24; border-bottom: 2px solid #fbbf24; }
+  :global(.ribbon-node--g) { color: #10b981; border-bottom: 2px solid #10b981; }
+  :global(.ribbon-node.is-motif) {
+    background: rgba(168, 85, 247, 0.2);
     border-top: 2px solid #a855f7;
   }
 
   :global(.node-letter) {
-    font-size: 0.85rem;
+    font-size: 0.78rem;
     font-weight: 800;
     font-family: ui-monospace, monospace;
   }
 
   :global(.node-aa) {
-    font-size: 0.62rem;
+    font-size: 0.58rem;
     font-weight: 600;
-    color: var(--color-text-muted, #94a3b8);
+    color: #94a3b8;
   }
 
-  .sonic-explainer-card {
-    background: var(--color-surface, #121824);
-    border: 1px solid var(--color-border, #1e293b);
-    border-radius: var(--radius-large, 12px);
-    padding: 1.75rem;
-    margin-top: 2rem;
-  }
-
-  .sonic-explainer-title {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 1.15rem;
-    font-weight: 700;
-    color: var(--color-text, #ffffff);
-    margin-bottom: 1.25rem;
-    border-bottom: 1px solid var(--color-border, #1e293b);
-    padding-bottom: 0.75rem;
-  }
-
-  .sonic-explainer-grid {
+  .seq-tools-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 1.5rem;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
   }
 
-  .explainer-item h3 {
-    font-size: 0.92rem;
+  .tool-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .tool-card h4 {
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin: 0;
+    color: #ffffff;
+  }
+
+  .tool-sub {
+    font-size: 0.7rem;
+    color: #94a3b8;
+    margin: 0;
+  }
+
+  .drawer-textarea {
+    width: 100%;
+    background: #090e18;
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    padding: 0.45rem;
+    font-family: ui-monospace, monospace;
+    font-size: 0.75rem;
+    resize: none;
+    outline: none;
+  }
+
+  .drawer-textarea:focus {
+    border-color: var(--color-accent, #38bdf8);
+  }
+
+  .tool-actions {
+    display: flex;
+    gap: 0.4rem;
+  }
+
+  .drawer-action-btn {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--color-accent, #38bdf8);
+    color: #041226;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .drawer-action-btn:hover {
+    background: #0284c7;
+    color: #ffffff;
+  }
+
+  .drawer-action-btn--alt {
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .drawer-action-btn--alt:hover {
+    background: rgba(255, 255, 255, 0.16);
+  }
+
+  .encoder-row {
+    display: flex;
+    gap: 0.4rem;
+  }
+
+  .drawer-input {
+    flex: 1;
+    background: #090e18;
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    padding: 0.35rem 0.55rem;
+    font-size: 0.78rem;
+    outline: none;
+  }
+
+  .drawer-input:focus {
+    border-color: var(--color-accent, #38bdf8);
+  }
+
+  .encoder-result {
+    font-size: 0.72rem;
+    color: #94a3b8;
+  }
+
+  .encoder-result code {
+    color: var(--color-accent, #38bdf8);
+    font-family: ui-monospace, monospace;
+    word-break: break-all;
+  }
+
+  .science-monograph h4 {
+    font-size: 0.82rem;
     font-weight: 700;
     color: var(--color-accent, #38bdf8);
-    margin-bottom: 0.4rem;
+    margin: 0.75rem 0 0.25rem 0;
   }
 
-  .explainer-item p {
-    font-size: 0.82rem;
-    line-height: 1.55;
-    color: var(--color-text-muted, #94a3b8);
+  .science-monograph p, .science-monograph li {
+    font-size: 0.76rem;
+    line-height: 1.5;
+    color: #cbd5e1;
+  }
+
+  .science-monograph ul {
+    padding-left: 1.2rem;
+    margin: 0.35rem 0;
+  }
+
+  @media (max-width: 900px) {
+    .sonic-telemetry-strip {
+      display: none;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .sonic-dock {
+      bottom: 0.75rem;
+      padding: 0.4rem 0.6rem;
+    }
+    .seq-tools-grid {
+      grid-template-columns: 1fr;
+    }
   }
 </style>

@@ -8,7 +8,6 @@ import SiteBackground from '../components/SiteBackground.astro';
 import ReadingProgress from '../components/ReadingProgress.astro';
 import PageScan from '../components/PageScan.astro';
 import CommandPalette from '../components/CommandPalette.astro';
-import SonicMiniPlayer from '../components/SonicMiniPlayer.astro';
 import { ClientRouter } from 'astro:transitions';
 import type { ScholarMeta } from '../lib/scholar';
 
@@ -71,7 +70,6 @@ const { title, description, image, type, noindex, scholarMeta, bare = false } = 
     {!bare && <ReadingProgress />}
     {!bare && <PageScan />}
     {!bare && <CommandPalette />}
-    {!bare && <SonicMiniPlayer />}
     {!bare && <a href="#main" class="skip-link">Skip to content</a>}
     {!bare && <Header />}
     <script is:inline>
