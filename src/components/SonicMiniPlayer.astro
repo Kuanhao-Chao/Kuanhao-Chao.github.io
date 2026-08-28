@@ -1,0 +1,450 @@
+---
+import Icon from './Icon.astro';
+import { SONIC_PRESETS } from '../data/sonicPresets';
+---
+
+<div id="sonic-mini-player" class="sonic-mini-player" aria-label="Sonic Genome Ambient Player" role="region">
+  <!-- Minimized Floating Pill -->
+  <div class="sonic-mini-bar" id="sonic-mini-bar">
+    <button type="button" id="mini-btn-toggle-expand" class="sonic-mini-disc-btn" title="Sonic Genome Ambient DNA Player">
+      <span class="sonic-mini-disc" id="mini-disc-icon">🧬</span>
+    </button>
+
+    <div class="sonic-mini-info" id="mini-info-click">
+      <span class="sonic-mini-title" id="mini-track-title">Sonic Genome</span>
+      <span class="sonic-mini-sub" id="mini-track-sub">Ambient DNA Synth</span>
+    </div>
+
+    <div class="sonic-mini-actions">
+      <button type="button" id="mini-btn-play" class="sonic-mini-action-btn" title="Play / Pause Ambient Genome">
+        <span id="mini-icon-play"><Icon name="play" size={14} /></span>
+        <span id="mini-icon-pause" hidden><Icon name="pause" size={14} /></span>
+      </button>
+
+      <button type="button" id="mini-btn-expand" class="sonic-mini-action-btn" title="Expand Player">
+        <Icon name="sparkles" size={13} />
+      </button>
+    </div>
+  </div>
+
+  <!-- Expanded Popover Tray -->
+  <div class="sonic-mini-tray" id="sonic-mini-tray" hidden>
+    <div class="mini-tray-header">
+      <span class="mini-tray-badge">GENOMIC SOUNDTRACK</span>
+      <a href="/sonic-genome/" class="mini-tray-studio-link">
+        Studio <Icon name="arrow-right" size={12} />
+      </a>
+    </div>
+
+    <!-- Mini Scope Canvas -->
+    <div class="mini-tray-canvas-wrap">
+      <canvas id="mini-canvas" class="mini-canvas"></canvas>
+    </div>
+
+    <!-- Quick Preset Picker -->
+    <div class="mini-tray-presets">
+      {SONIC_PRESETS.slice(0, 4).map((p) => (
+        <button type="button" class="mini-preset-chip" data-preset-id={p.id}>
+          {p.name.split('(')[0].trim()}
+        </button>
+      ))}
+    </div>
+
+    <!-- Volume & Controls -->
+    <div class="mini-tray-controls">
+      <label for="mini-slider-vol" class="mini-vol-label">
+        <Icon name="pulse" size={12} /> Vol:
+      </label>
+      <input type="range" id="mini-slider-vol" class="mini-vol-slider" min="0" max="100" value="65" />
+    </div>
+  </div>
+</div>
+
+<script>
+  import { SONIC_PRESETS } from '../data/sonicPresets';
+  import { cleanDnaSequence, sequenceToNoteEvents, type GenomicNoteEvent } from '../lib/sonicGenome';
+  import { SonicAudioEngine } from '../lib/sonicAudioEngine';
+
+  let miniEngine: SonicAudioEngine | null = null;
+  let isMiniPlaying = false;
+  let isMiniExpanded = false;
+  let miniPresetIndex = 0;
+  let miniNoteEvents: GenomicNoteEvent[] = [];
+  let miniCurrentIndex = 0;
+  let miniTimer: number | null = null;
+  let miniAnimId: number | null = null;
+
+  const playerEl = document.getElementById('sonic-mini-player');
+  const miniTray = document.getElementById('sonic-mini-tray');
+  const discIcon = document.getElementById('mini-disc-icon');
+  const trackTitle = document.getElementById('mini-track-title');
+  const trackSub = document.getElementById('mini-track-sub');
+  const btnPlay = document.getElementById('mini-btn-play');
+  const iconPlay = document.getElementById('mini-icon-play');
+  const iconPause = document.getElementById('mini-icon-pause');
+  const btnExpand = document.getElementById('mini-btn-expand');
+  const btnDisc = document.getElementById('mini-btn-toggle-expand');
+  const miniVol = document.getElementById('mini-slider-vol') as HTMLInputElement | null;
+  const miniCanvas = document.getElementById('mini-canvas') as HTMLCanvasElement | null;
+  const presetChips = document.querySelectorAll('.mini-preset-chip');
+
+  function initMiniPlayer() {
+    loadMiniPreset(0);
+    setupMiniEvents();
+  }
+
+  function loadMiniPreset(idx: number) {
+    miniPresetIndex = (idx + SONIC_PRESETS.length) % SONIC_PRESETS.length;
+    const p = SONIC_PRESETS[miniPresetIndex];
+    if (trackTitle) trackTitle.textContent = p.name.split('(')[0].trim();
+    if (trackSub) trackSub.textContent = p.organism;
+
+    const cleaned = cleanDnaSequence(p.sequence);
+    miniNoteEvents = sequenceToNoteEvents(cleaned, p.recommendedScale, 4);
+    miniCurrentIndex = 0;
+
+    presetChips.forEach((chip) => {
+      chip.classList.toggle('is-active', chip.getAttribute('data-preset-id') === p.id);
+    });
+  }
+
+  async function toggleMiniPlay() {
+    if (!miniEngine) {
+      miniEngine = new SonicAudioEngine();
+    }
+    await miniEngine.init();
+
+    if (isMiniPlaying) {
+      pauseMini();
+    } else {
+      startMini();
+    }
+  }
+
+  function startMini() {
+    isMiniPlaying = true;
+    if (iconPlay) iconPlay.hidden = true;
+    if (iconPause) iconPause.hidden = false;
+    if (discIcon) discIcon.classList.add('is-spinning');
+    scheduleMiniStep();
+    startMiniCanvas();
+  }
+
+  function pauseMini() {
+    isMiniPlaying = false;
+    if (iconPlay) iconPlay.hidden = false;
+    if (iconPause) iconPause.hidden = true;
+    if (discIcon) discIcon.classList.remove('is-spinning');
+    if (miniTimer !== null) {
+      clearTimeout(miniTimer);
+      miniTimer = null;
+    }
+    stopMiniCanvas();
+  }
+
+  function scheduleMiniStep() {
+    if (!isMiniPlaying || miniNoteEvents.length === 0) return;
+
+    const ev = miniNoteEvents[miniCurrentIndex];
+    const p = SONIC_PRESETS[miniPresetIndex];
+    if (miniEngine && ev) {
+      miniEngine.playNote(ev, p.recommendedPreset);
+    }
+
+    const bpm = p.recommendedBpm;
+    const stepDurationMs = (60 / bpm / 2) * 1000;
+
+    miniCurrentIndex = (miniCurrentIndex + 1) % miniNoteEvents.length;
+    miniTimer = window.setTimeout(scheduleMiniStep, stepDurationMs);
+  }
+
+  function toggleTray() {
+    isMiniExpanded = !isMiniExpanded;
+    if (miniTray) miniTray.hidden = !isMiniExpanded;
+    if (playerEl) playerEl.classList.toggle('is-expanded', isMiniExpanded);
+  }
+
+  function startMiniCanvas() {
+    if (!miniCanvas || miniAnimId !== null) return;
+    const ctx = miniCanvas.getContext('2d');
+    if (!ctx) return;
+
+    const render = () => {
+      if (!isMiniPlaying) return;
+      const w = miniCanvas.width;
+      const h = miniCanvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      if (miniEngine) {
+        const { timeData } = miniEngine.getAnalyserData();
+        ctx.beginPath();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#38bdf8';
+        const sliceWidth = w / timeData.length;
+        let x = 0;
+        for (let i = 0; i < timeData.length; i++) {
+          const v = timeData[i] / 128.0;
+          const y = (v * h) / 2;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+          x += sliceWidth;
+        }
+        ctx.stroke();
+      }
+
+      miniAnimId = requestAnimationFrame(render);
+    };
+    miniAnimId = requestAnimationFrame(render);
+  }
+
+  function stopMiniCanvas() {
+    if (miniAnimId !== null) {
+      cancelAnimationFrame(miniAnimId);
+      miniAnimId = null;
+    }
+  }
+
+  function setupMiniEvents() {
+    btnPlay?.addEventListener('click', toggleMiniPlay);
+    btnDisc?.addEventListener('click', toggleTray);
+    btnExpand?.addEventListener('click', toggleTray);
+
+    miniVol?.addEventListener('input', (e) => {
+      const v = parseInt((e.target as HTMLInputElement).value, 10);
+      if (miniEngine) miniEngine.setMasterVolume(v / 100);
+    });
+
+    presetChips.forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const pid = chip.getAttribute('data-preset-id');
+        const idx = SONIC_PRESETS.findIndex((p) => p.id === pid);
+        if (idx >= 0) {
+          const wasPlaying = isMiniPlaying;
+          if (wasPlaying) pauseMini();
+          loadMiniPreset(idx);
+          if (wasPlaying) startMini();
+        }
+      });
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMiniPlayer);
+  } else {
+    initMiniPlayer();
+  }
+</script>
+
+<style>
+  .sonic-mini-player {
+    position: fixed;
+    bottom: 1.25rem;
+    right: 1.25rem;
+    z-index: 900;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+    font-family: var(--font-sans, system-ui, -apple-system, sans-serif);
+  }
+
+  /* Hide floating mini-player if user is directly inside the full Sonic Genome studio */
+  :global(body:has(.sonic-page-container)) .sonic-mini-player {
+    display: none !important;
+  }
+
+  .sonic-mini-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.35rem 0.65rem 0.35rem 0.4rem;
+    background: rgba(18, 24, 36, 0.88);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: 999px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 12px rgba(56, 189, 248, 0.15);
+    transition: all 0.2s ease;
+  }
+
+  .sonic-mini-bar:hover {
+    border-color: rgba(56, 189, 248, 0.5);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 20px rgba(56, 189, 248, 0.25);
+  }
+
+  .sonic-mini-disc-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sonic-mini-disc {
+    display: inline-block;
+    font-size: 1.15rem;
+    transition: transform 0.2s ease;
+  }
+
+  .sonic-mini-disc.is-spinning {
+    animation: spin 3.5s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .sonic-mini-info {
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    min-width: 100px;
+    max-width: 140px;
+  }
+
+  .sonic-mini-title {
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--color-text, #ffffff);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .sonic-mini-sub {
+    font-size: 0.65rem;
+    color: var(--color-accent, #38bdf8);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .sonic-mini-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .sonic-mini-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--color-text, #ffffff);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .sonic-mini-action-btn:hover {
+    background: var(--color-accent, #38bdf8);
+    color: #041226;
+  }
+
+  .sonic-mini-tray {
+    width: 240px;
+    padding: 0.75rem;
+    background: rgba(18, 24, 36, 0.94);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 12px;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .mini-tray-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .mini-tray-badge {
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted, #94a3b8);
+  }
+
+  .mini-tray-studio-link {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--color-accent, #38bdf8);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+  }
+
+  .mini-tray-canvas-wrap {
+    width: 100%;
+    height: 38px;
+    background: #090e18;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .mini-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .mini-tray-presets {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.3rem;
+  }
+
+  .mini-preset-chip {
+    padding: 0.25rem 0.4rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--color-text-muted, #94a3b8);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mini-preset-chip:hover {
+    color: var(--color-text, #ffffff);
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .mini-preset-chip.is-active {
+    color: var(--color-accent, #38bdf8);
+    border-color: rgba(56, 189, 248, 0.4);
+    background: rgba(56, 189, 248, 0.12);
+  }
+
+  .mini-tray-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.7rem;
+    color: var(--color-text-muted, #94a3b8);
+  }
+
+  .mini-vol-slider {
+    flex: 1;
+    accent-color: var(--color-accent, #38bdf8);
+  }
+
+  @media (max-width: 640px) {
+    .sonic-mini-player {
+      bottom: 1rem;
+      right: 1rem;
+    }
+  }
+</style>

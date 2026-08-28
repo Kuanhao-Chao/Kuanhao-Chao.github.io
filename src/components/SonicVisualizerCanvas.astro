@@ -1,0 +1,217 @@
+---
+import Icon from './Icon.astro';
+---
+
+<div class="sonic-canvas-card">
+  <!-- Visualizer Header & Mode Switcher -->
+  <div class="sonic-canvas-header">
+    <div class="sonic-canvas-title">
+      <span class="sonic-live-indicator"></span>
+      <span class="sonic-title-text">ACOUSTIC GENOME SCOPE</span>
+    </div>
+
+    <div class="sonic-mode-buttons" role="tablist" aria-label="Visualizer Mode">
+      <button
+        type="button"
+        class="sonic-mode-btn is-active"
+        data-mode="helix"
+        role="tab"
+        aria-selected="true"
+        title="3D Rotating DNA Double Helix"
+      >
+        <Icon name="sparkles" size={14} /> 3D Helix
+      </button>
+      <button
+        type="button"
+        class="sonic-mode-btn"
+        data-mode="oscilloscope"
+        role="tab"
+        aria-selected="false"
+        title="Circular Holographic Oscilloscope"
+      >
+        <Icon name="pulse" size={14} /> Scope
+      </button>
+      <button
+        type="button"
+        class="sonic-mode-btn"
+        data-mode="matrix"
+        role="tab"
+        aria-selected="false"
+        title="Genomic Matrix Stream"
+      >
+        <Icon name="list" size={14} /> Matrix
+      </button>
+    </div>
+  </div>
+
+  <!-- Real-Time Render Canvas -->
+  <div class="sonic-canvas-viewport">
+    <canvas id="sonic-canvas" class="sonic-canvas" aria-label="Sonic Genome real-time audio visualizer"></canvas>
+  </div>
+
+  <!-- Telemetry Bar -->
+  <div class="sonic-telemetry-bar">
+    <div class="sonic-telemetry-item">
+      <span class="sonic-label">BASE:</span>
+      <strong id="telemetry-base" class="sonic-val sonic-val--base">--</strong>
+    </div>
+    <div class="sonic-telemetry-item">
+      <span class="sonic-label">CODON:</span>
+      <strong id="telemetry-codon" class="sonic-val">--</strong>
+    </div>
+    <div class="sonic-telemetry-item">
+      <span class="sonic-label">AMINO ACID:</span>
+      <strong id="telemetry-aa" class="sonic-val">--</strong>
+    </div>
+    <div class="sonic-telemetry-item">
+      <span class="sonic-label">GC%:</span>
+      <strong id="telemetry-gc" class="sonic-val sonic-val--gc">--%</strong>
+    </div>
+    <div class="sonic-telemetry-item">
+      <span class="sonic-label">FREQ:</span>
+      <strong id="telemetry-freq" class="sonic-val">-- Hz</strong>
+    </div>
+    <div class="sonic-telemetry-item">
+      <span class="sonic-label">MOTIF:</span>
+      <strong id="telemetry-motif" class="sonic-val sonic-val--motif">NONE</strong>
+    </div>
+  </div>
+</div>
+
+<style>
+  .sonic-canvas-card {
+    background: var(--color-surface, #121824);
+    border: 1px solid var(--color-border, #1e293b);
+    border-radius: var(--radius-large, 12px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-medium, 0 8px 24px rgba(0, 0, 0, 0.3));
+    margin-bottom: var(--space-4, 1.5rem);
+  }
+
+  .sonic-canvas-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.65rem 1rem;
+    background: var(--color-surface-elevated, #1a2234);
+    border-bottom: 1px solid var(--color-border, #1e293b);
+    font-size: var(--fs-small, 0.85rem);
+  }
+
+  .sonic-canvas-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--color-text, #f8fafc);
+  }
+
+  .sonic-live-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 8px #10b981;
+    animation: pulse-dot 2s infinite ease-in-out;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.85); }
+  }
+
+  .sonic-mode-buttons {
+    display: flex;
+    gap: 0.35rem;
+  }
+
+  .sonic-mode-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--color-text-muted, #94a3b8);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .sonic-mode-btn:hover {
+    color: var(--color-text, #ffffff);
+    background: var(--color-surface, rgba(255, 255, 255, 0.05));
+  }
+
+  .sonic-mode-btn.is-active {
+    color: var(--color-accent, #38bdf8);
+    background: rgba(56, 189, 248, 0.12);
+    border-color: rgba(56, 189, 248, 0.3);
+  }
+
+  .sonic-canvas-viewport {
+    position: relative;
+    width: 100%;
+    height: 380px;
+    background: radial-gradient(circle at center, #0d1322 0%, #060911 100%);
+    overflow: hidden;
+  }
+
+  .sonic-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .sonic-telemetry-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.5rem;
+    padding: 0.6rem 1rem;
+    background: var(--color-surface-elevated, #1a2234);
+    border-top: 1px solid var(--color-border, #1e293b);
+    font-size: 0.8rem;
+  }
+
+  .sonic-telemetry-item {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .sonic-label {
+    color: var(--color-text-muted, #94a3b8);
+    font-weight: 600;
+    font-size: 0.72rem;
+  }
+
+  .sonic-val {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    color: var(--color-text, #ffffff);
+  }
+
+  .sonic-val--base {
+    color: var(--color-accent, #38bdf8);
+    font-weight: 800;
+  }
+
+  .sonic-val--gc {
+    color: #10b981;
+  }
+
+  .sonic-val--motif {
+    color: #f43f5e;
+  }
+
+  @media (max-width: 640px) {
+    .sonic-canvas-viewport {
+      height: 280px;
+    }
+  }
+</style>
