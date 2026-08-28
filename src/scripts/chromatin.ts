@@ -47,13 +47,17 @@ import {
   OCTAMER_RADIUS_NM,
   PROMETA_OUTER_LOOP_BP,
   REGIMES,
+  SUPERHELICAL_TURNS,
   SUPERHELIX_RADIUS_NM,
+  alignedWrappingPath,
+  anchoredBeadsOnAString,
   bDnaBasePairs,
   bDnaStrand,
   beadsOnAString,
   bpInViewAt,
   cameraFieldNm,
   cameraTargetNmAt,
+  coilingFibrePositions,
   compactionAt,
   contourLengthNm,
   coreParticleEnvelope,
@@ -61,6 +65,7 @@ import {
   duplexStrandsAlong,
   centromereConstriction,
   extrudedLoop,
+  extrudingLoopPath,
   helicalRisePerTurnNm,
   histoneLayout,
   impliedNucleosomeCount,
@@ -505,11 +510,11 @@ function buildNucleosome(): RegimeNode {
     materials: [matA, matB, ...histoneMats],
     frame(_weight, localT, ctx) {
       // The wrap advances across the regime's own band, so at the seam with the duplex the DNA
-      // is still straight and matches the stretch fading out beside it. That is the whole
-      // transition — no scene swap, just the same duplex doing what it does.
-      wrapNow = smoothstep(Math.min(1, Math.max(0, localT * 1.35)));
+      // is perfectly vertical and matches the stretch fading out beside it. That is the whole
+      // transition — zero pop, just the same duplex continuously wrapping around the octamer.
+      wrapNow = smoothstep5(Math.min(1, Math.max(0, localT * 1.35)));
       if (Math.abs(wrapNow - lastWrap) > 0.002) {
-        const axis = wrappingPath(wrapNow, SAMPLES);
+        const axis = alignedWrappingPath(wrapNow, SAMPLES);
         const { a, b } = duplexStrandsAlong(axis, NUCLEOSOME_CORE_BP);
         tubeA.update(a);
         tubeB.update(b);
@@ -518,10 +523,23 @@ function buildNucleosome(): RegimeNode {
       // histones fade in as the DNA finds them, and separate when exploded
       if (Math.abs(ctx.explode - lastExplode) > 0.002 || Math.abs(wrapNow - lastExplode) > 1e9) {
         const layout = histoneLayout(ctx.explode);
-        layout.forEach((h, i) => histoneMeshes[i].position.set(h.at[0], h.at[1], h.at[2]));
+        const alpha = 1 - smoothstep5(wrapNow);
+        const totalAngle = SUPERHELICAL_TURNS * 2 * Math.PI;
+        const angleMid = -0.5 * totalAngle;
+        const dyadAt: Vec3 = [
+          SUPERHELIX_RADIUS_NM * Math.cos(angleMid),
+          0,
+          SUPERHELIX_RADIUS_NM * Math.sin(angleMid),
+        ];
+        layout.forEach((h, i) => {
+          const px = h.at[0] - alpha * dyadAt[0];
+          const py = h.at[1] - alpha * dyadAt[1];
+          const pz = h.at[2] - alpha * dyadAt[2];
+          histoneMeshes[i].position.set(px, py, pz);
+        });
         lastExplode = ctx.explode;
       }
-      const appear = smoothstep(Math.min(1, wrapNow * 2.2));
+      const appear = smoothstep5(Math.min(1, wrapNow * 2.2));
       const target = ctx.highlightTarget;
       histoneMats.forEach((m, i) => {
         m.userData.localFade = appear;
@@ -697,17 +715,14 @@ export function tubesGeometry(paths: Vec3[][], radius: number, radial: number): 
 function buildBeads(): RegimeNode {
   const group = new Group();
   const COUNT = 28;
-  const centres = beadsOnAString(COUNT);
-  const span = centres[COUNT - 1][1] - centres[0][1];
+  const centres = anchoredBeadsOnAString(COUNT);
+  const centerIdx = Math.floor(COUNT / 2);
 
   const nucGeom = nucleosomeGeometry();
-  // white, because setColorAt MULTIPLIES into the material colour -- tinting it as well turned
-  // the whole sequence ramp into one flat purple
   const nucMat = standard(0xffffff, { roughness: 0.45 });
   const mesh = new InstancedMesh(nucGeom, nucMat, COUNT);
   const col = new Color();
   centres.forEach((c, i) => {
-    // the disc axis lies across the chain, which is how they read in an EM spread
     const t = chainDir(centres, i);
     const across = normalise(crossV(t, [Math.sin(i * 2.1), 0.2, Math.cos(i * 2.1)]));
     placeInstance(mesh, i, c, across);
@@ -720,27 +735,34 @@ function buildBeads(): RegimeNode {
   const linker = new Tube(220, 8, DNA_DIAMETER_NM / 2);
   linker.update(centres);
   group.add(new Mesh(linker.geometry, linkerMat), mesh);
-  group.position.y = -span / 2;
+  group.position.y = 0; // anchored at origin (0, 0, 0)
 
   return {
     id: 'beads',
     group,
     materials: [nucMat, linkerMat],
-    frame(_w, _t, ctx) {
-      // the chain grows with the sequence in view rather than sitting at a fixed length, so it
-      // never shows more nucleosomes than the field it claims to cover actually holds
-      mesh.count = Math.max(1, Math.min(COUNT, impliedNucleosomeCount(ctx.scrub)));
-      // and it recentres on what is drawn -- centring on all 28 while showing 16 puts the
-      // visible half of the chain below the camera target
-      group.position.y = -centres[mesh.count - 1][1] / 2;
+    frame(_w, localT, _ctx) {
+      // Symmetrical unspooling from centerIdx anchored at origin (0, 0, 0)
+      const maxRadius = Math.floor(COUNT / 2);
+      const activeRadius = Math.max(0, Math.min(maxRadius, localT * maxRadius * 1.5));
+      for (let i = 0; i < COUNT; i += 1) {
+        const d = Math.abs(i - centerIdx);
+        const scale = d === 0 ? 1 : Math.min(1, Math.max(0, activeRadius - d + 1));
+        const c = centres[i];
+        const t = chainDir(centres, i);
+        const across = normalise(crossV(t, [Math.sin(i * 2.1), 0.2, Math.cos(i * 2.1)]));
+        placeInstance(mesh, i, c, across, scale);
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+      group.position.y = 0;
     },
-    nucleosomeCount: () => mesh.count,
+    nucleosomeCount: () => COUNT,
     anchors: () => [
       {
         id: 'beads-repeat',
         title: '~187 bp repeat',
         detail: '147 wrapped, the rest linker — the human average',
-        at: [70, centres[Math.floor(COUNT * 0.62)][1], 12],
+        at: [70, centres[Math.floor(COUNT * 0.72)][1], 12],
         regime: 'beads',
       },
       {
@@ -777,40 +799,35 @@ function buildFibre(): RegimeNode {
   group.add(envMesh);
 
   let current: FibreModel | null = null;
+  let lastMorph = -1;
   let span = 0;
   let heights: number[] = [];
   const col = new Color();
 
-  const rebuild = (model: FibreModel) => {
-    if (model === current) return;
+  const updateMorph = (model: FibreModel, morphT: number) => {
+    const clampedMorph = Math.min(1, Math.max(0, morphT));
+    if (model === current && Math.abs(clampedMorph - lastMorph) < 0.005) return;
     current = model;
-    let centres: Vec3[];
-    let widths: number[] | null = null;
+    lastMorph = clampedMorph;
 
-    if (model === 'solenoid') {
-      centres = solenoidFibre(COUNT);
-    } else if (model === 'zigzag') {
-      centres = zigzagFibre(COUNT);
-    } else {
+    const centres = coilingFibrePositions(COUNT, clampedMorph, model);
+    let widths: number[] | null = null;
+    if (model === 'disordered') {
       const chain = disorderedChain(COUNT, 11);
-      centres = chain.map((c) => c.at);
       widths = chain.map((c) => c.widthNm);
     }
 
     centres.forEach((c, i) => {
       let axis: Vec3;
       if (model === 'solenoid') {
-        // discs stand radially, stacked like coins on edge up a spiral staircase
-        axis = normalise([c[0], 0, c[2]]);
+        axis = normalise([c[0], 0.1 * (1 - clampedMorph), c[2]]);
       } else if (model === 'zigzag') {
-        // two columns stacking face to face, so the disc axis runs along the fibre
         axis = [0, 1, 0];
       } else {
         axis = chainDir(centres, i);
       }
       placeInstance(mesh, i, c, axis);
       mesh.setColorAt(i, rampColor(i / (COUNT - 1), col));
-      // the 5-24 nm envelope ChromEMT actually measured; only meaningful for that model
       const w = widths ? widths[i] / 2 : 0;
       placeInstance(envMesh, i, c, [0, 1, 0], Math.max(1e-4, w));
     });
@@ -822,7 +839,7 @@ function buildFibre(): RegimeNode {
     heights = centres.map((c) => c[1]);
     span = Math.max(...heights) - Math.min(...heights);
   };
-  rebuild('solenoid');
+  updateMorph('solenoid', 1);
 
   const COPY: Record<FibreModel, { title: string; detail: string }> = {
     solenoid: {
@@ -843,12 +860,11 @@ function buildFibre(): RegimeNode {
     id: 'fibre',
     group,
     materials: [nucMat, envMat],
-    frame(_w, _t, ctx) {
-      rebuild(ctx.fibreModel);
+    frame(_w, localT, ctx) {
+      const morphT = Math.min(1, Math.max(0, localT * 2.2));
+      updateMorph(ctx.fibreModel, morphT);
       mesh.count = Math.max(1, Math.min(COUNT, nucleosomeBudget(ctx.scrub)));
       envMesh.count = mesh.count;
-      // centre on what is DRAWN, not on the full array: framing 430 nucleosomes while showing
-      // 160 pushed the whole fibre to the bottom of the viewport
       group.position.y = -(heights[mesh.count - 1] + heights[0]) / 2;
     },
     nucleosomeCount: () => mesh.count,

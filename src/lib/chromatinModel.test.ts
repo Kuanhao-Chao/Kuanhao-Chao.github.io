@@ -60,6 +60,10 @@ import {
   cameraTargetNmAt,
   playbackSpeedMultiplier,
   physicalScaleBar,
+  alignedWrappingPath,
+  anchoredBeadsOnAString,
+  coilingFibrePositions,
+  extrudingLoopPath,
   snapTarget,
   solenoidFibre,
   superhelixContourNm,
@@ -954,6 +958,86 @@ describe('continuous transition mathematics & scale bar', () => {
     const s12000 = physicalScaleBar(12000);
     expect(s12000.barWidthNm).toBeGreaterThanOrEqual(1000);
     expect(s12000.label).toContain('µm');
+  });
+});
+
+describe('seamless phase transition geometry', () => {
+  it('alignedWrappingPath at wrapped=0 is a straight vertical line along Y-axis matching straight B-DNA', () => {
+    const straight = alignedWrappingPath(0, 100);
+    expect(straight.length).toBe(101);
+
+    // At wrapped=0, x and z should be 0 (vertical line along Y)
+    straight.forEach((p) => {
+      expect(p[0]).toBeCloseTo(0, 5);
+      expect(p[2]).toBeCloseTo(0, 5);
+    });
+
+    // Top and bottom span the full 147 bp contour length (49.98 nm)
+    const expectedHalf = contourLengthNm(NUCLEOSOME_CORE_BP) / 2;
+    expect(straight[0][1]).toBeCloseTo(-expectedHalf, 1);
+    expect(straight[straight.length - 1][1]).toBeCloseTo(expectedHalf, 1);
+  });
+
+  it('alignedWrappingPath at wrapped=1 matches the 1.65-turn nucleosome superhelix diameter', () => {
+    const wrapped = alignedWrappingPath(1, 100);
+    expect(wrapped.length).toBe(101);
+
+    // Bounding radius should match superhelix radius (4.18 nm)
+    const maxR = Math.max(...wrapped.map((p) => Math.hypot(p[0], p[2])));
+    expect(maxR).toBeCloseTo(SUPERHELIX_RADIUS_NM, 1);
+  });
+
+  it('anchoredBeadsOnAString anchors bead 0 at the origin (0, 0, 0)', () => {
+    const beads = anchoredBeadsOnAString(15);
+    expect(beads.length).toBe(15);
+
+    // The central bead (index 7 or 0 depending on indexing) is centered at origin
+    const centerIdx = Math.floor(beads.length / 2);
+    expect(beads[centerIdx][0]).toBeCloseTo(0, 1);
+    expect(beads[centerIdx][1]).toBeCloseTo(0, 1);
+    expect(beads[centerIdx][2]).toBeCloseTo(0, 1);
+
+    // Spacing between consecutive beads is 10 nm along Y
+    for (let i = 1; i < beads.length; i += 1) {
+      expect(beads[i][1] - beads[i - 1][1]).toBeCloseTo(TEN_NM_RISE_PER_NUCLEOSOME_NM, 1);
+    }
+  });
+
+  it('coilingFibrePositions smoothly morphs from 10 nm beads spacing to 30 nm solenoid cylinder', () => {
+    const COUNT = 36;
+    const open10nm = coilingFibrePositions(COUNT, 0, 'solenoid');
+    const midMorph = coilingFibrePositions(COUNT, 0.5, 'solenoid');
+    const tight30nm = coilingFibrePositions(COUNT, 1, 'solenoid');
+
+    expect(open10nm.length).toBe(COUNT);
+    expect(tight30nm.length).toBe(COUNT);
+
+    // At t=0, radial spread is small (~0 to 1.2 nm wobble)
+    const rOpen = Math.max(...open10nm.map((p) => Math.hypot(p[0], p[2])));
+    expect(rOpen).toBeLessThan(3.0);
+
+    // At t=1, radial spread matches 30 nm solenoid radius ((30 - 11) / 2 = 9.5 nm)
+    const rTight = Math.max(...tight30nm.map((p) => Math.hypot(p[0], p[2])));
+    expect(rTight).toBeCloseTo(9.5, 1);
+
+    // Mid morph radius is between open and tight
+    const rMid = Math.max(...midMorph.map((p) => Math.hypot(p[0], p[2])));
+    expect(rMid).toBeGreaterThan(rOpen);
+    expect(rMid).toBeLessThan(rTight + 0.5);
+  });
+
+  it('extrudingLoopPath expands reach smoothly with localT', () => {
+    const loop0 = extrudingLoopPath(0, 60, 525);
+    const loopMid = extrudingLoopPath(0.5, 60, 525);
+    const loop1 = extrudingLoopPath(1, 60, 525);
+
+    const reach0 = Math.max(...loop0.map((p) => p[1]));
+    const reachMid = Math.max(...loopMid.map((p) => p[1]));
+    const reach1 = Math.max(...loop1.map((p) => p[1]));
+
+    expect(reach0).toBeLessThan(25);
+    expect(reachMid).toBeGreaterThan(reach0);
+    expect(reach1).toBeCloseTo(525, 0);
   });
 });
 

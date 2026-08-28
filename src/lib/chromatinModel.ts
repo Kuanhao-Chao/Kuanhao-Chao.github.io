@@ -372,6 +372,184 @@ export function wrappingPath(wrapped: number, samples = 220): Vec3[] {
 }
 
 /**
+ * Aligned wrapping path that guarantees exact C2 continuous morphing from the vertical straight
+ * B-form duplex (at wrapped=0) into the 1.65-turn nucleosome superhelix (at wrapped=1).
+ *
+ * At wrapped=0, the path is an exact vertical line along the Y-axis from -L/2 to +L/2.
+ * As wrapped increases, the central section smoothly wraps into the superhelix while the coordinate
+ * frame rotates smoothly from vertical alignment to the canonical Luger 1997 orientation.
+ */
+export function alignedWrappingPath(wrapped: number, samples = 220): Vec3[] {
+  const w = Math.min(1, Math.max(0, wrapped));
+  const raw = wrappingPath(w, samples);
+  if (w >= 0.999) return raw;
+
+  const totalAngle = SUPERHELICAL_TURNS * 2 * Math.PI;
+  const totalRise = SUPERHELICAL_TURNS * SUPERHELIX_PITCH_NM;
+  const angleMid = -0.5 * totalAngle;
+  const dyadAt: Vec3 = [
+    SUPERHELIX_RADIUS_NM * Math.cos(angleMid),
+    0,
+    SUPERHELIX_RADIUS_NM * Math.sin(angleMid),
+  ];
+  const dyadTangentRaw: [number, number, number] = [
+    SUPERHELIX_RADIUS_NM * Math.sin(angleMid) * totalAngle,
+    totalRise,
+    -SUPERHELIX_RADIUS_NM * Math.cos(angleMid) * totalAngle,
+  ];
+  const len = Math.hypot(dyadTangentRaw[0], dyadTangentRaw[1], dyadTangentRaw[2]) || 1;
+  const dyadTan: Vec3 = [dyadTangentRaw[0] / len, dyadTangentRaw[1] / len, dyadTangentRaw[2] / len];
+
+  // Rotation taking dyadTan onto [0, 1, 0]
+  const target: Vec3 = [0, 1, 0];
+  const rotAxisRaw: Vec3 = [
+    dyadTan[1] * target[2] - dyadTan[2] * target[1],
+    dyadTan[2] * target[0] - dyadTan[0] * target[2],
+    dyadTan[0] * target[1] - dyadTan[1] * target[0],
+  ];
+  const rotSin = Math.hypot(rotAxisRaw[0], rotAxisRaw[1], rotAxisRaw[2]);
+  const rotCos = dyadTan[0] * target[0] + dyadTan[1] * target[1] + dyadTan[2] * target[2];
+  const rotAngle = Math.atan2(rotSin, rotCos);
+  const rotAxis: Vec3 = rotSin > 1e-6
+    ? [rotAxisRaw[0] / rotSin, rotAxisRaw[1] / rotSin, rotAxisRaw[2] / rotSin]
+    : [1, 0, 0];
+
+  // Alpha factor: 1 at w=0 (fully vertical), 0 at w=1 (canonical)
+  const alpha = 1 - smoothstep5(w);
+  const currentRotAngle = alpha * rotAngle;
+  const c = Math.cos(currentRotAngle);
+  const s = Math.sin(currentRotAngle);
+  const k = rotAxis;
+  const shift: Vec3 = [-alpha * dyadAt[0], -alpha * dyadAt[1], -alpha * dyadAt[2]];
+
+  const rotate = (p: Vec3): Vec3 => {
+    const px = p[0] + shift[0];
+    const py = p[1] + shift[1];
+    const pz = p[2] + shift[2];
+    if (Math.abs(currentRotAngle) < 1e-6) return [px, py, pz];
+    const kd = k[0] * px + k[1] * py + k[2] * pz;
+    const kxp: Vec3 = [
+      k[1] * pz - k[2] * py,
+      k[2] * px - k[0] * pz,
+      k[0] * py - k[1] * px,
+    ];
+    return [
+      px * c + kxp[0] * s + k[0] * kd * (1 - c),
+      py * c + kxp[1] * s + k[1] * kd * (1 - c),
+      pz * c + kxp[2] * s + k[2] * kd * (1 - c),
+    ];
+  };
+
+  return raw.map(rotate);
+}
+
+/**
+ * Extended 10 nm fibre with central nucleosome anchored precisely at (0, 0, 0).
+ */
+export function anchoredBeadsOnAString(count: number, repeatBp = NUCLEOSOME_REPEAT_BP): Vec3[] {
+  if (count < 1) throw new RangeError('anchoredBeadsOnAString needs at least one nucleosome');
+  const spacing = TEN_NM_RISE_PER_NUCLEOSOME_NM * (repeatBp / NUCLEOSOME_REPEAT_BP);
+  const centerIdx = Math.floor(count / 2);
+  const out: Vec3[] = [];
+  for (let i = 0; i < count; i += 1) {
+    const k = i - centerIdx;
+    // Damping envelope ensures bead 0 is anchored exactly at (0,0,0) with zero wobble
+    const damp = 1 - Math.exp(-(k * k) / 4);
+    const wobbleX = Math.sin(k * 1.7) * 1.2 * damp;
+    const wobbleZ = Math.cos(k * 1.3) * 1.2 * damp;
+    out.push([wobbleX, k * spacing, wobbleZ]);
+  }
+  return out;
+}
+
+/**
+ * Morphing positions for 10 nm beads chain twisting into the 30 nm fibre solenoid.
+ */
+export function coilingFibrePositions(
+  count: number,
+  morphT: number,
+  fibreModel: 'solenoid' | 'zigzag' | 'disordered' = 'solenoid',
+): Vec3[] {
+  if (count < 1) throw new RangeError('coilingFibrePositions needs at least one nucleosome');
+  const t = smoothstep5(Math.min(1, Math.max(0, morphT)));
+  const openBeads = anchoredBeadsOnAString(count);
+  if (t <= 0) return openBeads;
+
+  const targetRadius = (FIBRE_30NM_DIAMETER_NM - NUCLEOSOME_DIAMETER_NM) / 2; // 9.5 nm
+  const centerIdx = Math.floor(count / 2);
+
+  let targetPositions: Vec3[];
+  if (fibreModel === 'solenoid') {
+    targetPositions = [];
+    for (let i = 0; i < count; i += 1) {
+      const k = i - centerIdx;
+      const turn = k / SOLENOID_NUCLEOSOMES_PER_TURN;
+      const angle = turn * 2 * Math.PI;
+      targetPositions.push([
+        targetRadius * Math.cos(angle),
+        turn * SOLENOID_PITCH_NM,
+        targetRadius * Math.sin(angle),
+      ]);
+    }
+  } else if (fibreModel === 'zigzag') {
+    targetPositions = [];
+    for (let i = 0; i < count; i += 1) {
+      const k = i - centerIdx;
+      const pair = Math.floor(k / 2);
+      const side = Math.abs(k) % 2 === 0 ? 0 : Math.PI;
+      const angle = (pair / 5.5) * 2 * Math.PI + side;
+      targetPositions.push([
+        targetRadius * Math.cos(angle),
+        pair * (SOLENOID_PITCH_NM * 0.62),
+        targetRadius * Math.sin(angle),
+      ]);
+    }
+  } else {
+    const chain = disorderedChain(count, 11);
+    targetPositions = chain.map((c) => c.at);
+  }
+
+  if (t >= 1) return targetPositions;
+
+  // Smooth intermediate interpolation
+  const out: Vec3[] = [];
+  for (let i = 0; i < count; i += 1) {
+    const p0 = openBeads[i];
+    const p1 = targetPositions[i];
+    const r0 = Math.hypot(p0[0], p0[2]);
+    const r1 = Math.hypot(p1[0], p1[2]);
+    const r = (1 - t) * r0 + t * r1;
+    const a0 = Math.atan2(p0[2], p0[0]);
+    const a1 = Math.atan2(p1[2], p1[0]);
+    let da = a1 - a0;
+    while (da > Math.PI) da -= 2 * Math.PI;
+    while (da < -Math.PI) da += 2 * Math.PI;
+    const a = a0 + t * da;
+    const y = (1 - t) * p0[1] + t * p1[1];
+    out.push([r * Math.cos(a), y, r * Math.sin(a)]);
+  }
+  return out;
+}
+
+/**
+ * Teardrop loop extrusion path expanding as cohesin reels chromatin through its lumen.
+ */
+export function extrudingLoopPath(localT: number, samples = 120, maxReachNm = 525): Vec3[] {
+  const t = smoothstep5(Math.min(1, Math.max(0, localT)));
+  const reach = 10 + t * (maxReachNm - 10);
+  const width = 8 + t * (maxReachNm * 0.65 - 8);
+  const out: Vec3[] = [];
+  for (let i = 0; i <= samples; i += 1) {
+    const u = i / samples; // 0 to 1
+    const petalX = width * Math.sin(Math.PI * u) * Math.cos(Math.PI * (u - 0.5));
+    const petalY = reach * Math.sin(Math.PI * u);
+    const petalZ = width * 0.25 * Math.sin(2 * Math.PI * u);
+    out.push([petalX, petalY, petalZ]);
+  }
+  return out;
+}
+
+/**
  * The two sugar-phosphate backbones winding around an arbitrary duplex axis.
  *
  * One routine draws every duplex in the playground — the straight rod, the half-wrapped
