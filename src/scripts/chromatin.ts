@@ -796,12 +796,17 @@ function buildFibre(): RegimeNode {
   const envMat = standard(0x8fa6c4, { roughness: 0.9, opacity: 0.22 });
   const envGeom = new IcosahedronGeometry(1, 2);
   const envMesh = new InstancedMesh(envGeom, envMat, COUNT);
+  envMesh.count = COUNT;
   group.add(envMesh);
+
+  // Linker DNA continuous spine connecting all 430 nucleosomes
+  const linkerMat = standard(PALETTE.linker, { roughness: 0.5 });
+  const linkerTube = new Tube(COUNT, 6, DNA_DIAMETER_NM / 2);
+  group.add(new Mesh(linkerTube.geometry, linkerMat));
 
   let current: FibreModel | null = null;
   let lastMorph = -1;
   let span = 0;
-  let heights: number[] = [];
   const col = new Color();
 
   const updateMorph = (model: FibreModel, morphT: number) => {
@@ -836,7 +841,9 @@ function buildFibre(): RegimeNode {
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     envMesh.visible = model === 'disordered';
 
-    heights = centres.map((c) => c[1]);
+    linkerTube.update(centres);
+
+    const heights = centres.map((c) => c[1]);
     span = Math.max(...heights) - Math.min(...heights);
   };
   updateMorph('solenoid', 1);
@@ -859,15 +866,15 @@ function buildFibre(): RegimeNode {
   return {
     id: 'fibre',
     group,
-    materials: [nucMat, envMat],
+    materials: [nucMat, envMat, linkerMat],
     frame(_w, localT, ctx) {
       const morphT = Math.min(1, Math.max(0, localT * 2.2));
       updateMorph(ctx.fibreModel, morphT);
-      mesh.count = Math.max(1, Math.min(COUNT, nucleosomeBudget(ctx.scrub)));
-      envMesh.count = mesh.count;
-      group.position.y = -(heights[mesh.count - 1] + heights[0]) / 2;
+      mesh.count = COUNT;
+      envMesh.count = COUNT;
+      group.position.y = 0;
     },
-    nucleosomeCount: () => mesh.count,
+    nucleosomeCount: () => COUNT,
     anchors(ctx) {
       const c = COPY[ctx.fibreModel];
       return [
@@ -889,7 +896,8 @@ function buildFibre(): RegimeNode {
       envGeom.dispose();
       mesh.dispose();
       envMesh.dispose();
-      [nucMat, envMat].forEach((m) => m.dispose());
+      linkerTube.dispose();
+      [nucMat, envMat, linkerMat].forEach((m) => m.dispose());
     },
   };
 }
@@ -912,49 +920,61 @@ function buildLoops(): RegimeNode {
   const axisPath: Vec3[] = [];
   for (let i = 0; i <= 60; i += 1) {
     const t = i / 60;
-    axisPath.push([Math.sin(t * 5.2) * 26, t * AXIS_NM, Math.cos(t * 4.4) * 26]);
+    axisPath.push([Math.sin(t * 5.2) * 26, (t - 0.5) * AXIS_NM, Math.cos(t * 4.4) * 26]);
   }
   const axisMat = standard(PALETTE.fibreStart, { roughness: 0.6 });
   const axisTube = new Tube(200, 8, FIBRE_30NM_DIAMETER_NM / 2);
   axisTube.update(axisPath);
   group.add(new Mesh(axisTube.geometry, axisMat));
 
-  const paths = LOOPS.map((l) => {
-    const base = axisPath[Math.round(l.at * 60)];
-    return extrudedLoop(base[1], l.bp, l.az, 40).map(
-      (p) => [p[0] + base[0], p[1], p[2] + base[2]] as Vec3,
-    );
-  });
+  const loopTubes = LOOPS.map(() => new Tube(40, 8, FIBRE_30NM_DIAMETER_NM / 2));
   const loopMat = standard(PALETTE.loop, { roughness: 0.6 });
-  const loopGeom = tubesGeometry(paths, FIBRE_30NM_DIAMETER_NM / 2, 8);
-  group.add(new Mesh(loopGeom, loopMat));
+  loopTubes.forEach((t) => group.add(new Mesh(t.geometry, loopMat)));
 
-  // cohesin holds the two anchors together; CTCF sits at the boundary that stopped extrusion.
-  // Both are drawn at true scale — a cohesin ring really is only ~40 nm across at this zoom,
-  // and inflating it to be conspicuous would be the one lie this scene could tell.
   const ringGeom = new CylinderGeometry(22, 22, 9, 16, 1, true);
   const ringMat = standard(PALETTE.cohesin, { roughness: 0.35, side: DoubleSide });
   const rings = new InstancedMesh(ringGeom, ringMat, LOOPS.length);
   const ctcfGeom = new IcosahedronGeometry(16, 2);
   const ctcfMat = standard(PALETTE.ctcf, { roughness: 0.4 });
   const ctcf = new InstancedMesh(ctcfGeom, ctcfMat, LOOPS.length * 2);
+
   LOOPS.forEach((l, i) => {
     const base = axisPath[Math.round(l.at * 60)];
     placeInstance(rings, i, base, [Math.cos(l.az), 0.25, Math.sin(l.az)]);
-    const p = paths[i];
-    placeInstance(ctcf, i * 2, p[0], [0, 1, 0]);
-    placeInstance(ctcf, i * 2 + 1, p[p.length - 1], [0, 1, 0]);
   });
   rings.instanceMatrix.needsUpdate = true;
-  ctcf.instanceMatrix.needsUpdate = true;
   group.add(rings, ctcf);
-  group.position.y = -AXIS_NM / 2;
+  group.position.y = 0;
+
+  let lastExtrusion = -1;
+
+  const updateExtrusion = (localT: number) => {
+    const ext = smoothstep5(Math.min(1, Math.max(0.04, localT * 1.5)));
+    if (Math.abs(ext - lastExtrusion) < 0.005) return;
+    lastExtrusion = ext;
+
+    LOOPS.forEach((l, i) => {
+      const base = axisPath[Math.round(l.at * 60)];
+      const rawLoop = extrudedLoop(base[1], l.bp, l.az, 40);
+      const scaledPath: Vec3[] = rawLoop.map((p) => [
+        base[0] + (p[0] - base[0]) * ext,
+        base[1] + (p[1] - base[1]) * ext,
+        base[2] + (p[2] - base[2]) * ext,
+      ]);
+      loopTubes[i].update(scaledPath);
+      placeInstance(ctcf, i * 2, scaledPath[0], [0, 1, 0]);
+      placeInstance(ctcf, i * 2 + 1, scaledPath[scaledPath.length - 1], [0, 1, 0]);
+    });
+    ctcf.instanceMatrix.needsUpdate = true;
+  };
+  updateExtrusion(1);
 
   return {
     id: 'loops',
     group,
     materials: [axisMat, loopMat, ringMat, ctcfMat],
-    frame(_w, _t, ctx) {
+    frame(_w, localT, ctx) {
+      updateExtrusion(localT);
       const target = ctx.highlightTarget;
       if (target === 'cohesin') {
         const pulse = 0.5 + 0.5 * Math.sin(ctx.elapsed * 7);
@@ -1000,7 +1020,7 @@ function buildLoops(): RegimeNode {
     nucleosomeCount: () => 0,
     dispose() {
       axisTube.dispose();
-      loopGeom.dispose();
+      loopTubes.forEach((t) => t.dispose());
       ringGeom.dispose();
       ctcfGeom.dispose();
       rings.dispose();
