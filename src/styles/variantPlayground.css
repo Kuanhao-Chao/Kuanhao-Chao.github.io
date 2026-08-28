@@ -42,6 +42,9 @@ html[data-theme='dark'] .vp {
   padding: 1rem;
   align-items: start;
 }
+/* The flow canvas spans both columns; it is the page's centrepiece. */
+.vp-flow-panel { grid-column: 1 / -1; }
+.vp-flow { cursor: pointer; image-rendering: auto; }
 
 .vp-panel {
   border: 1px solid var(--color-rule);
@@ -141,3 +144,12 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
 @media (prefers-reduced-motion: reduce) {
   .vp * { transition: none !important; animation: none !important; }
 }
+
+.vp-stage-detail {
+  margin-top: 0.6rem;
+  padding: 0.6rem;
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-ink) 3%, transparent);
+}
+.vp-stage-detail[hidden] { display: none; }

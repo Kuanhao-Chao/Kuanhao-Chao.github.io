@@ -713,21 +713,64 @@ Keras checkpoint, ported and exported, producing the same numbers the paper's mo
   keystroke cost **47 ms**, as canvas **6 ms**. Any dense per-cell visualisation on this page has
   to go to canvas.
 - **The model input is 170 channels** — 4 DNA + 1 mask + **165 species one-hot** — which the paper
-  never states. A 4-channel input produces silent garbage. **Species index 109 is *S. cerevisiae***,
-  determined by sweeping all 165 (12.1× ORF/intergenic against 9.0× for the runner-up, replicated
-  out-of-sample); nothing published names it.
+  never states. A 4-channel input produces silent garbage.
+- **The output track order is the sheet's, not the paper's**, and reading the paper's costs you the
+  RNA-seq curve. The Methods list the four assay blocks in one order and
+  `minimal_example/sheet.txt` in another; the sheet is authoritative — ChIP-exo 0–1127, ChIP-MNase
+  1128–1147, RNA-seq (TF induction) 1148–4200, 1,000-strain RNA-seq 4201–5214. The page shipped on
+  the paper's order for a while and the curve labelled "predicted RNA-seq" was mostly ChIP-exo. It
+  passed the sanity gate anyway, because the ChIP-exo block is *also* ORF-enriched — 1.20× against
+  RNA-seq's 17.94×, enough to look right and not enough to be right. `src/data/shorkieTracks.json`
+  now ships the ranges, `shorkieModel.test.ts` asserts them, and `sanity_check.py` prints the
+  enrichment per group so a future reordering is visible rather than inferred.
+- **Species index 109 is *S. cerevisiae*, established by magnitude and not by contrast.** The
+  species one-hot is almost purely a **gain**: across all 165 settings the predicted curve keeps its
+  shape (pairwise r ≥ 0.993) while its peak moves ~3×. So an ORF/intergenic *contrast* sweep cannot
+  separate the indices — the top five score 17.94, 17.77, 17.17, 17.12, 17.11, and on a random-gene
+  hold-out 109 scores *below* the no-species control. **Peak magnitude does**: 109 is rank 1 of 165
+  on 6/6 probe genes. The control is what makes that evidence rather than a coincidence — on
+  block-shuffled yeast it drops to rank 96, on random ACGT to 120, on poly-A to 165 of 165. An
+  argmax with a 1% margin is an argmax, not an identification; find the measurement that separates,
+  then find the sequence on which the winner must lose.
+- **The flow canvas uses the canonical U-Net encoding: height is positions, width is channels**,
+  both log-scaled over the range actually present rather than from zero. Scaling from zero, or
+  taking a raw log, flattens this architecture into twenty near-identical boxes — positions span
+  16,384 to 128, which is only log₂ 14 to 7, and channels 96 to 5,215 is 6.6 to 12.3. Mapping each
+  range onto `[0.26, 1]` keeps the ordering exactly (it stays monotone in the true quantity) and
+  makes the U visible. It also makes a skip arc horizontal, which is correct: a skip joins two
+  stages of *equal resolution*.
+- **A canvas that reads CSS custom properties must redraw on `khc:theme-change`.** The site ships
+  six themes and `css()` falls back to the light palette, so a canvas painted before a theme switch
+  keeps the old colours — near-black title text on a dark card. `dino.ts`, `genomeJumper.ts` and
+  `proofreader.ts` already listen; the playground did not, and neither its flow canvas nor its
+  neuron raster followed the toggle. SVG panels restyle themselves and hide the problem.
+- **Nearest-stage selection, not a hit test.** Twenty blocks separated by gaps, the narrowest under
+  3% of the width: requiring a click *inside* a block makes a third of the canvas silently
+  deselect. `hitTest` returns the nearest centre and never null.
+- **Scrubbing moves through the depth of one already-computed forward pass** and never re-runs the
+  model; inference stays on an explicit click. The per-stage maps come from the same ONNX call as
+  the prediction (`encoder_maps`, `decoder_maps`, pooled to 128 positions inside the graph), so no
+  panel on the page is fed by a second, decorative model.
 - **`onnxruntime-web` is the repo's second runtime dependency** (after `three`) and the first with
   transitive deps. Astro code-splits it, so only this route pays; verify no other chunk grows.
 - **The CSP gained `'wasm-unsafe-eval'`, `blob:` in `script-src`, and `worker-src 'self' blob:`**,
   documented inline in `BaseHead.astro`. That is the WASM-only permission, not `'unsafe-eval'`.
   Model and runtime are same-origin, so `connect-src` stays `'self'`.
-- **Six places the paper and the checkpoint disagree** are listed in `SPEC_NOTES` and rendered on
+- **Seven places the paper and the checkpoint disagree** are listed in `SPEC_NOTES` and rendered on
   the page. Resolve toward the checkpoint; it is the model that runs.
 - **The verification chain is in `scripts/shorkie/README.md` and is not optional.** The port cannot
   be diffed against TensorFlow (TF 2.15 does not support Python 3.13), so correctness rests on:
   every tensor consumed exactly once, exact parameter accounting, **ORF/intergenic enrichment on
-  real yeast sequence**, and python↔browser parity — which came out exact (peak 659.5000 vs 659.5,
-  same bin). Re-run all of it after any change to `shorkie_torch.py`.
+  real yeast sequence**, and python↔browser parity. Re-run all of it after any change to
+  `shorkie_torch.py`.
+- **python and the browser do not run the same fp16 graph, and parity is a bound rather than a
+  zero.** onnxruntime's desktop CPU provider prints `Could not find a CPU kernel ... MatMul node
+  '/core/attn.N/MatMul_4'` and casts the attention matmuls up to fp32; the WASM provider in the
+  browser does not. The two agree on every argmax bin and to ≤ **1.5e-3** relative on the peaks —
+  a gap *larger* than fp16 quantisation itself contributes (2.2e-4). An earlier run recorded this
+  as exact because it compared the two **displayed** values, and `toFixed(2)` had folded 12.6953
+  and 12.6875 into "12.70" and "12.69". The track SVG now carries `data-peak` at full precision so
+  the check has something real to compare.
 
 ### Other non-obvious things
 - **Math (KaTeX)** is wired in `astro.config.mjs` (`remark-math` + `rehype-katex`) for the LaTeX-heavy reports; the report slug page imports `katex/dist/katex.min.css` so both the page and its printed PDF typeset math. Posts currently use no math.

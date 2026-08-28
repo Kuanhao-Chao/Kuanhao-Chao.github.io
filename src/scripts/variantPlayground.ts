@@ -17,9 +17,15 @@
 
 import stemWeightsJson from '../data/shorkieStem.json';
 import lociJson from '../data/shorkieLoci.json';
+import { createFlow, stageMap, type FlowController, type FlowActivations, type FlowStage } from './shorkieFlow';
+import truthJson from '../data/shorkieTruth.json';
 import {
   BASES,
   N_BINS,
+  TRACK_GROUPS,
+  RNA_SEQ_GROUP,
+  pearson,
+  activationInk,
   SEQ_LEN,
   SPECIES_S_CEREVISIAE,
   cleanSequence,
@@ -44,6 +50,10 @@ interface Locus {
   features: { name: string; start: number; end: number; strand: string }[];
 }
 const LOCI = (lociJson as { loci: Locus[] }).loci;
+
+/** Measured coverage per locus per group, binned exactly as the model's labels were. */
+interface Truth { loci: Record<string, Record<string, number[]>>; tracks: Record<string, string[]>; }
+const TRUTH = truthJson as Truth;
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const el = <K extends keyof SVGElementTagNameMap>(tag: K) => document.createElementNS(SVG_NS, tag);
@@ -70,6 +80,8 @@ interface FullResult {
   stemPeak: Float32Array;     // [96]
   blockPeaks: Float32Array;   // [1536]
   attention: Float32Array;    // [8, 128, 128]
+  encoderMaps: Float32Array;  // [1536, 128]
+  decoderMaps: Float32Array;  // [1152, 128]
   backend: string;
   ms: number;
 }
@@ -95,6 +107,18 @@ export function initVariantPlayground(root: ParentNode = document) {
   const layerList = $('[data-vp-layers]');
   const liveStat = $('[data-vp-livestat]');
   const attnLayer = $<HTMLInputElement>('[data-vp-attn-layer]');
+  const flowCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-flow]');
+  const playBtn = $<HTMLButtonElement>('[data-vp-play]');
+  const scrubInput = $<HTMLInputElement>('[data-vp-scrub]');
+  const stageStat = $('[data-vp-stagestat]');
+  const truthToggle = $<HTMLInputElement>('[data-vp-truth]');
+  const groupSelect = $<HTMLSelectElement>('[data-vp-group]');
+  const truthStat = $('[data-vp-truthstat]');
+  const stageDetail = $('[data-vp-stage-detail]');
+  const stageTitle = $('[data-vp-stage-title]');
+  const stageTop = $('[data-vp-stage-top]');
+  const stageMapCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-stage-map]');
+  const stageClose = $<HTMLButtonElement>('[data-vp-stage-close]');
 
   let mode: 'type' | 'locus' = 'type';
   /** The full 16,384 bp window fed to ONNX. In free-typing mode it is just the typed text. */
@@ -111,6 +135,9 @@ export function initVariantPlayground(root: ParentNode = document) {
   let session: unknown = null;
   let ort: typeof import('onnxruntime-web') | null = null;
   let backend = 'not loaded';
+  let flow: FlowController | null = null;
+  let groupIndex = RNA_SEQ_GROUP;
+  let showTruth = true;
 
   // ---------------------------------------------------------------- layer map (static)
   function renderLayers(): void {
@@ -156,16 +183,15 @@ export function initVariantPlayground(root: ParentNode = document) {
       if (act.map[i] < lo) lo = act.map[i];
       if (act.map[i] > hi) hi = act.map[i];
     }
-    const span = Math.max(hi - lo, 1e-6);
     const cellW = cssW / Math.max(act.positions, 1);
     const fire = getComputedStyle(host).getPropertyValue('--vp-fire').trim() || '#b0455a';
 
     ctx.fillStyle = fire;
     for (let f = 0; f < act.filters; f += 1) {
       for (let p = 0; p < act.positions; p += 1) {
-        const v = (act.map[f * act.positions + p] - lo) / span;
-        if (v < FIRE_FLOOR) continue;
-        ctx.globalAlpha = (v - FIRE_FLOOR) / (1 - FIRE_FLOOR);
+        const ink = activationInk(act.map[f * act.positions + p], lo, hi, FIRE_FLOOR);
+        if (ink === 0) continue;
+        ctx.globalAlpha = ink;
         ctx.fillRect(p * cellW, f * rowH, Math.max(cellW, 0.7), rowH - 0.4);
       }
     }
@@ -243,8 +269,14 @@ export function initVariantPlayground(root: ParentNode = document) {
     }
     const n = N_BINS;
     const vals = new Float32Array(n);
-    for (let i = 0; i < n; i += 1) vals[i] = current.tracks[i * 4]; // RNA-seq (TF perturbation)
+    for (let i = 0; i < n; i += 1) vals[i] = current.tracks[i * 4 + groupIndex];
+    const truth = showTruth
+      ? TRUTH.loci?.[LOCI[locusIndex].id]?.[TRACK_GROUPS[groupIndex].id]
+      : undefined;
+    // Prediction and measurement live on different absolute scales, so each is drawn against its
+    // own maximum; the number that carries the comparison is the correlation, not the overlap.
     const max = Math.max(...vals, 1e-6);
+    const truthMax = truth ? Math.max(...truth, 1e-6) : 1;
     const bw = W / n;
 
     const locus = LOCI[locusIndex];
@@ -266,16 +298,38 @@ export function initVariantPlayground(root: ParentNode = document) {
     if (reference && reference !== current) {
       let rd = `M0 ${H - 26}`;
       for (let i = 0; i < n; i += 1) {
-        rd += ` L${(i * bw).toFixed(2)} ${(H - 26 - (reference.tracks[i * 4] / max) * (H - 46)).toFixed(2)}`;
+        rd += ` L${(i * bw).toFixed(2)} ${(H - 26 - (reference.tracks[i * 4 + groupIndex] / max) * (H - 46)).toFixed(2)}`;
       }
       const rp = el('path');
       attr(rp, { d: rd, fill: 'none', stroke: 'var(--color-muted)', 'stroke-width': 1, 'stroke-dasharray': '3 3' });
       trackSvg.insertBefore(rp, path);
     }
+    if (truth) {
+      let td = `M0 ${H - 26}`;
+      for (let i = 0; i < n; i += 1) {
+        td += ` L${(i * bw).toFixed(2)} ${(H - 26 - (truth[i] / truthMax) * (H - 46)).toFixed(2)}`;
+      }
+      const tp = el('path');
+      attr(tp, { d: td, fill: 'none', stroke: 'var(--vp-fire)', 'stroke-width': 1.1, 'stroke-opacity': 0.85 });
+      trackSvg.append(tp);
+      const r = pearson(Array.from(vals), truth);
+      if (truthStat) truthStat.textContent = `Pearson r = ${r.toFixed(3)} vs measured`;
+      trackSvg.dataset.pearson = r.toFixed(4);
+    } else if (truthStat) {
+      truthStat.textContent = showTruth ? 'no measured coverage loaded' : '';
+      delete trackSvg.dataset.pearson;
+    }
+
     let argmax = 0;
     for (let i = 1; i < n; i += 1) if (vals[i] > vals[argmax]) argmax = i;
+    // Full precision, for the python-vs-browser parity check. The visible label is rounded, and
+    // comparing rounded labels is how two different numbers come to look identical.
+    trackSvg.dataset.peak = String(max);
+    trackSvg.dataset.peakBin = String(argmax);
     trackSvg.append(
-      text(4, 14, `predicted RNA-seq · 896 bins × 16 bp · peak ${max.toFixed(2)} at bin ${argmax}`, 'vp-ax', 'start'),
+      text(4, 14,
+        `predicted ${TRACK_GROUPS[groupIndex].label} · 896 bins × 16 bp · peak ${max.toFixed(2)} at bin ${argmax}`,
+        'vp-ax', 'start'),
     );
     trackSvg.dataset.peak = max.toFixed(4);
     trackSvg.dataset.argmax = String(argmax);
@@ -358,12 +412,22 @@ export function initVariantPlayground(root: ParentNode = document) {
         stemPeak: out.stem_peak.data,
         blockPeaks: out.block_peaks.data,
         attention: out.attention.data,
+        encoderMaps: out.encoder_maps.data,
+        decoderMaps: out.decoder_maps.data,
         backend,
         ms,
       };
       if (!reference) reference = current;
+      flow?.setActivations({
+        stemProfile: current.stemProfile,
+        encoderMaps: current.encoderMaps,
+        decoderMaps: current.decoderMaps,
+        attention: current.attention,
+        tracks: current.tracks,
+      } satisfies FlowActivations);
       renderTrack();
       renderAttention();
+      renderStageDetail(flow?.selected() ?? null);
       setStatus(`Done — ${ms.toFixed(0)} ms on ${current.backend}.`);
     } catch (err) {
       setStatus(`Inference failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -431,7 +495,159 @@ export function initVariantPlayground(root: ParentNode = document) {
   });
 
   attnLayer?.addEventListener('input', renderAttention);
+
+  // The neuron raster is a canvas painted with tokens read at draw time; SVG panels restyle
+  // themselves, but a canvas does not.
+  const onTheme = () => {
+    refreshLive();
+    renderStageDetail(flow?.selected() ?? null);
+  };
+  document.addEventListener('khc:theme-change', onTheme);
   runBtn?.addEventListener('click', () => void runFull());
+
+  /**
+   * The clicked stage at full resolution: every channel of that stage as one row, drawn from the
+   * same forward pass the prediction came from. The named top channels are its loudest neurons.
+   */
+  function renderStageDetail(stage: FlowStage | null): void {
+    if (!stageDetail || !stageMapCanvas) return;
+    if (!stage) {
+      stageDetail.hidden = true;
+      return;
+    }
+    stageDetail.hidden = false;
+    if (stageTitle) {
+      stageTitle.textContent =
+        `${stage.label} — ${stage.positions.toLocaleString()} positions × ` +
+        `${stage.channels.toLocaleString()} channels, receptive field ${stage.receptiveField.toLocaleString()} bp`;
+    }
+
+    const acts: FlowActivations | null = current
+      ? {
+          stemProfile: current.stemProfile,
+          encoderMaps: current.encoderMaps,
+          decoderMaps: current.decoderMaps,
+          attention: current.attention,
+          tracks: current.tracks,
+        }
+      : null;
+    const map = stageMap(stage, acts);
+    const ctx = stageMapCanvas.getContext('2d');
+    const cssW = stageMapCanvas.clientWidth || 900;
+    const rowH = map ? Math.max(1, Math.min(4, Math.floor(260 / map.channels))) : 3;
+    const cssH = map ? map.channels * rowH : 40;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    stageMapCanvas.width = Math.round(cssW * dpr);
+    stageMapCanvas.height = Math.round(cssH * dpr);
+    stageMapCanvas.style.height = `${cssH}px`;
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+
+    if (!map) {
+      ctx.fillStyle = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
+      ctx.font = '11px system-ui, sans-serif';
+      ctx.fillText('Run the model to fill this stage with its activations.', 4, 22);
+      if (stageTop) stageTop.textContent = '';
+      return;
+    }
+
+    const { data, channels, positions } = map;
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (let i = 0; i < data.length; i += 1) {
+      if (data[i] < lo) lo = data[i];
+      if (data[i] > hi) hi = data[i];
+    }
+    const cellW = cssW / positions;
+    ctx.fillStyle = getComputedStyle(host).getPropertyValue('--vp-fire').trim() || '#b0455a';
+    for (let c = 0; c < channels; c += 1) {
+      for (let p = 0; p < positions; p += 1) {
+        const ink = activationInk(data[c * positions + p], lo, hi, FIRE_FLOOR);
+        if (ink === 0) continue;
+        ctx.globalAlpha = ink;
+        ctx.fillRect(p * cellW, c * rowH, Math.max(cellW, 0.7), Math.max(rowH - 0.3, 0.7));
+      }
+    }
+    ctx.globalAlpha = 1;
+
+    // Top-k by peak activation -- "which neurons fired hardest anywhere in the window".
+    const peaks: { c: number; v: number }[] = [];
+    for (let c = 0; c < channels; c += 1) {
+      let m = -Infinity;
+      for (let p = 0; p < positions; p += 1) if (data[c * positions + p] > m) m = data[c * positions + p];
+      peaks.push({ c, v: m });
+    }
+    peaks.sort((a, b) => b.v - a.v);
+    if (stageTop) {
+      stageTop.textContent =
+        'loudest channels: ' + peaks.slice(0, 5).map((q) => `#${q.c} (${q.v.toFixed(2)})`).join(', ');
+    }
+  }
+
+  // ---------------------------------------------------------------- the flow canvas
+  if (flowCanvas) {
+    flow = createFlow(flowCanvas, host);
+    flow.onChange((t, stage, isPlaying) => {
+      if (stageStat) {
+        stageStat.textContent =
+          `${stage.label} · ${stage.positions.toLocaleString()} × ${stage.channels.toLocaleString()}` +
+          ` · receptive field ${stage.receptiveField.toLocaleString()} bp`;
+      }
+      // Do not fight the user's grip on the slider: only the animation writes back to it.
+      if (scrubInput && isPlaying && document.activeElement !== scrubInput) {
+        scrubInput.value = String(Math.round(t * 1000));
+      }
+    });
+    flow.onSelect((stage) => renderStageDetail(stage));
+    flow.setScrub(1);
+  }
+
+  scrubInput?.addEventListener('input', () => {
+    // Read the DOM value first: setPlaying reports state, which writes back into this input.
+    const v = Number(scrubInput.value) / 1000;
+    if (flow?.isPlaying()) {
+      flow.setPlaying(false);
+      if (playBtn) { playBtn.textContent = '▶ Play'; playBtn.setAttribute('aria-pressed', 'false'); }
+    }
+    flow?.setScrub(v);
+  });
+
+  playBtn?.addEventListener('click', () => {
+    if (!flow) return;
+    const next = !flow.isPlaying();
+    flow.setPlaying(next);
+    const on = flow.isPlaying();
+    playBtn.textContent = on ? '❙❙ Pause' : '▶ Play';
+    playBtn.setAttribute('aria-pressed', String(on));
+    // Reduced motion refuses to sweep and jumps to the finished state; the slider must follow.
+    if (next && !on && scrubInput) scrubInput.value = '1000';
+  });
+
+  stageClose?.addEventListener('click', () => {
+    flow?.select(null);
+    renderStageDetail(null);
+  });
+
+  truthToggle?.addEventListener('change', () => {
+    showTruth = truthToggle.checked;
+    renderTrack();
+  });
+
+  if (groupSelect) {
+    clear(groupSelect);
+    TRACK_GROUPS.forEach((g, i) => {
+      const opt = document.createElement('option');
+      opt.value = String(i);
+      opt.textContent = `${g.label} (${g.count.toLocaleString()})`;
+      if (i === groupIndex) opt.selected = true;
+      groupSelect.append(opt);
+    });
+    groupSelect.addEventListener('change', () => {
+      groupIndex = Number(groupSelect.value);
+      renderTrack();
+    });
+  }
 
   if (locusSelect) {
     clear(locusSelect);
@@ -450,7 +666,14 @@ export function initVariantPlayground(root: ParentNode = document) {
   renderAttention();
   setStatus('Live conv-stem view is running. Load the full model to predict a track.');
 
-  return { destroy: () => { host.dataset.vpReady = 'false'; } };
+  return {
+    destroy: () => {
+      document.removeEventListener('khc:theme-change', onTheme);
+      flow?.destroy();
+      flow = null;
+      host.dataset.vpReady = 'false';
+    },
+  };
 }
 
 function boot() {
