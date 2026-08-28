@@ -13,6 +13,7 @@
 import {
   activationInk,
   BOTTLENECK_LEN,
+  N_BINS,
   N_ATTN_LAYERS,
   flowGeometry,
   stageAt,
@@ -54,7 +55,17 @@ export function stageMap(stage: FlowStage, a: FlowActivations | null): {
 } | null {
   if (!a) return null;
   if (stage.id === 'stem') return { data: a.stemProfile, channels: 96, positions: 1024 };
-  if (stage.id === 'head') return { data: a.tracks, channels: 4, positions: 896 };
+  if (stage.id === 'head') {
+    // `tracks` is [bin][group] -- bin-major, group the fast axis -- but every consumer here reads
+    // channel-major `data[c * positions + p]`. Declaring 4 channels x 896 positions over the raw
+    // buffer would interleave the four assay groups into four rows of alternating bins. Transpose
+    // into a channel-major copy; it is 3,584 values.
+    const out = new Float32Array(4 * N_BINS);
+    for (let bin = 0; bin < N_BINS; bin += 1) {
+      for (let g = 0; g < 4; g += 1) out[g * N_BINS + bin] = a.tracks[bin * 4 + g];
+    }
+    return { data: out, channels: 4, positions: N_BINS };
+  }
   // Every other stage -- the seven residual blocks, the eight transformer layers and the three
   // decoder stages -- is one slice of the single stage_maps tensor. The transformer layers used to
   // be missing here entirely, which left them drawing an attention matrix instead.

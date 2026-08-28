@@ -90,7 +90,7 @@ them.
 | **the same ranking on non-genomic sequence** | "loudest index" masquerading as an identification | 109 falls to rank **96**, **120** and **165/165** |
 | PyTorch ↔ python onnxruntime | a bad export | relative ≤ 3e-6 |
 | fp32 ↔ fp16, on real sequence | quantisation damage | relative ≤ **5.0e-4** (6.9e-3 on random ACGT — see above) |
-| **python ↔ browser**, same fp16 graph | **the thing actually shipped** | same argmax bin in all four track groups; peak relative difference ≤ **1.5e-3** (RNA-seq 995.0000 vs 994.0000 at bin 435) |
+| **python ↔ browser**, same fp16 graph | **the thing actually shipped** | same argmax bin in all four track groups; peak relative difference ≤ **1.4e-3** (RNA-seq 994.8802 vs 994.4959 at bin 435) |
 | TS conv stem ↔ PyTorch stem | drift in the second implementation | fixture in `src/lib/__fixtures__/`, asserted by vitest |
 
 ## python and the browser do not run the same fp16 graph
@@ -104,8 +104,8 @@ constant fold MatMul node '/core/attn.0/MatMul_4'
 
 The desktop **CPU** provider has no fp16 MatMul kernel, so it casts the attention matmuls up to
 fp32; **onnxruntime-web**'s WASM provider does not. The two therefore evaluate slightly different
-graphs, and the gap between them (1.0e-3 on the RNA-seq peak) is *larger* than the gap fp16
-quantisation itself introduces (2.2e-4, 995.22 → 995.00). Every argmax bin still agrees.
+graphs, and the gap between them (3.9e-4 on the RNA-seq peak) is comparable to than the gap fp16
+quantisation itself introduces. Every argmax bin still agrees.
 
 Do not compare the two by their **displayed** values. `toFixed(2)` turned 12.6953 and 12.6875 into
 "12.70" and "12.69", and an earlier run of this check compared two rounded labels that happened to
@@ -144,7 +144,7 @@ second, decorative model:
 | output | shape | what it is for |
 | --- | --- | --- |
 | `tracks` | `[1, 896, 4]` | the four assay-block means, for the coverage overview |
-| `all_tracks` | `[1, 896, 5215]` | **every track, unreduced** — the per-track heatmap and single-track plot. Costs **+1 ms** (82 ms vs 81 ms); output payload 2.3 MB → 22.6 MB, which is an allocation, not compute |
+| `all_tracks` | `[1, 896, 5215]` | **every track, unreduced** — the per-track heatmap and single-track plot. Costs **+1 ms** in a paired measurement on one machine (82 ms vs 81 ms, same session); output payload 2.3 MB → 22.6 MB, which is an allocation, not compute |
 | `stage_maps` | `[1, 5760, 128]` | every mapped stage in flow order: blocks 1–7 (1,536 ch), **transformer layers 1–8 (3,072 ch)**, decoder 1–3 (1,152 ch) |
 | `stem_profile` | `[1, 96, 1024]` | the conv stem at higher positional resolution |
 | `stem_peak`, `block_peaks` | `[1, 96]`, `[1, 1536]` | per-filter maxima |
