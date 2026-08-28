@@ -188,3 +188,21 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
 .vp-sublayers .shape { color: var(--color-muted); }
 
 .vp-heat { cursor: crosshair; }
+
+.vp-motifs { margin-top: 0.6rem; }
+.vp-motifs[hidden] { display: none; }
+.vp-motif-row { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.vp-motif {
+  font-size: var(--fs-meta);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--vp-orf);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--vp-orf) 10%, transparent);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+.vp-motif:hover { background: color-mix(in srgb, var(--vp-orf) 22%, transparent); }
+.vp-motif[aria-pressed='true'] { background: var(--vp-orf); color: #fff; }
+.vp-motif .pos { color: var(--color-muted); margin-left: 0.3rem; }
+.vp-motif[aria-pressed='true'] .pos { color: #fff; opacity: 0.8; }

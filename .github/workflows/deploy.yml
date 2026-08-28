@@ -54,6 +54,10 @@ jobs:
         timeout-minutes: 5
         run: npm run audit:cells:ci
 
+      - name: Audit variant playground smoke
+        timeout-minutes: 5
+        run: npm run audit:playground:ci
+
       - name: Audit indexing
         run: npm run audit:indexing
 
