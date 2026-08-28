@@ -49,6 +49,7 @@
     "@astrojs/sitemap": "^3.6.0",
     "astro": "^7.0.4",
     "katex": "^0.16.47",
+    "onnxruntime-web": "^1.29.0",
     "rehype-katex": "^7.0.1",
     "remark-math": "^6.0.0",
     "three": "^0.185.1"
