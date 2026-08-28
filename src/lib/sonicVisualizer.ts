@@ -51,18 +51,43 @@ export class SonicVisualizer {
 
     this.resize();
     window.addEventListener('resize', this.handleResize);
+
+    this.canvas.addEventListener('pointerdown', this.onPointerDown);
+    window.addEventListener('pointermove', this.onPointerMove);
+    window.addEventListener('pointerup', this.onPointerUp);
+    window.addEventListener('pointercancel', this.onPointerUp);
   }
+
+  private isDragging = false;
+  private lastX = 0;
+
+  private onPointerDown = (e: PointerEvent) => {
+    this.isDragging = true;
+    this.lastX = e.clientX;
+  };
+
+  private onPointerMove = (e: PointerEvent) => {
+    if (!this.isDragging) return;
+    const dx = e.clientX - this.lastX;
+    this.lastX = e.clientX;
+    this.angle += dx * 0.008;
+  };
+
+  private onPointerUp = () => {
+    this.isDragging = false;
+  };
 
   private handleResize = () => {
     this.resize();
   };
 
   public resize(): void {
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const rect = this.canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
     this.canvas.width = Math.floor(rect.width * dpr);
     this.canvas.height = Math.floor(rect.height * dpr);
-    this.ctx.scale(dpr, dpr);
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
   public updateState(partial: Partial<VisualizerState>): void {
@@ -136,6 +161,10 @@ export class SonicVisualizer {
   public destroy(): void {
     this.stop();
     window.removeEventListener('resize', this.handleResize);
+    this.canvas.removeEventListener('pointerdown', this.onPointerDown);
+    window.removeEventListener('pointermove', this.onPointerMove);
+    window.removeEventListener('pointerup', this.onPointerUp);
+    window.removeEventListener('pointercancel', this.onPointerUp);
   }
 
   private render(): void {

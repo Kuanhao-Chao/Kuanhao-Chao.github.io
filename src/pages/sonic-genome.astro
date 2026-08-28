@@ -71,17 +71,17 @@ const description = "A full-screen interactive biological DNA synthesizer and am
         </div>
 
         <!-- Sibling Playgrounds -->
-        <a href="/lab/" class="sonic-action-btn sonic-action-btn--sibling" title="Cell Lab: Cellular Automata Microscope">
+        <a href="/lab/" data-astro-reload class="sonic-action-btn sonic-action-btn--sibling" title="Cell Lab: Cellular Automata Microscope">
           <span aria-hidden="true">🔬</span>
           <span>Cell Lab</span>
         </a>
 
-        <a href="/chromatin/" class="sonic-action-btn sonic-action-btn--sibling" title="Chromatin 3D Compaction Playground">
+        <a href="/chromatin/" data-astro-reload class="sonic-action-btn sonic-action-btn--sibling" title="Chromatin 3D Compaction Playground">
           <span aria-hidden="true">🧬</span>
           <span>Chromatin</span>
         </a>
 
-        <a href="/" class="sonic-action-btn sonic-action-btn--exit" title="Return to main site">
+        <a href="/" data-astro-reload class="sonic-action-btn sonic-action-btn--exit" title="Return to main site">
           <span aria-hidden="true">←</span>
           <span>Exit to Site</span>
         </a>
@@ -386,6 +386,11 @@ const description = "A full-screen interactive biological DNA synthesizer and am
 
   function initInstrument() {
     audioEngine = new SonicAudioEngine();
+
+    const curTheme = typeof window !== 'undefined' && (window as any).__khcTheme ? (window as any).__khcTheme.get() : (document.documentElement.dataset.theme || 'dark');
+    if (themeName && curTheme) {
+      themeName.textContent = curTheme.charAt(0).toUpperCase() + curTheme.slice(1);
+    }
 
     if (canvas) {
       visualizer = new SonicVisualizer(canvas, () => {
@@ -1051,6 +1056,10 @@ const description = "A full-screen interactive biological DNA synthesizer and am
     z-index: 200;
   }
 
+  .sonic-theme-popover[hidden] {
+    display: none !important;
+  }
+
   .theme-option {
     display: flex;
     align-items: center;
@@ -1242,6 +1251,10 @@ const description = "A full-screen interactive biological DNA synthesizer and am
     z-index: 150;
     overflow: hidden;
     animation: drawer-fade-up 0.18s ease-out;
+  }
+
+  .sonic-drawer[hidden] {
+    display: none !important;
   }
 
   .sonic-drawer--wide {
@@ -1537,19 +1550,77 @@ const description = "A full-screen interactive biological DNA synthesizer and am
     margin: 0.35rem 0;
   }
 
-  @media (max-width: 900px) {
-    .sonic-telemetry-strip {
+  @media (max-width: 960px) {
+    .sonic-topbar {
+      padding: 0.5rem 0.75rem;
+      gap: 0.5rem;
+    }
+    .t-pill:not(.t-pill--fps):not(:nth-child(1)):not(:nth-child(3)):not(:nth-child(5)) {
       display: none;
     }
   }
 
-  @media (max-width: 640px) {
-    .sonic-dock {
-      bottom: 0.75rem;
+  @media (max-width: 720px) {
+    .sonic-topbar {
       padding: 0.4rem 0.6rem;
+      gap: 0.35rem;
+    }
+    .sonic-brand h1 span {
+      display: none;
+    }
+    .sonic-telemetry-strip {
+      display: none;
+    }
+    .sonic-top-actions {
+      gap: 0.25rem;
+    }
+    .sonic-action-btn {
+      padding: 0.3rem 0.5rem;
+      font-size: 0.72rem;
+      min-height: 36px;
+    }
+    .sonic-theme-popover {
+      right: 0;
+      width: 130px;
+    }
+    .sonic-dock {
+      bottom: max(0.45rem, env(safe-area-inset-bottom));
+      max-width: calc(100vw - 0.75rem);
+      padding: 0.35rem 0.5rem;
+      gap: 0.4rem;
+    }
+    .dock-section--presets {
+      max-width: 140px;
+    }
+    .dock-btn {
+      min-height: 38px;
+      padding: 0.35rem 0.55rem;
+    }
+    .sonic-drawer {
+      bottom: calc(4.6rem + env(safe-area-inset-bottom));
+      width: calc(100vw - 1rem);
+      max-width: 480px;
+      max-height: 72vh;
+    }
+    .sonic-drawer--wide {
+      width: calc(100vw - 1rem);
+      max-width: 560px;
     }
     .seq-tools-grid {
       grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 420px) {
+    .sonic-action-btn--sibling span:not([aria-hidden]),
+    .sonic-action-btn--exit span:not([aria-hidden]) {
+      display: none;
+    }
+    .sonic-action-btn {
+      padding: 0.3rem 0.4rem;
+    }
+    .dock-section--presets {
+      max-width: 105px;
     }
   }
 </style>
