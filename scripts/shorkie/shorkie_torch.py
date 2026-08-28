@@ -306,6 +306,14 @@ class ShorkieTorch(nn.Module):
                 attn_maps.append(wmap)
             f = self.ff2[i](F.relu(self.ff1[i](self.ln_ff[i](t))))
             t = t + f
+            if want_intermediates:
+                # The residual stream AFTER this layer's attention and feed-forward -- this layer's
+                # actual output feature map. Without it the only thing a visualisation can show for
+                # a transformer layer is the attention matrix, which is a different kind of object
+                # from every other stage's activation map (and is diagonal-dominant, so it
+                # normalises to near-blank). Transposed to [B, 384, 128] to match every other
+                # entry in `acts`, which is channels-first.
+                acts[f"attn_out{i + 1}"] = t.transpose(1, 2)
         if want_intermediates and attn_maps:
             acts["attention"] = torch.stack(attn_maps, dim=1)   # [B, layers, heads, T, T]
 

@@ -42,6 +42,7 @@ import {
   CHROMATID_DIAMETER_NM,
   DNA_DIAMETER_NM,
   FIBRE_30NM_DIAMETER_NM,
+  HISTONE_SUBUNITS,
   NUCLEOSOME_CORE_BP,
   OCTAMER_RADIUS_NM,
   PROMETA_OUTER_LOOP_BP,
@@ -52,6 +53,7 @@ import {
   beadsOnAString,
   bpInViewAt,
   cameraFieldNm,
+  cameraTargetNmAt,
   compactionAt,
   contourLengthNm,
   coreParticleEnvelope,
@@ -64,9 +66,12 @@ import {
   impliedNucleosomeCount,
   loopReachNm,
   nucleosomeBudget,
+  physicalScaleBar,
+  playbackSpeedMultiplier,
   regimeAt,
   regimeWeights,
   smoothstep,
+  smoothstep5,
   solenoidFibre,
   wrappingPath,
   zigzagFibre,
@@ -245,6 +250,7 @@ class Tube {
 // ── public surface ────────────────────────────────────────────────────────────
 
 export type FibreModel = 'solenoid' | 'zigzag' | 'disordered';
+export type CameraPreset = 'profile' | 'axial' | 'dyad' | 'turntable' | 'default';
 
 export interface ChromatinState {
   scrub: number;
@@ -260,6 +266,13 @@ export interface ChromatinState {
   playing: boolean;
   exploded: boolean;
   fibreModel: FibreModel;
+  highlightTarget: string | null;
+  turntable: boolean;
+  scaleBar: {
+    barWidthNm: number;
+    label: string;
+    ratioOfField: number;
+  };
 }
 
 export interface Annotation {
@@ -282,6 +295,9 @@ export interface ChromatinController {
   togglePlaying(): void;
   setExploded(v: boolean): void;
   setFibreModel(m: FibreModel): void;
+  setHighlight(target: string | null): void;
+  setCameraPreset(preset: CameraPreset): void;
+  stepRegime(delta: -1 | 1): void;
   setAnnotationsVisible(v: boolean): void;
   subscribe(cb: (s: ChromatinState) => void): () => void;
   refreshTheme(): void;
@@ -309,6 +325,7 @@ interface FrameCtx {
   scrub: number;
   explode: number;
   fibreModel: FibreModel;
+  highlightTarget: string | null;
   elapsed: number;
   reducedMotion: boolean;
 }
@@ -505,8 +522,25 @@ function buildNucleosome(): RegimeNode {
         lastExplode = ctx.explode;
       }
       const appear = smoothstep(Math.min(1, wrapNow * 2.2));
-      histoneMats.forEach((m) => {
+      const target = ctx.highlightTarget;
+      histoneMats.forEach((m, i) => {
         m.userData.localFade = appear;
+        const h = layout0[i];
+        const sub = HISTONE_SUBUNITS[i];
+        const isMatch =
+          target &&
+          (target === h.group ||
+            target === h.name ||
+            (sub && target === `${h.name}.${sub.copy}`) ||
+            target === 'histones');
+        if (isMatch) {
+          const pulse = 0.5 + 0.5 * Math.sin(ctx.elapsed * 7);
+          m.emissive.setHex(HISTONE_COLOR[h.name] ?? 0xffffff);
+          m.emissiveIntensity = 0.45 + pulse * 0.55;
+        } else {
+          m.emissive.setHex(0x000000);
+          m.emissiveIntensity = 0;
+        }
       });
     },
     anchors(ctx) {
@@ -904,6 +938,26 @@ function buildLoops(): RegimeNode {
     id: 'loops',
     group,
     materials: [axisMat, loopMat, ringMat, ctcfMat],
+    frame(_w, _t, ctx) {
+      const target = ctx.highlightTarget;
+      if (target === 'cohesin') {
+        const pulse = 0.5 + 0.5 * Math.sin(ctx.elapsed * 7);
+        ringMat.emissive.setHex(PALETTE.cohesin);
+        ringMat.emissiveIntensity = 0.5 + pulse * 0.5;
+      } else {
+        ringMat.emissive.setHex(0x000000);
+        ringMat.emissiveIntensity = 0;
+      }
+
+      if (target === 'ctcf') {
+        const pulse = 0.5 + 0.5 * Math.sin(ctx.elapsed * 7);
+        ctcfMat.emissive.setHex(PALETTE.ctcf);
+        ctcfMat.emissiveIntensity = 0.5 + pulse * 0.5;
+      } else {
+        ctcfMat.emissive.setHex(0x000000);
+        ctcfMat.emissiveIntensity = 0;
+      }
+    },
     anchors: () => [
       {
         id: 'loop-extrusion',
@@ -989,6 +1043,26 @@ function buildMitotic(): RegimeNode {
     id: 'mitotic',
     group,
     materials: [loopMat, scafMat],
+    frame(_w, _t, ctx) {
+      const target = ctx.highlightTarget;
+      if (target === 'condensin') {
+        const pulse = 0.5 + 0.5 * Math.sin(ctx.elapsed * 7);
+        scafMat.emissive.setHex(PALETTE.condensin);
+        scafMat.emissiveIntensity = 0.55 + pulse * 0.45;
+      } else {
+        scafMat.emissive.setHex(0x000000);
+        scafMat.emissiveIntensity = 0;
+      }
+
+      if (target === 'chromatid') {
+        const pulse = 0.5 + 0.5 * Math.sin(ctx.elapsed * 7);
+        loopMat.emissive.setHex(PALETTE.chromatid);
+        loopMat.emissiveIntensity = 0.4 + pulse * 0.4;
+      } else {
+        loopMat.emissive.setHex(0x000000);
+        loopMat.emissiveIntensity = 0;
+      }
+    },
     anchors: () => [
       {
         id: 'mit-chromatids',
@@ -1113,6 +1187,8 @@ export function initChromatin(handles: ChromatinHandles): ChromatinController {
   let elTarget = 0.18;
   let zoom = 1;
   let zoomTarget = 1;
+  let turntable = false;
+  let highlightTarget: string | null = null;
 
   let last = performance.now();
   let elapsed = 0;
@@ -1178,24 +1254,20 @@ export function initChromatin(handles: ChromatinHandles): ChromatinController {
     if (annotationsOn) {
       for (const node of nodes) {
         const weight = weights.get(node.id) ?? 0;
-        if (weight < 0.45) continue;
+        if (weight < 0.04) continue;
         for (const a of node.anchors(ctx)) {
           seen.add(a.id);
-          projected.set(a.at[0], a.at[1], a.at[2]).add(node.group.position).project(camera);
+          projected.set(a.at[0], a.at[1], a.at[2]);
+          projected.project(camera);
+          // behind the camera? skip rather than mirroring to the front
+          if (projected.z > 1) continue;
           const x = (projected.x * 0.5 + 0.5) * w;
           const y = (-projected.y * 0.5 + 0.5) * h;
-          const off = projected.z > 1 || x < -80 || y < -60 || x > w + 80 || y > h + 60;
-          placed.push({
-            id: a.id,
-            x,
-            y,
-            // a label right of centre lays out leftward, so its box runs the other way -- and
-            // testing overlap on the anchor alone lets two boxes that genuinely collide sit on
-            // top of each other
-            left: x > w / 2,
-            opacity: off ? 0 : Math.min(1, (weight - 0.45) / 0.25),
-            a,
-          });
+          // fade out as the anchor nears the screen edge so labels do not clip off abruptly
+          const edge = Math.min(x, w - x, y, h - y);
+          const edgeFade = smoothstep(edge / 36);
+          const opacity = weight * edgeFade;
+          if (opacity > 0.02) placed.push({ id: a.id, x, y, left: x > w / 2, opacity, a });
         }
       }
     }
@@ -1280,11 +1352,12 @@ export function initChromatin(handles: ChromatinHandles): ChromatinController {
   function report(): void {
     const bp = bpInViewAt(scrub);
     const { regime } = regimeAt(scrub);
+    const field = cameraFieldNm(scrub);
     const state: ChromatinState = {
       scrub,
       regime: regime.id,
       regimeLabel: regime.label,
-      fieldNm: cameraFieldNm(scrub),
+      fieldNm: field,
       bpInView: bp,
       contourNm: contourLengthNm(bp),
       compaction: compactionAt(scrub),
@@ -1294,6 +1367,9 @@ export function initChromatin(handles: ChromatinHandles): ChromatinController {
       playing,
       exploded: explodeTarget > 0.5,
       fibreModel,
+      highlightTarget,
+      turntable,
+      scaleBar: physicalScaleBar(field / Math.max(0.1, zoom)),
     };
     for (const cb of listeners) cb(state);
   }
@@ -1310,7 +1386,8 @@ export function initChromatin(handles: ChromatinHandles): ChromatinController {
     fps = fps * 0.9 + (1 / Math.max(dt, 1e-4)) * 0.1;
 
     if (playing) {
-      scrub = Math.min(1, scrub + dt * 0.058);
+      const pace = playbackSpeedMultiplier(scrub);
+      scrub = Math.min(1, scrub + dt * 0.052 * pace);
       if (scrub >= 1) playing = false;
     }
 
@@ -1320,9 +1397,18 @@ export function initChromatin(handles: ChromatinHandles): ChromatinController {
     el += (elTarget - el) * k;
     zoom += (zoomTarget - zoom) * k;
     explode += (explodeTarget - explode) * (reducedMotion ? 1 : 1 - Math.exp(-dt * 5));
-    if (playing && !reducedMotion) azTarget += dt * 0.045;
+    if ((playing || turntable) && !reducedMotion) {
+      azTarget += dt * (turntable ? 0.12 : 0.045);
+    }
 
-    const ctx: FrameCtx = { scrub, explode, fibreModel, elapsed, reducedMotion };
+    const ctx: FrameCtx = {
+      scrub,
+      explode,
+      fibreModel,
+      highlightTarget,
+      elapsed,
+      reducedMotion,
+    };
     const weights = regimeWeights(scrub);
 
     for (const node of nodes) {
@@ -1346,12 +1432,14 @@ export function initChromatin(handles: ChromatinHandles): ChromatinController {
     const dist = field / 2 / Math.tan((camera.fov / 2) * (Math.PI / 180));
     camera.near = Math.max(0.01, field / 400);
     camera.far = field * 120;
+
+    const targetPos = cameraTargetNmAt(scrub);
     camera.position.set(
-      dist * Math.cos(el) * Math.sin(az),
-      dist * Math.sin(el),
-      dist * Math.cos(el) * Math.cos(az),
+      targetPos[0] + dist * Math.cos(el) * Math.sin(az),
+      targetPos[1] + dist * Math.sin(el),
+      targetPos[2] + dist * Math.cos(el) * Math.cos(az),
     );
-    camera.lookAt(0, 0, 0);
+    camera.lookAt(targetPos[0], targetPos[1], targetPos[2]);
     camera.updateProjectionMatrix();
 
     updateAnnotations(ctx, weights);
@@ -1443,6 +1531,39 @@ export function initChromatin(handles: ChromatinHandles): ChromatinController {
       fibreModel = m;
       report();
     },
+    setHighlight(target) {
+      highlightTarget = target;
+      report();
+    },
+    setCameraPreset(preset) {
+      if (preset === 'profile') {
+        azTarget = 0;
+        elTarget = 0;
+        turntable = false;
+      } else if (preset === 'axial') {
+        azTarget = 0;
+        elTarget = 1.35;
+        turntable = false;
+      } else if (preset === 'dyad') {
+        azTarget = Math.PI * 0.75;
+        elTarget = 0.22;
+        turntable = false;
+      } else if (preset === 'turntable') {
+        turntable = !turntable;
+      } else {
+        azTarget = 0.6;
+        elTarget = 0.18;
+        zoomTarget = 1;
+        turntable = false;
+      }
+      report();
+    },
+    stepRegime(delta) {
+      const { index } = regimeAt(scrub);
+      const nextIndex = Math.min(REGIMES.length - 1, Math.max(0, index + delta));
+      const targetRegime = REGIMES[nextIndex];
+      this.setScrub((targetRegime.from + targetRegime.to) / 2);
+    },
     setAnnotationsVisible(v) {
       annotationsOn = v;
       if (!v) for (const [, n] of annoNodes) n.root.style.visibility = 'hidden';
@@ -1450,13 +1571,16 @@ export function initChromatin(handles: ChromatinHandles): ChromatinController {
     },
     subscribe(cb) {
       listeners.add(cb);
+      const bp = bpInViewAt(scrub);
+      const { regime } = regimeAt(scrub);
+      const field = cameraFieldNm(scrub);
       cb({
         scrub,
-        regime: regimeAt(scrub).regime.id,
-        regimeLabel: regimeAt(scrub).regime.label,
-        fieldNm: cameraFieldNm(scrub),
-        bpInView: bpInViewAt(scrub),
-        contourNm: contourLengthNm(bpInViewAt(scrub)),
+        regime: regime.id,
+        regimeLabel: regime.label,
+        fieldNm: field,
+        bpInView: bp,
+        contourNm: contourLengthNm(bp),
         compaction: compactionAt(scrub),
         nucleosomesDrawn: drawnNucleosomes(regimeWeights(scrub)),
         nucleosomesImplied: impliedNucleosomeCount(scrub),
@@ -1464,6 +1588,9 @@ export function initChromatin(handles: ChromatinHandles): ChromatinController {
         playing,
         exploded: explodeTarget > 0.5,
         fibreModel,
+        highlightTarget,
+        turntable,
+        scaleBar: physicalScaleBar(field / Math.max(0.1, zoom)),
       });
       return () => listeners.delete(cb);
     },

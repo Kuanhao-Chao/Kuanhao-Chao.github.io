@@ -35,15 +35,35 @@ html[data-theme='dark'] .vp {
 .vp-sub { font-size: var(--fs-meta); color: var(--color-muted); }
 .vp-spacer { margin-left: auto; }
 
+/* The page is `bare`, so global.css pins html/body to position:fixed; overflow:hidden and caps
+   main at one viewport. Without an inner scroller everything past the fold is clipped and
+   unreachable -- which it was. This is the same arrangement /terminal/ uses: the title bar stays
+   put and the content below it owns the scrollback. */
+.vp-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .vp-body {
   display: grid;
-  grid-template-columns: minmax(0, 2.1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   padding: 1rem;
   align-items: start;
 }
-/* The flow canvas spans both columns; it is the page's centrepiece. */
-.vp-flow-panel { grid-column: 1 / -1; }
+
+/* Sections that read better side by side stay side by side on a wide screen; everything else is
+   one column, because a scrolling page has vertical room and does not need to compete for it. */
+@media (min-width: 1100px) {
+  .vp-split {
+    display: grid;
+    grid-template-columns: minmax(0, 2.1fr) minmax(0, 1fr);
+    gap: 1rem;
+    align-items: start;
+  }
+}
 .vp-flow { cursor: pointer; image-rendering: auto; }
 
 .vp-panel {
@@ -138,18 +158,33 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
 .vp-notes th { color: var(--color-ink); font-weight: 600; }
 .vp-notes tr + tr td, .vp-notes tr + tr th { border-top: 1px solid var(--color-rule); }
 
-@media (max-width: 900px) {
-  .vp-body { grid-template-columns: minmax(0, 1fr); }
-}
+
 @media (prefers-reduced-motion: reduce) {
   .vp * { transition: none !important; animation: none !important; }
 }
 
-.vp-stage-detail {
-  margin-top: 0.6rem;
-  padding: 0.6rem;
-  border: 1px solid var(--color-rule);
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--color-ink) 3%, transparent);
+.vp-sublayers {
+  list-style: none;
+  margin: 0.5rem 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  font-size: var(--fs-meta);
 }
-.vp-stage-detail[hidden] { display: none; }
+.vp-sublayers li {
+  display: flex;
+  gap: 0.4rem;
+  align-items: baseline;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--color-rule);
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+}
+/* The pooling step that hands off to the next stage: dimmed, because the stage's own recorded
+   activation predates it. */
+.vp-sublayers li[data-handoff] { opacity: 0.62; border-style: dashed; }
+.vp-sublayers .op { color: var(--color-ink); }
+.vp-sublayers .shape { color: var(--color-muted); }
+
+.vp-heat { cursor: crosshair; }

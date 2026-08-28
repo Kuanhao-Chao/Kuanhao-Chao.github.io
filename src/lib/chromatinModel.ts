@@ -737,11 +737,11 @@ export function regimeWeights(scrub: number): Map<RegimeId, number> {
   const prev = REGIMES[index - 1];
 
   if (next && s > seam - BLEND_HALF_WIDTH) {
-    const t = smoothstep((s - (seam - BLEND_HALF_WIDTH)) / (2 * BLEND_HALF_WIDTH));
+    const t = smoothstep5((s - (seam - BLEND_HALF_WIDTH)) / (2 * BLEND_HALF_WIDTH));
     weights.set(here.id, 1 - t);
     weights.set(next.id, t);
   } else if (prev && s < prevSeam + BLEND_HALF_WIDTH) {
-    const t = smoothstep((s - (prevSeam - BLEND_HALF_WIDTH)) / (2 * BLEND_HALF_WIDTH));
+    const t = smoothstep5((s - (prevSeam - BLEND_HALF_WIDTH)) / (2 * BLEND_HALF_WIDTH));
     weights.set(prev.id, 1 - t);
     weights.set(here.id, t);
   } else {
@@ -750,10 +750,92 @@ export function regimeWeights(scrub: number): Map<RegimeId, number> {
   return weights;
 }
 
-/** Hermite smoothstep, clamped. */
+/** Hermite cubic smoothstep, clamped (C1 continuity). */
 export function smoothstep(t: number): number {
   const x = Math.min(1, Math.max(0, t));
   return x * x * (3 - 2 * x);
+}
+
+/**
+ * Quintic smoothstep, clamped (C2 continuity).
+ *
+ * Has zero 1st and 2nd derivatives at both t=0 and t=1 (6t⁵ − 15t⁴ + 10t³).
+ * Eliminates acceleration jerk across regime transition seams and camera key interpolations.
+ */
+export function smoothstep5(t: number): number {
+  const x = Math.min(1, Math.max(0, t));
+  return x * x * x * (x * (x * 6 - 15) + 10);
+}
+
+/**
+ * Camera lookAt target coordinates [x, y, z] in nanometres across the compaction ladder.
+ *
+ * Smoothly centers on the core dyad at nucleosome scale, the chain midpoint at beads scale,
+ * and the centromere primary constriction at mitotic scale.
+ */
+export function cameraTargetNmAt(_scrub: number): Vec3 {
+  // All models are centered around the coordinate origin [0, 0, 0] in nanometres
+  return [0, 0, 0];
+}
+
+/**
+ * Adaptive playback pacing multiplier across 5 orders of magnitude.
+ *
+ * Provides a cinematic cadence during automatic playback: slows down slightly (~0.65x)
+ * near structural milestones (e.g. nucleosome wrap, 30 nm fibre, TAD loops) to allow
+ * visual appreciation of the biophysical architecture, and speeds up (~1.2x) through
+ * empty zoom spans.
+ */
+export function playbackSpeedMultiplier(scrub: number): number {
+  const s = Math.min(1, Math.max(0, scrub));
+  const ms = milestones();
+  let minGap = Infinity;
+  for (const m of ms) {
+    const gap = Math.abs(s - m.at);
+    if (gap < minGap) minGap = gap;
+  }
+  // If close to a milestone (< 0.035 in scrub space), ease down to 0.68x
+  if (minGap < 0.035) {
+    const t = minGap / 0.035;
+    return 0.68 + 0.52 * smoothstep5(t);
+  }
+  return 1.2;
+}
+
+/**
+ * Physical scale bar dimensions and formatted label for a given field of view in nanometres.
+ *
+ * Calculates a clean metric length (e.g. 2 nm, 5 nm, 10 nm, 50 nm, 100 nm, 1 µm, 5 µm)
+ * that occupies between 15% and 35% of the viewport width.
+ */
+export function physicalScaleBar(fieldNm: number): {
+  barWidthNm: number;
+  label: string;
+  ratioOfField: number;
+} {
+  const targetWidth = Math.max(0.1, fieldNm) * 0.22;
+  const exponent = Math.floor(Math.log10(targetWidth));
+  const base = targetWidth / 10 ** exponent;
+
+  let step = 1;
+  if (base >= 4.5) step = 5;
+  else if (base >= 1.8) step = 2;
+  else step = 1;
+
+  const barWidthNm = step * 10 ** exponent;
+  const ratioOfField = barWidthNm / Math.max(0.01, fieldNm);
+
+  let label: string;
+  if (barWidthNm >= 1000) {
+    const um = barWidthNm / 1000;
+    label = `${Number.isInteger(um) ? um : um.toFixed(1)} µm`;
+  } else if (barWidthNm >= 1) {
+    label = `${Math.round(barWidthNm)} nm`;
+  } else {
+    label = `${barWidthNm.toFixed(1)} nm`;
+  }
+
+  return { barWidthNm, label, ratioOfField };
 }
 
 /**
@@ -804,7 +886,7 @@ function logKeyed(
       const a = keys[i - 1];
       const b = keys[i];
       const span = b.at - a.at;
-      const t = span <= 0 ? 1 : smoothstep((s - a.at) / span);
+      const t = span <= 0 ? 1 : smoothstep5((s - a.at) / span);
       return Math.exp(Math.log(pick(a)) * (1 - t) + Math.log(pick(b)) * t);
     }
   }

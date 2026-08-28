@@ -42,6 +42,65 @@ PRESETS = [
     ("YDR009W", "GAL3", "Galactose signal transducer; co-regulated with GAL1"),
 ]
 
+# The six loci of Figure 4, by the coordinates the figure itself prints. Panels A-C are promoter
+# windows (TSS -450/+50, which the arithmetic confirms against txStart); E-G are gene-body windows
+# showing splice sites. These are centred on the FIGURE window rather than the transcript midpoint,
+# so what the paper drew sits in the middle of the 896 predicted bins.
+#
+# Note DTD1 is YDL219W. YDL100C is a different gene; the figure's coordinates are authoritative and
+# YDL219W is the gene that lives at chrIV:65,235-65,431 with the 71 bp intron panel E marks.
+FIGURE4 = [
+    ("YLR344W", "RPL26A", "Fig 4A", "chrXII", 818862, 819362,
+     "Ribosomal protein promoter; Fhl1 and Rap1 sites, and a 5' splice site"),
+    ("YAL035W", "FUN12", "Fig 4B", "chrI", 75977, 76477,
+     "Translation initiation factor; RRPE (Stb3), Dot6p and Abf1 sites"),
+    ("YNL132W", "KRE33", "Fig 4C", "chrXIV", 374871, 375371,
+     "Ribosome biogenesis; Reb1, RRPE (Stb3) and PAC (Dot6) motifs"),
+    ("YDL219W", "DTD1", "Fig 4E", "chrIV", 65235, 65431,
+     "D-aminoacyl-tRNA deacylase; start codon, donor, branch point and acceptor in 197 bp"),
+    ("YGL087C", "MMS2", "Fig 4F", "chrVII", 346669, 347169,
+     "DNA repair; branch point, 5' splice site, start codon and a Reb1 site"),
+    ("YGL033W", "HOP2", "Fig 4G", "chrVII", 435625, 436401,
+     "Meiotic pairing; a whole intron plus start and stop codons"),
+]
+
+# Panel H's database motifs, plus panel D's splicing motifs. IUPAC. Scanned for on both strands in
+# the extracted sequence -- a motif is marked only where it is actually found, never placed by eye.
+MOTIFS = [
+    ("RRPE (Stb3)", "TGAAAAATTTT"), ("PAC (Dot6)", "GCGATGAG"), ("Reb1", "CGGGTAA"),
+    ("Rap1", "ACACCCATACAT"), ("Fhl1", "GTAAACA"), ("Abf1", "RTCRYNNNNNACG"),
+    ("Cbf1", "GTCACGTG"), ("TATA box", "TATAAA"), ("Tbf1", "AACCCTAA"),
+    ("Ume6", "TAGCCGCC"), ("Dot6p", "CTCATCG"), ("Sfp1", "ATGTATGGGT"),
+    ("5' splice site", "GTATGT"), ("branch point", "TACTAAC"),
+]
+IUPAC = {"A": "A", "C": "C", "G": "G", "T": "T", "R": "[AG]", "Y": "[CT]", "S": "[GC]",
+         "W": "[AT]", "K": "[GT]", "M": "[AC]", "N": "."}
+
+
+def _rc(s: str) -> str:
+    return s.translate(str.maketrans("ACGT", "TGCA"))[::-1]
+
+
+def motif_spans(seq: str, lo: int, hi: int) -> list[dict]:
+    """Every database motif occurrence inside [lo, hi) of `seq`, on either strand.
+
+    Positions are offsets into the 16,384 bp window, so a test can assert the motif string really
+    is at that offset in the shipped sequence.
+    """
+    import re
+
+    found = []
+    window = seq[lo:hi]
+    for name, cons in MOTIFS:
+        for strand, pattern in (("+", cons), ("-", _rc(cons))):
+            if strand == "-" and _rc(cons) == cons:
+                continue
+            rx = re.compile("".join(IUPAC[b] for b in pattern))
+            for m in rx.finditer(window):
+                found.append({"name": name, "consensus": cons, "strand": strand,
+                              "start": lo + m.start(), "end": lo + m.end()})
+    return sorted(found, key=lambda f: (f["start"], f["name"]))
+
 
 def main() -> int:
     ckpt, onnx_path, fasta, genes_path = sys.argv[1:5]
@@ -107,6 +166,48 @@ def main() -> int:
             "sequence": seq,
             "features": sorted(features, key=lambda f: f["start"]),
         })
+    # ---- the six Figure 4 loci, centred on the window the figure prints -------------------
+    for systematic, common, panel, chrom, fa_start, fa_end, blurb in FIGURE4:
+        if chrom not in fa:
+            print(f"  skipping {common}: {chrom} not in the FASTA")
+            continue
+        centre = (fa_start + fa_end) // 2
+        left = max(0, centre - SEQ_LEN // 2)
+        seq = fa[chrom][left:left + SEQ_LEN].upper()
+        if len(seq) < SEQ_LEN:
+            seq += "N" * (SEQ_LEN - len(seq))
+        win_start = left + CROP_BP
+        strand = genes[systematic][3] if systematic in genes else "+"
+        features = [
+            {
+                "name": nm,
+                "start": max(0, (s - win_start) // BIN_BP),
+                "end": min(N_BINS, (e - win_start + BIN_BP - 1) // BIN_BP),
+                "strand": st,
+            }
+            for nm, (c, s, e, st) in genes.items()
+            if c == chrom and e > win_start and s < win_start + N_BINS * BIN_BP
+        ]
+        # The figure's own window, as offsets into the 16,384 bp input and as predicted bins.
+        lo, hi = fa_start - 1 - left, fa_end - left
+        motifs = motif_spans(seq, lo, hi)
+        loci.append({
+            "id": systematic, "gene": common, "blurb": f"{panel} — {blurb}",
+            "chrom": chrom, "start": left, "strand": strand,
+            "sequence": seq,
+            "features": sorted(features, key=lambda f: f["start"]),
+            "figurePanel": panel,
+            "figureWindow": {
+                "chromStart": fa_start, "chromEnd": fa_end,
+                "seqStart": lo, "seqEnd": hi,
+                "binStart": max(0, (fa_start - 1 - win_start) // BIN_BP),
+                "binEnd": min(N_BINS, (fa_end - win_start + BIN_BP - 1) // BIN_BP),
+            },
+            "motifs": motifs,
+        })
+        print(f"  {common:<7} {panel}  {chrom}:{fa_start:,}-{fa_end:,}  "
+              f"{len(motifs)} motif(s): {', '.join(sorted({m['name'] for m in motifs}))}")
+
     loci_path = ROOT / "src" / "data" / "shorkieLoci.json"
     loci_path.write_text(json.dumps({"speciesIndex": 109, "binBp": BIN_BP,
                                      "cropBp": CROP_BP, "bins": N_BINS, "loci": loci}))

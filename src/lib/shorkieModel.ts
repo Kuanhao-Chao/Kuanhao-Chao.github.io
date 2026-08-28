@@ -53,6 +53,9 @@ export type Base = (typeof BASES)[number];
  * groups exactly as biology demands and confirms the sheet -- ChIP-exo 1.20 (TF binding is
  * promoter-enriched, not ORF-enriched), ChIP-MNase 1.86, RNA-seq 17.94, 1,000-strain RNA-seq 4.07.
  */
+/** The conv stem's kernel width in bp. 11 x 4 x 96 = 4,224 weights -- the live TypeScript path. */
+export const STEM_KERNEL = 11;
+
 export const TRACK_GROUPS = [
   { id: 'chip_exo', label: 'ChIP-exo', start: 0, end: 1128, count: 1128, orfEnrichment: 1.2 },
   { id: 'chip_mnase', label: 'ChIP-MNase', start: 1128, end: 1148, count: 20, orfEnrichment: 1.86 },
@@ -112,7 +115,7 @@ export function layerSpecs(): LayerSpec[] {
     {
       id: 'stem',
       label: 'Conv stem',
-      detail: 'Conv1D, 11 bp kernel, linear activation',
+      detail: `Conv1D, ${STEM_KERNEL} bp kernel, linear activation`,
       positions: SEQ_LEN,
       channels: 96,
     },
@@ -299,7 +302,7 @@ export function receptiveFields(): { id: string; receptiveField: number; stride:
   const out: { id: string; receptiveField: number; stride: number }[] = [];
   let r = 1;
   let j = 1;
-  r += (11 - 1) * j; // conv stem, 11 bp kernel
+  r += (STEM_KERNEL - 1) * j; // conv stem
   out.push({ id: 'stem', receptiveField: r, stride: j });
   for (let i = 0; i < BLOCK_FILTERS.length; i += 1) {
     r += (5 - 1) * j; // Conv1D(5); the pointwise Conv1D(1) adds nothing
@@ -385,14 +388,135 @@ export function stageAt(t: number, stages: FlowStage[]): { index: number; local:
   return { index: stages.length - 1, local: 1 };
 }
 
-/** Channel offset of each encoder stage inside the concatenated `encoder_maps` tensor. */
-export function encoderMapOffsets(): { id: string; start: number; channels: number }[] {
+/** How many positions every mapped stage is pooled to inside the exported graph. */
+export const STAGE_MAP_POSITIONS = 128;
+
+/**
+ * Where each stage's channels live inside the single concatenated `stage_maps` tensor.
+ *
+ * The graph emits one [5760, 128] tensor covering the seven residual blocks, the eight transformer
+ * layers and the three decoder stages, in flow order. It used to emit `encoder_maps` and
+ * `decoder_maps` separately with the transformer layers missing entirely -- which is why the flow
+ * canvas fell back to drawing their attention matrices, an object of a different kind from every
+ * other stage's activation map.
+ */
+export function stageMapOffsets(): {
+  id: string;
+  start: number;
+  channels: number;
+  positions: number;
+}[] {
+  const rows: { id: string; start: number; channels: number; positions: number }[] = [];
   let start = 0;
-  return BLOCK_FILTERS.map((channels, i) => {
-    const row = { id: `block${i + 1}`, start, channels };
+  const push = (id: string, channels: number) => {
+    rows.push({ id, start, channels, positions: STAGE_MAP_POSITIONS });
     start += channels;
-    return row;
-  });
+  };
+  BLOCK_FILTERS.forEach((channels, i) => push(`block${i + 1}`, channels));
+  for (let i = 1; i <= N_ATTN_LAYERS; i += 1) push(`attn${i}`, D_MODEL);
+  for (let i = 1; i <= 3; i += 1) push(`decoder${i}`, D_MODEL);
+  return rows;
+}
+
+/**
+ * The value range to normalise an activation map against, by percentile rather than min/max.
+ *
+ * These tensors are heavy-tailed and a handful of outliers set the range, which flattens every
+ * other cell onto the same ink. Measured on a real TDH3 forward pass, the interquartile spread of
+ * drawn ink under min-max collapses with depth -- block1 0.299, block5 0.092, block7 **0.030** --
+ * because block7 spans -19.4..37.4 while its p1..p99 is only -3.4..3.8. Ranging over p1..p99
+ * recovers 3-5x the contrast on 10 of the 12 mapped stages.
+ *
+ * Implemented as a fixed-bin histogram rather than a sort: these arrays run to ~200k values and
+ * are re-normalised on every redraw, so this is two linear passes and a walk over 1,024 bins
+ * instead of an O(n log n) sort. It never mutates the input. Accurate to one bin width, which is
+ * far finer than the ink quantisation it feeds.
+ */
+export function percentileRange(
+  data: ArrayLike<number>,
+  loPct = 1,
+  hiPct = 99,
+  bins = 1024,
+): { lo: number; hi: number } {
+  const n = data.length;
+  if (n === 0) return { lo: 0, hi: 1 };
+  let min = Infinity;
+  let max = -Infinity;
+  for (let i = 0; i < n; i += 1) {
+    const v = data[i];
+    if (v < min) min = v;
+    if (v > max) max = v;
+  }
+  if (!(max > min)) return { lo: min, hi: min };
+
+  const width = (max - min) / bins;
+  const hist = new Int32Array(bins);
+  for (let i = 0; i < n; i += 1) {
+    const b = Math.min(bins - 1, Math.floor((data[i] - min) / width));
+    hist[b] += 1;
+  }
+  // Walk to the bin holding each rank, then take that bin's lower edge for lo and upper for hi,
+  // so the returned range always contains the requested quantiles rather than clipping them.
+  const rank = (pct: number) => Math.min(n - 1, Math.max(0, Math.floor((pct / 100) * (n - 1))));
+  const loRank = rank(loPct);
+  const hiRank = rank(hiPct);
+  let seen = 0;
+  let lo = min;
+  let hi = max;
+  let haveLo = false;
+  for (let b = 0; b < bins; b += 1) {
+    seen += hist[b];
+    if (!haveLo && seen > loRank) {
+      lo = min + b * width;
+      haveLo = true;
+    }
+    if (seen > hiRank) {
+      hi = min + (b + 1) * width;
+      break;
+    }
+  }
+  return hi > lo ? { lo, hi } : { lo: min, hi: max };
+}
+
+/** Which output-track group a raw track index belongs to. */
+export function trackGroupOf(index: number): (typeof TRACK_GROUPS)[number] {
+  const group = TRACK_GROUPS.find((g) => index >= g.start && index < g.end);
+  if (!group) throw new Error(`track index ${index} is outside 0..${N_TRACKS - 1}`);
+  return group;
+}
+
+/**
+ * How to fold `n` track rows onto `pixels` rows of canvas.
+ *
+ * 5,215 tracks never fit a screen, so rows are binned and each bin drawn at its maximum. Returns
+ * one [start, end) span per drawn row, covering every track exactly once with no empty bin --
+ * an empty bin would draw a blank stripe that reads as "this assay predicts nothing".
+ */
+export function trackRowBinning(n: number, pixels: number): { start: number; end: number }[] {
+  if (n <= 0 || pixels <= 0) return [];
+  const rows = Math.min(n, Math.floor(pixels));
+  const out: { start: number; end: number }[] = [];
+  for (let r = 0; r < rows; r += 1) {
+    out.push({
+      start: Math.floor((r * n) / rows),
+      end: Math.floor(((r + 1) * n) / rows),
+    });
+  }
+  return out;
+}
+
+/**
+ * Map a coverage value onto [0,1] for plotting, on a log scale.
+ *
+ * RNA-seq coverage spans orders of magnitude and a linear axis scaled to the peak erases
+ * everything else: on the TDH3 window the peak is 995 while 642 of the 896 bins are above 1.0 and
+ * at least three separate transcribed regions exist. On a linear axis those are all invisible.
+ * log1p keeps zero at zero -- coverage really can be zero, and a bare log cannot say so.
+ */
+export function logAxis(value: number, max: number): number {
+  if (!(max > 0)) return 0;
+  const v = Math.min(Math.max(value, 0), max);
+  return Math.log1p(v) / Math.log1p(max);
 }
 
 /**
@@ -442,4 +566,84 @@ export function activationInk(value: number, lo: number, hi: number, floor = 0.1
   const span = Math.max(hi - lo, 1e-9);
   const v = Math.min(Math.max((value - lo) / span, 0), 1);
   return v < floor ? 0 : Math.sqrt((v - floor) / (1 - floor));
+}
+
+/** One operation inside a stage, with the tensor it produces. */
+export interface SubLayer {
+  op: string;
+  positions: number;
+  channels: number;
+  /**
+   * True for the pooling step that hands this stage's output to the next one. The stage's own
+   * recorded activation is taken BEFORE it -- `acts["block1"]` is [96, 16384], not [96, 8192] --
+   * so the shape a stage advertises is the shape of the last non-handoff row, and the handoff row
+   * is where the resolution visibly halves.
+   */
+  handoff?: boolean;
+}
+
+/**
+ * The operations inside one stage, each with the shape of the tensor it hands on.
+ *
+ * `layerSpecs()` gives a stage's *output* shape and an arrow-separated prose string; this expands
+ * that into the real sequence, so the detail view can show where the resolution halves and where
+ * the channel count changes rather than asserting it in a caption. The channel change inside a
+ * residual block happens at the 5 bp convolution -- the skip is taken *after* it (the checkpoint
+ * wires `add <- [conv1d_1, scale]`), so the residual add is between two tensors that already
+ * carry the block's output width.
+ */
+export function subLayers(spec: LayerSpec): SubLayer[] {
+  const { positions: p, channels: c } = spec;
+
+  if (spec.id === 'stem') {
+    return [{ op: `Conv1D, ${STEM_KERNEL} bp kernel, linear`, positions: p, channels: c }];
+  }
+
+  if (spec.id.startsWith('block')) {
+    const i = Number(spec.id.slice('block'.length)) - 1;
+    const inC = i === 0 ? 96 : BLOCK_FILTERS[i - 1];
+    return [
+      { op: 'BatchNorm', positions: p, channels: inC },
+      { op: 'GELU', positions: p, channels: inC },
+      { op: 'Conv1D(5)', positions: p, channels: c },
+      { op: 'BatchNorm', positions: p, channels: c },
+      { op: 'GELU', positions: p, channels: c },
+      { op: 'Conv1D(1)', positions: p, channels: c },
+      { op: 'Scale', positions: p, channels: c },
+      { op: 'add (residual)', positions: p, channels: c },
+      { op: `MaxPool(2) → block ${i + 2}`, positions: p / 2, channels: c, handoff: true },
+    ];
+  }
+
+  if (spec.id.startsWith('attn')) {
+    return [
+      { op: 'LayerNorm', positions: p, channels: c },
+      {
+        op: `${N_HEADS}-head relative attention (key ${KEY_SIZE}, value ${VALUE_SIZE})`,
+        positions: p,
+        channels: c,
+      },
+      { op: 'add (residual)', positions: p, channels: c },
+      { op: 'LayerNorm', positions: p, channels: c },
+      { op: 'feed-forward', positions: p, channels: c },
+      { op: 'add (residual)', positions: p, channels: c },
+    ];
+  }
+
+  if (spec.id.startsWith('decoder')) {
+    const i = Number(spec.id.slice('decoder'.length)) - 1;
+    return [
+      { op: 'BatchNorm → GELU → Conv1D(1)', positions: p / 2, channels: c },
+      { op: 'upsample x2 (nearest)', positions: p, channels: c },
+      { op: `add skip from residual block ${7 - i}`, positions: p, channels: c },
+      { op: 'SeparableConv1D(3)', positions: p, channels: c },
+    ];
+  }
+
+  return [
+    { op: `crop ${CROP_BINS} bins each end`, positions: p, channels: D_MODEL },
+    { op: 'GELU', positions: p, channels: D_MODEL },
+    { op: 'Dense', positions: p, channels: c },
+    { op: 'Softplus', positions: p, channels: c },
+  ];
 }
