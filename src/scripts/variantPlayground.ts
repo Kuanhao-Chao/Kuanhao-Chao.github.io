@@ -36,6 +36,8 @@ import {
   activationInk,
   percentileRange,
   subLayers,
+  knockoutMotif,
+  geneBodyBins,
   trackGroupOf,
   trackRowBinning,
   logAxis,
@@ -53,6 +55,14 @@ import {
 
 const STEM = stemWeightsJson as StemWeights;
 
+interface Motif {
+  name: string;
+  consensus: string;
+  strand: string;
+  start: number;
+  end: number;
+}
+
 interface Locus {
   id: string;
   gene: string;
@@ -62,6 +72,10 @@ interface Locus {
   strand: string;
   sequence: string;
   features: { name: string; start: number; end: number; strand: string }[];
+  /** Present only on the six Figure 4 windows. */
+  motifs?: Motif[];
+  figurePanel?: string;
+  figureWindow?: { seqStart: number; seqEnd: number; binStart: number; binEnd: number };
 }
 const LOCI = (lociJson as { loci: Locus[] }).loci;
 
@@ -111,8 +125,6 @@ export function initVariantPlayground(root: ParentNode = document) {
   const seqInput = $<HTMLTextAreaElement>('[data-vp-seq]');
   const modeBtns = host.querySelectorAll<HTMLButtonElement>('[data-vp-mode]');
   const locusSelect = $<HTMLSelectElement>('[data-vp-locus]');
-  const speciesInput = $<HTMLInputElement>('[data-vp-species]');
-  const speciesLabel = $('[data-vp-species-label]');
   const runBtn = $<HTMLButtonElement>('[data-vp-run]');
   const statusEl = $('[data-vp-status]');
   const neuronCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-neurons]');
@@ -135,6 +147,9 @@ export function initVariantPlayground(root: ParentNode = document) {
   const trackNameEl = $('[data-vp-track-name]');
   const singleSvg = host.querySelector<SVGSVGElement>('[data-vp-single]');
   const logToggle = $<HTMLInputElement>('[data-vp-logaxis]');
+  const motifBox = $('[data-vp-motifs]');
+  const motifList = $('[data-vp-motif-list]');
+  const knockoutStat = $('[data-vp-knockout]');
   const stageTitle = $('[data-vp-stage-title]');
   const stageTop = $('[data-vp-stage-top]');
   const stageMapCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-stage-map]');
@@ -147,7 +162,9 @@ export function initVariantPlayground(root: ParentNode = document) {
   const SLICE_START = 7000;
   const SLICE_LEN = 400;
   let locusIndex = 0;
-  let species = SPECIES_S_CEREVISIAE;
+  // The channel highlighted in the conv-stem raster AND profiled in the layer detail. Clicking a
+  // raster row used to drive the sequence-logo panel; that panel is gone, so the click now selects
+  // the channel whose positional profile the detail view plots.
   let selectedFilter = 0;
   let reference: FullResult | null = null;
   let current: FullResult | null = null;
@@ -162,6 +179,9 @@ export function initVariantPlayground(root: ParentNode = document) {
   // rather than a mean over all 3,053 induction tracks.
   let selectedTrack: number = TRACK_GROUPS[RNA_SEQ_GROUP].start;
   let useLogAxis = true;
+  /** Which motif is currently knocked out, and the peak before it was. */
+  let knockedOut: Motif | null = null;
+  let peakBeforeKnockout = 0;
 
   // ---------------------------------------------------------------- layer map (static)
   function renderLayers(): void {
@@ -230,6 +250,9 @@ export function initVariantPlayground(root: ParentNode = document) {
       if (f >= 0 && f < act.filters) {
         selectedFilter = f;
         refreshLive();
+        // Show that channel where the detail view shows channels.
+        flow?.select(0);
+        renderStageDetail(flow?.selected() ?? null);
       }
     };
   }
@@ -269,8 +292,27 @@ export function initVariantPlayground(root: ParentNode = document) {
     const max = Math.max(...vals, 1e-6);
     const truthMax = truth ? Math.max(...truth, 1e-6) : 1;
     const bw = W / n;
+    // The SAME axis mapping the per-track plot uses. Two panels showing predicted coverage on two
+    // different axes is how a page contradicts itself; a linear axis against a 995 peak is also
+    // what made this curve look wrong in the first place -- 642 of the 896 bins are above 1.0 and
+    // a linear axis puts all of them on the floor.
+    const yOf = (v: number, ceiling: number) =>
+      H - 26 - (useLogAxis ? logAxis(v, ceiling) : ceiling > 0 ? v / ceiling : 0) * (H - 46);
 
     const locus = LOCI[locusIndex];
+    // The window the paper's figure prints, so a reader can see which slice of the 896 bins
+    // Figure 4 was looking at.
+    if (locus.figureWindow) {
+      const { binStart, binEnd } = locus.figureWindow;
+      const frame = el('rect');
+      attr(frame, {
+        x: binStart * bw, y: 18, width: Math.max((binEnd - binStart) * bw, 2), height: H - 44,
+        fill: 'var(--vp-orf)', 'fill-opacity': 0.08,
+        stroke: 'var(--vp-orf)', 'stroke-opacity': 0.5, 'stroke-dasharray': '3 2',
+      });
+      trackSvg.append(frame);
+      trackSvg.append(text(binStart * bw + 3, 28, locus.figurePanel ?? 'figure window', 'vp-ax', 'start'));
+    }
     for (const f of locus.features) {
       const r = el('rect');
       attr(r, {
@@ -281,7 +323,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     }
 
     let d = `M0 ${H - 26}`;
-    for (let i = 0; i < n; i += 1) d += ` L${(i * bw).toFixed(2)} ${(H - 26 - (vals[i] / max) * (H - 46)).toFixed(2)}`;
+    for (let i = 0; i < n; i += 1) d += ` L${(i * bw).toFixed(2)} ${yOf(vals[i], max).toFixed(2)}`;
     const path = el('path');
     attr(path, { d, fill: 'none', stroke: 'var(--vp-track)', 'stroke-width': 1.4 });
     trackSvg.append(path);
@@ -289,7 +331,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     if (reference && reference !== current) {
       let rd = `M0 ${H - 26}`;
       for (let i = 0; i < n; i += 1) {
-        rd += ` L${(i * bw).toFixed(2)} ${(H - 26 - (reference.tracks[i * 4 + groupIndex] / max) * (H - 46)).toFixed(2)}`;
+        rd += ` L${(i * bw).toFixed(2)} ${yOf(reference.tracks[i * 4 + groupIndex], max).toFixed(2)}`;
       }
       const rp = el('path');
       attr(rp, { d: rd, fill: 'none', stroke: 'var(--color-muted)', 'stroke-width': 1, 'stroke-dasharray': '3 3' });
@@ -298,7 +340,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     if (truth) {
       let td = `M0 ${H - 26}`;
       for (let i = 0; i < n; i += 1) {
-        td += ` L${(i * bw).toFixed(2)} ${(H - 26 - (truth[i] / truthMax) * (H - 46)).toFixed(2)}`;
+        td += ` L${(i * bw).toFixed(2)} ${yOf(truth[i], truthMax).toFixed(2)}`;
       }
       const tp = el('path');
       attr(tp, { d: td, fill: 'none', stroke: 'var(--vp-fire)', 'stroke-width': 1.1, 'stroke-opacity': 0.85 });
@@ -319,7 +361,8 @@ export function initVariantPlayground(root: ParentNode = document) {
     trackSvg.dataset.peakBin = String(argmax);
     trackSvg.append(
       text(4, 14,
-        `predicted ${TRACK_GROUPS[groupIndex].label} · 896 bins × 16 bp · peak ${max.toFixed(2)} at bin ${argmax}`,
+        `predicted ${TRACK_GROUPS[groupIndex].label} · 896 bins × 16 bp · peak ${max.toFixed(2)}`
+        + ` at bin ${argmax} · ${useLogAxis ? 'log' : 'linear'} axis`,
         'vp-ax', 'start'),
     );
   }
@@ -363,7 +406,9 @@ export function initVariantPlayground(root: ParentNode = document) {
       await ensureSession();
       setStatus('Running inference…');
       const t0 = performance.now();
-      const input = encodeInput(LOCI[locusIndex].sequence, species);
+      // `sequence` -- not the locus -- because a motif knockout edits it in place, and reading
+      // the locus here would silently run the unmodified window and report no effect.
+      const input = encodeInput(sequence, SPECIES_S_CEREVISIAE);
       const o = ort as NonNullable<typeof ort>;
       const feeds = { sequence: new o.Tensor('float32', input, [1, SEQ_LEN, 170]) };
       const out = await (session as { run: (f: unknown) => Promise<Record<string, { data: Float32Array }>> }).run(feeds);
@@ -549,6 +594,101 @@ export function initVariantPlayground(root: ParentNode = document) {
     singleSvg.dataset.track = TRACK_NAMES[selectedTrack];
   }
 
+  /**
+   * The Figure 4 motifs for this locus, as buttons that knock the motif out.
+   *
+   * These are consensus matches found by scanning the shipped sequence, so their positions are
+   * checkable -- and the caption says so, because the scan is not the paper's annotation: it finds
+   * sites Figure 4 does not label and misses at least one that it does.
+   */
+  function renderMotifs(): void {
+    if (!motifBox || !motifList) return;
+    const locus = mode === 'locus' ? LOCI[locusIndex] : null;
+    const motifs = locus?.motifs ?? [];
+    motifBox.hidden = motifs.length === 0;
+    clear(motifList);
+    if (!motifs.length) return;
+
+    for (const m of motifs) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'vp-motif';
+      const active = knockedOut?.start === m.start && knockedOut?.name === m.name;
+      b.setAttribute('aria-pressed', String(active));
+      const label = document.createElement('span');
+      label.textContent = `${m.name}${m.strand === '-' ? ' (−)' : ''}`;
+      const pos = document.createElement('span');
+      pos.className = 'pos';
+      pos.textContent = sequence.slice(m.start, m.end);
+      b.append(label, pos);
+      b.addEventListener('click', () => void toggleKnockout(m));
+      motifList.append(b);
+    }
+    if (knockoutStat && !knockedOut) {
+      knockoutStat.textContent = current
+        ? ''
+        : 'Load the model first — a knockout is measured by re-running it.';
+    }
+  }
+
+  /** Scramble a motif (or restore it) and re-run, reporting what the prediction did. */
+  async function toggleKnockout(m: Motif): Promise<void> {
+    if (!session) {
+      setStatus('Load the full model before knocking a motif out.');
+      return;
+    }
+    const restoring = knockedOut?.start === m.start && knockedOut?.name === m.name;
+    const original = LOCI[locusIndex].sequence;
+
+    if (restoring) {
+      knockedOut = null;
+      sequence = original;
+    } else {
+      if (!knockedOut) peakBeforeKnockout = peakOf(current);
+      knockedOut = m;
+      // Try seeds until the span actually changes; a shuffle can return the identity, and a
+      // knockout that did not knock anything out would report a spurious zero effect.
+      let out = original;
+      for (let seed = 1; seed <= 12; seed += 1) {
+        out = knockoutMotif(original, m.start, m.end, seed);
+        if (out.slice(m.start, m.end) !== original.slice(m.start, m.end)) break;
+      }
+      sequence = out;
+    }
+    renderMotifs();
+    await runFull();
+
+    if (knockoutStat) {
+      const after = peakOf(current);
+      knockoutStat.textContent = knockedOut
+        ? `${knockedOut.name} scrambled — predicted peak over ${LOCI[locusIndex].gene} `
+          + `${peakBeforeKnockout.toFixed(2)} → ${after.toFixed(2)} `
+          + `(${((after / Math.max(peakBeforeKnockout, 1e-9) - 1) * 100).toFixed(1)}%).`
+          + ' Click again to restore.'
+        : `Restored — predicted peak over ${LOCI[locusIndex].gene} back to ${after.toFixed(2)}.`;
+    }
+  }
+
+  /**
+   * Predicted peak over the gene this window is named for -- NOT over the whole window.
+   *
+   * A 14,336 bp yeast window holds a dozen genes and the tallest is rarely the one whose promoter
+   * you just edited: on the KRE33 window the global peak is 114.3 at bin 249 (YNL135C) while
+   * KRE33's own body peaks at 7.8. Measuring the global peak reported a 0.4% effect for a motif
+   * knockout, which is a measurement of an unrelated gene, not of the motif.
+   */
+  function peakOf(r: FullResult | null): number {
+    if (!r) return 0;
+    const locus = LOCI[locusIndex];
+    const span = geneBodyBins(locus.features, locus.id) ?? { start: 0, end: N_BINS };
+    let max = 0;
+    for (let i = span.start; i < span.end; i += 1) {
+      const v = r.tracks[i * 4 + groupIndex];
+      if (v > max) max = v;
+    }
+    return max;
+  }
+
   function setStatus(msg: string): void {
     if (statusEl) statusEl.textContent = msg;
   }
@@ -558,6 +698,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     mode = next;
     modeBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.vpMode === next)));
     if (next === 'locus') {
+      knockedOut = null;
       sequence = LOCI[locusIndex].sequence;
       editable = sequence.slice(SLICE_START, SLICE_START + SLICE_LEN);
       reference = null;
@@ -569,6 +710,10 @@ export function initVariantPlayground(root: ParentNode = document) {
       sequence = editable;
       if (seqInput) seqInput.value = editable;
     }
+    if (knockoutStat) knockoutStat.textContent = '';
+    renderMotifs();
+    renderHeatmap();
+    renderSingleTrack();
     refreshLive();
   }
 
@@ -595,14 +740,6 @@ export function initVariantPlayground(root: ParentNode = document) {
   locusSelect?.addEventListener('change', () => {
     locusIndex = Number(locusSelect.value);
     setMode('locus');
-  });
-
-  speciesInput?.addEventListener('input', () => {
-    species = Number(speciesInput.value);
-    if (speciesLabel) {
-      speciesLabel.textContent =
-        species === SPECIES_S_CEREVISIAE ? `${species} — S. cerevisiae` : `${species} — related fungus`;
-    }
   });
 
 
@@ -635,6 +772,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     // layer's most characteristic internal state, but it is not an activation map.
     logToggle?.addEventListener('change', () => {
     useLogAxis = logToggle.checked;
+    renderTrack();       // one control, both plots -- they show the same quantity
     renderSingleTrack();
   });
 
@@ -682,7 +820,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     const ctx = stageMapCanvas.getContext('2d');
     const cssW = stageMapCanvas.clientWidth || 900;
     const rowH = map ? Math.max(1, Math.min(5, Math.floor(300 / map.channels))) : 3;
-    const cssH = map ? map.channels * rowH : 40;
+    const cssH = map ? map.channels * rowH + 34 : 40;   // + the single-channel profile strip
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     stageMapCanvas.width = Math.round(cssW * dpr);
     stageMapCanvas.height = Math.round(cssH * dpr);
@@ -730,13 +868,40 @@ export function initVariantPlayground(root: ParentNode = document) {
           ? `${positions} × ${positions} over the bottleneck, mean of ${N_HEADS} heads`
           : 'loudest channels: ' + peaks.slice(0, 5).map((q) => `#${q.c} (${q.v.toFixed(2)})`).join(', ');
     }
+    // The selected channel, on its own, at this stage's resolution -- one neuron's activation
+    // across the window, which a 384-row raster cannot show you.
+    const ch = Math.min(selectedFilter, channels - 1);
+    let chLo = Infinity;
+    let chHi = -Infinity;
+    for (let p = 0; p < positions; p += 1) {
+      const v = data[ch * positions + p];
+      if (v < chLo) chLo = v;
+      if (v > chHi) chHi = v;
+    }
+    const profH = 34;
+    const span = Math.max(chHi - chLo, 1e-9);
+    ctx.strokeStyle = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let p = 0; p < positions; p += 1) {
+      const x = p * cellW;
+      const y = cssH - profH + (1 - (data[ch * positions + p] - chLo) / span) * (profH - 4);
+      if (p === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.fillStyle = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
+    ctx.font = '9px system-ui, sans-serif';
+    ctx.fillText(`channel #${ch}  ${chLo.toFixed(2)} … ${chHi.toFixed(2)}`, 3, cssH - profH + 9);
+
     if (stageNote) {
       const bp = Math.round(SEQ_LEN / positions);
       stageNote.textContent =
         stageTab === 'attention'
           ? `Row = query position, column = key position. Each position covers ${bp} bp.`
           : `One row per channel, one column per position; ink is the activation between its 1st ` +
-            `and 99th percentile. Each column covers ${bp} bp of input.`;
+            `and 99th percentile. Each column covers ${bp} bp of input. The line below is channel ` +
+            `#${ch} alone — click a row in the conv-stem raster to change it.`;
     }
   }
 
@@ -781,6 +946,7 @@ export function initVariantPlayground(root: ParentNode = document) {
 
   logToggle?.addEventListener('change', () => {
     useLogAxis = logToggle.checked;
+    renderTrack();       // one control, both plots -- they show the same quantity
     renderSingleTrack();
   });
 
@@ -825,6 +991,7 @@ export function initVariantPlayground(root: ParentNode = document) {
   if (seqInput) seqInput.value = editable;
   refreshLive();
   renderTrack();
+  renderMotifs();
   renderStageDetail(null);
   renderHeatmap();
   renderSingleTrack();

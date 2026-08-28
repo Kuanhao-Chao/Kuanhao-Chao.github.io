@@ -45,6 +45,8 @@ import {
   activationInk,
   subLayers,
   layerSpecs as specs,
+  knockoutMotif,
+  geneBodyBins,
 } from './shorkieModel';
 import tracks from '../data/shorkieTracks.json';
 import trackNames from '../data/shorkieTrackNames.json';
@@ -845,5 +847,97 @@ describe('shipped track names', () => {
 
   it('starts the RNA-seq block on a T0 baseline, which is what Figure 4 uses', () => {
     expect(trackNames.identifiers[TRACK_GROUPS[RNA_SEQ_GROUP].start]).toMatch(/_T0_/);
+  });
+});
+
+describe('knockoutMotif', () => {
+  const seq = 'AAAACCCCGGGGTTTT' + 'TGAAAAATTTT' + 'ACGTACGTACGT';
+  const lo = 16;
+  const hi = 27;
+
+  it('destroys the motif but not the sequence around it', () => {
+    const out = knockoutMotif(seq, lo, hi, 7);
+    expect(out).toHaveLength(seq.length);
+    expect(out.slice(0, lo)).toBe(seq.slice(0, lo));
+    expect(out.slice(hi)).toBe(seq.slice(hi));
+    expect(out.slice(lo, hi)).not.toBe(seq.slice(lo, hi));
+  });
+
+  it('preserves base composition, so only the order is destroyed', () => {
+    // The point of a shuffle rather than poly-A: GC content is unchanged, so a drop in the
+    // prediction is attributable to the motif and not to the composition.
+    const count = (s: string) =>
+      [...s].reduce<Record<string, number>>((a, b) => ({ ...a, [b]: (a[b] ?? 0) + 1 }), {});
+    expect(count(knockoutMotif(seq, lo, hi, 7))).toEqual(count(seq));
+  });
+
+  it('is deterministic for a seed and varies across seeds', () => {
+    expect(knockoutMotif(seq, lo, hi, 7)).toBe(knockoutMotif(seq, lo, hi, 7));
+    const spans = new Set([1, 2, 3, 4, 5].map((s) => knockoutMotif(seq, lo, hi, s).slice(lo, hi)));
+    expect(spans.size).toBeGreaterThan(1);
+  });
+
+  it('leaves a degenerate span alone rather than corrupting the sequence', () => {
+    expect(knockoutMotif(seq, 5, 5)).toBe(seq);
+    expect(knockoutMotif(seq, 5, 6)).toBe(seq);       // one base cannot be reordered
+    expect(knockoutMotif(seq, -10, 0)).toBe(seq);
+  });
+
+  it('clamps out-of-range spans instead of producing a shorter sequence', () => {
+    const out = knockoutMotif(seq, seq.length - 4, seq.length + 50, 3);
+    expect(out).toHaveLength(seq.length);
+    expect(out.slice(0, seq.length - 4)).toBe(seq.slice(0, seq.length - 4));
+  });
+
+  it('actually breaks the consensus it was aimed at, on the shipped RRPE site', () => {
+    const fun12 = loci.loci.find((l) => l.gene === 'FUN12')!;
+    const rrpe = (fun12 as { motifs: { name: string; start: number; end: number }[] }).motifs
+      .find((m) => m.name === 'RRPE (Stb3)')!;
+    const before = fun12.sequence.slice(rrpe.start, rrpe.end);
+    // Try several seeds; a shuffle can return the identity, and the UI should pick one that does not.
+    const broken = [1, 2, 3, 4, 5, 6, 7, 8]
+      .map((s) => knockoutMotif(fun12.sequence, rrpe.start, rrpe.end, s))
+      .filter((out) => out.slice(rrpe.start, rrpe.end) !== before);
+    expect(broken.length).toBeGreaterThan(0);
+    for (const out of broken) expect(out).toHaveLength(SEQ_LEN);
+  });
+});
+
+describe('geneBodyBins', () => {
+  it('finds the named gene and spans all of its parts', () => {
+    const f = [
+      { name: 'YAL001C', start: 10, end: 20 },
+      { name: 'TARGET', start: 100, end: 140 },
+      { name: 'TARGET', start: 160, end: 200 },   // a second exon block
+      { name: 'YAL002W', start: 300, end: 320 },
+    ];
+    expect(geneBodyBins(f, 'TARGET')).toEqual({ start: 100, end: 200 });
+  });
+
+  it('returns null when the gene is absent, so a caller can say it is falling back', () => {
+    expect(geneBodyBins([{ name: 'A', start: 0, end: 1 }], 'B')).toBeNull();
+    expect(geneBodyBins([], 'B')).toBeNull();
+  });
+
+  it('resolves every shipped locus to its own gene body', () => {
+    // If this ever returned null the knockout readout would silently measure the whole window,
+    // where the tallest gene is usually not the one whose promoter was edited.
+    for (const l of loci.loci) {
+      const span = geneBodyBins(l.features, l.id);
+      expect(span, `${l.gene} (${l.id})`).not.toBeNull();
+      expect(span!.end).toBeGreaterThan(span!.start);
+      expect(span!.start).toBeGreaterThanOrEqual(0);
+      expect(span!.end).toBeLessThanOrEqual(N_BINS);
+    }
+  });
+
+  it('puts KRE33 far from its window peak — the case that motivated this', () => {
+    const kre33 = loci.loci.find((l) => l.gene === 'KRE33')!;
+    const span = geneBodyBins(kre33.features, kre33.id)!;
+    expect(span.start).toBe(460);
+    expect(span.end).toBe(659);
+    // The tallest gene in that window (YNL135C) sits ~200 bins away.
+    const other = geneBodyBins(kre33.features, 'YNL135C')!;
+    expect(Math.abs(other.start - span.start)).toBeGreaterThan(150);
   });
 });

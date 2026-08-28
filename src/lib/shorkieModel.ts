@@ -647,3 +647,58 @@ export function subLayers(spec: LayerSpec): SubLayer[] {
     { op: 'Softplus', positions: p, channels: c },
   ];
 }
+
+/**
+ * Scramble one span of a sequence, leaving everything else byte-identical.
+ *
+ * This is the interactive stand-in for Figure 4's saturation mutagenesis. Full ISM over a 500 bp
+ * promoter is 1,500 forward passes; knocking out one motif and re-running is one, and it answers
+ * the question the figure is actually asking -- does this motif carry the prediction?
+ *
+ * A shuffle rather than a poly-A or random replacement, so GC content and base composition are
+ * unchanged and the only thing destroyed is the ORDER that makes the motif a motif. Seeded, so a
+ * given knockout is reproducible and two readers see the same number.
+ */
+export function knockoutMotif(sequence: string, start: number, end: number, seed = 1): string {
+  const lo = Math.max(0, Math.min(start, sequence.length));
+  const hi = Math.max(lo, Math.min(end, sequence.length));
+  if (hi - lo < 2) return sequence;
+
+  const span = [...sequence.slice(lo, hi)];
+  // A small deterministic LCG; Math.random() is not available to this module's tests and would
+  // make the result unreproducible anyway.
+  let state = (seed >>> 0) || 1;
+  const next = () => {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    return state / 0x100000000;
+  };
+  for (let i = span.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(next() * (i + 1));
+    [span[i], span[j]] = [span[j], span[i]];
+  }
+  return sequence.slice(0, lo) + span.join('') + sequence.slice(hi);
+}
+
+/**
+ * The bins a motif knockout should be judged over: the body of the gene the window is named for.
+ *
+ * Judging by the peak of the whole 896-bin window is wrong, and quietly so. A 14,336 bp yeast
+ * window holds a dozen genes, and the tallest is usually not the one whose promoter you edited --
+ * on the KRE33 window the global peak is 114.3 at bin 249 (YNL135C) while KRE33's own body peaks
+ * at 7.8 around bin 460. Knocking out KRE33's RRPE site then moves the global peak by 0.4%, which
+ * reads as "this motif does nothing" when the truth is "you measured the wrong gene".
+ *
+ * Returns null when the named gene is not among the annotated features, so the caller can say it
+ * is falling back rather than silently measuring something else.
+ */
+export function geneBodyBins(
+  features: { name: string; start: number; end: number }[],
+  id: string,
+): { start: number; end: number } | null {
+  const own = features.filter((f) => f.name === id);
+  if (!own.length) return null;
+  return {
+    start: Math.min(...own.map((f) => f.start)),
+    end: Math.max(...own.map((f) => f.end)),
+  };
+}

@@ -37,6 +37,26 @@ const description =
             aria-label="DNA sequence"
           ></textarea>
           <p class="vp-stat" data-vp-livestat></p>
+          <div class="vp-motifs" data-vp-motifs hidden>
+            <p class="vp-notes" style="margin:0 0 0.35rem;">
+              <strong>Figure 4 motifs.</strong> Database consensus matches found in this window on
+              either strand — not the paper's own annotations, which this scan neither reproduces
+              exactly nor claims to. Click one to scramble it and re-run: same length, same base
+              composition, only the order destroyed, so any change is attributable to the arrangement
+              rather than to GC content. The effect is measured over <em>this window's own gene</em>,
+              not the whole window — a 14,336 bp yeast window holds a dozen genes and the tallest is
+              usually not the one whose promoter you edited.
+            </p>
+            <p class="vp-notes" style="margin:0 0 0.35rem;">
+              Expect a wide range. Across these six windows the splicing motifs dominate — knocking
+              out DTD1's 5′ splice site costs <strong>34%</strong> of its predicted expression and its
+              branch point 21% — while transcription-factor sites run about 7–11% (KRE33's Reb1 −10.5%,
+              FUN12's RRPE −7.4%) and some sites move nothing at all. A near-zero result is a real
+              answer about that site, not a broken button.
+            </p>
+            <div class="vp-motif-row" data-vp-motif-list></div>
+            <p class="vp-stat" data-vp-knockout></p>
+          </div>
           <p class="vp-notes" style="margin:0.35rem 0 0;">
             Typing runs the <strong>real conv stem</strong> in TypeScript on every keystroke — valid on a
             bare fragment because a convolution is translation-equivariant. Predicting a track needs the
@@ -100,6 +120,9 @@ const description =
               <input type="checkbox" data-vp-truth checked /> measured coverage
             </label>
             <select class="vp-select" data-vp-group aria-label="Output track group"></select>
+            <label class="vp-stat" style="display:inline-flex;align-items:center;gap:0.35rem;">
+              <input type="checkbox" data-vp-logaxis checked /> log axis
+            </label>
             <span class="vp-stat" data-vp-truthstat></span>
           </div>
           <p class="vp-notes" style="margin:0.4rem 0 0;">
@@ -120,9 +143,6 @@ const description =
                 aria-label="All 5,215 predicted output tracks, one row each, grouped by assay"></canvas>
         <div class="vp-controls" style="margin-top:0.5rem;">
           <span class="vp-stat" data-vp-track-name></span>
-          <label class="vp-stat" style="display:inline-flex;align-items:center;gap:0.35rem;">
-            <input type="checkbox" data-vp-logaxis checked /> log axis
-          </label>
         </div>
         <svg class="vp-svg" data-vp-single role="img"
              aria-label="The selected output track across the window"></svg>

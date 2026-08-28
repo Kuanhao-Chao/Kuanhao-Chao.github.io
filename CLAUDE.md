@@ -699,7 +699,8 @@ Keras checkpoint, ported and exported, producing the same numbers the paper's mo
 | `src/lib/shorkieModel.test.ts` | spec conformance + parity against the real model's stem |
 | `src/scripts/variantPlayground.ts` | DOM, ONNX session, panels |
 | `src/pages/variant-playground.astro` | `bare` page |
-| `public/models/shorkie-fp16.onnx` | 28.7 MB, lazy-loaded on explicit click |
+| `public/models/shorkie-fp16.onnx` | 28.6 MB, lazy-loaded on explicit click |
+| `scripts/audit-playground-ui.mjs` | the rendering gate; `:ci` in CI, `:full` locally |
 | `public/ort/` | the ONNX Runtime WASM binary, self-hosted so `connect-src` stays `'self'` |
 
 - **Two inference paths, and the page says which is which.** The conv stem (11 × 4 × 96 = 4,224
@@ -709,6 +710,44 @@ Keras checkpoint, ported and exported, producing the same numbers the paper's mo
   there is no SharedArrayBuffer, so no multi-threaded WASM. WebGPU where available, single-threaded
   WASM otherwise, and the readout names the backend that actually initialised rather than guessing
   from `navigator.gpu`.
+- **The page is `bare`, so it needs its own scroll container.** `.main--bare` pins html/body to
+  `position:fixed; inset:0; overflow:hidden` and caps `main` at one viewport, which is right for
+  `/terminal/` (an inner pane owns the scrollback) and silently fatal here: the playground never built
+  that pane, so everything below the fold was clipped and unreachable. `.vp-scroll` is now the pane —
+  `flex:1 1 auto; min-height:0; overflow-y:auto` — with the title bar outside it.
+- **A transformer layer's activation map is not its attention matrix**, and drawing the second in place
+  of the first is what made 8 of the 20 stages look dead. `shorkie_torch.py` never wrote the residual
+  stream into `acts`; it now emits `attn_out1..8` (`[1,384,128]`), the export concatenates every mapped
+  stage into one `stage_maps [1,5760,128]`, and `stageMapOffsets()` is the single offset table. Attention
+  survives as a second tab inside the layer detail, where it belongs.
+- **Normalise an activation map by percentile, not by min–max.** These tensors are heavy-tailed and a
+  handful of outliers set the range, so the *contrast* collapses with depth even though almost every
+  cell stays above the ink floor: measured IQR of drawn ink runs 0.299 at block1 → **0.030** at block7,
+  because block7 spans −19.4…37.4 while its p1–p99 is −3.4…3.8. `percentileRange` (a 1,024-bin
+  histogram, two linear passes, no sort) recovers 3–5× the contrast on 10 of the 12 mapped stages.
+- **A knockout must be measured over the gene the window is named for, not the window's peak.** A
+  14,336 bp yeast window holds a dozen genes and the tallest is rarely the one whose promoter you
+  edited — on the KRE33 window the global peak is 114.3 at bin 249 (YNL135C) while KRE33's own body
+  peaks at 7.8. Measuring globally reported a 0.4 % effect for a real motif knockout, which is a
+  measurement of an unrelated gene. `geneBodyBins()` is the fix.
+- **Single-motif knockout effects span two orders of magnitude, and that is the finding.** Measured
+  across the six Figure 4 windows: splicing motifs dominate (DTD1's 5′ splice site **−34 %**, its
+  branch point −21 %, MMS2's branch point −19 %), TF sites run 7–11 % (KRE33 Reb1 −10.5 %, FUN12 RRPE
+  −7.4 %, RPL26A Sfp1 −9.1 %), and some sites move nothing (KRE33's *other* RRPE site, −0.1 %). A
+  near-zero result is an answer about that site, not a broken button — the page says so.
+- **The six Figure 4 loci are windowed on the figure's own coordinates**, not the transcript midpoint
+  the other eight use, so what the paper drew lands mid-window (bins 423–473). **DTD1 is `YDL219W`**,
+  not YDL100C — the figure's coordinates are what settle it, and YDL219W carries the 71 bp intron
+  panel E marks. Motif spans are **found by scanning the shipped sequence** for panel H's consensuses
+  on both strands, never placed by eye, so a test can assert the consensus really is at that offset.
+  The scan is a subset of what the figure labels and finds sites it does not — the page says that too.
+- **`npm run audit:playground`** (`scripts/audit-playground-ui.mjs`) is the rendering gate: both engines
+  × 1440/768/390/320 × light/dark, asserting one `<h1>`, no overflow, no console errors, **that the
+  content area actually scrolls**, that every stage selects with a non-empty detail, that the three
+  removed panels stay removed, that a theme change repaints the canvases, plus reduced motion and a
+  client-side navigation round trip. Panel count is derived from the `.astro` source. `:ci` is the
+  chromium smoke form and **never clicks Run** (28.6 MB model, ~15 s WASM inference); `:full` adds one
+  real inference and a motif knockout.
 - **The raster is a `<canvas>`, not SVG.** 96 filters × 390 positions is ~37k nodes; as SVG a
   keystroke cost **47 ms**, as canvas **6 ms**. Any dense per-cell visualisation on this page has
   to go to canvas.

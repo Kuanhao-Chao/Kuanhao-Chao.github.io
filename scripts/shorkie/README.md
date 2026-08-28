@@ -21,9 +21,8 @@ curl -LO https://hgdownload.soe.ucsc.edu/goldenPath/sacCer3/database/sgdGene.txt
 cd ../../..
 
 python3 scripts/shorkie/sanity_check.py      scripts/shorkie/_scratch/{model_best.h5,sacCer3.fa,sgdGene.txt}
-python3 scripts/shorkie/build_onnx.py        scripts/shorkie/_scratch/model_best.h5 /tmp/shorkie.onnx
+python3 scripts/shorkie/build_onnx.py        scripts/shorkie/_scratch/model_best.h5 /tmp/shorkie.onnx --fp16
 python3 scripts/shorkie/make_parity_fixture.py scripts/shorkie/_scratch/{model_best.h5,sacCer3.fa,sgdGene.txt}
-# then fp16-convert /tmp/shorkie.onnx (see build_onnx.py docstring) and:
 python3 scripts/shorkie/make_web_assets.py   scripts/shorkie/_scratch/model_best.h5 /tmp/shorkie_fp16.onnx \
                                              scripts/shorkie/_scratch/{sacCer3.fa,sgdGene.txt}
 ```
@@ -47,6 +46,33 @@ absent from the JSON. **Bin the same way or the correlation is partly an artefac
 
 Needs `h5py numpy torch onnx onnxruntime onnxconverter-common`.
 
+`--fp16` writes `<out>_fp16.onnx` **alongside** the fp32 rather than over it, so a failed conversion
+does not cost a re-export, and it verifies the converted graph before returning.
+
+### The fp16 conversion needs four things, and three of them fail silently-ish
+
+The conversion was an undocumented ad-hoc step until now, which meant the shipped model could not be
+reproduced from this repository. It is `convert_float_to_float16(keep_io_types=True)` plus:
+
+1. **`del graph.value_info[:]` BEFORE converting.** The exporter records a type for every intermediate
+   tensor; the converter rewrites the ones it walks and leaves the rest, and onnxruntime then refuses
+   the model — `Type (tensor(float16)) of output arg (/Slice_3_output_0) ... does not match expected
+   type (tensor(float))`.
+2. **`disable_shape_infer=True`.** Otherwise the converter re-runs shape inference and repopulates
+   exactly the stale `value_info` step 1 removed.
+3. **`Resize` in the `op_block_list`.** Its `scales` input is `tensor(float)` in the ONNX spec whatever
+   the data type is. There are three Resize nodes — the decoder's nearest-neighbour upsamples.
+4. **`_restore_resize_inputs()` after converting.** `op_block_list` keeps the Resize *operator* in fp32
+   but does not reach the standalone `Constant` nodes feeding it, which the converter rewrites on their
+   own account. Three tensors; the function prints the count and warns on zero, because a silent zero
+   would mean the walk stopped matching.
+
+Each of the four alone still produces a model onnxruntime will not load.
+
+**Parity must be measured on real sequence.** The export feeds the first preset locus, not random ACGT.
+On random sequence the model predicts a peak of ~2.9 against ~995 on a real locus, so fp16's absolute
+resolution near zero dominates and the *same graph* scores 6.9e-3 instead of 5.0e-4.
+
 ## The verification chain
 
 Each link was run and passed; do not ship a change to `shorkie_torch.py` without re-running all of
@@ -58,11 +84,12 @@ them.
 | params + buffers vs file total | a mis-shaped layer | 14,253,567 + 20 `num_batches_tracked` — exact |
 | output invariants | broken Softplus / NaN | shape `(1, 896, 5215)`, all ≥ 0 |
 | **ORF vs intergenic on real yeast** | **any wiring error** — a transposed kernel or a skip on the wrong tensor destroys positional correspondence | **17.9×** on six classic high-expressers |
+| PyTorch outputs with/without `want_intermediates` | the activation taps perturbing the model | bit-identical |
 | **ORF vs intergenic, per track group** | the output channels being labelled in the wrong order | ChIP-exo 1.20×, ChIP-MNase 1.86×, **RNA-seq 17.94×**, 1,000-strain 4.07× |
 | **species index by peak magnitude** | picking the wrong species one-hot | index 109 is **rank 1 of 165 on 6/6 genes** |
 | **the same ranking on non-genomic sequence** | "loudest index" masquerading as an identification | 109 falls to rank **96**, **120** and **165/165** |
 | PyTorch ↔ python onnxruntime | a bad export | relative ≤ 3e-6 |
-| fp32 ↔ fp16 | quantisation damage | relative ≤ 2.3e-3 |
+| fp32 ↔ fp16, on real sequence | quantisation damage | relative ≤ **5.0e-4** (6.9e-3 on random ACGT — see above) |
 | **python ↔ browser**, same fp16 graph | **the thing actually shipped** | same argmax bin in all four track groups; peak relative difference ≤ **1.5e-3** (RNA-seq 995.0000 vs 994.0000 at bin 435) |
 | TS conv stem ↔ PyTorch stem | drift in the second implementation | fixture in `src/lib/__fixtures__/`, asserted by vitest |
 
@@ -108,6 +135,26 @@ simply the loudest channel; it is the one that responds to real *S. cerevisiae* 
 and goes quiet on everything else. Nothing published names it. If a future checkpoint reorders the
 species, re-derive it — `sanity_check.py` runs the ranking and the control and fails if either
 half stops holding.
+
+## What the exported graph returns
+
+Seven outputs, all fp32 (`keep_io_types`), from one forward pass — so no panel on the page is fed by a
+second, decorative model:
+
+| output | shape | what it is for |
+| --- | --- | --- |
+| `tracks` | `[1, 896, 4]` | the four assay-block means, for the coverage overview |
+| `all_tracks` | `[1, 896, 5215]` | **every track, unreduced** — the per-track heatmap and single-track plot. Costs **+1 ms** (82 ms vs 81 ms); output payload 2.3 MB → 22.6 MB, which is an allocation, not compute |
+| `stage_maps` | `[1, 5760, 128]` | every mapped stage in flow order: blocks 1–7 (1,536 ch), **transformer layers 1–8 (3,072 ch)**, decoder 1–3 (1,152 ch) |
+| `stem_profile` | `[1, 96, 1024]` | the conv stem at higher positional resolution |
+| `stem_peak`, `block_peaks` | `[1, 96]`, `[1, 1536]` | per-filter maxima |
+| `attention` | `[1, 8, 128, 128]` | the attention matrices, mean over the 4 heads |
+
+**The transformer layers were missing from this list until now.** `shorkie_torch.py` never wrote the
+residual stream into `acts`, so the flow canvas fell back to drawing each layer's *attention matrix* —
+an object of a different kind from every other stage's activation map, and diagonal-dominant, so only
+**3.08 %** of its cells exceed 10 % of max. Eight of the twenty stages rendered near-blank. They now
+carry their own `[384, 128]` feature map and paint ~40 % of their pixels.
 
 ## Seven paper/checkpoint discrepancies
 
