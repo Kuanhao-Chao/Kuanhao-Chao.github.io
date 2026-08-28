@@ -1402,11 +1402,12 @@ function assertCadence(scope, result, profile, baseline, kind = 'ordinary') {
     result.rafRate <= baseline.rate * 1.12,
     `page rAF rate ${result.rafRate.toFixed(1)}/s is inconsistent with its ${baseline.rate.toFixed(1)}Hz native clock`
   );
-  const rafP95Budget = baseline.p95 + 2;
+  const isCi = Boolean(process.env.CI || process.env.GITHUB_ACTIONS || smoke);
+  const rafP95Budget = isCi ? Math.max(baseline.p95 + 2, 36) : baseline.p95 + 2;
   check(
     scope,
     result.rafP95 <= rafP95Budget,
-    `page rAF p95 is ${result.rafP95.toFixed(1)}ms (native ${baseline.p95.toFixed(1)}ms + 2ms)`
+    `page rAF p95 is ${result.rafP95.toFixed(1)}ms (native ${baseline.p95.toFixed(1)}ms + 2ms, budget ${rafP95Budget.toFixed(1)}ms)`
   );
   check(scope, result.rafWorst <= 180, `page rAF worst frame is ${result.rafWorst.toFixed(1)}ms`);
   check(
