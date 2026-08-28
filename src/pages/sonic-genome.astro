@@ -1,0 +1,693 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Icon from '../components/Icon.astro';
+import Katex from '../components/Katex.astro';
+import SonicVisualizerCanvas from '../components/SonicVisualizerCanvas.astro';
+import SonicControls from '../components/SonicControls.astro';
+import SonicTrackScroller from '../components/SonicTrackScroller.astro';
+
+const title = "Sonic Genome — Real-Time DNA Audio Synthesizer & Web Audio Playground";
+const description = "Transform biological DNA sequences into ambient acoustic soundscapes in real time. Powered by native Web Audio API, harmonic musical scale mapping, GC-content filter modulation, and transcription factor percussion triggers.";
+---
+
+<BaseLayout title={title} description={description} type="article">
+  <div class="sonic-page-container container">
+    <!-- Back to Lab Navigation -->
+    <nav class="sonic-nav-back">
+      <a href="/lab/" class="sonic-back-link">
+        <Icon name="arrow-left" size={14} /> Back to Lab & Playgrounds
+      </a>
+    </nav>
+
+    <!-- Page Header -->
+    <header class="sonic-hero-header">
+      <div class="sonic-badge-pill">
+        <span class="sonic-badge-dot"></span>
+        <span>Interactive Web Audio Synth</span>
+      </div>
+      <h1 class="sonic-page-title">SONIC GENOME 🧬</h1>
+      <p class="sonic-page-subtitle">
+        Transforming raw nucleotides (<Katex tex="A, C, G, T" />) and biological motifs into real-time harmonic music, dynamic ambient filters, and synthesized percussion.
+      </p>
+    </header>
+
+    <!-- Studio Grid Layout -->
+    <div class="sonic-studio-layout">
+      <!-- Left / Top: Interactive 3D Visualizer -->
+      <section aria-label="Acoustic Visualizer">
+        <SonicVisualizerCanvas />
+      </section>
+
+      <!-- Synthesizer Controls Panel -->
+      <section aria-label="Synthesizer Controls">
+        <SonicControls />
+      </section>
+
+      <!-- Sequence Stream & Input Studio -->
+      <section aria-label="Genomic Sequence Track">
+        <SonicTrackScroller />
+      </section>
+    </div>
+
+    <!-- Educational & Biophysical Mapping Monograph -->
+    <section class="sonic-explainer-card">
+      <h2 class="sonic-explainer-title">
+        <Icon name="sparkles" size={16} /> How the Sonic Genome Engine Works
+      </h2>
+      <div class="sonic-explainer-grid">
+        <div class="explainer-item">
+          <h3>1. Harmonic Scale Mapping</h3>
+          <p>
+            Each nucleotide base maps to harmonic scale degrees: <strong>Adenine (A)</strong> to the root, <strong>Thymine (T)</strong> to the 3rd, <strong>Cytosine (C)</strong> to the 5th, and <strong>Guanine (G)</strong> to the 7th or upper octave. Codons (<Katex tex="3\text{ bp}" />) trigger full harmonic chord voicings.
+          </p>
+        </div>
+
+        <div class="explainer-item">
+          <h3>2. Dynamic GC% Filter Sweeps</h3>
+          <p>
+            The local GC-content percentage (<Katex tex="GC\%" />) across a 15 bp sliding window continuously modulates a 24 dB/octave low-pass filter: high GC regions open the acoustic cutoff up to <Katex tex="6,000\text{ Hz}" />, while AT-rich domains create dark, muffled subterranean resonance.
+          </p>
+        </div>
+
+        <div class="explainer-item">
+          <h3>3. Regulatory Motif Percussion</h3>
+          <p>
+            Canonical biological motifs trigger synthetic analog drums: <strong>TATA box promoters</strong> trigger sub-bass 808 kicks, <strong>E-boxes (MYC)</strong> trigger snares, <strong>CTCF insulators</strong> trigger crisp woodblocks, and <strong>Poly-A tails</strong> trigger shimmering delay arpeggios.
+          </p>
+        </div>
+
+        <div class="explainer-item">
+          <h3>4. Amino Acid Timbre & Polarity</h3>
+          <p>
+            Every 3-base codon is translated into its corresponding amino acid. Hydrophobic residues produce warm analog sine/triangle timbres, basic residues add sharp FM harmonics, and acidic residues modulate delay depth.
+          </p>
+        </div>
+      </div>
+    </section>
+  </div>
+</BaseLayout>
+
+<script>
+  import { SONIC_PRESETS } from '../data/sonicPresets';
+  import {
+    cleanDnaSequence,
+    textToCodonSequence,
+    computeRollingGcContent,
+    scanMotifs,
+    sequenceToNoteEvents,
+    type MusicalScale,
+    type SynthPreset,
+    type GenomicNoteEvent
+  } from '../lib/sonicGenome';
+  import { SonicAudioEngine } from '../lib/sonicAudioEngine';
+  import { SonicVisualizer, type VisualizerMode } from '../lib/sonicVisualizer';
+
+  let audioEngine: SonicAudioEngine | null = null;
+  let visualizer: SonicVisualizer | null = null;
+
+  // Studio State
+  let currentPresetId = 'tp53-hotspot';
+  let currentScale: MusicalScale = 'aeolian';
+  let currentTimbre: SynthPreset = 'ethereal-glass';
+  let currentBpm = 105;
+  let isPlaying = false;
+  let isLooping = true;
+  let currentIndex = 0;
+  let stepTimer: number | null = null;
+  let noteEvents: GenomicNoteEvent[] = [];
+
+  // DOM Elements
+  const btnPlayPause = document.getElementById('btn-play-pause');
+  const btnStop = document.getElementById('btn-stop');
+  const btnLoop = document.getElementById('btn-loop');
+  const iconPlay = document.getElementById('icon-play');
+  const iconPause = document.getElementById('icon-pause');
+  const textPlayPause = document.getElementById('text-play-pause');
+
+  const sliderBpm = document.getElementById('slider-bpm') as HTMLInputElement | null;
+  const valBpm = document.getElementById('val-bpm');
+  const sliderVolume = document.getElementById('slider-volume') as HTMLInputElement | null;
+  const valVolume = document.getElementById('val-volume');
+  const sliderReverb = document.getElementById('slider-reverb') as HTMLInputElement | null;
+  const valReverb = document.getElementById('val-reverb');
+
+  const selectPreset = document.getElementById('select-preset') as HTMLSelectElement | null;
+  const selectScale = document.getElementById('select-scale') as HTMLSelectElement | null;
+  const selectTimbre = document.getElementById('select-timbre') as HTMLSelectElement | null;
+
+  const canvas = document.getElementById('sonic-canvas') as HTMLCanvasElement | null;
+  const streamRibbon = document.getElementById('sonic-stream-ribbon');
+
+  const telemetryBase = document.getElementById('telemetry-base');
+  const telemetryCodon = document.getElementById('telemetry-codon');
+  const telemetryAa = document.getElementById('telemetry-aa');
+  const telemetryGc = document.getElementById('telemetry-gc');
+  const telemetryFreq = document.getElementById('telemetry-freq');
+  const telemetryMotif = document.getElementById('telemetry-motif');
+
+  const statLength = document.getElementById('stat-length');
+  const statGc = document.getElementById('stat-gc');
+  const statMotifs = document.getElementById('stat-motifs');
+
+  const tabButtons = document.querySelectorAll('.sonic-tab-btn');
+  const modeButtons = document.querySelectorAll('.sonic-mode-btn');
+
+  const textareaCustom = document.getElementById('textarea-custom-seq') as HTMLTextAreaElement | null;
+  const btnLoadCustom = document.getElementById('btn-load-custom');
+  const btnMutate = document.getElementById('btn-mutate-seq');
+  const inputTextToDna = document.getElementById('input-text-to-dna') as HTMLInputElement | null;
+  const btnEncodeText = document.getElementById('btn-encode-text');
+  const encodedPreview = document.getElementById('encoded-dna-preview');
+
+  function initStudio() {
+    audioEngine = new SonicAudioEngine();
+
+    if (canvas) {
+      visualizer = new SonicVisualizer(canvas, () => {
+        return audioEngine ? audioEngine.getAnalyserData() : { timeData: new Uint8Array(0), freqData: new Uint8Array(0) };
+      });
+      visualizer.start();
+    }
+
+    loadPreset(currentPresetId);
+    setupEventListeners();
+  }
+
+  function loadPreset(presetId: string) {
+    const preset = SONIC_PRESETS.find((p) => p.id === presetId) || SONIC_PRESETS[0];
+    currentPresetId = preset.id;
+    currentScale = preset.recommendedScale;
+    currentTimbre = preset.recommendedPreset;
+    currentBpm = preset.recommendedBpm;
+
+    if (selectPreset) selectPreset.value = preset.id;
+    if (selectScale) selectScale.value = currentScale;
+    if (selectTimbre) selectTimbre.value = currentTimbre;
+    if (sliderBpm) sliderBpm.value = currentBpm.toString();
+    if (valBpm) valBpm.textContent = currentBpm.toString();
+
+    loadSequence(preset.sequence);
+  }
+
+  function loadSequence(rawSeq: string) {
+    const cleaned = cleanDnaSequence(rawSeq);
+    noteEvents = sequenceToNoteEvents(cleaned, currentScale, 4);
+    currentIndex = 0;
+
+    // Update stats
+    if (statLength) statLength.textContent = cleaned.length.toLocaleString();
+    const gcVals = computeRollingGcContent(cleaned, cleaned.length);
+    const overallGc = gcVals.length > 0 ? (gcVals[0] * 100).toFixed(1) : '0.0';
+    if (statGc) statGc.textContent = overallGc;
+    const motifs = scanMotifs(cleaned);
+    if (statMotifs) statMotifs.textContent = motifs.length.toString();
+
+    renderStreamRibbon();
+
+    if (visualizer) {
+      visualizer.updateState({
+        events: noteEvents,
+        currentIndex: 0,
+        currentEvent: noteEvents[0] || null
+      });
+    }
+
+    updateTelemetry(noteEvents[0] || null);
+  }
+
+  function renderStreamRibbon() {
+    if (!streamRibbon) return;
+    streamRibbon.innerHTML = '';
+
+    const fragment = document.createDocumentFragment();
+    noteEvents.forEach((ev, idx) => {
+      const node = document.createElement('button');
+      node.type = 'button';
+      node.className = `sonic-node sonic-node--${ev.base.toLowerCase()}${ev.isMotif ? ' is-motif' : ''}`;
+      node.dataset.index = idx.toString();
+      node.title = `Pos ${idx + 1}: ${ev.base}${ev.codon ? ` (${ev.codon} → ${ev.aminoAcid})` : ''}${ev.motif ? ` [${ev.motif.name}]` : ''}`;
+
+      const letter = document.createElement('span');
+      letter.className = 'node-letter';
+      letter.textContent = ev.base;
+      node.appendChild(letter);
+
+      if (ev.isTriadRoot && ev.aminoAcid) {
+        const aaTag = document.createElement('span');
+        aaTag.className = 'node-aa';
+        aaTag.textContent = ev.aminoAcid;
+        node.appendChild(aaTag);
+      }
+
+      node.addEventListener('click', () => {
+        jumpToPosition(idx);
+      });
+
+      fragment.appendChild(node);
+    });
+
+    streamRibbon.appendChild(fragment);
+  }
+
+  function jumpToPosition(idx: number) {
+    if (idx < 0 || idx >= noteEvents.length) return;
+    currentIndex = idx;
+    const ev = noteEvents[currentIndex];
+    updateTelemetry(ev);
+
+    if (visualizer) {
+      visualizer.updateState({
+        currentIndex,
+        currentEvent: ev
+      });
+    }
+
+    highlightRibbonNode(currentIndex);
+
+    if (audioEngine) {
+      audioEngine.playNote(ev, currentTimbre);
+    }
+  }
+
+  function highlightRibbonNode(idx: number) {
+    if (!streamRibbon) return;
+    const prev = streamRibbon.querySelector('.is-playing');
+    if (prev) prev.classList.remove('is-playing');
+
+    const cur = streamRibbon.querySelector(`[data-index="${idx}"]`) as HTMLElement | null;
+    if (cur) {
+      cur.classList.add('is-playing');
+      cur.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+  }
+
+  function updateTelemetry(ev: GenomicNoteEvent | null) {
+    if (!ev) return;
+    if (telemetryBase) telemetryBase.textContent = ev.base;
+    if (telemetryCodon) telemetryCodon.textContent = ev.codon || '--';
+    if (telemetryAa) telemetryAa.textContent = ev.aminoAcid ? `${ev.aminoName} (${ev.aminoAcid})` : '--';
+    if (telemetryGc) telemetryGc.textContent = `${(ev.gcRatio * 100).toFixed(0)}%`;
+    if (telemetryFreq) telemetryFreq.textContent = `${Math.round(ev.frequency)} Hz`;
+    if (telemetryMotif) {
+      if (ev.motif) {
+        telemetryMotif.textContent = ev.motif.name;
+        telemetryMotif.classList.add('is-active');
+      } else {
+        telemetryMotif.textContent = 'NONE';
+        telemetryMotif.classList.remove('is-active');
+      }
+    }
+  }
+
+  async function togglePlayPause() {
+    if (!audioEngine) return;
+    await audioEngine.init();
+
+    if (isPlaying) {
+      pausePlayback();
+    } else {
+      startPlayback();
+    }
+  }
+
+  function startPlayback() {
+    if (noteEvents.length === 0) return;
+    isPlaying = true;
+    updatePlayButtonUI(true);
+
+    if (visualizer) {
+      visualizer.updateState({ isPlaying: true });
+    }
+
+    scheduleNextStep();
+  }
+
+  function pausePlayback() {
+    isPlaying = false;
+    if (stepTimer !== null) {
+      clearTimeout(stepTimer);
+      stepTimer = null;
+    }
+    updatePlayButtonUI(false);
+
+    if (visualizer) {
+      visualizer.updateState({ isPlaying: false });
+    }
+  }
+
+  function stopPlayback() {
+    pausePlayback();
+    currentIndex = 0;
+    highlightRibbonNode(0);
+    updateTelemetry(noteEvents[0] || null);
+    if (visualizer) {
+      visualizer.updateState({ currentIndex: 0, currentEvent: noteEvents[0] || null });
+    }
+  }
+
+  function scheduleNextStep() {
+    if (!isPlaying || noteEvents.length === 0) return;
+
+    const ev = noteEvents[currentIndex];
+    if (audioEngine && ev) {
+      audioEngine.playNote(ev, currentTimbre);
+    }
+
+    updateTelemetry(ev);
+    highlightRibbonNode(currentIndex);
+
+    if (visualizer) {
+      visualizer.updateState({
+        currentIndex,
+        currentEvent: ev
+      });
+    }
+
+    // Step duration based on BPM (quarter note = 60/BPM, sixteenth note = 15/BPM)
+    const stepDurationMs = (60 / currentBpm / 2) * 1000;
+
+    currentIndex++;
+    if (currentIndex >= noteEvents.length) {
+      if (isLooping) {
+        currentIndex = 0;
+      } else {
+        pausePlayback();
+        return;
+      }
+    }
+
+    stepTimer = window.setTimeout(scheduleNextStep, stepDurationMs);
+  }
+
+  function updatePlayButtonUI(playing: boolean) {
+    if (iconPlay) iconPlay.hidden = playing;
+    if (iconPause) iconPause.hidden = !playing;
+    if (textPlayPause) textPlayPause.textContent = playing ? 'Pause Studio' : 'Play Genome';
+  }
+
+  function setupEventListeners() {
+    btnPlayPause?.addEventListener('click', togglePlayPause);
+    btnStop?.addEventListener('click', stopPlayback);
+
+    btnLoop?.addEventListener('click', () => {
+      isLooping = !isLooping;
+      btnLoop.classList.toggle('is-active', isLooping);
+    });
+
+    sliderBpm?.addEventListener('input', (e) => {
+      currentBpm = parseInt((e.target as HTMLInputElement).value, 10);
+      if (valBpm) valBpm.textContent = currentBpm.toString();
+    });
+
+    sliderVolume?.addEventListener('input', (e) => {
+      const vol = parseInt((e.target as HTMLInputElement).value, 10);
+      if (valVolume) valVolume.textContent = vol.toString();
+      if (audioEngine) audioEngine.setMasterVolume(vol / 100);
+    });
+
+    sliderReverb?.addEventListener('input', (e) => {
+      const rev = parseInt((e.target as HTMLInputElement).value, 10);
+      if (valReverb) valReverb.textContent = rev.toString();
+      if (audioEngine) audioEngine.setReverbLevel(rev / 100);
+    });
+
+    selectPreset?.addEventListener('change', (e) => {
+      const val = (e.target as HTMLSelectElement).value;
+      if (val !== 'custom') {
+        const wasPlaying = isPlaying;
+        if (wasPlaying) pausePlayback();
+        loadPreset(val);
+        if (wasPlaying) startPlayback();
+      }
+    });
+
+    selectScale?.addEventListener('change', (e) => {
+      currentScale = (e.target as HTMLSelectElement).value as MusicalScale;
+      const rawSeq = noteEvents.map((n) => n.base).join('');
+      loadSequence(rawSeq);
+    });
+
+    selectTimbre?.addEventListener('change', (e) => {
+      currentTimbre = (e.target as HTMLSelectElement).value as SynthPreset;
+    });
+
+    // Visualizer Mode Switcher
+    modeButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        modeButtons.forEach((b) => {
+          b.classList.remove('is-active');
+          b.setAttribute('aria-selected', 'false');
+        });
+        btn.classList.add('is-active');
+        btn.setAttribute('aria-selected', 'true');
+        const mode = btn.getAttribute('data-mode') as VisualizerMode;
+        if (visualizer && mode) {
+          visualizer.setMode(mode);
+        }
+      });
+    });
+
+    // Tabs Switcher
+    tabButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        tabButtons.forEach((b) => {
+          b.classList.remove('is-active');
+          b.setAttribute('aria-selected', 'false');
+        });
+        btn.classList.add('is-active');
+        btn.setAttribute('aria-selected', 'true');
+
+        const tab = btn.getAttribute('data-tab');
+        const contents = document.querySelectorAll('.sonic-tab-content');
+        contents.forEach((c) => (c.setAttribute('hidden', 'true')));
+
+        const activeContent = document.getElementById(`tab-${tab}-content`);
+        if (activeContent) activeContent.removeAttribute('hidden');
+      });
+    });
+
+    // Custom DNA input
+    btnLoadCustom?.addEventListener('click', () => {
+      if (!textareaCustom) return;
+      const raw = textareaCustom.value.trim();
+      if (raw) {
+        if (selectPreset) selectPreset.value = 'custom';
+        const wasPlaying = isPlaying;
+        if (wasPlaying) pausePlayback();
+        loadSequence(raw);
+        if (wasPlaying) startPlayback();
+      }
+    });
+
+    // Mutate Sequence
+    btnMutate?.addEventListener('click', () => {
+      if (noteEvents.length === 0) return;
+      const seqArray = noteEvents.map((n) => n.base);
+      const randIdx = Math.floor(Math.random() * seqArray.length);
+      const bases = ['A', 'C', 'G', 'T'];
+      const curBase = seqArray[randIdx];
+      const otherBases = bases.filter((b) => b !== curBase);
+      seqArray[randIdx] = otherBases[Math.floor(Math.random() * otherBases.length)] as 'A' | 'C' | 'G' | 'T';
+
+      loadSequence(seqArray.join(''));
+      jumpToPosition(randIdx);
+    });
+
+    // Text to DNA encoder
+    btnEncodeText?.addEventListener('click', () => {
+      if (!inputTextToDna) return;
+      const text = inputTextToDna.value.trim();
+      if (text) {
+        const dna = textToCodonSequence(text);
+        if (encodedPreview) encodedPreview.textContent = dna.slice(0, 60) + (dna.length > 60 ? '...' : '');
+        if (selectPreset) selectPreset.value = 'custom';
+        const wasPlaying = isPlaying;
+        if (wasPlaying) pausePlayback();
+        loadSequence(dna);
+        if (wasPlaying) startPlayback();
+      }
+    });
+
+    // Keyboard Shortcuts (Space = Play/Pause, R = Reset)
+    window.addEventListener('keydown', (e) => {
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        togglePlayPause();
+      } else if (e.code === 'KeyR') {
+        e.preventDefault();
+        stopPlayback();
+      }
+    });
+  }
+
+  // Auto-init on page mount
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initStudio);
+  } else {
+    initStudio();
+  }
+</script>
+
+<style>
+  .sonic-page-container {
+    padding-top: var(--space-4, 1.5rem);
+    padding-bottom: var(--space-8, 3rem);
+  }
+
+  .sonic-nav-back {
+    margin-bottom: var(--space-3, 1rem);
+  }
+
+  .sonic-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: var(--fs-small, 0.85rem);
+    font-weight: 600;
+    color: var(--color-accent, #38bdf8);
+    transition: transform 0.15s ease;
+  }
+
+  .sonic-back-link:hover {
+    transform: translateX(-3px);
+  }
+
+  .sonic-hero-header {
+    text-align: center;
+    margin-bottom: var(--space-6, 2rem);
+  }
+
+  .sonic-badge-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.75rem;
+    background: rgba(56, 189, 248, 0.1);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--color-accent, #38bdf8);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  .sonic-badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-accent, #38bdf8);
+  }
+
+  .sonic-page-title {
+    font-size: var(--fs-h1, 2.25rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--color-text, #ffffff);
+    margin-bottom: 0.5rem;
+  }
+
+  .sonic-page-subtitle {
+    max-width: 680px;
+    margin: 0 auto;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--color-text-muted, #94a3b8);
+  }
+
+  .sonic-studio-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  /* Node styling in stream ribbon */
+  :global(.sonic-node) {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 60px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    transition: all 0.12s ease;
+    padding: 2px;
+  }
+
+  :global(.sonic-node:hover) {
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  :global(.sonic-node.is-playing) {
+    transform: scale(1.12);
+    border-color: #ffffff;
+    box-shadow: 0 0 12px currentColor;
+    z-index: 10;
+  }
+
+  :global(.sonic-node--a) { color: #38bdf8; border-bottom: 3px solid #38bdf8; }
+  :global(.sonic-node--t) { color: #f43f5e; border-bottom: 3px solid #f43f5e; }
+  :global(.sonic-node--c) { color: #fbbf24; border-bottom: 3px solid #fbbf24; }
+  :global(.sonic-node--g) { color: #10b981; border-bottom: 3px solid #10b981; }
+  :global(.sonic-node.is-motif) {
+    background: rgba(168, 85, 247, 0.18);
+    border-top: 2px solid #a855f7;
+  }
+
+  :global(.node-letter) {
+    font-size: 0.85rem;
+    font-weight: 800;
+    font-family: ui-monospace, monospace;
+  }
+
+  :global(.node-aa) {
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: var(--color-text-muted, #94a3b8);
+  }
+
+  .sonic-explainer-card {
+    background: var(--color-surface, #121824);
+    border: 1px solid var(--color-border, #1e293b);
+    border-radius: var(--radius-large, 12px);
+    padding: 1.75rem;
+    margin-top: 2rem;
+  }
+
+  .sonic-explainer-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--color-text, #ffffff);
+    margin-bottom: 1.25rem;
+    border-bottom: 1px solid var(--color-border, #1e293b);
+    padding-bottom: 0.75rem;
+  }
+
+  .sonic-explainer-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .explainer-item h3 {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--color-accent, #38bdf8);
+    margin-bottom: 0.4rem;
+  }
+
+  .explainer-item p {
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: var(--color-text-muted, #94a3b8);
+  }
+</style>

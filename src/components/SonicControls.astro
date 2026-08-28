@@ -1,0 +1,257 @@
+---
+import Icon from './Icon.astro';
+import { SONIC_PRESETS } from '../data/sonicPresets';
+---
+
+<div class="sonic-controls-panel">
+  <!-- Transport Control Strip -->
+  <div class="sonic-transport-row">
+    <div class="sonic-main-actions">
+      <button type="button" id="btn-play-pause" class="sonic-btn sonic-btn--primary" aria-label="Play or Pause">
+        <span id="icon-play" class="sonic-btn-icon"><Icon name="play" size={16} /></span>
+        <span id="icon-pause" class="sonic-btn-icon" hidden><Icon name="pause" size={16} /></span>
+        <span id="text-play-pause">Play Genome</span>
+      </button>
+
+      <button type="button" id="btn-stop" class="sonic-btn sonic-btn--secondary" title="Reset to Start">
+        <Icon name="arrow-left" size={15} />
+        <span>Reset</span>
+      </button>
+
+      <button type="button" id="btn-loop" class="sonic-btn sonic-btn--toggle is-active" title="Toggle Looping">
+        <Icon name="sparkles" size={14} />
+        <span>Loop</span>
+      </button>
+    </div>
+
+    <!-- Tempo BPM -->
+    <div class="sonic-slider-group">
+      <label for="slider-bpm" class="sonic-control-label">
+        TEMPO: <strong id="val-bpm">120</strong> BPM
+      </label>
+      <input
+        type="range"
+        id="slider-bpm"
+        class="sonic-slider"
+        min="60"
+        max="240"
+        step="2"
+        value="120"
+        aria-label="Tempo in BPM"
+      />
+    </div>
+
+    <!-- Master Volume -->
+    <div class="sonic-slider-group">
+      <label for="slider-volume" class="sonic-control-label">
+        VOLUME: <strong id="val-volume">75</strong>%
+      </label>
+      <input
+        type="range"
+        id="slider-volume"
+        class="sonic-slider"
+        min="0"
+        max="100"
+        step="1"
+        value="75"
+        aria-label="Master Volume"
+      />
+    </div>
+  </div>
+
+  <!-- Musical Tuning & Timbre Grid -->
+  <div class="sonic-settings-grid">
+    <!-- Preset Selection -->
+    <div class="sonic-setting-card">
+      <label for="select-preset" class="sonic-setting-title">
+        <Icon name="list" size={14} /> GENOMIC SOUNDTRACK
+      </label>
+      <select id="select-preset" class="sonic-select">
+        {SONIC_PRESETS.map((p) => (
+          <option value={p.id}>{p.name} ({p.organism})</option>
+        ))}
+        <option value="custom">-- Custom DNA / User Text --</option>
+      </select>
+    </div>
+
+    <!-- Harmonic Scale -->
+    <div class="sonic-setting-card">
+      <label for="select-scale" class="sonic-setting-title">
+        <Icon name="sparkles" size={14} /> HARMONIC SCALE
+      </label>
+      <select id="select-scale" class="sonic-select">
+        <option value="lydian">Lydian Ambient (Bright / Dreamy)</option>
+        <option value="dorian">Dorian Space (Sci-Fi / Melancholic)</option>
+        <option value="pentatonic">Major Pentatonic (Euphoric / Consonant)</option>
+        <option value="hirajoshi">Hirajoshi (Japanese Zen / Mysterious)</option>
+        <option value="aeolian">Aeolian Minor (Dramatic / Cinematic)</option>
+        <option value="wholetone">Whole Tone (Cyberpunk / Floating)</option>
+      </select>
+    </div>
+
+    <!-- Synth Timbre Preset -->
+    <div class="sonic-setting-card">
+      <label for="select-timbre" class="sonic-setting-title">
+        <Icon name="pulse" size={14} /> SYNTH TIMBRE
+      </label>
+      <select id="select-timbre" class="sonic-select">
+        <option value="ethereal-glass">Ethereal Glass (Sine Harmonics)</option>
+        <option value="ambient-pad">Ambient Pad (Detuned Chorus)</option>
+        <option value="crystal-chimes">Crystal Chimes (2-Op FM Bell)</option>
+        <option value="cyber-saw">Cyberpunk Saw (Analog Lead)</option>
+        <option value="chiptune">8-Bit Chiptune (Retro Pulse)</option>
+      </select>
+    </div>
+
+    <!-- Spatial Reverb -->
+    <div class="sonic-setting-card">
+      <label for="slider-reverb" class="sonic-setting-title">
+        <Icon name="pulse" size={14} /> REVERB SPACE: <strong id="val-reverb">40</strong>%
+      </label>
+      <input
+        type="range"
+        id="slider-reverb"
+        class="sonic-slider"
+        min="0"
+        max="100"
+        step="5"
+        value="40"
+        aria-label="Reverb Space Level"
+      />
+    </div>
+  </div>
+</div>
+
+<style>
+  .sonic-controls-panel {
+    background: var(--color-surface, #121824);
+    border: 1px solid var(--color-border, #1e293b);
+    border-radius: var(--radius-large, 12px);
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    box-shadow: var(--shadow-medium, 0 8px 24px rgba(0, 0, 0, 0.3));
+    margin-bottom: var(--space-4, 1.5rem);
+  }
+
+  .sonic-transport-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--color-border, #1e293b);
+  }
+
+  .sonic-main-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .sonic-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.55rem 1.1rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+    border-radius: var(--radius-medium, 8px);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: 1px solid transparent;
+  }
+
+  .sonic-btn--primary {
+    background: var(--color-accent, #38bdf8);
+    color: #041226;
+  }
+
+  .sonic-btn--primary:hover {
+    background: #0284c7;
+    color: #ffffff;
+    box-shadow: 0 0 16px rgba(56, 189, 248, 0.4);
+  }
+
+  .sonic-btn--secondary {
+    background: var(--color-surface-elevated, #1a2234);
+    color: var(--color-text, #f8fafc);
+    border-color: var(--color-border, #1e293b);
+  }
+
+  .sonic-btn--secondary:hover {
+    background: var(--color-surface-hover, #242f47);
+  }
+
+  .sonic-btn--toggle {
+    background: var(--color-surface-elevated, #1a2234);
+    color: var(--color-text-muted, #94a3b8);
+    border-color: var(--color-border, #1e293b);
+  }
+
+  .sonic-btn--toggle.is-active {
+    color: var(--color-accent, #38bdf8);
+    background: rgba(56, 189, 248, 0.15);
+    border-color: rgba(56, 189, 248, 0.35);
+  }
+
+  .sonic-slider-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 140px;
+  }
+
+  .sonic-control-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--color-text-muted, #94a3b8);
+    letter-spacing: 0.04em;
+  }
+
+  .sonic-slider {
+    width: 100%;
+    accent-color: var(--color-accent, #38bdf8);
+    cursor: pointer;
+  }
+
+  .sonic-settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+
+  .sonic-setting-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .sonic-setting-title {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted, #94a3b8);
+  }
+
+  .sonic-select {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+    background: var(--color-surface-elevated, #1a2234);
+    color: var(--color-text, #f8fafc);
+    border: 1px solid var(--color-border, #1e293b);
+    border-radius: var(--radius-small, 6px);
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+
+  .sonic-select:focus {
+    border-color: var(--color-accent, #38bdf8);
+  }
+</style>

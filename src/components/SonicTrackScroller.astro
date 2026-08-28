@@ -1,0 +1,303 @@
+---
+import Icon from './Icon.astro';
+---
+
+<div class="sonic-sequence-studio">
+  <!-- Section Tabs: Sequence Viewer / Custom Input / Text-to-Codon -->
+  <div class="sonic-tab-strip">
+    <div class="sonic-tabs" role="tablist">
+      <button type="button" class="sonic-tab-btn is-active" data-tab="stream" role="tab" aria-selected="true">
+        <Icon name="list" size={14} /> Playback Stream
+      </button>
+      <button type="button" class="sonic-tab-btn" data-tab="input" role="tab" aria-selected="false">
+        <Icon name="sparkles" size={14} /> Custom DNA / FASTA Input
+      </button>
+      <button type="button" class="sonic-tab-btn" data-tab="text" role="tab" aria-selected="false">
+        <Icon name="quote" size={14} /> Text-to-Genome Synthesizer
+      </button>
+    </div>
+
+    <div class="sonic-seq-stats">
+      <span>LENGTH: <strong id="stat-length">0</strong> bp</span>
+      <span>•</span>
+      <span>GC: <strong id="stat-gc">0.0</strong>%</span>
+      <span>•</span>
+      <span>MOTIFS: <strong id="stat-motifs">0</strong></span>
+    </div>
+  </div>
+
+  <!-- Tab 1: Playback Track Stream -->
+  <div id="tab-stream-content" class="sonic-tab-content">
+    <div class="sonic-stream-container" id="sonic-stream-box" tabindex="0" aria-label="Interactive Genomic Stream">
+      <div id="sonic-stream-ribbon" class="sonic-stream-ribbon"></div>
+    </div>
+    <div class="sonic-stream-legend">
+      <span class="legend-item"><span class="legend-dot legend-dot--a"></span> A (Adenine)</span>
+      <span class="legend-item"><span class="legend-dot legend-dot--t"></span> T (Thymine)</span>
+      <span class="legend-item"><span class="legend-dot legend-dot--c"></span> C (Cytosine)</span>
+      <span class="legend-item"><span class="legend-dot legend-dot--g"></span> G (Guanine)</span>
+      <span class="legend-item"><span class="legend-dot legend-dot--motif"></span> Regulatory Motif (Drum Hit)</span>
+    </div>
+  </div>
+
+  <!-- Tab 2: Custom DNA / FASTA Input Box -->
+  <div id="tab-input-content" class="sonic-tab-content" hidden>
+    <div class="sonic-input-card">
+      <label for="textarea-custom-seq" class="sonic-input-label">
+        Paste any raw DNA sequence, FASTA record, or variant locus:
+      </label>
+      <textarea
+        id="textarea-custom-seq"
+        class="sonic-textarea"
+        rows="4"
+        placeholder=">custom_enhancer\nATGCGATCGATCGATCGATCGATC..."
+      ></textarea>
+      <div class="sonic-input-actions">
+        <button type="button" id="btn-load-custom" class="sonic-btn-action">
+          <Icon name="sparkles" size={14} /> Load & Synthesize
+        </button>
+        <button type="button" id="btn-mutate-seq" class="sonic-btn-action sonic-btn-action--secondary">
+          <Icon name="pulse" size={14} /> Introduce Random Mutation
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 3: Text to Genome Synthesizer -->
+  <div id="tab-text-content" class="sonic-tab-content" hidden>
+    <div class="sonic-input-card">
+      <label for="input-text-to-dna" class="sonic-input-label">
+        Type any English phrase to encode it into biological codons and hear its soundscape:
+      </label>
+      <div class="sonic-text-encoder-row">
+        <input
+          type="text"
+          id="input-text-to-dna"
+          class="sonic-text-field"
+          placeholder="e.g. Kuan-Hao Chao, Machine Learning, Johns Hopkins"
+          value="Kuan-Hao Chao"
+        />
+        <button type="button" id="btn-encode-text" class="sonic-btn-action">
+          <Icon name="sparkles" size={14} /> Encode to DNA
+        </button>
+      </div>
+      <div id="text-encoded-preview" class="sonic-encoded-preview">
+        Encoded Sequence: <code id="encoded-dna-preview">ATG...</code>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .sonic-sequence-studio {
+    background: var(--color-surface, #121824);
+    border: 1px solid var(--color-border, #1e293b);
+    border-radius: var(--radius-large, 12px);
+    overflow: hidden;
+    box-shadow: var(--shadow-medium, 0 8px 24px rgba(0, 0, 0, 0.3));
+    margin-bottom: var(--space-4, 1.5rem);
+  }
+
+  .sonic-tab-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.65rem 1rem;
+    background: var(--color-surface-elevated, #1a2234);
+    border-bottom: 1px solid var(--color-border, #1e293b);
+  }
+
+  .sonic-tabs {
+    display: flex;
+    gap: 0.35rem;
+  }
+
+  .sonic-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-text-muted, #94a3b8);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-small, 6px);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .sonic-tab-btn:hover {
+    color: var(--color-text, #ffffff);
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .sonic-tab-btn.is-active {
+    color: var(--color-accent, #38bdf8);
+    background: rgba(56, 189, 248, 0.12);
+    border-color: rgba(56, 189, 248, 0.3);
+  }
+
+  .sonic-seq-stats {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-text-muted, #94a3b8);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  .sonic-seq-stats strong {
+    color: var(--color-text, #ffffff);
+  }
+
+  .sonic-tab-content {
+    padding: 1rem;
+  }
+
+  .sonic-stream-container {
+    height: 110px;
+    background: #090e18;
+    border: 1px solid var(--color-border, #1e293b);
+    border-radius: var(--radius-medium, 8px);
+    overflow-x: auto;
+    overflow-y: hidden;
+    position: relative;
+    padding: 0.75rem;
+  }
+
+  .sonic-stream-ribbon {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 100%;
+    min-width: max-content;
+  }
+
+  .sonic-stream-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1.25rem;
+    margin-top: 0.75rem;
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #94a3b8);
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .legend-dot--a { background: #38bdf8; }
+  .legend-dot--t { background: #f43f5e; }
+  .legend-dot--c { background: #fbbf24; }
+  .legend-dot--g { background: #10b981; }
+  .legend-dot--motif { background: #a855f7; box-shadow: 0 0 6px #a855f7; }
+
+  .sonic-input-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .sonic-input-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-text-muted, #94a3b8);
+  }
+
+  .sonic-textarea {
+    width: 100%;
+    background: var(--color-surface-elevated, #1a2234);
+    color: var(--color-text, #f8fafc);
+    border: 1px solid var(--color-border, #1e293b);
+    border-radius: var(--radius-medium, 8px);
+    padding: 0.75rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    outline: none;
+    resize: vertical;
+  }
+
+  .sonic-textarea:focus {
+    border-color: var(--color-accent, #38bdf8);
+  }
+
+  .sonic-input-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .sonic-btn-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.45rem 0.9rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    background: var(--color-accent, #38bdf8);
+    color: #041226;
+    border: none;
+    border-radius: var(--radius-small, 6px);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .sonic-btn-action:hover {
+    background: #0284c7;
+    color: #ffffff;
+  }
+
+  .sonic-btn-action--secondary {
+    background: var(--color-surface-elevated, #1a2234);
+    color: var(--color-text, #f8fafc);
+    border: 1px solid var(--color-border, #1e293b);
+  }
+
+  .sonic-btn-action--secondary:hover {
+    background: var(--color-surface-hover, #242f47);
+  }
+
+  .sonic-text-encoder-row {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .sonic-text-field {
+    flex: 1;
+    background: var(--color-surface-elevated, #1a2234);
+    color: var(--color-text, #f8fafc);
+    border: 1px solid var(--color-border, #1e293b);
+    border-radius: var(--radius-small, 6px);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+    outline: none;
+  }
+
+  .sonic-text-field:focus {
+    border-color: var(--color-accent, #38bdf8);
+  }
+
+  .sonic-encoded-preview {
+    font-size: 0.8rem;
+    color: var(--color-text-muted, #94a3b8);
+  }
+
+  .sonic-encoded-preview code {
+    color: var(--color-accent, #38bdf8);
+    font-family: ui-monospace, monospace;
+    word-break: break-all;
+  }
+</style>
