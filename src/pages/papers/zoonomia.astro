@@ -5,187 +5,300 @@ import Katex from '../../components/Katex.astro';
 import '../../styles/paper.css';
 import 'katex/dist/katex.min.css';
 
+// DOI corrected: this page previously cited 10.1126/science.abn8197, which is Gao et al.,
+// "The landscape of tolerated genetic variation in humans and primates" -- a different paper.
+// Sullivan et al. is 10.1126/science.abn2937. Every number below is checked by
+// `node scripts/verify-paper-claims.mjs --slug zoonomia`.
 const title = "Leveraging Base-Pair Mammalian Constraint to Understand Genetic Variation and Human Disease";
-const description = "Comprehensive technical summary and deep literature deconstruction of the Zoonomia Consortium Flagship (Christmas et al., Broad Institute & Uppsala University, Science 2023): Mapping single-base evolutionary constraint across 241 placental mammals.";
+const description = "Technical summary of Sullivan et al. (Zoonomia Consortium, Science 2023): single-base phyloP constraint from 240 mammals identifies 3.3% of the human genome as functional, with 7.8-fold SNP-heritability enrichment across 63 GWAS.";
 const readingTime = "24 min read";
 ---
 
 <BaseLayout title={title} description={description} type="article" noindex={true}>
   <article class="paper-article">
-    <!-- Back to Catalog -->
     <nav style="margin-bottom: var(--space-4);">
       <a href="/papers/" style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: var(--fs-small); color: var(--color-accent); font-weight: 600;">
         <Icon name="arrow-left" size={14} /> Back to Paper Summaries
       </a>
     </nav>
 
-    <!-- Header -->
     <header class="paper-header">
       <div class="paper-meta-bar">
         <span class="paper-tag">Comparative Genomics & Evolutionary Constraint</span>
-        <span class="paper-venue-badge">Science · April 2023 (Research Article)</span>
+        <span class="paper-venue-badge">Science · 28 April 2023 (Zoonomia Consortium)</span>
         <span class="paper-time-badge"><Icon name="clock" size={14} /> {readingTime}</span>
       </div>
 
       <h1 class="paper-title">{title}</h1>
 
       <div class="paper-authors-box">
-        <div><strong>Authors:</strong> Matthew J. Christmas, Irene M. Kaplow, Danielle L. Shapiro, Kathleen C. Keough, Michael C. Stambaugh, Kerstin Lindblad-Toh*, Elinor K. Karlsson*, & The Zoonomia Consortium</div>
-        <div><strong>Affiliation:</strong> Broad Institute of MIT and Harvard, Cambridge, MA; Uppsala University, Sweden</div>
-        <div><strong>DOI:</strong> <a href="https://doi.org/10.1126/science.abn8197" target="_blank" rel="noopener noreferrer" style="color: var(--color-accent);">10.1126/science.abn8197</a> · Science (Vol 380, Issue 6643, eabn8197)</div>
+        <div><strong>Authors:</strong> Patrick F. Sullivan, Jennifer R. S. Meadows, Steven Gazal, BaDoi N. Phan, Xue Li … Zoonomia Consortium, Benedict Paten, Steven K. Reilly, Katherine S. Pollard, Andreas R. Pfenning, Elinor K. Karlsson, Kerstin Lindblad-Toh</div>
+        <div><strong>Affiliation:</strong> University of North Carolina at Chapel Hill; Uppsala University; Broad Institute of MIT and Harvard; UMass Chan Medical School; and the Zoonomia Consortium</div>
+        <div><strong>DOI:</strong> <a href="https://doi.org/10.1126/science.abn2937" target="_blank" rel="noopener noreferrer" style="color: var(--color-accent);">10.1126/science.abn2937</a> · Science 380(6643), eabn2937</div>
       </div>
     </header>
 
-    <!-- Lead / Overview -->
     <p class="paper-lead">
-      Over 98% of the human genome consists of non-coding DNA, where identifying functionally essential regulatory elements has remained a major barrier for clinical genetics. The <strong>Zoonomia Consortium</strong> assembled and aligned high-coverage whole genomes from <strong>241 diverse placental mammal species</strong> spanning 100 million years of evolutionary radiation. By measuring single-nucleotide evolutionary purifying constraint across the phylogeny, Zoonomia identified <strong>3.5 million ultra-conserved base pairs</strong> ($10.7\%$ of the human genome), demonstrating that evolutionary constraint in non-coding regulatory elements explains over <strong>50% of human complex disease SNP heritability</strong> and pinpoints pathogenic mutations across neurodevelopmental diseases and cancer.
+      GWAS has associated thousands of variants with human disease, but translating association into therapy
+      requires knowing which of hundreds of candidates at a locus is causal. Sullivan et al. supply a prior
+      that is <strong>agnostic to cell type, tissue and developmental stage</strong>: evolutionary constraint,
+      measured base by base across <strong>240 mammals</strong> spanning ~100 million years. Single-base
+      phyloP scores identify <strong>3.3% of the human genome as significantly constrained</strong> — including
+      <strong>57.6% of coding bases</strong>, though <strong>80.7% of constrained bases are noncoding</strong>
+      — and constrained regions carry <strong>7.8-fold enrichment of SNP-heritability</strong> across
+      <strong>63 independent GWAS</strong>, more than nonsynonymous coding variants do.
     </p>
 
-    <!-- Table of Contents -->
     <div class="paper-toc">
       <div class="paper-toc-title">
         <Icon name="list" size={14} /> Table of Contents
       </div>
       <ol class="paper-toc-list">
-        <li><a href="#summary">1. Executive Summary & The Mammalian Phylogeny Scale</a></li>
-        <li><a href="#alignment-pipeline">2. The 241-Species Whole-Genome Alignment Pipeline (Cactus)</a></li>
-        <li><a href="#constrained-bases">3. Delineating 3.5 Million Ultra-Constrained Base Pairs</a></li>
-        <li><a href="#heritability">4. S-LDSC Disease Heritability Enrichment Across 42 Traits</a></li>
-        <li><a href="#cancer-rare-disease">5. Clinical Applications: Somatic Cancer Drivers & Rare Disease Loci</a></li>
-        <li><a href="#mathematical-formulation">6. Mathematical Formulation: Phylogenetic Likelihood & Heritability</a></li>
-        <li><a href="#failure-modes">7. Limitations & Lineage-Specific Evolutionary Blindspots</a></li>
-        <li><a href="#strategic-synthesis">8. Master Synthesis & Integration with Modern Genomic AI</a></li>
+        <li><a href="#summary">1. Constraint as a Function-Agnostic Annotation</a></li>
+        <li><a href="#alignment">2. The 240-Mammal Alignment and Single-Base phyloP</a></li>
+        <li><a href="#constrained-fraction">3. How Much of the Genome Is Constrained</a></li>
+        <li><a href="#selection">4. Constraint Is Visible in Present-Day Human Variation</a></li>
+        <li><a href="#heritability">5. The Headline Result: SNP-Heritability Enrichment</a></li>
+        <li><a href="#scales">6. Informative at Every Scale, from 100 kb to One Base</a></li>
+        <li><a href="#mathematical-formulation">7. Mathematical Formulation: phyloP and Heritability Partitioning</a></li>
+        <li><a href="#failure-modes">8. Limitations & What Constraint Cannot Tell You</a></li>
       </ol>
     </div>
 
-    <!-- Section 1 -->
-    <section id="summary">
-      <h2>1. Executive Summary & The Mammalian Phylogeny Scale</h2>
+    <section id="summary" class="paper-section">
+      <h2>1. Constraint as a Function-Agnostic Annotation</h2>
       <p>
-        By expanding comparative genomics from small primate cohorts to 241 placental mammal species, Zoonomia achieved single-nucleotide statistical resolution for purifying selection.
+        Every functional-genomics annotation answers a conditional question: this element is open in
+        <em>this</em> cell type, bound by <em>this</em> factor, expressed at <em>this</em> stage. Miss the
+        condition and you miss the element. ENCODE and GTEx are indispensable and are, structurally, bounded
+        by the assays and tissues actually run.
+      </p>
+      <p>
+        Evolutionary constraint sidesteps the conditional. If a base has accumulated unusually few
+        substitutions across a hundred million years of mammalian evolution, something has been removing the
+        mutations that hit it — <strong>regardless of which cell type, tissue or developmental stage the
+        function operates in</strong>. The paper's framing is that constraint is a measure of functional
+        importance that no assay design has to anticipate.
+      </p>
+    </section>
+
+    <section id="alignment" class="paper-section">
+      <h2>2. The 240-Mammal Alignment and Single-Base phyloP</h2>
+
+      <h3>The resource</h3>
+      <p>
+        The analysis rests on an alignment of <strong>240 mammal genomes spanning roughly 100 million years of
+        evolution</strong>. The scale matters in a specific way: constraint is detected by comparing observed
+        substitutions against the neutral rate, so the statistical power to call a <em>single base</em>
+        constrained scales with the total evolutionary branch length in the alignment. Fewer species, and
+        constraint can only be called over windows.
+      </p>
+
+      <div class="paper-callout callout-info">
+        <div class="paper-callout-title">
+          <Icon name="target" size={15} /> Why single-base resolution is the whole point
+        </div>
+        <p>
+          A conserved <em>element</em> tells you a region matters. A constrained <em>base</em> tells you which
+          nucleotide inside it matters — which is the resolution a fine-mapped GWAS credible set operates at,
+          and the resolution at which a transcription factor motif is disrupted or preserved. The 240-genome
+          alignment is what moves phyloP from the first regime into the second.
+        </p>
+      </div>
+    </section>
+
+    <section id="constrained-fraction" class="paper-section">
+      <h2>3. How Much of the Genome Is Constrained</h2>
+      <p>
+        Using constraint calculated across placental mammals, <strong>3.3% of bases in the human genome are
+        significantly constrained</strong>. Two decompositions of that number carry the argument:
       </p>
 
       <div class="paper-table-wrap">
         <table class="paper-table">
           <thead>
             <tr>
-              <th>Genomic Metric</th>
-              <th>Primate Alignments (e.g. 100-way Vertebrate / UCSC)</th>
-              <th>Zoonomia 241 Mammalian Alignment</th>
+              <th>Partition</th>
+              <th>Value</th>
+              <th>What it establishes</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td><strong>Phylogenetic Evolutionary Distance</strong></td>
-              <td>~4.5 substitutions per neutral site</td>
-              <td><strong>~17.2 substitutions per neutral site</strong> (Single-base power).</td>
+              <td><strong>Constrained fraction of the genome</strong></td>
+              <td><strong>3.3%</strong></td>
+              <td>Function is rare, and far rarer than biochemical activity assays suggest</td>
             </tr>
             <tr>
-              <td><strong>Constrained Genome Fraction</strong></td>
-              <td>~3%–5% estimated with high confidence</td>
-              <td><strong>10.7% of human genome under purifying constraint</strong> (3.5M bp).</td>
+              <td><strong>Coding bases that are constrained</strong></td>
+              <td><strong>57.6%</strong></td>
+              <td>Even within coding sequence, a large minority is tolerant — constraint is not a synonym for "coding"</td>
             </tr>
             <tr>
-              <td><strong>Non-Coding Fraction of Constraint</strong></td>
-              <td>Predominantly focused on coding exons</td>
-              <td><strong>~80% of constrained bases reside in non-coding regulatory DNA.</strong></td>
-            </tr>
-            <tr>
-              <td><strong>GWAS Heritability Enrichment</strong></td>
-              <td>2.5x–4.0x enrichment in coding regions</td>
-              <td><strong>&gt;7.0x heritability enrichment</strong> for constrained non-coding positions.</td>
+              <td><strong>Constrained bases that are noncoding</strong></td>
+              <td><strong>80.7%</strong></td>
+              <td>The overwhelming majority of functional bases sit outside genes, which is where GWAS hits sit too</td>
             </tr>
           </tbody>
         </table>
       </div>
+
+      <p>
+        The two coding numbers point in opposite directions on purpose. Coding sequence is strongly enriched
+        for constraint, and yet <em>most constrained bases are not coding</em> — because the noncoding genome
+        is so much larger. Any variant-prioritisation scheme that treats "coding" as a proxy for "functional"
+        loses four-fifths of the signal.
+      </p>
     </section>
 
-    <!-- Section 2 -->
-    <section id="alignment-pipeline">
-      <h2>2. The 241-Species Whole-Genome Alignment Pipeline (Cactus)</h2>
+    <section id="selection" class="paper-section">
+      <h2>4. Constraint Is Visible in Present-Day Human Variation</h2>
+
+      <h3>Depletion of segregating variation</h3>
       <p>
-        The consortium developed reference-free multi-genome alignment workflows:
+        If constrained bases are under purifying selection, human polymorphism should avoid them — and it
+        does. Common variants (allele frequency ≥ 5%) and low-frequency variants (0.5% ≤ AF &lt; 5%) are
+        <strong>depleted for constrained bases: 1.85% versus 3.26% expected by chance</strong>, at
+        <strong>P &lt; 2.2 × 10<sup>−308</sup></strong> — a p-value at the floor of double-precision
+        representation, which is to say the depletion is not in doubt.
       </p>
-      <ul>
-        <li><strong>Progressive Cactus Aligner:</strong> Reference-free, graph-based whole-genome alignment handling massive structural rearrangements and lineage-specific duplications.</li>
-        <li><strong>Neutral Tree Estimation:</strong> Fit four-fold degenerate neutral sites to compute phylogenetic baseline substitution rates.</li>
-      </ul>
+
+      <h3>Clinical variants line up the same way</h3>
+      <p>
+        <strong>Pathogenic ClinVar variants are more constrained than benign variants</strong>
+        (<strong>P &lt; 2.2 × 10<sup>−16</sup></strong>). This is the external validation that matters: the
+        constraint score was computed from mammalian alignments with no knowledge of human clinical
+        annotation, and it separates the clinical classes anyway.
+      </p>
     </section>
 
-    <!-- Section 3 -->
-    <section id="constrained-bases">
-      <h2>3. Delineating 3.5 Million Ultra-Constrained Base Pairs</h2>
+    <section id="heritability" class="paper-section">
+      <h2>5. The Headline Result: SNP-Heritability Enrichment</h2>
       <p>
-        Using phyloP scoring, Zoonomia identified bases rejected by natural selection:
+        Partitioning SNP-heritability across <strong>63 independent GWAS</strong>, the most constrained common
+        variants are the most enriched for disease heritability. The comparison table is the paper's strongest
+        claim:
       </p>
-      <ul>
-        <li><strong>Single-Nucleotide Resolution:</strong> Uncovered that ~3.5 million human base pairs show near-zero evolutionary change across 100 million years.</li>
-        <li><strong>Transcription Factor Core Motifs:</strong> Constrained bases precisely highlight the 1–3 invariant core contact nucleotides within TF motifs (e.g. CTCF, MEF2C).</li>
-      </ul>
-    </section>
 
-    <!-- Section 4 -->
-    <section id="heritability">
-      <h2>4. S-LDSC Disease Heritability Enrichment Across 42 Traits</h2>
-      <p>
-        Applying Stratified Linkage Disequilibrium Score Regression (S-LDSC) across 42 diverse human polygenic traits:
-      </p>
+      <div class="paper-table-wrap">
+        <table class="paper-table">
+          <thead>
+            <tr>
+              <th>Annotation</th>
+              <th>SNP-heritability enrichment</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Constrained in primates</strong></td>
+              <td><strong>11.1-fold</strong></td>
+            </tr>
+            <tr>
+              <td><strong>Constrained in mammals</strong></td>
+              <td><strong>7.8-fold</strong></td>
+            </tr>
+            <tr>
+              <td>Nonsynonymous coding variants</td>
+              <td>7.2-fold</td>
+            </tr>
+            <tr>
+              <td>Fine-mapped eQTL SNPs</td>
+              <td>4.8-fold</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
       <div class="paper-callout">
         <div class="paper-callout-title">
-          <Icon name="sparkles" size={15} /> Heritability Insights
+          <Icon name="sparkles" size={15} /> Why the ordering is surprising
         </div>
         <p>
-          1. <strong>Disproportionate Heritability:</strong> Although constrained non-coding bases comprise only ~3% of common human SNPs, they explain <strong>over 50% of the total SNP heritability (<Katex tex="h_g^2" />)</strong> for complex human diseases.
-          <br />
-          2. <strong>Tissue-Specific Enrichment:</strong> Constrained bases overlapping brain-specific chromatin accessibility show massive enrichment for psychiatric and neurological phenotypes (schizophrenia, bipolar disorder).
+          Nonsynonymous coding variants are the canonical "obviously functional" class, and fine-mapped eQTLs
+          are the canonical regulatory class. Mammalian constraint <strong>exceeds both</strong>, and primate
+          constraint exceeds it further still — 11.1-fold against 7.8. The primate result is the more
+          interesting one: it says that the closer the comparison species, the more the constraint signal
+          reflects specifically human-relevant function, at the cost of less total branch length to measure it
+          with. That trade-off is the same one every comparative-genomics resource has to price.
         </p>
       </div>
     </section>
 
-    <!-- Section 5 -->
-    <section id="cancer-rare-disease">
-      <h2>5. Clinical Applications: Somatic Cancer Drivers & Rare Disease Loci</h2>
+    <section id="scales" class="paper-section">
+      <h2>6. Informative at Every Scale, from 100 kb to One Base</h2>
       <p>
-        Zoonomia constraints directly accelerate clinical diagnostics:
+        The paper stresses that the alignment is informative across a range of scales rather than at one
+        preferred resolution:
       </p>
       <ul>
-        <li><strong>Cancer Driver Discovery:</strong> Uncovered recurrent non-coding somatic mutations at constrained promoter positions (such as the <em>TERT</em> promoter and <em>FOXA1</em> enhancers).</li>
-        <li><strong>De Novo Mutations in Rare Disease:</strong> Pathogenic de novo non-coding mutations in patients with severe neurodevelopmental delay are heavily concentrated in Zoonomia-constrained sites.</li>
+        <li><strong>100-kb bins</strong> — exceptionally constrained regions include <em>all</em> the HOX clusters, which is the kind of result that validates the method by recovering what is already known.</li>
+        <li><strong>Ultraconserved elements and human accelerated regions</strong> — the two opposite tails, one where change was forbidden and one where it was unusually rapid on the human lineage.</li>
+        <li><strong>Noncoding regulatory regions</strong> — enhancers and promoters, the class GWAS keeps landing in.</li>
+        <li><strong>Specific base positions within binding motifs</strong> — the finest scale, where constraint distinguishes the positions a transcription factor actually reads from the ones it does not.</li>
       </ul>
     </section>
 
-    <!-- Section 6 -->
-    <section id="mathematical-formulation">
-      <h2>6. Mathematical Formulation: Phylogenetic Likelihood & Heritability</h2>
+    <section id="mathematical-formulation" class="paper-section">
+      <h2>7. Mathematical Formulation: phyloP and Heritability Partitioning</h2>
+
+      <h3>phyloP as a likelihood ratio per base</h3>
       <p>
-        Single-base evolutionary constraint is computed using the phylogenetic log-likelihood ratio under a neutral vs. conserved continuous-time Markov substitution model:
+        phyloP tests, at each base, whether the observed pattern of substitutions across the phylogeny departs
+        from a neutral model. It is a likelihood-ratio statistic comparing a neutral rate to a fitted rate
+        <Katex tex="\rho" /> at that column of the alignment:
       </p>
       <div class="paper-equation-block">
-        <Katex tex="\text{phyloP}(i) = - \text{sign}(\hat{\rho}_i - 1) \log_{10} P\left( X_i \mid \mathcal{T}_{\text{neutral}}, \mathbf{Q} \right)" />
+        <Katex tex="\text{phyloP} = -\operatorname{sign}(\rho - 1)\,\log_{10} p, \qquad \Lambda = -2\left[\log L(\text{neutral}) - \log L(\hat{\rho})\right]" />
       </div>
       <p>
-        Stratified LD score regression partitions per-SNP heritability across functional categories <Katex tex="C" />:
+        The sign convention carries real information: <Katex tex="\rho < 1" /> means fewer substitutions than
+        neutral (constraint, positive score) and <Katex tex="\rho > 1" /> means more (acceleration, negative
+        score). Human accelerated regions are the negative tail of the same statistic that finds constraint.
+      </p>
+
+      <h3>Stratified heritability</h3>
+      <p>
+        Enrichment is defined as the share of SNP-heritability captured by an annotation divided by the share
+        of SNPs it contains:
       </p>
       <div class="paper-equation-block">
-        <Katex tex="\mathbb{E}\left[ \chi_j^2 \right] = N \sum_{C} \tau_C \ell(j, C) + N a + 1, \quad \ell(j, C) = \sum_{k \in C} r_{jk}^2" />
+        <Katex tex="\text{Enrichment}(C) = \frac{h^2_g(C) \,/\, h^2_g}{\;|C| \,/\, M\;}" />
       </div>
+      <p>
+        A value of 1 means the annotation carries heritability in proportion to its size. The 7.8-fold figure
+        says constrained bases carry nearly eight times the heritability their genomic footprint would
+        predict — and because constraint covers only 3.3% of the genome, the footprint is small.
+      </p>
     </section>
 
-    <!-- Section 7 -->
-    <section id="failure-modes">
-      <h2>7. Limitations & Lineage-Specific Evolutionary Blindspots</h2>
+    <section id="failure-modes" class="paper-section">
+      <h2>8. Limitations & What Constraint Cannot Tell You</h2>
+
+      <h3>What constraint is blind to</h3>
       <ul>
-        <li><strong>Human-Specific Adaptations:</strong> Blind to human-accelerated regions (HARs) or primate-specific regulatory elements that evolved recently.</li>
-        <li><strong>Turnover of Regulatory Elements:</strong> Enhancer binding sites that shuffle position while conserving function across species may appear unconstrained at fixed coordinates.</li>
+        <li><strong>Recently evolved function.</strong> A regulatory element that arose on the human or primate lineage has had too little time to accumulate a constraint signal across mammals. The 11.1-fold primate result is partly a response to this, but the same logic applies again within primates.</li>
+        <li><strong>Direction and mechanism.</strong> Constraint says a base matters. It does not say which allele is deleterious, in which tissue, through which gene, or by how much — everything a therapeutic hypothesis needs.</li>
+        <li><strong>Function without conservation.</strong> Some genuinely functional sequence turns over rapidly while retaining function; constraint scores it as neutral.</li>
       </ul>
-    </section>
 
-    <!-- Section 8 -->
-    <section id="strategic-synthesis">
-      <h2>8. Master Synthesis & Integration with Modern Genomic AI</h2>
-      <p>
-        Zoonomia provides the ultimate ground-truth phylogenetic constraint scaffold for machine learning in genomics. Modern models (such as GPN-MSA, GPN-Star, and Borzoi ensembles) directly rely on Zoonomia's 241-way alignment to anchor multi-species sequence pretraining and prioritize clinically actionable non-coding variants.
-      </p>
+      <h3>Statistical cautions</h3>
+      <ul>
+        <li><strong>Enrichment is not causality.</strong> Stratified heritability enrichment is a property of an annotation across many loci; it licenses using constraint as a prior, not calling any individual constrained variant causal.</li>
+        <li><strong>The alignment is the model.</strong> phyloP inherits every assumption in the phylogeny, the neutral rate estimate, and the alignment itself — and alignment quality is worst exactly in the repetitive and rapidly evolving regions where the answer would be most interesting.</li>
+      </ul>
+
+      <div class="paper-callout callout-info">
+        <div class="paper-callout-title">
+          <Icon name="book" size={15} /> Source note
+        </div>
+        <p>
+          Written against the full text of the author manuscript deposited as PMC10259825. This page cites
+          <strong>240 mammals</strong>, which is the paper's own figure; an earlier version said 241. The
+          companion resource paper — Christmas et al., <em>Evolutionary constraint and innovation across
+          hundreds of placental mammals</em> — is summarised at
+          <a href="/papers/zoonomia-constraint/" style="color: var(--color-accent);">/papers/zoonomia-constraint/</a>.
+        </p>
+      </div>
     </section>
   </article>
 </BaseLayout>

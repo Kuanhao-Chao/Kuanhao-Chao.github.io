@@ -240,14 +240,24 @@ async function auditRobots() {
 async function auditPapersIndex(urls) {
   const paperPaths = [
     { slug: '', path: join(DIST, 'papers', 'index.html'), url: `${SITE}/papers/` },
-    { slug: 'borzoi', path: join(DIST, 'papers', 'borzoi', 'index.html'), url: `${SITE}/papers/borzoi/` },
-    { slug: 'borzoi-prime', path: join(DIST, 'papers', 'borzoi-prime', 'index.html'), url: `${SITE}/papers/borzoi-prime/` },
-    { slug: 'decima', path: join(DIST, 'papers', 'decima', 'index.html'), url: `${SITE}/papers/decima/` },
-    { slug: 'scooby', path: join(DIST, 'papers', 'scooby', 'index.html'), url: `${SITE}/papers/scooby/` },
     { slug: 'alphagenome', path: join(DIST, 'papers', 'alphagenome', 'index.html'), url: `${SITE}/papers/alphagenome/` },
-    { slug: 'gpnstar', path: join(DIST, 'papers', 'gpnstar', 'index.html'), url: `${SITE}/papers/gpnstar/` },
+    { slug: 'alphamissense', path: join(DIST, 'papers', 'alphamissense', 'index.html'), url: `${SITE}/papers/alphamissense/` },
+    { slug: 'borzoi', path: join(DIST, 'papers', 'borzoi', 'index.html'), url: `${SITE}/papers/borzoi/` },
     { slug: 'borzoi-finemapped', path: join(DIST, 'papers', 'borzoi-finemapped', 'index.html'), url: `${SITE}/papers/borzoi-finemapped/` },
     { slug: 'borzoi-peft', path: join(DIST, 'papers', 'borzoi-peft', 'index.html'), url: `${SITE}/papers/borzoi-peft/` },
+    { slug: 'borzoi-prime', path: join(DIST, 'papers', 'borzoi-prime', 'index.html'), url: `${SITE}/papers/borzoi-prime/` },
+    { slug: 'decima', path: join(DIST, 'papers', 'decima', 'index.html'), url: `${SITE}/papers/decima/` },
+    { slug: 'deepvariant', path: join(DIST, 'papers', 'deepvariant', 'index.html'), url: `${SITE}/papers/deepvariant/` },
+    { slug: 'encode', path: join(DIST, 'papers', 'encode', 'index.html'), url: `${SITE}/papers/encode/` },
+    { slug: 'gears', path: join(DIST, 'papers', 'gears', 'index.html'), url: `${SITE}/papers/gears/` },
+    { slug: 'gpnstar', path: join(DIST, 'papers', 'gpnstar', 'index.html'), url: `${SITE}/papers/gpnstar/` },
+    { slug: 'gtex', path: join(DIST, 'papers', 'gtex', 'index.html'), url: `${SITE}/papers/gtex/` },
+    { slug: 'nucleotide-transformer', path: join(DIST, 'papers', 'nucleotide-transformer', 'index.html'), url: `${SITE}/papers/nucleotide-transformer/` },
+    { slug: 'nucleotide-transformer-v3', path: join(DIST, 'papers', 'nucleotide-transformer-v3', 'index.html'), url: `${SITE}/papers/nucleotide-transformer-v3/` },
+    { slug: 'scooby', path: join(DIST, 'papers', 'scooby', 'index.html'), url: `${SITE}/papers/scooby/` },
+    { slug: 'traitgym', path: join(DIST, 'papers', 'traitgym', 'index.html'), url: `${SITE}/papers/traitgym/` },
+    { slug: 'zoonomia', path: join(DIST, 'papers', 'zoonomia', 'index.html'), url: `${SITE}/papers/zoonomia/` },
+    { slug: 'zoonomia-constraint', path: join(DIST, 'papers', 'zoonomia-constraint', 'index.html'), url: `${SITE}/papers/zoonomia-constraint/` },
   ];
 
   for (const item of paperPaths) {
