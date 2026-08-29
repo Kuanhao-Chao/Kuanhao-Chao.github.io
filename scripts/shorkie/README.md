@@ -124,6 +124,27 @@ them.
 | fp32 ↔ fp16, on real sequence | quantisation damage | relative ≤ **5.0e-4** (6.9e-3 on random ACGT — see above) |
 | **python ↔ browser**, same fp16 graph | **the thing actually shipped** | same argmax bin in all four track groups; peak relative difference ≤ **1.4e-3** (RNA-seq 994.8802 vs 994.4959 at bin 435) |
 | TS conv stem ↔ PyTorch stem | drift in the second implementation | fixture in `src/lib/__fixtures__/`, asserted by vitest |
+| **shipped packs ↔ shipped graph** | **a stale or mis-sliced precompute** — the packs are what the page draws, and nothing else compares them to the model | **54 stage-locus pairs, every loudest channel identical**; worst decode 0.6683 at `unet3`, which is that row's range / 255 |
+
+`verify_pipeline.py` runs the whole table:
+
+```bash
+python3 scripts/shorkie/verify_pipeline.py                        # sections 1-2: repo only, no checkpoint
+python3 scripts/shorkie/verify_pipeline.py _scratch/model_best.h5 # + sections 3-8
+python3 scripts/shorkie/verify_pipeline.py _scratch/{model_best.h5,sacCer3.fa,sgdGene.txt}   # + the biology gate
+```
+
+The first form is the one to reach for. The packs and the fp16 graph are both committed, so the
+correspondence between what the page draws and what the model computes is re-checkable on any
+machine with no checkpoint and no network. It compares the **signed maximum and the argmax channel**
+per stage — the two quantities the layer panel prints — so a mis-sliced pack surfaces as the wrong
+channel rather than as a numeric drift small enough to dismiss.
+
+**A checkpoint of the wrong size is not a regression.** A `model_best.h5` that is not fold f0 has a
+different parameter count and, in the case that turned up during this work, a **384-wide head**; it
+used to reach section 4 and die on `operands could not be broadcast (1,896,384) (1,896,5215)`. The
+parameter check now halts the run naming the file and the expected count, because a number measured
+against the wrong checkpoint is worse than no number: it looks like data.
 
 ## python and the browser do not run the same fp16 graph
 

@@ -226,3 +226,7 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
 
 .vp-attr { margin-top: 0.35rem; cursor: crosshair; }
 .vp-track-select { cursor: crosshair; }
+
+.vp-flow3d { cursor: grab; touch-action: none; }
+.vp-flow3d:active { cursor: grabbing; }
+.vp-flow3d[hidden] { display: none; }

@@ -565,6 +565,207 @@ async function auditFullModel(browser, baseURL, scope) {
   }
 }
 
+/** Wait for a locus's precomputed pack, which every no-model gate below stands on. */
+async function enterLocus(page, index) {
+  await page.goto(ROUTE, { waitUntil: 'networkidle' });
+  await page.locator('[data-vp-mode="locus"]').click();
+  if (index !== undefined) await page.selectOption('[data-vp-locus]', String(index));
+  await page.waitForFunction(
+    () => document.querySelector('[data-vp]').dataset.vpResultSource === 'precomputed',
+    { timeout: 60_000 },
+  );
+}
+
+/**
+ * The traceback must produce a real attribution, and a DIFFERENT one for a different region.
+ *
+ * Ink alone is not enough: a stubbed or mis-indexed attribution paints just as much as a correct
+ * one. Requiring the drawing to move when the selection moves is the same rule `audit:deep-dives`
+ * applies to a widget's readout, and it is what catches an attribution wired to a constant.
+ */
+async function auditTraceback(browser, baseURL, scope) {
+  const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1000 } });
+  const page = await context.newPage();
+  try {
+    await enterLocus(page);
+    await page.waitForFunction(
+      () => document.querySelector('[data-vp]').dataset.vpTraceReady === 'true',
+      { timeout: 60_000 },
+    );
+
+    const track = page.locator('[data-vp-track]');
+    await track.scrollIntoViewIfNeeded();
+    const box = await track.boundingBox();
+    if (!box) { fail(scope, 'no coverage track to drag on'); return; }
+
+    const drag = async (from, to) => {
+      await page.mouse.move(box.x + box.width * from, box.y + box.height * 0.5);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width * to, box.y + box.height * 0.5, { steps: 10 });
+      await page.mouse.up();
+      await page.waitForTimeout(400);
+      return page.evaluate(`(async () => {
+        const c = document.querySelector('[data-vp-attr]');
+        const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+        let ink = 0, sum = 0;
+        for (let i = 0; i < d.length; i += 4) { if (d[i + 3] > 8) { ink += 1; sum += i * (d[i] + d[i + 1] + d[i + 2]); } }
+        return { ink, sig: sum % 2147483647,
+                 label: document.querySelector('[data-vp-trace-label]').textContent };
+      })()`);
+    };
+
+    const a = await drag(0.20, 0.34);
+    const b = await drag(0.62, 0.78);
+    if (a.ink < 500) fail(scope, `traced region painted only ${a.ink} attribution pixels`);
+    if (b.ink < 500) fail(scope, `second traced region painted only ${b.ink} attribution pixels`);
+    if (a.sig === b.sig) fail(scope, 'attribution is identical for two different regions — not region-specific');
+    if (!/bins \d+–\d+/.test(a.label)) fail(scope, `trace label does not name a bin range: "${a.label}"`);
+
+    // An anchor is the base-resolution half of the same feature.
+    const anchors = await page.locator('[data-vp-anchor] option').count();
+    if (anchors < 2) fail(scope, `only ${anchors} anchor option(s); expected gene bodies and peaks`);
+    const labels = await page.locator('[data-vp-anchor] option').allTextContents();
+    await page.selectOption('[data-vp-anchor]', { label: labels.at(-1) });
+    await page.waitForTimeout(400);
+    const anchor = await page.evaluate(`(async () => {
+      const c = document.querySelector('[data-vp-attr]');
+      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      let ink = 0;
+      for (let i = 3; i < d.length; i += 4) if (d[i] > 8) ink += 1;
+      return { ink, label: document.querySelector('[data-vp-trace-label]').textContent };
+    })()`);
+    if (anchor.ink < 500) fail(scope, `anchor "${labels.at(-1)}" painted only ${anchor.ink} pixels`);
+    // Clearing must actually clear, not leave the last region lit.
+    await page.locator('[data-vp-trace-clear]').click();
+    await page.waitForTimeout(300);
+    const cleared = await page.evaluate(() => document.querySelector('[data-vp-trace-label]').textContent);
+    if (/bins \d+/.test(cleared)) fail(scope, `clearing left a trace: "${cleared}"`);
+  } finally {
+    await context.close();
+  }
+}
+
+/**
+ * The volume view must render, follow the theme, honour reduced motion, and dispose.
+ *
+ * A leaked GL context per navigation is the failure `/chromatin/` documents; it is silent and
+ * only shows up as a dead canvas after a handful of visits.
+ */
+async function auditVolume(browser, baseURL, scope) {
+  const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1000 } });
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  try {
+    await enterLocus(page);
+    await page.locator('[data-vp-view="3d"]').scrollIntoViewIfNeeded();
+    await page.locator('[data-vp-view="3d"]').click();
+    await page.waitForTimeout(2000);
+
+    const state = await page.evaluate(() => {
+      const c = document.querySelector('[data-vp-flow3d]');
+      const flat = document.querySelector('[data-vp-flow]');
+      const r = c?.getBoundingClientRect();
+      return {
+        view: document.querySelector('[data-vp]').dataset.vpView,
+        w: Math.round(r?.width ?? 0), h: Math.round(r?.height ?? 0),
+        flatHidden: flat?.hidden ?? null,
+        gl: !!(c && (c.getContext('webgl2') || c.getContext('webgl'))),
+      };
+    });
+    if (state.view !== '3d') fail(scope, `view did not switch (${state.view})`);
+    if (state.w < 200 || state.h < 120) fail(scope, `volume canvas is ${state.w}x${state.h}`);
+    if (state.flatHidden !== true) fail(scope, 'flat flow canvas still shown alongside the volume view');
+    if (!state.gl) fail(scope, 'volume canvas has no GL context');
+
+    // It has to actually paint. A screenshot is the only readback available: the renderer runs
+    // without preserveDrawingBuffer, so reading the canvas directly always returns zeros.
+    const shot = await page.locator('[data-vp-flow3d]').screenshot();
+    if (shot.length < 3000) fail(scope, `volume screenshot is ${shot.length} bytes — nothing drawn`);
+
+    // Back to flat and forward again must not leave two canvases or throw.
+    await page.locator('[data-vp-view="2d"]').click();
+    await page.waitForTimeout(200);
+    await page.locator('[data-vp-view="3d"]').click();
+    await page.waitForTimeout(600);
+    const n = await page.locator('[data-vp-flow3d]').count();
+    if (n !== 1) fail(scope, `${n} volume canvases after toggling back and forth`);
+
+    // A client-side navigation away and back must dispose and rebuild cleanly.
+    await page.goto('/', { waitUntil: 'networkidle' });
+    await page.goBack({ waitUntil: 'networkidle' });
+    await page.waitForTimeout(500);
+    const after = await page.locator('[data-vp-flow3d]').count();
+    if (after !== 1) fail(scope, `${after} volume canvases after a navigation round trip`);
+    if (errors.length) fail(scope, `volume view raised: ${errors[0]}`);
+  } finally {
+    await context.close();
+  }
+}
+
+/** Reduced motion means the volume view holds still, not that it idles more slowly. */
+async function auditVolumeStill(browser, baseURL, scope) {
+  const context = await browser.newContext({
+    baseURL, viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce',
+  });
+  const page = await context.newPage();
+  try {
+    await enterLocus(page);
+    await page.locator('[data-vp-view="3d"]').scrollIntoViewIfNeeded();
+    await page.locator('[data-vp-view="3d"]').click();
+    await page.waitForTimeout(1500);
+    const a = await page.locator('[data-vp-flow3d]').screenshot();
+    await page.waitForTimeout(1600);
+    const b = await page.locator('[data-vp-flow3d]').screenshot();
+    if (!a.equals(b)) fail(scope, 'volume view keeps rotating under prefers-reduced-motion');
+  } finally {
+    await context.close();
+  }
+}
+
+/**
+ * The gene track must draw transcript models, not solid blocks.
+ *
+ * The tally comes from inside the loop that fills the rectangles, so this reports what was drawn.
+ * Every locus in the set has at least one annotated feature; the multi-exon ones must show gaps.
+ */
+async function auditAnnotation(browser, baseURL, scope) {
+  const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1000 } });
+  const page = await context.newPage();
+  try {
+    await enterLocus(page);
+    const count = await page.locator('[data-vp-locus] option').count();
+    let multiExon = 0;
+    for (let i = 0; i < count; i += 1) {
+      await page.selectOption('[data-vp-locus]', String(i));
+      await page.waitForFunction(
+        () => document.querySelector('[data-vp]').dataset.vpResultSource === 'precomputed',
+        { timeout: 60_000 },
+      ).catch(() => {});
+      await page.waitForTimeout(150);
+      const s = await page.evaluate(() => {
+        const c = document.querySelector('[data-vp-stage-map]');
+        return {
+          gene: document.querySelector('[data-vp-locus]').selectedOptions[0].textContent,
+          track: c?.dataset.vpGeneTrack ? JSON.parse(c.dataset.vpGeneTrack) : null,
+        };
+      });
+      if (!s.track) { fail(scope, `${s.gene}: gene track never drew`); continue; }
+      if (s.track.features < 1) fail(scope, `${s.gene}: no annotated features in the window`);
+      if (s.track.blocks < s.track.features) {
+        fail(scope, `${s.gene}: ${s.track.blocks} exon block(s) for ${s.track.features} feature(s)`);
+      }
+      if (s.track.introns > 0) multiExon += 1;
+    }
+    // Eight multi-exon genes fall in these windows; drawing every one as a solid block is the
+    // defect this replaces, so at least one locus must render an intron as a gap.
+    if (multiExon < 1) fail(scope, 'no locus drew an intron — every gene is still a solid block');
+    else progress(`${multiExon} locus/loci draw introns as gaps`);
+  } finally {
+    await context.close();
+  }
+}
+
 async function main() {
   const port = await availablePort();
   const baseURL = `http://127.0.0.1:${port}`;
@@ -604,6 +805,17 @@ async function main() {
         }
         await captureFailure(`${engineName}/reduced-motion`, () => auditReducedMotion(browser, baseURL, `${engineName}/reduced-motion`));
         await captureFailure(`${engineName}/navigation`, () => auditNavigation(browser, baseURL, `${engineName}/navigation`));
+        if (engineName === 'chromium') {
+          // These three ride on the precomputed packs, so they need no model and belong in the
+          // default run rather than behind --full.
+          progress('chromium/traceback');
+          await captureFailure('chromium/traceback', () => auditTraceback(browser, baseURL, 'chromium/traceback'));
+          progress('chromium/annotation (14 loci)');
+          await captureFailure('chromium/annotation', () => auditAnnotation(browser, baseURL, 'chromium/annotation'));
+          progress('chromium/volume');
+          await captureFailure('chromium/volume', () => auditVolume(browser, baseURL, 'chromium/volume'));
+          await captureFailure('chromium/volume-still', () => auditVolumeStill(browser, baseURL, 'chromium/volume-still'));
+        }
         if (FULL && engineName === 'chromium') {
           progress('chromium/full-model (one real inference, ~20 s)');
           await captureFailure('chromium/full-model', () => auditFullModel(browser, baseURL, 'chromium/full-model'));

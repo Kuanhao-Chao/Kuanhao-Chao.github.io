@@ -17,8 +17,10 @@
 
 import stemWeightsJson from '../data/shorkieStem.json';
 import lociJson from '../data/shorkieLoci.json';
+import { createFlow3d, type Flow3dController } from './shorkieFlow3d';
 import {
   createFlow,
+  FLOW_STAGES,
   stageMap,
   attentionMap,
   type FlowController,
@@ -183,6 +185,8 @@ export function initVariantPlayground(root: ParentNode = document) {
   const layerList = $('[data-vp-layers]');
   const liveStat = $('[data-vp-livestat]');
   const flowCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-flow]');
+  const flow3dCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-flow3d]');
+  const viewBtns = host.querySelectorAll<HTMLButtonElement>('[data-vp-view]');
   const playBtn = $<HTMLButtonElement>('[data-vp-play]');
   const scrubInput = $<HTMLInputElement>('[data-vp-scrub]');
   const stageStat = $('[data-vp-stagestat]');
@@ -231,6 +235,7 @@ export function initVariantPlayground(root: ParentNode = document) {
   let ort: typeof import('onnxruntime-web') | null = null;
   let backend = 'not loaded';
   let flow: FlowController | null = null;
+  let flow3d: Flow3dController | null = null;
   let groupIndex = RNA_SEQ_GROUP;
   let showTruth = true;
   let stageTab: 'activation' | 'attention' = 'activation';
@@ -1037,6 +1042,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     renderStageDetail(flow?.selected() ?? null);
     renderHeatmap();
     renderSingleTrack();
+    paint3dFaces();
     setStatus(`${LOCI[locusIndex].gene}: all layers and all ${N_TRACKS.toLocaleString()} tracks, precomputed.`);
 
     // The traceback pack, fetched after the activations so the page is usable first.
@@ -1082,6 +1088,11 @@ export function initVariantPlayground(root: ParentNode = document) {
     const midY = y + height / 2;
     const cdsH = Math.max(height * 0.72, 5);
     const utrH = Math.max(height * 0.38, 3);
+    // Counted inside the loop that actually fills the rectangles, so the gate reads what was
+    // drawn rather than what the decomposition returned. An intron rendered as an exon is the
+    // defect this exists to catch, and it is invisible to every other check on the page.
+    let blocks = 0;
+    let introns = 0;
 
     for (const f of locus.features) {
       const isOwn = f.name === highlight;
@@ -1106,7 +1117,11 @@ export function initVariantPlayground(root: ParentNode = document) {
 
       ctx.fillStyle = orf;
       for (const piece of geneTrackShapes(f)) {
-        if (piece.kind === 'intron') continue;      // drawn as the line + chevrons above
+        if (piece.kind === 'intron') {
+          introns += 1;                              // drawn as the line + chevrons above
+          continue;
+        }
+        blocks += 1;
         const bh = piece.kind === 'cds' ? cdsH : utrH;
         const bx = fx(piece.start);
         ctx.fillRect(bx, midY - bh / 2, Math.max(fx(piece.end) - bx, 1), bh);
@@ -1121,6 +1136,9 @@ export function initVariantPlayground(root: ParentNode = document) {
       }
     }
     ctx.globalAlpha = 1;
+    ctx.canvas.dataset.vpGeneTrack = JSON.stringify({
+      features: locus.features.length, blocks, introns,
+    });
   }
 
 
@@ -1317,12 +1335,82 @@ export function initVariantPlayground(root: ParentNode = document) {
   function traceBins(start: number, end: number, label: string): void {
     tracedBins = { start: Math.max(0, start), end: Math.min(N_BINS, end), label };
     renderAttribution();
+    trace3d();
     renderStageDetail(flow?.selected() ?? null);
     if (traceLabel) {
       const frac = ((tracedBins.end - tracedBins.start) * BIN_BP) / SEQ_LEN;
       traceLabel.textContent =
         `Tracing ${label} — bins ${tracedBins.start}–${tracedBins.end}`
         + ` (${(frac * 100).toFixed(1)}% of the window)`;
+    }
+  }
+
+  /**
+   * Light the traced path through the volume: each stage's slab is dimmed in proportion to how
+   * little of the selected region's relevance passes through it.
+   *
+   * Relevance is a MEAN over the stage's channels, not a sum -- summing would rank a 1,536-channel
+   * stage above a 384-channel one on width alone, which is a fact about the architecture and not
+   * about this selection. Stages whose activations live on their own tensors (the input one-hot,
+   * the conv stem, the head) have no per-layer relevance in the pack, so they are left undimmed
+   * rather than shown at the floor, which would read as "contributes nothing".
+   */
+  function trace3d(): void {
+    if (!flow3d) return;
+    if (!attribution || !tracedBins) {
+      flow3d.setTrace(null);
+      return;
+    }
+    const rel = traceChannels(attribution, tracedBins.start, tracedBins.end);
+    const per = new Map<string, number>();
+    let hi = 0;
+    for (const off of stageMapOffsets()) {
+      let s = 0;
+      for (let c = 0; c < off.channels; c += 1) s += Math.abs(rel[off.start + c]);
+      const v = s / off.channels;
+      per.set(off.id, v);
+      if (v > hi) hi = v;
+    }
+    // Relevance spans orders of magnitude across stages, so a linear normalisation leaves one
+    // slab lit and the other seventeen at the floor -- which reports a single stage rather than a
+    // path. Map log-relevance onto [0, 1] instead: strictly monotone in the true quantity, so the
+    // ordering is exactly preserved, and the whole path stays legible. Same rule the flow
+    // canvas's channel axis follows.
+    const lo = Math.min(...[...per.values()].filter((v) => v > 0), hi);
+    if (hi > 0 && lo > 0 && hi > lo) {
+      const span = Math.log(hi) - Math.log(lo);
+      for (const [k, v] of per) per.set(k, v > 0 ? (Math.log(v) - Math.log(lo)) / span : 0);
+    } else {
+      for (const [k, v] of per) per.set(k, hi > 0 ? v / hi : 0);
+    }
+    flow3d.setTrace(per);
+  }
+
+  /** Paint each slab's face from the same activation map its 2D raster draws. */
+  function paint3dFaces(): void {
+    if (!flow3d || !current) return;
+    const acts: FlowActivations = {
+      input: current.input,
+      stemProfile: current.stemProfile,
+      stageMaps: current.stageMaps,
+      attention: current.attention,
+      tracks: current.tracks,
+    };
+    const neutral = neutralRgb();
+    for (const stage of FLOW_STAGES) {
+      const map = stageMap(stage, acts);
+      if (!map) continue;
+      // Cap the texture: a 16,384-position face is more pixels than any screen shows of one slab.
+      const cols = Math.min(map.positions, 256);
+      const rows = Math.min(map.channels, 256);
+      const sub = new Float64Array(rows * cols);
+      for (let r = 0; r < rows; r += 1) {
+        const c0 = Math.floor((r / rows) * map.channels);
+        for (let c = 0; c < cols; c += 1) {
+          sub[r * cols + c] = map.data[c0 * map.positions + Math.floor((c / cols) * map.positions)];
+        }
+      }
+      flow3d.setFace(stage.id, paintActivationMap(sub, rows, cols, activationScale(sub), neutral), cols, rows);
     }
   }
 
@@ -1542,13 +1630,36 @@ export function initVariantPlayground(root: ParentNode = document) {
     }
 
     if (stageTop) {
+      // Two stages need their own summary, because "loudest channels" is meaningless at both ends
+      // of the network. At the input every channel's maximum is exactly 1.00 by construction, so
+      // the ranking is noise; at the head the four rows are ASSAY GROUPS, and numbering them #0-#3
+      // beside a title reading "5,215 channels" invites reading them as channel indices.
+      const summary = (): string => {
+        if (spec.id === 'input') {
+          const n = [0, 0, 0, 0];
+          for (let c = 0; c < 4; c += 1) {
+            for (let p = 0; p < positions; p += 1) if (data[c * positions + p] > 0.5) n[c] += 1;
+          }
+          const tot = n.reduce((a, b) => a + b, 0) || 1;
+          const gc = ((n[1] + n[2]) / tot) * 100;
+          return `base composition: ${'ACGT'.split('').map((b, i) => `${b} ${((n[i] / tot) * 100).toFixed(1)}%`).join(', ')}`
+            + ` · GC ${gc.toFixed(1)}%`;
+        }
+        if (spec.id === 'head') {
+          return 'peak per assay group: '
+            + peaks.slice(0, 4)
+              .map((q) => `${TRACK_GROUPS[q.c]?.label ?? `#${q.c}`} (${q.v.toFixed(2)})`)
+              .join(', ');
+        }
+        return 'loudest channels: ' + peaks.slice(0, 5).map((q) => `#${q.c} (${q.v.toFixed(2)})`).join(', ');
+      };
       stageTop.textContent =
         stageTab === 'attention'
           ? `${positions} × ${positions} over the bottleneck, mean of ${N_HEADS} heads`
           : contributing
             ? `channels carrying ${tracedBins!.label}: `
               + contributing.slice(0, 5).map((q) => `#${q.c} (${q.v.toFixed(2)})`).join(', ')
-            : 'loudest channels: ' + peaks.slice(0, 5).map((q) => `#${q.c} (${q.v.toFixed(2)})`).join(', ');
+            : summary();
     }
     // The selected channel, on its own, at this stage's resolution -- one neuron's activation
     // across the window, which a 384-row raster cannot show you.
@@ -1781,8 +1892,33 @@ export function initVariantPlayground(root: ParentNode = document) {
     if (anchorSelect) anchorSelect.value = '';
     if (traceLabel) traceLabel.textContent = 'Drag across the curve above to trace a region back to the sequence.';
     renderAttribution();
+    trace3d();
     renderStageDetail(flow?.selected() ?? null);
   });
+
+  viewBtns.forEach((b) =>
+    b.addEventListener('click', () => {
+      const want3d = b.dataset.vpView === '3d';
+      viewBtns.forEach((x) => x.setAttribute('aria-pressed', String((x.dataset.vpView === '3d') === want3d)));
+      if (flowCanvas) flowCanvas.hidden = want3d;
+      if (flow3dCanvas) flow3dCanvas.hidden = !want3d;
+      host.dataset.vpView = want3d ? '3d' : '2d';
+      if (want3d && flow3dCanvas && !flow3d) {
+        // Built on first use: the three chunk is only worth fetching for a reader who asks for it.
+        flow3d = createFlow3d(flow3dCanvas, host);
+        paint3dFaces();
+        trace3d();   // a region traced while the flat view was up must be lit on arrival here
+        flow3d.onSelect((id: string | null) => {
+          const i = FLOW_STAGES.findIndex((s) => s.id === id);
+          if (i >= 0) {
+            flow?.select(i);
+            renderStageDetail(FLOW_STAGES[i]);
+          }
+        });
+      }
+      flow3d?.resize();
+    }),
+  );
 
   logToggle?.addEventListener('change', () => {
     useLogAxis = logToggle.checked;
@@ -1844,6 +1980,9 @@ export function initVariantPlayground(root: ParentNode = document) {
       document.removeEventListener('khc:theme-change', onTheme);
       flow?.destroy();
       flow = null;
+      // Without this a client-side navigation leaks a WebGL context per visit.
+      flow3d?.destroy();
+      flow3d = null;
       host.dataset.vpReady = 'false';
     },
   };

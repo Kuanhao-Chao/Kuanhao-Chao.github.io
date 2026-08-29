@@ -1012,3 +1012,51 @@ export function sumAttributionRows(
   }
   return out;
 }
+
+/** One stage as a box in the 3D flow: depth position and real tensor dimensions. */
+export interface FlowSlab {
+  id: string;
+  label: string;
+  group: StageGroup;
+  /** Depth along the flow axis, in [0, 1]. */
+  z: number;
+  /** Box half-extents, normalised so the largest tensor fits a unit cell. */
+  height: number;   // positions
+  width: number;    // channels
+  thickness: number;
+  positions: number;
+  channels: number;
+}
+
+/**
+ * Lay the network out as boxes along a depth axis.
+ *
+ * The 2D flow canvas already encodes positions as height and channels as width; in 3D the same two
+ * quantities become the face of a slab and the stage order becomes depth, so the U-Net's
+ * contraction and re-expansion is literal volume rather than an outline. Both axes stay log-scaled
+ * over the range actually present, for the same reason the 2D view does: raw log flattens
+ * 16,384 -> 128 positions into 14 -> 7 and the shape disappears.
+ *
+ * Pure, so the layout can be tested without a WebGL context -- the seam `chromatin.test.ts` uses.
+ */
+export function flowSlabs(): FlowSlab[] {
+  const stages = flowGeometry();
+  const MIN = 0.18;
+  const span = (v: number, lo: number, hi: number) =>
+    MIN + (1 - MIN) * ((Math.log2(v) - Math.log2(lo)) / (Math.log2(hi) - Math.log2(lo)));
+  const posLo = Math.min(...stages.map((s) => s.positions));
+  const posHi = Math.max(...stages.map((s) => s.positions));
+  const chLo = Math.min(...stages.map((s) => s.channels));
+  const chHi = Math.max(...stages.map((s) => s.channels));
+  return stages.map((s, i) => ({
+    id: s.id,
+    label: s.label,
+    group: s.group,
+    z: stages.length > 1 ? i / (stages.length - 1) : 0,
+    height: span(s.positions, posLo, posHi),
+    width: span(s.channels, chLo, chHi),
+    thickness: 0.02,
+    positions: s.positions,
+    channels: s.channels,
+  }));
+}
