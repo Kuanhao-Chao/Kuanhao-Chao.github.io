@@ -765,6 +765,28 @@ async function auditInterpretation(browser, baseURL, scope) {
     await page.waitForTimeout(600);
     const b = await snap();
 
+    // The input stage must state the model's real input width. It draws 4 rows because the other
+    // 166 channels are constant, and titling it "4 channels" understated what the network is fed.
+    await page.evaluate(() => {
+      const s = document.querySelector('[data-vp-scrub]');
+      s.value = '0';
+      s.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await page.waitForTimeout(300);
+    const input = await page.evaluate(() => ({
+      title: document.querySelector('[data-vp-stage-title]')?.textContent ?? '',
+      note: document.querySelector('[data-vp-stage-note]')?.textContent ?? '',
+      top: document.querySelector('[data-vp-stage-top]')?.textContent ?? '',
+    }));
+    if (!/170 channels/.test(input.title)) fail(scope, `input stage titled "${input.title}"`);
+    if (!/4 DNA \+ 1 mask \+ 165 species/.test(input.title)) {
+      fail(scope, `input title does not break down the 170: "${input.title}"`);
+    }
+    if (!/#114/.test(input.note)) fail(scope, 'input note does not name the species channel');
+    if (!/base composition/.test(input.top)) {
+      fail(scope, `input reports "${input.top.slice(0, 40)}" — "loudest channels" is noise on a one-hot`);
+    }
+
     // Every stage, not just the selected one -- that is what "layer by layer" means.
     if (a.stages !== 21) fail(scope, `stage profile listed ${a.stages} stages, expected 21`);
     if (!(a.letters > 20)) fail(scope, `sequence logo drew ${a.letters} letters`);

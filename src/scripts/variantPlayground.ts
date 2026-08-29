@@ -2603,7 +2603,15 @@ export function initVariantPlayground(root: ParentNode = document) {
         spec.id === 'head'
           ? `The four assay-group means of the head's ${spec.channels.toLocaleString()} channels — ` +
             `every track individually is in "Every output track" below. `
-          : '';
+          : spec.id === 'input'
+            // The model is fed 170 channels and only 4 of them vary, so drawing 4 rows is right --
+            // but leaving the other 166 unmentioned understates the input, and the species channel
+            // is not a detail: setting it wrong produces silent garbage.
+            ? `${IN_CHANNELS} channels go in — ${N_DNA} DNA, ${N_MASK} mask, ${N_SPECIES} species. `
+              + `Only the ${N_DNA} DNA rows vary along the sequence and only those are drawn: the mask `
+              + `is all-zero at inference, and the species one-hot is a single channel held at 1 across `
+              + `every position — #${N_DNA + N_MASK + SPECIES_S_CEREVISIAE} here, S. cerevisiae. `
+            : '';
       stageNote.textContent =
         stageTab === 'attention'
           ? `Row = query position, column = key position. Each position covers ${bp} bp.`
