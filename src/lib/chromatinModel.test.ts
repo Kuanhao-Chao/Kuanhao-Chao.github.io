@@ -1121,5 +1121,29 @@ describe('seamless phase transition geometry', () => {
     const height = Math.max(...yVals) - Math.min(...yVals);
     expect(height).toBeCloseTo(10000, -2);
   });
+
+  it('mitoticChromosomeGeometry smoothly parameterizes helical winding from prophase (0) to metaphase (1)', () => {
+    const early = mitoticChromosomeGeometry(0);
+    const late = mitoticChromosomeGeometry(1);
+
+    // At condenseFraction = 0, scaffold core radius is zero (straight longitudinal axis)
+    const earlyZSpread = Math.max(...early.leftArm.scaffold.map((p) => Math.abs(p[2])));
+    expect(earlyZSpread).toBeCloseTo(0, 1);
+
+    // At condenseFraction = 1, scaffold winds into helical core (non-zero Z spread ~50 nm)
+    const lateZSpread = Math.max(...late.leftArm.scaffold.map((p) => Math.abs(p[2])));
+    expect(lateZSpread).toBeGreaterThan(25);
+  });
+
+  it('multiTadDomainGeometry smoothly parameterizes loop extrusion from 0.05 to 1.0', () => {
+    const minExt = multiTadDomainGeometry(0.05);
+    const fullExt = multiTadDomainGeometry(1.0);
+
+    const minReach = Math.max(...minExt.tad2PrimaryLoop.map((p) => p[1]));
+    const fullReach = Math.max(...fullExt.tad2PrimaryLoop.map((p) => p[1]));
+
+    expect(minReach).toBeLessThan(fullReach * 0.1);
+    expect(fullReach).toBeGreaterThan(450);
+  });
 });
 
