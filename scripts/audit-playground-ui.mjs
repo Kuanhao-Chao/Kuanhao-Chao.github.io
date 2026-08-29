@@ -176,7 +176,16 @@ async function auditPage(page, scope, want) {
   // Every output panel must carry a prediction BEFORE the model is loaded. This is what makes an
   // abandoned or mistimed 17-second click stop mattering.
   await page.locator('[data-vp-mode="locus"]').click();
-  await page.waitForTimeout(300);
+  // Wait for the precomputed pack to settle rather than guessing at a delay: a 2-4 MB fetch still
+  // in flight when the context closes logs an aborted-resource console error, which this audit
+  // would then report as a page error of its own making.
+  await page.waitForFunction(
+    () => {
+      const el = document.querySelector('[data-vp]');
+      return el.dataset.vpResultSource === 'precomputed' || el.dataset.vpPackFailed === 'true';
+    },
+    { timeout: 60_000 },
+  ).catch(() => {});
   const onLoad = await page.evaluate(() => {
     const svg = document.querySelector('[data-vp-track]');
     const title = [...svg.querySelectorAll('text')].map((x) => x.textContent).find((x) => /predicted/.test(x));
@@ -185,9 +194,12 @@ async function auditPage(page, scope, want) {
       title: title ?? '',
       single: Number(document.querySelector('[data-vp-single]')?.dataset.peak ?? '0'),
       source: document.querySelector('[data-vp]').dataset.vpResultSource ?? '',
+      packFailed: document.querySelector('[data-vp]').dataset.vpPackFailed === 'true',
     };
   });
   if (onLoad.source === 'live') fail(scope, 'a model run happened without a click');
+  if (onLoad.packFailed) fail(scope, 'the precomputed activation pack failed to load');
+  if (onLoad.source !== 'precomputed') fail(scope, `precomputed pack never loaded (source "${onLoad.source}")`);
   if (!(onLoad.peak > 0)) fail(scope, 'no predicted coverage on load — the precompute is not wired');
   if (!/precomputed/.test(onLoad.title)) fail(scope, `coverage does not say it is precomputed: "${onLoad.title}"`);
   if (!(onLoad.single > 0)) fail(scope, 'no single-track curve on load');
