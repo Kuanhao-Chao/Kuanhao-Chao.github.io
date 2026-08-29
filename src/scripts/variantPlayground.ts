@@ -963,16 +963,20 @@ export function initVariantPlayground(root: ParentNode = document) {
   /** Take a locus's precomputed pack as the current result, so every view fills with no model. */
   async function adoptPrecomputed(locusId: string): Promise<void> {
     const token = (precomputeToken += 1);
+    delete host.dataset.vpPackFailed;
     const got = await loadPrecomputed(locusId);
     // A slower fetch for a locus the reader has already navigated away from must not overwrite the
     // one they are looking at now.
     if (token !== precomputeToken || locusId !== LOCI[locusIndex].id) return;
     if (!got) {
+      // A flag the gate can wait on, so a failed fetch is a reported failure rather than a timeout.
+      host.dataset.vpPackFailed = 'true';
       emptyReason = `${LOCI[locusIndex].gene}: precomputed layers unavailable — load the model to compute them.`;
       renderStageDetail(flow?.selected() ?? null);
       setStatus(emptyReason);
       return;
     }
+    delete host.dataset.vpPackFailed;
     current = got;
     reference = got;
     host.dataset.vpResultLocus = locusId;
