@@ -1351,3 +1351,34 @@ describe('trackIndex', () => {
     expect(strain.tracks.get('ERR9593592')![0].index).toBe(4201);
   });
 });
+
+describe('the precomputed packs are served from a path this site actually owns', () => {
+  // With a custom apex domain on the user site, GitHub serves every project repo's Pages at
+  // khchao.com/<repo>/. Those shadow anything this site deploys at the same path. The packs were
+  // first put at /shorkie/, which the `shorkie` project repo owns, and every one of them 404'd in
+  // production while passing locally -- the preview server has no such shadowing.
+  const SHADOWED = ['shorkie', 'splam', 'lifton', 'openspliceai', 'gffbase'];
+
+  it('does not serve them from a project-repo path', async () => {
+    const source = await import('node:fs').then((fs) =>
+      fs.readFileSync('src/scripts/variantPlayground.ts', 'utf8'));
+    const match = /BASE_URL\.replace\(\/\\\/\$\/, ''\)\}\/([a-z0-9-]+)`/.exec(source);
+    expect(match, 'could not find the pack base path in variantPlayground.ts').not.toBeNull();
+    const dir = match![1].toLowerCase();
+    expect(SHADOWED, `"${dir}" is shadowed by a project repo's Pages site`).not.toContain(dir);
+  });
+
+  it('ships the packs from that same directory', async () => {
+    const fs = await import('node:fs');
+    expect(fs.existsSync('public/vp-data/index.json')).toBe(true);
+    const index = JSON.parse(fs.readFileSync('public/vp-data/index.json', 'utf8'));
+    expect(Object.keys(index.loci)).toHaveLength(loci.loci.length);
+    // Every locus must have all four planes and its sidecar, or a reader gets a half-loaded page.
+    for (const l of loci.loci) {
+      for (const suffix of ['tracks', 'stages', 'stem', 'attn']) {
+        expect(fs.existsSync(`public/vp-data/${l.id}-${suffix}.png`), `${l.gene} ${suffix}`).toBe(true);
+      }
+      expect(fs.existsSync(`public/vp-data/${l.id}.json`), `${l.gene} sidecar`).toBe(true);
+    }
+  });
+});

@@ -740,9 +740,16 @@ Keras checkpoint, ported and exported, producing the same numbers the paper's mo
   prediction is finite and not identically zero, and retries on WASM — releasing the WebGPU session
   first, or the retry runs on the backend that just failed. `ensureSession` used to catch only
   `create`, so a run-time failure had no fallback at all.
+- **The precomputed packs live at `/vp-data/`, NOT `/shorkie/`.** With a custom apex domain on the
+  user site, GitHub Pages serves every *project* repo at `khchao.com/<repo>/`, and those shadow
+  anything this site deploys at the same path. The packs went to `public/shorkie/` first — the one
+  path CLAUDE.md already warned about for this very page — and all 71 files 404'd in production
+  while every local check passed, because a preview server has no such shadowing. The shadowed
+  prefixes are `shorkie`, `splam`, `LiftOn`, `OpenSpliceAI`, `gffbase` (see `LIVE_SAME_ORIGIN_PREFIXES`
+  in `audit-links.mjs`); `shorkieModel.test.ts` now fails if the pack path is any of them.
 - **Everything is precomputed per locus, as PNG.** `make_activations.py` writes all 5,215 track
-  predictions plus every layer's activations for each locus as uint8 PNGs with per-row scales in a
-  sidecar JSON — 2–4 MB a locus, 56 MB total. PNG beats gzip on this data *and* the browser decodes
+  predictions plus every layer's activations for each locus into `public/vp-data/` as uint8 PNGs
+  with per-row scales in a sidecar JSON — 2–4 MB a locus, 56 MB total. PNG beats gzip on this data *and* the browser decodes
   it natively with `createImageBitmap`, so no JavaScript inflate ships. The page then needs **no
   model at all**: verified with `**/models/**` blocked, all 14 loci show every layer and all 5,215
   tracks, 0 model requests. Decoded-vs-live is ≤ 2.8e-3 across every locus and tensor.
