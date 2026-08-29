@@ -28,6 +28,7 @@ function markedActivations(): FlowActivations {
     attention.fill(l, l * 128 * 128, (l + 1) * 128 * 128);
   }
   return {
+    input: new Float32Array(4 * 16384).fill(-3),
     stemProfile: new Float32Array(96 * 1024).fill(-1),
     stageMaps,
     attention,
@@ -45,7 +46,7 @@ describe('stageMap', () => {
   });
 
   it('resolves every one of the twenty stages', () => {
-    expect(FLOW_STAGES).toHaveLength(20);
+    expect(FLOW_STAGES).toHaveLength(21);   // + the input sequence
     for (const s of FLOW_STAGES) {
       const m = stageMap(s, acts);
       expect(m, `stage ${s.id} has no map`).not.toBeNull();
@@ -82,7 +83,10 @@ describe('stageMap', () => {
     expect(b.data[0] - a.data[0]).toBe(384);
   });
 
-  it('keeps the stem and head on their own tensors at their own resolutions', () => {
+  it('keeps the input, stem and head on their own tensors at their own resolutions', () => {
+    const inp = stageMap(byId('input'), acts)!;
+    expect([inp.channels, inp.positions]).toEqual([4, 16384]);
+    expect(inp.data[0]).toBe(-3);
     const stem = stageMap(byId('stem'), acts)!;
     expect([stem.channels, stem.positions]).toEqual([96, 1024]);
     expect(stem.data[0]).toBe(-1);

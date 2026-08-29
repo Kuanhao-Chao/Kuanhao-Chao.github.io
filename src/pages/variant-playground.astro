@@ -116,6 +116,21 @@ const description =
           </div>
           <svg class="vp-svg" data-vp-track role="img"
                aria-label="Predicted RNA-seq coverage across 896 bins"></svg>
+          <canvas class="vp-canvas vp-attr" data-vp-attr role="img"
+                  aria-label="Which input bases drive the selected output region"></canvas>
+          <div class="vp-controls" style="margin-top:0.35rem;">
+            <span class="vp-stat" data-vp-trace-label>Drag across the curve above to trace a region back to the sequence.</span>
+            <select class="vp-select" data-vp-anchor aria-label="Trace a gene at single-base resolution"></select>
+            <button type="button" class="vp-btn" data-vp-trace-clear>clear</button>
+          </div>
+          <p class="vp-notes" style="margin:0.35rem 0 0;">
+            <strong>Traceback.</strong> Gradient × input: how much the prediction over the selected
+            bins moves per unit of each input base, times the base that is actually there. It is a{' '}
+            <em>local sensitivity, not a decomposition</em> — the values do not sum to the
+            prediction. Dragging is exact rather than interpolated, because gradients superpose:
+            the attribution for a set of bins is the sum of their individual gradients. Dragging
+            resolves to 128 bp; picking a gene gives single-base resolution.
+          </p>
           <div class="vp-controls" style="margin-top:0.5rem;">
             <label class="vp-stat" style="display:inline-flex;align-items:center;gap:0.35rem;">
               <input type="checkbox" data-vp-truth checked /> measured coverage
@@ -132,7 +147,7 @@ const description =
             Loading the model — a 28.6 MB download and about 17 s of WebAssembly per run — is what
             gives you the live layer activations, sequence editing and motif knockouts.
             896 bins of 16 bp across the window's 14,336 bp interior. Purple bars are annotated ORFs.
-            A dashed line, once you mutate, is the unedited reference. <strong>Measured coverage</strong>
+            A dashed line, once you mutate, is the unedited reference. <strong>Measured coverage</strong>{' '}
             is the second curve where it is loaded: Shorkie's own BigWigs binned exactly as its training
             labels were — 16 bp sums, soft-clipped, 1,024 bp cropped from each end — so the two curves are
             the same quantity and Pearson <em>r</em> means something. The bucket they live in is

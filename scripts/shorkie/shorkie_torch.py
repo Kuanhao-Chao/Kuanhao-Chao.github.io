@@ -311,9 +311,13 @@ class ShorkieTorch(nn.Module):
                 # actual output feature map. Without it the only thing a visualisation can show for
                 # a transformer layer is the attention matrix, which is a different kind of object
                 # from every other stage's activation map (and is diagonal-dominant, so it
-                # normalises to near-blank). Transposed to [B, 384, 128] to match every other
-                # entry in `acts`, which is channels-first.
-                acts[f"attn_out{i + 1}"] = t.transpose(1, 2)
+                # normalises to near-blank).
+                #
+                # Store `t` ITSELF, not `t.transpose(1, 2)`. A transpose here creates a fresh tensor
+                # on a branch nothing downstream consumes, so `retain_grad()` on it yields None and
+                # per-layer relevance for all 8 transformer stages is silently unobtainable. The
+                # caller transposes for display; the graph keeps the tensor that is on the path.
+                acts[f"attn_out{i + 1}"] = t
         if want_intermediates and attn_maps:
             # Pairwise, not torch.stack: an 8-way stack lowers to a Concat needing 9 storage
             # buffers, one over WebGPU's per-stage limit of 8. See _tree_cat in build_onnx.py.

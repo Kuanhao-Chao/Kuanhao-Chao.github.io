@@ -223,3 +223,6 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
   border-radius: 2px;
   font-style: normal;
 }
+
+.vp-attr { margin-top: 0.35rem; cursor: crosshair; }
+.vp-track-select { cursor: crosshair; }

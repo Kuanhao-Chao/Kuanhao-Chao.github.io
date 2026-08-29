@@ -13,6 +13,7 @@
 import {
   BOTTLENECK_LEN,
   N_BINS,
+  SEQ_LEN,
   N_ATTN_LAYERS,
   flowGeometry,
   stageAt,
@@ -26,6 +27,8 @@ import { prefersReducedMotion } from './motion';
 
 /** Reduced per-stage activation maps returned by the ONNX graph, all pooled to 128 positions. */
 export interface FlowActivations {
+  /** The one-hot sequence, [4, 16384]. Derived in the browser -- no precompute needed. */
+  input?: Float32Array;
   stemProfile: Float32Array;   // [96, 1024]
   stageMaps: Float32Array;     // [5760, 128] -- blocks 1-7, attn 1-8, decoder 1-3, in flow order
   attention: Float32Array;     // [8, 128, 128]
@@ -55,6 +58,9 @@ export function stageMap(stage: FlowStage, a: FlowActivations | null): {
   data: Float32Array; channels: number; positions: number;
 } | null {
   if (!a) return null;
+  if (stage.id === 'input') {
+    return a.input ? { data: a.input, channels: 4, positions: SEQ_LEN } : null;
+  }
   if (stage.id === 'stem') return { data: a.stemProfile, channels: 96, positions: 1024 };
   if (stage.id === 'head') {
     // `tracks` is [bin][group] -- bin-major, group the fast axis -- but every consumer here reads

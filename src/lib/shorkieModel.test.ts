@@ -58,6 +58,7 @@ import {
   parseTrackName,
   trackIndex,
   geneTrackShapes,
+  sumAttributionRows,
 } from './shorkieModel';
 import tracks from '../data/shorkieTracks.json';
 import trackNames from '../data/shorkieTrackNames.json';
@@ -138,9 +139,13 @@ describe('architecture spec, against the released f0 checkpoint', () => {
     expect(rna.orfEnrichment).toBeGreaterThan(chip.orfEnrichment * 10);
   });
 
-  it('layerSpecs walks stem -> 7 blocks -> 8 attention -> 3 decoder -> head', () => {
+  it('layerSpecs walks input -> stem -> 7 blocks -> 8 attention -> 3 decoder -> head', () => {
     const specs = layerSpecs();
-    expect(specs).toHaveLength(1 + 7 + 8 + 3 + 1);
+    expect(specs).toHaveLength(1 + 1 + 7 + 8 + 3 + 1);
+    // The chain has to start at the sequence, or "input to output" is really "first convolution
+    // to output".
+    expect(specs[0].id).toBe('input');
+    expect(specs[0].channels).toBe(4);
     expect(specs[0].positions).toBe(SEQ_LEN);
     expect(specs.at(-1)?.positions).toBe(N_BINS);
     const attn = specs.filter((s) => s.id.startsWith('attn'));
@@ -327,7 +332,7 @@ describe('flow geometry', () => {
   const stages = flowGeometry();
 
   it('lays out all 20 stages left to right without overlap, inside [0, 1]', () => {
-    expect(stages).toHaveLength(20);
+    expect(stages).toHaveLength(21);   // + the input sequence itself
     for (let i = 1; i < stages.length; i += 1) {
       expect(stages[i].x).toBeGreaterThanOrEqual(stages[i - 1].x + stages[i - 1].width);
     }
@@ -339,11 +344,12 @@ describe('flow geometry', () => {
 
   it('height falls monotonically through the encoder and rises through the decoder', () => {
     // Height is spatial resolution, so the U shape has to be in the geometry, not just the labels.
-    // The conv stem and block 1 both operate at the full 16,384, so the first step is flat; every
-    // step after it halves.
+    // The input, the conv stem and block 1 all sit at the full 16,384, so the first two steps are
+    // flat; every step after them halves.
     const enc = stages.filter((s) => s.group === 'encoder');
     expect(enc[1].height).toBe(enc[0].height);
-    for (let i = 2; i < enc.length; i += 1) {
+    expect(enc[2].height).toBe(enc[0].height);
+    for (let i = 3; i < enc.length; i += 1) {
       expect(enc[i].height).toBeLessThan(enc[i - 1].height);
     }
     const dec = stages.filter((s) => s.group === 'decoder');
@@ -380,7 +386,7 @@ describe('flow geometry', () => {
   });
 
   it('groups the stages into encoder, bottleneck and decoder', () => {
-    expect(stages.filter((s) => s.group === 'encoder')).toHaveLength(8); // stem + 7 blocks
+    expect(stages.filter((s) => s.group === 'encoder')).toHaveLength(9); // input + stem + 7 blocks
     expect(stages.filter((s) => s.group === 'bottleneck')).toHaveLength(N_ATTN_LAYERS);
     expect(stages.filter((s) => s.group === 'decoder')).toHaveLength(4); // 3 U-Net + head
   });
@@ -1484,5 +1490,49 @@ describe('geneTrackShapes', () => {
       }
     }
     expect(introns).toBe(8);
+  });
+});
+
+describe('sumAttributionRows', () => {
+  const COLS = 5;
+  const GROUPS = 4;
+  const GROUP_BINS = 8;
+  // row g is filled with (g+1), so a sum over rows is checkable by hand.
+  const plane = Float32Array.from(
+    Array.from({ length: GROUPS * COLS }, (_, i) => Math.floor(i / COLS) + 1),
+  );
+
+  it('sums exactly the groups a bin range covers', () => {
+    // bins 0..8 -> group 0 only
+    expect([...sumAttributionRows(plane, COLS, GROUP_BINS, GROUPS, 0, 8)]).toEqual([1, 1, 1, 1, 1]);
+    // bins 0..16 -> groups 0 and 1
+    expect([...sumAttributionRows(plane, COLS, GROUP_BINS, GROUPS, 0, 16)]).toEqual([3, 3, 3, 3, 3]);
+    // the whole plane
+    expect([...sumAttributionRows(plane, COLS, GROUP_BINS, GROUPS, 0, 32)]).toEqual([10, 10, 10, 10, 10]);
+  });
+
+  it('is additive over adjacent ranges — the property that makes dragging exact', () => {
+    // Gradients superpose, so the attribution for a union is the sum of the parts. If this ever
+    // stopped holding, a dragged region would be an interpolation pretending to be a measurement.
+    const a = sumAttributionRows(plane, COLS, GROUP_BINS, GROUPS, 0, 16);
+    const b = sumAttributionRows(plane, COLS, GROUP_BINS, GROUPS, 16, 32);
+    const whole = sumAttributionRows(plane, COLS, GROUP_BINS, GROUPS, 0, 32);
+    for (let i = 0; i < COLS; i += 1) expect(a[i] + b[i]).toBeCloseTo(whole[i], 6);
+  });
+
+  it('snaps to group boundaries rather than silently interpolating', () => {
+    // A range inside one group covers that whole group; the page says the resolution is 128 bp.
+    expect([...sumAttributionRows(plane, COLS, GROUP_BINS, GROUPS, 2, 5)]).toEqual([1, 1, 1, 1, 1]);
+  });
+
+  it('clamps out-of-range selections instead of reading past the plane', () => {
+    expect([...sumAttributionRows(plane, COLS, GROUP_BINS, GROUPS, -50, 8)]).toEqual([1, 1, 1, 1, 1]);
+    const past = sumAttributionRows(plane, COLS, GROUP_BINS, GROUPS, 0, 9999);
+    expect([...past]).toEqual([10, 10, 10, 10, 10]);
+    expect(past.every((v) => Number.isFinite(v))).toBe(true);
+  });
+
+  it('returns zeros for an empty selection', () => {
+    expect([...sumAttributionRows(plane, COLS, GROUP_BINS, GROUPS, 8, 8)]).toEqual([0, 0, 0, 0, 0]);
   });
 });
