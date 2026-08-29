@@ -91,7 +91,10 @@ const description =
 
       <!-- ------------------------------------------------- layer detail -->
       <section class="vp-panel" data-vp-stage-detail>
-        <h2>This layer, in detail <span class="vp-stat" data-vp-stage-title></span></h2>
+        <h2>This layer, in detail <span class="vp-stat" data-vp-stage-title></span>
+          <canvas class="vp-aspect" data-vp-aspect width="34" height="22" role="img"
+                  aria-label="The tensor's real proportions: width is positions, height is channels"
+          ></canvas></h2>
         <div class="vp-controls">
           <button type="button" class="vp-btn" data-vp-tab="activation" aria-pressed="true">activation</button>
           <button type="button" class="vp-btn" data-vp-tab="attention" aria-pressed="false" hidden>attention</button>
@@ -145,6 +148,9 @@ const description =
             <select class="vp-select" data-vp-group aria-label="Output track group"></select>
             <label class="vp-stat" style="display:inline-flex;align-items:center;gap:0.35rem;">
               <input type="checkbox" data-vp-logaxis checked /> log axis
+            </label>
+            <label class="vp-stat" style="display:inline-flex;align-items:center;gap:0.35rem;">
+              <input type="checkbox" data-vp-generows checked /> one row per gene
             </label>
             <span class="vp-stat" data-vp-truthstat></span>
           </div>

@@ -47,6 +47,19 @@ import {
   subLayers,
   knockoutMotif,
   geneBodyBins,
+  windowFraction,
+  fractionToBp,
+  predictedSpan,
+  axisTicks,
+  bpTicks,
+  packGeneRows,
+  attentionRollout,
+  binsToBottleneck,
+  filterLogo,
+  N_DNA,
+  N_MASK,
+  N_SPECIES,
+  IN_CHANNELS,
   geneTrackShapes,
   stageMapOffsets,
   sumAttributionRows,
@@ -181,6 +194,7 @@ export function initVariantPlayground(root: ParentNode = document) {
   const runBtn = $<HTMLButtonElement>('[data-vp-run]');
   const statusEl = $('[data-vp-status]');
   const neuronCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-neurons]');
+  const aspectCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-aspect]');
   const trackSvg = host.querySelector<SVGSVGElement>('[data-vp-track]');
   const layerList = $('[data-vp-layers]');
   const liveStat = $('[data-vp-livestat]');
@@ -250,6 +264,9 @@ export function initVariantPlayground(root: ParentNode = document) {
   // rather than a mean over all 3,053 induction tracks.
   let selectedTrack: number = TRACK_GROUPS[RNA_SEQ_GROUP].start;
   let useLogAxis = true;
+  // Expanded by default: eight of the fourteen windows contain an overlap, and collapsing is the
+  // compact view rather than the honest one.
+  let geneRowsExpanded = true;
   /** Why there is no result to show, named so the empty state can say it. */
   let emptyReason = 'No prediction yet.';
   /** Which motif is currently knocked out, and the peak before it was. */
@@ -329,11 +346,258 @@ export function initVariantPlayground(root: ParentNode = document) {
   }
 
   // ---------------------------------------------------------------- predicted track
+  /**
+   * The one plot geometry every panel that draws across the sequence uses.
+   *
+   * These panels are stacked, so a reader reads down a column expecting one bp. They did not share
+   * one: the coverage curve spanned bins 0-896 -- bp 1,024-15,360 -- while the attribution beneath
+   * it spanned the full 0-16,384, putting the same screen x 1,024 bp apart at the left edge. The
+   * domain is now the whole window everywhere, and the interior the model actually predicts is
+   * drawn where it really falls, with its two cropped flanks shaded rather than scaled away.
+   */
+  const PLOT = { left: 46, right: 10, top: 20, bottom: 34 };
+  const GENE_H = 46;   // 18 px of bp ruler + two 11 px gene rows + slack
+
+  /** A window offset in bp to an x coordinate, in whatever unit space the caller is drawing in. */
+  function xOfBp(bp: number, width: number): number {
+    return PLOT.left + windowFraction(bp) * (width - PLOT.left - PLOT.right);
+  }
+
+  /** The inverse, so a pointer lands on the base it is over rather than 1,024 bp away from it. */
+  function bpOfX(x: number, width: number): number {
+    const inner = width - PLOT.left - PLOT.right;
+    return fractionToBp(inner > 0 ? (x - PLOT.left) / inner : 0);
+  }
+
+  /** Short bp labels for a ruler: 0, 2k, 4k … rather than 0, 2048, 4096. */
+  function bpLabel(bp: number): string {
+    return bp === 0 ? '0' : bp % 1000 === 0 ? `${bp / 1000}k` : `${(bp / 1000).toFixed(1)}k`;
+  }
+
+  /**
+   * The shared axis furniture: a labelled value axis on the left and a bp ruler along the bottom.
+   *
+   * Neither coverage plot had a single tick before this -- only a caption naming the peak -- so a
+   * reader could see the shape and not the scale. Ticks come from `axisTicks`, which places them
+   * THROUGH the axis in use: on the log axis this page defaults to, evenly spaced values are not
+   * evenly spaced positions, and generating them linearly bunches every tick against the top.
+   */
+  function drawAxes(
+    svg: SVGSVGElement,
+    W: number,
+    plotTop: number,
+    plotBottom: number,
+    max: number,
+    unit: string,
+    locus: Locus | undefined,
+    bottomY: number,
+  ): void {
+    const h = plotBottom - plotTop;
+    for (const tick of axisTicks(max, useLogAxis)) {
+      const y = plotBottom - tick.at * h;
+      const line = el('line');
+      attr(line, {
+        x1: PLOT.left, x2: W - PLOT.right, y1: y, y2: y,
+        stroke: 'var(--color-rule)', 'stroke-width': 0.5,
+        'stroke-opacity': tick.value === 0 ? 0.9 : 0.35,
+      });
+      svg.append(line);
+      svg.append(text(PLOT.left - 5, y + 3, formatTick(tick.value), 'vp-ax', 'end'));
+    }
+    // The unit, turned up the axis, so the numbers beside it mean something.
+    const label = text(0, 0, unit, 'vp-ax', 'middle');
+    attr(label, { transform: `translate(11 ${(plotTop + plotBottom) / 2}) rotate(-90)` });
+    svg.append(label);
+
+    for (const bp of bpTicks()) {
+      const x = xOfBp(bp, W);
+      const tickLine = el('line');
+      attr(tickLine, {
+        x1: x, x2: x, y1: plotBottom, y2: plotBottom + 4,
+        stroke: 'var(--color-rule)', 'stroke-width': 0.5,
+      });
+      svg.append(tickLine);
+      // The first and last ticks sit on the panel edge, so a centred label runs half off it.
+      svg.append(text(x, plotBottom + 13, bpLabel(bp), 'vp-ax',
+        bp === 0 ? 'start' : bp >= SEQ_LEN ? 'end' : 'middle'));
+    }
+    // The real chromosome coordinates, so the window can be found in a genome browser.
+    const axisName = locus
+      ? `${locus.chrom}:${locus.start.toLocaleString()}–${(locus.start + SEQ_LEN).toLocaleString()}`
+        + ` · window offset, bp · ${useLogAxis ? 'log' : 'linear'} value axis`
+      : `window offset, bp · ${useLogAxis ? 'log' : 'linear'} value axis`;
+    // At the very bottom, clear of the gene rows -- it used to be drawn straight through them.
+    svg.append(text(W - PLOT.right, bottomY, axisName, 'vp-ax', 'end'));
+  }
+
+  /** Tick labels that stay short across the four assay groups' ~40x range difference. */
+  function formatTick(v: number): string {
+    if (v === 0) return '0';
+    if (v >= 1000) return `${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}k`;
+    if (v >= 10) return v.toFixed(0);
+    if (v >= 1) return v.toFixed(1);
+    return v.toFixed(2);
+  }
+
+  /** Shade the two flanks the head never predicts, rather than pretending the window is 14,336 bp. */
+  function drawCropShading(svg: SVGSVGElement, W: number, top: number, bottom: number): void {
+    const { lo, hi } = predictedSpan();
+    for (const [a, b] of [[0, fractionToBp(lo)], [fractionToBp(hi), SEQ_LEN]] as [number, number][]) {
+      const r = el('rect');
+      attr(r, {
+        x: xOfBp(a, W), y: top, width: Math.max(xOfBp(b, W) - xOfBp(a, W), 0), height: bottom - top,
+        fill: 'var(--color-muted)', 'fill-opacity': 0.1,
+      });
+      svg.append(r);
+    }
+    svg.append(text(xOfBp(0, W) + 2, top + 10, 'cropped', 'vp-ax', 'start'));
+    svg.append(text(xOfBp(SEQ_LEN, W) - 2, top + 10, 'cropped', 'vp-ax', 'end'));
+  }
+
+  /**
+   * A labelled channel axis down the left of a stage's raster.
+   *
+   * Without it the vertical axis is an unlabelled block: a reader can see that 384 rows are drawn
+   * and cannot tell which row is channel 200. The raster keeps its full width -- shrinking it to
+   * the tensor's true aspect would make the bottleneck unreadable -- so the DIMENSIONS are carried
+   * by this axis, the bp ruler beneath, and the aspect swatch beside the title.
+   */
+  function drawChannelAxis(
+    ctx: CanvasRenderingContext2D,
+    channels: number,
+    rowH: number,
+    width: number,
+    named: boolean,
+  ): void {
+    if (named) return;                    // the head labels its four rows by assay group instead
+    const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
+    const rule = getComputedStyle(host).getPropertyValue('--color-rule').trim() || '#e5e7eb';
+    const h = channels * rowH;
+    // Round tick counts, so the labels read 0/96/192/288/384 rather than 0/77/154.
+    const step = channels <= 8 ? 1
+      : channels <= 128 ? Math.round(channels / 4)
+        : Math.round(channels / 4 / 32) * 32 || 32;
+    ctx.save();
+    ctx.font = '9px system-ui, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillStyle = muted;
+    ctx.strokeStyle = rule;
+    ctx.lineWidth = 1;
+    for (let c = 0; c <= channels; c += step) {
+      const y = Math.min((c / channels) * h, h - 0.5);
+      ctx.globalAlpha = 0.6;
+      ctx.beginPath();
+      ctx.moveTo(PLOT.left - 4, y + 0.5);
+      ctx.lineTo(PLOT.left, y + 0.5);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.fillText(String(c), PLOT.left - 6, y + 8);
+    }
+    ctx.save();
+    ctx.translate(10, h / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillText('channel', 0, 0);
+    ctx.restore();
+    ctx.restore();
+  }
+
+  /**
+   * A swatch at the tensor's REAL positions:channels ratio, beside the title.
+   *
+   * The raster is drawn full width at every stage, which is what makes it readable and also what
+   * hides the shape: 16,384 x 4 and 128 x 384 render as blocks of similar size. The swatch carries
+   * the proportion the raster cannot -- a sliver for the input, a tall block for the bottleneck --
+   * on a log scale, because the true ratio spans four orders of magnitude and a linear swatch for
+   * the input would be one pixel tall.
+   */
+  function drawAspectSwatch(positions: number, channels: number): void {
+    if (!aspectCanvas) return;
+    const W = 34;
+    const H = 22;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    aspectCanvas.width = Math.round(W * dpr);
+    aspectCanvas.height = Math.round(H * dpr);
+    aspectCanvas.style.width = `${W}px`;
+    aspectCanvas.style.height = `${H}px`;
+    const ctx = aspectCanvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    // log2 of each extent, mapped onto the swatch. Monotone in the true quantity, so the ordering
+    // between stages is exact even though the ratio is compressed.
+    const lp = Math.log2(Math.max(positions, 1)) / Math.log2(SEQ_LEN);
+    const lc = Math.log2(Math.max(channels, 1)) / Math.log2(N_TRACKS);
+    const w = Math.max(2, lp * (W - 2));
+    const h = Math.max(2, lc * (H - 2));
+    ctx.fillStyle = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
+    ctx.globalAlpha = 0.75;
+    ctx.fillRect((W - w) / 2, (H - h) / 2, w, h);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = getComputedStyle(host).getPropertyValue('--color-rule').trim() || '#e5e7eb';
+    ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
+    aspectCanvas.dataset.shape = `${positions}x${channels}`;
+  }
+
+  /**
+   * Gene models as a genome browser draws them: one row per non-overlapping set.
+   *
+   * Every feature used to draw on a single line, distinguished only by opacity, so in the eight
+   * shipped windows that contain an overlap one gene was painted over another and simply could not
+   * be read. `packGeneRows` is the standard greedy assignment; measured, no window needs more than
+   * two rows, so expanding costs one row and hides nothing.
+   */
+  function drawGeneRowsSvg(svg: SVGSVGElement, locus: Locus, W: number, top: number): number {
+    const rows = geneRowsExpanded ? packGeneRows(locus.features) : locus.features.map(() => 0);
+    const nRows = Math.max(...rows) + 1;
+    const rowH = 11;
+    locus.features.forEach((f, i) => {
+      const own = f.name === locus.id;
+      const mid = top + rows[i] * rowH + 5;
+      const x0 = xOfBp(f.txStart, W);
+      const x1 = xOfBp(f.txEnd, W);
+      const line = el('line');
+      attr(line, {
+        x1: x0, x2: x1, y1: mid, y2: mid,
+        stroke: 'var(--vp-orf)', 'stroke-width': 1, 'stroke-opacity': own ? 0.9 : 0.5,
+      });
+      svg.append(line);
+      // Direction, drawn on the intron line where a browser puts it.
+      const fwd = f.strand === '+';
+      for (let x = x0 + 7; x < x1 - 3; x += 13) {
+        const chev = el('path');
+        attr(chev, {
+          d: `M${(x - (fwd ? 2 : -2)).toFixed(1)} ${mid - 2.4} L${(x + (fwd ? 2 : -2)).toFixed(1)} ${mid}`
+            + ` L${(x - (fwd ? 2 : -2)).toFixed(1)} ${mid + 2.4}`,
+          fill: 'none', stroke: 'var(--vp-orf)', 'stroke-width': 0.7,
+          'stroke-opacity': own ? 0.85 : 0.45,
+        });
+        svg.append(chev);
+      }
+      for (const piece of geneTrackShapes(f)) {
+        if (piece.kind === 'intron') continue;
+        const h = piece.kind === 'cds' ? 8 : 4;
+        const r = el('rect');
+        attr(r, {
+          x: xOfBp(piece.start, W), y: mid - h / 2,
+          width: Math.max(xOfBp(piece.end, W) - xOfBp(piece.start, W), 1), height: h,
+          fill: 'var(--vp-orf)', 'fill-opacity': own ? 0.85 : 0.45,
+        });
+        svg.append(r);
+      }
+      // After the gene rather than above it: above put the name straight through the bp ruler.
+      if (own) svg.append(text(x1 + 4, mid + 3, locus.gene, 'vp-ax', 'start'));
+    });
+    svg.dataset.geneRows = String(nRows);
+    return nRows;
+  }
+
+  // ---------------------------------------------------------------- predicted track
   function renderTrack(): void {
     if (!trackSvg) return;
     clear(trackSvg);
-    const W = 960;
-    const H = 220;
+    const W = 1000;
+    const H = 250;
     attr(trackSvg, { viewBox: `0 0 ${W} ${H}` });
     const n = N_BINS;
     const locusId = mode === 'locus' ? LOCI[locusIndex].id : '';
@@ -349,71 +613,56 @@ export function initVariantPlayground(root: ParentNode = document) {
     // own maximum; the number that carries the comparison is the correlation, not the overlap.
     const max = Math.max(...vals, 1e-6);
     const truthMax = truth ? Math.max(...truth, 1e-6) : 1;
-    const bw = W / n;
-    // The SAME axis mapping the per-track plot uses. Two panels showing predicted coverage on two
-    // different axes is how a page contradicts itself; a linear axis against a 995 peak is also
-    // what made this curve look wrong in the first place -- 642 of the 896 bins are above 1.0 and
-    // a linear axis puts all of them on the floor.
-    const yOf = (v: number, ceiling: number) =>
-      H - 26 - (useLogAxis ? logAxis(v, ceiling) : ceiling > 0 ? v / ceiling : 0) * (H - 46);
-
+    const plotTop = PLOT.top;
+    const plotBottom = H - PLOT.bottom - GENE_H;
     const locus = LOCI[locusIndex];
+
+    drawCropShading(trackSvg, W, plotTop, plotBottom);
+    drawAxes(trackSvg, W, plotTop, plotBottom, max, 'predicted coverage (a.u.)', locus, H - 3);
+
+    // Bin i covers CROP_BP + i*BIN_BP, which is where it is now drawn -- not stretched across the
+    // whole panel as if the model predicted the flanks it never sees.
+    const bx = (i: number) => xOfBp(CROP_BP + i * BIN_BP, W);
+    const yOf = (v: number, ceiling: number) =>
+      plotBottom - (useLogAxis ? logAxis(v, ceiling) : ceiling > 0 ? v / ceiling : 0)
+        * (plotBottom - plotTop);
+
     // The window the paper's figure prints, so a reader can see which slice of the 896 bins
     // Figure 4 was looking at.
     if (locus.figureWindow) {
       const { binStart, binEnd } = locus.figureWindow;
       const frame = el('rect');
       attr(frame, {
-        x: binStart * bw, y: 18, width: Math.max((binEnd - binStart) * bw, 2), height: H - 44,
+        x: bx(binStart), y: plotTop, width: Math.max(bx(binEnd) - bx(binStart), 2),
+        height: plotBottom - plotTop,
         fill: 'var(--vp-orf)', 'fill-opacity': 0.08,
         stroke: 'var(--vp-orf)', 'stroke-opacity': 0.5, 'stroke-dasharray': '3 2',
       });
       trackSvg.append(frame);
-      trackSvg.append(text(binStart * bw + 3, 28, locus.figurePanel ?? 'figure window', 'vp-ax', 'start'));
-    }
-    // The same gene geometry the layer ruler draws, so the two views cannot disagree about where
-    // an intron is. bp -> x here, because the coverage plot is scaled in bins.
-    const gx = (bp: number) => ((bp - CROP_BP) / (N_BINS * BIN_BP)) * W;
-    for (const f of locus.features) {
-      const own = f.name === locus.id;
-      const line = el('line');
-      attr(line, {
-        x1: gx(f.txStart), x2: gx(f.txEnd), y1: H - 13, y2: H - 13,
-        stroke: 'var(--vp-orf)', 'stroke-width': 1, 'stroke-opacity': own ? 0.9 : 0.45,
-      });
-      trackSvg.append(line);
-      for (const piece of geneTrackShapes(f)) {
-        if (piece.kind === 'intron') continue;
-        const h = piece.kind === 'cds' ? 10 : 5;
-        const r = el('rect');
-        attr(r, {
-          x: gx(piece.start), y: H - 13 - h / 2,
-          width: Math.max(gx(piece.end) - gx(piece.start), 1), height: h,
-          fill: 'var(--vp-orf)', 'fill-opacity': own ? 0.85 : 0.45,
-        });
-        trackSvg.append(r);
-      }
+      trackSvg.append(text(bx(binStart) + 3, plotTop + 10, locus.figurePanel ?? 'figure window', 'vp-ax', 'start'));
     }
 
-    let d = `M0 ${H - 26}`;
-    for (let i = 0; i < n; i += 1) d += ` L${(i * bw).toFixed(2)} ${yOf(vals[i], max).toFixed(2)}`;
+    drawGeneRowsSvg(trackSvg, locus, W, plotBottom + 18);
+
+    let d = `M${bx(0).toFixed(2)} ${yOf(vals[0], max).toFixed(2)}`;
+    for (let i = 1; i < n; i += 1) d += ` L${bx(i).toFixed(2)} ${yOf(vals[i], max).toFixed(2)}`;
     const path = el('path');
     attr(path, { d, fill: 'none', stroke: 'var(--vp-track)', 'stroke-width': 1.4 });
     trackSvg.append(path);
 
     if (current && reference && reference !== current) {
-      let rd = `M0 ${H - 26}`;
-      for (let i = 0; i < n; i += 1) {
-        rd += ` L${(i * bw).toFixed(2)} ${yOf(reference.tracks[i * 4 + groupIndex], max).toFixed(2)}`;
+      let rd = `M${bx(0).toFixed(2)} ${yOf(reference.tracks[groupIndex], max).toFixed(2)}`;
+      for (let i = 1; i < n; i += 1) {
+        rd += ` L${bx(i).toFixed(2)} ${yOf(reference.tracks[i * 4 + groupIndex], max).toFixed(2)}`;
       }
       const rp = el('path');
       attr(rp, { d: rd, fill: 'none', stroke: 'var(--color-muted)', 'stroke-width': 1, 'stroke-dasharray': '3 3' });
       trackSvg.insertBefore(rp, path);
     }
     if (truth) {
-      let td = `M0 ${H - 26}`;
-      for (let i = 0; i < n; i += 1) {
-        td += ` L${(i * bw).toFixed(2)} ${yOf(truth[i], truthMax).toFixed(2)}`;
+      let td = `M${bx(0).toFixed(2)} ${yOf(truth[0], truthMax).toFixed(2)}`;
+      for (let i = 1; i < n; i += 1) {
+        td += ` L${bx(i).toFixed(2)} ${yOf(truth[i], truthMax).toFixed(2)}`;
       }
       const tp = el('path');
       attr(tp, { d: td, fill: 'none', stroke: 'var(--vp-fire)', 'stroke-width': 1.1, 'stroke-opacity': 0.85 });
@@ -426,18 +675,32 @@ export function initVariantPlayground(root: ParentNode = document) {
       delete trackSvg.dataset.pearson;
     }
 
+    // The traced region, marked on the curve it was selected from.
+    if (tracedBins) {
+      const r = el('rect');
+      attr(r, {
+        x: bx(tracedBins.start), y: plotTop,
+        width: Math.max(bx(tracedBins.end) - bx(tracedBins.start), 1.5), height: plotBottom - plotTop,
+        fill: 'var(--vp-accent)', 'fill-opacity': 0.12,
+        stroke: 'var(--vp-accent)', 'stroke-opacity': 0.55,
+      });
+      trackSvg.append(r);
+    }
+
     let argmax = 0;
     for (let i = 1; i < n; i += 1) if (vals[i] > vals[argmax]) argmax = i;
     // Full precision, for the python-vs-browser parity check. The visible label is rounded, and
     // comparing rounded labels is how two different numbers come to look identical.
     trackSvg.dataset.peak = String(max);
     trackSvg.dataset.peakBin = String(argmax);
+    trackSvg.dataset.domainBp = `0-${SEQ_LEN}`;
     trackSvg.append(
-      text(4, 14,
-        `predicted ${TRACK_GROUPS[groupIndex].label} · 896 bins × 16 bp · peak ${max.toFixed(2)}`
-        + ` at bin ${argmax} · ${useLogAxis ? 'log' : 'linear'} axis`
+      text(PLOT.left, 13,
+        `predicted ${TRACK_GROUPS[groupIndex].label} · 896 bins × 16 bp over bp `
+        + `${CROP_BP.toLocaleString()}–${(CROP_BP + N_BINS * BIN_BP).toLocaleString()}`
+        + ` · peak ${max.toFixed(2)} at bin ${argmax}`
         + (current?.backend === 'precomputed' || !current ? ' · precomputed' : ' · live run'),
-        'vp-ax', 'start'),
+        'vp-ax vp-caption', 'start'),
     );
   }
 
@@ -783,8 +1046,8 @@ export function initVariantPlayground(root: ParentNode = document) {
   function renderSingleTrack(): void {
     if (!singleSvg) return;
     clear(singleSvg);
-    const W = 960;
-    const H = 150;
+    const W = 1000;
+    const H = 178;
     attr(singleSvg, { viewBox: `0 0 ${W} ${H}` });
 
     const locusId = mode === 'locus' ? LOCI[locusIndex].id : '';
@@ -805,12 +1068,20 @@ export function initVariantPlayground(root: ParentNode = document) {
     }
     let max = 0;
     for (let i = 0; i < N_BINS; i += 1) if (vals[i] > max) max = vals[i];
-    const bw = W / N_BINS;
+    const plotTop = PLOT.top;
+    const plotBottom = H - PLOT.bottom;
+    // The same full-window axis as the plot above, so the two coverage panels can be read against
+    // each other and against the attribution -- they used to run on three different domains.
+    const bx = (i: number) => xOfBp(CROP_BP + i * BIN_BP, W);
     const y = (v: number) =>
-      H - 24 - (useLogAxis ? logAxis(v, max) : max > 0 ? v / max : 0) * (H - 40);
+      plotBottom - (useLogAxis ? logAxis(v, max) : max > 0 ? v / max : 0) * (plotBottom - plotTop);
 
-    let d = `M0 ${y(vals[0])}`;
-    for (let i = 1; i < N_BINS; i += 1) d += ` L${(i * bw).toFixed(2)} ${y(vals[i]).toFixed(2)}`;
+    drawCropShading(singleSvg, W, plotTop, plotBottom);
+    drawAxes(singleSvg, W, plotTop, plotBottom, max, 'predicted (a.u.)',
+      mode === 'locus' ? LOCI[locusIndex] : undefined, H - 3);
+
+    let d = `M${bx(0).toFixed(2)} ${y(vals[0]).toFixed(2)}`;
+    for (let i = 1; i < N_BINS; i += 1) d += ` L${bx(i).toFixed(2)} ${y(vals[i]).toFixed(2)}`;
     const path = el('path');
     attr(path, { d, fill: 'none', stroke: 'var(--vp-track)', 'stroke-width': 1.2 });
     singleSvg.append(path);
@@ -818,9 +1089,9 @@ export function initVariantPlayground(root: ParentNode = document) {
     let argmax = 0;
     for (let i = 1; i < N_BINS; i += 1) if (vals[i] > vals[argmax]) argmax = i;
     singleSvg.append(
-      text(4, 14,
-        `${label} · peak ${max.toFixed(2)} at bin ${argmax} · ${useLogAxis ? 'log' : 'linear'} axis`,
-        'vp-ax', 'start'),
+      text(PLOT.left, 13,
+        `${label} · peak ${max.toFixed(2)} at bin ${argmax}`,
+        'vp-ax vp-caption', 'start'),
     );
     singleSvg.dataset.peak = String(max);
     singleSvg.dataset.track = label;
@@ -1075,43 +1346,47 @@ export function initVariantPlayground(root: ParentNode = document) {
    * `fx` maps a bp offset in the window to an x coordinate, so the same routine serves the coverage
    * plot and the layer ruler, which have different horizontal scales.
    */
-  function drawGeneTrack(
+  /**
+   * Gene models on a canvas, in rows, sharing `drawGeneRowsSvg`'s geometry exactly.
+   *
+   * Two renderers rather than one because the coverage plot is SVG and the attribution and layer
+   * rulers are canvas -- but both take bp through `xOfBp`, so they cannot disagree about where an
+   * intron is. The tally is counted inside the loop that fills the rectangles, so the gate reads
+   * what was drawn rather than what the decomposition returned.
+   */
+  function drawGeneRowsCanvas(
     ctx: CanvasRenderingContext2D,
     locus: Locus,
-    fx: (bp: number) => number,
-    y: number,
-    height: number,
-    highlight?: string,
-  ): void {
+    width: number,
+    top: number,
+    rowH = 11,
+  ): number {
     const orf = getComputedStyle(host).getPropertyValue('--vp-orf').trim() || '#6f62a8';
     const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
-    const midY = y + height / 2;
-    const cdsH = Math.max(height * 0.72, 5);
-    const utrH = Math.max(height * 0.38, 3);
-    // Counted inside the loop that actually fills the rectangles, so the gate reads what was
-    // drawn rather than what the decomposition returned. An intron rendered as an exon is the
-    // defect this exists to catch, and it is invisible to every other check on the page.
+    const rows = geneRowsExpanded ? packGeneRows(locus.features) : locus.features.map(() => 0);
+    const nRows = Math.max(...rows, 0) + 1;
     let blocks = 0;
     let introns = 0;
 
-    for (const f of locus.features) {
-      const isOwn = f.name === highlight;
-      ctx.globalAlpha = isOwn ? 0.95 : 0.45;
-      const x0 = fx(f.txStart);
-      const x1 = fx(f.txEnd);
-
+    locus.features.forEach((f, i) => {
+      const own = f.name === locus.id;
+      const mid = top + rows[i] * rowH + rowH / 2;
+      const x0 = xOfBp(f.txStart, width);
+      const x1 = xOfBp(f.txEnd, width);
+      ctx.globalAlpha = own ? 0.95 : 0.45;
       ctx.strokeStyle = orf;
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(x0, midY + 0.5);
-      ctx.lineTo(x1, midY + 0.5);
+      ctx.moveTo(x0, mid + 0.5);
+      ctx.lineTo(x1, mid + 0.5);
       ctx.stroke();
-      const forward = f.strand === '+';
-      for (let x = x0 + 6; x < x1 - 2; x += 11) {
+
+      const fwd = f.strand === '+';
+      for (let x = x0 + 7; x < x1 - 3; x += 13) {
         ctx.beginPath();
-        ctx.moveTo(x - (forward ? 2 : -2), midY - 2.5);
-        ctx.lineTo(x + (forward ? 2 : -2), midY);
-        ctx.lineTo(x - (forward ? 2 : -2), midY + 2.5);
+        ctx.moveTo(x - (fwd ? 2 : -2), mid - 2.4);
+        ctx.lineTo(x + (fwd ? 2 : -2), mid);
+        ctx.lineTo(x - (fwd ? 2 : -2), mid + 2.4);
         ctx.stroke();
       }
 
@@ -1122,23 +1397,25 @@ export function initVariantPlayground(root: ParentNode = document) {
           continue;
         }
         blocks += 1;
-        const bh = piece.kind === 'cds' ? cdsH : utrH;
-        const bx = fx(piece.start);
-        ctx.fillRect(bx, midY - bh / 2, Math.max(fx(piece.end) - bx, 1), bh);
+        const bh = piece.kind === 'cds' ? Math.max(rowH * 0.72, 5) : Math.max(rowH * 0.38, 3);
+        const bx = xOfBp(piece.start, width);
+        ctx.fillRect(bx, mid - bh / 2, Math.max(xOfBp(piece.end, width) - bx, 1), bh);
       }
 
-      if (isOwn && x1 - x0 > 30) {
+      if (own) {
         ctx.globalAlpha = 1;
         ctx.fillStyle = muted;
         ctx.font = '9px system-ui, sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText(locus.gene, x0 + 2, y - 1);
+        ctx.fillText(locus.gene, x1 + 4, mid + 3);
       }
-    }
+    });
     ctx.globalAlpha = 1;
     ctx.canvas.dataset.vpGeneTrack = JSON.stringify({
-      features: locus.features.length, blocks, introns,
+      features: locus.features.length, blocks, introns, rows: nRows,
+      mode: geneRowsExpanded ? 'expanded' : 'collapsed',
     });
+    return nRows;
   }
 
 
@@ -1268,7 +1545,7 @@ export function initVariantPlayground(root: ParentNode = document) {
   function renderAttribution(): void {
     if (!attrCanvas) return;
     const cssW = attrCanvas.clientWidth || 900;
-    const cssH = 74;
+    const cssH = 150;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     attrCanvas.width = Math.round(cssW * dpr);
     attrCanvas.height = Math.round(cssH * dpr);
@@ -1278,13 +1555,16 @@ export function initVariantPlayground(root: ParentNode = document) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cssW, cssH);
     const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
+    const rule = getComputedStyle(host).getPropertyValue('--color-rule').trim() || '#e5e7eb';
     const pos = getComputedStyle(host).getPropertyValue('--vp-fire').trim() || '#b0455a';
     const neg = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
+    ctx.font = '10px system-ui, sans-serif';
 
     if (!attribution || !tracedBins) {
       ctx.fillStyle = muted;
       ctx.font = '11px system-ui, sans-serif';
-      ctx.fillText('No region traced yet.', 4, 20);
+      ctx.fillText('No region traced yet.', PLOT.left, 22);
+      delete attrCanvas.dataset.peak;
       return;
     }
 
@@ -1298,42 +1578,91 @@ export function initVariantPlayground(root: ParentNode = document) {
       : traceRegion(attribution, tracedBins.start, tracedBins.end);
     let peak = 0;
     for (let i = 0; i < series.length; i += 1) peak = Math.max(peak, Math.abs(series[i]));
-    const mid = cssH - 26;
-    const bw = cssW / series.length;
+
+    const plotTop = 16;
+    const geneTop = cssH - 34;
+    const plotBottom = geneTop - 12;
+    const mid = (plotTop + plotBottom) / 2;
+    const half = (plotBottom - plotTop) / 2;
+
+    // The same cropped flanks the curve above shades, so a reader can see at a glance which part of
+    // the attribution lies under a bin the model actually predicts -- and that the rest is real.
+    const { lo, hi } = predictedSpan();
+    ctx.fillStyle = muted;
+    ctx.globalAlpha = 0.1;
+    for (const [a, b] of [[0, fractionToBp(lo)], [fractionToBp(hi), SEQ_LEN]] as [number, number][]) {
+      ctx.fillRect(xOfBp(a, cssW), plotTop, xOfBp(b, cssW) - xOfBp(a, cssW), plotBottom - plotTop);
+    }
+    ctx.globalAlpha = 1;
+
+    // Bars, positioned in bp rather than by array index, so this panel and the curve above put the
+    // same base at the same x.
+    const perStep = SEQ_LEN / series.length;
     for (let i = 0; i < series.length; i += 1) {
       const v = series[i];
       if (v === 0) continue;
-      const h = (Math.abs(v) / Math.max(peak, 1e-12)) * (cssH - 40);
+      const h = (Math.abs(v) / Math.max(peak, 1e-12)) * half;
+      const x = xOfBp(i * perStep, cssW);
+      const w = Math.max(xOfBp((i + 1) * perStep, cssW) - x, 0.6);
       ctx.fillStyle = v < 0 ? neg : pos;
-      ctx.fillRect(i * bw, v < 0 ? mid : mid - h, Math.max(bw, 0.6), h);
+      ctx.fillRect(x, v < 0 ? mid : mid - h, w, h);
     }
-    ctx.strokeStyle = muted;
-    ctx.globalAlpha = 0.5;
-    ctx.beginPath();
-    ctx.moveTo(0, mid + 0.5);
-    ctx.lineTo(cssW, mid + 0.5);
-    ctx.stroke();
-    ctx.globalAlpha = 1;
 
-    // The gene track underneath, so a peak of attribution can be read against a promoter.
+    // A signed axis: zero in the middle, +/- peak at the edges.
+    ctx.strokeStyle = rule;
+    ctx.fillStyle = muted;
+    ctx.textAlign = 'right';
+    for (const [y, label] of [
+      [plotTop, `+${formatTick(peak)}`], [mid, '0'], [plotBottom, `−${formatTick(peak)}`],
+    ] as [number, string][]) {
+      ctx.globalAlpha = y === mid ? 0.8 : 0.35;
+      ctx.beginPath();
+      ctx.moveTo(PLOT.left, y + 0.5);
+      ctx.lineTo(cssW - PLOT.right, y + 0.5);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.fillText(label, PLOT.left - 5, y + 3);
+    }
+    ctx.save();
+    ctx.translate(11, mid);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillText('gradient × input', 0, 0);
+    ctx.restore();
+
+    // The same bp ruler as the curve above.
+    ctx.textAlign = 'center';
+    for (const bp of bpTicks()) {
+      const x = xOfBp(bp, cssW);
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(x, plotBottom);
+      ctx.lineTo(x, plotBottom + 3);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.textAlign = bp === 0 ? 'left' : bp >= SEQ_LEN ? 'right' : 'center';
+      ctx.fillText(bpLabel(bp), x, plotBottom + 12);
+    }
+    ctx.textAlign = 'left';
+
     if (mode === 'locus') {
-      const locus = LOCI[locusIndex];
-      drawGeneTrack(ctx, locus, (bp) => (bp / SEQ_LEN) * cssW, cssH - 22, 9, locus.id);
+      drawGeneRowsCanvas(ctx, LOCI[locusIndex], cssW, geneTop);
     }
     ctx.fillStyle = muted;
-    ctx.font = '10px system-ui, sans-serif';
     ctx.fillText(
       `${tracedBins.label} · ${anchorIdx >= 0 ? 'single base' : `${series.length} bins of 16 bp`}`
-      + ` · peak |attribution| ${peak.toFixed(3)}`,
-      4, 12,
+      + ` · peak |attribution| ${peak.toFixed(3)} · same 0–${SEQ_LEN.toLocaleString()} bp axis as the curve above`,
+      PLOT.left, 11,
     );
     attrCanvas.dataset.peak = String(peak);
     attrCanvas.dataset.region = tracedBins.label;
+    attrCanvas.dataset.domainBp = `0-${SEQ_LEN}`;
   }
 
   /** Trace a bin range and update every view that shows it. */
   function traceBins(start: number, end: number, label: string): void {
     tracedBins = { start: Math.max(0, start), end: Math.min(N_BINS, end), label };
+    renderTrack();          // the curve carries the selection marker, so it has to redraw too
     renderAttribution();
     trace3d();
     renderStageDetail(flow?.selected() ?? null);
@@ -1495,10 +1824,16 @@ export function initVariantPlayground(root: ParentNode = document) {
     const isAttn = spec.id.startsWith('attn');
 
     if (stageTitle) {
-      stageTitle.textContent =
-        `${spec.label} · ${spec.positions.toLocaleString()} positions × ` +
-        `${spec.channels.toLocaleString()} channels`;
+      // The input is the one stage whose drawn channel count is not its real one: the model is fed
+      // 170 channels and only the 4 DNA rows vary, so titling it "4 channels" understates what the
+      // network actually receives.
+      stageTitle.textContent = spec.id === 'input'
+        ? `${spec.label} · ${SEQ_LEN.toLocaleString()} positions × ${IN_CHANNELS} channels`
+          + ` (${N_DNA} DNA + ${N_MASK} mask + ${N_SPECIES} species; ${N_DNA} vary)`
+        : `${spec.label} · ${spec.positions.toLocaleString()} positions × `
+          + `${spec.channels.toLocaleString()} channels`;
     }
+    drawAspectSwatch(spec.positions, spec.channels);
 
     // Attention is a second view of a transformer layer, not a panel of its own: it is that
     // layer's most characteristic internal state, but it is not an activation map.
@@ -1550,7 +1885,9 @@ export function initVariantPlayground(root: ParentNode = document) {
     // A stage with few channels should use the height, not squeeze into 5 px rows: the output
     // head has four, and they are the most consequential rows on the page.
     const rowH = map ? Math.max(1, Math.min(34, Math.floor(300 / map.channels))) : 3;
-    const RULER_H = 30;
+    // Deep enough for the tick labels AND two gene rows below them. At 30 px the two bands
+    // overlapped by 4 px, so a gene block was painted through the top of a coordinate label.
+    const RULER_H = 56;
     const cssH = map ? map.channels * rowH + 34 + RULER_H : 40;   // + profile strip + genome ruler
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     stageMapCanvas.width = Math.round(cssW * dpr);
@@ -1571,10 +1908,18 @@ export function initVariantPlayground(root: ParentNode = document) {
     }
 
     const { data, channels, positions } = map;
+    // The band this stage's raster occupies, in the page's one coordinate. Every stage but the
+    // head spans the whole window; the head's 896 bins cover only the cropped interior, so it is
+    // INSET rather than stretched to fill -- which is what makes its rows line up with the
+    // coverage curve above, bin for bin.
+    const stageLo = stageTab === 'attention' ? 0 : positionToBp(spec.id, 0, positions);
+    const stageHi = stageTab === 'attention' ? SEQ_LEN : positionToBp(spec.id, positions, positions);
+    const bandX0 = xOfBp(stageLo, cssW);
+    const bandW = Math.max(xOfBp(stageHi, cssW) - bandX0, 1);
     // Percentile, not min-max. These tensors are heavy-tailed and a handful of outliers otherwise
     // set the range, flattening every other cell onto the same ink -- measured, the drawn contrast
     // falls tenfold from block 1 to block 7.
-    const cellW = cssW / positions;
+    const cellW = 1;   // replaced by the band mapping below; kept for the profile's step
 
     // The output head's four assay groups differ ~40x in range, so one shared scale left three of
     // them drawing 0.0% of their 896 bins. Each gets its own, on the log axis coverage is read on
@@ -1600,10 +1945,11 @@ export function initVariantPlayground(root: ParentNode = document) {
         }
       }
       blitMap(ctx, norm, channels, positions, { kind: 'sequential', lo: 0, hi: 1, half: 1 },
-        0, 0, cssW, channels * rowH);
+        bandX0, 0, bandW, channels * rowH);
     } else {
-      blitMap(ctx, data, channels, positions, scale!, 0, 0, cssW, channels * rowH);
+      blitMap(ctx, data, channels, positions, scale!, bandX0, 0, bandW, channels * rowH);
     }
+    drawChannelAxis(ctx, channels, rowH, cssW, perChannel);
 
     const peaks: { c: number; v: number }[] = [];
     for (let c = 0; c < channels; c += 1) {
@@ -1678,7 +2024,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (let p = 0; p < positions; p += 1) {
-      const x = p * cellW;
+      const x = bandX0 + ((p + 0.5) / positions) * bandW;
       const y = profTop + (1 - (data[ch * positions + p] - chLo) / span) * (profH - 4);
       if (p === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
@@ -1686,7 +2032,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     ctx.stroke();
     ctx.fillStyle = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
     ctx.font = '9px system-ui, sans-serif';
-    ctx.fillText(`channel #${ch}  ${chLo.toFixed(2)} … ${chHi.toFixed(2)}`, 3, profTop + 9);
+    ctx.fillText(`channel #${ch}  ${chLo.toFixed(2)} … ${chHi.toFixed(2)}`, PLOT.left + 3, profTop + 9);
 
     // Name the head's four rows; with 5,215 channels collapsed to four group means, "channel #2"
     // is not a useful label.
@@ -1695,7 +2041,7 @@ export function initVariantPlayground(root: ParentNode = document) {
       ctx.font = '10px system-ui, sans-serif';
       ctx.textAlign = 'left';
       TRACK_GROUPS.forEach((g, i) => {
-        ctx.fillText(g.label, 4, i * rowH + rowH / 2 + 3.5);
+        ctx.fillText(g.label, bandX0 + 4, i * rowH + rowH / 2 + 3.5);
       });
     }
 
@@ -1705,40 +2051,37 @@ export function initVariantPlayground(root: ParentNode = document) {
     if (mode === 'locus') {
       const locus = LOCI[locusIndex];
       const rulerY = cssH - RULER_H;
-      const fx = (bp: number) => bpToFraction(spec.id, bp, positions) * cssW;
       const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
       const rule = getComputedStyle(host).getPropertyValue('--color-rule').trim() || '#e5e7eb';
 
       ctx.strokeStyle = rule;
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(0, rulerY + 0.5);
-      ctx.lineTo(cssW, rulerY + 0.5);
+      ctx.moveTo(PLOT.left, rulerY + 0.5);
+      ctx.lineTo(cssW - PLOT.right, rulerY + 0.5);
       ctx.stroke();
 
-      // Real gene models: exon blocks, thin where UTR, intron lines with chevrons.
-      drawGeneTrack(ctx, locus, fx, rulerY + 3, 10, locus.id);
+      // Gene models go BELOW the coordinate labels, not through them.
+      drawGeneRowsCanvas(ctx, locus, cssW, rulerY + 30, 11);
 
       // The window the paper's figure prints, where there is one.
       if (locus.figureWindow) {
-        const a = fx(locus.figureWindow.seqStart);
-        const b = fx(locus.figureWindow.seqEnd);
+        const a = xOfBp(locus.figureWindow.seqStart, cssW);
+        const b = xOfBp(locus.figureWindow.seqEnd, cssW);
         ctx.strokeStyle = getComputedStyle(host).getPropertyValue('--vp-orf').trim() || '#6f62a8';
         ctx.setLineDash([3, 2]);
-        ctx.strokeRect(a, rulerY + 2, Math.max(b - a, 2), 11);
+        ctx.strokeRect(a, rulerY + 29, Math.max(b - a, 2), 24);
         ctx.setLineDash([]);
       }
 
       // bp ticks, labelled with real chromosome coordinates.
       ctx.fillStyle = muted;
       ctx.textAlign = 'center';
-      const ticks = 6;
-      for (let i = 0; i <= ticks; i += 1) {
-        const bp = positionToBp(spec.id, (i / ticks) * positions, positions);
-        const x = Math.min(Math.max(fx(bp), 14), cssW - 14);
-        ctx.fillRect(x, rulerY + 14, 1, 3);
-        const kb = (locus.start + bp) / 1000;
-        ctx.fillText(`${kb.toFixed(1)} kb`, x, rulerY + 26);
+      for (const bp of bpTicks(4000)) {
+        const x = xOfBp(bp, cssW);
+        ctx.fillRect(x, rulerY + 4, 1, 3);
+        ctx.textAlign = bp === 0 ? 'left' : bp >= SEQ_LEN ? 'right' : 'center';
+        ctx.fillText(`${((locus.start + bp) / 1000).toFixed(1)} kb`, x, rulerY + 17);
       }
       ctx.textAlign = 'left';
     }
@@ -1854,13 +2197,22 @@ export function initVariantPlayground(root: ParentNode = document) {
     renderSingleTrack();
   });
 
+  host.querySelector<HTMLInputElement>('[data-vp-generows]')?.addEventListener('change', (ev) => {
+    geneRowsExpanded = (ev.target as HTMLInputElement).checked;
+    renderTrack();
+    renderAttribution();
+    renderStageDetail(flow?.selected() ?? null);
+  });
+
   if (trackSvg) {
-    // Drag across the predicted curve to choose a region. The SVG is 960 wide in user units and
-    // 896 bins across, so the x fraction maps straight to bins.
+    // Drag across the predicted curve to choose a region. The plot is inset by PLOT.left and runs
+    // over the FULL window, so a pointer must go x -> bp -> bin rather than straight to a bin
+    // fraction: doing the latter put every selection about 1,024 bp left of the pointer.
     let dragFrom: number | null = null;
     const binAt = (ev: PointerEvent) => {
       const box = trackSvg.getBoundingClientRect();
-      return Math.round(((ev.clientX - box.left) / box.width) * N_BINS);
+      const bp = bpOfX(((ev.clientX - box.left) / box.width) * 1000, 1000);
+      return Math.round((bp - CROP_BP) / BIN_BP);
     };
     trackSvg.classList.add('vp-track-select');
     trackSvg.addEventListener('pointerdown', (ev) => {
@@ -1891,6 +2243,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     tracedBins = null;
     if (anchorSelect) anchorSelect.value = '';
     if (traceLabel) traceLabel.textContent = 'Drag across the curve above to trace a region back to the sequence.';
+    renderTrack();
     renderAttribution();
     trace3d();
     renderStageDetail(flow?.selected() ?? null);

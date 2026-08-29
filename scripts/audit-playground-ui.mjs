@@ -188,7 +188,9 @@ async function auditPage(page, scope, want) {
   ).catch(() => {});
   const onLoad = await page.evaluate(() => {
     const svg = document.querySelector('[data-vp-track]');
-    const title = [...svg.querySelectorAll('text')].map((x) => x.textContent).find((x) => /predicted/.test(x));
+    // The caption is marked, not found by document order: adding a y-axis label put a second
+    // "predicted …" text ahead of it and this silently started reading the axis instead.
+    const title = svg.querySelector('.vp-caption')?.textContent ?? '';
     return {
       peak: Number(svg?.dataset.peak ?? '0'),
       title: title ?? '',
@@ -577,6 +579,90 @@ async function enterLocus(page, index) {
 }
 
 /**
+ * Every panel that draws across the sequence must put the same bp at the same screen x.
+ *
+ * This is the defect the shared coordinate exists to fix: the coverage curve ran over bins 0-896
+ * (bp 1,024-15,360) while the attribution stacked beneath it ran over the full 0-16,384, so a
+ * reader comparing a peak to a promoter was reading two different rulers. Nothing but a
+ * cross-panel measurement catches it -- each panel is internally consistent and looks right alone.
+ */
+async function auditCoordinates(browser, baseURL, scope) {
+  const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1200 } });
+  const page = await context.newPage();
+  try {
+    await enterLocus(page);
+    await page.waitForFunction(
+      () => document.querySelector('[data-vp]').dataset.vpTraceReady === 'true',
+      { timeout: 60_000 },
+    ).catch(() => {});
+    // A trace is needed before the attribution canvas draws anything at all.
+    const track = page.locator('[data-vp-track]');
+    await track.scrollIntoViewIfNeeded();
+    const box = await track.boundingBox();
+    await page.mouse.move(box.x + box.width * 0.44, box.y + box.height * 0.5);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.56, box.y + box.height * 0.5, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+
+    const geo = await page.evaluate(() => {
+      const svg = document.querySelector('[data-vp-track]');
+      const attr = document.querySelector('[data-vp-attr]');
+      const single = document.querySelector('[data-vp-single]');
+      const r = (e) => { const b = e.getBoundingClientRect(); return { left: b.left, width: b.width }; };
+      return {
+        track: r(svg), attr: r(attr), single: r(single),
+        domains: [svg.dataset.domainBp, attr.dataset.domainBp],
+        rows: svg.dataset.geneRows,
+      };
+    });
+    for (const [name, d] of Object.entries(geo.domains)) {
+      if (d !== '0-16384') fail(scope, `panel ${name} declares domain "${d}", expected the full window`);
+    }
+    // Same element width and offset, so identical bp fractions land on identical screen x.
+    for (const [name, box2] of [['attribution', geo.attr], ['single-track', geo.single]]) {
+      if (Math.abs(box2.left - geo.track.left) > 1) {
+        fail(scope, `${name} panel starts ${Math.abs(box2.left - geo.track.left).toFixed(1)}px from the coverage track`);
+      }
+      if (Math.abs(box2.width - geo.track.width) > 1) {
+        fail(scope, `${name} panel is ${Math.abs(box2.width - geo.track.width).toFixed(1)}px wider/narrower than the coverage track`);
+      }
+    }
+
+    // Axes must actually be labelled, not merely present.
+    const axes = await page.evaluate(() => {
+      const svg = document.querySelector('[data-vp-track]');
+      const texts = [...svg.querySelectorAll('text')].map((t) => t.textContent.trim());
+      return {
+        caption: svg.querySelector('.vp-caption')?.textContent ?? '',
+        unit: texts.some((t) => /coverage|a\.u\./.test(t)),
+        bpTicks: texts.filter((t) => /^\d+(\.\d+)?k$|^0$/.test(t)).length,
+        cropped: texts.filter((t) => t === 'cropped').length,
+      };
+    });
+    if (!axes.unit) fail(scope, 'coverage plot has no value-axis unit label');
+    if (axes.bpTicks < 5) fail(scope, `coverage plot has ${axes.bpTicks} bp tick labels, expected the full ruler`);
+    if (axes.cropped !== 2) fail(scope, `${axes.cropped} cropped-flank markers, expected 2`);
+    if (!/1,024–15,360/.test(axes.caption)) fail(scope, `caption does not state the predicted span: "${axes.caption}"`);
+
+    // Gene rows: expanding a window with an overlap must use more rows than collapsing it.
+    const expanded = Number(geo.rows);
+    await page.uncheck('[data-vp-generows]');
+    await page.waitForTimeout(300);
+    const collapsed = Number(await page.evaluate(
+      () => document.querySelector('[data-vp-track]').dataset.geneRows,
+    ));
+    if (collapsed !== 1) fail(scope, `collapsed gene track drew ${collapsed} rows, expected 1`);
+    if (!(expanded > collapsed)) {
+      fail(scope, `expanding gene rows changed nothing (${expanded} vs ${collapsed}) on a window with an overlap`);
+    }
+    await page.check('[data-vp-generows]');
+  } finally {
+    await context.close();
+  }
+}
+
+/**
  * The traceback must produce a real attribution, and a DIFFERENT one for a different region.
  *
  * Ink alone is not enough: a stubbed or mis-indexed attribution paints just as much as a correct
@@ -808,6 +894,8 @@ async function main() {
         if (engineName === 'chromium') {
           // These three ride on the precomputed packs, so they need no model and belong in the
           // default run rather than behind --full.
+          progress('chromium/coordinates');
+          await captureFailure('chromium/coordinates', () => auditCoordinates(browser, baseURL, 'chromium/coordinates'));
           progress('chromium/traceback');
           await captureFailure('chromium/traceback', () => auditTraceback(browser, baseURL, 'chromium/traceback'));
           progress('chromium/annotation (14 loci)');

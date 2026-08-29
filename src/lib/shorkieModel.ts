@@ -806,6 +806,161 @@ export function bpToFraction(stageId: string, bp: number, positions: number): nu
   return Math.min(Math.max((bp - lo) / (hi - lo), 0), 1);
 }
 
+/**
+ * THE page's single horizontal coordinate: a window offset in bp as a fraction of the full input.
+ *
+ * Every panel that draws across the sequence must go through this. It exists because they did not:
+ * the coverage track mapped x across bins 0-896 -- bp 1,024-15,360 -- while the attribution canvas
+ * stacked directly beneath it at the same CSS width mapped x across the full 0-16,384, so a feature
+ * at the same screen x was 1,024 bp apart at the left edge and the two panels disagreed by a factor
+ * of 14,336/16,384 across the middle. They even drew their gene tracks through different closures.
+ *
+ * The domain is the WHOLE window, not the predicted interior, because the flanks are real: every
+ * output bin's receptive field is all 16,384 bp, so attribution out there is signal and cropping it
+ * away to make the axes match would be discarding data to fix a drawing bug.
+ */
+export function windowFraction(bp: number): number {
+  return Math.min(Math.max(bp / SEQ_LEN, 0), 1);
+}
+
+/** The inverse: which window offset a fraction across a full-window panel falls at. */
+export function fractionToBp(fraction: number): number {
+  return Math.min(Math.max(fraction, 0), 1) * SEQ_LEN;
+}
+
+/** Where the predicted interior starts and ends as fractions, for shading the cropped flanks. */
+export function predictedSpan(): { lo: number; hi: number } {
+  return { lo: windowFraction(CROP_BP), hi: windowFraction(CROP_BP + N_BINS * BIN_BP) };
+}
+
+/**
+ * Tick values for a coverage axis, placed through the axis actually in use.
+ *
+ * A log axis here is `log1p(v)/log1p(max)`, so evenly spaced VALUES are not evenly spaced
+ * positions, and ticks generated linearly and then drawn on a log axis bunch against the top --
+ * which is the bug this returns positions to prevent. `at` is the fraction up the axis, already
+ * mapped, so a caller never re-derives it.
+ */
+export function axisTicks(max: number, useLog: boolean, count = 4): { value: number; at: number }[] {
+  if (!(max > 0)) return [{ value: 0, at: 0 }];
+  const out: { value: number; at: number }[] = [{ value: 0, at: 0 }];
+  if (useLog) {
+    // Decade ticks are what a reader of a log axis expects; fall back to fractions of the peak
+    // when the range spans less than one decade and there is no decade to show.
+    const top = Math.floor(Math.log10(max));
+    for (let e = 0; e <= top; e += 1) {
+      const v = 10 ** e;
+      if (v < max) out.push({ value: v, at: logAxis(v, max) });
+    }
+    if (out.length < 3) {
+      for (const f of [0.25, 0.5, 0.75]) out.push({ value: max * f, at: logAxis(max * f, max) });
+    }
+  } else {
+    for (let i = 1; i < count; i += 1) out.push({ value: (max * i) / count, at: i / count });
+  }
+  out.push({ value: max, at: 1 });
+  return out.sort((a, b) => a.at - b.at);
+}
+
+/**
+ * Round numbers for a bp ruler: every 2 kb across the window, plus the far end.
+ *
+ * 2,000 rather than 2,048: a power-of-two step is the natural one for a 16,384 bp window and reads
+ * as "2.0k, 4.1k, 6.1k", which is three decimal places of noise on a ruler nobody measures to the
+ * base from. The last tick is the window end, kept even though it is not on the step.
+ */
+export function bpTicks(step = 2000): number[] {
+  const out: number[] = [];
+  for (let bp = 0; bp <= SEQ_LEN - step / 2; bp += step) out.push(bp);
+  out.push(SEQ_LEN);
+  return out;
+}
+
+/**
+ * Assign each feature a row so no two overlapping features share one -- what a genome browser does.
+ *
+ * Greedy first-fit over features sorted by start, which is the standard assignment and is optimal
+ * for interval graphs. Measured over the fourteen shipped windows: eight need two rows and none
+ * needs three, so expanding costs one row and hides nothing. Before this every feature drew on the
+ * same line, distinguished only by opacity, so in those eight windows one gene was drawn over
+ * another.
+ */
+export function packGeneRows<T extends { txStart: number; txEnd: number }>(features: T[]): number[] {
+  const order = features
+    .map((f, i) => ({ i, f }))
+    .sort((a, b) => a.f.txStart - b.f.txStart || a.f.txEnd - b.f.txEnd);
+  const rowEnd: number[] = [];
+  const rows = new Array<number>(features.length).fill(0);
+  for (const { i, f } of order) {
+    let placed = false;
+    for (let r = 0; r < rowEnd.length; r += 1) {
+      if (f.txStart >= rowEnd[r]) {
+        rowEnd[r] = f.txEnd;
+        rows[i] = r;
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) {
+      rows[i] = rowEnd.length;
+      rowEnd.push(f.txEnd);
+    }
+  }
+  return rows;
+}
+
+/**
+ * Attention rollout over the shipped per-layer maps: what the transformer can read, layer on layer.
+ *
+ * The standard formulation (Abnar & Zuidema 2020): each layer's attention is mixed half-and-half
+ * with the identity to account for the residual stream, renormalised, and the layers composed. The
+ * result is row-stochastic, so row i reads as "where position i's representation came from".
+ *
+ * This is an ARCHITECTURAL quantity, not an attribution: it says which positions could influence
+ * which, not which changed the prediction. It is worth showing precisely because it is derived from
+ * a different thing than gradient x input -- the maps already ship in every pack, so it costs
+ * nothing and disagreement between the two is informative rather than a bug.
+ */
+export function attentionRollout(attention: ArrayLike<number>, size = BOTTLENECK_LEN): Float64Array {
+  const n = size;
+  const layers = Math.floor(attention.length / (n * n));
+  let acc = new Float64Array(n * n);
+  for (let i = 0; i < n; i += 1) acc[i * n + i] = 1;
+  const mixed = new Float64Array(n * n);
+  const next = new Float64Array(n * n);
+  for (let l = 0; l < layers; l += 1) {
+    const base = l * n * n;
+    for (let i = 0; i < n; i += 1) {
+      let sum = 0;
+      for (let j = 0; j < n; j += 1) {
+        const v = 0.5 * attention[base + i * n + j] + (i === j ? 0.5 : 0);
+        mixed[i * n + j] = v;
+        sum += v;
+      }
+      if (sum > 0) for (let j = 0; j < n; j += 1) mixed[i * n + j] /= sum;
+    }
+    next.fill(0);
+    for (let i = 0; i < n; i += 1) {
+      for (let k = 0; k < n; k += 1) {
+        const a = mixed[i * n + k];
+        if (a === 0) continue;
+        for (let j = 0; j < n; j += 1) next[i * n + j] += a * acc[k * n + j];
+      }
+    }
+    acc = next.slice();
+  }
+  return acc;
+}
+
+/** Which bottleneck positions an output bin range covers -- 128 bp each, over the whole window. */
+export function binsToBottleneck(binStart: number, binEnd: number): { start: number; end: number } {
+  const per = SEQ_LEN / BOTTLENECK_LEN;
+  return {
+    start: Math.max(0, Math.floor((CROP_BP + binStart * BIN_BP) / per)),
+    end: Math.min(BOTTLENECK_LEN, Math.ceil((CROP_BP + binEnd * BIN_BP) / per)),
+  };
+}
+
 /** An rgb triple, 0-255, for one cell of a painted activation raster. */
 export type Rgb = [number, number, number];
 
