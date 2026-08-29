@@ -792,3 +792,69 @@ export function bpToFraction(stageId: string, bp: number, positions: number): nu
   if (!(hi > lo)) return 0;
   return Math.min(Math.max((bp - lo) / (hi - lo), 0), 1);
 }
+
+/** An rgb triple, 0-255, for one cell of a painted activation raster. */
+export type Rgb = [number, number, number];
+
+/**
+ * Colour one activation, painting EVERY cell rather than skipping quiet ones.
+ *
+ * Skipping below a floor made the raster sparse marks on a white page: measured on PGK1, U-Net
+ * stage 3 drew 7.6 % of its cells and the transformer layers 41-49 %, so how much white a figure
+ * showed was a tuning constant rather than a property of the data. A painted heatmap has no such
+ * knob -- structure reads as colour, and the centre of the scale is a visible neutral instead of
+ * absence.
+ *
+ * `neutral` is the panel's own background so a zero cell sits flush with the card; the caller
+ * passes it from the theme, because this page ships in six of them.
+ */
+export function divergingColor(value: number, scale: ActivationScale, neutral: Rgb): Rgb {
+  const NEG: Rgb = [49, 111, 176];   // blue
+  const POS: Rgb = [178, 52, 74];    // red
+  if (scale.kind === 'sequential') {
+    const span = Math.max(scale.hi - scale.lo, 1e-9);
+    const u = Math.min(Math.max((value - scale.lo) / span, 0), 1);
+    return mixRgb(neutral, POS, Math.sqrt(u));
+  }
+  const u = Math.min(Math.abs(value) / scale.half, 1);
+  // Square root for the same reason the old ink used one: without it a few large cells own the
+  // whole range and the middle of the distribution is indistinguishable from zero.
+  return mixRgb(neutral, value < 0 ? NEG : POS, Math.sqrt(u));
+}
+
+function mixRgb(a: Rgb, b: Rgb, t: number): Rgb {
+  const k = Math.min(Math.max(t, 0), 1);
+  return [
+    Math.round(a[0] + (b[0] - a[0]) * k),
+    Math.round(a[1] + (b[1] - a[1]) * k),
+    Math.round(a[2] + (b[2] - a[2]) * k),
+  ];
+}
+
+/**
+ * Paint a [channels][positions] map into an RGBA buffer, one pixel per cell.
+ *
+ * Returned as a flat Uint8ClampedArray ready for `new ImageData(...)`. One blit replaces the
+ * ~49,000 `fillRect` calls a 384 x 128 map needed per redraw, which is what makes painting every
+ * cell affordable at all.
+ */
+export function paintActivationMap(
+  data: ArrayLike<number>,
+  channels: number,
+  positions: number,
+  scale: ActivationScale,
+  neutral: Rgb,
+): Uint8ClampedArray {
+  const out = new Uint8ClampedArray(channels * positions * 4);
+  for (let c = 0; c < channels; c += 1) {
+    for (let p = 0; p < positions; p += 1) {
+      const [r, g, b] = divergingColor(data[c * positions + p], scale, neutral);
+      const i = (c * positions + p) * 4;
+      out[i] = r;
+      out[i + 1] = g;
+      out[i + 2] = b;
+      out[i + 3] = 255;
+    }
+  }
+  return out;
+}

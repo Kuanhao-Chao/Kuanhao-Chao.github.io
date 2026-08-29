@@ -18,7 +18,8 @@ import {
   stageAt,
   stageMapOffsets,
   activationScale,
-  scaledInk,
+  paintActivationMap,
+  type Rgb,
   type FlowStage,
 } from '../lib/shorkieModel';
 import { prefersReducedMotion } from './motion';
@@ -121,6 +122,24 @@ export function createFlow(canvas: HTMLCanvasElement, host: HTMLElement): FlowCo
   const css = (name: string, fallback: string) =>
     getComputedStyle(host).getPropertyValue(name).trim() || fallback;
 
+  /**
+   * The opaque background behind the canvas, for the neutral of a painted map. Read off a real
+   * element: a custom property hands back the literal `var(...)`, and an unpainted element computes
+   * to `rgba(0, 0, 0, 0)`, which parses as black and turns a light page's raster near-black.
+   */
+  const neutral = (): Rgb => {
+    let el: HTMLElement | null = canvas.parentElement ?? host;
+    while (el) {
+      const m = /rgba?\(([^)]+)\)/.exec(getComputedStyle(el).backgroundColor);
+      if (m) {
+        const parts = m[1].split(',').map((v) => Number.parseFloat(v));
+        if (parts.length < 4 || parts[3] > 0.5) return [parts[0], parts[1], parts[2]];
+      }
+      el = el.parentElement;
+    }
+    return [255, 255, 255];
+  };
+
   function layout(): void {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     w = canvas.clientWidth || 960;
@@ -189,27 +208,26 @@ export function createFlow(canvas: HTMLCanvasElement, host: HTMLElement): FlowCo
       const map = reached ? stageMap(s, acts) : null;
 
       if (map) {
-        // Paint the real activation: channels across the block's width, positions down its height,
-        // matching the axes the block itself encodes.
+        // Paint the real activation, every cell, transposed so the block's own axes hold:
+        // positions run DOWN its height and channels across its width.
         const { data, channels, positions } = map;
         const scale = activationScale(data);
-        const cols = Math.min(channels, Math.max(2, Math.round(bw)));
-        const rows = Math.min(positions, Math.max(2, Math.round(bh)));
-        const cw = bw / cols;
-        const rh = bh / rows;
-        const negColour = css('--vp-accent', '#3976a8');
-        for (let c = 0; c < cols; c += 1) {
-          const ch = Math.floor((c / cols) * channels);
-          for (let r = 0; r < rows; r += 1) {
-            const pp = Math.floor((r / rows) * positions);
-            const { magnitude, negative } = scaledInk(data[ch * positions + pp], scale);
-            if (magnitude === 0) continue;
-            ctx.fillStyle = negative ? negColour : colour[s.group];
-            ctx.globalAlpha = 0.2 + 0.8 * magnitude;
-            ctx.fillRect(x + c * cw, y + r * rh, Math.max(cw, 0.6), Math.max(rh, 0.6));
-          }
+        const t = new Float64Array(positions * channels);
+        for (let c = 0; c < channels; c += 1) {
+          for (let pp = 0; pp < positions; pp += 1) t[pp * channels + c] = data[c * positions + pp];
         }
-        ctx.globalAlpha = 1;
+        const rgba = paintActivationMap(t, positions, channels, scale, neutral());
+        const off = document.createElement('canvas');
+        off.width = channels;
+        off.height = positions;
+        const octx = off.getContext('2d');
+        if (octx) {
+          const img = octx.createImageData(channels, positions);
+          img.data.set(rgba);
+          octx.putImageData(img, 0, 0);
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(off, x, y, bw, bh);
+        }
       } else {
         ctx.fillStyle = colour[s.group];
         ctx.globalAlpha = reached ? 0.3 : 0.09;
@@ -339,9 +357,12 @@ export function createFlow(canvas: HTMLCanvasElement, host: HTMLElement): FlowCo
 
   const onClick = (ev: MouseEvent) => {
     const i = hitTest(ev);
+    // Deselecting used to report null, and the detail panel then fell back to the conv stem -- so
+    // clicking the same stage twice silently showed a DIFFERENT stage's data under a wrong title.
+    // Report the wavefront's stage instead, which is what the canvas is already highlighting.
     selectedIndex = i === selectedIndex ? null : i;
     draw();
-    selectFn?.(selectedIndex === null ? null : STAGES[selectedIndex]);
+    selectFn?.(STAGES[selectedIndex ?? stageAt(scrub, STAGES).index]);
   };
   const onResize = () => {
     layout();

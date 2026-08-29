@@ -52,6 +52,9 @@ import {
   INK_FLOOR_DIVERGING,
   positionToBp,
   bpToFraction,
+  divergingColor,
+  paintActivationMap,
+  type Rgb,
 } from './shorkieModel';
 import tracks from '../data/shorkieTracks.json';
 import trackNames from '../data/shorkieTrackNames.json';
@@ -1156,5 +1159,102 @@ describe('positionToBp', () => {
   it('clamps a bp outside the stage rather than drawing off the raster', () => {
     expect(bpToFraction('head', 0, N_BINS)).toBe(0);            // before the crop
     expect(bpToFraction('head', SEQ_LEN, N_BINS)).toBe(1);      // after it
+  });
+});
+
+describe('divergingColor', () => {
+  const WHITE: Rgb = [255, 255, 255];
+  const laplace = (n: number, s: number) => {
+    let z = 999;
+    return Array.from({ length: n }, () => {
+      z = (Math.imul(z, 1664525) + 1013904223) >>> 0;
+      const u = z / 0x100000000 - 0.5;
+      return -s * Math.sign(u) * Math.log(1 - 2 * Math.abs(u));
+    });
+  };
+  const signed = laplace(4000, 2);
+  const scale = activationScale(signed);
+
+  it('paints a zero cell as the neutral itself — never absent, never coloured', () => {
+    expect(divergingColor(0, scale, WHITE)).toEqual(WHITE);
+    const dark: Rgb = [20, 22, 26];
+    expect(divergingColor(0, scale, dark)).toEqual(dark);
+  });
+
+  it('sends the two arms to different colours', () => {
+    const pos = divergingColor(scale.half, scale, WHITE);
+    const neg = divergingColor(-scale.half, scale, WHITE);
+    expect(pos).not.toEqual(neg);
+    expect(pos[0]).toBeGreaterThan(pos[2]);   // red channel leads
+    expect(neg[2]).toBeGreaterThan(neg[0]);   // blue channel leads
+  });
+
+  it('moves monotonically away from the neutral along each arm', () => {
+    const dist = (v: number) => {
+      const c = divergingColor(v, scale, WHITE);
+      return Math.abs(c[0] - 255) + Math.abs(c[1] - 255) + Math.abs(c[2] - 255);
+    };
+    let prev = -1;
+    for (const v of [0, 0.2, 0.5, 1, 2, 4, 8, 1000]) {
+      const d = dist(v);
+      expect(d).toBeGreaterThanOrEqual(prev);
+      prev = d;
+    }
+  });
+
+  it('mixes the two arms by the same fraction at equal magnitude', () => {
+    // Not equal RGB distance: blue [49,111,176] and red [178,52,74] are different hues and sit
+    // different distances from white. What must match is how far along its own arm each one is.
+    const towardRed = (v: number) => (255 - divergingColor(v, scale, WHITE)[1]) / (255 - 52);
+    const towardBlue = (v: number) => (255 - divergingColor(v, scale, WHITE)[0]) / (255 - 49);
+    for (const v of [0.5, 1, 3, 7]) {
+      expect(towardRed(v)).toBeCloseTo(towardBlue(-v), 2);
+    }
+  });
+
+  it('stays in gamut for any input, including infinities', () => {
+    for (const v of [0, 1e9, -1e9, Number.MAX_VALUE, -Number.MAX_VALUE]) {
+      for (const ch of divergingColor(v, scale, WHITE)) {
+        expect(Number.isFinite(ch)).toBe(true);
+        expect(ch).toBeGreaterThanOrEqual(0);
+        expect(ch).toBeLessThanOrEqual(255);
+      }
+    }
+  });
+
+  it('uses a one-sided ramp when the map is one-sided', () => {
+    const positive = Array.from({ length: 500 }, (_, i) => i / 100);
+    const s = activationScale(positive);
+    expect(s.kind).toBe('sequential');
+    expect(divergingColor(s.lo, s, WHITE)).toEqual(WHITE);
+    expect(divergingColor(s.hi, s, WHITE)[0]).toBeGreaterThan(divergingColor(s.hi, s, WHITE)[2]);
+  });
+});
+
+describe('paintActivationMap', () => {
+  const WHITE: Rgb = [255, 255, 255];
+  const data = Array.from({ length: 8 * 4 }, (_, i) => (i % 3) - 1);
+  const scale = activationScale(data);
+
+  it('paints EVERY cell — the whole point, since skipping is what made rasters white', () => {
+    const buf = paintActivationMap(data, 8, 4, scale, WHITE);
+    expect(buf.length).toBe(8 * 4 * 4);
+    for (let i = 3; i < buf.length; i += 4) expect(buf[i]).toBe(255);   // alpha, every pixel
+  });
+
+  it('lays cells out row-major so ImageData reads channels down, positions across', () => {
+    const buf = paintActivationMap(data, 8, 4, scale, WHITE);
+    for (let c = 0; c < 8; c += 1) {
+      for (let p = 0; p < 4; p += 1) {
+        const want = divergingColor(data[c * 4 + p], scale, WHITE);
+        const i = (c * 4 + p) * 4;
+        expect([buf[i], buf[i + 1], buf[i + 2]]).toEqual(want);
+      }
+    }
+  });
+
+  it('handles a single-channel and a single-position map', () => {
+    expect(paintActivationMap([1, 2, 3], 1, 3, scale, WHITE).length).toBe(12);
+    expect(paintActivationMap([1, 2, 3], 3, 1, scale, WHITE).length).toBe(12);
   });
 });

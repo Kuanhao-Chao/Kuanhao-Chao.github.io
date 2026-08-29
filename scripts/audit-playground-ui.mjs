@@ -164,6 +164,25 @@ async function auditPage(page, scope, want) {
     if (!moved) fail(scope, 'content area has overflow but does not scroll');
   }
 
+  // Every output panel must carry a prediction BEFORE the model is loaded. This is what makes an
+  // abandoned or mistimed 17-second click stop mattering.
+  await page.locator('[data-vp-mode="locus"]').click();
+  await page.waitForTimeout(300);
+  const onLoad = await page.evaluate(() => {
+    const svg = document.querySelector('[data-vp-track]');
+    const title = [...svg.querySelectorAll('text')].map((x) => x.textContent).find((x) => /predicted/.test(x));
+    return {
+      peak: Number(svg?.dataset.peak ?? '0'),
+      title: title ?? '',
+      single: Number(document.querySelector('[data-vp-single]')?.dataset.peak ?? '0'),
+      loaded: document.querySelector('[data-vp]').dataset.vpResultLocus ?? '',
+    };
+  });
+  if (onLoad.loaded) fail(scope, 'a model run happened without a click');
+  if (!(onLoad.peak > 0)) fail(scope, 'no predicted coverage on load — the precompute is not wired');
+  if (!/precomputed/.test(onLoad.title)) fail(scope, `coverage does not say it is precomputed: "${onLoad.title}"`);
+  if (!(onLoad.single > 0)) fail(scope, 'no single-track curve on load');
+
   if (s.flowPainted < 1000) fail(scope, `flow canvas painted only ${s.flowPainted} px`);
   if (s.neuronsPainted < 500) fail(scope, `conv-stem raster painted only ${s.neuronsPainted} px`);
   if (!s.subLayers) fail(scope, 'layer detail shows no sub-layer breakdown');
@@ -252,7 +271,8 @@ async function auditStaleState(browser, baseURL, scope) {
         stamp: document.querySelector('[data-vp]').dataset.vpResultLocus ?? '',
         loud: document.querySelector('[data-vp-stage-top]')?.textContent ?? '',
         detailInk: ink,
-        track: document.querySelector('[data-vp-track] text')?.textContent ?? '',
+        track: [...document.querySelectorAll('[data-vp-track] text')]
+          .map((x) => x.textContent).find((x) => /predicted/.test(x)) ?? '',
       };
     });
     if (after.stamp) fail(scope, `result stamp survived a locus change: "${after.stamp}"`);
@@ -260,8 +280,17 @@ async function auditStaleState(browser, baseURL, scope) {
     if (after.detailInk > 20_000) {
       fail(scope, `layer detail still holds ${after.detailInk} px after a locus change (stale)`);
     }
-    // The empty state must say WHICH locus is loaded, not just "run the model".
-    if (!/PGK1/.test(after.track)) fail(scope, `empty track state does not name the locus: "${after.track}"`);
+    // The panel must now show the NEW locus's precomputed prediction, not the old live result and
+    // not a blank. PGK1's shipped RNA-seq peak is 400.52; TDH3's is 994.88, so the two are
+    // unmistakable and a retained stale curve fails here.
+    const peak = await page.evaluate(() =>
+      Number(document.querySelector('[data-vp-track]')?.dataset.peak ?? '0'));
+    if (Math.abs(peak - 400.52) > 0.01) {
+      fail(scope, `after switching to PGK1 the coverage peak is ${peak}, expected its precomputed 400.52`);
+    }
+    if (!/precomputed/.test(after.track) && !/predicted/.test(after.track)) {
+      fail(scope, `no prediction after the locus change: "${after.track}"`);
+    }
   } finally {
     await context.close();
   }
@@ -293,18 +322,38 @@ async function auditInkDistribution(browser, baseURL, scope) {
       await page.waitForTimeout(200);
       const r = await page.evaluate(() => {
         const c = document.querySelector('[data-vp-stage-map]');
-        const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+        // Sample the raster region only: the canvas also carries the profile strip and the ruler.
+        const rows = Math.min(c.height - 80, Math.max(20, c.height - 130));
+        const d = c.getContext('2d').getImageData(0, 0, c.width, rows).data;
         let n = 0;
-        for (let i = 3; i < d.length; i += 4) if (d[i] > 8) n += 1;
+        const cols = new Set();
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i + 3] > 8) { n += 1; cols.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]); }
+        }
         return {
-          pct: (100 * n) / (c.width * c.height),
+          pct: (100 * n) / (c.width * rows),
+          colours: cols.size,
           title: document.querySelector('[data-vp-stage-title]')?.textContent ?? '',
           legend: document.querySelector('[data-vp-legend]')?.textContent ?? '',
         };
       });
-      if (r.pct > 85) fail(scope, `${r.title}: ${r.pct.toFixed(0)}% of the raster is inked (a wash)`);
-      if (r.pct < 5) fail(scope, `${r.title}: only ${r.pct.toFixed(1)}% inked (nothing to see)`);
+      // A painted heatmap: every cell coloured, and many distinct colours rather than one flat
+      // wash. Skipping quiet cells is what made rasters 7.6% drawn and mostly white.
+      if (r.pct < 99) fail(scope, `${r.title}: only ${r.pct.toFixed(1)}% of the raster is painted`);
+      if (r.colours < 50) fail(scope, `${r.title}: only ${r.colours} distinct colours (a flat wash)`);
       if (!r.legend) fail(scope, `${r.title}: no colour legend`);
+    }
+    // Clicking the same stage twice deselects it; the detail must then follow the wavefront, not
+    // silently fall back to the conv stem under a wrong title.
+    const box2 = await page.locator('[data-vp-flow]').boundingBox();
+    await page.locator('[data-vp-flow]').click({ position: { x: Math.round(box2.width * 0.9), y: 150 } });
+    await page.waitForTimeout(180);
+    const first = await page.locator('[data-vp-stage-title]').textContent();
+    await page.locator('[data-vp-flow]').click({ position: { x: Math.round(box2.width * 0.9), y: 150 } });
+    await page.waitForTimeout(180);
+    const second = await page.locator('[data-vp-stage-title]').textContent();
+    if (/Conv stem/.test(second) && !/Conv stem/.test(first)) {
+      fail(scope, `deselecting "${first}" fell back to the conv stem`);
     }
   } finally {
     await context.close();

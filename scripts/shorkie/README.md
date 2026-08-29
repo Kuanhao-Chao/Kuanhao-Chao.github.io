@@ -27,6 +27,23 @@ python3 scripts/shorkie/make_web_assets.py   scripts/shorkie/_scratch/model_best
                                              scripts/shorkie/_scratch/{sacCer3.fa,sgdGene.txt}
 ```
 
+### The shipped predictions
+
+`make_predictions.py` runs every preset locus through the model at the full 16,384 bp context and
+writes `src/data/shorkiePredictions.json` — 14 loci in 1.6 s, 307 kB. Re-run it whenever the model
+or the loci change:
+
+```bash
+python3 scripts/shorkie/make_predictions.py public/models/shorkie-fp16.onnx
+```
+
+Only the predictions ship. Per-stage activations are ~40 MB per locus and stay live. The point is
+that the output panels are populated before the 28.6 MB model is loaded, so a missed or abandoned
+click cannot leave the page looking broken. Shipped-vs-live agrees to 3.86e-4.
+
+Sanity, which is the check that matters: TDH3 994.88, PDC1 998.14, ADH1 597.08 — and **GAL1 5.82,
+GAL3 15.53**, the two galactose-inducible genes correctly near-silent in a glucose baseline.
+
 ### The measured-coverage overlay (optional)
 
 `src/data/shorkieTruth.json` holds real RNA-seq over the eight preset windows, binned the way

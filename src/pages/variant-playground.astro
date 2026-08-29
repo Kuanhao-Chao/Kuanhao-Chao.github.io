@@ -111,7 +111,7 @@ const description =
         <section class="vp-panel">
           <h2>Predicted coverage — the full model</h2>
           <div class="vp-controls" style="margin-bottom:0.5rem;">
-            <button type="button" class="vp-btn" data-vp-run>Load model &amp; predict</button>
+            <button type="button" class="vp-btn" data-vp-run>Load model — live layers &amp; editing</button>
             <span class="vp-status" data-vp-status></span>
           </div>
           <svg class="vp-svg" data-vp-track role="img"
@@ -127,6 +127,10 @@ const description =
             <span class="vp-stat" data-vp-truthstat></span>
           </div>
           <p class="vp-notes" style="margin:0.4rem 0 0;">
+            <strong>The curve is already here.</strong> Every preset locus was run offline at the full
+            16,384 bp context and the predictions ship with the page, so there is nothing to wait for.
+            Loading the model — a 28.6 MB download and about 17 s of WebAssembly per run — is what
+            gives you the live layer activations, sequence editing and motif knockouts.
             896 bins of 16 bp across the window's 14,336 bp interior. Purple bars are annotated ORFs.
             A dashed line, once you mutate, is the unedited reference. <strong>Measured coverage</strong>
             is the second curve where it is loaded: Shorkie's own BigWigs binned exactly as its training

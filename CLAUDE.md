@@ -727,6 +727,27 @@ Keras checkpoint, ported and exported, producing the same numbers the paper's mo
   the panels below correctly went blank. That reads as "I ran it and got no output". `clearResults()`
   is now the single path, and a forward pass stamps `data-vp-result-locus` so the audit can assert
   no view survives a locus change.
+- **The predictions are precomputed and shipped; the model is loaded for something else.** Every
+  preset locus was run offline at the full 16,384 bp context — 14 loci in 1.6 s — and
+  `src/data/shorkiePredictions.json` (307 kB, 96 kB gz) carries the four assay-group curves plus the
+  mean of the **384** T₀ baseline RNA-seq tracks. The output panels are therefore populated on load
+  for every locus, and `Load model` buys live activations, sequence editing and motif knockouts, not
+  a number that already exists. This is what stopped a missed or abandoned 17-second click leaving
+  every output panel legitimately empty. Shipped-vs-live agrees to **3.86e-4**, the same fp16 gap as
+  python↔browser. Per-stage activations stay live: they are ~40 MB per locus.
+- **Paint every cell; do not skip the quiet ones.** Skipping below a floor turned the rasters into
+  sparse marks on white — measured, U-Net stage 3 drew **7.6 %** of its cells and the transformer
+  layers 41–49 %, so how much white a figure showed was a tuning constant rather than a property of
+  the data. `paintActivationMap` now colours every cell on a blue → neutral → red ramp and blits it
+  with `createImageData` + `drawImage`; every raster is 100 % painted with 600–1,700 distinct
+  colours. Per-cell `fillRect` is not an option at 384 × 128 — that is 49,000 calls per redraw.
+- **The neutral must be read off a real element.** `getPropertyValue('--vp-panel')` returns the
+  literal `var(--color-surface, #fff)`, not a colour, and an unpainted ancestor computes to
+  `rgba(0, 0, 0, 0)` — which parses as black and turned the whole raster near-black on a white page.
+  Walk up until an ancestor's background alpha exceeds 0.5.
+- **Deselecting a stage must fall back to the wavefront, not to the stem.** `renderStageDetail(null)`
+  defaulted to the conv stem, so clicking the same stage twice silently showed a different stage's
+  data under the title "Conv stem".
 - **A neuron doing nothing must leave its cell empty.** The p1→p99 ramp put a ZERO activation at
   0.61 ink on `attn1` and 0.70 on `attn8`, so **90–96 % of cells on 15 of the 20 stages** drew above
   0.4: the raster encoded *sign*, not activity, and read as a flat wash. The residual stream is
