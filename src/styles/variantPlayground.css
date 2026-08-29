@@ -230,3 +230,12 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
 .vp-flow3d { cursor: grab; touch-action: none; }
 .vp-flow3d:active { cursor: grabbing; }
 .vp-flow3d[hidden] { display: none; }
+
+/* The true-aspect swatch beside the layer title: the raster is always full width, so the shape it
+   cannot show lives here. Inline-block so it sits on the heading's baseline rather than stacking. */
+.vp-aspect {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 0.4rem;
+  border-radius: 2px;
+}

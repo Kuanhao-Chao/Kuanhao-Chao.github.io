@@ -3,6 +3,14 @@ import stemWeights from '../data/shorkieStem.json';
 import loci from '../data/shorkieLoci.json';
 import parity from './__fixtures__/shorkieStemParity.json';
 import {
+  windowFraction,
+  fractionToBp,
+  predictedSpan,
+  axisTicks,
+  bpTicks,
+  packGeneRows,
+  attentionRollout,
+  binsToBottleneck,
   SEQ_LEN,
   IN_CHANNELS,
   N_DNA,
@@ -1588,5 +1596,309 @@ describe('flowSlabs — the 3D layout', () => {
       expect(s.channels).toBe(spec.channels);
       expect(s.label).toBe(spec.label);
     }
+  });
+});
+
+describe('windowFraction — the page\'s one horizontal coordinate', () => {
+  it('spans the whole input, not the predicted interior', () => {
+    expect(windowFraction(0)).toBe(0);
+    expect(windowFraction(SEQ_LEN)).toBe(1);
+    expect(windowFraction(SEQ_LEN / 2)).toBeCloseTo(0.5, 12);
+  });
+
+  it('round-trips through fractionToBp', () => {
+    for (const bp of [0, 1024, 5000, 8192, 15360, SEQ_LEN]) {
+      expect(fractionToBp(windowFraction(bp))).toBeCloseTo(bp, 9);
+    }
+  });
+
+  it('clamps rather than running off either end', () => {
+    expect(windowFraction(-500)).toBe(0);
+    expect(windowFraction(SEQ_LEN + 500)).toBe(1);
+    expect(fractionToBp(-1)).toBe(0);
+    expect(fractionToBp(2)).toBe(SEQ_LEN);
+  });
+
+  it('puts the predicted interior where the crop says, not at the panel edges', () => {
+    // The whole point: the coverage curve occupies the middle 87.5% of the panel, and the two
+    // 1,024 bp flanks it does not predict are visibly outside it rather than silently rescaled away.
+    const { lo, hi } = predictedSpan();
+    expect(lo).toBeCloseTo(CROP_BP / SEQ_LEN, 12);
+    expect(hi).toBeCloseTo((CROP_BP + N_BINS * BIN_BP) / SEQ_LEN, 12);
+    expect(hi - lo).toBeCloseTo((N_BINS * BIN_BP) / SEQ_LEN, 12);
+    expect(hi - lo).toBeLessThan(1);
+  });
+
+  it('agrees with the head stage\'s own ruler, which is the panel it must line up with', () => {
+    // positionToBp already accounts for the crop; the two must give the same fraction for the same
+    // bin, or the layer ruler and the coverage plot slide apart by up to 1,024 bp.
+    for (const bin of [0, 100, 448, 895]) {
+      const bp = positionToBp('head', bin, N_BINS);
+      expect(windowFraction(bp)).toBeCloseTo((CROP_BP + bin * BIN_BP) / SEQ_LEN, 12);
+    }
+  });
+});
+
+describe('axisTicks', () => {
+  it('places ticks through the axis in use, not linearly on a log plot', () => {
+    const log = axisTicks(1000, true);
+    for (const t of log) {
+      expect(t.at).toBeCloseTo(logAxis(t.value, 1000), 12);
+    }
+  });
+
+  it('is monotone: a larger value never sits lower on the axis', () => {
+    for (const useLog of [true, false]) {
+      const ticks = axisTicks(994.88, useLog);
+      for (let i = 1; i < ticks.length; i += 1) {
+        expect(ticks[i].value).toBeGreaterThan(ticks[i - 1].value);
+        expect(ticks[i].at).toBeGreaterThanOrEqual(ticks[i - 1].at);
+      }
+    }
+  });
+
+  it('spans the full axis and no further', () => {
+    for (const max of [1, 12.7, 994.88, 2396.57]) {
+      for (const useLog of [true, false]) {
+        const ticks = axisTicks(max, useLog);
+        expect(ticks[0].at).toBe(0);
+        expect(ticks.at(-1)!.at).toBe(1);
+        expect(ticks.at(-1)!.value).toBe(max);
+        for (const t of ticks) expect(t.at).toBeGreaterThanOrEqual(0);
+        for (const t of ticks) expect(t.at).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it('always offers at least three ticks, even under one decade of range', () => {
+    // A peak of 6.53 -- the ChIP-MNase group -- has only one decade tick below it, and an axis
+    // labelled 0 and 6.53 alone tells a reader nothing about the shape between them.
+    for (const max of [0.4, 3, 6.53, 9.9]) {
+      expect(axisTicks(max, true).length).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it('degenerates safely at zero rather than emitting NaN', () => {
+    const ticks = axisTicks(0, true);
+    expect(ticks).toHaveLength(1);
+    for (const t of ticks) expect(Number.isFinite(t.at)).toBe(true);
+  });
+});
+
+describe('bpTicks', () => {
+  it('covers the window end to end, on decimal multiples rather than powers of two', () => {
+    // A 2,048 step is the natural one for a 16,384 bp window and reads "2.0k, 4.1k, 6.1k" -- three
+    // decimals of noise on a ruler nobody measures to the base from. Every tick but the last is a
+    // round multiple of the step; the last is the window end, kept even though it is not on it.
+    const ticks = bpTicks();
+    expect(ticks[0]).toBe(0);
+    expect(ticks.at(-1)).toBe(SEQ_LEN);
+    for (const bp of ticks.slice(0, -1)) expect(bp % 2000).toBe(0);
+  });
+
+  it('is strictly increasing and never emits a duplicate at the window end', () => {
+    for (const step of [1000, 2000, 4000, 8000]) {
+      const ticks = bpTicks(step);
+      for (let i = 1; i < ticks.length; i += 1) expect(ticks[i]).toBeGreaterThan(ticks[i - 1]);
+      expect(new Set(ticks).size).toBe(ticks.length);
+    }
+  });
+
+  it('never crowds the last labelled tick against the window end', () => {
+    // The end tick is always drawn, so a step landing just short of SEQ_LEN would put two labels
+    // on top of each other. Dropping anything past SEQ_LEN - step/2 is what prevents it.
+    for (const step of [1000, 2000, 4000]) {
+      const ticks = bpTicks(step);
+      expect(SEQ_LEN - ticks.at(-2)!).toBeGreaterThanOrEqual(step / 2);
+    }
+  });
+});
+
+describe('packGeneRows', () => {
+  const windows = (loci as { loci: { id: string; features: { txStart: number; txEnd: number }[] }[] }).loci;
+
+  it('never puts two overlapping features on the same row', () => {
+    for (const w of windows) {
+      const rows = packGeneRows(w.features);
+      for (let i = 0; i < w.features.length; i += 1) {
+        for (let j = i + 1; j < w.features.length; j += 1) {
+          if (rows[i] !== rows[j]) continue;
+          const a = w.features[i];
+          const b = w.features[j];
+          expect(
+            a.txEnd <= b.txStart || b.txEnd <= a.txStart,
+            `${w.id}: features ${i} and ${j} overlap on row ${rows[i]}`,
+          ).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('costs at most one extra row on the shipped windows', () => {
+    // Measured: eight of the fourteen need two rows and none needs three, which is why expanding
+    // is cheap enough to be the interesting mode rather than a a rarely-used escape hatch.
+    const used = windows.map((w) => Math.max(...packGeneRows(w.features)) + 1);
+    expect(Math.max(...used)).toBe(2);
+    expect(used.filter((n) => n > 1).length).toBe(8);
+  });
+
+  it('assigns a row to every feature and leaves no row empty', () => {
+    for (const w of windows) {
+      const rows = packGeneRows(w.features);
+      expect(rows).toHaveLength(w.features.length);
+      const used = new Set(rows);
+      for (let r = 0; r < used.size; r += 1) expect(used.has(r)).toBe(true);
+    }
+  });
+
+  it('uses one row when nothing overlaps, however many features there are', () => {
+    const tiled = Array.from({ length: 12 }, (_, i) => ({ txStart: i * 100, txEnd: i * 100 + 90 }));
+    expect(Math.max(...packGeneRows(tiled))).toBe(0);
+  });
+
+  it('is stable under input order — a row assignment must not depend on file order', () => {
+    for (const w of windows) {
+      const rows = packGeneRows(w.features);
+      const shuffled = w.features.map((f, i) => ({ ...f, i })).reverse();
+      const back = packGeneRows(shuffled);
+      for (let k = 0; k < shuffled.length; k += 1) {
+        expect(back[k]).toBe(rows[shuffled[k].i]);
+      }
+    }
+  });
+});
+
+describe('attentionRollout', () => {
+  const N = 8;
+  /** L layers of a known attention pattern, so the composition can be checked by hand. */
+  function uniform(layers: number): Float64Array {
+    const a = new Float64Array(layers * N * N);
+    a.fill(1 / N);
+    return a;
+  }
+
+  it('is row-stochastic — every row is a distribution over where it read from', () => {
+    for (const layers of [1, 3, 8]) {
+      const r = attentionRollout(uniform(layers), N);
+      for (let i = 0; i < N; i += 1) {
+        let sum = 0;
+        for (let j = 0; j < N; j += 1) sum += r[i * N + j];
+        expect(sum).toBeCloseTo(1, 10);
+      }
+    }
+  });
+
+  it('never returns a negative weight', () => {
+    const r = attentionRollout(uniform(8), N);
+    for (let i = 0; i < r.length; i += 1) expect(r[i]).toBeGreaterThanOrEqual(0);
+  });
+
+  it('matches the closed form for uniform attention, exactly', () => {
+    // Uniform attention mixed half-and-half with the identity is NOT uniform -- it is
+    // `0.5 I + (0.5/N) J`, already row-normalised, with a heavier diagonal. Composing it k times
+    // gives `0.5^k I + c_k J` where `c_k = (0.5/N)(2 - 2^(1-k))`, so at N = 8 and 8 layers the
+    // diagonal is exactly 263/2048 and every other entry exactly 255/2048. Asserting 1/N here
+    // instead is what a first draft of this test did, and it was the test that was wrong.
+    const k = 8;
+    const b = 0.5 / N;
+    const off = b * (2 - 2 ** (1 - k));
+    const diag = 0.5 ** k + off;
+    expect(diag).toBeCloseTo(263 / 2048, 15);
+    expect(off).toBeCloseTo(255 / 2048, 15);
+    const r = attentionRollout(uniform(k), N);
+    for (let i = 0; i < N; i += 1) {
+      for (let j = 0; j < N; j += 1) {
+        expect(r[i * N + j]).toBeCloseTo(i === j ? diag : off, 12);
+      }
+    }
+  });
+
+  it('converges toward uniform as depth grows, without ever reaching it', () => {
+    // The diagonal excess is 0.5^k, so it halves per layer and is never zero: rollout keeps a
+    // residual trace of where a position started, which is the property that makes it readable.
+    const excess = (k: number) => attentionRollout(uniform(k), N)[0] - attentionRollout(uniform(k), N)[1];
+    for (const k of [1, 2, 4, 8]) expect(excess(k)).toBeCloseTo(0.5 ** k, 12);
+  });
+
+  it('keeps the residual: pure identity attention rolls out to the identity', () => {
+    const a = new Float64Array(4 * N * N);
+    for (let l = 0; l < 4; l += 1) for (let i = 0; i < N; i += 1) a[l * N * N + i * N + i] = 1;
+    const r = attentionRollout(a, N);
+    for (let i = 0; i < N; i += 1) {
+      for (let j = 0; j < N; j += 1) expect(r[i * N + j]).toBeCloseTo(i === j ? 1 : 0, 10);
+    }
+  });
+
+  it('spreads mass with depth rather than concentrating it', () => {
+    // One layer of a shifted permutation reads from one place; composing eight must read from more,
+    // which is the whole reason rollout says something a single layer's map does not.
+    const a = new Float64Array(8 * N * N);
+    for (let l = 0; l < 8; l += 1) {
+      for (let i = 0; i < N; i += 1) a[l * N * N + i * N + ((i + 1) % N)] = 1;
+    }
+    const one = attentionRollout(a.slice(0, N * N), N);
+    const eight = attentionRollout(a, N);
+    const nonzero = (m: Float64Array) => Array.from(m.slice(0, N)).filter((v) => v > 1e-9).length;
+    expect(nonzero(eight)).toBeGreaterThan(nonzero(one));
+  });
+
+  it('handles the shipped shape: 8 layers of 128 x 128', () => {
+    const r = attentionRollout(uniform(N_ATTN_LAYERS), N);
+    expect(r).toHaveLength(N * N);
+  });
+});
+
+describe('binsToBottleneck', () => {
+  it('maps an output bin range onto the 128 bp bottleneck positions that cover it', () => {
+    const per = SEQ_LEN / 128;
+    expect(per).toBe(128);
+    const { start, end } = binsToBottleneck(0, N_BINS);
+    // Bin 0 starts CROP_BP into the window, which is exactly 8 bottleneck positions in.
+    expect(start).toBe(CROP_BP / per);
+    expect(end).toBe(128 - CROP_BP / per);
+  });
+
+  it('stays inside the bottleneck for any bin range', () => {
+    for (const [a, b] of [[0, 1], [400, 500], [880, N_BINS], [-5, N_BINS + 50]]) {
+      const { start, end } = binsToBottleneck(a, b);
+      expect(start).toBeGreaterThanOrEqual(0);
+      expect(end).toBeLessThanOrEqual(128);
+      expect(end).toBeGreaterThanOrEqual(start);
+    }
+  });
+});
+
+describe('the 170-channel input contract', () => {
+  it('is exactly 4 DNA + 1 mask + 165 species', () => {
+    expect(N_DNA + N_MASK + N_SPECIES).toBe(IN_CHANNELS);
+    expect([N_DNA, N_MASK, N_SPECIES, IN_CHANNELS]).toEqual([4, 1, 165, 170]);
+  });
+
+  it('sets exactly two channels per position: one base and one species', () => {
+    const x = encodeInput('ACGT'.repeat(64), SPECIES_S_CEREVISIAE);
+    for (let i = 0; i < 256; i += 1) {
+      const row = x.subarray(i * IN_CHANNELS, (i + 1) * IN_CHANNELS);
+      expect(Array.from(row).filter((v) => v !== 0)).toHaveLength(2);
+    }
+  });
+
+  it('leaves the mask channel zero everywhere at inference', () => {
+    const x = encodeInput('ACGTACGT', SPECIES_S_CEREVISIAE);
+    for (let i = 0; i < SEQ_LEN; i += 1) expect(x[i * IN_CHANNELS + N_DNA]).toBe(0);
+  });
+
+  it('puts S. cerevisiae at channel 114, constant across every position', () => {
+    // 4 DNA + 1 mask + species 109. The page names this channel, so a change here is a change to
+    // what the panel claims and must fail loudly rather than quietly relabel.
+    const channel = N_DNA + N_MASK + SPECIES_S_CEREVISIAE;
+    expect(channel).toBe(114);
+    const x = encodeInput('ACGT', SPECIES_S_CEREVISIAE);
+    for (let i = 0; i < SEQ_LEN; i += 1) expect(x[i * IN_CHANNELS + channel]).toBe(1);
+  });
+
+  it('leaves an N with no base channel set, but still carries the species', () => {
+    const x = encodeInput('N', SPECIES_S_CEREVISIAE);
+    for (let b = 0; b < N_DNA; b += 1) expect(x[b]).toBe(0);
+    expect(x[N_DNA + N_MASK + SPECIES_S_CEREVISIAE]).toBe(1);
   });
 });
