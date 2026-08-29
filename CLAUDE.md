@@ -889,6 +889,73 @@ Keras checkpoint, ported and exported, producing the same numbers the paper's mo
   12.6875 into "12.70" and "12.69"; a later `toFixed(4)` write then silently clobbered the
   full-precision one. The track SVG now carries `data-peak` at full precision, written once.
 
+- **`verify_pipeline.py` runs with no checkpoint, and that is the mode that matters.** The packs and
+  the fp16 graph are both committed, so sections 1–2 re-derive the correspondence between what the
+  page draws and what the model computes from the repository alone — 54 stage-locus pairs, comparing
+  the **signed max and the argmax channel** per stage rather than a norm, because those are the two
+  quantities the layer panel prints. A mis-sliced or stale pack then shows up as the wrong channel
+  instead of as a small numeric drift. Worst decode error is 0.6683 at `unet3`, which is that row's
+  range over 255 — the uint8 floor, not slack.
+- **A checkpoint of the wrong size is not a regression, and the script says so.** `model_best.h5` in
+  `~/Downloads` is a *different* model — 12,393,632 values and a **384-wide head** — and it used to
+  reach section 3 and die on `operands could not be broadcast (1,896,384) (1,896,5215)`. The
+  parameter check now stops the run with the file path and the expected count. Anything measured
+  against the wrong checkpoint is worse than no measurement: it looks like data.
+- **"loudest channels" is a SIGNED max, not `max|·|`.** Ranking `attn8` by magnitude gives #339
+  (73.06); ranking by signed max gives #89 (62.59), which is what the page prints and what the graph
+  produces. Checking the panel against a hand-decoded pack will look like a mismatch if you reach
+  for `abs` — the two orderings disagree on most stages from block7 on, where the residual stream is
+  50–66 % negative.
+- **`unet3` peaking at 300.00 is real.** It is the pre-head tensor feeding a Dense whose softplus
+  output reaches 2,396, and the round number is one channel's own maximum, not a clip — the next are
+  291.25 and 284.25, and a clamp would stack them. `unet1` and `unet2` sit at 5.7 and 4.4, so the 68×
+  jump at the last decoder stage looks like a packing bug and is not one.
+- **"Loudest channels" is meaningless at both ends of the network**, and both ends now say something
+  else. At the input every channel's maximum is exactly 1.00 by construction, so the ranking is
+  noise — it reports base composition instead, which doubles as a check on the encoding (38.1 % GC
+  is the *S. cerevisiae* genome average). At the head the four rows are **assay groups**, and
+  numbering them #0–#3 beside a title reading "5,215 channels" invites reading them as channel
+  indices, so they are named.
+- **The precompute only runs in locus mode.** A headless probe that loads the page and reads the
+  panels sees the free-typing path — "Live conv-stem view is running" — and every activation-derived
+  assertion silently measures nothing. Click `[data-vp-mode="locus"]` and wait on
+  `dataset.vpResultSource === 'precomputed'` first; `enterLocus` in the audit does exactly that.
+- **The gene track's tally is counted inside the loop that fills the rectangles**, and published as
+  `dataset.vpGeneTrack` on the canvas. An intron drawn as an exon is invisible to every other check
+  on the page — it is a canvas, so there is no element to inspect — and counting the *decomposition*
+  instead would pass while the drawing was wrong. 7 of the 14 loci draw at least one intron as a gap.
+
+**The volume view** (`src/scripts/shorkieFlow3d.ts`) is the third view, behind a `flat`/`volume`
+toggle, built on first use so the `three` chunk is only fetched for a reader who asks:
+
+- **Orthographic, deliberately.** The whole claim is that a slab's size *is* the tensor's shape, so
+  a perspective camera would make a far slab small for a reason that has nothing to do with its
+  channel count — the same lie a bar chart tells from a non-zero baseline. Depth reads from the
+  diagonal layout and the shading instead. The first build used a 38° perspective and the near end
+  projected several times larger than the far one.
+- **The camera fits in camera space, over the slabs' own corners, every frame.** The row idles
+  through a full rotation, so its projected extent swings between the full depth and almost nothing;
+  any constant distance chosen for one yaw runs the far end off the edge at another. Fitting the
+  scene *bounding box* instead leaves the row floating in margin, because a box's corners sit
+  outside the object. Grow the slack half-extent to the canvas aspect — never scale anisotropically,
+  which would distort the shapes the view exists to report.
+- **Per-face materials: the big face carries the data, the four thin edges carry the group colour.**
+  `BoxGeometry`'s six groups are +X, −X, +Y, −Y, +Z, −Z and the box is thin in X, so groups 0 and 1
+  are the large positions × channels faces. Painting the activation texture over the whole box loses
+  encoder / bottleneck / decoder entirely, and an emissive tint strong enough to restore it competes
+  with the signal; the rim does not.
+- **The traced path is log-scaled across stages, and a stage with no relevance data is left
+  undimmed.** Relevance spans orders of magnitude, so a linear normalisation lights one slab and
+  puts the other seventeen on the floor — reporting a single stage rather than a path. The log map
+  is strictly monotone in the true quantity, so the ordering is exact. Per-stage relevance is a
+  **mean** over the stage's channels, never a sum: summing ranks a 1,536-channel stage above a
+  384-channel one on width alone, which is a fact about the architecture and not about the
+  selection. The input, stem and head live on their own tensors and have no per-layer relevance in
+  the pack — showing them at the floor would read as "contributes nothing".
+- **A WebGL canvas readback is 0 pixels without `preserveDrawingBuffer`.** The renderer does not set
+  it, so `getImageData` on this canvas always returns zeros and an audit built on it passes against
+  a blank page. Screenshot the element instead — that is what the `volume` gate does.
+
 ### Other non-obvious things
 - **Math (KaTeX)** is wired in `astro.config.mjs` (`remark-math` + `rehype-katex`) for the LaTeX-heavy reports; the report slug page imports `katex/dist/katex.min.css` so both the page and its printed PDF typeset math. Posts currently use no math.
 - **Cross-links between sections** use `relatedPosts` references in frontmatter, resolved by `src/lib/relatedPosts.ts` into "Blog" chips on publication/research entries.

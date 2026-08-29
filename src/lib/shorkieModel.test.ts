@@ -59,6 +59,7 @@ import {
   trackIndex,
   geneTrackShapes,
   sumAttributionRows,
+  flowSlabs,
 } from './shorkieModel';
 import tracks from '../data/shorkieTracks.json';
 import trackNames from '../data/shorkieTrackNames.json';
@@ -1534,5 +1535,58 @@ describe('sumAttributionRows', () => {
 
   it('returns zeros for an empty selection', () => {
     expect([...sumAttributionRows(plane, COLS, GROUP_BINS, GROUPS, 8, 8)]).toEqual([0, 0, 0, 0, 0]);
+  });
+});
+
+describe('flowSlabs — the 3D layout', () => {
+  const slabs = flowSlabs();
+
+  it('places every stage once, ordered along the depth axis', () => {
+    expect(slabs).toHaveLength(21);
+    expect(slabs[0].z).toBe(0);
+    expect(slabs.at(-1)!.z).toBe(1);
+    for (let i = 1; i < slabs.length; i += 1) {
+      expect(slabs[i].z, `${slabs[i].id} depth`).toBeGreaterThan(slabs[i - 1].z);
+    }
+  });
+
+  it('makes the U-Net waist literal: height falls to the bottleneck and rises after', () => {
+    const at = (id: string) => slabs.find((s) => s.id === id)!;
+    expect(at('block1').height).toBeGreaterThan(at('block7').height);
+    expect(at('attn1').height).toBeCloseTo(Math.min(...slabs.map((s) => s.height)), 12);
+    expect(at('decoder3').height).toBeGreaterThan(at('attn8').height);
+  });
+
+  it('keeps every extent inside the unit cell and strictly positive', () => {
+    for (const s of slabs) {
+      for (const v of [s.height, s.width, s.thickness]) {
+        expect(v).toBeGreaterThan(0);
+        expect(v).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it('is monotone in the true quantities, so the drawing cannot mislead about size', () => {
+    const byPos = [...slabs].sort((a, b) => a.positions - b.positions);
+    for (let i = 1; i < byPos.length; i += 1) {
+      if (byPos[i].positions > byPos[i - 1].positions) {
+        expect(byPos[i].height).toBeGreaterThan(byPos[i - 1].height);
+      }
+    }
+    const byCh = [...slabs].sort((a, b) => a.channels - b.channels);
+    for (let i = 1; i < byCh.length; i += 1) {
+      if (byCh[i].channels > byCh[i - 1].channels) {
+        expect(byCh[i].width).toBeGreaterThan(byCh[i - 1].width);
+      }
+    }
+  });
+
+  it('carries the real dimensions so a label cannot drift from the box', () => {
+    for (const s of slabs) {
+      const spec = layerSpecs().find((l) => l.id === s.id)!;
+      expect(s.positions).toBe(spec.positions);
+      expect(s.channels).toBe(spec.channels);
+      expect(s.label).toBe(spec.label);
+    }
   });
 });

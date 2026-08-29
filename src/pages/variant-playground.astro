@@ -67,6 +67,13 @@ const description =
       <!-- ------------------------------------------------- full-width flow -->
       <section class="vp-panel vp-flow-panel">
         <h2>The network, end to end — watch a sequence pass through it</h2>
+        <div class="vp-controls" style="margin-bottom:0.45rem;">
+          <button type="button" class="vp-btn" data-vp-view="2d" aria-pressed="true">flat</button>
+          <button type="button" class="vp-btn" data-vp-view="3d" aria-pressed="false">volume</button>
+          <span class="vp-stat">Same layout either way: height is positions, width is channels.</span>
+        </div>
+        <canvas class="vp-canvas vp-flow3d" data-vp-flow3d hidden role="img"
+                aria-label="The network as slabs along a depth axis; drag to orbit"></canvas>
         <canvas class="vp-canvas vp-flow" data-vp-flow role="img"
                 aria-label="Shorkie architecture: 20 stages from the 16,384 bp input to 896 output bins"></canvas>
         <div class="vp-controls" style="margin-top:0.5rem;">
