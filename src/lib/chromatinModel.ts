@@ -816,7 +816,7 @@ export interface MultiTadDomainData {
  * convergent CTCF insulation boundaries, and enhancer-promoter regulatory communication.
  */
 export function multiTadDomainGeometry(extrusionFraction: number): MultiTadDomainData {
-  const ext = smoothstep5(Math.min(1, Math.max(0.04, extrusionFraction)));
+  const ext = smoothstep5(Math.min(1, Math.max(0.02, extrusionFraction)));
   const SAMPLES = 48;
 
   // 1. Upstream TAD 1 (400 kb, centered at y = -600 nm)
@@ -829,7 +829,7 @@ export function multiTadDomainGeometry(extrusionFraction: number): MultiTadDomai
     const x = -tad1Reach * Math.sin(Math.PI * u);
     const y = base1Y + tad1Width * Math.sin(Math.PI * u) * Math.cos(Math.PI * (u - 0.5));
     const z = tad1Width * 0.25 * Math.sin(2 * Math.PI * u);
-    tad1Loop.push([x - 10, y, z]);
+    tad1Loop.push([x - 10 * ext, y, z]);
   }
 
   // 2. Hero TAD 2 (800 kb primary loop + 220 kb nested sub-loop at y = 0)
@@ -865,7 +865,7 @@ export function multiTadDomainGeometry(extrusionFraction: number): MultiTadDomai
     const x = tad3Reach * Math.sin(Math.PI * u);
     const y = base3Y + tad3Width * Math.sin(Math.PI * u) * Math.cos(Math.PI * (u - 0.5));
     const z = -tad3Width * 0.25 * Math.sin(2 * Math.PI * u);
-    tad3Loop.push([x + 10, y, z]);
+    tad3Loop.push([x + 10 * ext, y, z]);
   }
 
   const enhancer = tad2SubLoop[Math.round(SAMPLES * 0.32)];
@@ -876,8 +876,8 @@ export function multiTadDomainGeometry(extrusionFraction: number): MultiTadDomai
   for (let i = 0; i <= 8; i += 1) {
     const t = i / 8;
     const bx = enhancer[0] + (promoter[0] - enhancer[0]) * t;
-    const by = enhancer[1] + (promoter[1] - enhancer[1]) * t + Math.sin(t * Math.PI) * 14;
-    const bz = enhancer[2] + (promoter[2] - enhancer[2]) * t + Math.sin(t * Math.PI) * 10;
+    const by = enhancer[1] + (promoter[1] - enhancer[1]) * t + Math.sin(t * Math.PI) * (14 * ext);
+    const bz = enhancer[2] + (promoter[2] - enhancer[2]) * t + Math.sin(t * Math.PI) * (10 * ext);
     bridge.push([bx, by, bz]);
   }
 
@@ -885,14 +885,14 @@ export function multiTadDomainGeometry(extrusionFraction: number): MultiTadDomai
   const spine: Vec3[] = [];
   for (let i = -50; i <= 50; i += 1) {
     const y = i * 28;
-    const wobble = Math.sin(i * 0.25) * 12;
-    spine.push([wobble, y, Math.cos(i * 0.22) * 12]);
+    const wobble = Math.sin(i * 0.25) * (12 * ext);
+    spine.push([wobble, y, Math.cos(i * 0.22) * (12 * ext)]);
   }
 
   const cohesinPositions: Vec3[] = [
-    [-10, -600, 0],
+    [-10 * ext, -600, 0],
     [0, 0, 0],
-    [10, 600, 0],
+    [10 * ext, 600, 0],
   ];
 
   const ctcfPins = [
@@ -970,10 +970,14 @@ export interface MitoticChromosomeData {
  * organized into paired sister chromatids with central Condensin II spiral scaffold (12 Mb/turn)
  * and radial volumetric loop rosettes.
  */
-export function mitoticChromosomeGeometry(): MitoticChromosomeData {
+export function mitoticChromosomeGeometry(condenseFraction: number = 1): MitoticChromosomeData {
+  const c = smoothstep5(Math.min(1, Math.max(0, condenseFraction)));
   const LOOPS_PER_ARM = 84;
-  const rise = helicalRisePerTurnNm(); // 482 nm
+  const targetRise = helicalRisePerTurnNm(); // 482 nm
   const halfGap = CHROMATID_DIAMETER_NM * 0.52; // 364 nm
+
+  const helicalWinding = c;
+  const coreRadius = 50 * c;
 
   const buildArm = (sign: number): MitoticArmData => {
     const loops: Vec3[][] = [];
@@ -983,20 +987,20 @@ export function mitoticChromosomeGeometry(): MitoticChromosomeData {
     for (let i = 0; i <= N; i += 1) {
       const u = i / N;
       const y = (u - 0.5) * CHR1_METAPHASE_NM;
-      const az = (y / rise) * 2 * Math.PI;
-      const pinch = centromereConstriction(u);
+      const az = (y / targetRise) * 2 * Math.PI * helicalWinding;
+      const pinch = centromereConstriction(u, 0.28 + (1 - c) * 0.72);
 
-      const sx = sign * halfGap + Math.cos(az) * (50 * pinch);
-      const sz = Math.sin(az) * (50 * pinch);
+      const sx = sign * (halfGap * (0.6 + 0.4 * c)) + Math.cos(az) * (coreRadius * pinch);
+      const sz = Math.sin(az) * (coreRadius * pinch);
       scaffold.push([sx, y, sz]);
 
       if (i === N) break;
 
-      const reach = loopReachNm(PROMETA_OUTER_LOOP_BP) * pinch;
+      const baseReach = loopReachNm(PROMETA_OUTER_LOOP_BP) * (0.4 + 0.6 * c) * pinch;
       for (let p = 0; p < 3; p += 1) {
         const petalAz = az + (p * 2 * Math.PI) / 3;
         const raw = extrudedLoop(y, PROMETA_OUTER_LOOP_BP, petalAz, 18);
-        const k = reach / loopReachNm(PROMETA_OUTER_LOOP_BP);
+        const k = baseReach / loopReachNm(PROMETA_OUTER_LOOP_BP);
         loops.push(
           raw.map((pt) => [sx + pt[0] * k, pt[1], sz + pt[2] * k] as Vec3),
         );
