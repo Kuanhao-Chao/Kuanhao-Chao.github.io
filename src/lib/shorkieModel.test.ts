@@ -3,6 +3,16 @@ import stemWeights from '../data/shorkieStem.json';
 import loci from '../data/shorkieLoci.json';
 import parity from './__fixtures__/shorkieStemParity.json';
 import {
+  LOGO_GLOBSCALE,
+  LOGO_OFFSETS,
+  LOGO_COLOURS,
+  LOGO_GLYPHS,
+  logoColumn,
+  logoRange,
+  ismSaliency,
+  logSED,
+  spliceAnnotations,
+  stageRelevanceProfile,
   windowFraction,
   fractionToBp,
   predictedSpan,
@@ -34,7 +44,6 @@ import {
   cleanSequence,
   encodeInput,
   stemActivations,
-  filterLogo,
   binToWindowOffset,
   windowOffsetToBin,
   mutate,
@@ -245,17 +254,6 @@ describe('conv stem', () => {
     const withN = stemActivations('ACGTNACGTAC', stem);
     expect(withN.positions).toBe(1);
     expect(Number.isFinite(withN.map[0])).toBe(true);
-  });
-});
-
-describe('filter logos', () => {
-  it('gives one mean-centred row of four bases per kernel position', () => {
-    const logo = filterLogo(0, stem);
-    expect(logo).toHaveLength(11);
-    logo.forEach((row) => {
-      expect(row).toHaveLength(4);
-      expect(row.reduce((a, b) => a + b, 0)).toBeCloseTo(0, 6);
-    });
   });
 });
 
@@ -1900,5 +1898,300 @@ describe('the 170-channel input contract', () => {
     const x = encodeInput('N', SPECIES_S_CEREVISIAE);
     for (let b = 0; b < N_DNA; b += 1) expect(x[b]).toBe(0);
     expect(x[N_DNA + N_MASK + SPECIES_S_CEREVISIAE]).toBe(1);
+  });
+});
+
+describe("the Shorkie paper's logo geometry", () => {
+  it('carries the paper\'s hand-tuned offsets, not half-advances', () => {
+    // yeast_helpers.py:147-150. Measured DejaVu Bold half-advances are A 0.3870, C 0.3669,
+    // G 0.4104, T 0.3411 -- only C's offset is the half-advance; the others sit deliberately
+    // right of centre. Deriving them instead would move A, G and T by 0.026-0.037 em.
+    expect(LOGO_OFFSETS).toEqual({ A: -0.350, C: -0.366, G: -0.384, T: -0.305 });
+    expect(Math.abs(-LOGO_OFFSETS.C - 0.366943)).toBeLessThan(0.002);
+    expect(Math.abs(-LOGO_OFFSETS.A - 0.386963)).toBeGreaterThan(0.03);
+  });
+
+  it('uses the paper\'s saturated X11 colours, not the site\'s tokens', () => {
+    expect(LOGO_COLOURS).toEqual({ A: '#008000', C: '#0000FF', G: '#FFA500', T: '#FF0000' });
+  });
+
+  it('scales by 1.35 on both axes, which is what makes a stack fill its own height', () => {
+    // DejaVu Bold cap heights are 0.729063 (A, T) and 0.742188 (C, G); 1.35 sits between their
+    // reciprocals 1.3716 and 1.3474, so a letter of value s draws ~s tall.
+    expect(LOGO_GLOBSCALE).toBe(1.35);
+    for (const cap of [0.729063, 0.742188]) {
+      expect(cap * LOGO_GLOBSCALE).toBeGreaterThan(0.98);
+      expect(cap * LOGO_GLOBSCALE).toBeLessThan(1.01);
+    }
+  });
+
+  it('ships real glyph outlines, one path per base, starting with a moveto', () => {
+    for (const b of ['A', 'C', 'G', 'T'] as const) {
+      expect(LOGO_GLYPHS[b].startsWith('M')).toBe(true);
+      expect(LOGO_GLYPHS[b].length).toBeGreaterThan(100);
+      expect(LOGO_GLYPHS[b]).not.toMatch(/NaN|undefined/);
+    }
+    // C and G are curved and therefore far longer than the straight-edged A and T.
+    expect(LOGO_GLYPHS.C.length).toBeGreaterThan(LOGO_GLYPHS.A.length);
+    expect(LOGO_GLYPHS.G.length).toBeGreaterThan(LOGO_GLYPHS.T.length);
+  });
+});
+
+describe('logoColumn — the attribution stacking rule', () => {
+  it('sorts descending by magnitude, so the largest letter sits nearest the axis', () => {
+    const col = logoColumn([0.1, -0.5, 0.3, -0.05]);   // A C G T
+    expect(col.map((l) => l.base)).toEqual(['C', 'G', 'A', 'T']);
+  });
+
+  it('stacks positives up from zero and negatives down from zero, independently', () => {
+    const col = logoColumn([0.2, -0.4, 0.3, -0.1]);
+    const pos = col.filter((l) => l.value > 0);
+    const neg = col.filter((l) => l.value < 0);
+    // G (0.3) then A (0.2): first at 0, second at 0.3.
+    expect(pos.map((l) => [l.base, l.y])).toEqual([['G', 0], ['A', 0.3]]);
+    // C (-0.4) then T (-0.1): first at 0, second at -0.4.
+    expect(neg.map((l) => [l.base, l.y])).toEqual([['C', 0], ['T', -0.4]]);
+  });
+
+  it('total stack height equals the sum of the magnitudes', () => {
+    const values = [0.2, -0.4, 0.3, -0.1];
+    const col = logoColumn(values);
+    const top = Math.max(...col.filter((l) => l.value > 0).map((l) => l.y + l.value), 0);
+    const bottom = Math.min(...col.filter((l) => l.value < 0).map((l) => l.y + l.value), 0);
+    expect(top - bottom).toBeCloseTo(values.reduce((a, b) => a + Math.abs(b), 0), 12);
+  });
+
+  it('drops zeros rather than drawing a glyph of no height', () => {
+    // The reference base after projection is the only non-zero value, so most columns are 3 zeros.
+    expect(logoColumn([0, 0, -0.7, 0])).toHaveLength(1);
+    expect(logoColumn([0, 0, 0, 0])).toHaveLength(0);
+  });
+
+  it('keeps the sign on the letter, which is what tells the renderer to mirror it', () => {
+    const [only] = logoColumn([0, -0.7, 0, 0]);
+    expect(only.value).toBeLessThan(0);
+  });
+});
+
+describe('logoRange', () => {
+  it('pads the data min and max SEPARATELY by 5% of max|v|', () => {
+    // 0.05 is the operative constant (17 files); 0.08 is the figure-4 reproduction helper's and
+    // 0.10 is a dead fallback. Padding both ends by 5% of the PEAK leaves the range asymmetric.
+    const { lo, hi } = logoRange([-0.2, 0.8, 0.1]);
+    expect(hi).toBeCloseTo(0.8 + 0.05 * 0.8, 12);
+    expect(lo).toBeCloseTo(-0.2 - 0.05 * 0.8, 12);
+    expect(Math.abs(hi)).not.toBeCloseTo(Math.abs(lo), 3);
+  });
+
+  it('always contains zero, so the axis line is inside the plot', () => {
+    for (const v of [[0.1, 0.2, 0.3], [-0.3, -0.1], [0, 0]]) {
+      const { lo, hi } = logoRange(v);
+      expect(lo).toBeLessThanOrEqual(0);
+      expect(hi).toBeGreaterThanOrEqual(0);
+    }
+  });
+});
+
+describe('ismSaliency — the paper\'s transform, off the shipped plane', () => {
+  const seq = 'ACGTACGT';
+
+  /** A plane in the site's convention: reference cell zero, three alternatives carrying the effect. */
+  function plane(width: number, effects: number[][]): Float64Array {
+    const p = new Float64Array(4 * width);
+    for (let k = 0; k < width; k += 1) {
+      const ref = 'ACGT'.indexOf(seq[k]);
+      let j = 0;
+      for (let b = 0; b < 4; b += 1) if (b !== ref) p[b * width + k] = effects[k][j++];
+    }
+    return p;
+  }
+
+  it('is exactly minus the sum of the three alternatives over four', () => {
+    // centred[b] = P[b] - mean(P); P[ref] = 0; so centred[ref] = -sum(P)/4, and the one-hot
+    // projection keeps only that. This identity is why no re-run is needed for the transform.
+    const eff = [[-0.4, -0.2, -0.1], [0.3, 0.1, 0.05], [0, 0, 0], [-1, 1, 0]];
+    const s = ismSaliency(plane(4, eff), 4, seq, 0);
+    for (let k = 0; k < 4; k += 1) {
+      expect(s[k]).toBeCloseTo(-eff[k].reduce((a, b) => a + b, 0) / 4, 12);
+    }
+  });
+
+  it('is POSITIVE where every substitution hurts — the base that is there matters', () => {
+    // Three alternatives that all lower the prediction means the reference base is doing work,
+    // and the logo must point up. Getting this sign backwards inverts every figure.
+    const s = ismSaliency(plane(1, [[-0.4, -0.3, -0.5]]), 1, 'A', 0);
+    expect(s[0]).toBeGreaterThan(0);
+    expect(s[0]).toBeCloseTo(0.3, 12);
+  });
+
+  it('is zero where substitutions cancel, and negative where they help', () => {
+    expect(ismSaliency(plane(1, [[0.2, -0.2, 0]]), 1, 'A', 0)[0]).toBeCloseTo(0, 12);
+    expect(ismSaliency(plane(1, [[0.4, 0.4, 0.4]]), 1, 'A', 0)[0]).toBeLessThan(0);
+  });
+
+  it('leaves a non-ACGT position at zero rather than guessing a reference', () => {
+    expect(ismSaliency(new Float64Array(4).fill(1), 1, 'N', 0)[0]).toBe(0);
+  });
+
+  it('respects the window offset, so the plane and the sequence stay in register', () => {
+    // A one-position plane read at offset 2 must use sequence[2], not sequence[0].
+    const p = new Float64Array(4);
+    p['ACGT'.indexOf('G')] = 0;      // G is the reference at offset 2
+    p['ACGT'.indexOf('A')] = -0.8;
+    expect(ismSaliency(p, 1, seq, 2)[0]).toBeCloseTo(0.2, 12);
+  });
+});
+
+describe('logSED', () => {
+  it('is the log2 ratio with a +1 pseudocount on each side', () => {
+    expect(logSED(0, 0)).toBe(0);
+    expect(logSED(1, 3)).toBeCloseTo(Math.log2(4) - Math.log2(2), 12);
+    expect(logSED(999, 999)).toBe(0);
+  });
+
+  it('is scale-free, which a linear difference is not', () => {
+    // A gene at 0.4 doubling and a gene at 400 doubling are the SAME logSED. Under a linear
+    // difference they are 0.4 and 400 apart, which is what made the site's percentages
+    // incomparable between a silent promoter and a maximal one.
+    const quiet = logSED(0.4, 0.4 * 2 + 1);
+    const loud = logSED(400, 400 * 2 + 1);
+    expect(Math.abs(quiet - loud)).toBeLessThan(0.55);
+    expect(Math.sign(quiet)).toBe(Math.sign(loud));
+  });
+
+  it('is antisymmetric under swapping reference and alternative', () => {
+    for (const [a, b] of [[1, 5], [0.2, 900], [7, 7]]) {
+      expect(logSED(a, b)).toBeCloseTo(-logSED(b, a), 12);
+    }
+  });
+});
+
+describe('spliceAnnotations — the landmarks Figure 4 marks', () => {
+  type Feat = { name: string; strand: string; cdsStart: number; cdsEnd: number; exons: number[][] };
+  const windows = (loci as unknown as { loci: { id: string; features: Feat[] }[] }).loci;
+  const dtd1 = windows.find((l) => l.id === 'YDL219W')!.features.find((f) => f.name === 'YDL219W')!;
+
+  it('puts the donor on the real GT of DTD1\'s intron', () => {
+    // The intron runs 8165-8236 on the plus strand, so the donor is its start. That base is the
+    // one ISM independently finds as the strongest substitution in the whole window.
+    const donor = spliceAnnotations(dtd1).find((a) => a.label === "5′ splice site");
+    expect(donor!.at).toBe(8165);
+  });
+
+  it('places the branch point 30 bp upstream of the acceptor, the paper\'s fixed offset', () => {
+    const a = spliceAnnotations(dtd1);
+    const acc = a.find((x) => x.label === "3′ splice site")!.at;
+    const br = a.find((x) => x.label === 'Branch point')!.at;
+    expect(acc - br).toBe(30);
+  });
+
+  it('flips donor and acceptor on the minus strand', () => {
+    const minus = { strand: '-', cdsStart: 100, cdsEnd: 900, exons: [[100, 300], [400, 900]] };
+    const a = spliceAnnotations(minus);
+    // On the minus strand the intron's END (400) is the donor and its START (300) the acceptor.
+    expect(a.find((x) => x.label === "5′ splice site")!.at).toBe(400);
+    expect(a.find((x) => x.label === "3′ splice site")!.at).toBe(300);
+    expect(a.find((x) => x.label === 'Branch point')!.at).toBe(330);
+    // And the start codon is at the CDS end.
+    expect(a.find((x) => x.label === 'Start codon')!.at).toBe(900);
+  });
+
+  it('emits no splice landmarks for a single-exon gene', () => {
+    const one = { strand: '+', cdsStart: 10, cdsEnd: 90, exons: [[10, 90]] };
+    expect(spliceAnnotations(one).filter((a) => a.label.includes('splice'))).toHaveLength(0);
+    expect(spliceAnnotations(one)).toHaveLength(2);   // just the two codons
+  });
+
+  it('finds landmarks for every multi-exon gene in the shipped windows', () => {
+    let introns = 0;
+    for (const l of windows) {
+      for (const f of l.features) {
+        if (f.exons.length < 2) continue;
+        introns += 1;
+        const a = spliceAnnotations(f);
+        expect(a.filter((x) => x.label === "5′ splice site").length).toBe(f.exons.length - 1);
+      }
+    }
+    expect(introns).toBe(8);   // the eight multi-exon features across the fourteen windows
+  });
+});
+
+describe('stageRelevanceProfile', () => {
+  const P = STAGE_MAP_POSITIONS;
+  const maps = new Float32Array(5760 * P);
+  const rel = new Float64Array(5760);
+
+  it('gives one row per mapped stage, lit only where a relevant channel fires', () => {
+    maps.fill(0);
+    rel.fill(0);
+    // One channel of block1, firing at a single position, carrying all the relevance.
+    maps[0 * P + 40] = 3;
+    rel[0] = 1;
+    const rows = stageRelevanceProfile(maps, rel, P);
+    expect(rows).toHaveLength(stageMapOffsets().length);
+    expect(rows[0].id).toBe('block1');
+    expect(rows[0].profile[40]).toBeGreaterThan(0);
+    expect(rows[0].profile[39]).toBe(0);
+    // Scaled by the 99th percentile, so a lone spike sits well ABOVE 1 -- deliberately not
+    // clamped, because clamping collapses every above-percentile cell to the same value.
+    expect(rows[0].profile[40]).toBeGreaterThan(1);
+  });
+
+  it('ignores channels with no relevance, however loudly they fire', () => {
+    maps.fill(0);
+    rel.fill(0);
+    maps[1 * P + 10] = 99;                    // a very loud channel...
+    rel[0] = 1;                               // ...but the relevance is on channel 0
+    maps[0 * P + 70] = 1;
+    const rows = stageRelevanceProfile(maps, rel, P);
+    expect(rows[0].profile[10]).toBe(0);
+    expect(rows[0].profile[70]).toBeGreaterThan(0);
+  });
+
+  it('sums over channels, so two contributing channels both show', () => {
+    maps.fill(0);
+    rel.fill(0);
+    maps[0 * P + 20] = 1; rel[0] = 1;
+    maps[1 * P + 60] = 1; rel[1] = 1;
+    const p0 = stageRelevanceProfile(maps, rel, P)[0].profile;
+    expect(p0[20]).toBeGreaterThan(0.5);
+    expect(p0[60]).toBeGreaterThan(0.5);
+  });
+
+  it('weights a channel by RELEVANCE, not by how loudly it fires', () => {
+    // The point of the per-channel normalisation. Channel 0 fires 100x louder than channel 1 but
+    // carries a tenth of the relevance, so channel 1's position must win. Without normalising each
+    // channel to its own total, the loud one dominates and the row reports the window's loudest
+    // gene rather than the traced region.
+    maps.fill(0);
+    rel.fill(0);
+    maps[0 * P + 20] = 100; rel[0] = 0.1;
+    maps[1 * P + 60] = 1;   rel[1] = 1.0;
+    const p0 = stageRelevanceProfile(maps, rel, P)[0].profile;
+    expect(p0[60]).toBeGreaterThan(p0[20]);
+  });
+
+  it('is invariant to a channel\'s overall scale', () => {
+    maps.fill(0); rel.fill(0);
+    maps[0 * P + 20] = 1; maps[0 * P + 21] = 3; rel[0] = 1;
+    const a = Array.from(stageRelevanceProfile(maps, rel, P)[0].profile);
+    maps[0 * P + 20] = 1000; maps[0 * P + 21] = 3000;
+    const b = Array.from(stageRelevanceProfile(maps, rel, P)[0].profile);
+    expect(a).toEqual(b);
+  });
+
+  it('uses the magnitude, so a strongly negative activation still counts', () => {
+    maps.fill(0);
+    rel.fill(0);
+    maps[0 * P + 5] = -4;
+    rel[0] = 1;
+    expect(stageRelevanceProfile(maps, rel, P)[0].profile[5]).toBeGreaterThan(0);
+  });
+
+  it('returns an all-zero row rather than NaN when a stage carries no relevance', () => {
+    maps.fill(0);
+    rel.fill(0);
+    const rows = stageRelevanceProfile(maps, rel, P);
+    for (const r of rows) for (const v of r.profile) expect(Number.isFinite(v)).toBe(true);
   });
 });

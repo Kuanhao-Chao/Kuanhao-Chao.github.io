@@ -15,7 +15,6 @@
  * browser has it and single-threaded WASM otherwise, and the readout says which ran.
  */
 
-import stemWeightsJson from '../data/shorkieStem.json';
 import lociJson from '../data/shorkieLoci.json';
 import { createFlow3d, type Flow3dController } from './shorkieFlow3d';
 import {
@@ -55,9 +54,17 @@ import {
   bpTicks,
   packGeneRows,
   attentionRollout,
+  stageRelevanceProfile,
+  STAGE_MAP_POSITIONS,
+  LOGO_GLOBSCALE,
+  LOGO_GLYPHS,
+  LOGO_COLOURS,
+  logoColumn,
+  logoRange,
+  ismSaliency,
+  spliceAnnotations,
   binsToBottleneck,
   BOTTLENECK_LEN,
-  filterLogo,
   N_DNA,
   N_MASK,
   N_SPECIES,
@@ -84,7 +91,6 @@ import {
   type StemWeights,
 } from '../lib/shorkieModel';
 
-const STEM = stemWeightsJson as StemWeights;
 
 interface Motif {
   name: string;
@@ -190,26 +196,24 @@ export function initVariantPlayground(root: ParentNode = document) {
   host.dataset.vpReady = 'true';
 
   const $ = <T extends HTMLElement = HTMLElement>(sel: string) => host.querySelector<T>(sel);
-  const seqInput = $<HTMLTextAreaElement>('[data-vp-seq]');
-  const modeBtns = host.querySelectorAll<HTMLButtonElement>('[data-vp-mode]');
   const locusSelect = $<HTMLSelectElement>('[data-vp-locus]');
   const runBtn = $<HTMLButtonElement>('[data-vp-run]');
   const statusEl = $('[data-vp-status]');
-  const neuronCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-neurons]');
   const aspectCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-aspect]');
   const spinBtn = host.querySelector<HTMLButtonElement>('[data-vp-spin]');
-  const filterLogoSvg = host.querySelector<SVGSVGElement>('[data-vp-filter-logo]');
-  const filterNameEl = host.querySelector<HTMLElement>('[data-vp-filter-name]');
   const stageProfileEl = host.querySelector<HTMLElement>('[data-vp-stage-profile]');
   const rolloutCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-rollout]');
+  const stackCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-stage-stack]');
   const regionSelect = host.querySelector<HTMLSelectElement>('[data-vp-region]');
   const regionStat = host.querySelector<HTMLElement>('[data-vp-region-stat]');
   const seqLogoSvg = host.querySelector<SVGSVGElement>('[data-vp-seq-logo]');
   const logoPan = host.querySelector<HTMLInputElement>('[data-vp-logo-pan]');
   const logoWidth = host.querySelector<HTMLSelectElement>('[data-vp-logo-width]');
+  const logoSource = host.querySelector<HTMLSelectElement>('[data-vp-logo-source]');
   const logoStat = host.querySelector<HTMLElement>('[data-vp-logo-stat]');
   const ismCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-ism]');
   const ismStat = host.querySelector<HTMLElement>('[data-vp-ism-stat]');
+  const ismLogoSvg = host.querySelector<SVGSVGElement>('[data-vp-ism-logo]');
   const trackSvg = host.querySelector<SVGSVGElement>('[data-vp-track]');
   const layerList = $('[data-vp-layers]');
   const liveStat = $('[data-vp-livestat]');
@@ -246,13 +250,9 @@ export function initVariantPlayground(root: ParentNode = document) {
   const stageTop = $('[data-vp-stage-top]');
   const stageMapCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-stage-map]');
 
-  let mode: 'type' | 'locus' = 'type';
   /** The full 16,384 bp window fed to ONNX. In free-typing mode it is just the typed text. */
   let sequence = 'GGCTATAAAAGGGCATCGATCACGTGACCGGTAAGCTTGCATGCCTGCAGGTCGACTCTAGAGGATCC';
   /** The slice shown in the box and rastered live -- never the whole window. */
-  let editable = sequence;
-  const SLICE_START = 7000;
-  const SLICE_LEN = 400;
   let locusIndex = 0;
   // The channel highlighted in the conv-stem raster AND profiled in the layer detail. Clicking a
   // raster row used to drive the sequence-logo panel; that panel is gone, so the click now selects
@@ -313,128 +313,8 @@ export function initVariantPlayground(root: ParentNode = document) {
   // ---------------------------------------------------------------- live conv-stem raster
   const FIRE_FLOOR = 0.55; // only paint where a neuron is meaningfully above its baseline
 
-  function renderNeurons(act: StemActivation): void {
-    if (!neuronCanvas) return;
-    const cssW = neuronCanvas.clientWidth || 900;
-    const rowH = 3;
-    const cssH = act.filters * rowH;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    neuronCanvas.width = Math.round(cssW * dpr);
-    neuronCanvas.height = Math.round(cssH * dpr);
-    neuronCanvas.style.height = `${cssH}px`;
-    const ctx = neuronCanvas.getContext('2d');
-    if (!ctx) return;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, cssW, cssH);
 
-    // The same scale the layer detail uses, so the two rasters of the same stage agree.
-    const scale = activationScale(act.map);
-    blitMap(ctx, act.map, act.filters, act.positions, scale, 0, 0, cssW, act.filters * rowH);
-    ctx.globalAlpha = 1;
-    ctx.strokeStyle = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(0.5, selectedFilter * rowH + 0.5, cssW - 1, rowH - 1);
 
-    neuronCanvas.onclick = (ev) => {
-      const box = neuronCanvas.getBoundingClientRect();
-      const f = Math.floor(((ev.clientY - box.top) / box.height) * act.filters);
-      if (f >= 0 && f < act.filters) {
-        selectedFilter = f;
-        refreshLive();
-        // Show that channel where the detail view shows channels.
-        flow?.select(0);
-        renderStageDetail(flow?.selected() ?? null);
-      }
-    };
-  }
-
-  /**
-   * The selected conv-stem filter as a sequence logo -- the classic reading of a first-layer
-   * convolution as a motif detector.
-   *
-   * `filterLogo` has been in the pure layer, tested, since the stem was ported, and had never been
-   * drawn: the panel showed which neurons fired and never what any of them was looking for. Letter
-   * height is the weight relative to that position's mean, above the axis for preferred and below
-   * for disfavoured, which is how a PWM logo encodes a signed matrix.
-   */
-  function renderFilterLogo(): void {
-    if (!filterLogoSvg) return;
-    clear(filterLogoSvg);
-    const rows = filterLogo(selectedFilter, STEM);
-    const W = 300;
-    const H = 92;
-    const mid = 46;
-    attr(filterLogoSvg, { viewBox: `0 0 ${W} ${H}` });
-    // One scale across the whole filter, so the tallest letter is its strongest preference and
-    // columns can be compared with each other rather than each being normalised to itself.
-    let peak = 0;
-    for (const row of rows) for (const v of row) peak = Math.max(peak, Math.abs(v));
-    const colW = W / rows.length;
-    const consensus: string[] = [];
-
-    rows.forEach((row, i) => {
-      // Stack from the axis outward, largest first, the way a logo is built.
-      const order = row.map((v, b) => ({ v, b })).sort((a, b) => Math.abs(b.v) - Math.abs(a.v));
-      let up = mid;
-      let down = mid;
-      let best = order[0];
-      for (const { v, b } of order) {
-        if (v > 0 && (!best || v > best.v)) best = { v, b };
-      }
-      consensus.push(best.v > 0 ? BASES[best.b] : '·');
-      for (const { v, b } of order) {
-        const h = (Math.abs(v) / Math.max(peak, 1e-9)) * 38;
-        if (h < 0.6) continue;
-        const g = el('text');
-        // Scaled glyphs rather than font-size, so a letter's HEIGHT is the weight and its width
-        // stays the column's -- the property a logo is read by.
-        const y = v > 0 ? up : down + h;
-        g.textContent = BASES[b];
-        attr(g, {
-          x: 0, y: 0, class: `vp-base vp-base-${BASES[b]}`, 'font-size': 10,
-          'text-anchor': 'middle',
-          transform: `translate(${(i + 0.5) * colW} ${y}) scale(${(colW / 7).toFixed(3)} ${(h / 7.4).toFixed(3)})`,
-        });
-        filterLogoSvg.append(g);
-        if (v > 0) up -= h; else down += h;
-      }
-    });
-
-    const axis = el('line');
-    attr(axis, { x1: 0, x2: W, y1: mid, y2: mid, stroke: 'var(--color-rule)', 'stroke-width': 1 });
-    filterLogoSvg.append(axis);
-    for (let i = 0; i <= rows.length; i += 5) {
-      filterLogoSvg.append(text(i * colW, H - 2, String(i + 1), 'vp-ax'));
-    }
-    filterLogoSvg.append(text(2, 10, `weight ±${peak.toFixed(2)}`, 'vp-ax', 'start'));
-    filterLogoSvg.dataset.consensus = consensus.join('');
-    filterLogoSvg.dataset.filter = String(selectedFilter);
-
-    if (filterNameEl) {
-      // Where this filter fires hardest in the sequence on screen, so the logo can be checked
-      // against a real match rather than taken on trust.
-      const act = stemActivations(editable, STEM);
-      const at = act.peakAt[selectedFilter];
-      const hit = editable.slice(Math.max(0, at), Math.max(0, at) + STEM.kernelWidth);
-      filterNameEl.textContent =
-        `filter #${selectedFilter} · consensus ${consensus.join('')} · `
-        + `strongest here at ${at} bp (${hit || '—'}), response ${act.peak[selectedFilter].toFixed(2)}`;
-    }
-  }
-
-  function refreshLive(): void {
-    const t0 = performance.now();
-    const act = stemActivations(editable, STEM);
-    const tCompute = performance.now() - t0;
-    renderNeurons(act);
-    renderFilterLogo();
-    const fired = Array.from(act.peak).filter((v) => v > 0).length;
-    if (liveStat) {
-      liveStat.textContent =
-        `${editable.length} bp · ${act.positions} positions · ${fired}/96 filters above zero · ` +
-        `${tCompute.toFixed(1)} ms compute, ${(performance.now() - t0).toFixed(1)} ms total`;
-    }
-  }
 
   // ---------------------------------------------------------------- predicted track
   /**
@@ -691,7 +571,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     const H = 250;
     attr(trackSvg, { viewBox: `0 0 ${W} ${H}` });
     const n = N_BINS;
-    const locusId = mode === 'locus' ? LOCI[locusIndex].id : '';
+    const locusId = LOCI[locusIndex].id;
     const vals = predictedGroup(locusId, groupIndex, current);
     if (!vals) {
       trackSvg.append(text(W / 2, H / 2, emptyReason, 'vp-ax'));
@@ -941,10 +821,6 @@ export function initVariantPlayground(root: ParentNode = document) {
   }
 
   async function runFull(): Promise<void> {
-    if (mode !== 'locus') {
-      setStatus('Switch to a locus to run the full model — a typed fragment is not a 16,384 bp window.');
-      return;
-    }
     try {
       // `sequence` -- not the locus -- because a motif knockout edits it in place, and reading
       // the locus here would silently run the unmodified window and report no effect.
@@ -1141,7 +1017,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     const H = 178;
     attr(singleSvg, { viewBox: `0 0 ${W} ${H}` });
 
-    const locusId = mode === 'locus' ? LOCI[locusIndex].id : '';
+    const locusId = LOCI[locusIndex].id;
     const shipped = PREDICTIONS.loci[locusId];
     const vals = new Float32Array(N_BINS);
     let label: string;
@@ -1169,7 +1045,7 @@ export function initVariantPlayground(root: ParentNode = document) {
 
     drawCropShading(singleSvg, W, plotTop, plotBottom);
     drawAxes(singleSvg, W, plotTop, plotBottom, max, 'predicted (a.u.)',
-      mode === 'locus' ? LOCI[locusIndex] : undefined, H - 3);
+      LOCI[locusIndex], H - 3);
 
     let d = `M${bx(0).toFixed(2)} ${y(vals[0]).toFixed(2)}`;
     for (let i = 1; i < N_BINS; i += 1) d += ` L${bx(i).toFixed(2)} ${y(vals[i]).toFixed(2)}`;
@@ -1202,7 +1078,7 @@ export function initVariantPlayground(root: ParentNode = document) {
    */
   function renderMotifs(): void {
     if (!motifBox || !motifList) return;
-    const locus = mode === 'locus' ? LOCI[locusIndex] : null;
+    const locus = LOCI[locusIndex];
     const motifs = locus?.motifs ?? [];
     motifBox.hidden = motifs.length === 0;
     clear(motifList);
@@ -1414,7 +1290,14 @@ export function initVariantPlayground(root: ParentNode = document) {
     if (token !== precomputeToken || locusId !== LOCI[locusIndex].id) return;
     attribution = attr;
     ism = gotIsm;
+    // Open the sequence logo on the mutagenesis window. It is only ~500 bp of a 16,384 bp window,
+    // so the default centre misses it entirely and the panel would greet every reader with "pan
+    // into it" -- while the paper's own picture sits just off screen.
+    if (ism && logoPan) {
+      logoPan.value = String(Math.round(windowFraction(ism.start + ism.width / 2) * 1000));
+    }
     renderIsm();
+    renderIsmLogo();
     host.dataset.vpTraceReady = attribution ? 'true' : 'false';
     if (anchorSelect) {
       clear(anchorSelect);
@@ -1433,6 +1316,8 @@ export function initVariantPlayground(root: ParentNode = document) {
     renderAttribution();
     renderStageProfile();
     renderRollout();
+  renderStageStack();
+    renderStageStack();
     renderSeqLogo();
   }
 
@@ -1786,7 +1671,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     }
     ctx.textAlign = 'left';
 
-    if (mode === 'locus') {
+    {
       drawGeneRowsCanvas(ctx, LOCI[locusIndex], cssW, geneTop);
     }
     ctx.fillStyle = muted;
@@ -1883,6 +1768,94 @@ export function initVariantPlayground(root: ParentNode = document) {
   }
 
   /**
+   * Where each stage's contributing neurons fire, stacked by depth on the page's shared bp axis.
+   *
+   * This is the picture the layer-by-layer traceback was missing. The profile list answers "which
+   * stages and which channels"; this answers "and where in the window", and stacking it by depth
+   * makes the receptive field visible as a widening band -- 11 bp at the stem, the whole window
+   * once the transformer is reached.
+   */
+  function renderStageStack(): void {
+    if (!stackCanvas) return;
+    const cssW = stackCanvas.clientWidth || 900;
+    const rows = stageMapOffsets();
+    const rowH = 9;
+    const cssH = rows.length * rowH + 34;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    stackCanvas.width = Math.round(cssW * dpr);
+    stackCanvas.height = Math.round(cssH * dpr);
+    stackCanvas.style.height = `${cssH}px`;
+    const ctx = stackCanvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+    const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
+    ctx.font = '9px system-ui, sans-serif';
+    ctx.fillStyle = muted;
+
+    if (!current || !attribution || !tracedBins) {
+      ctx.font = '11px system-ui, sans-serif';
+      ctx.fillText('Trace a region to see where each stage draws from.', PLOT.left, 20);
+      delete stackCanvas.dataset.rows;
+      return;
+    }
+    const rel = traceChannels(attribution, tracedBins.start, tracedBins.end);
+    const profiles = stageRelevanceProfile(current.stageMaps, rel, STAGE_MAP_POSITIONS);
+    const neutral = neutralRgb();
+    const top = 4;
+
+    profiles.forEach((row, i) => {
+      // Painted against the row's OWN MEAN on a diverging scale, not from zero on a sequential one.
+      // The early residual blocks are spatially near-uniform once pooled to 128 positions -- which
+      // is a true fact about them -- and a sequential ramp renders that as a saturated bar reading
+      // "maximally relevant everywhere" instead of "no positional preference". Against the mean, a
+      // flat row is uniformly neutral and a structured row shows its structure, which is the
+      // distinction the panel exists to make.
+      const centred = new Float64Array(STAGE_MAP_POSITIONS);
+      let mean = 0;
+      for (const v of row.profile) mean += v;
+      mean /= STAGE_MAP_POSITIONS;
+      for (let p = 0; p < STAGE_MAP_POSITIONS; p += 1) centred[p] = row.profile[p] - mean;
+      const scale = activationScale(centred);
+      const rgba = paintActivationMap(centred, 1, STAGE_MAP_POSITIONS, scale, neutral);
+      const off = document.createElement('canvas');
+      off.width = STAGE_MAP_POSITIONS;
+      off.height = 1;
+      const octx = off.getContext('2d');
+      if (!octx) return;
+      const img = octx.createImageData(STAGE_MAP_POSITIONS, 1);
+      img.data.set(rgba);
+      octx.putImageData(img, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      // Every stage in the pack spans the whole window, so the row spans the whole plot band.
+      ctx.drawImage(off, PLOT.left, top + i * rowH, cssW - PLOT.left - PLOT.right, rowH - 1);
+      ctx.fillStyle = muted;
+      ctx.textAlign = 'right';
+      ctx.fillText(row.id, PLOT.left - 4, top + i * rowH + rowH - 2);
+    });
+
+    // The traced region itself, so "the band widens away from it" is visible rather than inferred.
+    ctx.strokeStyle = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
+    const a = xOfBp(CROP_BP + tracedBins.start * BIN_BP, cssW);
+    const b = xOfBp(CROP_BP + tracedBins.end * BIN_BP, cssW);
+    ctx.strokeRect(a, top, Math.max(b - a, 2), profiles.length * rowH);
+
+    ctx.fillStyle = muted;
+    ctx.textAlign = 'center';
+    for (const bp of bpTicks(4000)) {
+      ctx.textAlign = bp === 0 ? 'left' : bp >= SEQ_LEN ? 'right' : 'center';
+      ctx.fillText(bpLabel(bp), xOfBp(bp, cssW), cssH - 14);
+    }
+    ctx.textAlign = 'left';
+    ctx.fillText(
+      `${tracedBins.label} · ${profiles.length} stages · each row against its own mean:`
+      + ' red draws more than average from there, blue less, neutral means no preference',
+      PLOT.left, cssH - 3);
+    stackCanvas.dataset.rows = String(profiles.length);
+    stackCanvas.dataset.region = tracedBins.label;
+  }
+
+  /**
    * Attention rollout for the traced region: what the transformer can read, composed over 8 layers.
    *
    * Drawn on the page's one bp axis so it can be laid against the attribution above it. This is an
@@ -1955,84 +1928,318 @@ export function initVariantPlayground(root: ParentNode = document) {
   }
 
   /**
-   * The traced attribution as a sequence logo, over a window small enough to show letters.
+   * Draw a (L, 4) attribution matrix as the Shorkie paper draws it.
    *
-   * 16,384 letters across 900 px is 0.05 px each, so a logo needs a zoom -- this pans a window of
-   * 60-400 bp over the single-base anchor plane. ONLY the base actually present gets a letter, and
-   * that is exact rather than a simplification: the input is one-hot, so gradient x input is
-   * identically zero at the three bases that are not there. Reading what a SUBSTITUTION would do
-   * needs a different method, which is what the mutagenesis panel measures.
+   * This is `dna_letter_at` + `plot_seq_scores` from the paper's own renderer, in SVG. Every
+   * constant lives in the pure layer and is documented there; what matters here is the transform.
+   *
+   * The glyph path is in the paper's coordinate system -- y up, baseline 0 -- so the transform
+   * flips y and scales by the value. Scaling the PATH is the whole point: setting `font-size`
+   * instead would scale width with height, and the letters would stop being a logo. A negative
+   * value gives a negative y-scale, which mirrors the glyph rather than merely dropping it below
+   * the line -- that is what the paper does and what its negative letters look like.
+   */
+  function drawLogo(
+    svg: SVGSVGElement,
+    values: (i: number) => number[],
+    n: number,
+    x0: number,
+    width: number,
+    top: number,
+    height: number,
+  ): { lo: number; hi: number; letters: number } {
+    const flat: number[] = [];
+    for (let i = 0; i < n; i += 1) for (const v of values(i)) flat.push(v);
+    const { lo, hi } = logoRange(flat);
+    const span = Math.max(hi - lo, 1e-12);
+    const yOf = (v: number) => top + ((hi - v) / span) * height;
+    const colW = width / n;
+    let letters = 0;
+
+    for (let i = 0; i < n; i += 1) {
+      for (const letter of logoColumn(values(i))) {
+        // Height in user units for one unit of value, and the glyph is 1 em tall before scaling.
+        const sy = (letter.value / span) * height * LOGO_GLOBSCALE;
+        if (Math.abs(sy) < 0.12) continue;
+        const g = el('path');
+        attr(g, {
+          d: LOGO_GLYPHS[letter.base],
+          class: 'vp-glyph',
+          fill: LOGO_COLOURS[letter.base],
+          // translate to the column centre and the letter's baseline, then flip y and scale.
+          transform: `translate(${(x0 + (i + 0.5) * colW).toFixed(3)} ${yOf(letter.y).toFixed(3)})`
+            + ` scale(${(colW * LOGO_GLOBSCALE).toFixed(4)} ${(-sy).toFixed(4)})`,
+        });
+        svg.append(g);
+        letters += 1;
+      }
+    }
+    // The zero rule. Always drawn, always black -- logoRange guarantees zero is inside the range.
+    const axis = el('line');
+    attr(axis, {
+      x1: x0, x2: x0 + width, y1: yOf(0), y2: yOf(0), stroke: '#000', 'stroke-width': 1,
+    });
+    svg.append(axis);
+    return { lo, hi, letters };
+  }
+
+  /**
+   * The traced region's attribution as the paper's sequence logo.
+   *
+   * 16,384 letters across 900 px is 0.05 px each, so this pans a window of 60-400 bp. Two sources
+   * are selectable and they are NOT the same method:
+   *
+   *   - **mutagenesis** is the paper's: every substitution actually run, reduced to the reference
+   *     base's importance by mean-centring across the four bases and projecting on the one-hot.
+   *     This is what Figure 4 plots.
+   *   - **gradient x input** is a local linear sensitivity. The paper's published figures do not
+   *     use gradients at all -- its one gradient function is unreached scaffolding -- so this is
+   *     the fast interactive companion, not a reproduction.
    */
   function renderSeqLogo(): void {
     if (!seqLogoSvg) return;
     clear(seqLogoSvg);
     const W = 1000;
-    const H = 120;
+    const H = 150;
     attr(seqLogoSvg, { viewBox: `0 0 ${W} ${H}` });
     const width = Number(logoWidth?.value ?? 150);
-    const seq = mode === 'locus' ? LOCI[locusIndex].sequence : editable;
+    const seq = LOCI[locusIndex].sequence;
+    const src = logoSource?.value ?? 'ism';
 
-    if (!attribution || !tracedBins) {
-      seqLogoSvg.append(text(W / 2, H / 2, 'Trace a region above to see its bases.', 'vp-ax'));
+    const pan = Number(logoPan?.value ?? 500) / 1000;
+    const centre = Math.round(pan * SEQ_LEN);
+    const start = Math.max(0, Math.min(SEQ_LEN - width, centre - Math.floor(width / 2)));
+
+    // Per-position values, four per column. Mutagenesis gives all four; gradient x input is zero
+    // at the three bases that are not there, because the input is one-hot.
+    let column: ((i: number) => number[]) | null = null;
+    let note = '';
+    // Mutagenesis covers only the promoter window (~500 bp) while a traced region can be anywhere
+    // in the 16,384 bp window, so asking for it outside its span would leave the panel empty.
+    // Fall through to the gradient, which covers everything, and say which one is being shown.
+    const ismCovers = !!ism && start + width > ism.start && start < ism.start + ism.width;
+    if (src === 'ism' && ism && ismCovers) {
+      // Captured, because `ism` is a mutable module-scope binding and TS will not narrow it
+      // inside the closure below -- a locus change could null it between the check and the call.
+      const plane = ism;
+      const k0 = start - plane.start;
+      // The paper's steps 2 and 3, exactly as the panel below draws them: mean-centre across the
+      // four bases, then project on the reference. One label, one meaning -- rendering the same
+      // named source two different ways in two panels is how a reader stops trusting either.
+      const sal = ismSaliency(plane.plane, plane.width, seq, plane.start);
+      column = (i) => {
+        const k = k0 + i;
+        const out = [0, 0, 0, 0];
+        if (k < 0 || k >= plane.width) return out;
+        const b = BASES.indexOf((seq[start + i] ?? 'N').toUpperCase() as Base);
+        if (b >= 0) out[b] = sal[k];
+        return out;
+      };
+      note = 'in-silico mutagenesis, mean-centred and projected on the reference — the paper\'s '
+        + 'Figure 4 quantity';
+    } else if (attribution && tracedBins) {
+      const anchorIdx = attribution.anchors.findIndex(
+        (a) => a.binStart === tracedBins!.start && a.binEnd === tracedBins!.end,
+      );
+      const series = anchorIdx >= 0
+        ? attribution.anchor.subarray(anchorIdx * attribution.cols.anchor,
+                                      (anchorIdx + 1) * attribution.cols.anchor)
+        : traceRegion(attribution, tracedBins.start, tracedBins.end);
+      const perBase = anchorIdx >= 0;
+      column = (i) => {
+        const at = start + i;
+        const v = perBase ? series[at] : series[Math.floor((at / SEQ_LEN) * series.length)];
+        const out = [0, 0, 0, 0];
+        const b = BASES.indexOf((seq[at] ?? 'N').toUpperCase() as Base);
+        if (b >= 0) out[b] = v;
+        return out;
+      };
+      const why = src === 'ism' && ism && !ismCovers
+        ? ` (mutagenesis covers only bp ${ism.start.toLocaleString()}–`
+          + `${(ism.start + ism.width).toLocaleString()}, so this window falls back to the gradient)`
+        : '';
+      note = (perBase
+        ? 'gradient × input, single base — a local sensitivity, not the paper\'s method'
+        : 'gradient × input at 128 bp — pick a gene below the curve for single-base letters') + why;
+    }
+
+    if (!column) {
+      seqLogoSvg.append(text(W / 2, H / 2,
+        !ism && src === 'ism'
+          ? 'Mutagenesis has not loaded for this locus.'
+          : 'Trace a region on the curve above, or pan into the mutagenesis window.', 'vp-ax'));
       if (logoStat) logoStat.textContent = '';
       delete seqLogoSvg.dataset.letters;
       return;
     }
-    const anchorIdx = attribution.anchors.findIndex(
-      (a) => a.binStart === tracedBins!.start && a.binEnd === tracedBins!.end,
-    );
-    // A dragged region resolves to 128 bp, which cannot carry letters; an anchor is single-base.
-    const perBase = anchorIdx >= 0;
-    const series = perBase
-      ? attribution.anchor.subarray(anchorIdx * attribution.cols.anchor,
-                                    (anchorIdx + 1) * attribution.cols.anchor)
-      : traceRegion(attribution, tracedBins.start, tracedBins.end);
 
-    // Centre on the strongest attribution by default; the slider moves it from there.
-    const pan = Number(logoPan?.value ?? 500) / 1000;
-    const centre = Math.round(pan * SEQ_LEN);
-    const start = Math.max(0, Math.min(SEQ_LEN - width, centre - Math.floor(width / 2)));
-    const colW = W / width;
-    const mid = H / 2 - 6;
-    let peak = 0;
-    for (let i = start; i < start + width; i += 1) {
-      const v = perBase ? series[i] : series[Math.floor((i / SEQ_LEN) * series.length)];
-      peak = Math.max(peak, Math.abs(v));
-    }
-
-    let letters = 0;
-    for (let i = start; i < start + width; i += 1) {
-      const base = (seq[i] ?? 'N').toUpperCase();
-      if (!BASES.includes(base as Base)) continue;
-      const v = perBase ? series[i] : series[Math.floor((i / SEQ_LEN) * series.length)];
-      const h = (Math.abs(v) / Math.max(peak, 1e-12)) * (H / 2 - 16);
-      if (h < 0.4) continue;
-      const g = el('text');
-      g.textContent = base;
-      // Scaled glyphs, so HEIGHT carries the attribution and width stays the column's.
-      attr(g, {
-        x: 0, y: 0, class: `vp-base vp-base-${base}`, 'font-size': 10, 'text-anchor': 'middle',
-        transform: `translate(${((i - start) + 0.5) * colW} ${v > 0 ? mid : mid + h})`
-          + ` scale(${(colW / 7).toFixed(3)} ${(h / 7.4).toFixed(3)})`,
-      });
-      seqLogoSvg.append(g);
-      letters += 1;
-    }
-    const axis = el('line');
-    attr(axis, { x1: 0, x2: W, y1: mid, y2: mid, stroke: 'var(--color-rule)', 'stroke-width': 1 });
-    seqLogoSvg.append(axis);
+    const { lo, hi, letters } = drawLogo(seqLogoSvg, column, width, 0, W, 14, H - 34);
     for (let k = 0; k <= width; k += Math.max(10, Math.round(width / 10))) {
-      seqLogoSvg.append(text(k * colW, H - 3, String(start + k), 'vp-ax'));
+      seqLogoSvg.append(text((k / width) * W, H - 4, String(start + k), 'vp-ax'));
     }
     seqLogoSvg.dataset.letters = String(letters);
     seqLogoSvg.dataset.window = `${start}-${start + width}`;
+    seqLogoSvg.dataset.source = src;
     if (logoStat) {
-      logoStat.textContent =
-        `bp ${start.toLocaleString()}–${(start + width).toLocaleString()} · ${width} bp · `
-        + (perBase
-          ? `single-base attribution for ${tracedBins.label}`
-          : `${tracedBins.label} at 128 bp — pick a gene below the curve for single-base letters`);
+      logoStat.textContent = `bp ${start.toLocaleString()}–${(start + width).toLocaleString()}`
+        + ` · ${width} bp · ${note} · range ${lo.toFixed(3)} … ${hi.toFixed(3)}`;
     }
+  }
+
+  /**
+   * The mutagenesis window as the paper's Figure 4 logo, annotated the way the paper annotates it.
+   *
+   * This is the panel the site was missing: Figure 4 has no ISM raster anywhere -- all fourteen of
+   * its saliency views are stacked letter logos, with red dashed boxes over matched motifs, the
+   * splice and codon landmarks labelled above, and an IGV-style gene model beneath. The raster
+   * below this is kept because it shows all three substitutions at once, which the logo cannot;
+   * the paper computes that same position x base array (`run_ism_eqtl.py` builds exactly it, with
+   * the reference pinned to zero) and simply never plots it.
+   */
+  function renderIsmLogo(): void {
+    if (!ismLogoSvg) return;
+    clear(ismLogoSvg);
+    const W = 1000;
+    const H = 210;
+    attr(ismLogoSvg, { viewBox: `0 0 ${W} ${H}` });
+    if (!ism) {
+      ismLogoSvg.append(text(W / 2, H / 2, 'Mutagenesis has not loaded for this locus.', 'vp-ax'));
+      delete ismLogoSvg.dataset.letters;
+      return;
+    }
+    const plane = ism;
+    const locus = LOCI[locusIndex];
+    const seq = locus.sequence;
+    const lo = plane.start;
+    const hi = plane.start + plane.width;
+    const px = (bp: number) => PLOT.left + ((bp - lo) / plane.width) * (W - PLOT.left - PLOT.right);
+    const logoTop = 46;
+    const logoH = 96;
+
+    // The paper's steps 2 and 3: mean-centre across the four bases, then PROJECT on the reference
+    // one-hot. That leaves exactly one letter per position -- the importance of the base that is
+    // actually there -- which is what Figure 4's panels plot. The raster below keeps the full
+    // position x base view, so nothing is lost by matching the figure here.
+    const sal = ismSaliency(plane.plane, plane.width, seq, plane.start);
+    const column = (i: number): number[] => {
+      const out = [0, 0, 0, 0];
+      const b = BASES.indexOf((seq[plane.start + i] ?? 'N').toUpperCase() as Base);
+      if (b >= 0) out[b] = sal[i];
+      return out;
+    };
+    const { lo: yLo, hi: yHi, letters } = drawLogo(
+      ismLogoSvg, column, plane.width, PLOT.left, W - PLOT.left - PLOT.right, logoTop, logoH,
+    );
+
+    // Motif hits from this locus's own scan, boxed and labelled as Figure 4 boxes them.
+    const boxes: { label: string; a: number; b: number }[] = [];
+    for (const m of locus.motifs ?? []) {
+      if (m.end <= lo || m.start >= hi) continue;
+      boxes.push({ label: m.name, a: Math.max(m.start, lo), b: Math.min(m.end, hi) });
+    }
+    // Splice and codon landmarks derived from the gene model -- but only where the scan above has
+    // not already found them. Several loci carry the splice sites in their motif list with a real
+    // matched consensus (DTD1's branch point is a scanned TACTAAC at 8,210), which beats the
+    // paper's fixed acceptor-minus-30 heuristic that would put it at 8,206. Take the measured one
+    // where it exists and derive only what is missing -- otherwise the panel labels each landmark
+    // twice, once from each source.
+    const own = locus.features.find((f) => f.name === locus.id);
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
+    const already = new Set(boxes.map((b) => norm(b.label)));
+    if (own) {
+      for (const a of spliceAnnotations(own)) {
+        if (a.at < lo || a.at > hi) continue;
+        if (already.has(norm(a.label))) continue;
+        boxes.push({ label: a.label, a: a.at - 3, b: a.at + 3 });
+      }
+    }
+    boxes.sort((x, y) => x.a - y.a);
+    // Two label rows, alternating. Splice landmarks cluster within a few dozen bp of each other --
+    // a branch point sits 30 bp from its acceptor by construction -- so one row overprints them
+    // into a smear, which is what "Branch poin3' splice site" looked like.
+    const labelRowY = [logoTop - 8, logoTop - 21];
+    const lastAt = [-Infinity, -Infinity];
+    boxes.forEach((box) => {
+      const x0 = px(box.a);
+      const x1 = px(box.b);
+      const r = el('rect');
+      attr(r, {
+        x: x0, y: logoTop - 4, width: Math.max(x1 - x0, 2), height: logoH + 8,
+        fill: 'none', stroke: '#d1495b', 'stroke-width': 1, 'stroke-dasharray': '3 2',
+        'stroke-opacity': 0.85,
+      });
+      ismLogoSvg.append(r);
+      r.dataset.motif = box.label;
+      const row = lastAt[0] <= lastAt[1] ? 0 : 1;
+      if (x0 - lastAt[row] > 52) {
+        const lbl = text((x0 + x1) / 2, labelRowY[row], box.label, 'vp-ax');
+        ismLogoSvg.append(lbl);
+        // A leader from the label down to its box, so a label on the upper row is unambiguous.
+        const lead = el('line');
+        attr(lead, {
+          x1: (x0 + x1) / 2, x2: (x0 + x1) / 2, y1: labelRowY[row] + 3, y2: logoTop - 5,
+          stroke: '#d1495b', 'stroke-width': 0.5, 'stroke-opacity': 0.5,
+        });
+        ismLogoSvg.append(lead);
+        lastAt[row] = x1;
+      }
+      r.style.cursor = 'pointer';
+      r.addEventListener('click', () => {
+        // Zoom the sequence logo onto this motif.
+        if (logoPan) logoPan.value = String(Math.round(windowFraction((box.a + box.b) / 2) * 1000));
+        if (logoWidth) logoWidth.value = '60';
+        if (logoSource) logoSource.value = 'ism';
+        renderSeqLogo();
+        seqLogoSvg?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    });
+
+    // The gene model, in the paper's IGV style: royal blue, solid exon blocks, intron line.
+    const geneY = H - 40;
+    for (const f of locus.features) {
+      if (f.txEnd <= lo || f.txStart >= hi) continue;
+      const a = px(Math.max(f.txStart, lo));
+      const b = px(Math.min(f.txEnd, hi));
+      const line = el('line');
+      attr(line, { x1: a, x2: b, y1: geneY, y2: geneY, stroke: '#4169E1', 'stroke-width': 1 });
+      ismLogoSvg.append(line);
+      const fwd = f.strand === '+';
+      for (let x = a + 8; x < b - 3; x += 16) {
+        const c = el('path');
+        attr(c, {
+          d: `M${(x - (fwd ? 2.5 : -2.5)).toFixed(1)} ${geneY - 3} L${(x + (fwd ? 2.5 : -2.5)).toFixed(1)} ${geneY}`
+            + ` L${(x - (fwd ? 2.5 : -2.5)).toFixed(1)} ${geneY + 3}`,
+          fill: 'none', stroke: '#4169E1', 'stroke-width': 0.8,
+        });
+        ismLogoSvg.append(c);
+      }
+      for (const piece of geneTrackShapes(f)) {
+        if (piece.kind === 'intron' || piece.end <= lo || piece.start >= hi) continue;
+        const s = px(Math.max(piece.start, lo));
+        const e2 = px(Math.min(piece.end, hi));
+        const rect = el('rect');
+        attr(rect, {
+          x: s, y: geneY - 5, width: Math.max(e2 - s, 1), height: 10, fill: '#4169E1',
+        });
+        ismLogoSvg.append(rect);
+      }
+      if (f.name === locus.id) {
+        const lbl = text((a + b) / 2, geneY - 9, locus.gene, 'vp-ax');
+        attr(lbl, { 'font-style': 'italic' });
+        ismLogoSvg.append(lbl);
+      }
+    }
+
+    // A bp ruler on the window's own coordinates -- this panel is a zoom, not the full window.
+    const step = Math.max(50, Math.round(plane.width / 8 / 50) * 50);
+    for (let bp = Math.ceil(lo / step) * step; bp <= hi; bp += step) {
+      ismLogoSvg.append(text(px(bp), H - 4, `${(locus.start + bp) / 1000}`.slice(0, 7) + ' kb', 'vp-ax'));
+    }
+    ismLogoSvg.append(text(PLOT.left, 12,
+      `${locus.gene} · ${lo.toLocaleString()}–${hi.toLocaleString()} bp of the window`
+      + ` · logSED range ${yLo.toFixed(2)} … ${yHi.toFixed(2)}`, 'vp-ax vp-caption', 'start'));
+    ismLogoSvg.dataset.letters = String(letters);
+    ismLogoSvg.dataset.boxes = String(boxes.length);
   }
 
   /**
@@ -2060,17 +2267,12 @@ export function initVariantPlayground(root: ParentNode = document) {
     ctx.fillStyle = muted;
 
     if (!ism) {
-      ctx.fillText(
-        mode === 'locus'
-          ? 'Mutagenesis for this locus has not loaded.'
-          : 'Switch to a yeast locus to see its mutagenesis window.',
-        4, 20,
-      );
+      ctx.fillText('Mutagenesis for this locus has not loaded.', 4, 20);
       if (ismStat) ismStat.textContent = '';
       delete ismCanvas.dataset.peak;
       return;
     }
-    const { plane, start, width, ref, tss } = ism;
+    const { plane, start, width, tss } = ism;
     const seq = LOCI[locusIndex].sequence;
     let peak = 0;
     for (let i = 0; i < plane.length; i += 1) peak = Math.max(peak, Math.abs(plane[i]));
@@ -2118,10 +2320,14 @@ export function initVariantPlayground(root: ParentNode = document) {
     // misleading in the direction that matters: HOP2's strongest substitution is +448% of a
     // reference of 0.42 -- an absolute move of 1.9 -- while ADH1's is -19% of 488, a move of 92.
     // Ranked by percentage HOP2 leads; ranked by what the model actually predicts, ADH1 does.
+    // logSED is a log2 ratio, so the fold-change it implies is the readable companion: a logSED
+    // of -1 is a halving, whatever the gene's absolute expression. No percentage of a reference is
+    // needed, and that is precisely the incomparability the linear score used to have.
+    const fold = 2 ** peak;
     ctx.fillText(
-      `${LOCI[locusIndex].gene} · bp ${start}–${start + width} · reference ${ref.toFixed(2)}`
-      + ` · strongest substitution ${peak > 0 ? '±' : ''}${peak.toFixed(2)}`
-      + ` (${(peak / Math.max(ref, 1e-9) * 100).toFixed(0)}% of the reference)`,
+      `${LOCI[locusIndex].gene} · bp ${start}–${start + width}`
+      + ` · strongest substitution logSED ±${peak.toFixed(3)}`
+      + ` (a ${fold >= 2 ? `${fold.toFixed(1)}×` : `${((fold - 1) * 100).toFixed(0)}%`} change)`,
       left, 11,
     );
     ismCanvas.dataset.peak = String(peak);
@@ -2129,8 +2335,8 @@ export function initVariantPlayground(root: ParentNode = document) {
     if (ismStat) {
       const seqAt = seq.slice(start, start + width);
       const gc = [...seqAt].filter((c) => c === 'G' || c === 'C').length / Math.max(seqAt.length, 1);
-      ismStat.textContent = `${width} bp around the TSS · GC ${(gc * 100).toFixed(0)}% · `
-        + `${width * 3} real forward passes`;
+      ismStat.textContent = `${width} bp · GC ${(gc * 100).toFixed(0)}% · `
+        + `${(width * 3 * 2).toLocaleString()} real forward passes, both strands`;
     }
   }
 
@@ -2148,6 +2354,8 @@ export function initVariantPlayground(root: ParentNode = document) {
     renderAttribution();
     renderStageProfile();
     renderRollout();
+  renderStageStack();
+    renderStageStack();
     renderSeqLogo();
     trace3d();
     renderStageDetail(flow?.selected() ?? null);
@@ -2243,57 +2451,38 @@ export function initVariantPlayground(root: ParentNode = document) {
   }
 
   // ---------------------------------------------------------------- wiring
-  function setMode(next: 'type' | 'locus'): void {
-    mode = next;
-    modeBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.vpMode === next)));
-    if (next === 'locus') {
-      knockedOut = null;
-      sequence = LOCI[locusIndex].sequence;
-      editable = sequence.slice(SLICE_START, SLICE_START + SLICE_LEN);
-      if (seqInput) seqInput.value = editable;
-      clearResults(`Loading ${LOCI[locusIndex].gene}…`);
-      void adoptPrecomputed(LOCI[locusIndex].id);
-    } else {
-      editable = cleanSequence(seqInput?.value ?? '') || editable;
-      sequence = editable;
-      if (seqInput) seqInput.value = editable;
-      clearResults('Free typing — switch to a locus to predict a track.');
-    }
+  /**
+   * Load a locus. There is no other mode.
+   *
+   * Free typing ran the conv stem live in TypeScript over a bare fragment, which was legitimate --
+   * a convolution is translation-equivariant -- but it could never predict a track, and the stem
+   * panel it fed made a claim the architecture does not support: `conv_dna` has
+   * `activation: linear, norm_type: null`, so its 96 filters are a basis that any invertible
+   * recombination leaves unchanged. The paper reads motifs off ISM contributions, not off
+   * first-layer weights.
+   */
+  function loadLocus(): void {
+    knockedOut = null;
+    sequence = LOCI[locusIndex].sequence;
+    clearResults(`Loading ${LOCI[locusIndex].gene}…`);
+    void adoptPrecomputed(LOCI[locusIndex].id);
     if (knockoutStat) knockoutStat.textContent = '';
-    refreshLive();
   }
-
-  seqInput?.addEventListener('input', () => {
-    const cleaned = cleanSequence(seqInput.value);
-    editable = cleaned;
-    if (mode === 'type') {
-      sequence = cleaned;
-    } else {
-      // The box edits a 400 bp slice in place; the window fed to the model stays 16,384 bp, so a
-      // shorter or longer edit is padded back from the reference rather than shifting the frame.
-      const full = LOCI[locusIndex].sequence;
-      const slice = (cleaned + full.slice(SLICE_START + cleaned.length, SLICE_START + SLICE_LEN))
-        .slice(0, SLICE_LEN);
-      sequence = full.slice(0, SLICE_START) + slice + full.slice(SLICE_START + SLICE_LEN);
-    }
-    refreshLive();
-  });
-
-  modeBtns.forEach((b) =>
-    b.addEventListener('click', () => setMode(b.dataset.vpMode === 'locus' ? 'locus' : 'type')),
-  );
 
   locusSelect?.addEventListener('change', () => {
     locusIndex = Number(locusSelect.value);
-    setMode('locus');
+    loadLocus();
   });
 
-
-  // The neuron raster is a canvas painted with tokens read at draw time; SVG panels restyle
-  // themselves, but a canvas does not.
+  // Canvases are painted with tokens read at draw time; SVG panels restyle themselves, canvases
+  // do not.
   const onTheme = () => {
     renderHeatmap();
-    refreshLive();
+    renderIsm();
+    renderIsmLogo();
+    renderRollout();
+  renderStageStack();
+    renderStageStack();
     renderStageDetail(flow?.selected() ?? null);
   };
   document.addEventListener('khc:theme-change', onTheme);
@@ -2533,7 +2722,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     // A genome ruler under the raster: without it the x-axis is an index, and you cannot tell
     // which neurons fire over the gene. Positions map to bp through positionToBp, which knows the
     // head's 896 bins start CROP_BP into the window while every other stage spans the whole input.
-    if (mode === 'locus') {
+    {
       const locus = LOCI[locusIndex];
       const rulerY = cssH - RULER_H;
       const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
@@ -2607,10 +2796,14 @@ export function initVariantPlayground(root: ParentNode = document) {
             // The model is fed 170 channels and only 4 of them vary, so drawing 4 rows is right --
             // but leaving the other 166 unmentioned understates the input, and the species channel
             // is not a detail: setting it wrong produces silent garbage.
-            ? `${IN_CHANNELS} channels go in — ${N_DNA} DNA, ${N_MASK} mask, ${N_SPECIES} species. `
-              + `Only the ${N_DNA} DNA rows vary along the sequence and only those are drawn: the mask `
-              + `is all-zero at inference, and the species one-hot is a single channel held at 1 across `
-              + `every position — #${N_DNA + N_MASK + SPECIES_S_CEREVISIAE} here, S. cerevisiae. `
+            ? `${IN_CHANNELS} channels go in — ${N_DNA} DNA, 1 more, ${N_SPECIES} species. Only the `
+              + `${N_DNA} DNA rows vary along the sequence, so only those are drawn; the other `
+              + `${N_MASK + N_SPECIES} are constant and carry no positional information. The species `
+              + `one-hot is one channel held at 1 everywhere — species ${SPECIES_S_CEREVISIAE} of `
+              + `${N_SPECIES}, S. cerevisiae, which is absolute channel `
+              + `${N_DNA + N_MASK + SPECIES_S_CEREVISIAE}. The fifth channel is never written by any `
+              + `code the paper ships and is zero here; the language model masks by zeroing the DNA `
+              + `channels, not by setting it. `
             : '';
       stageNote.textContent =
         stageTab === 'attention'
@@ -2732,6 +2925,7 @@ export function initVariantPlayground(root: ParentNode = document) {
   });
   logoPan?.addEventListener('input', renderSeqLogo);
   logoWidth?.addEventListener('change', renderSeqLogo);
+  logoSource?.addEventListener('change', renderSeqLogo);
 
   spinBtn?.addEventListener('click', () => {
     flow3d?.resumeSpin();
@@ -2788,6 +2982,8 @@ export function initVariantPlayground(root: ParentNode = document) {
     renderAttribution();
     renderStageProfile();
     renderRollout();
+  renderStageStack();
+    renderStageStack();
     renderSeqLogo();
     trace3d();
     renderStageDetail(flow?.selected() ?? null);
@@ -2864,8 +3060,6 @@ export function initVariantPlayground(root: ParentNode = document) {
   }
 
   renderLayers();
-  if (seqInput) seqInput.value = editable;
-  refreshLive();
   renderTrack();
   renderMotifs();
   renderStageDetail(null);
@@ -2875,9 +3069,13 @@ export function initVariantPlayground(root: ParentNode = document) {
   renderAttribution();
   renderStageProfile();
   renderRollout();
+  renderStageStack();
   renderSeqLogo();
   renderIsm();
-  setStatus('Live conv-stem view is running. Load the full model to predict a track.');
+  renderIsmLogo();
+  // Locus mode is the only mode, so the first locus loads immediately rather than waiting for a
+  // click on a toggle that no longer exists.
+  loadLocus();
 
   return {
     destroy: () => {

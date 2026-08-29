@@ -19,11 +19,47 @@
 
 export const SEQ_LEN = 16_384;
 export const IN_CHANNELS = 170;
+/**
+ * The input layout: 170 = 4 DNA + 1 + 165 species.
+ *
+ * The decisive evidence is the paper's own corpus-scaling table (README.md:118-124), where four LM
+ * tiers declare `num_features` 6 / 85 / 170 / 1366 against species lists of 1 / 80 / 165 / 1361 --
+ * every tier is exactly n_species + 5, and six loaders inject that formula verbatim
+ * (`params_model["num_features"] = num_species + 5`). A one-genome corpus needing SIX features is
+ * impossible under "4 DNA + N species".
+ *
+ * The paper's own helper library disagrees with that: `src/shorkie/models/ensemble.py:17-20`
+ * declares `N_SPECIES = 166` and calls channels 4-169 species, folding the fifth channel into the
+ * species block. That reading cannot produce 6 for one genome, so it is the mislabel. This is a
+ * genuine paper-vs-checkpoint discrepancy and is listed in SPEC_NOTES.
+ */
 export const N_DNA = 4;
+/**
+ * The fifth channel -- and what is honestly known about it is less than "mask".
+ *
+ * The paper names it once, as a "special channel" (`1_predict_seqs_LM.py:238`), and NOTHING in the
+ * repository ever writes it: every builder allocates channels 4..169 as zeros and then sets only
+ * 114. So it is identically zero at every position in every inference path the paper ships. The
+ * language model does not use it either -- it masks by ZEROING the four DNA channels
+ * (`ensemble.py:54-55`, `score_variants_LM.py:75`), which is indistinguishable from an N base.
+ * Its semantics live only in the training data loader, which is an uninitialised submodule.
+ */
 export const N_MASK = 1;
 export const N_SPECIES = 165;
 
-/** Determined empirically -- see `scripts/shorkie/sanity_check.py`. Nothing published names it. */
+/**
+ * S. cerevisiae, as an index into the 165-species list.
+ *
+ * This IS published: `params_train['r64_idx'] = 109` appears verbatim at
+ * `1_predict_seqs_LM.py:243` and `1_visualize_attention.py:764`, and row 109 (0-based) of
+ * `data/species_lists/species_saccharomycetales_gtf.cleaned.csv` is
+ * `Saccharomyces cerevisiae, 559292, R64-1-1, GCA_000146045.2`. The site previously said "nothing
+ * published names it" and identified it empirically instead; that identification (rank 1 of 165 on
+ * 6/6 probe genes) is now CONFIRMATION of a published constant, which is the stronger claim.
+ *
+ * Note the two coordinate systems: 109 indexes the species list, and 4 + 1 + 109 = 114 is the
+ * absolute input channel -- the paper's own `SCEREVISIAE_COL`.
+ */
 export const SPECIES_S_CEREVISIAE = 109;
 
 export const BLOCK_FILTERS = [96, 128, 160, 192, 256, 320, 384] as const;
@@ -74,8 +110,15 @@ export const RNA_SEQ_GROUP = 2;
 export const SPEC_NOTES = [
   {
     topic: 'Input channels',
-    paper: 'not stated in the Methods',
-    checkpoint: '16,384 x 170 — 4 DNA + 1 mask + 165 species one-hot',
+    paper: 'the helper library says 4 DNA + 166 species (ensemble.py:17-20)',
+    checkpoint: '4 DNA + 1 unused + 165 species. The corpus table settles it: 1/80/165/1361 species '
+      + 'give num_features 6/85/170/1366 — always n+5, and six loaders inject exactly that.',
+  },
+  {
+    topic: 'The fifth channel',
+    paper: 'named a "special channel" once, and never written',
+    checkpoint: 'identically zero at every position in every shipped inference path; the LM masks '
+      + 'by zeroing the four DNA channels instead',
   },
   { topic: 'Attention heads', paper: '8 heads', checkpoint: '4 heads (r_w_bias is [1, 4, 1, 64])' },
   {
@@ -249,19 +292,6 @@ export function stemActivations(sequence: string, w: StemWeights): StemActivatio
   return { map, positions, filters: f, peak, peakAt };
 }
 
-/**
- * A filter rendered as a position weight matrix for a sequence logo: per position, the weight of
- * each base relative to that position's mean, which is what makes the preferred base legible.
- */
-export function filterLogo(index: number, w: StemWeights): number[][] {
-  const rows: number[][] = [];
-  for (let ki = 0; ki < w.kernelWidth; ki += 1) {
-    const raw = BASES.map((_, b) => w.weights[(ki * N_DNA + b) * w.filters + index]);
-    const mean = raw.reduce((a, b) => a + b, 0) / raw.length;
-    rows.push(raw.map((v) => v - mean));
-  }
-  return rows;
-}
 
 /** Bin index -> genomic offset within the window, accounting for the cropped flanks. */
 export function binToWindowOffset(bin: number): number {
@@ -959,6 +989,258 @@ export function binsToBottleneck(binStart: number, binEnd: number): { start: num
     start: Math.max(0, Math.floor((CROP_BP + binStart * BIN_BP) / per)),
     end: Math.min(BOTTLENECK_LEN, Math.ceil((CROP_BP + binEnd * BIN_BP) / per)),
   };
+}
+
+/**
+ * The Shorkie paper's DNA-logo geometry, reproduced exactly.
+ *
+ * Every constant here is lifted from the paper's own renderer -- `dna_letter_at` in
+ * shorkie-paper/src/shorkie/helpers/yeast_helpers.py:140-185, which 23 of the repository's 24
+ * logo-drawing files copy verbatim. Nothing is approximated:
+ *
+ *   - the glyph outlines are the real DejaVu Sans **Bold** A/C/G/T, extracted from the same
+ *     font file matplotlib resolves, with the paper's per-letter x-offsets already baked in;
+ *   - those offsets (A -0.350, C -0.366, G -0.384, T -0.305) are hand-tuned, NOT half the glyph
+ *     advance -- computing them would shift A, G and T left by 0.026-0.037 em;
+ *   - `LOGO_GLOBSCALE` 1.35 is applied to BOTH axes, which is what makes a stack of letters
+ *     summing to S fill height S (DejaVu Bold cap heights are 0.729 for A/T and 0.742 for C/G,
+ *     whose reciprocals bracket 1.35). It also makes letters overflow their 1 bp column, so
+ *     adjacent letters touch -- that density IS the published look, not a bug.
+ *
+ * The one file in the paper that drops the 1.35 is its own figure-4 reproduction helper, whose
+ * logos consequently render about 27% short with visible gaps. Follow the canonical renderer.
+ */
+export const LOGO_GLOBSCALE = 1.35;
+
+/** Per-letter x-offsets, applied inside the path. Hand-tuned in the paper; do not derive them. */
+export const LOGO_OFFSETS: Record<Base, number> = { A: -0.350, C: -0.366, G: -0.384, T: -0.305 };
+
+/**
+ * Base colours, and they are deliberately not theme tokens.
+ *
+ * A=green C=blue G=orange T=red is uniform across every figure and every file in the paper, with
+ * zero exceptions, declared as matplotlib colour names and resolving to these saturated X11
+ * values. They stay fixed in all six of this site's themes for the same reason the chromatin
+ * molecular colours do: a figure's base colours are part of the figure, not part of the theme.
+ */
+export const LOGO_COLOURS: Record<Base, string> = {
+  A: '#008000', C: '#0000FF', G: '#FFA500', T: '#FF0000',
+};
+
+/**
+ * The glyph outlines, in the paper's coordinate system: y points UP, baseline at 0, cap height
+ * ~0.73 (A, T) or ~0.74 (C, G), and C and G dip 0.0142 below the baseline. A renderer flips y.
+ */
+export const LOGO_GLYPHS: Record<Base, string> = {
+  A: 'M0.18422 0.13281L-0.10969 0.13281L-0.15609 0.00000L-0.34516 0.00000L-0.07516 0.72906L0.14906 0.72906L0.41906 0.00000L0.23016 0.00000L0.18422 0.13281ZM-0.06281 0.26813L0.13688 0.26813L0.03719 0.55812L-0.06281 0.26813Z',
+  C: 'M0.30400 0.04000Q0.25213 0.01312 0.19603 -0.00047Q0.13994 -0.01422 0.07884 -0.01422Q-0.10334 -0.01422 -0.20975 0.08766Q-0.31616 0.18953 -0.31616 0.36375Q-0.31616 0.53859 -0.20975 0.64031Q-0.10334 0.74219 0.07884 0.74219Q0.13994 0.74219 0.19603 0.72844Q0.25213 0.71484 0.30400 0.68797L0.30400 0.53719Q0.25166 0.57281 0.20088 0.58937Q0.15009 0.60594 0.09400 0.60594Q-0.00662 0.60594 -0.06428 0.54141Q-0.12178 0.47703 -0.12178 0.36375Q-0.12178 0.25094 -0.06428 0.18641Q-0.00662 0.12203 0.09400 0.12203Q0.15009 0.12203 0.20088 0.13859Q0.25166 0.15531 0.30400 0.19094L0.30400 0.04000Z',
+  G: 'M0.36303 0.05422Q0.29272 0.02000 0.21709 0.00281Q0.14147 -0.01422 0.06084 -0.01422Q-0.12134 -0.01422 -0.22775 0.08766Q-0.33416 0.18953 -0.33416 0.36375Q-0.33416 0.54000 -0.22587 0.64109Q-0.11744 0.74219 0.07116 0.74219Q0.14381 0.74219 0.21037 0.72844Q0.27709 0.71484 0.33616 0.68797L0.33616 0.53719Q0.27522 0.57172 0.21491 0.58875Q0.15459 0.60594 0.09397 0.60594Q-0.01822 0.60594 -0.07900 0.54312Q-0.13978 0.48047 -0.13978 0.36375Q-0.13978 0.24813 -0.08119 0.18500Q-0.02259 0.12203 0.08522 0.12203Q0.11459 0.12203 0.13975 0.12563Q0.16491 0.12937 0.18491 0.13719L0.18491 0.27875L0.07006 0.27875L0.07006 0.40484L0.36303 0.40484L0.36303 0.05422Z',
+  T: 'M-0.30016 0.72906L0.37172 0.72906L0.37172 0.58688L0.13000 0.58688L0.13000 0.00000L-0.05797 0.00000L-0.05797 0.58688L-0.30016 0.58688L-0.30016 0.72906Z',
+};
+
+/** One letter of a logo column: which base, where its baseline sits, and its signed height. */
+export interface LogoLetter {
+  base: Base;
+  /** The value this letter carries. Negative letters are drawn mirrored, below the axis. */
+  value: number;
+  /** Baseline offset from zero, in value units. Positive letters stack up, negative stack down. */
+  y: number;
+}
+
+/**
+ * Stack one column of an attribution logo.
+ *
+ * The paper's rule, from `1_plot_dna_logo_general.py:95-127` and two other files: sort DESCENDING
+ * by |value| so the largest letter sits nearest the axis, then run two independent accumulators
+ * from zero -- positive letters upward, negative downward. A negative letter is drawn with a
+ * negative y-scale, so it is vertically MIRRORED rather than merely placed below the line.
+ *
+ * This is the ATTRIBUTION rule. A PWM/information-content logo uses the opposite sort (ascending
+ * by probability, smallest at the bottom) over a fixed 0-2 bits axis; the two must not be mixed.
+ */
+export function logoColumn(values: ArrayLike<number>): LogoLetter[] {
+  const order = BASES.map((base, i) => ({ base, value: Number(values[i]) || 0 }))
+    .sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
+  let up = 0;
+  let down = 0;
+  const out: LogoLetter[] = [];
+  for (const { base, value } of order) {
+    if (value === 0) continue;
+    if (value >= 0) {
+      out.push({ base, value, y: up });
+      up += value;
+    } else {
+      out.push({ base, value, y: down });
+      down += value;
+    }
+  }
+  return out;
+}
+
+/**
+ * The y-range for an attribution logo: the data's own min and max, each padded by 5% of max|v|.
+ *
+ * 0.05 is the operative value -- `visualize_input_ism` computes it and passes it explicitly in 17
+ * files. Two other constants exist in the repository and are NOT interchangeable: a 0.10 fallback
+ * that is dead whenever the caller supplies limits (it always does), and the figure-4 reproduction
+ * helper's 0.08. The padding is applied to min and max SEPARATELY, so the range is asymmetric about
+ * zero unless the data happens to be symmetric.
+ */
+export function logoRange(values: ArrayLike<number>): { lo: number; hi: number } {
+  let lo = 0;
+  let hi = 0;
+  let peak = 0;
+  for (let i = 0; i < values.length; i += 1) {
+    const v = Number(values[i]) || 0;
+    if (v < lo) lo = v;
+    if (v > hi) hi = v;
+    if (Math.abs(v) > peak) peak = Math.abs(v);
+  }
+  const pad = 0.05 * peak;
+  return { lo: lo - pad, hi: hi + pad };
+}
+
+/**
+ * Turn a mutagenesis plane into the paper's per-position saliency.
+ *
+ * The site's ISM plane and the paper's are exact complements. The site stores `alt - ref` with the
+ * reference base's own cell zero; the paper stores the same thing, then mean-centres across the
+ * four bases and multiplies by the reference one-hot, which keeps ONLY the reference base:
+ *
+ *     centred[b] = P[b] - mean_b(P[b])            and P[ref] = 0
+ *     => saliency = centred[ref] = -(sum of the three alternative effects) / 4
+ *
+ * So the paper's logo is derivable from the shipped plane with no re-run, and this is that
+ * derivation. Step 2 of the recipe is what turns "what this substitution would do" into "how much
+ * the base that is actually there matters".
+ */
+export function ismSaliency(plane: ArrayLike<number>, width: number, sequence: string,
+                            start: number): Float64Array {
+  const out = new Float64Array(width);
+  for (let k = 0; k < width; k += 1) {
+    const ref = BASES.indexOf((sequence[start + k] ?? 'N').toUpperCase() as Base);
+    if (ref < 0) continue;
+    let sum = 0;
+    for (let b = 0; b < 4; b += 1) sum += Number(plane[b * width + k]) || 0;
+    // The reference cell is zero by construction, so the sum IS the sum over the three alternatives.
+    out[k] = -sum / 4;
+  }
+  return out;
+}
+
+/**
+ * logSED, the paper's variant score: `log2(sum_alt + 1) - log2(sum_ref + 1)` over gene-body bins.
+ *
+ * From `src/shorkie/models/ensemble.py:97-104`. Log base 2, a +1 pseudocount inside each log, and
+ * the track average taken BEFORE the sum over bins. Being a log ratio is what makes it comparable
+ * across genes: a linear difference makes a silent promoter and a maximal one incommensurable.
+ */
+export function logSED(sumRef: number, sumAlt: number): number {
+  return Math.log2(sumAlt + 1) - Math.log2(sumRef + 1);
+}
+
+/**
+ * Where each stage's contributing neurons actually fire, across the window.
+ *
+ * The traceback answers "which channels" per stage. This answers "and where", which is what makes
+ * the depth structure visible: each stage's row is its activation map weighted by how much each
+ * channel carried the traced region, summed over channels.
+ *
+ * Be precise about what this is. The shipped pack carries per-channel relevance summed over
+ * position, not a per-position gradient, so this is the FACTORISED combination -- relevance(c)
+ * times |activation(c, p)| -- not |grad x activation| resolved per position. It answers "where do
+ * the channels that matter for this region fire", which is a real and useful question, and it is
+ * not the same as "which positions the gradient flows through". Recomputing the latter needs the
+ * checkpoint, so the page says which one it is showing.
+ *
+ * Each channel is normalised to its own total before weighting, so it contributes a DISTRIBUTION
+ * over positions rather than its magnitude -- the row is then a relevance-weighted mixture of those
+ * distributions. Without that step the row reports wherever the stage is loudest, which on a 16 kb
+ * yeast window is whichever gene is most expressed regardless of what was traced.
+ *
+ * Rows are then scaled independently against their own 99th percentile, because these tensors are
+ * heavy-tailed and dividing by the max lets a handful of outliers flatten everything else -- the
+ * same lesson the activation rasters already encode. Values above the percentile exceed 1 and are
+ * left that way; the painter clamps, and clamping here would collapse them to a common value and
+ * lose their ordering.
+ */
+export function stageRelevanceProfile(
+  stageMaps: ArrayLike<number>,
+  relevance: ArrayLike<number>,
+  positions: number,
+): { id: string; profile: Float64Array }[] {
+  const out: { id: string; profile: Float64Array }[] = [];
+  for (const off of stageMapOffsets()) {
+    const profile = new Float64Array(positions);
+    for (let c = 0; c < off.channels; c += 1) {
+      const w = Math.abs(Number(relevance[off.start + c]) || 0);
+      if (w === 0) continue;
+      const base = (off.start + c) * off.positions;
+      // Normalise each channel to its own total FIRST, so it contributes its shape and not its
+      // scale. Weighting raw activations instead lets the loudest part of the window dominate
+      // every row -- on a 16 kb yeast window that is whichever gene is most expressed, which is a
+      // fact about the window and not about the traced region.
+      let total = 0;
+      for (let p = 0; p < off.positions; p += 1) total += Math.abs(Number(stageMaps[base + p]) || 0);
+      if (total <= 0) continue;
+      for (let p = 0; p < positions; p += 1) {
+        const v = Number(stageMaps[base + Math.min(p, off.positions - 1)]) || 0;
+        profile[p] += (w * Math.abs(v)) / total;
+      }
+    }
+    // Scale by the 99th percentile, NOT the maximum: these rows are heavy-tailed and a couple of
+    // outliers otherwise flatten everything else. Deliberately NOT clamped to 1 -- the caller's
+    // painter clamps, and clamping here would collapse every above-percentile cell to the same
+    // value and destroy their ordering. On a sparse row p99 can be small, and a cell twenty times
+    // it is a real fact about that row.
+    let peak = percentileRange(profile, 0, 99).hi;
+    if (!(peak > 0)) for (const v of profile) if (v > peak) peak = v;
+    if (peak > 0) for (let p = 0; p < positions; p += 1) profile[p] /= peak;
+    out.push({ id: off.id, profile });
+  }
+  return out;
+}
+
+/** A landmark the paper annotates on its ISM logos. */
+export interface SpliceAnnotation {
+  label: string;
+  /** Window offset in bp. */
+  at: number;
+}
+
+/**
+ * The landmarks Figure 4 marks on its logos: start and stop codons, and each intron's donor,
+ * branch point and acceptor.
+ *
+ * This is `fig4_common.splice_annotations`. Two details are the paper's and not obvious:
+ * orientation flips every landmark on the minus strand (the donor is the intron's END there), and
+ * the **branch point is placed 30 bp upstream of the acceptor** -- a fixed offset, because the
+ * branch point is a sequence motif the annotation does not carry, and 30 bp is where the yeast
+ * consensus sits relative to the 3' splice site.
+ */
+export function spliceAnnotations(feature: {
+  strand: string;
+  cdsStart: number;
+  cdsEnd: number;
+  exons: number[][];
+}): SpliceAnnotation[] {
+  const plus = feature.strand === '+';
+  const out: SpliceAnnotation[] = [];
+  if (feature.cdsEnd > feature.cdsStart) {
+    out.push({ label: 'Start codon', at: plus ? feature.cdsStart : feature.cdsEnd });
+    out.push({ label: 'Stop codon', at: plus ? feature.cdsEnd : feature.cdsStart });
+  }
+  const exons = [...feature.exons].sort((a, b) => a[0] - b[0]);
+  for (let i = 0; i + 1 < exons.length; i += 1) {
+    const s = exons[i][1];
+    const e = exons[i + 1][0];
+    const donor = plus ? s : e;
+    const acceptor = plus ? e : s;
+    out.push({ label: "5′ splice site", at: donor });
+    out.push({ label: 'Branch point', at: plus ? acceptor - 30 : acceptor + 30 });
+    out.push({ label: "3′ splice site", at: acceptor });
+  }
+  return out;
 }
 
 /** An rgb triple, 0-255, for one cell of a painted activation raster. */

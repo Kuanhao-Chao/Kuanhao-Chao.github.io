@@ -124,8 +124,9 @@ them.
 | fp32 ↔ fp16, on real sequence | quantisation damage | relative ≤ **5.0e-4** (6.9e-3 on random ACGT — see above) |
 | **python ↔ browser**, same fp16 graph | **the thing actually shipped** | same argmax bin in all four track groups; peak relative difference ≤ **1.4e-3** (RNA-seq 994.8802 vs 994.4959 at bin 435) |
 | TS conv stem ↔ PyTorch stem | drift in the second implementation | fixture in `src/lib/__fixtures__/`, asserted by vitest |
-| **mutagenesis ↔ shipped graph** | a stale or mis-scaled ISM plane | 9 real substitutions re-derived, worst 0.048 — the uint8 floor; reference cells zero to the pack's resolution |
-| **DTD1's strongest substitution ↔ the motif panel** | **the whole chain**: two methods sharing no arithmetic must land on the same base | ISM puts it on bp 8,165, the `GT` donor of the 71 bp intron, at **−38.5%**; scrambling the whole 5′ splice site independently gives **−34%** |
+| **mutagenesis ↔ shipped graph** | a stale, mis-scaled, wrong-track-subset or single-strand ISM plane | 4 substitutions re-derived as logSED on both strands, worst **2.13e-4**; T0 subset 384/1148–4193; reference cells zero to the pack's resolution |
+| **DTD1's strongest substitution ↔ the motif panel** | **the whole chain**: two methods sharing no arithmetic must land on the same base | ISM puts it on bp 8,165, the `GT` donor of the 71 bp intron, at **logSED −0.4541** (0.73×); scrambling the whole 5′ splice site independently gives **−34%** |
+| **the paper's transform ↔ published Figure 4D** | that the site reproduces the figure, not merely something logo-shaped | the six `GTATGT` donor bases take saliency ranks **1, 2, 3, 4, 5, 9**; the rest of the top twelve is the branch point |
 | **shipped packs ↔ shipped graph** | **a stale or mis-sliced precompute** — the packs are what the page draws, and nothing else compares them to the model | **54 stage-locus pairs, every loudest channel identical**; worst decode 0.6683 at `unet3`, which is that row's range / 255 |
 
 `verify_pipeline.py` runs the whole table:
@@ -229,44 +230,51 @@ the paper knows which they are looking at.
    enrichment (1.20×) and so survives a casual sanity check.
 
 
-## In-silico mutagenesis
+## In-silico mutagenesis — the paper's score, not an approximation of it
 
-`make_ism.py` mutates every base in a 512 bp window to all three alternatives and re-runs the model.
-It uses the committed fp16 graph, so like the first sections of `verify_pipeline.py` it needs **no
+`make_ism.py` mutates every base in the window to all three alternatives and re-runs the model. It
+uses the committed fp16 graph, so like the first sections of `verify_pipeline.py` it needs **no
 checkpoint and no network**.
 
 ```bash
-python3 scripts/shorkie/make_ism.py --bp 512            # ~33 min for all 14 loci
-python3 scripts/shorkie/make_ism.py --only YGR192C --bp 64   # ~18 s, for a smoke test
+python3 scripts/shorkie/make_ism.py                      # ~66 min, all 14 loci, both strands
+python3 scripts/shorkie/make_ism.py --only YDL219W --bp 24    # ~12 s smoke test
 ```
 
-A forward pass returning only `tracks` is **85 ms**, which puts 512 bp (1,536 substitutions) at
-about 2.2 minutes a locus. A whole window would be 49,152 substitutions and roughly seventy minutes
-each, which is why the window is the promoter and the page says so.
+Four things about the measured quantity are the paper's and each one changes the numbers:
 
-The measured quantity is the RNA-seq group mean over **that window's own gene** — the same quantity
-the motif knockouts report. A 14,336 bp yeast window holds a dozen genes and the tallest is rarely
-the one whose promoter you edited.
+| | the paper | why it matters |
+| --- | --- | --- |
+| score | `logSED = log2(Σ_alt+1) − log2(Σ_ref+1)` (`ensemble.py:97-104`) | a log **ratio**, so a silent promoter and a maximal one are comparable — a linear difference is not, and that is why an earlier version of this panel had to warn readers off its own percentages |
+| bins | **summed** inside each log | under a linear difference sum-vs-mean is a constant factor; inside a log it is not |
+| tracks | the **384 `_T0_`** RNA-seq tracks, indices 1148–4193 (`fig4_common.py:91-95`) | Figure 5's subject is that saliency *changes* across induction timepoints; averaging all 3,053 smears the axis the paper proves is not constant |
+| strands | both, averaged — every published run passes `--rc` | average the two **logSED values**, not the two coverages: the model is strongly strand-asymmetric (measured, reverse coverage runs 0.39–0.87 of forward) and that cancels inside each log ratio but not across them |
+
+Windows are the paper's too: the **exact published window** for the six genes Figure 4 prints, and
+**450 bp upstream of the TSS plus 50 bp into the gene** for the rest (`fig4_common.py:285`). Upstream
+is to the left on the plus strand and to the right on the minus.
+
+**The site's plane and the paper's are exact complements.** The site stores `alt − ref` with the
+reference cell zero; the paper mean-centres across the four bases and projects on the reference
+one-hot. With `P[ref] = 0` that gives `centred[ref] = −Σ P / 4` — the paper's per-position saliency
+is **minus the sum of the three alternatives over four**, so the published logo is derivable from the
+shipped plane with no re-run. `ismSaliency` in `src/lib/shorkieModel.ts` is that one line, and
+`verify_pipeline.py` checks it recovers DTD1's `GTATGT` donor consensus as the window's six largest
+saliencies — published Figure 4D, reproduced from this repository alone.
 
 **Two results worth knowing before reading the panel.**
 
-The sign of the largest effect tracks whether the gene is already on. Across the fourteen promoters
-the highly expressed ones only lose — a single base cannot improve a maximal promoter — while the
-silent ones only gain:
+The sign of the largest effect still tracks whether the gene is already on — the highly expressed
+promoters only lose, the silent ones only gain — but under a log ratio the magnitudes are finally
+comparable. GAL3 gains **logSED +1.13**, GAL1 **+0.78** and HOP2 **+0.91** — all silent in
+glucose — while the loudest promoters barely move: TDH3 **−0.07**, ACT1 **−0.06**, PDC1 **−0.29**.
+That ordering is itself a result and it is legible only in log space: a maximal promoter is robust
+to any single base, a silent one is a hair-trigger. Under the linear difference this panel used to
+report, HOP2 read as +448 % and PDC1 as −3.9 %, and the two could not be compared at all.
 
-| gene | reference | strongest substitution | absolute |
-| --- | --- | --- | --- |
-| ADH1 | 488.0 | −18.8 % | **−91.7** |
-| PDC1 | 842.5 | −3.9 % | −32.9 |
-| DTD1 | 5.7 | −38.5 % | −2.2 |
-| GAL1 | 3.07 | +50.0 % | +1.5 |
-| HOP2 | 0.42 | **+447.9 %** | +1.9 |
-
-Ranked by percentage HOP2 leads every gene here; ranked by what the model actually predicts, ADH1
-moves fifty times further. The panel prints both, in that order.
-
-And the cross-check in the table above is the strongest evidence on the page that the pipeline is
-right: **ISM and the motif panel agree on one base by completely different routes.** ISM's strongest
-single substitution for DTD1 is a G→T at bp 8,165 — the exact `GT` donor of its 71 bp intron —
-costing 38.5 %, while scrambling the whole 5′ splice site costs 34 %. Nothing is shared between the
-two calculations but the model.
+And the cross-check is the strongest evidence on the page that the pipeline is right: **ISM and the
+motif panel agree on one base by completely different routes.** ISM's strongest single substitution
+for DTD1 lands on bp 8,165 — the exact `GT` donor of its 71 bp intron — while scrambling the whole
+5′ splice site costs 34 %. Nothing is shared between the two calculations but the model. The paper's
+own transform then recovers the full `GTATGT` donor consensus as the window's six largest
+saliencies, which is published Figure 4D.

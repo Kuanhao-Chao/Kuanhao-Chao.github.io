@@ -981,6 +981,92 @@ Keras checkpoint, ported and exported, producing the same numbers the paper's mo
   whose activations live on their own tensors report "own tensor" rather than 0, which would read as
   "contributes nothing".
 
+#### Matching the paper (`~/Documents/shorkie-paper`)
+
+The reproduction repo is the authority on what the figures actually do, and several of the site's
+earlier assumptions did not survive reading it.
+
+- **The paper's saliency is ISM, not gradients.** Its published attribution recipe is identical in
+  three independent files (`1_plot_dna_logo_general.py:249-256`, `fig4_common.py:227-230`,
+  `fig05_lib.py:63-65`): average `logSED` over the T0 tracks → **mean-centre across the four
+  bases** → **project on the reference one-hot**. The repository's single gradient routine
+  (`yeast_helpers.py:188`) is **dead code — called by nothing**, its Borzoi `subtract_avg` hook
+  defaults off, and it still declares a 4-channel input the 170-channel model cannot accept. Do not
+  describe Shorkie attribution as gradient-based. (`external/baskerville-yeast` is an uninitialised
+  submodule, so Borzoi's own source is not readable from that checkout.)
+- **`logSED` SUMS bins inside each log**, `log2(Σ_alt+1) − log2(Σ_ref+1)` over gene-body bins
+  (`ensemble.py:97-104`). Under a linear difference sum-vs-mean is a constant factor and harmless;
+  inside a log it is not. It is a log *ratio*, which is what makes a silent promoter and a maximal
+  one comparable — the site previously reported a linear difference as a percentage and had to
+  spend a paragraph warning readers off its own numbers.
+- **The track set is the 384 `_T0_` tracks**, indices 1148–4193, not the whole 3,053-track RNA-seq
+  block. Figure 5's subject is that saliency *changes* across induction timepoints, so averaging
+  all of them smears the axis the paper proves is not constant. `shorkieTrackNames.json` makes the
+  subset derivable, and it reproduces 384/1148/4193 exactly.
+- **The site's ISM plane and the paper's are exact complements, and the conversion needs no re-run.**
+  The site stores `alt − ref` with the reference cell zero; the paper mean-centres and projects,
+  which keeps only the reference base. With `P[ref] = 0`, `centred[ref] = −Σ P / 4` — so the paper's
+  per-position saliency is **minus the sum of the three alternatives over four**, derivable from the
+  shipped plane. `ismSaliency` is that one line.
+- **The paper computes the position × base grid the site rasters, and simply never plots it.**
+  Figure 4 contains no heatmap — all fourteen saliency views are letter logos — but
+  `run_ism_eqtl.py:126-144` builds exactly the site's array, reference pinned to zero, and it is on
+  disk in `figure_07/reproduced/ism/oma1.npz`. So the raster visualises a real published quantity
+  in a form the paper did not choose. That is the honest statement; "no counterpart" is too strong.
+- **The canonical logo renderer is `yeast_helpers.py:140-185`, and the figure-4 helper is the
+  outlier.** 23 of 24 files apply `globscale = 1.35` on **both** axes; `fig4_common.py` drops it and
+  its logos render ~27 % short with visible gaps. The published density — letters overflowing their
+  column and touching — is the 1.35. Per-letter offsets are A −0.350, C −0.366, G −0.384, T −0.305,
+  hand-tuned and **not** half-advances (deriving them moves A, G and T by 0.026–0.037 em). Colours
+  are uniform repo-wide with zero exceptions: **#008000 / #0000FF / #FFA500 / #FF0000** — saturated
+  X11, fixed across all six themes for the same reason the chromatin molecular colours are.
+- **Two stacking rules, and they must not be mixed.** Attribution logos sort *descending by
+  |magnitude|* (largest nearest the axis), positives up and negatives **mirrored** below, with a
+  black zero rule. PWM/IC logos sort *ascending by probability* over a fixed 0–2 bits axis.
+- **The y-padding is 0.05 of max|v|, applied to the data min and max separately.** Three constants
+  exist and are not interchangeable: 0.05 is the operative one (17 files, passed explicitly by
+  `visualize_input_ism`), 0.10 is a dead fallback, and `fig4_common`'s 0.08 is the reproduction
+  helper's. The range is asymmetric about zero.
+- **In SVG, scale the glyph PATH, never `font-size`** — font-size scales width with height and it
+  stops being a logo. The real DejaVu Sans Bold outlines are embedded in `LOGO_GLYPHS` with the
+  offsets baked in; letters are deliberately not width-normalised (A is 23 % wider than C).
+- **The windows are TSS-anchored 450 up / 50 down** (`fig4_common.py:285`), and the six Figure 4
+  published windows already sit in `shorkieLoci.json` as `figureWindow`, matching `PUB_WIN` base for
+  base. Upstream is to the LEFT on the plus strand and to the RIGHT on the minus.
+- **Every published ISM run passes `--rc`**, so both strands are run and averaged. Average the two
+  **logSED values**, not the two coverages: the model is strongly strand-asymmetric (measured, the
+  reverse strand's coverage sum runs 0.39–0.87 of the forward's), and the asymmetry cancels inside
+  each log ratio but not across them.
+- **170 = 4 DNA + 1 + 165 species, and the paper's own helper library says otherwise.** The corpus
+  table (`README.md:118-124`) gives `num_features` 6 / 85 / 170 / 1366 for species lists of
+  1 / 80 / 165 / 1361 — always *n + 5*, and six loaders inject `num_species + 5`. A one-genome corpus
+  needing **six** features is impossible under "4 DNA + N species". `ensemble.py:17-20`
+  (`N_SPECIES = 166`) folds the fifth channel into the species block and is the mislabel; it is now
+  a `SPEC_NOTES` row. **The fifth channel is never written by any code the paper ships** and is zero
+  in every inference path; the LM masks by zeroing the four DNA channels, so calling it "the mask"
+  is unsupported.
+- **`r64_idx = 109` IS published** (`1_predict_seqs_LM.py:243`, `1_visualize_attention.py:764`), and
+  row 109 of the species list is *S. cerevisiae*. The site used to say "nothing published names it"
+  and identify it empirically; that identification is now *confirmation* of a published constant.
+  109 indexes the species list, 114 = 4 + 1 + 109 is the absolute channel — both are right.
+- **The conv-stem panel was removed because its premise is unsound.** `params.json` gives the stem
+  as `activation: "linear", norm_type: null`, so its 96 filters are a basis any invertible
+  recombination leaves unchanged — "filter #37's consensus" is an artefact of where the optimiser
+  landed. The paper never analyses first-layer filters; it derives motifs by TF-MoDISco on ISM
+  contributions matched with TomTom. A latent defect went with it: the real stem is **11 × 170 × 96**
+  and, because channel 114 is constantly 1, equals the 4-channel convolution *plus a constant
+  per-filter offset* the 11 × 4 × 96 TypeScript port did not carry.
+- **The attribution packs cannot be regenerated on this machine.** `make_attribution.py` needs the
+  fold-f0 checkpoint (14,253,567 values); the only `model_best.h5` present has 13,665,828. So
+  gradient × input still lacks the mean-centring that would make it comparable with the ISM
+  saliency, and the page says which method is which rather than pretending they agree.
+- **The stage stack is a factorised quantity and says so.** Per-channel relevance × per-position
+  activation, with each channel normalised to its own total first — otherwise the row reports
+  wherever the stage is loudest, which on a 16 kb yeast window is whichever gene is most expressed
+  regardless of what was traced. It is painted against each row's **own mean** on a diverging scale:
+  the early residual blocks are spatially near-uniform once pooled to 128 positions, and a
+  sequential ramp renders that truth as a saturated bar reading "maximally relevant everywhere".
+
 **The volume view** (`src/scripts/shorkieFlow3d.ts`) is the third view, behind a `flat`/`volume`
 toggle, built on first use so the `three` chunk is only fetched for a reader who asks:
 
