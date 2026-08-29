@@ -159,6 +159,46 @@ def motif_spans(seq: str, lo: int, hi: int) -> list[dict]:
     return found
 
 
+def transcript_models(genes, genes_raw, chrom: str, left: int, win_start: int) -> list[dict]:
+    """Real gene models for everything overlapping the window, JBrowse-style.
+
+    The page used to get `{name, start, end, strand}` in BIN coordinates, built from txStart/txEnd
+    alone -- so an intron was drawn as though it were transcribed. sacCer3 has 329 multi-exon genes
+    and 8 of them fall in these windows, including HOP2's own 70 bp intron, which the page painted
+    straight over.
+
+    genePred already carries everything needed: exonStarts/exonEnds give the blocks, cdsStart/cdsEnd
+    split them into coding and UTR, and the gaps between exons are the introns. Coordinates are bp
+    offsets into the 16,384 bp window, because a 70 bp intron is four bins wide and quantizing it
+    loses the boundaries the reader is looking for. Bin coordinates are kept alongside for the
+    coverage plot, which is binned anyway.
+    """
+    out = []
+    for name, (c, tx_start, tx_end, strand) in genes.items():
+        if c != chrom or tx_end <= win_start or tx_start >= win_start + N_BINS * BIN_BP:
+            continue
+        row = genes_raw.get(name)
+        if row and len(row) >= 11:
+            starts = [int(v) for v in row[9].rstrip(",").split(",") if v]
+            ends = [int(v) for v in row[10].rstrip(",").split(",") if v]
+            cds_start, cds_end = int(row[6]), int(row[7])
+        else:
+            starts, ends = [tx_start], [tx_end]
+            cds_start, cds_end = tx_start, tx_end
+        out.append({
+            "name": name,
+            "strand": strand,
+            "txStart": tx_start - left,
+            "txEnd": tx_end - left,
+            "cdsStart": cds_start - left,
+            "cdsEnd": cds_end - left,
+            "exons": [[s - left, e - left] for s, e in zip(starts, ends)],
+            "start": max(0, (tx_start - win_start) // BIN_BP),
+            "end": min(N_BINS, (tx_end - win_start + BIN_BP - 1) // BIN_BP),
+        })
+    return sorted(out, key=lambda f: f["txStart"])
+
+
 def main() -> int:
     ckpt, onnx_path, fasta, genes_path = sys.argv[1:5]
 
@@ -214,16 +254,7 @@ def main() -> int:
         if len(seq) < SEQ_LEN:
             seq += "N" * (SEQ_LEN - len(seq))
         win_start = left + CROP_BP
-        features = [
-            {
-                "name": nm,
-                "start": max(0, (s - win_start) // BIN_BP),
-                "end": min(N_BINS, (e - win_start + BIN_BP - 1) // BIN_BP),
-                "strand": st,
-            }
-            for nm, (c, s, e, st) in genes.items()
-            if c == chrom and e > win_start and s < win_start + N_BINS * BIN_BP
-        ]
+        features = transcript_models(genes, genes_raw, chrom, left, win_start)
         loci.append({
             "id": systematic, "gene": common, "blurb": blurb,
             "chrom": chrom, "start": left, "strand": strand,
@@ -242,16 +273,7 @@ def main() -> int:
             seq += "N" * (SEQ_LEN - len(seq))
         win_start = left + CROP_BP
         strand = genes[systematic][3] if systematic in genes else "+"
-        features = [
-            {
-                "name": nm,
-                "start": max(0, (s - win_start) // BIN_BP),
-                "end": min(N_BINS, (e - win_start + BIN_BP - 1) // BIN_BP),
-                "strand": st,
-            }
-            for nm, (c, s, e, st) in genes.items()
-            if c == chrom and e > win_start and s < win_start + N_BINS * BIN_BP
-        ]
+        features = transcript_models(genes, genes_raw, chrom, left, win_start)
         # The figure's own window, as offsets into the 16,384 bp input and as predicted bins.
         lo, hi = fa_start - 1 - left, fa_end - left
         splices = splice_spans(genes_raw[systematic], left) if systematic in genes_raw else []

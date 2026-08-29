@@ -45,6 +45,7 @@ import {
   subLayers,
   knockoutMotif,
   geneBodyBins,
+  geneTrackShapes,
   trackGroupOf,
   trackIndex,
   type ParsedTrack,
@@ -52,6 +53,7 @@ import {
   logAxis,
   N_TRACKS,
   BIN_BP,
+  CROP_BP,
   SEQ_LEN,
   SPECIES_S_CEREVISIAE,
   cleanSequence,
@@ -81,7 +83,17 @@ interface Locus {
   start: number;
   strand: string;
   sequence: string;
-  features: { name: string; start: number; end: number; strand: string }[];
+  features: {
+    name: string;
+    strand: string;
+    start: number;      // bins, for the coverage plot
+    end: number;
+    txStart: number;    // bp offsets into the window, for the gene track
+    txEnd: number;
+    cdsStart: number;
+    cdsEnd: number;
+    exons: number[][];
+  }[];
   /** Present only on the six Figure 4 windows. */
   motifs?: Motif[];
   figurePanel?: string;
@@ -343,13 +355,28 @@ export function initVariantPlayground(root: ParentNode = document) {
       trackSvg.append(frame);
       trackSvg.append(text(binStart * bw + 3, 28, locus.figurePanel ?? 'figure window', 'vp-ax', 'start'));
     }
+    // The same gene geometry the layer ruler draws, so the two views cannot disagree about where
+    // an intron is. bp -> x here, because the coverage plot is scaled in bins.
+    const gx = (bp: number) => ((bp - CROP_BP) / (N_BINS * BIN_BP)) * W;
     for (const f of locus.features) {
-      const r = el('rect');
-      attr(r, {
-        x: f.start * bw, y: H - 18, width: Math.max((f.end - f.start) * bw, 1), height: 10,
-        fill: 'var(--vp-orf)', 'fill-opacity': 0.55,
+      const own = f.name === locus.id;
+      const line = el('line');
+      attr(line, {
+        x1: gx(f.txStart), x2: gx(f.txEnd), y1: H - 13, y2: H - 13,
+        stroke: 'var(--vp-orf)', 'stroke-width': 1, 'stroke-opacity': own ? 0.9 : 0.45,
       });
-      trackSvg.append(r);
+      trackSvg.append(line);
+      for (const piece of geneTrackShapes(f)) {
+        if (piece.kind === 'intron') continue;
+        const h = piece.kind === 'cds' ? 10 : 5;
+        const r = el('rect');
+        attr(r, {
+          x: gx(piece.start), y: H - 13 - h / 2,
+          width: Math.max(gx(piece.end) - gx(piece.start), 1), height: h,
+          fill: 'var(--vp-orf)', 'fill-opacity': own ? 0.85 : 0.45,
+        });
+        trackSvg.append(r);
+      }
     }
 
     let d = `M0 ${H - 26}`;
@@ -999,6 +1026,71 @@ export function initVariantPlayground(root: ParentNode = document) {
   }
 
   /**
+   * Draw a gene track the way a genome browser does.
+   *
+   * Exons are blocks, thick where coding and thin where UTR; introns are a line with directional
+   * chevrons; orientation follows the strand. This replaces one solid bar per gene drawn from
+   * txStart/txEnd, which painted straight over introns -- HOP2's own 70 bp intron among them.
+   *
+   * `fx` maps a bp offset in the window to an x coordinate, so the same routine serves the coverage
+   * plot and the layer ruler, which have different horizontal scales.
+   */
+  function drawGeneTrack(
+    ctx: CanvasRenderingContext2D,
+    locus: Locus,
+    fx: (bp: number) => number,
+    y: number,
+    height: number,
+    highlight?: string,
+  ): void {
+    const orf = getComputedStyle(host).getPropertyValue('--vp-orf').trim() || '#6f62a8';
+    const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
+    const midY = y + height / 2;
+    const cdsH = Math.max(height * 0.72, 5);
+    const utrH = Math.max(height * 0.38, 3);
+
+    for (const f of locus.features) {
+      const isOwn = f.name === highlight;
+      ctx.globalAlpha = isOwn ? 0.95 : 0.45;
+      const x0 = fx(f.txStart);
+      const x1 = fx(f.txEnd);
+
+      ctx.strokeStyle = orf;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x0, midY + 0.5);
+      ctx.lineTo(x1, midY + 0.5);
+      ctx.stroke();
+      const forward = f.strand === '+';
+      for (let x = x0 + 6; x < x1 - 2; x += 11) {
+        ctx.beginPath();
+        ctx.moveTo(x - (forward ? 2 : -2), midY - 2.5);
+        ctx.lineTo(x + (forward ? 2 : -2), midY);
+        ctx.lineTo(x - (forward ? 2 : -2), midY + 2.5);
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = orf;
+      for (const piece of geneTrackShapes(f)) {
+        if (piece.kind === 'intron') continue;      // drawn as the line + chevrons above
+        const bh = piece.kind === 'cds' ? cdsH : utrH;
+        const bx = fx(piece.start);
+        ctx.fillRect(bx, midY - bh / 2, Math.max(fx(piece.end) - bx, 1), bh);
+      }
+
+      if (isOwn && x1 - x0 > 30) {
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = muted;
+        ctx.font = '9px system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(locus.gene, x0 + 2, y - 1);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+
+  /**
    * The cascading track picker: assay block, then regulator / ChIP target / run, then timepoint.
    *
    * 5,215 tracks in one flat list is unusable, and their names carry the experiment's own
@@ -1304,22 +1396,8 @@ export function initVariantPlayground(root: ParentNode = document) {
       ctx.lineTo(cssW, rulerY + 0.5);
       ctx.stroke();
 
-      // Annotated ORFs. `features` are in output-bin coordinates, so convert bins -> bp -> x.
-      ctx.fillStyle = getComputedStyle(host).getPropertyValue('--vp-orf').trim() || '#6f62a8';
-      ctx.font = '9px system-ui, sans-serif';
-      ctx.textAlign = 'left';
-      for (const f of locus.features) {
-        const x0 = fx(binToWindowOffset(f.start));
-        const x1 = fx(binToWindowOffset(f.end));
-        if (x1 - x0 < 0.5) continue;
-        ctx.globalAlpha = f.name === locus.id ? 0.75 : 0.32;
-        ctx.fillRect(x0, rulerY + 4, Math.max(x1 - x0, 1), 7);
-        if (f.name === locus.id && x1 - x0 > 34) {
-          ctx.globalAlpha = 1;
-          ctx.fillText(locus.gene, x0 + 2, rulerY + 10.5);
-        }
-      }
-      ctx.globalAlpha = 1;
+      // Real gene models: exon blocks, thin where UTR, intron lines with chevrons.
+      drawGeneTrack(ctx, locus, fx, rulerY + 3, 10, locus.id);
 
       // The window the paper's figure prints, where there is one.
       if (locus.figureWindow) {

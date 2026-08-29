@@ -933,3 +933,43 @@ export function trackIndex(names: string[]): {
   }
   return { byGroup, total: parsed.length };
 }
+
+/** One drawable piece of a gene model, in bp offsets into the window. */
+export interface GeneShape {
+  kind: 'cds' | 'utr' | 'intron';
+  start: number;
+  end: number;
+}
+
+/**
+ * A gene model decomposed into what a genome browser draws.
+ *
+ * Returned in bp so the canvas layer ruler and the SVG coverage plot -- which have different
+ * horizontal scales and different drawing APIs -- can render the same geometry and cannot disagree
+ * about where an intron is. Exons split at the CDS boundaries so untranslated flanks draw thinner;
+ * the gaps between exons are the introns.
+ */
+export function geneTrackShapes(feature: {
+  txStart: number;
+  txEnd: number;
+  cdsStart: number;
+  cdsEnd: number;
+  exons: number[][];
+}): GeneShape[] {
+  const out: GeneShape[] = [];
+  const exons = [...feature.exons].sort((a, b) => a[0] - b[0]);
+  for (let i = 0; i < exons.length; i += 1) {
+    const [es, ee] = exons[i];
+    for (const [s, e, kind] of [
+      [es, Math.min(ee, feature.cdsStart), 'utr'],
+      [Math.max(es, feature.cdsStart), Math.min(ee, feature.cdsEnd), 'cds'],
+      [Math.max(es, feature.cdsEnd), ee, 'utr'],
+    ] as [number, number, GeneShape['kind']][]) {
+      if (e > s) out.push({ kind, start: s, end: e });
+    }
+    if (i + 1 < exons.length) {
+      out.push({ kind: 'intron', start: ee, end: exons[i + 1][0] });
+    }
+  }
+  return out;
+}

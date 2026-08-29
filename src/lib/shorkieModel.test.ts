@@ -57,6 +57,7 @@ import {
   type Rgb,
   parseTrackName,
   trackIndex,
+  geneTrackShapes,
 } from './shorkieModel';
 import tracks from '../data/shorkieTracks.json';
 import trackNames from '../data/shorkieTrackNames.json';
@@ -1380,5 +1381,108 @@ describe('the precomputed packs are served from a path this site actually owns',
       }
       expect(fs.existsSync(`public/vp-data/${l.id}.json`), `${l.gene} sidecar`).toBe(true);
     }
+  });
+});
+
+describe('transcript models, JBrowse-style', () => {
+  const all = loci.loci.flatMap((l) => l.features.map((f) => ({ locus: l, f })));
+
+  it('gives every gene a real exon structure, not one span', () => {
+    // The page used to receive txStart/txEnd only, so an intron was painted as though it were
+    // transcribed. 8 multi-exon genes fall in these windows.
+    expect(all.length).toBeGreaterThan(0);
+    for (const { f } of all) {
+      expect(Array.isArray(f.exons), `${f.name} has no exon list`).toBe(true);
+      expect(f.exons.length).toBeGreaterThan(0);
+    }
+    const multi = all.filter(({ f }) => f.exons.length > 1);
+    expect(multi.length).toBe(8);
+  });
+
+  it('holds the invariants a transcript model must', () => {
+    for (const { f } of all) {
+      expect(f.exons[0][0], `${f.name} first exon`).toBe(f.txStart);
+      expect(f.exons.at(-1)![1], `${f.name} last exon`).toBe(f.txEnd);
+      expect(f.cdsStart).toBeGreaterThanOrEqual(f.txStart);
+      expect(f.cdsEnd).toBeLessThanOrEqual(f.txEnd);
+      for (let i = 1; i < f.exons.length; i += 1) {
+        expect(f.exons[i][0], `${f.name} exons overlap`).toBeGreaterThanOrEqual(f.exons[i - 1][1]);
+      }
+    }
+  });
+
+  it('every intron boundary reads GT…AG on the shipped sequence', () => {
+    // Self-verifying: if the coordinate arithmetic were off by even one base these would not be
+    // the canonical dinucleotides. Minus-strand genes read the complements on the forward genome.
+    let checked = 0;
+    for (const { locus, f } of all) {
+      if (f.exons.length < 2) continue;
+      for (let i = 0; i < f.exons.length - 1; i += 1) {
+        const a = f.exons[i][1];
+        const b = f.exons[i + 1][0];
+        if (a < 0 || b > locus.sequence.length) continue;
+        const donor = locus.sequence.slice(a, a + 2);
+        const acceptor = locus.sequence.slice(b - 2, b);
+        const want = f.strand === '+' ? ['GT', 'AG'] : ['CT', 'AC'];
+        expect([donor, acceptor], `${locus.gene}/${f.name} intron`).toEqual(want);
+        checked += 1;
+      }
+    }
+    expect(checked).toBe(8);
+  });
+
+  it('keeps bin coordinates in step with the bp ones for the coverage plot', () => {
+    for (const { f } of all) {
+      expect(f.start).toBe(Math.max(0, Math.floor((f.txStart - CROP_BP) / BIN_BP)));
+      expect(f.end).toBeLessThanOrEqual(N_BINS);
+      expect(f.end).toBeGreaterThanOrEqual(f.start);
+    }
+  });
+});
+
+describe('geneTrackShapes', () => {
+  it('splits a single-exon coding gene into one CDS block', () => {
+    const s = geneTrackShapes({ txStart: 100, txEnd: 200, cdsStart: 100, cdsEnd: 200, exons: [[100, 200]] });
+    expect(s).toEqual([{ kind: 'cds', start: 100, end: 200 }]);
+  });
+
+  it('makes the gap between exons an intron', () => {
+    const s = geneTrackShapes({ txStart: 0, txEnd: 100, cdsStart: 0, cdsEnd: 100, exons: [[0, 30], [70, 100]] });
+    expect(s.filter((x) => x.kind === 'intron')).toEqual([{ kind: 'intron', start: 30, end: 70 }]);
+  });
+
+  it('draws untranslated flanks as UTR, not CDS', () => {
+    const s = geneTrackShapes({ txStart: 0, txEnd: 100, cdsStart: 20, cdsEnd: 80, exons: [[0, 100]] });
+    expect(s).toEqual([
+      { kind: 'utr', start: 0, end: 20 },
+      { kind: 'cds', start: 20, end: 80 },
+      { kind: 'utr', start: 80, end: 100 },
+    ]);
+  });
+
+  it('covers the transcript exactly once, with no overlap and no hole', () => {
+    for (const l of loci.loci) {
+      for (const f of l.features) {
+        const s = geneTrackShapes(f);
+        expect(s.length).toBeGreaterThan(0);
+        expect(s[0].start).toBe(f.txStart);
+        expect(s.at(-1)!.end).toBe(f.txEnd);
+        for (let i = 1; i < s.length; i += 1) {
+          expect(s[i].start, `${f.name} piece ${i}`).toBe(s[i - 1].end);
+        }
+      }
+    }
+  });
+
+  it('gives every multi-exon gene in the shipped windows exactly one intron per gap', () => {
+    let introns = 0;
+    for (const l of loci.loci) {
+      for (const f of l.features) {
+        const n = geneTrackShapes(f).filter((x) => x.kind === 'intron').length;
+        expect(n).toBe(f.exons.length - 1);
+        introns += n;
+      }
+    }
+    expect(introns).toBe(8);
   });
 });
