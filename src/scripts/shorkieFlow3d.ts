@@ -35,12 +35,18 @@ import { flowSlabs, type FlowSlab } from '../lib/shorkieModel';
 import { prefersReducedMotion } from './motion';
 
 export interface Flow3dController {
+  /** Whether the idle rotation is still running; false once the reader has taken the wheel. */
+  spinning(): boolean;
+  /** Hand rotation back to the idle animation after a drag has stopped it. */
+  resumeSpin(): void;
   /** Paint a stage's face from its activation map. */
   setFace(id: string, rgba: Uint8ClampedArray, width: number, height: number): void;
   /** Highlight the stages carrying a traced region; pass null to clear. */
   setTrace(weights: Map<string, number> | null): void;
   select(id: string | null): void;
   onSelect(fn: (id: string | null) => void): void;
+  /** Told when the idle rotation stops or restarts, so the page can offer to resume it. */
+  onSpinChange(fn: (on: boolean) => void): void;
   resize(): void;
   destroy(): void;
 }
@@ -118,6 +124,7 @@ export function createFlow3d(canvas: HTMLCanvasElement, host: HTMLElement): Flow
 
   let selected: string | null = null;
   let selectFn: ((id: string | null) => void) | null = null;
+  let spinFn: ((on: boolean) => void) | null = null;
   let raf = 0;
   let spin = 0;
   let dragging = false;
@@ -125,6 +132,10 @@ export function createFlow3d(canvas: HTMLCanvasElement, host: HTMLElement): Flow
   let pitch = 0.28;
   let lastX = 0;
   let lastY = 0;
+  // Auto-rotation is the default, and the first drag ends it. Continuing to advance `spin` under
+  // the pointer means the model keeps turning while it is being aimed, so it never settles where
+  // the reader put it -- the drag and the idle animation fight for the same axis.
+  let userTookOver = false;
 
   function applyTheme(): void {
     const lum = backgroundLuminance(canvas.parentElement ?? host);
@@ -206,7 +217,7 @@ export function createFlow3d(canvas: HTMLCanvasElement, host: HTMLElement): Flow
   }
 
   function tick(): void {
-    if (!prefersReducedMotion()) spin += 0.0016;
+    if (!prefersReducedMotion() && !userTookOver) spin += 0.0016;
     frame();
     raf = requestAnimationFrame(tick);
   }
@@ -219,6 +230,14 @@ export function createFlow3d(canvas: HTMLCanvasElement, host: HTMLElement): Flow
   };
   const onPointerMove = (ev: PointerEvent) => {
     if (!dragging) return;
+    if (!userTookOver) {
+      // Fold the idle rotation into `yaw` before latching, so the model does not jump back to
+      // where the animation started the moment the reader grabs it.
+      yaw += spin;
+      spin = 0;
+      userTookOver = true;
+      spinFn?.(false);
+    }
     yaw += (ev.clientX - lastX) * 0.006;
     pitch = Math.max(-0.9, Math.min(0.9, pitch + (ev.clientY - lastY) * 0.004));
     lastX = ev.clientX;
@@ -297,6 +316,17 @@ export function createFlow3d(canvas: HTMLCanvasElement, host: HTMLElement): Flow
     },
     onSelect(fn) {
       selectFn = fn;
+    },
+    spinning() {
+      return !userTookOver && !prefersReducedMotion();
+    },
+    resumeSpin() {
+      userTookOver = false;
+      spinFn?.(true);
+      frame();
+    },
+    onSpinChange(fn: (on: boolean) => void) {
+      spinFn = fn;
     },
     resize: onResize,
     destroy() {

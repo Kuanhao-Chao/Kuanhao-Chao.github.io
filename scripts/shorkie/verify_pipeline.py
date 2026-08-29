@@ -108,6 +108,95 @@ def verify_packs(ort, Image) -> None:
           f"worst {worst_err:.4f} at {worst_stage}")
 
 
+def verify_ism(ort, Image) -> None:
+    """The mutagenesis planes must be what the shipped graph says, and say it about the right gene.
+
+    Re-derives a sample of cells with real forward passes rather than trusting the pack, checks the
+    reference base's row is exactly zero (it is zero by construction, so a non-zero cell there means
+    the wrong base was treated as the reference), and pins the one cross-method agreement on this
+    page: DTD1's strongest single substitution lands on the GT donor of its 71 bp intron, which the
+    motif panel reaches independently by scrambling the whole 5' splice site.
+    """
+    import numpy as np
+
+    packs = ROOT / "public" / "vp-data"
+    loci = json.loads((ROOT / "src" / "data" / "shorkieLoci.json").read_text())
+    sess = ort.InferenceSession(str(ROOT / "public" / "models" / "shorkie-fp16.onnx"),
+                                providers=["CPUExecutionProvider"])
+    bases = "ACGT"
+    idx = {b: i for i, b in enumerate(bases)}
+    missing, zero_bad, worst = [], [], 0.0
+
+    for locus in loci["loci"]:
+        meta_path = packs / f"{locus['id']}.json"
+        spec = json.loads(meta_path.read_text()).get("ism") if meta_path.exists() else None
+        if not spec:
+            missing.append(locus["id"])
+            continue
+        a = np.asarray(Image.open(packs / f"{locus['id']}-ism.png")).astype(np.float64)
+        lo = np.asarray(spec["lo"], dtype=np.float64)
+        hi = np.asarray(spec["hi"], dtype=np.float64)
+        plane = lo[:, None] + (hi - lo)[:, None] * (a / 255.0)
+        start, width = spec["start"], spec["cols"]
+        # The reference base's own cell is zero by construction -- but the pack is uint8 per row,
+        # so zero decodes to within half a level of it. The tolerance is the row's OWN step, the
+        # same bound the stage packs are checked against; a fixed epsilon flagged 4,343 cells that
+        # were correct to the last bit the format can carry.
+        step = (hi - lo) / 255.0
+        for k in range(width):
+            r = locus["sequence"][start + k].upper()
+            if r in idx and abs(plane[idx[r], k]) > step[idx[r]] * 0.75:
+                zero_bad.append(f"{locus['id']}@{start + k}={plane[idx[r], k]:.4f}")
+
+    check(not missing, "every locus carries a mutagenesis plane",
+          f"{14 - len(missing)}/14" + (f", missing {missing[:3]}" if missing else ""))
+    check(not zero_bad, "the reference base's own cell is zero to the pack's resolution",
+          f"{len(zero_bad)} beyond a uint8 level" + (f": {zero_bad[:2]}" if zero_bad else ""))
+
+    # Re-derive a sample against the graph. Three cells per locus on three loci is nine real
+    # forward passes plus references -- enough to catch a packing or scale error, cheap enough to
+    # run every time.
+    for locus in loci["loci"][:3]:
+        spec = json.loads((packs / f"{locus['id']}.json").read_text())["ism"]
+        a = np.asarray(Image.open(packs / f"{locus['id']}-ism.png")).astype(np.float64)
+        lo = np.asarray(spec["lo"], dtype=np.float64)
+        hi = np.asarray(spec["hi"], dtype=np.float64)
+        plane = lo[:, None] + (hi - lo)[:, None] * (a / 255.0)
+        start, width = spec["start"], spec["cols"]
+        g0, g1 = spec["geneBins"]
+        x = encode(locus["sequence"], loci["speciesIndex"])
+        ref = float(sess.run(["tracks"], {"sequence": x})[0][0, g0:g1, 2].mean())
+        for k in (7, width // 2, width - 9):
+            r = locus["sequence"][start + k].upper()
+            if r not in idx:
+                continue
+            b = (idx[r] + 1) % 4
+            x[0, start + k, idx[r]] = 0.0
+            x[0, start + k, b] = 1.0
+            got = float(sess.run(["tracks"], {"sequence": x})[0][0, g0:g1, 2].mean()) - ref
+            x[0, start + k, b] = 0.0
+            x[0, start + k, idx[r]] = 1.0
+            worst = max(worst, abs(got - plane[b, k]))
+    # The bound is the uint8 floor: each row's range over 255.
+    check(worst < 0.05, "sampled cells re-derive from the graph",
+          f"worst {worst:.5f} over 9 real substitutions")
+
+    # The cross-method agreement, pinned so it cannot quietly stop being true.
+    spec = json.loads((packs / "YDL219W.json").read_text())["ism"]
+    a = np.asarray(Image.open(packs / "YDL219W-ism.png")).astype(np.float64)
+    lo = np.asarray(spec["lo"], dtype=np.float64)
+    hi = np.asarray(spec["hi"], dtype=np.float64)
+    plane = lo[:, None] + (hi - lo)[:, None] * (a / 255.0)
+    flat = int(np.argmin(plane))
+    at = spec["start"] + flat % spec["cols"]
+    dtd1 = next(f for f in next(l for l in loci["loci"] if l["id"] == "YDL219W")["features"]
+                if f["name"] == "YDL219W")
+    donor = dtd1["exons"][0][1]
+    check(at == donor, "DTD1's strongest substitution is its splice donor",
+          f"strongest at {at}, donor at {donor}, "
+          f"{plane.min() / spec['ref'] * 100:+.1f}% (motif scramble independently gives -34%)")
+
+
 def main() -> int:
     import torch
     import onnx
@@ -133,11 +222,14 @@ def main() -> int:
     section("2. shipped packs <-> shipped graph")
     verify_packs(ort, Image)
 
+    section("3. mutagenesis planes <-> shipped graph")
+    verify_ism(ort, Image)
+
     if ckpt is None:
-        print("\n  no checkpoint given -- sections 3-8 need <ckpt.h5> and were skipped.")
+        print("\n  no checkpoint given -- sections 4-9 need <ckpt.h5> and were skipped.")
         return 1 if failures else 0
 
-    section("3. checkpoint -> PyTorch")
+    section("4. checkpoint -> PyTorch")
     model, report = build(ckpt)
     params = sum(p.numel() for p in model.parameters())
     # Separate the checkpoint's own values from what the port derives. `pos_features` (8,160) is the
@@ -163,7 +255,7 @@ def main() -> int:
         unused = report.get("unused", [])
         check(not unused, "every checkpoint tensor consumed", f"{len(unused)} unused")
 
-    section("4. PyTorch <-> onnxruntime, on real sequence")
+    section("5. PyTorch <-> onnxruntime, on real sequence")
     locus = loci["loci"][0]
     x = encode(locus["sequence"], loci["speciesIndex"])
     sess = ort.InferenceSession(onnx_path, providers=["CPUExecutionProvider"])
@@ -174,7 +266,7 @@ def main() -> int:
                 / max(float(np.abs(ref_out.numpy()).max()), 1e-9))
     check(rel < 3e-3, "fp32 PyTorch vs shipped fp16 graph", f"relative {rel:.2e} on {locus['gene']}")
 
-    section("5. biology: ORF/intergenic by assay block")
+    section("6. biology: ORF/intergenic by assay block")
     if len(sys.argv) > 3:
         from sanity_check import read_fasta, read_genes, orf_mask, window_for, PROBE_GENES
         fa, genes = read_fasta(sys.argv[2]), read_genes(sys.argv[3])
@@ -197,7 +289,7 @@ def main() -> int:
     else:
         print("  SKIP  (pass sacCer3.fa and sgdGene.txt to run the biological gate)")
 
-    section("6. galactose genes are silent in a glucose baseline")
+    section("7. galactose genes are silent in a glucose baseline")
     preds = json.loads((ROOT / "src" / "data" / "shorkiePredictions.json").read_text())
     peaks = {v["gene"]: max(v["groups"][2]) for v in preds["loci"].values()}
     for gene in ("GAL1", "GAL3"):
@@ -205,7 +297,7 @@ def main() -> int:
     for gene in ("TDH3", "PDC1"):
         check(peaks[gene] > 500, f"{gene} highly expressed", f"peak {peaks[gene]:.2f}")
 
-    section("7. shipped predictions <-> live inference, every locus")
+    section("8. shipped predictions <-> live inference, every locus")
     worst = 0.0
     for lid, entry in preds["loci"].items():
         loc = next(l for l in loci["loci"] if l["id"] == lid)
@@ -215,7 +307,7 @@ def main() -> int:
         worst = max(worst, rel)
     check(worst < 5e-3, "predictions match a live run", f"worst relative {worst:.2e} over 14 loci")
 
-    section("8. decoded PNG packs <-> live inference, every locus and tensor")
+    section("9. decoded PNG packs <-> live inference, every locus and tensor")
     spec = [("all_tracks", "tracks", lambda a: a[0].T), ("stage_maps", "stages", lambda a: a[0]),
             ("stem_profile", "stem", lambda a: a[0]),
             ("attention", "attn", lambda a: a[0].reshape(-1, a.shape[-1]))]

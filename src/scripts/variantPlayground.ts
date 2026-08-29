@@ -32,6 +32,7 @@ import trackNamesJson from '../data/shorkieTrackNames.json';
 import predictionsJson from '../data/shorkiePredictions.json';
 import {
   BASES,
+  type Base,
   N_BINS,
   TRACK_GROUPS,
   RNA_SEQ_GROUP,
@@ -55,6 +56,7 @@ import {
   packGeneRows,
   attentionRollout,
   binsToBottleneck,
+  BOTTLENECK_LEN,
   filterLogo,
   N_DNA,
   N_MASK,
@@ -195,6 +197,19 @@ export function initVariantPlayground(root: ParentNode = document) {
   const statusEl = $('[data-vp-status]');
   const neuronCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-neurons]');
   const aspectCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-aspect]');
+  const spinBtn = host.querySelector<HTMLButtonElement>('[data-vp-spin]');
+  const filterLogoSvg = host.querySelector<SVGSVGElement>('[data-vp-filter-logo]');
+  const filterNameEl = host.querySelector<HTMLElement>('[data-vp-filter-name]');
+  const stageProfileEl = host.querySelector<HTMLElement>('[data-vp-stage-profile]');
+  const rolloutCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-rollout]');
+  const regionSelect = host.querySelector<HTMLSelectElement>('[data-vp-region]');
+  const regionStat = host.querySelector<HTMLElement>('[data-vp-region-stat]');
+  const seqLogoSvg = host.querySelector<SVGSVGElement>('[data-vp-seq-logo]');
+  const logoPan = host.querySelector<HTMLInputElement>('[data-vp-logo-pan]');
+  const logoWidth = host.querySelector<HTMLSelectElement>('[data-vp-logo-width]');
+  const logoStat = host.querySelector<HTMLElement>('[data-vp-logo-stat]');
+  const ismCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-ism]');
+  const ismStat = host.querySelector<HTMLElement>('[data-vp-ism-stat]');
   const trackSvg = host.querySelector<SVGSVGElement>('[data-vp-track]');
   const layerList = $('[data-vp-layers]');
   const liveStat = $('[data-vp-livestat]');
@@ -267,6 +282,7 @@ export function initVariantPlayground(root: ParentNode = document) {
   // Expanded by default: eight of the fourteen windows contain an overlap, and collapsing is the
   // compact view rather than the honest one.
   let geneRowsExpanded = true;
+  let ism: Ism | null = null;
   /** Why there is no result to show, named so the empty state can say it. */
   let emptyReason = 'No prediction yet.';
   /** Which motif is currently knocked out, and the peak before it was. */
@@ -332,11 +348,86 @@ export function initVariantPlayground(root: ParentNode = document) {
     };
   }
 
+  /**
+   * The selected conv-stem filter as a sequence logo -- the classic reading of a first-layer
+   * convolution as a motif detector.
+   *
+   * `filterLogo` has been in the pure layer, tested, since the stem was ported, and had never been
+   * drawn: the panel showed which neurons fired and never what any of them was looking for. Letter
+   * height is the weight relative to that position's mean, above the axis for preferred and below
+   * for disfavoured, which is how a PWM logo encodes a signed matrix.
+   */
+  function renderFilterLogo(): void {
+    if (!filterLogoSvg) return;
+    clear(filterLogoSvg);
+    const rows = filterLogo(selectedFilter, STEM);
+    const W = 300;
+    const H = 92;
+    const mid = 46;
+    attr(filterLogoSvg, { viewBox: `0 0 ${W} ${H}` });
+    // One scale across the whole filter, so the tallest letter is its strongest preference and
+    // columns can be compared with each other rather than each being normalised to itself.
+    let peak = 0;
+    for (const row of rows) for (const v of row) peak = Math.max(peak, Math.abs(v));
+    const colW = W / rows.length;
+    const consensus: string[] = [];
+
+    rows.forEach((row, i) => {
+      // Stack from the axis outward, largest first, the way a logo is built.
+      const order = row.map((v, b) => ({ v, b })).sort((a, b) => Math.abs(b.v) - Math.abs(a.v));
+      let up = mid;
+      let down = mid;
+      let best = order[0];
+      for (const { v, b } of order) {
+        if (v > 0 && (!best || v > best.v)) best = { v, b };
+      }
+      consensus.push(best.v > 0 ? BASES[best.b] : '·');
+      for (const { v, b } of order) {
+        const h = (Math.abs(v) / Math.max(peak, 1e-9)) * 38;
+        if (h < 0.6) continue;
+        const g = el('text');
+        // Scaled glyphs rather than font-size, so a letter's HEIGHT is the weight and its width
+        // stays the column's -- the property a logo is read by.
+        const y = v > 0 ? up : down + h;
+        g.textContent = BASES[b];
+        attr(g, {
+          x: 0, y: 0, class: `vp-base vp-base-${BASES[b]}`, 'font-size': 10,
+          'text-anchor': 'middle',
+          transform: `translate(${(i + 0.5) * colW} ${y}) scale(${(colW / 7).toFixed(3)} ${(h / 7.4).toFixed(3)})`,
+        });
+        filterLogoSvg.append(g);
+        if (v > 0) up -= h; else down += h;
+      }
+    });
+
+    const axis = el('line');
+    attr(axis, { x1: 0, x2: W, y1: mid, y2: mid, stroke: 'var(--color-rule)', 'stroke-width': 1 });
+    filterLogoSvg.append(axis);
+    for (let i = 0; i <= rows.length; i += 5) {
+      filterLogoSvg.append(text(i * colW, H - 2, String(i + 1), 'vp-ax'));
+    }
+    filterLogoSvg.append(text(2, 10, `weight ±${peak.toFixed(2)}`, 'vp-ax', 'start'));
+    filterLogoSvg.dataset.consensus = consensus.join('');
+    filterLogoSvg.dataset.filter = String(selectedFilter);
+
+    if (filterNameEl) {
+      // Where this filter fires hardest in the sequence on screen, so the logo can be checked
+      // against a real match rather than taken on trust.
+      const act = stemActivations(editable, STEM);
+      const at = act.peakAt[selectedFilter];
+      const hit = editable.slice(Math.max(0, at), Math.max(0, at) + STEM.kernelWidth);
+      filterNameEl.textContent =
+        `filter #${selectedFilter} · consensus ${consensus.join('')} · `
+        + `strongest here at ${at} bp (${hit || '—'}), response ${act.peak[selectedFilter].toFixed(2)}`;
+    }
+  }
+
   function refreshLive(): void {
     const t0 = performance.now();
     const act = stemActivations(editable, STEM);
     const tCompute = performance.now() - t0;
     renderNeurons(act);
+    renderFilterLogo();
     const fired = Array.from(act.peak).filter((v) => v > 0).length;
     if (liveStat) {
       liveStat.textContent =
@@ -1206,6 +1297,7 @@ export function initVariantPlayground(root: ParentNode = document) {
    * panel below correctly went blank -- which reads as "I ran it and got no output".
    */
   function clearResults(reason: string): void {
+    ism = null;
     delete host.dataset.vpResultLocus;
     delete host.dataset.vpResultSource;
     current = null;
@@ -1316,9 +1408,13 @@ export function initVariantPlayground(root: ParentNode = document) {
     paint3dFaces();
     setStatus(`${LOCI[locusIndex].gene}: all layers and all ${N_TRACKS.toLocaleString()} tracks, precomputed.`);
 
-    // The traceback pack, fetched after the activations so the page is usable first.
-    attribution = await loadAttribution(locusId);
+    // The traceback and mutagenesis packs, fetched after the activations so the page is usable
+    // first. Both are small beside the 2-4 MB activation pack.
+    const [attr, gotIsm] = await Promise.all([loadAttribution(locusId), loadIsm(locusId)]);
     if (token !== precomputeToken || locusId !== LOCI[locusIndex].id) return;
+    attribution = attr;
+    ism = gotIsm;
+    renderIsm();
     host.dataset.vpTraceReady = attribution ? 'true' : 'false';
     if (anchorSelect) {
       clear(anchorSelect);
@@ -1333,7 +1429,11 @@ export function initVariantPlayground(root: ParentNode = document) {
         anchorSelect.append(o);
       }
     }
+    renderRegionList();
     renderAttribution();
+    renderStageProfile();
+    renderRollout();
+    renderSeqLogo();
   }
 
   /**
@@ -1536,6 +1636,47 @@ export function initVariantPlayground(root: ParentNode = document) {
     };
   }
 
+  interface Ism {
+    plane: Float32Array;      // [4 x width], rows A/C/G/T, the reference base's row exactly zero
+    start: number;
+    width: number;
+    ref: number;
+    tss: number;
+  }
+
+  /**
+   * Load a locus's mutagenesis plane. It rides in the same sidecar as the activation packs, so a
+   * locus without one simply has no `ism` key and the panel says so rather than failing.
+   */
+  async function loadIsm(locusId: string): Promise<Ism | null> {
+    const base = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/vp-data`;
+    const meta = await fetch(`${base}/${locusId}.json`)
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null);
+    const spec = meta?.ism;
+    if (!spec) return null;
+    const blob = await fetch(`${base}/${locusId}-ism.png`).then((r) => (r.ok ? r.blob() : null));
+    if (!blob) return null;
+    const bitmap = await createImageBitmap(blob);
+    const cv = document.createElement('canvas');
+    cv.width = spec.cols;
+    cv.height = spec.rows;
+    const cx = cv.getContext('2d', { willReadFrequently: true });
+    if (!cx) return null;
+    cx.drawImage(bitmap, 0, 0);
+    bitmap.close();
+    const px = cx.getImageData(0, 0, spec.cols, spec.rows).data;
+    const plane = new Float32Array(spec.rows * spec.cols);
+    for (let r = 0; r < spec.rows; r += 1) {
+      const lo = spec.lo[r];
+      const range = Math.max(spec.hi[r] - lo, 1e-12);
+      for (let c = 0; c < spec.cols; c += 1) {
+        plane[r * spec.cols + c] = (px[(r * spec.cols + c) * 4] / 255) * range + lo;
+      }
+    }
+    return { plane, start: spec.start, width: spec.cols, ref: spec.ref, tss: spec.tss };
+  }
+
   const traceRegion = (a: Attribution, s: number, e: number) =>
     sumAttributionRows(a.input, a.cols.input, a.groupBins, a.groups, s, e);
   const traceChannels = (a: Attribution, s: number, e: number) =>
@@ -1659,11 +1800,355 @@ export function initVariantPlayground(root: ParentNode = document) {
     attrCanvas.dataset.domainBp = `0-${SEQ_LEN}`;
   }
 
+  /**
+   * Every stage's share of the traced region's relevance, in one list.
+   *
+   * The layer panel answers "which channels" for the ONE stage you happen to have selected. This
+   * answers it for all twenty-one at once, which is what "trace it layer by layer" actually asks
+   * for. Built from the `channels` plane already in every pack, so it costs no download.
+   */
+  function renderStageProfile(): void {
+    if (!stageProfileEl) return;
+    clear(stageProfileEl);
+    if (!attribution || !tracedBins) {
+      const li = document.createElement('li');
+      li.textContent = 'Trace a region to see which stages carry it.';
+      stageProfileEl.append(li);
+      delete stageProfileEl.dataset.stages;
+      return;
+    }
+    const rel = traceChannels(attribution, tracedBins.start, tracedBins.end);
+    const offsets = stageMapOffsets();
+    const rows = layerSpecs().map((spec) => {
+      const off = offsets.find((o) => o.id === spec.id);
+      if (!off) return { spec, mean: null as number | null, top: [] as { c: number; v: number }[] };
+      let sum = 0;
+      const chans: { c: number; v: number }[] = [];
+      for (let c = 0; c < off.channels; c += 1) {
+        const v = Math.abs(rel[off.start + c]);
+        sum += v;
+        chans.push({ c, v });
+      }
+      chans.sort((a, b) => b.v - a.v);
+      // A MEAN, not a sum: summing ranks a wide stage above a narrow one on width alone.
+      return { spec, mean: sum / off.channels, top: chans.slice(0, 3) };
+    });
+    const hi = Math.max(...rows.map((r) => r.mean ?? 0), 1e-12);
+
+    for (const row of rows) {
+      const li = document.createElement('li');
+      li.setAttribute('aria-selected', String(row.spec.id === (flow?.selected()?.id ?? '')));
+      const name = document.createElement('span');
+      name.textContent = row.spec.label;
+      const val = document.createElement('span');
+      // A stage with no per-layer relevance in the pack says so, rather than reporting zero --
+      // which would read as "contributes nothing" when it means "not measured here".
+      val.textContent = row.mean === null ? 'own tensor' : row.mean.toPrecision(3);
+      li.append(name, val);
+      const bar = document.createElement('i');
+      bar.className = 'bar';
+      bar.style.width = `${row.mean === null ? 0 : (row.mean / hi) * 100}%`;
+      li.append(bar);
+      if (row.top.length) {
+        const chans = document.createElement('span');
+        chans.className = 'chans';
+        row.top.forEach((q, i) => {
+          if (i) chans.append(document.createTextNode(' · '));
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.textContent = `#${q.c} (${q.v.toPrecision(2)})`;
+          b.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            selectedFilter = q.c;
+            selectStage(row.spec.id);
+          });
+          chans.append(b);
+        });
+        li.append(chans);
+      }
+      li.addEventListener('click', () => selectStage(row.spec.id));
+      stageProfileEl.append(li);
+    }
+    stageProfileEl.dataset.stages = String(rows.length);
+  }
+
+  /** Open one stage in the flow and the detail panel together. */
+  function selectStage(id: string): void {
+    const i = FLOW_STAGES.findIndex((s) => s.id === id);
+    if (i < 0) return;
+    flow?.select(i);
+    flow3d?.select(id);
+    renderStageDetail(FLOW_STAGES[i]);
+    renderStageProfile();
+  }
+
+  /**
+   * Attention rollout for the traced region: what the transformer can read, composed over 8 layers.
+   *
+   * Drawn on the page's one bp axis so it can be laid against the attribution above it. This is an
+   * ARCHITECTURAL quantity -- where it disagrees with gradient x input, that is the finding.
+   */
+  function renderRollout(): void {
+    if (!rolloutCanvas) return;
+    const cssW = rolloutCanvas.clientWidth || 700;
+    const cssH = 78;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    rolloutCanvas.width = Math.round(cssW * dpr);
+    rolloutCanvas.height = Math.round(cssH * dpr);
+    rolloutCanvas.style.height = `${cssH}px`;
+    const ctx = rolloutCanvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+    const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
+    ctx.font = '10px system-ui, sans-serif';
+    ctx.fillStyle = muted;
+
+    if (!current?.attention || !tracedBins) {
+      ctx.fillText('Trace a region to see what the transformer reads for it.', 4, 20);
+      delete rolloutCanvas.dataset.peak;
+      return;
+    }
+    const roll = attentionRollout(current.attention, BOTTLENECK_LEN);
+    const { start, end } = binsToBottleneck(tracedBins.start, tracedBins.end);
+    // Average the rollout rows the region occupies: where those positions' representations came
+    // from, over the 128 bottleneck positions.
+    const profile = new Float64Array(BOTTLENECK_LEN);
+    const n = Math.max(end - start, 1);
+    for (let i = start; i < end; i += 1) {
+      for (let j = 0; j < BOTTLENECK_LEN; j += 1) profile[j] += roll[i * BOTTLENECK_LEN + j] / n;
+    }
+    let peak = 0;
+    for (const v of profile) peak = Math.max(peak, v);
+
+    const top = 16;
+    const bottom = cssH - 18;
+    const per = SEQ_LEN / BOTTLENECK_LEN;
+    ctx.fillStyle = getComputedStyle(host).getPropertyValue('--vp-orf').trim() || '#6f62a8';
+    for (let j = 0; j < BOTTLENECK_LEN; j += 1) {
+      const x = xOfBp(j * per, cssW);
+      const w = Math.max(xOfBp((j + 1) * per, cssW) - x, 1);
+      const h = (profile[j] / Math.max(peak, 1e-12)) * (bottom - top);
+      ctx.fillRect(x, bottom - h, w, h);
+    }
+    // Mark the region itself, so "it reads mostly itself" is visible rather than inferred.
+    ctx.strokeStyle = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
+    ctx.strokeRect(xOfBp(start * per, cssW), top,
+      Math.max(xOfBp(end * per, cssW) - xOfBp(start * per, cssW), 2), bottom - top);
+
+    let inside = 0;
+    for (let j = start; j < end; j += 1) inside += profile[j];
+    ctx.fillStyle = muted;
+    ctx.fillText(
+      `attention rollout · ${BOTTLENECK_LEN} bottleneck positions of ${per} bp · `
+      + `${(inside * 100).toFixed(1)}% of the region's attention stays inside it`,
+      4, 11,
+    );
+    ctx.textAlign = 'center';
+    for (const bp of bpTicks(4000)) {
+      ctx.textAlign = bp === 0 ? 'left' : bp >= SEQ_LEN ? 'right' : 'center';
+      ctx.fillText(bpLabel(bp), xOfBp(bp, cssW), cssH - 5);
+    }
+    ctx.textAlign = 'left';
+    rolloutCanvas.dataset.peak = String(peak);
+    rolloutCanvas.dataset.inside = inside.toFixed(4);
+  }
+
+  /**
+   * The traced attribution as a sequence logo, over a window small enough to show letters.
+   *
+   * 16,384 letters across 900 px is 0.05 px each, so a logo needs a zoom -- this pans a window of
+   * 60-400 bp over the single-base anchor plane. ONLY the base actually present gets a letter, and
+   * that is exact rather than a simplification: the input is one-hot, so gradient x input is
+   * identically zero at the three bases that are not there. Reading what a SUBSTITUTION would do
+   * needs a different method, which is what the mutagenesis panel measures.
+   */
+  function renderSeqLogo(): void {
+    if (!seqLogoSvg) return;
+    clear(seqLogoSvg);
+    const W = 1000;
+    const H = 120;
+    attr(seqLogoSvg, { viewBox: `0 0 ${W} ${H}` });
+    const width = Number(logoWidth?.value ?? 150);
+    const seq = mode === 'locus' ? LOCI[locusIndex].sequence : editable;
+
+    if (!attribution || !tracedBins) {
+      seqLogoSvg.append(text(W / 2, H / 2, 'Trace a region above to see its bases.', 'vp-ax'));
+      if (logoStat) logoStat.textContent = '';
+      delete seqLogoSvg.dataset.letters;
+      return;
+    }
+    const anchorIdx = attribution.anchors.findIndex(
+      (a) => a.binStart === tracedBins!.start && a.binEnd === tracedBins!.end,
+    );
+    // A dragged region resolves to 128 bp, which cannot carry letters; an anchor is single-base.
+    const perBase = anchorIdx >= 0;
+    const series = perBase
+      ? attribution.anchor.subarray(anchorIdx * attribution.cols.anchor,
+                                    (anchorIdx + 1) * attribution.cols.anchor)
+      : traceRegion(attribution, tracedBins.start, tracedBins.end);
+
+    // Centre on the strongest attribution by default; the slider moves it from there.
+    const pan = Number(logoPan?.value ?? 500) / 1000;
+    const centre = Math.round(pan * SEQ_LEN);
+    const start = Math.max(0, Math.min(SEQ_LEN - width, centre - Math.floor(width / 2)));
+    const colW = W / width;
+    const mid = H / 2 - 6;
+    let peak = 0;
+    for (let i = start; i < start + width; i += 1) {
+      const v = perBase ? series[i] : series[Math.floor((i / SEQ_LEN) * series.length)];
+      peak = Math.max(peak, Math.abs(v));
+    }
+
+    let letters = 0;
+    for (let i = start; i < start + width; i += 1) {
+      const base = (seq[i] ?? 'N').toUpperCase();
+      if (!BASES.includes(base as Base)) continue;
+      const v = perBase ? series[i] : series[Math.floor((i / SEQ_LEN) * series.length)];
+      const h = (Math.abs(v) / Math.max(peak, 1e-12)) * (H / 2 - 16);
+      if (h < 0.4) continue;
+      const g = el('text');
+      g.textContent = base;
+      // Scaled glyphs, so HEIGHT carries the attribution and width stays the column's.
+      attr(g, {
+        x: 0, y: 0, class: `vp-base vp-base-${base}`, 'font-size': 10, 'text-anchor': 'middle',
+        transform: `translate(${((i - start) + 0.5) * colW} ${v > 0 ? mid : mid + h})`
+          + ` scale(${(colW / 7).toFixed(3)} ${(h / 7.4).toFixed(3)})`,
+      });
+      seqLogoSvg.append(g);
+      letters += 1;
+    }
+    const axis = el('line');
+    attr(axis, { x1: 0, x2: W, y1: mid, y2: mid, stroke: 'var(--color-rule)', 'stroke-width': 1 });
+    seqLogoSvg.append(axis);
+    for (let k = 0; k <= width; k += Math.max(10, Math.round(width / 10))) {
+      seqLogoSvg.append(text(k * colW, H - 3, String(start + k), 'vp-ax'));
+    }
+    seqLogoSvg.dataset.letters = String(letters);
+    seqLogoSvg.dataset.window = `${start}-${start + width}`;
+    if (logoStat) {
+      logoStat.textContent =
+        `bp ${start.toLocaleString()}–${(start + width).toLocaleString()} · ${width} bp · `
+        + (perBase
+          ? `single-base attribution for ${tracedBins.label}`
+          : `${tracedBins.label} at 128 bp — pick a gene below the curve for single-base letters`);
+    }
+  }
+
+  /**
+   * The mutagenesis panel: every substitution in the promoter window, and what it actually did.
+   *
+   * Four rows of real forward passes rather than a gradient. The reference base's own cell is zero
+   * by construction, which is why one row of every column is blank -- that blank IS the reference,
+   * and the panel says so rather than leaving it as an unexplained gap.
+   */
+  function renderIsm(): void {
+    if (!ismCanvas) return;
+    const cssW = ismCanvas.clientWidth || 900;
+    const rowH = 16;
+    const cssH = 4 * rowH + 40;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    ismCanvas.width = Math.round(cssW * dpr);
+    ismCanvas.height = Math.round(cssH * dpr);
+    ismCanvas.style.height = `${cssH}px`;
+    const ctx = ismCanvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+    const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
+    ctx.font = '10px system-ui, sans-serif';
+    ctx.fillStyle = muted;
+
+    if (!ism) {
+      ctx.fillText(
+        mode === 'locus'
+          ? 'Mutagenesis for this locus has not loaded.'
+          : 'Switch to a yeast locus to see its mutagenesis window.',
+        4, 20,
+      );
+      if (ismStat) ismStat.textContent = '';
+      delete ismCanvas.dataset.peak;
+      return;
+    }
+    const { plane, start, width, ref, tss } = ism;
+    const seq = LOCI[locusIndex].sequence;
+    let peak = 0;
+    for (let i = 0; i < plane.length; i += 1) peak = Math.max(peak, Math.abs(plane[i]));
+
+    const left = 26;
+    const top = 18;
+    const colW = (cssW - left - 6) / width;
+    const neutral = neutralRgb();
+    const scale = { kind: 'diverging' as const, half: Math.max(peak, 1e-12), lo: -peak, hi: peak };
+    const rgba = paintActivationMap(plane, 4, width, scale, neutral);
+    const off = document.createElement('canvas');
+    off.width = width;
+    off.height = 4;
+    const octx = off.getContext('2d');
+    if (octx) {
+      const img = octx.createImageData(width, 4);
+      img.data.set(rgba);
+      octx.putImageData(img, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(off, left, top, cssW - left - 6, 4 * rowH);
+    }
+    ctx.fillStyle = muted;
+    ctx.textAlign = 'right';
+    BASES.forEach((b, i) => ctx.fillText(b, left - 4, top + i * rowH + rowH / 2 + 3.5));
+
+    // The TSS, which is what the window is centred on.
+    ctx.textAlign = 'center';
+    const tssX = left + ((tss - start) / width) * (cssW - left - 6);
+    if (tssX > left && tssX < cssW - 6) {
+      ctx.strokeStyle = getComputedStyle(host).getPropertyValue('--vp-orf').trim() || '#6f62a8';
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath();
+      ctx.moveTo(tssX, top);
+      ctx.lineTo(tssX, top + 4 * rowH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillText('TSS', tssX, top - 4);
+    }
+    for (let k = 0; k <= width; k += 64) {
+      const x = left + (k / width) * (cssW - left - 6);
+      ctx.fillText(String(start + k), x, cssH - 4);
+    }
+    ctx.textAlign = 'left';
+    // BOTH the absolute and the relative change, because a percentage of a silent gene is
+    // misleading in the direction that matters: HOP2's strongest substitution is +448% of a
+    // reference of 0.42 -- an absolute move of 1.9 -- while ADH1's is -19% of 488, a move of 92.
+    // Ranked by percentage HOP2 leads; ranked by what the model actually predicts, ADH1 does.
+    ctx.fillText(
+      `${LOCI[locusIndex].gene} · bp ${start}–${start + width} · reference ${ref.toFixed(2)}`
+      + ` · strongest substitution ${peak > 0 ? '±' : ''}${peak.toFixed(2)}`
+      + ` (${(peak / Math.max(ref, 1e-9) * 100).toFixed(0)}% of the reference)`,
+      left, 11,
+    );
+    ismCanvas.dataset.peak = String(peak);
+    ismCanvas.dataset.window = `${start}-${start + width}`;
+    if (ismStat) {
+      const seqAt = seq.slice(start, start + width);
+      const gc = [...seqAt].filter((c) => c === 'G' || c === 'C').length / Math.max(seqAt.length, 1);
+      ismStat.textContent = `${width} bp around the TSS · GC ${(gc * 100).toFixed(0)}% · `
+        + `${width * 3} real forward passes`;
+    }
+  }
+
   /** Trace a bin range and update every view that shows it. */
   function traceBins(start: number, end: number, label: string): void {
     tracedBins = { start: Math.max(0, start), end: Math.min(N_BINS, end), label };
+    // Centre the logo on the region just selected. Leaving the pan where it was showed the letters
+    // of wherever the reader last looked, which under a new region's heading reads as that
+    // region's bases -- the same class of stale-view bug as a locus change that kept its canvases.
+    if (logoPan) {
+      const midBp = CROP_BP + ((tracedBins.start + tracedBins.end) / 2) * BIN_BP;
+      logoPan.value = String(Math.round(windowFraction(midBp) * 1000));
+    }
     renderTrack();          // the curve carries the selection marker, so it has to redraw too
     renderAttribution();
+    renderStageProfile();
+    renderRollout();
+    renderSeqLogo();
     trace3d();
     renderStageDetail(flow?.selected() ?? null);
     if (traceLabel) {
@@ -2197,6 +2682,54 @@ export function initVariantPlayground(root: ParentNode = document) {
     renderSingleTrack();
   });
 
+  /**
+   * The region stepper. Iterating regions is the workflow this panel exists for -- picking one
+   * region from a dropdown answers one question, walking them answers "which region behaves
+   * differently", which is the one worth asking.
+   */
+  function renderRegionList(): void {
+    if (!regionSelect) return;
+    clear(regionSelect);
+    for (const a of attribution?.anchors ?? []) {
+      const o = document.createElement('option');
+      o.value = `${a.binStart}:${a.binEnd}`;
+      o.textContent = `${a.label} (${(a.massInside * 100).toFixed(0)}% of its mass)`;
+      regionSelect.append(o);
+    }
+    if (tracedBins) regionSelect.value = `${tracedBins.start}:${tracedBins.end}`;
+    if (regionStat) {
+      regionStat.textContent = attribution
+        ? `${attribution.anchors.length} precomputed regions · or drag on the curve above`
+        : 'no traceback pack for this locus';
+    }
+  }
+
+  function stepRegion(delta: number): void {
+    const anchors = attribution?.anchors ?? [];
+    if (!anchors.length) return;
+    const at = anchors.findIndex(
+      (a) => tracedBins && a.binStart === tracedBins.start && a.binEnd === tracedBins.end,
+    );
+    const next = anchors[(((at < 0 ? 0 : at + delta) % anchors.length) + anchors.length) % anchors.length];
+    traceBins(next.binStart, next.binEnd, next.label);
+    if (regionSelect) regionSelect.value = `${next.binStart}:${next.binEnd}`;
+  }
+
+  host.querySelector('[data-vp-region-prev]')?.addEventListener('click', () => stepRegion(-1));
+  host.querySelector('[data-vp-region-next]')?.addEventListener('click', () => stepRegion(1));
+  regionSelect?.addEventListener('change', () => {
+    const [s, e] = regionSelect.value.split(':').map(Number);
+    const a = attribution?.anchors.find((x) => x.binStart === s && x.binEnd === e);
+    if (a) traceBins(a.binStart, a.binEnd, a.label);
+  });
+  logoPan?.addEventListener('input', renderSeqLogo);
+  logoWidth?.addEventListener('change', renderSeqLogo);
+
+  spinBtn?.addEventListener('click', () => {
+    flow3d?.resumeSpin();
+    spinBtn.hidden = true;
+  });
+
   host.querySelector<HTMLInputElement>('[data-vp-generows]')?.addEventListener('change', (ev) => {
     geneRowsExpanded = (ev.target as HTMLInputElement).checked;
     renderTrack();
@@ -2245,6 +2778,9 @@ export function initVariantPlayground(root: ParentNode = document) {
     if (traceLabel) traceLabel.textContent = 'Drag across the curve above to trace a region back to the sequence.';
     renderTrack();
     renderAttribution();
+    renderStageProfile();
+    renderRollout();
+    renderSeqLogo();
     trace3d();
     renderStageDetail(flow?.selected() ?? null);
   });
@@ -2255,12 +2791,15 @@ export function initVariantPlayground(root: ParentNode = document) {
       viewBtns.forEach((x) => x.setAttribute('aria-pressed', String((x.dataset.vpView === '3d') === want3d)));
       if (flowCanvas) flowCanvas.hidden = want3d;
       if (flow3dCanvas) flow3dCanvas.hidden = !want3d;
+      if (spinBtn) spinBtn.hidden = !want3d || (flow3d?.spinning() ?? true);
       host.dataset.vpView = want3d ? '3d' : '2d';
       if (want3d && flow3dCanvas && !flow3d) {
         // Built on first use: the three chunk is only worth fetching for a reader who asks for it.
         flow3d = createFlow3d(flow3dCanvas, host);
         paint3dFaces();
         trace3d();   // a region traced while the flat view was up must be lit on arrival here
+        // The first drag stops the idle rotation; this is how a reader gets it back.
+        flow3d.onSpinChange((on) => { if (spinBtn) spinBtn.hidden = on; });
         flow3d.onSelect((id: string | null) => {
           const i = FLOW_STAGES.findIndex((s) => s.id === id);
           if (i >= 0) {
@@ -2326,6 +2865,10 @@ export function initVariantPlayground(root: ParentNode = document) {
   renderHeatmap();
   renderSingleTrack();
   renderAttribution();
+  renderStageProfile();
+  renderRollout();
+  renderSeqLogo();
+  renderIsm();
   setStatus('Live conv-stem view is running. Load the full model to predict a track.');
 
   return {

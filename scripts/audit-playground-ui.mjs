@@ -732,6 +732,173 @@ async function auditTraceback(browser, baseURL, scope) {
 }
 
 /**
+ * The interpretation panels: layer profile, attention rollout, sequence logo, mutagenesis.
+ *
+ * The rule these all share is the one `audit:deep-dives` applies to a widget's readout: it is not
+ * enough that a panel draws, it must draw something DIFFERENT for a different region. A profile
+ * wired to a constant, or a logo left panned where the last region put it, paints exactly as much
+ * ink as a correct one.
+ */
+async function auditInterpretation(browser, baseURL, scope) {
+  const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1400 } });
+  const page = await context.newPage();
+  try {
+    await enterLocus(page);
+    await page.waitForFunction(
+      () => document.querySelector('[data-vp]').dataset.vpTraceReady === 'true',
+      { timeout: 60_000 },
+    );
+    const snap = () => page.evaluate(() => ({
+      region: document.querySelector('[data-vp-region]')?.selectedOptions[0]?.textContent ?? '',
+      stages: Number(document.querySelector('[data-vp-stage-profile]')?.dataset.stages ?? '0'),
+      inside: document.querySelector('[data-vp-rollout]')?.dataset.inside ?? '',
+      letters: Number(document.querySelector('[data-vp-seq-logo]')?.dataset.letters ?? '0'),
+      logoWindow: document.querySelector('[data-vp-seq-logo]')?.dataset.window ?? '',
+      trace: document.querySelector('[data-vp-trace-label]')?.textContent ?? '',
+    }));
+
+    await page.locator('[data-vp-region-next]').scrollIntoViewIfNeeded();
+    await page.locator('[data-vp-region-next]').click();
+    await page.waitForTimeout(600);
+    const a = await snap();
+    await page.locator('[data-vp-region-next]').click();
+    await page.waitForTimeout(600);
+    const b = await snap();
+
+    // Every stage, not just the selected one -- that is what "layer by layer" means.
+    if (a.stages !== 21) fail(scope, `stage profile listed ${a.stages} stages, expected 21`);
+    if (!(a.letters > 20)) fail(scope, `sequence logo drew ${a.letters} letters`);
+    if (!a.inside) fail(scope, 'attention rollout produced no value');
+    if (a.region === b.region) fail(scope, 'the region stepper did not advance');
+    if (a.inside === b.inside) fail(scope, 'attention rollout is identical for two regions');
+    if (a.logoWindow === b.logoWindow) {
+      fail(scope, `sequence logo stayed at ${a.logoWindow} across two regions — it does not follow the selection`);
+    }
+
+    // The logo window must actually contain the region it claims to show.
+    const bins = /bins (\d+)–(\d+)/.exec(b.trace);
+    if (bins) {
+      const midBp = 1024 + ((Number(bins[1]) + Number(bins[2])) / 2) * 16;
+      const [lo, hi] = b.logoWindow.split('-').map(Number);
+      if (!(midBp >= lo && midBp <= hi)) {
+        fail(scope, `logo window ${b.logoWindow} does not contain the traced region's centre ${Math.round(midBp)} bp`);
+      }
+    }
+
+    // Clicking a stage in the profile must open it in the layer panel above.
+    const rows = page.locator('[data-vp-stage-profile] li');
+    await rows.nth(9).click();
+    await page.waitForTimeout(300);
+    const opened = await page.evaluate(
+      () => document.querySelector('[data-vp-stage-title]')?.textContent ?? '',
+    );
+    const wanted = (await rows.nth(9).textContent()) ?? '';
+    if (!opened.startsWith(wanted.split(/\d/)[0].trim().slice(0, 12))) {
+      fail(scope, `clicking "${wanted.slice(0, 24)}" opened "${opened.slice(0, 40)}"`);
+    }
+
+    // Mutagenesis: present, non-degenerate, and scoped to a stated window.
+    const ismInfo = await page.evaluate(() => {
+      const c = document.querySelector('[data-vp-ism]');
+      if (!c || !c.width) return null;
+      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      let ink = 0;
+      const colours = new Set();
+      for (let i = 0; i < d.length; i += 4) {
+        if (d[i + 3] > 8) { ink += 1; if (colours.size < 400) colours.add(`${d[i]},${d[i + 1]},${d[i + 2]}`); }
+      }
+      return { ink, colours: colours.size, peak: Number(c.dataset.peak ?? '0'), window: c.dataset.window ?? '' };
+    });
+    if (!ismInfo) fail(scope, 'no mutagenesis canvas');
+    else {
+      if (!(ismInfo.peak > 0)) fail(scope, 'mutagenesis plane is all zero');
+      if (ismInfo.colours < 10) fail(scope, `mutagenesis raster has ${ismInfo.colours} distinct colours — it is a wash`);
+      if (!/^\d+-\d+$/.test(ismInfo.window)) fail(scope, `mutagenesis window unstated: "${ismInfo.window}"`);
+    }
+  } finally {
+    await context.close();
+  }
+}
+
+/**
+ * The volume view rotates by default and must stop the moment the reader takes hold of it.
+ *
+ * Advancing the idle spin under the pointer means the drag and the animation fight for the same
+ * axis, so the model never settles where it was put.
+ */
+async function auditRotationLatch(browser, baseURL, scope) {
+  const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1000 } });
+  const page = await context.newPage();
+  try {
+    await enterLocus(page);
+    await page.locator('[data-vp-view="3d"]').scrollIntoViewIfNeeded();
+    await page.locator('[data-vp-view="3d"]').click();
+    await page.waitForTimeout(1600);
+    const canvas = page.locator('[data-vp-flow3d]');
+    const before = await canvas.screenshot();
+    await page.waitForTimeout(900);
+    if ((await canvas.screenshot()).equals(before)) {
+      fail(scope, 'the volume view is not rotating by default');
+    }
+    const box = await canvas.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 40, box.y + box.height / 2, { steps: 6 });
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+    const held = await canvas.screenshot();
+    await page.waitForTimeout(1200);
+    if (!(await canvas.screenshot()).equals(held)) {
+      fail(scope, 'the volume view keeps rotating after a drag');
+    }
+    if (!(await page.locator('[data-vp-spin]').isVisible())) {
+      fail(scope, 'no way to resume rotation after a drag stopped it');
+    }
+    await page.locator('[data-vp-spin]').click();
+    await page.waitForTimeout(900);
+    if ((await canvas.screenshot()).equals(held)) {
+      fail(scope, 'resume rotation did not restart the idle animation');
+    }
+  } finally {
+    await context.close();
+  }
+}
+
+/** The conv-stem filter logo: a first-layer convolution read as the motif detector it is. */
+async function auditFilterLogo(browser, baseURL, scope) {
+  const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1200 } });
+  const page = await context.newPage();
+  try {
+    await enterLocus(page);
+    const first = await page.evaluate(() => ({
+      consensus: document.querySelector('[data-vp-filter-logo]')?.dataset.consensus ?? '',
+      letters: document.querySelectorAll('[data-vp-filter-logo] text.vp-base').length,
+      filter: document.querySelector('[data-vp-filter-logo]')?.dataset.filter ?? '',
+    }));
+    if (first.letters < 8) fail(scope, `filter logo drew ${first.letters} letters`);
+    if (!/^[ACGT·]{11}$/.test(first.consensus)) {
+      fail(scope, `filter consensus "${first.consensus}" is not 11 bases`);
+    }
+    // Selecting a different filter must show a different filter.
+    const raster = page.locator('[data-vp-neurons]');
+    await raster.scrollIntoViewIfNeeded();
+    const box = await raster.boundingBox();
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.6);
+    await page.waitForTimeout(400);
+    const second = await page.evaluate(() => ({
+      consensus: document.querySelector('[data-vp-filter-logo]')?.dataset.consensus ?? '',
+      filter: document.querySelector('[data-vp-filter-logo]')?.dataset.filter ?? '',
+    }));
+    if (second.filter === first.filter) fail(scope, 'clicking the raster did not change the filter');
+    if (second.consensus === first.consensus) {
+      fail(scope, `two different filters share the consensus "${second.consensus}"`);
+    }
+  } finally {
+    await context.close();
+  }
+}
+
+/**
  * The volume view must render, follow the theme, honour reduced motion, and dispose.
  *
  * A leaked GL context per navigation is the failure `/chromatin/` documents; it is silent and
@@ -900,9 +1067,14 @@ async function main() {
           await captureFailure('chromium/traceback', () => auditTraceback(browser, baseURL, 'chromium/traceback'));
           progress('chromium/annotation (14 loci)');
           await captureFailure('chromium/annotation', () => auditAnnotation(browser, baseURL, 'chromium/annotation'));
+          progress('chromium/interpretation');
+          await captureFailure('chromium/interpretation', () => auditInterpretation(browser, baseURL, 'chromium/interpretation'));
+          progress('chromium/filter-logo');
+          await captureFailure('chromium/filter-logo', () => auditFilterLogo(browser, baseURL, 'chromium/filter-logo'));
           progress('chromium/volume');
           await captureFailure('chromium/volume', () => auditVolume(browser, baseURL, 'chromium/volume'));
           await captureFailure('chromium/volume-still', () => auditVolumeStill(browser, baseURL, 'chromium/volume-still'));
+          await captureFailure('chromium/rotation-latch', () => auditRotationLatch(browser, baseURL, 'chromium/rotation-latch'));
         }
         if (FULL && engineName === 'chromium') {
           progress('chromium/full-model (one real inference, ~20 s)');

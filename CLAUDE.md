@@ -925,9 +925,69 @@ Keras checkpoint, ported and exported, producing the same numbers the paper's mo
   on the page — it is a canvas, so there is no element to inspect — and counting the *decomposition*
   instead would pass while the drawing was wrong. 7 of the 14 loci draw at least one intron as a gap.
 
+- **`windowFraction` is the page's one horizontal coordinate, and its domain is the WHOLE window.**
+  The panels are stacked, so a reader reads down a column expecting one bp — and they did not share
+  one: the coverage curve mapped x across bins 0–896 (bp 1,024–15,360) while the attribution
+  directly beneath it, at the same CSS width, mapped x across the full 0–16,384. The same screen x
+  was 1,024 bp apart at the left edge and the two disagreed by 14,336/16,384 across the middle; they
+  drew their gene tracks through different closures. The domain is the whole window rather than the
+  predicted interior because **the flanks are real** — every output bin's receptive field is all
+  16,384 bp — so the 896-bin curve is drawn where it falls with its cropped flanks shaded, and the
+  head's raster is inset the same way rather than stretched to fill.
+- **`axisTicks` places ticks through the axis in use, not linearly.** This page defaults to
+  `log1p(v)/log1p(max)`, where evenly spaced values are not evenly spaced positions, so ticks
+  generated linearly and then drawn on it bunch against the top. It returns the fraction up the axis
+  alongside the value so a caller never re-derives it.
+- **Two bands sharing 30 px is how a gene block came to be painted through a coordinate label.**
+  The layer ruler gave tick labels and two gene rows the same `RULER_H`, they overlapped by 4 px,
+  and `883.1 kb` rendered as `383.1`. The `fillText` calls were correct the whole time — patching
+  `CanvasRenderingContext2D.prototype.fillText` and logging what was actually drawn is what settled
+  it, after two wrong guesses about the arithmetic.
+- **An audit that finds an element by document order breaks when you add one before it.** The
+  coverage caption was located as the first `text` matching `/predicted/`; adding a *y-axis label*
+  reading "predicted coverage (a.u.)" silently made ten profiles start asserting against the axis.
+  It carries a `.vp-caption` class now.
+- **`packGeneRows` — eight of the fourteen shipped windows contain an overlap.** Every feature used
+  to draw on one line distinguished only by opacity, so in those eight one gene was painted over
+  another and could not be read. Greedy first-fit is the standard assignment and no window needs
+  more than two rows, so expanding costs one row and hides nothing.
+- **Gradient × input is exactly zero at the three bases that are not there**, because the input is
+  one-hot. A saliency logo built on it therefore has one letter per position *by construction* —
+  that is the correct rendering, not a simplification, and the page says so. All four letters
+  ("hypothetical contributions") would need the raw gradient, a different pack.
+- **A panned view must follow the selection.** The sequence logo kept its window when the region
+  changed, so it showed the letters of wherever the reader last looked *under the new region's
+  heading* — the same class of stale-view bug as a locus change that kept its canvases.
+- **Attention rollout: uniform attention mixed with the identity is NOT uniform.** It is
+  `0.5 I + (0.5/N) J`, already row-normalised, with a heavier diagonal; composing it k times gives
+  `0.5^k I + c_k J` with `c_k = (0.5/N)(2 − 2^(1−k))`, so at N = 8 over 8 layers the diagonal is
+  exactly **263/2048** and every other entry exactly **255/2048**. The first draft of that test
+  asserted 1/N and the test was what was wrong. Rollout is an *architectural* quantity — what the
+  transformer can read, not what changed the prediction — and it needs no new data at all: the
+  `[8 × 128 × 128]` maps already ship in every pack.
+- **`make_ism.py` runs off the shipped ONNX, so mutagenesis needs no checkpoint.** A forward pass
+  returning only `tracks` is ~85 ms, which puts 512 bp (1,536 substitutions) at ~2.2 min a locus and
+  ~31 min for all fourteen; a whole window would be 49,152 substitutions and about seventy minutes
+  each. It measures the RNA-seq group mean over **that window's own gene**, the same quantity the
+  motif knockouts report. The reference base's own row is zero by definition, which is why one row
+  of every column is blank.
+- **`filterLogo` sat in the pure layer, tested, and unrendered.** The conv-stem panel showed which
+  neurons fired and never what any of them was looking for — the classic DeepBind/Basset reading of
+  a first-layer convolution as a motif detector was one function call away the whole time. The
+  `.vp-base-A/C/G/T` colour classes were unused in the same way.
+- **The stage profile answers "layer by layer"; the layer panel answers it for one stage.** Both
+  read the same `channels [112 × 5760]` plane, but relevance is a **mean** over each stage's
+  channels — summing ranks a 1,536-channel stage above a 384-channel one on width alone. Stages
+  whose activations live on their own tensors report "own tensor" rather than 0, which would read as
+  "contributes nothing".
+
 **The volume view** (`src/scripts/shorkieFlow3d.ts`) is the third view, behind a `flat`/`volume`
 toggle, built on first use so the `three` chunk is only fetched for a reader who asks:
 
+- **Auto-rotation is the default and the first drag ends it.** `spin` used to advance every frame
+  regardless of input, so the drag and the idle animation fought for the same axis and the model
+  never settled where it was put. The latch folds the accumulated spin into `yaw` before engaging,
+  or the model jumps back to where the animation started the moment it is grabbed.
 - **Orthographic, deliberately.** The whole claim is that a slab's size *is* the tensor's shape, so
   a perspective camera would make a far slab small for a reason that has nothing to do with its
   channel count — the same lie a bar chart tells from a non-zero baseline. Depth reads from the

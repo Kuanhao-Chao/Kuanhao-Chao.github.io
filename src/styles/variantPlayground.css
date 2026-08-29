@@ -239,3 +239,58 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
   margin-left: 0.4rem;
   border-radius: 2px;
 }
+
+/* The conv-stem filter inspector: the logo beside what it does and does not mean. */
+.vp-filter {
+  display: grid;
+  grid-template-columns: minmax(210px, 300px) 1fr;
+  gap: 0.5rem 1rem;
+  align-items: start;
+  margin-top: 0.5rem;
+}
+.vp-filter > div { grid-row: span 2; }
+.vp-logo { max-width: 300px; }
+@media (max-width: 700px) {
+  .vp-filter { grid-template-columns: 1fr; }
+  .vp-filter > div { grid-row: auto; }
+}
+
+/* The layer-by-layer traceback: the stage list beside what it means. */
+.vp-trace-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 340px) 1fr;
+  gap: 0.6rem 1.1rem;
+  align-items: start;
+}
+@media (max-width: 760px) { .vp-trace-grid { grid-template-columns: 1fr; } }
+
+.vp-stages { list-style: none; margin: 0; padding: 0; font-size: var(--fs-meta); }
+.vp-stages li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0 0.5rem;
+  align-items: center;
+  padding: 0.15rem 0.3rem;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.vp-stages li:hover { background: color-mix(in srgb, var(--vp-accent) 12%, transparent); }
+.vp-stages li[aria-selected='true'] {
+  background: color-mix(in srgb, var(--vp-accent) 20%, transparent);
+  font-weight: 600;
+}
+.vp-stages .bar {
+  grid-column: 1 / -1;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--vp-accent);
+  opacity: 0.75;
+}
+.vp-stages .chans { grid-column: 1 / -1; color: var(--color-muted); font-size: 0.86em; }
+.vp-stages .chans button {
+  border: 0; background: none; padding: 0 0.12rem; cursor: pointer;
+  color: inherit; font: inherit; text-decoration: underline dotted;
+}
+.vp-stages .chans button:hover { color: var(--vp-accent); }
+
+.vp-ism { image-rendering: pixelated; }

@@ -124,13 +124,15 @@ them.
 | fp32 ↔ fp16, on real sequence | quantisation damage | relative ≤ **5.0e-4** (6.9e-3 on random ACGT — see above) |
 | **python ↔ browser**, same fp16 graph | **the thing actually shipped** | same argmax bin in all four track groups; peak relative difference ≤ **1.4e-3** (RNA-seq 994.8802 vs 994.4959 at bin 435) |
 | TS conv stem ↔ PyTorch stem | drift in the second implementation | fixture in `src/lib/__fixtures__/`, asserted by vitest |
+| **mutagenesis ↔ shipped graph** | a stale or mis-scaled ISM plane | 9 real substitutions re-derived, worst 0.048 — the uint8 floor; reference cells zero to the pack's resolution |
+| **DTD1's strongest substitution ↔ the motif panel** | **the whole chain**: two methods sharing no arithmetic must land on the same base | ISM puts it on bp 8,165, the `GT` donor of the 71 bp intron, at **−38.5%**; scrambling the whole 5′ splice site independently gives **−34%** |
 | **shipped packs ↔ shipped graph** | **a stale or mis-sliced precompute** — the packs are what the page draws, and nothing else compares them to the model | **54 stage-locus pairs, every loudest channel identical**; worst decode 0.6683 at `unet3`, which is that row's range / 255 |
 
 `verify_pipeline.py` runs the whole table:
 
 ```bash
-python3 scripts/shorkie/verify_pipeline.py                        # sections 1-2: repo only, no checkpoint
-python3 scripts/shorkie/verify_pipeline.py _scratch/model_best.h5 # + sections 3-8
+python3 scripts/shorkie/verify_pipeline.py                        # sections 1-3: repo only, no checkpoint
+python3 scripts/shorkie/verify_pipeline.py _scratch/model_best.h5 # + sections 4-9
 python3 scripts/shorkie/verify_pipeline.py _scratch/{model_best.h5,sacCer3.fa,sgdGene.txt}   # + the biology gate
 ```
 
@@ -225,3 +227,46 @@ the paper knows which they are looking at.
    ChIP-MNase 1128–1147, RNA-seq (TF induction) 1148–4200, 1,000-strain RNA-seq 4201–5214.
    Reading the paper's order labels the flat ChIP-exo block "RNA-seq", which still shows ORF
    enrichment (1.20×) and so survives a casual sanity check.
+
+
+## In-silico mutagenesis
+
+`make_ism.py` mutates every base in a 512 bp window to all three alternatives and re-runs the model.
+It uses the committed fp16 graph, so like the first sections of `verify_pipeline.py` it needs **no
+checkpoint and no network**.
+
+```bash
+python3 scripts/shorkie/make_ism.py --bp 512            # ~33 min for all 14 loci
+python3 scripts/shorkie/make_ism.py --only YGR192C --bp 64   # ~18 s, for a smoke test
+```
+
+A forward pass returning only `tracks` is **85 ms**, which puts 512 bp (1,536 substitutions) at
+about 2.2 minutes a locus. A whole window would be 49,152 substitutions and roughly seventy minutes
+each, which is why the window is the promoter and the page says so.
+
+The measured quantity is the RNA-seq group mean over **that window's own gene** — the same quantity
+the motif knockouts report. A 14,336 bp yeast window holds a dozen genes and the tallest is rarely
+the one whose promoter you edited.
+
+**Two results worth knowing before reading the panel.**
+
+The sign of the largest effect tracks whether the gene is already on. Across the fourteen promoters
+the highly expressed ones only lose — a single base cannot improve a maximal promoter — while the
+silent ones only gain:
+
+| gene | reference | strongest substitution | absolute |
+| --- | --- | --- | --- |
+| ADH1 | 488.0 | −18.8 % | **−91.7** |
+| PDC1 | 842.5 | −3.9 % | −32.9 |
+| DTD1 | 5.7 | −38.5 % | −2.2 |
+| GAL1 | 3.07 | +50.0 % | +1.5 |
+| HOP2 | 0.42 | **+447.9 %** | +1.9 |
+
+Ranked by percentage HOP2 leads every gene here; ranked by what the model actually predicts, ADH1
+moves fifty times further. The panel prints both, in that order.
+
+And the cross-check in the table above is the strongest evidence on the page that the pipeline is
+right: **ISM and the motif panel agree on one base by completely different routes.** ISM's strongest
+single substitution for DTD1 is a G→T at bp 8,165 — the exact `GT` donor of its 71 bp intron —
+costing 38.5 %, while scrambling the whole 5′ splice site costs 34 %. Nothing is shared between the
+two calculations but the model.
