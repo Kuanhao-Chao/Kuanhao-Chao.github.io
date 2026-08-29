@@ -9,7 +9,7 @@
  * following audit-deep-dive-ui.mjs -- a hand-written count is a second copy of a fact, and this
  * repo has already shipped the consequences of that.
  *
- * `--smoke` (the CI form) stays on the live TypeScript conv-stem path and NEVER clicks Run: the
+ * `--smoke` (the CI form) never clicks Run: the
  * page lazy-loads a 28.6 MB ONNX model and a WASM inference takes ~15 s. The full-model
  * assertions -- the 5,215-track heatmap, per-track naming, motif knockout -- run locally only,
  * via --full.
@@ -131,7 +131,6 @@ async function snapshot(page) {
         ? { scrollHeight: scroller.scrollHeight, clientHeight: scroller.clientHeight }
         : null,
       flowPainted: canvasPainted('[data-vp-flow]'),
-      neuronsPainted: canvasPainted('[data-vp-neurons]'),
       subLayers: document.querySelectorAll('[data-vp-sublayers] li').length,
       stageTitle: document.querySelector('[data-vp-stage-title]')?.textContent?.trim() ?? '',
       loci: document.querySelectorAll('[data-vp-locus] option').length,
@@ -175,7 +174,6 @@ async function auditPage(page, scope, want) {
 
   // Every output panel must carry a prediction BEFORE the model is loaded. This is what makes an
   // abandoned or mistimed 17-second click stop mattering.
-  await page.locator('[data-vp-mode="locus"]').click();
   // Wait for the precomputed pack to settle rather than guessing at a delay: a 2-4 MB fetch still
   // in flight when the context closes logs an aborted-resource console error, which this audit
   // would then report as a page error of its own making.
@@ -207,7 +205,6 @@ async function auditPage(page, scope, want) {
   if (!(onLoad.single > 0)) fail(scope, 'no single-track curve on load');
 
   if (s.flowPainted < 1000) fail(scope, `flow canvas painted only ${s.flowPainted} px`);
-  if (s.neuronsPainted < 500) fail(scope, `conv-stem raster painted only ${s.neuronsPainted} px`);
   if (!s.subLayers) fail(scope, 'layer detail shows no sub-layer breakdown');
   if (!s.stageTitle) fail(scope, 'layer detail has no stage title');
   if (s.loci !== 14) fail(scope, `expected 14 preset loci, saw ${s.loci}`);
@@ -259,7 +256,6 @@ async function auditStaleState(browser, baseURL, scope) {
   const page = await context.newPage();
   try {
     await page.goto(ROUTE, { waitUntil: 'networkidle' });
-    await page.locator('[data-vp-mode="locus"]').click();
     await page.waitForTimeout(300);
     const options = await page.locator('[data-vp-locus] option').allTextContents();
     const first = options.findIndex((o) => o.startsWith('TDH3'));
@@ -335,7 +331,6 @@ async function auditInkDistribution(browser, baseURL, scope) {
   const page = await context.newPage();
   try {
     await page.goto(ROUTE, { waitUntil: 'networkidle' });
-    await page.locator('[data-vp-mode="locus"]').click();
     await page.waitForTimeout(300);
     await page.locator('[data-vp-run]').click();
     await page.waitForFunction(
@@ -402,7 +397,6 @@ async function auditNoModel(browser, baseURL, scope) {
   await page.route('**/models/**', (r) => { modelRequests += 1; r.abort(); });
   try {
     await page.goto(ROUTE, { waitUntil: 'networkidle' });
-    await page.locator('[data-vp-mode="locus"]').click();
     await page.waitForFunction(
       () => document.querySelector('[data-vp]').dataset.vpResultSource === 'precomputed',
       { timeout: 60_000 },
@@ -510,7 +504,6 @@ async function auditFullModel(browser, baseURL, scope) {
   const page = await context.newPage();
   try {
     await page.goto(ROUTE, { waitUntil: 'networkidle' });
-    await page.locator('[data-vp-mode="locus"]').click();
     const options = await page.locator('[data-vp-locus] option').allTextContents();
     const dtd1 = options.findIndex((o) => o.startsWith('DTD1'));
     if (dtd1 < 0) { fail(scope, 'DTD1 (Fig 4E) is not in the locus list'); return; }
@@ -569,8 +562,8 @@ async function auditFullModel(browser, baseURL, scope) {
 
 /** Wait for a locus's precomputed pack, which every no-model gate below stands on. */
 async function enterLocus(page, index) {
+  // There is no mode toggle any more -- free typing is gone and a locus loads on arrival.
   await page.goto(ROUTE, { waitUntil: 'networkidle' });
-  await page.locator('[data-vp-mode="locus"]').click();
   if (index !== undefined) await page.selectOption('[data-vp-locus]', String(index));
   await page.waitForFunction(
     () => document.querySelector('[data-vp]').dataset.vpResultSource === 'precomputed',
@@ -732,6 +725,114 @@ async function auditTraceback(browser, baseURL, scope) {
 }
 
 /**
+ * The paper-faithful pieces: the logo's own geometry, the ISM logo panel, and the stage stack.
+ *
+ * Fidelity here is the whole point, so these assert the exact constants rather than "it drew
+ * something": the paper's four saturated X11 colours, glyphs scaled vertically only, and the
+ * mutagenesis panel carrying both a logo and annotation boxes.
+ */
+async function auditPaperFidelity(browser, baseURL, scope) {
+  const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1400 } });
+  const page = await context.newPage();
+  try {
+    await enterLocus(page, 11);                       // DTD1 -- published Figure 4 panel E
+    await page.waitForFunction(
+      () => document.querySelector('[data-vp-ism-logo]')?.dataset.letters !== undefined,
+      { timeout: 60_000 },
+    ).catch(() => {});
+    await page.waitForTimeout(600);
+
+    const logo = await page.evaluate(() => {
+      const s = document.querySelector('[data-vp-ism-logo]');
+      const paths = [...(s?.querySelectorAll('path.vp-glyph') ?? [])];
+      const boxes = [...(s?.querySelectorAll('rect[stroke]') ?? [])];
+      const ism = document.querySelector('[data-vp-ism]')?.dataset.window ?? '0-0';
+      const [wa, wb] = ism.split('-').map(Number);
+      return {
+        letters: Number(s?.dataset.letters ?? '0'),
+        windowBp: wb - wa,
+        boxCount: Number(s?.dataset.boxes ?? '0'),
+        fills: [...new Set(paths.map((p) => p.getAttribute('fill')))].sort(),
+        // A logo glyph must be scaled, never re-typeset: x and y scales differ, and negatives flip.
+        transforms: paths.slice(0, 400).map((p) => p.getAttribute('transform') ?? ''),
+        labels: [...(s?.querySelectorAll('text') ?? [])].map((x) => x.textContent ?? ''),
+      };
+    });
+    // The logo is PROJECTED on the reference, so it must draw about one letter per position --
+    // not four. Fewer means the projection or the visibility floor is wrong; more means it is
+    // drawing all four bases and has stopped matching the figure.
+    if (logo.letters > logo.windowBp) {
+      fail(scope, `ISM logo drew ${logo.letters} letters over ${logo.windowBp} bp — a projected logo has one per position`);
+    }
+    if (logo.letters < logo.windowBp * 0.8) {
+      fail(scope, `ISM logo drew ${logo.letters} letters over ${logo.windowBp} bp — too few`);
+    }
+    const want = ['#0000FF', '#008000', '#FF0000', '#FFA500'];
+    for (const c of want) {
+      if (!logo.fills.includes(c)) fail(scope, `logo is missing the paper's ${c}; got ${logo.fills.join()}`);
+    }
+    for (const c of logo.fills) {
+      if (!want.includes(c)) fail(scope, `logo drew a colour the paper does not use: ${c}`);
+    }
+    const scales = logo.transforms
+      .map((s) => /scale\(([-\d.]+) ([-\d.]+)\)/.exec(s))
+      .filter(Boolean)
+      .map((m) => [Number(m[1]), Number(m[2])]);
+    if (scales.length < 100) fail(scope, 'logo glyphs are not scaled by transform');
+    if (scales.some(([sx]) => sx <= 0)) fail(scope, 'a glyph has a non-positive x scale');
+    if (!scales.some(([, sy]) => sy < 0)) {
+      fail(scope, 'no glyph is mirrored — negative values must flip, not merely sit below the line');
+    }
+    // Width must be constant while height varies: that is what makes it a logo and not text.
+    const xs = new Set(scales.map(([sx]) => sx.toFixed(3)));
+    if (xs.size !== 1) fail(scope, `glyph x-scale varies (${[...xs].slice(0, 3).join()}) — height must scale alone`);
+    if (new Set(scales.map(([, sy]) => sy.toFixed(3))).size < 20) {
+      fail(scope, 'glyph heights barely vary — the logo is not carrying the values');
+    }
+    if (logo.boxCount < 3) fail(scope, `only ${logo.boxCount} annotation boxes on DTD1`);
+    for (const need of ["5' splice site", 'branch point']) {
+      if (!logo.labels.some((l) => l.toLowerCase().includes(need.toLowerCase()))) {
+        fail(scope, `DTD1's logo does not label "${need}"`);
+      }
+    }
+    // No duplicate landmark labels: the motif scan and the derived annotations both supply them.
+    const dupes = logo.labels.filter((l, i) => l && logo.labels.indexOf(l) !== i);
+    if (dupes.length) fail(scope, `duplicated annotation labels: ${[...new Set(dupes)].join()}`);
+
+    // The stage stack: one row per mapped stage, and it must move with the region.
+    const stack = () => page.evaluate(() => {
+      const c = document.querySelector('[data-vp-stage-stack]');
+      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      let sum = 0;
+      for (let i = 0; i < d.length; i += 4) sum = (sum + d[i] * (i % 7)) % 2147483647;
+      return { rows: Number(c.dataset.rows ?? '0'), sig: sum };
+    });
+    await page.locator('[data-vp-region-next]').scrollIntoViewIfNeeded();
+    await page.locator('[data-vp-region-next]').click();
+    await page.waitForTimeout(700);
+    const s1 = await stack();
+    await page.locator('[data-vp-region-next]').click();
+    await page.waitForTimeout(700);
+    const s2 = await stack();
+    if (s1.rows !== 18) fail(scope, `stage stack has ${s1.rows} rows, expected 18 mapped stages`);
+    if (s1.sig === s2.sig) fail(scope, 'the stage stack is identical for two different regions');
+
+    // Free typing and the conv-stem panel are gone and must stay gone.
+    const removed = await page.evaluate(() => ({
+      mode: document.querySelectorAll('[data-vp-mode]').length,
+      seq: document.querySelectorAll('[data-vp-seq]').length,
+      neurons: document.querySelectorAll('[data-vp-neurons]').length,
+      filter: document.querySelectorAll('[data-vp-filter-logo]').length,
+    }));
+    for (const [k, n] of Object.entries(removed)) {
+      if (n) fail(scope, `removed control "${k}" is back on the page (${n} found)`);
+    }
+  } finally {
+    await context.close();
+  }
+}
+
+/**
  * The interpretation panels: layer profile, attention rollout, sequence logo, mutagenesis.
  *
  * The rule these all share is the one `audit:deep-dives` applies to a widget's readout: it is not
@@ -782,7 +883,7 @@ async function auditInterpretation(browser, baseURL, scope) {
     if (!/4 DNA \+ 1 mask \+ 165 species/.test(input.title)) {
       fail(scope, `input title does not break down the 170: "${input.title}"`);
     }
-    if (!/#114/.test(input.note)) fail(scope, 'input note does not name the species channel');
+    if (!/\b114\b/.test(input.note)) fail(scope, 'input note does not name the species channel');
     if (!/base composition/.test(input.top)) {
       fail(scope, `input reports "${input.top.slice(0, 40)}" — "loudest channels" is noise on a one-hot`);
     }
@@ -880,40 +981,6 @@ async function auditRotationLatch(browser, baseURL, scope) {
     await page.waitForTimeout(900);
     if ((await canvas.screenshot()).equals(held)) {
       fail(scope, 'resume rotation did not restart the idle animation');
-    }
-  } finally {
-    await context.close();
-  }
-}
-
-/** The conv-stem filter logo: a first-layer convolution read as the motif detector it is. */
-async function auditFilterLogo(browser, baseURL, scope) {
-  const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1200 } });
-  const page = await context.newPage();
-  try {
-    await enterLocus(page);
-    const first = await page.evaluate(() => ({
-      consensus: document.querySelector('[data-vp-filter-logo]')?.dataset.consensus ?? '',
-      letters: document.querySelectorAll('[data-vp-filter-logo] text.vp-base').length,
-      filter: document.querySelector('[data-vp-filter-logo]')?.dataset.filter ?? '',
-    }));
-    if (first.letters < 8) fail(scope, `filter logo drew ${first.letters} letters`);
-    if (!/^[ACGT·]{11}$/.test(first.consensus)) {
-      fail(scope, `filter consensus "${first.consensus}" is not 11 bases`);
-    }
-    // Selecting a different filter must show a different filter.
-    const raster = page.locator('[data-vp-neurons]');
-    await raster.scrollIntoViewIfNeeded();
-    const box = await raster.boundingBox();
-    await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.6);
-    await page.waitForTimeout(400);
-    const second = await page.evaluate(() => ({
-      consensus: document.querySelector('[data-vp-filter-logo]')?.dataset.consensus ?? '',
-      filter: document.querySelector('[data-vp-filter-logo]')?.dataset.filter ?? '',
-    }));
-    if (second.filter === first.filter) fail(scope, 'clicking the raster did not change the filter');
-    if (second.consensus === first.consensus) {
-      fail(scope, `two different filters share the consensus "${second.consensus}"`);
     }
   } finally {
     await context.close();
@@ -1089,10 +1156,10 @@ async function main() {
           await captureFailure('chromium/traceback', () => auditTraceback(browser, baseURL, 'chromium/traceback'));
           progress('chromium/annotation (14 loci)');
           await captureFailure('chromium/annotation', () => auditAnnotation(browser, baseURL, 'chromium/annotation'));
+          progress('chromium/paper-fidelity');
+          await captureFailure('chromium/paper-fidelity', () => auditPaperFidelity(browser, baseURL, 'chromium/paper-fidelity'));
           progress('chromium/interpretation');
           await captureFailure('chromium/interpretation', () => auditInterpretation(browser, baseURL, 'chromium/interpretation'));
-          progress('chromium/filter-logo');
-          await captureFailure('chromium/filter-logo', () => auditFilterLogo(browser, baseURL, 'chromium/filter-logo'));
           progress('chromium/volume');
           await captureFailure('chromium/volume', () => auditVolume(browser, baseURL, 'chromium/volume'));
           await captureFailure('chromium/volume-still', () => auditVolumeStill(browser, baseURL, 'chromium/volume-still'));

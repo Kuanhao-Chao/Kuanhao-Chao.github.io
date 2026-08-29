@@ -26,17 +26,9 @@ const description =
         <section class="vp-panel">
           <h2>Sequence</h2>
           <div class="vp-controls" style="margin-bottom:0.55rem;">
-            <button type="button" class="vp-btn" data-vp-mode="type" aria-pressed="true">Free typing</button>
-            <button type="button" class="vp-btn" data-vp-mode="locus" aria-pressed="false">Yeast locus</button>
             <select class="vp-select" data-vp-locus aria-label="Preset locus"></select>
+            <span class="vp-stat" data-vp-livestat></span>
           </div>
-          <textarea
-            class="vp-seq"
-            data-vp-seq
-            spellcheck="false"
-            aria-label="DNA sequence"
-          ></textarea>
-          <p class="vp-stat" data-vp-livestat></p>
           <div class="vp-motifs" data-vp-motifs hidden>
             <p class="vp-notes" style="margin:0 0 0.35rem;">
               <strong>Figure 4 motifs.</strong> Database consensus matches found in this window on
@@ -58,9 +50,9 @@ const description =
             <p class="vp-stat" data-vp-knockout></p>
           </div>
           <p class="vp-notes" style="margin:0.35rem 0 0;">
-            Typing runs the <strong>real conv stem</strong> in TypeScript on every keystroke — valid on a
-            bare fragment because a convolution is translation-equivariant. Predicting a track needs the
-            full 16,384 bp window, so switch to a locus for that.
+            Each locus is a <strong>16,384 bp window</strong> — the model's full context — centred on the
+            named gene. Six of them are the windows Figure 4 of the paper prints, at the published
+            coordinates; the rest are classic high-expressers and the galactose regulon.
           </p>
         </section>
 
@@ -108,36 +100,6 @@ const description =
         <p class="vp-notes" data-vp-stage-note style="margin:0.4rem 0 0;"></p>
       </section>
 
-        <section class="vp-panel">
-          <h2>Conv-stem neurons — what each filter is looking for</h2>
-          <canvas class="vp-canvas" data-vp-neurons
-                  aria-label="Activation raster: 96 conv-stem filters by sequence position"
-                  role="img"></canvas>
-          <div class="vp-filter">
-            <div>
-              <div class="vp-controls" style="margin-bottom:0.3rem;">
-                <span class="vp-stat" data-vp-filter-name></span>
-              </div>
-              <svg class="vp-svg vp-logo" data-vp-filter-logo role="img"
-                   aria-label="The selected filter's 11 bp position weight matrix as a sequence logo"></svg>
-            </div>
-            <p class="vp-notes" style="margin:0;">
-              <strong>A first-layer convolution is a motif detector.</strong> Each of the 96 filters is
-              an 11 bp weight matrix over A/C/G/T, so it can be read the way a position weight matrix
-              is read — the logo shows each position's weights relative to that position's mean, which
-              is what makes the preferred base legible. Click any row in the raster above to inspect
-              that filter.
-            </p>
-            <p class="vp-notes" style="margin:0;">
-              <strong>What this cannot tell you.</strong> A filter is not a transcription factor: a
-              real motif is typically split across several filters, and one filter often responds to
-              more than one thing. The stem has <em>no activation function</em>, so its output is
-              signed — a large negative response is a filter matching the reverse of what it prefers,
-              not silence. And a match here is evidence about the first 11 bp of a 16,384 bp receptive
-              field; what the network does with it is decided fourteen layers later.
-            </p>
-          </div>
-        </section>
 
         <section class="vp-panel">
           <h2>Predicted coverage — the full model</h2>
@@ -218,6 +180,25 @@ const description =
             </p>
           </div>
         </div>
+        <canvas class="vp-canvas" data-vp-stage-stack role="img"
+                aria-label="Where each stage's contributing neurons fire across the window, one row per stage"
+                style="margin-top:0.5rem"></canvas>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>One row per stage, the window along x.</strong> Each row is that stage's activation
+          weighted by how much each channel carried the selected region — <em>where the neurons that
+          matter for this region actually fire</em>. Each row is painted against its
+          <em>own mean</em> — red where that stage draws more than average, blue less, neutral where it
+          has no positional preference. The early residual blocks come out close to neutral, and that
+          is a real property: pooled to 128 positions, a convolution over 16,384 is spatially almost
+          uniform. Structure appears from the transformer on, which is where the receptive field is
+          the whole window and the model can choose where to look.
+        </p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          It is the <em>factorised</em> combination — per-channel relevance times per-position
+          activation — not a per-position gradient, because the shipped pack carries relevance summed
+          over position. It answers “where do the channels that matter fire”, which is not quite the
+          same question as “which positions the gradient flows through”.
+        </p>
         <canvas class="vp-canvas" data-vp-rollout role="img"
                 aria-label="Attention rollout: which parts of the window the transformer reads for this region"
                 style="margin-top:0.5rem"></canvas>
@@ -228,6 +209,10 @@ const description =
         <div class="vp-controls" style="margin-bottom:0.45rem;">
           <input class="vp-range" type="range" min="0" max="1000" value="500" data-vp-logo-pan
                  style="flex:1;min-width:9rem" aria-label="Position of the sequence logo window" />
+          <select class="vp-select" data-vp-logo-source aria-label="Attribution source">
+            <option value="ism" selected>mutagenesis (the paper's)</option>
+            <option value="grad">gradient × input</option>
+          </select>
           <select class="vp-select" data-vp-logo-width aria-label="Logo window width">
             <option value="60">60 bp</option>
             <option value="150" selected>150 bp</option>
@@ -237,17 +222,39 @@ const description =
         <svg class="vp-svg" data-vp-seq-logo role="img"
              aria-label="Gradient times input attribution as a sequence logo"></svg>
         <p class="vp-notes" style="margin:0.4rem 0 0;">
-          Letter height is |gradient × input| at that base, above the axis where raising the base
-          raises the prediction and below where it lowers it. <strong>Only the base that is actually
-          there gets a letter, and that is exact rather than a simplification</strong>: the input is
-          one-hot, so gradient × input is identically zero at the three bases not present. Reading
-          what a <em>substitution</em> would do needs a different method — that is what the
-          mutagenesis panel below measures.
+          <strong>Drawn exactly as the paper draws it</strong> — the real DejaVu Sans Bold glyphs at
+          the paper's own per-letter offsets, scaled 1.35× on both axes, A green / C blue / G orange /
+          T red, stacked largest-magnitude nearest the axis with positives up and negatives mirrored
+          below. Letters overflow their column and touch; that density is the published look, not a
+          bug. The colours are fixed in every theme, because a figure's base colours are part of the
+          figure.
+        </p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>Two sources, and they are not the same method.</strong> <em>Mutagenesis</em> is the
+          paper's Figure 4 quantity: every substitution actually run, then mean-centred across the
+          four bases and projected on the reference, so the height reads as “how much the base that
+          is <em>there</em> matters” rather than “what this one substitution did”. It covers the
+          promoter window only, so panning outside it falls back to the gradient and says so. <em>Gradient × input</em> is a local linear
+          sensitivity — it is identically zero at the three bases not present, because the input is
+          one-hot, so it draws one letter per position. <strong>The paper's published figures use no
+          gradients at all</strong>; its single gradient routine is unreached scaffolding that still
+          declares a 4-channel input the 170-channel model cannot accept. Gradient × input is here
+          because it is instant, not because it is what the paper did.
         </p>
       </section>
 
       <section class="vp-panel">
         <h2>In-silico mutagenesis <span class="vp-stat" data-vp-ism-stat></span></h2>
+        <svg class="vp-svg" data-vp-ism-logo role="img"
+             aria-label="Mutagenesis saliency as the paper's sequence logo, with motif and splice annotations"></svg>
+        <p class="vp-notes" style="margin:0.35rem 0 0.5rem;">
+          <strong>This is the paper's Figure 4 panel, reproduced.</strong> Mean-centred across the
+          four bases and projected on the reference, so each position carries one letter — the
+          importance of the base that is actually <em>there</em>, rather than what one substitution
+          did. Red dashed boxes are matched motifs and splice landmarks; click one to zoom the
+          sequence logo above onto it. The raster below keeps the full position × base view, which
+          the paper computes but never plots.
+        </p>
         <canvas class="vp-canvas vp-ism" data-vp-ism role="img"
                 aria-label="Every substitution in the promoter window and its measured effect"></canvas>
         <p class="vp-notes" style="margin:0.4rem 0 0;">
@@ -269,13 +276,13 @@ const description =
           window.
         </p>
         <p class="vp-notes" style="margin:0.35rem 0 0;">
-          <strong>Read the absolute change, not the percentage.</strong> The sign of the largest
-          effect tracks whether the gene is already on. Across these fourteen promoters the
-          highly-expressed ones only lose — a single base cannot improve a maximal promoter, so
-          ADH1's strongest substitution is −19% — while the silent ones only gain: HOP2's strongest
-          is <em>+448%</em>, which is a move of 1.9 on a reference of 0.42. Ranked by percentage HOP2
-          leads every gene here; ranked by what the model actually predicts, ADH1 moves fifty times
-          further.
+          <strong>The unit is logSED</strong> — <code>log2(Σ_alt + 1) − log2(Σ_ref + 1)</code> summed
+          over the gene's own body bins and averaged over the <strong>384 T0 RNA-seq tracks</strong>,
+          which is the paper's own variant score. Being a log ratio, it is directly comparable across
+          genes: −1 is a halving whether the promoter is silent or maximal. An earlier version of this
+          panel reported a linear difference as a percentage, which made HOP2's +448% look like the
+          largest effect on the page when it was a move of 1.9 on a reference of 0.42. A log ratio is
+          how the paper avoided that, and the panel now uses it.
         </p>
         <p class="vp-notes" style="margin:0.35rem 0 0;">
           <strong>An independent check.</strong> DTD1's strongest single substitution lands on bp

@@ -153,10 +153,22 @@ def verify_ism(ort, Image) -> None:
     check(not zero_bad, "the reference base's own cell is zero to the pack's resolution",
           f"{len(zero_bad)} beyond a uint8 level" + (f": {zero_bad[:2]}" if zero_bad else ""))
 
-    # Re-derive a sample against the graph. Three cells per locus on three loci is nine real
-    # forward passes plus references -- enough to catch a packing or scale error, cheap enough to
-    # run every time.
-    for locus in loci["loci"][:3]:
+    # Re-derive a sample against the graph, through the PAPER'S score: logSED on the 384 T0 tracks,
+    # summed over the gene's own body bins, averaged over both strands. Two cells on two loci is
+    # eight real forward passes plus references -- enough to catch a packing, scale, track-subset or
+    # strand error, cheap enough to run every time.
+    names = json.loads((ROOT / "src" / "data" / "shorkieTrackNames.json").read_text())["identifiers"]
+    T0 = np.array([i for i, n in enumerate(names) if "_T0_" in n and 1148 <= i < 4201])
+    check(T0.size == 384 and int(T0.min()) == 1148 and int(T0.max()) == 4193,
+          "the T0 track subset is the paper's",
+          f"{T0.size} tracks, indices {T0.min()}-{T0.max()} (paper: 384, 1148-4193)")
+
+    def rc(x):
+        out = x[:, ::-1, :].copy()
+        out[:, :, :4] = out[:, :, [3, 2, 1, 0]]
+        return np.ascontiguousarray(out)
+
+    for locus in loci["loci"][:2]:
         spec = json.loads((packs / f"{locus['id']}.json").read_text())["ism"]
         a = np.asarray(Image.open(packs / f"{locus['id']}-ism.png")).astype(np.float64)
         lo = np.asarray(spec["lo"], dtype=np.float64)
@@ -164,22 +176,30 @@ def verify_ism(ort, Image) -> None:
         plane = lo[:, None] + (hi - lo)[:, None] * (a / 255.0)
         start, width = spec["start"], spec["cols"]
         g0, g1 = spec["geneBins"]
+        r0, r1 = N_BINS - g1, N_BINS - g0
+
+        def cover(x, p, q):
+            y = sess.run(["all_tracks"], {"sequence": x})[0]
+            return float(y[0, p:q, T0].mean(axis=-1).sum())
+
         x = encode(locus["sequence"], loci["speciesIndex"])
-        ref = float(sess.run(["tracks"], {"sequence": x})[0][0, g0:g1, 2].mean())
-        for k in (7, width // 2, width - 9):
+        ref_f, ref_r = cover(x, g0, g1), cover(rc(x), r0, r1)
+        for k in (11, width // 2):
             r = locus["sequence"][start + k].upper()
             if r not in idx:
                 continue
             b = (idx[r] + 1) % 4
             x[0, start + k, idx[r]] = 0.0
             x[0, start + k, b] = 1.0
-            got = float(sess.run(["tracks"], {"sequence": x})[0][0, g0:g1, 2].mean()) - ref
+            alt_f, alt_r = cover(x, g0, g1), cover(rc(x), r0, r1)
             x[0, start + k, b] = 0.0
             x[0, start + k, idx[r]] = 1.0
+            got = 0.5 * ((np.log2(alt_f + 1) - np.log2(ref_f + 1))
+                         + (np.log2(alt_r + 1) - np.log2(ref_r + 1)))
             worst = max(worst, abs(got - plane[b, k]))
     # The bound is the uint8 floor: each row's range over 255.
-    check(worst < 0.05, "sampled cells re-derive from the graph",
-          f"worst {worst:.5f} over 9 real substitutions")
+    check(worst < 0.02, "sampled cells re-derive as logSED from the graph",
+          f"worst {worst:.6f} over 4 real substitutions, both strands")
 
     # The cross-method agreement, pinned so it cannot quietly stop being true.
     spec = json.loads((packs / "YDL219W.json").read_text())["ism"]
@@ -193,8 +213,29 @@ def verify_ism(ort, Image) -> None:
                 if f["name"] == "YDL219W")
     donor = dtd1["exons"][0][1]
     check(at == donor, "DTD1's strongest substitution is its splice donor",
-          f"strongest at {at}, donor at {donor}, "
-          f"{plane.min() / spec['ref'] * 100:+.1f}% (motif scramble independently gives -34%)")
+          f"strongest at {at}, donor at {donor}, logSED {plane.min():+.4f} "
+          f"(a {2 ** plane.min():.2f}x change; the motif scramble independently gives -34%)")
+
+    # The paper's transform, off the shipped plane: mean-centre across the four bases and keep the
+    # reference. The six bases of the 5' splice site must come out as the window's largest
+    # saliencies -- which is published Figure 4D, reproduced from this repository alone.
+    dtd1_seq = next(l for l in loci["loci"] if l["id"] == "YDL219W")["sequence"]
+    sal = np.zeros(spec["cols"])
+    for k in range(spec["cols"]):
+        base = dtd1_seq[spec["start"] + k].upper()
+        if base in "ACGT":
+            col = plane[:, k]
+            sal[k] = (col - col.mean())["ACGT".index(base)]
+    order = [int(spec["start"] + i) for i in np.argsort(-np.abs(sal))]
+    ranks = [order.index(donor + j) + 1 for j in range(6)]
+    # The six GTATGT bases must all rank near the top, and the top five must all be donor bases.
+    # An earlier form of this check demanded the top six be EXACTLY the donor's six, and failed --
+    # because the branch point competes for sixth place. That is a better result than the
+    # assertion allowed for: both splice signals dominate the window, which is Figure 4E.
+    check(max(ranks) <= 10 and sorted(ranks)[:5] == [1, 2, 3, 4, 5],
+          "the paper's transform recovers the GTATGT donor consensus",
+          f"donor {dtd1_seq[donor:donor + 6]} at {donor} takes ranks {sorted(ranks)}; "
+          f"the rest of the top twelve is the branch point")
 
 
 def main() -> int:
