@@ -46,6 +46,8 @@ import {
   knockoutMotif,
   geneBodyBins,
   trackGroupOf,
+  trackIndex,
+  type ParsedTrack,
   trackRowBinning,
   logAxis,
   N_TRACKS,
@@ -91,6 +93,8 @@ const LOCI = (lociJson as { loci: Locus[] }).loci;
 interface Truth { loci: Record<string, Record<string, number[]>>; tracks: Record<string, string[]>; }
 const TRUTH = truthJson as Truth;
 const TRACK_NAMES = (trackNamesJson as { identifiers: string[] }).identifiers;
+/** The cascading structure behind the track picker: assay -> regulator/target/run -> timepoint. */
+const TRACK_INDEX = trackIndex(TRACK_NAMES);
 
 /**
  * Predictions for every preset locus, computed offline at the full 16,384 bp context.
@@ -139,8 +143,6 @@ function clear(node: Element | null): void {
 interface FullResult {
   tracks: Float32Array;       // [896, 4]
   stemProfile: Float32Array;  // [96, 1024]
-  stemPeak: Float32Array;     // [96]
-  blockPeaks: Float32Array;   // [1536]
   attention: Float32Array;    // [8, 128, 128]
   stageMaps: Float32Array;    // [5760, 128] -- every mapped stage, in flow order
   allTracks: Float32Array;    // [896, 5215] -- every track, unreduced
@@ -179,6 +181,9 @@ export function initVariantPlayground(root: ParentNode = document) {
   const heatCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-heat]');
   const heatStat = $('[data-vp-heat-stat]');
   const trackNameEl = $('[data-vp-track-name]');
+  const pickGroup = $<HTMLSelectElement>('[data-vp-pick-group]');
+  const pickKey = $<HTMLSelectElement>('[data-vp-pick-key]');
+  const pickTrack = $<HTMLSelectElement>('[data-vp-pick-track]');
   const singleSvg = host.querySelector<SVGSVGElement>('[data-vp-single]');
   const logToggle = $<HTMLInputElement>('[data-vp-logaxis]');
   const motifBox = $('[data-vp-motifs]');
@@ -211,6 +216,8 @@ export function initVariantPlayground(root: ParentNode = document) {
   let stageTab: 'activation' | 'attention' = 'activation';
   /** Which stage the detail last followed, so the sweep only redraws on a real change. */
   let lastFrontStage = '';
+  /** Guards against a slow fetch for a locus the reader has left. */
+  let precomputeToken = 0;
   // ARG80_T0_S757 -- a real T0 baseline experiment, which is the set Figure 4's ISM uses,
   // rather than a mean over all 3,053 induction tracks.
   let selectedTrack: number = TRACK_GROUPS[RNA_SEQ_GROUP].start;
@@ -386,13 +393,117 @@ export function initVariantPlayground(root: ParentNode = document) {
       text(4, 14,
         `predicted ${TRACK_GROUPS[groupIndex].label} · 896 bins × 16 bp · peak ${max.toFixed(2)}`
         + ` at bin ${argmax} · ${useLogAxis ? 'log' : 'linear'} axis`
-        + (current ? ' · live run' : ' · precomputed'),
+        + (current?.backend === 'precomputed' || !current ? ' · precomputed' : ' · live run'),
         'vp-ax', 'start'),
     );
   }
 
-  async function ensureSession(): Promise<boolean> {
-    if (session) return true;
+  /**
+   * Load a locus's precomputed activations and per-track predictions.
+   *
+   * Everything the model would produce, packed as uint8 PNGs with per-row scales: 2-4 MB against a
+   * 28.6 MB model download and a 17 s inference, and it means every layer view and all 5,215 track
+   * curves work with no model at all. The browser's own PNG decoder does the decompression.
+   */
+  async function loadPrecomputed(locusId: string): Promise<FullResult | null> {
+    const base = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/shorkie`;
+    const meta = (await fetch(`${base}/${locusId}.json`).then((r) =>
+      r.ok ? r.json() : null,
+    ).catch(() => null)) as Record<
+      string,
+      { rows: number; cols: number; lo: number[]; hi: number[]; space?: string }
+    > | null;
+    if (!meta) return null;
+
+    const plane = async (suffix: string): Promise<Float32Array | null> => {
+      const spec = meta[suffix];
+      if (!spec) return null;
+      const blob = await fetch(`${base}/${locusId}-${suffix}.png`).then((r) => (r.ok ? r.blob() : null));
+      if (!blob) return null;
+      const bitmap = await createImageBitmap(blob);
+      const cv = document.createElement('canvas');
+      cv.width = spec.cols;
+      cv.height = spec.rows;
+      const cx = cv.getContext('2d', { willReadFrequently: true });
+      if (!cx) return null;
+      cx.drawImage(bitmap, 0, 0);
+      bitmap.close();
+      const px = cx.getImageData(0, 0, spec.cols, spec.rows).data;
+      const out = new Float32Array(spec.rows * spec.cols);
+      for (let r = 0; r < spec.rows; r += 1) {
+        const lo = spec.lo[r];
+        const range = Math.max(spec.hi[r] - lo, 1e-9);
+        for (let c = 0; c < spec.cols; c += 1) {
+          // Greyscale: R is the value; the PNG carries one channel.
+          const v = (px[(r * spec.cols + c) * 4] / 255) * range + lo;
+          // Coverage is quantized in log space -- 256 levels spread linearly across a range that
+          // spans orders of magnitude leaves a visible staircase in the low values on a log plot
+          // (2.2e-1 of the axis, against 1.96e-3 this way).
+          out[r * spec.cols + c] = spec.space === 'log' ? Math.expm1(v) : v;
+        }
+      }
+      return out;
+    };
+
+    const [tracksT, stages, stem, attn] = await Promise.all(
+      ['tracks', 'stages', 'stem', 'attn'].map(plane),
+    );
+    if (!tracksT || !stages || !stem || !attn) return null;
+
+    // The PNG is track-major [5215, 896]; the renderers read bin-major [896, 5215].
+    const allTracks = new Float32Array(N_BINS * N_TRACKS);
+    for (let k = 0; k < N_TRACKS; k += 1) {
+      for (let b = 0; b < N_BINS; b += 1) allTracks[b * N_TRACKS + k] = tracksT[k * N_BINS + b];
+    }
+    // The group means come from shorkiePredictions.json, which stores them at full precision.
+    // Recomputing them from the uint8 per-track planes would give a slightly different headline
+    // number than the file the page already loaded -- two sources for one quantity.
+    const exact = PREDICTIONS.loci[locusId]?.groups;
+    const tracks = new Float32Array(N_BINS * 4);
+    for (let gi = 0; gi < 4; gi += 1) {
+      const row = exact?.[gi];
+      for (let b = 0; b < N_BINS; b += 1) {
+        if (row) {
+          tracks[b * 4 + gi] = row[b];
+        } else {
+          const g = TRACK_GROUPS[gi];
+          let sum = 0;
+          for (let k = g.start; k < g.end; k += 1) sum += allTracks[b * N_TRACKS + k];
+          tracks[b * 4 + gi] = sum / g.count;
+        }
+      }
+    }
+
+    return {
+      tracks,
+      stemProfile: stem,
+      attention: attn,
+      stageMaps: stages,
+      allTracks,
+      backend: 'precomputed',
+      ms: 0,
+    };
+  }
+
+  /**
+   * Is this a result we are willing to show?
+   *
+   * A WebGPU pipeline that fails validation does not throw: onnxruntime reports the run as
+   * successful and the graph emits ZEROS. That is how the page came to print "Done — 1689 ms on
+   * WebGPU" beside four predicted peaks of 0.0000. Never trust a run without looking at it.
+   */
+  function outputLooksReal(tracks: Float32Array): boolean {
+    let sum = 0;
+    for (let i = 0; i < tracks.length; i += 1) {
+      const v = tracks[i];
+      if (!Number.isFinite(v)) return false;
+      sum += Math.abs(v);
+    }
+    return sum > 0;
+  }
+
+  async function ensureSession(force?: 'wasm'): Promise<boolean> {
+    if (session && !force) return true;
     setBusy(true, 'Loading runtime…');
     setStatus('Loading ONNX Runtime…');
     ort = await import('onnxruntime-web');
@@ -403,7 +514,13 @@ export function initVariantPlayground(root: ParentNode = document) {
     // Try WebGPU first, then fall back -- and record which one actually initialised. Reporting
     // "WebGPU or maybe WASM" would be a guess, and the whole point of the readout is the real
     // number attached to the real backend.
-    if ('gpu' in navigator) {
+    if (force === 'wasm') {
+      // Drop the WebGPU session, or the create below is skipped and the retry runs on the very
+      // backend that just failed.
+      await (session as { release?: () => Promise<void> } | null)?.release?.().catch(() => {});
+      session = null;
+    }
+    if ('gpu' in navigator && force !== 'wasm') {
       try {
         session = await ort.InferenceSession.create('/models/shorkie-fp16.onnx', {
           executionProviders: ['webgpu'],
@@ -428,22 +545,47 @@ export function initVariantPlayground(root: ParentNode = document) {
       return;
     }
     try {
-      await ensureSession();
-      setBusy(true, 'Running…');
-      setStatus('Running inference — about 17 s on WebAssembly.');
-      const t0 = performance.now();
       // `sequence` -- not the locus -- because a motif knockout edits it in place, and reading
       // the locus here would silently run the unmodified window and report no effect.
       const input = encodeInput(sequence, SPECIES_S_CEREVISIAE);
-      const o = ort as NonNullable<typeof ort>;
-      const feeds = { sequence: new o.Tensor('float32', input, [1, SEQ_LEN, 170]) };
-      const out = await (session as { run: (f: unknown) => Promise<Record<string, { data: Float32Array }>> }).run(feeds);
-      const ms = performance.now() - t0;
+
+      /** One attempt on whichever backend ensureSession picks. */
+      const attempt = async (force?: 'wasm') => {
+        await ensureSession(force);
+        setBusy(true, backend.startsWith('WebGPU') ? 'Running on GPU…' : 'Running…');
+        setStatus(
+          backend.startsWith('WebGPU')
+            ? 'Running inference on WebGPU — about a second.'
+            : 'Running inference — about 17 s on WebAssembly.',
+        );
+        const started = performance.now();
+        const o = ort as NonNullable<typeof ort>;
+        const feeds = { sequence: new o.Tensor('float32', input, [1, SEQ_LEN, 170]) };
+        const res = await (session as {
+          run: (f: unknown) => Promise<Record<string, { data: Float32Array }>>;
+        }).run(feeds);
+        return { res, ms: performance.now() - started };
+      };
+
+      let { res: out, ms } = await attempt().catch(async (err) => {
+        setStatus(`WebGPU run failed (${err instanceof Error ? err.message : err}) — retrying on WebAssembly.`);
+        return attempt('wasm');
+      });
+
+      // A WebGPU pipeline rejected by validation does not throw; it returns zeros and onnxruntime
+      // calls that a success. Check before believing it, and fall back rather than show a flat line.
+      if (!outputLooksReal(out.tracks.data)) {
+        if (backend.startsWith('WebGPU')) {
+          setStatus('WebGPU returned an empty prediction — retrying on WebAssembly.');
+          ({ res: out, ms } = await attempt('wasm'));
+        }
+        if (!outputLooksReal(out.tracks.data)) {
+          throw new Error('the model returned an all-zero or non-finite prediction');
+        }
+      }
       current = {
         tracks: out.tracks.data,
         stemProfile: out.stem_profile.data,
-        stemPeak: out.stem_peak.data,
-        blockPeaks: out.block_peaks.data,
         attention: out.attention.data,
         stageMaps: out.stage_maps.data,
         allTracks: out.all_tracks.data,
@@ -454,6 +596,7 @@ export function initVariantPlayground(root: ParentNode = document) {
       // Stamp which locus this forward pass belongs to. The audit asserts it matches the selected
       // one, so a view that survives a locus change fails the gate instead of quietly misleading.
       host.dataset.vpResultLocus = LOCI[locusIndex].id;
+      host.dataset.vpResultSource = 'live';
       emptyReason = `${LOCI[locusIndex].gene} predicted.`;
       flow?.setActivations({
         stemProfile: current.stemProfile,
@@ -580,6 +723,7 @@ export function initVariantPlayground(root: ParentNode = document) {
       const box = heatCanvas!.getBoundingClientRect();
       const frac = (ev.clientY - box.top) / box.height;
       selectedTrack = Math.min(N_TRACKS - 1, Math.max(0, Math.floor(frac * N_TRACKS)));
+      renderPicker(true);
       renderHeatmap();
       renderSingleTrack();
     };
@@ -743,6 +887,7 @@ export function initVariantPlayground(root: ParentNode = document) {
    */
   function clearResults(reason: string): void {
     delete host.dataset.vpResultLocus;
+    delete host.dataset.vpResultSource;
     current = null;
     reference = null;
     flow?.setActivations(null);
@@ -815,6 +960,95 @@ export function initVariantPlayground(root: ParentNode = document) {
     ctx.drawImage(off, x, y, w, h);
   }
 
+  /** Take a locus's precomputed pack as the current result, so every view fills with no model. */
+  async function adoptPrecomputed(locusId: string): Promise<void> {
+    const token = (precomputeToken += 1);
+    const got = await loadPrecomputed(locusId);
+    // A slower fetch for a locus the reader has already navigated away from must not overwrite the
+    // one they are looking at now.
+    if (token !== precomputeToken || locusId !== LOCI[locusIndex].id) return;
+    if (!got) {
+      emptyReason = `${LOCI[locusIndex].gene}: precomputed layers unavailable — load the model to compute them.`;
+      renderStageDetail(flow?.selected() ?? null);
+      setStatus(emptyReason);
+      return;
+    }
+    current = got;
+    reference = got;
+    host.dataset.vpResultLocus = locusId;
+    host.dataset.vpResultSource = 'precomputed';
+    emptyReason = `${LOCI[locusIndex].gene} — precomputed.`;
+    flow?.setActivations({
+      stemProfile: got.stemProfile,
+      stageMaps: got.stageMaps,
+      attention: got.attention,
+      tracks: got.tracks,
+    } satisfies FlowActivations);
+    renderTrack();
+    renderStageDetail(flow?.selected() ?? null);
+    renderHeatmap();
+    renderSingleTrack();
+    setStatus(`${LOCI[locusIndex].gene}: all layers and all ${N_TRACKS.toLocaleString()} tracks, precomputed.`);
+  }
+
+  /**
+   * The cascading track picker: assay block, then regulator / ChIP target / run, then timepoint.
+   *
+   * 5,215 tracks in one flat list is unusable, and their names carry the experiment's own
+   * structure -- ARG80_T0_S757 is a regulator, a timepoint and a sample. `sync` is called after a
+   * heatmap click too, so the menus never disagree with the plotted curve.
+   */
+  function renderPicker(sync = false): void {
+    if (!pickGroup || !pickKey || !pickTrack) return;
+    const gi = TRACK_GROUPS.findIndex((g) => selectedTrack >= g.start && selectedTrack < g.end);
+    const group = TRACK_INDEX.byGroup[gi];
+    const parsed = group.tracks.get(
+      [...group.tracks.keys()].find((k) => group.tracks.get(k)!.some((p) => p.index === selectedTrack))
+        ?? group.keys[0],
+    )!;
+    const key = parsed[0].regulator ?? parsed[0].accession ?? 'unparsed';
+
+    if (sync || !pickGroup.options.length) {
+      clear(pickGroup);
+      TRACK_GROUPS.forEach((g, i) => {
+        const o = document.createElement('option');
+        o.value = String(i);
+        o.textContent = `${g.label} (${g.count.toLocaleString()})`;
+        pickGroup.append(o);
+      });
+    }
+    pickGroup.value = String(gi);
+
+    clear(pickKey);
+    for (const k of group.keys) {
+      const o = document.createElement('option');
+      o.value = k;
+      o.textContent = group.tracks.get(k)!.length > 1 ? `${k} (${group.tracks.get(k)!.length})` : k;
+      pickKey.append(o);
+    }
+    pickKey.value = key;
+
+    clear(pickTrack);
+    for (const p of parsed) {
+      const o = document.createElement('option');
+      o.value = String(p.index);
+      // Several samples share a timepoint, so the label carries both or two options read alike.
+      o.textContent =
+        p.timepoint !== undefined ? `T${p.timepoint} · S${p.replicate}`
+        : p.replicate !== undefined ? `replicate ${p.replicate}`
+        : p.name;
+      pickTrack.append(o);
+    }
+    pickTrack.value = String(selectedTrack);
+    pickTrack.disabled = parsed.length < 2;
+  }
+
+  function firstTrackOf(groupIdx: number, key?: string): number {
+    const group = TRACK_INDEX.byGroup[groupIdx];
+    const k = key && group.tracks.has(key) ? key : group.keys[0];
+    return group.tracks.get(k)![0].index;
+  }
+
   function setStatus(msg: string): void {
     if (statusEl) statusEl.textContent = msg;
   }
@@ -828,7 +1062,8 @@ export function initVariantPlayground(root: ParentNode = document) {
       sequence = LOCI[locusIndex].sequence;
       editable = sequence.slice(SLICE_START, SLICE_START + SLICE_LEN);
       if (seqInput) seqInput.value = editable;
-      clearResults(`${LOCI[locusIndex].gene} loaded — press Run to predict.`);
+      clearResults(`Loading ${LOCI[locusIndex].gene}…`);
+      void adoptPrecomputed(LOCI[locusIndex].id);
     } else {
       editable = cleanSequence(seqInput?.value ?? '') || editable;
       sequence = editable;
@@ -1196,6 +1431,24 @@ export function initVariantPlayground(root: ParentNode = document) {
     if (next && !on && scrubInput) scrubInput.value = '1000';
   });
 
+  pickGroup?.addEventListener('change', () => {
+    selectedTrack = firstTrackOf(Number(pickGroup.value));
+    renderPicker(true);
+    renderHeatmap();
+    renderSingleTrack();
+  });
+  pickKey?.addEventListener('change', () => {
+    selectedTrack = firstTrackOf(Number(pickGroup!.value), pickKey.value);
+    renderPicker();
+    renderHeatmap();
+    renderSingleTrack();
+  });
+  pickTrack?.addEventListener('change', () => {
+    selectedTrack = Number(pickTrack.value);
+    renderHeatmap();
+    renderSingleTrack();
+  });
+
   logToggle?.addEventListener('change', () => {
     useLogAxis = logToggle.checked;
     renderTrack();       // one control, both plots -- they show the same quantity
@@ -1245,6 +1498,7 @@ export function initVariantPlayground(root: ParentNode = document) {
   renderTrack();
   renderMotifs();
   renderStageDetail(null);
+  renderPicker(true);
   renderHeatmap();
   renderSingleTrack();
   setStatus('Live conv-stem view is running. Load the full model to predict a track.');

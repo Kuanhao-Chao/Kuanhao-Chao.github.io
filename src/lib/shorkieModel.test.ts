@@ -55,6 +55,8 @@ import {
   divergingColor,
   paintActivationMap,
   type Rgb,
+  parseTrackName,
+  trackIndex,
 } from './shorkieModel';
 import tracks from '../data/shorkieTracks.json';
 import trackNames from '../data/shorkieTrackNames.json';
@@ -1256,5 +1258,96 @@ describe('paintActivationMap', () => {
   it('handles a single-channel and a single-position map', () => {
     expect(paintActivationMap([1, 2, 3], 1, 3, scale, WHITE).length).toBe(12);
     expect(paintActivationMap([1, 2, 3], 3, 1, scale, WHITE).length).toBe(12);
+  });
+});
+
+describe('parseTrackName, against all 5,215 shipped names', () => {
+  const all = trackNames.identifiers.map((n, i) => parseTrackName(i, n));
+
+  it('classifies every track and drops none', () => {
+    expect(all).toHaveLength(N_TRACKS);
+    expect(all.every((p) => ['tf', 'factor', 'strain', 'other'].includes(p.kind))).toBe(true);
+    expect(new Set(all.map((p) => p.index)).size).toBe(N_TRACKS);
+  });
+
+  it('finds the 335 regulators and 13 timepoints of the RNA-seq timecourse', () => {
+    const tf = all.slice(1148, 4201).filter((p) => p.kind === 'tf');
+    expect(tf.length).toBe(3037);                        // 16 of the 3,053 do not follow it
+    expect(new Set(tf.map((p) => p.regulator)).size).toBe(335);
+    expect([...new Set(tf.map((p) => p.timepoint))].sort((a, b) => a! - b!))
+      .toEqual([0, 5, 10, 15, 20, 30, 40, 45, 60, 70, 90, 120, 180]);
+  });
+
+  it('reads a timecourse name the way the experiment was run', () => {
+    const p = parseTrackName(1148, 'ARG80_T0_S757');
+    expect(p).toMatchObject({ kind: 'tf', regulator: 'ARG80', timepoint: 0, replicate: 757 });
+    expect(p.group).toBe('RNA-seq · TF induction');
+  });
+
+  it('reads ChIP targets and strain accessions', () => {
+    expect(parseTrackName(0, 'AAP1_S0')).toMatchObject({ kind: 'factor', regulator: 'AAP1', replicate: 0 });
+    expect(parseTrackName(1128, 'H2B_S0')).toMatchObject({ kind: 'factor', regulator: 'H2B' });
+    expect(parseTrackName(4201, 'ERR9593592')).toMatchObject({ kind: 'strain', accession: 'ERR9593592' });
+  });
+
+  it('puts the 36 unparsable names in `other` rather than losing them', () => {
+    const other = all.filter((p) => p.kind === 'other');
+    expect(other.length).toBe(36);
+    for (const p of other) expect(p.name.length).toBeGreaterThan(0);
+  });
+
+  it('never assigns a track to the wrong assay block', () => {
+    for (const p of all) expect(p.group).toBe(trackGroupOf(p.index).label);
+  });
+});
+
+describe('trackIndex', () => {
+  const idx = trackIndex(trackNames.identifiers);
+
+  it('covers all 5,215 tracks across the four assay blocks, exactly once each', () => {
+    expect(idx.total).toBe(N_TRACKS);
+    expect(idx.byGroup).toHaveLength(4);
+    const seen = new Set<number>();
+    for (const g of idx.byGroup) {
+      for (const list of g.tracks.values()) for (const p of list) seen.add(p.index);
+    }
+    expect(seen.size).toBe(N_TRACKS);
+  });
+
+  it('gives every group a sorted key list matching its own map', () => {
+    for (const g of idx.byGroup) {
+      expect(g.keys).toEqual([...g.keys].sort((a, b) => a.localeCompare(b)));
+      expect(new Set(g.keys).size).toBe(g.keys.length);
+      expect(g.keys.length).toBe(g.tracks.size);
+    }
+  });
+
+  it('makes the timecourse two clicks deep: regulator then timepoint', () => {
+    const rna = idx.byGroup[RNA_SEQ_GROUP];
+    expect(rna.keys).toContain('ARG80');
+    const arg80 = rna.tracks.get('ARG80')!;
+    expect(arg80.length).toBeGreaterThan(1);
+    expect(arg80.every((p) => p.timepoint !== undefined)).toBe(true);
+    expect(arg80.map((p) => p.timepoint)).toContain(0);
+  });
+
+  it('orders a regulator by timepoint, then sample', () => {
+    // ARG80 carries 55 tracks over 8 timepoints with several samples each, so a picker that
+    // labelled by timepoint alone would show "T0" five times.
+    const arg80 = idx.byGroup[RNA_SEQ_GROUP].tracks.get('ARG80')!;
+    expect(arg80.length).toBe(55);
+    for (let i = 1; i < arg80.length; i += 1) {
+      const a = arg80[i - 1];
+      const b = arg80[i];
+      expect(a.timepoint! < b.timepoint! || (a.timepoint === b.timepoint && a.replicate! <= b.replicate!)).toBe(true);
+    }
+    // and every one is individually addressable
+    expect(new Set(arg80.map((p) => `${p.timepoint}-${p.replicate}`)).size).toBe(55);
+  });
+
+  it('keeps every strain run reachable under its own accession', () => {
+    const strain = idx.byGroup[3];
+    expect(strain.keys.length).toBe(1014);
+    expect(strain.tracks.get('ERR9593592')![0].index).toBe(4201);
   });
 });

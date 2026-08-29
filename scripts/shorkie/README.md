@@ -27,6 +27,21 @@ python3 scripts/shorkie/make_web_assets.py   scripts/shorkie/_scratch/model_best
                                              scripts/shorkie/_scratch/{sacCer3.fa,sgdGene.txt}
 ```
 
+### Everything precomputed, per locus
+
+```bash
+python3 scripts/shorkie/make_activations.py public/models/shorkie-fp16.onnx
+```
+
+Writes `public/shorkie/<id>-{tracks,stages,stem,attn}.png` plus `<id>.json` for every locus: all
+5,215 track predictions and every layer's activations, uint8 with per-row scales. 2–4 MB a locus,
+56 MB total. **The page needs no model to show any of it** — verified with the model blocked at the
+network layer. Decoded against a live forward pass: ≤ 2.8e-3 on every locus and tensor.
+
+Coverage is quantized in **log** space and activations in **linear**; the sidecar's `space` field
+says which. Linear quantization of coverage leaves a visible staircase on a log plot — 2.2e-1 of the
+axis against 1.96e-3.
+
 ### The shipped predictions
 
 `make_predictions.py` runs every preset locus through the model at the full 16,384 bp context and

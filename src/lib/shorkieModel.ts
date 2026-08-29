@@ -858,3 +858,78 @@ export function paintActivationMap(
   }
   return out;
 }
+
+/** What a track's identifier says about the experiment it came from. */
+export interface ParsedTrack {
+  index: number;
+  name: string;
+  group: string;
+  /** `tf` carries a regulator and a timepoint; `factor` a target and a replicate; `strain` a run. */
+  kind: 'tf' | 'factor' | 'strain' | 'other';
+  regulator?: string;
+  timepoint?: number;
+  replicate?: number;
+  accession?: string;
+}
+
+/**
+ * Read the structure out of a track identifier.
+ *
+ * `ARG80_T0_S757` is a regulator, a timepoint and a sample; `AAP1_S0` is a ChIP target and a
+ * replicate; `ERR9593592` is an ENA run. Verified across all 5,215 shipped names: 3,037 of the
+ * 3,053 RNA-seq tracks parse as `tf` (335 regulators x 13 timepoints), 1,128 of the ChIP names as
+ * `factor`, and all 1,014 strain tracks as `strain`. The 36 that match nothing are `other` and
+ * must stay reachable -- a picker that silently drops a track is worse than a flat list.
+ */
+export function parseTrackName(index: number, name: string): ParsedTrack {
+  const group = trackGroupOf(index).label;
+  const tf = /^([A-Za-z0-9-]+)_T(\d+)_S(\d+)$/.exec(name);
+  if (tf) {
+    return {
+      index, name, group, kind: 'tf',
+      regulator: tf[1], timepoint: Number(tf[2]), replicate: Number(tf[3]),
+    };
+  }
+  const strain = /^[EDS]RR\d+$/.exec(name);
+  if (strain) return { index, name, group, kind: 'strain', accession: name };
+  const factor = /^([A-Za-z0-9\-.]+)_S(\d+)$/.exec(name);
+  if (factor) {
+    return { index, name, group, kind: 'factor', regulator: factor[1], replicate: Number(factor[2]) };
+  }
+  return { index, name, group, kind: 'other' };
+}
+
+/** The cascading structure a picker needs: every track, grouped and never dropped. */
+export function trackIndex(names: string[]): {
+  byGroup: { group: string; kind: string; keys: string[]; tracks: Map<string, ParsedTrack[]> }[];
+  total: number;
+} {
+  const parsed = names.map((n, i) => parseTrackName(i, n));
+  const byGroup: { group: string; kind: string; keys: string[]; tracks: Map<string, ParsedTrack[]> }[] = [];
+  for (const g of TRACK_GROUPS) {
+    const members = parsed.slice(g.start, g.end);
+    const tracks = new Map<string, ParsedTrack[]>();
+    for (const p of members) {
+      // The first level of the cascade: the regulator for a timecourse, the ChIP target, or the
+      // accession itself for a strain run.
+      const key = p.regulator ?? p.accession ?? 'unparsed';
+      const list = tracks.get(key);
+      if (list) list.push(p);
+      else tracks.set(key, [p]);
+    }
+    // Sort within a key by timepoint then sample. A regulator can carry several samples at the
+    // same timepoint -- ARG80 has 55 tracks over 8 timepoints -- so the order has to be the
+    // experiment's own, and the caller must label by both or two options read identically.
+    for (const list of tracks.values()) {
+      list.sort((a, b) =>
+        (a.timepoint ?? 0) - (b.timepoint ?? 0) || (a.replicate ?? 0) - (b.replicate ?? 0));
+    }
+    byGroup.push({
+      group: g.label,
+      kind: members[0]?.kind ?? 'other',
+      keys: [...tracks.keys()].sort((a, b) => a.localeCompare(b)),
+      tracks,
+    });
+  }
+  return { byGroup, total: parsed.length };
+}
