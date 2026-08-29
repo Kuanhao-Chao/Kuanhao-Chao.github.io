@@ -46,6 +46,8 @@ import {
   knockoutMotif,
   geneBodyBins,
   geneTrackShapes,
+  stageMapOffsets,
+  sumAttributionRows,
   trackGroupOf,
   trackIndex,
   type ParsedTrack,
@@ -153,6 +155,8 @@ function clear(node: Element | null): void {
 }
 
 interface FullResult {
+  /** The one-hot sequence, [4, 16384]. Not from the model -- it IS the model's input. */
+  input?: Float32Array;
   tracks: Float32Array;       // [896, 4]
   stemProfile: Float32Array;  // [96, 1024]
   attention: Float32Array;    // [8, 128, 128]
@@ -198,6 +202,10 @@ export function initVariantPlayground(root: ParentNode = document) {
   const pickTrack = $<HTMLSelectElement>('[data-vp-pick-track]');
   const singleSvg = host.querySelector<SVGSVGElement>('[data-vp-single]');
   const logToggle = $<HTMLInputElement>('[data-vp-logaxis]');
+  const attrCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-attr]');
+  const traceLabel = $('[data-vp-trace-label]');
+  const anchorSelect = $<HTMLSelectElement>('[data-vp-anchor]');
+  const traceClear = $<HTMLButtonElement>('[data-vp-trace-clear]');
   const motifBox = $('[data-vp-motifs]');
   const motifList = $('[data-vp-motif-list]');
   const knockoutStat = $('[data-vp-knockout]');
@@ -230,6 +238,9 @@ export function initVariantPlayground(root: ParentNode = document) {
   let lastFrontStage = '';
   /** Guards against a slow fetch for a locus the reader has left. */
   let precomputeToken = 0;
+  /** The loaded traceback for the current locus, and the region currently traced. */
+  let attribution: Attribution | null = null;
+  let tracedBins: { start: number; end: number; label: string } | null = null;
   // ARG80_T0_S757 -- a real T0 baseline experiment, which is the set Figure 4's ISM uses,
   // rather than a mean over all 3,053 induction tracks.
   let selectedTrack: number = TRACK_GROUPS[RNA_SEQ_GROUP].start;
@@ -505,6 +516,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     }
 
     return {
+      input: inputPlane(LOCI[locusIndex].sequence),
       tracks,
       stemProfile: stem,
       attention: attn,
@@ -614,6 +626,7 @@ export function initVariantPlayground(root: ParentNode = document) {
         }
       }
       current = {
+        input: inputPlane(sequence),
         tracks: out.tracks.data,
         stemProfile: out.stem_profile.data,
         attention: out.attention.data,
@@ -629,6 +642,7 @@ export function initVariantPlayground(root: ParentNode = document) {
       host.dataset.vpResultSource = 'live';
       emptyReason = `${LOCI[locusIndex].gene} predicted.`;
       flow?.setActivations({
+        input: current.input,
         stemProfile: current.stemProfile,
         stageMaps: current.stageMaps,
         attention: current.attention,
@@ -1013,6 +1027,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     host.dataset.vpResultSource = 'precomputed';
     emptyReason = `${LOCI[locusIndex].gene} — precomputed.`;
     flow?.setActivations({
+      input: got.input,
       stemProfile: got.stemProfile,
       stageMaps: got.stageMaps,
       attention: got.attention,
@@ -1023,6 +1038,25 @@ export function initVariantPlayground(root: ParentNode = document) {
     renderHeatmap();
     renderSingleTrack();
     setStatus(`${LOCI[locusIndex].gene}: all layers and all ${N_TRACKS.toLocaleString()} tracks, precomputed.`);
+
+    // The traceback pack, fetched after the activations so the page is usable first.
+    attribution = await loadAttribution(locusId);
+    if (token !== precomputeToken || locusId !== LOCI[locusIndex].id) return;
+    host.dataset.vpTraceReady = attribution ? 'true' : 'false';
+    if (anchorSelect) {
+      clear(anchorSelect);
+      const none = document.createElement('option');
+      none.value = '';
+      none.textContent = attribution ? 'trace a gene…' : 'traceback unavailable';
+      anchorSelect.append(none);
+      for (const [i, a] of (attribution?.anchors ?? []).entries()) {
+        const o = document.createElement('option');
+        o.value = String(i);
+        o.textContent = `${a.label} (${(a.massInside * 100).toFixed(0)}% of its mass)`;
+        anchorSelect.append(o);
+      }
+    }
+    renderAttribution();
   }
 
   /**
@@ -1148,6 +1182,160 @@ export function initVariantPlayground(root: ParentNode = document) {
     return group.tracks.get(k)![0].index;
   }
 
+  /**
+   * The traceback: which input bases, and which neurons, drive a chosen region of the output.
+   *
+   * Gradient x input, precomputed offline. Gradients superpose -- d(sum over S)/dx is the sum of
+   * the per-bin gradients -- so a dragged region is an EXACT row-sum of the matrix, not an
+   * interpolation. `input` is [112 groups x 1024 input bins], `channels` is [112 x 5760] in the
+   * same channel order as stage_maps so a stage is a slice, and `anchor` is single-base
+   * attribution for each annotated gene and the top peak.
+   */
+  interface Attribution {
+    groupBins: number;
+    groups: number;
+    inputBins: number;
+    anchors: { label: string; kind: string; binStart: number; binEnd: number; massInside: number;
+               windowFraction: number }[];
+    input: Float32Array;
+    channels: Float32Array;
+    anchor: Float32Array;
+    cols: { input: number; channels: number; anchor: number };
+  }
+
+  async function loadAttribution(locusId: string): Promise<Attribution | null> {
+    const base = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/vp-data`;
+    const meta = await fetch(`${base}/${locusId}-attr.json`)
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null);
+    if (!meta) return null;
+    const planes = await Promise.all(['input', 'channels', 'anchor'].map(async (key) => {
+      const spec = meta[key];
+      const blob = await fetch(`${base}/${locusId}-${key}.png`).then((r) => (r.ok ? r.blob() : null));
+      if (!blob || !spec) return null;
+      const bitmap = await createImageBitmap(blob);
+      const cv = document.createElement('canvas');
+      cv.width = spec.cols;
+      cv.height = spec.rows;
+      const cx = cv.getContext('2d', { willReadFrequently: true });
+      if (!cx) return null;
+      cx.drawImage(bitmap, 0, 0);
+      bitmap.close();
+      const px = cx.getImageData(0, 0, spec.cols, spec.rows).data;
+      const out = new Float32Array(spec.rows * spec.cols);
+      for (let r = 0; r < spec.rows; r += 1) {
+        const lo = spec.lo[r];
+        const range = Math.max(spec.hi[r] - lo, 1e-12);
+        for (let c = 0; c < spec.cols; c += 1) {
+          out[r * spec.cols + c] = (px[(r * spec.cols + c) * 4] / 255) * range + lo;
+        }
+      }
+      return out;
+    }));
+    if (planes.some((p) => !p)) return null;
+    return {
+      groupBins: meta.groupBins, groups: meta.groups, inputBins: meta.inputBins,
+      anchors: meta.anchors,
+      input: planes[0]!, channels: planes[1]!, anchor: planes[2]!,
+      cols: { input: meta.input.cols, channels: meta.channels.cols, anchor: meta.anchor.cols },
+    };
+  }
+
+  const traceRegion = (a: Attribution, s: number, e: number) =>
+    sumAttributionRows(a.input, a.cols.input, a.groupBins, a.groups, s, e);
+  const traceChannels = (a: Attribution, s: number, e: number) =>
+    sumAttributionRows(a.channels, a.cols.channels, a.groupBins, a.groups, s, e);
+
+  /** Draw the traced attribution: which input positions drive the selected output region. */
+  function renderAttribution(): void {
+    if (!attrCanvas) return;
+    const cssW = attrCanvas.clientWidth || 900;
+    const cssH = 74;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    attrCanvas.width = Math.round(cssW * dpr);
+    attrCanvas.height = Math.round(cssH * dpr);
+    attrCanvas.style.height = `${cssH}px`;
+    const ctx = attrCanvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+    const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
+    const pos = getComputedStyle(host).getPropertyValue('--vp-fire').trim() || '#b0455a';
+    const neg = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
+
+    if (!attribution || !tracedBins) {
+      ctx.fillStyle = muted;
+      ctx.font = '11px system-ui, sans-serif';
+      ctx.fillText('No region traced yet.', 4, 20);
+      return;
+    }
+
+    const anchorIdx = attribution.anchors.findIndex(
+      (a) => a.binStart === tracedBins!.start && a.binEnd === tracedBins!.end,
+    );
+    // An anchor carries single-base attribution; a dragged region is the 16 bp matrix.
+    const series = anchorIdx >= 0
+      ? attribution.anchor.subarray(anchorIdx * attribution.cols.anchor,
+                                    (anchorIdx + 1) * attribution.cols.anchor)
+      : traceRegion(attribution, tracedBins.start, tracedBins.end);
+    let peak = 0;
+    for (let i = 0; i < series.length; i += 1) peak = Math.max(peak, Math.abs(series[i]));
+    const mid = cssH - 26;
+    const bw = cssW / series.length;
+    for (let i = 0; i < series.length; i += 1) {
+      const v = series[i];
+      if (v === 0) continue;
+      const h = (Math.abs(v) / Math.max(peak, 1e-12)) * (cssH - 40);
+      ctx.fillStyle = v < 0 ? neg : pos;
+      ctx.fillRect(i * bw, v < 0 ? mid : mid - h, Math.max(bw, 0.6), h);
+    }
+    ctx.strokeStyle = muted;
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(0, mid + 0.5);
+    ctx.lineTo(cssW, mid + 0.5);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // The gene track underneath, so a peak of attribution can be read against a promoter.
+    if (mode === 'locus') {
+      const locus = LOCI[locusIndex];
+      drawGeneTrack(ctx, locus, (bp) => (bp / SEQ_LEN) * cssW, cssH - 22, 9, locus.id);
+    }
+    ctx.fillStyle = muted;
+    ctx.font = '10px system-ui, sans-serif';
+    ctx.fillText(
+      `${tracedBins.label} · ${anchorIdx >= 0 ? 'single base' : `${series.length} bins of 16 bp`}`
+      + ` · peak |attribution| ${peak.toFixed(3)}`,
+      4, 12,
+    );
+    attrCanvas.dataset.peak = String(peak);
+    attrCanvas.dataset.region = tracedBins.label;
+  }
+
+  /** Trace a bin range and update every view that shows it. */
+  function traceBins(start: number, end: number, label: string): void {
+    tracedBins = { start: Math.max(0, start), end: Math.min(N_BINS, end), label };
+    renderAttribution();
+    renderStageDetail(flow?.selected() ?? null);
+    if (traceLabel) {
+      const frac = ((tracedBins.end - tracedBins.start) * BIN_BP) / SEQ_LEN;
+      traceLabel.textContent =
+        `Tracing ${label} — bins ${tracedBins.start}–${tracedBins.end}`
+        + ` (${(frac * 100).toFixed(1)}% of the window)`;
+    }
+  }
+
+  /** The one-hot the model is fed, channel-major, so the chain can start at the sequence. */
+  function inputPlane(seq: string): Float32Array {
+    const out = new Float32Array(4 * SEQ_LEN);
+    for (let i = 0; i < Math.min(seq.length, SEQ_LEN); i += 1) {
+      const j = BASES.indexOf(seq[i].toUpperCase() as (typeof BASES)[number]);
+      if (j >= 0) out[j * SEQ_LEN + i] = 1;
+    }
+    return out;
+  }
+
   function setStatus(msg: string): void {
     if (statusEl) statusEl.textContent = msg;
   }
@@ -1253,6 +1441,7 @@ export function initVariantPlayground(root: ParentNode = document) {
 
     const acts: FlowActivations | null = current
       ? {
+          input: current.input,
           stemProfile: current.stemProfile,
           stageMaps: current.stageMaps,
           attention: current.attention,
@@ -1335,11 +1524,31 @@ export function initVariantPlayground(root: ParentNode = document) {
       peaks.push({ c, v: m });
     }
     peaks.sort((a, b) => b.v - a.v);
+
+    // With a region traced, rank this stage's channels by how much they CARRIED that region
+    // rather than by how loudly they fired. `traceChannels` returns relevance in stage_maps
+    // channel order, so a stage is a slice of it -- the same offsets stageMap uses.
+    let contributing: { c: number; v: number }[] | null = null;
+    if (attribution && tracedBins) {
+      const off = stageMapOffsets().find((o) => o.id === spec.id);
+      if (off) {
+        const rel = traceChannels(attribution, tracedBins.start, tracedBins.end);
+        contributing = [];
+        for (let c = 0; c < off.channels; c += 1) {
+          contributing.push({ c, v: rel[off.start + c] });
+        }
+        contributing.sort((a, b) => b.v - a.v);
+      }
+    }
+
     if (stageTop) {
       stageTop.textContent =
         stageTab === 'attention'
           ? `${positions} × ${positions} over the bottleneck, mean of ${N_HEADS} heads`
-          : 'loudest channels: ' + peaks.slice(0, 5).map((q) => `#${q.c} (${q.v.toFixed(2)})`).join(', ');
+          : contributing
+            ? `channels carrying ${tracedBins!.label}: `
+              + contributing.slice(0, 5).map((q) => `#${q.c} (${q.v.toFixed(2)})`).join(', ')
+            : 'loudest channels: ' + peaks.slice(0, 5).map((q) => `#${q.c} (${q.v.toFixed(2)})`).join(', ');
     }
     // The selected channel, on its own, at this stage's resolution -- one neuron's activation
     // across the window, which a 384-row raster cannot show you.
@@ -1534,6 +1743,47 @@ export function initVariantPlayground(root: ParentNode = document) {
     renderSingleTrack();
   });
 
+  if (trackSvg) {
+    // Drag across the predicted curve to choose a region. The SVG is 960 wide in user units and
+    // 896 bins across, so the x fraction maps straight to bins.
+    let dragFrom: number | null = null;
+    const binAt = (ev: PointerEvent) => {
+      const box = trackSvg.getBoundingClientRect();
+      return Math.round(((ev.clientX - box.left) / box.width) * N_BINS);
+    };
+    trackSvg.classList.add('vp-track-select');
+    trackSvg.addEventListener('pointerdown', (ev) => {
+      if (!attribution) return;
+      dragFrom = binAt(ev);
+      trackSvg.setPointerCapture(ev.pointerId);
+    });
+    trackSvg.addEventListener('pointerup', (ev) => {
+      if (dragFrom === null || !attribution) return;
+      const to = binAt(ev);
+      const [a, b] = dragFrom <= to ? [dragFrom, to] : [to, dragFrom];
+      dragFrom = null;
+      // A click rather than a drag: take one group's width so there is something to show.
+      const width = Math.max(b - a, attribution.groupBins);
+      if (anchorSelect) anchorSelect.value = '';
+      traceBins(a, a + width, 'dragged region');
+    });
+  }
+
+  anchorSelect?.addEventListener('change', () => {
+    const i = Number(anchorSelect.value);
+    const a = attribution?.anchors[i];
+    if (!a) return;
+    traceBins(a.binStart, a.binEnd, a.label);
+  });
+
+  traceClear?.addEventListener('click', () => {
+    tracedBins = null;
+    if (anchorSelect) anchorSelect.value = '';
+    if (traceLabel) traceLabel.textContent = 'Drag across the curve above to trace a region back to the sequence.';
+    renderAttribution();
+    renderStageDetail(flow?.selected() ?? null);
+  });
+
   logToggle?.addEventListener('change', () => {
     useLogAxis = logToggle.checked;
     renderTrack();       // one control, both plots -- they show the same quantity
@@ -1586,6 +1836,7 @@ export function initVariantPlayground(root: ParentNode = document) {
   renderPicker(true);
   renderHeatmap();
   renderSingleTrack();
+  renderAttribution();
   setStatus('Live conv-stem view is running. Load the full model to predict a track.');
 
   return {

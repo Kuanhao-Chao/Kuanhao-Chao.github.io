@@ -113,6 +113,16 @@ export interface LayerSpec {
 export function layerSpecs(): LayerSpec[] {
   const out: LayerSpec[] = [
     {
+      // The sequence itself. Without it the chain starts at the first convolution, so "input to
+      // output" was really "first convolution to output". It needs no precompute -- the browser
+      // has the sequence and the one-hot is the encoding it already does for inference.
+      id: 'input',
+      label: 'Input sequence',
+      detail: `one-hot A/C/G/T over ${SEQ_LEN.toLocaleString()} bp (+1 mask, +${N_SPECIES} species)`,
+      positions: SEQ_LEN,
+      channels: N_DNA,
+    },
+    {
       id: 'stem',
       label: 'Conv stem',
       detail: `Conv1D, ${STEM_KERNEL} bp kernel, linear activation`,
@@ -595,6 +605,9 @@ export interface SubLayer {
 export function subLayers(spec: LayerSpec): SubLayer[] {
   const { positions: p, channels: c } = spec;
 
+  if (spec.id === 'input') {
+    return [{ op: 'one-hot encode', positions: p, channels: c }];
+  }
   if (spec.id === 'stem') {
     return [{ op: `Conv1D, ${STEM_KERNEL} bp kernel, linear`, positions: p, channels: c }];
   }
@@ -970,6 +983,32 @@ export function geneTrackShapes(feature: {
     if (i + 1 < exons.length) {
       out.push({ kind: 'intron', start: ee, end: exons[i + 1][0] });
     }
+  }
+  return out;
+}
+
+/**
+ * Sum the attribution rows a bin range covers.
+ *
+ * This is why dragging is exact rather than interpolated: gradients superpose, so the attribution
+ * for a set of output bins is the sum of their individual gradients. Precomputing one row per group
+ * of bins therefore answers any contiguous selection with no approximation -- the only thing lost
+ * is that the selection snaps to a group boundary.
+ */
+export function sumAttributionRows(
+  plane: ArrayLike<number>,
+  cols: number,
+  groupBins: number,
+  groups: number,
+  binStart: number,
+  binEnd: number,
+): Float32Array {
+  const g0 = Math.max(0, Math.floor(binStart / groupBins));
+  const g1 = Math.min(groups, Math.ceil(binEnd / groupBins));
+  const out = new Float32Array(cols);
+  for (let g = g0; g < g1; g += 1) {
+    const base = g * cols;
+    for (let i = 0; i < cols; i += 1) out[i] += plane[base + i];
   }
   return out;
 }

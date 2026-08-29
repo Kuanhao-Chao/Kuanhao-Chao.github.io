@@ -142,7 +142,10 @@ class ShorkieExport(nn.Module):
         dec_factors = [2, 4, 8]                     # decoder stages at 256, 512, 1024
         parts = (
             [to128(acts[f"block{i}"], f) for i, f in zip(range(1, 8), enc_factors)]
-            + [acts[f"attn_out{i}"] for i in range(1, 9)]          # already 128 positions
+            # attn_out is the on-path residual stream, [B, 128, 384]; transpose for display so it
+            # matches every other channels-first entry. Kept untransposed in `acts` so it carries a
+            # gradient -- a transpose there puts it on a branch nothing consumes.
+            + [acts[f"attn_out{i}"].transpose(1, 2) for i in range(1, 9)]
             + [to128(acts[f"decoder{i}"], f) for i, f in zip(range(1, 4), dec_factors)]
         )
         stage_maps = _tree_cat(parts, dim=1)                       # [1, 5760, 128]
