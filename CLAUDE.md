@@ -727,6 +727,36 @@ Keras checkpoint, ported and exported, producing the same numbers the paper's mo
   the panels below correctly went blank. That reads as "I ran it and got no output". `clearResults()`
   is now the single path, and a forward pass stamps `data-vp-result-locus` so the audit can assert
   no view survives a locus change.
+- **A WebGPU pipeline that fails validation does not throw — it returns ZEROS, and onnxruntime
+  reports the run as successful.** The page printed "Done — 1689 ms on WebGPU" beside four
+  predicted peaks of 0.0000. The cause was a `Concat` with **18 inputs** (the unified `stage_maps`)
+  needing 19 storage buffers against WebGPU's per-stage limit of **8**; the invalid pipeline
+  poisoned everything downstream. A second node, the 8-way `torch.stack` over the attention maps,
+  was also over. Both are now built as **binary trees**, max fan-in is 7, and `build_onnx.py`
+  **fails the export** if any node exceeds the limit. Headless chromium has no WebGPU adapter,
+  which is why five reproduction attempts all passed — reproduce with `--enable-unsafe-webgpu`.
+  Fixed, WebGPU agrees with WASM to r ≥ 0.99989 over all 896 bins at **304 ms against 17,154 ms**.
+- **Never report a run as successful without looking at its output.** `runFull` now checks the
+  prediction is finite and not identically zero, and retries on WASM — releasing the WebGPU session
+  first, or the retry runs on the backend that just failed. `ensureSession` used to catch only
+  `create`, so a run-time failure had no fallback at all.
+- **Everything is precomputed per locus, as PNG.** `make_activations.py` writes all 5,215 track
+  predictions plus every layer's activations for each locus as uint8 PNGs with per-row scales in a
+  sidecar JSON — 2–4 MB a locus, 56 MB total. PNG beats gzip on this data *and* the browser decodes
+  it natively with `createImageBitmap`, so no JavaScript inflate ships. The page then needs **no
+  model at all**: verified with `**/models/**` blocked, all 14 loci show every layer and all 5,215
+  tracks, 0 model requests. Decoded-vs-live is ≤ 2.8e-3 across every locus and tensor.
+- **Coverage is quantized in LOG space, activations in linear.** 256 levels spread linearly across a
+  range spanning orders of magnitude wastes almost all of them on the top and leaves a visible
+  staircase in the low values of a log plot: measured, the error a reader sees is **2.2e-1 of the
+  axis linear against 1.96e-3 in log space**, 113×. Signed activations cannot use log and stay
+  linear. The sidecar carries `space` per tensor so the decoder knows which.
+- **The track picker is cascading, because 5,215 in one list is unusable.** The names carry the
+  experiment: `ARG80_T0_S757` is regulator, timepoint, sample. Verified across all 5,215 — 3,037 of
+  3,053 RNA-seq names parse as `TF_Tn_Sn` giving **335 regulators × 13 timepoints**, 1,128 ChIP names
+  as `target_Sn`, all 1,014 strain tracks as ENA runs, and **36 match nothing and go to an `other`
+  bucket rather than being dropped**. A regulator can hold several samples per timepoint — ARG80 has
+  55 tracks over 8 — so options are labelled `T0 · S757`, or two read identically.
 - **The predictions are precomputed and shipped; the model is loaded for something else.** Every
   preset locus was run offline at the full 16,384 bp context — 14 loci in 1.6 s — and
   `src/data/shorkiePredictions.json` (307 kB, 96 kB gz) carries the four assay-group curves plus the

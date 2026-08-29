@@ -147,6 +147,11 @@ const description =
         <canvas class="vp-canvas vp-heat" data-vp-heat role="img"
                 aria-label="All 5,215 predicted output tracks, one row each, grouped by assay"></canvas>
         <div class="vp-controls" style="margin-top:0.5rem;">
+          <select class="vp-select" data-vp-pick-group aria-label="Assay block"></select>
+          <select class="vp-select" data-vp-pick-key aria-label="Regulator, ChIP target or run"></select>
+          <select class="vp-select" data-vp-pick-track aria-label="Timepoint or replicate"></select>
+        </div>
+        <div class="vp-controls" style="margin-top:0.35rem;">
           <span class="vp-stat" data-vp-track-name></span>
         </div>
         <svg class="vp-svg" data-vp-single role="img"

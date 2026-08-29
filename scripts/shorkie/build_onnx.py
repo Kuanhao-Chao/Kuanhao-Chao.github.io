@@ -40,6 +40,23 @@ TRACK_BLOCKS = {"chip_exo": (0, 1128), "chip_mnase": (1128, 1148),
                 "rnaseq_tf": (1148, 4201), "rnaseq_strain": (4201, 5215)}
 
 
+def _tree_cat(parts: list[torch.Tensor], dim: int) -> torch.Tensor:
+    """Concatenate as a binary tree so no single Concat node takes many inputs.
+
+    WebGPU allows 8 storage buffers per compute stage, and a Concat needs one per input plus one
+    for its output. An 18-input concat asks for 19, the pipeline is rejected as invalid, and
+    everything downstream of it silently emits ZEROS -- while onnxruntime still reports the run as
+    successful. That is what made the page print "Done -- 1689 ms on WebGPU" beside four predicted
+    peaks of 0.0000. Pairwise concatenation keeps every node at 2 inputs.
+    """
+    while len(parts) > 1:
+        parts = [
+            torch.cat(parts[i:i + 2], dim=dim) if len(parts[i:i + 2]) == 2 else parts[i]
+            for i in range(0, len(parts), 2)
+        ]
+    return parts[0]
+
+
 def _restore_resize_inputs(model) -> int:
     """Force Resize's roi/scales/sizes inputs back to fp32 after a float16 conversion.
 
@@ -123,12 +140,12 @@ class ShorkieExport(nn.Module):
 
         enc_factors = [128, 64, 32, 16, 8, 4, 2]   # blocks 1..7 at 16384..256 positions
         dec_factors = [2, 4, 8]                     # decoder stages at 256, 512, 1024
-        stage_maps = torch.cat(
+        parts = (
             [to128(acts[f"block{i}"], f) for i, f in zip(range(1, 8), enc_factors)]
             + [acts[f"attn_out{i}"] for i in range(1, 9)]          # already 128 positions
-            + [to128(acts[f"decoder{i}"], f) for i, f in zip(range(1, 4), dec_factors)],
-            dim=1,
-        )                                                          # [1, 5760, 128]
+            + [to128(acts[f"decoder{i}"], f) for i, f in zip(range(1, 4), dec_factors)]
+        )
+        stage_maps = _tree_cat(parts, dim=1)                       # [1, 5760, 128]
 
         # Every track, unreduced. The 4 group means above are the overview; this is what lets the
         # page show a single named experiment instead of a mean over 3,053 of them, which
@@ -184,6 +201,20 @@ def main() -> int:
     )
     size = Path(out_path).stat().st_size
     print(f"\nexported {out_path}  ({size / 1e6:.1f} MB)")
+
+    # WebGPU allows 8 storage buffers per compute stage: a node's inputs plus its output. Exceeding
+    # it does not raise -- the pipeline is invalid and the graph quietly produces zeros.
+    import onnx as _onnx
+
+    graph = _onnx.load(out_path, load_external_data=False).graph
+    wide = [(n.op_type, n.name, len(n.input)) for n in graph.node if len(n.input) + 1 > 8]
+    if wide:
+        print("\nFAIL: nodes exceeding WebGPU's 8 storage buffers per stage:")
+        for op, name, k in wide:
+            print(f"  {op} {name}: {k} inputs -> {k + 1} buffers")
+        return 1
+    widest = max((len(n.input) for n in graph.node), default=0)
+    print(f"max node fan-in {widest} -> {widest + 1} storage buffers (WebGPU limit 8)  OK")
 
     # Parity: the export must reproduce the reference, or the graph is not the model.
     import onnxruntime as ort

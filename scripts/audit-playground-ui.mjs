@@ -43,6 +43,15 @@ const failures = [];
 const fail = (scope, message) => failures.push(`${scope}: ${message}`);
 const progress = (scope) => console.log(`[playground-ui] ${scope}`);
 
+/** Never let one phase's throw abort the rest -- and name the phase it came from. */
+async function captureFailure(scope, task) {
+  try {
+    await task();
+  } catch (error) {
+    fail(scope, error instanceof Error ? error.message : String(error));
+  }
+}
+
 /** Panels the page must render, and panels it must NOT -- the three removed by the redesign. */
 function expected() {
   const src = readFileSync(new URL('../src/pages/variant-playground.astro', import.meta.url), 'utf8');
@@ -175,10 +184,10 @@ async function auditPage(page, scope, want) {
       peak: Number(svg?.dataset.peak ?? '0'),
       title: title ?? '',
       single: Number(document.querySelector('[data-vp-single]')?.dataset.peak ?? '0'),
-      loaded: document.querySelector('[data-vp]').dataset.vpResultLocus ?? '',
+      source: document.querySelector('[data-vp]').dataset.vpResultSource ?? '',
     };
   });
-  if (onLoad.loaded) fail(scope, 'a model run happened without a click');
+  if (onLoad.source === 'live') fail(scope, 'a model run happened without a click');
   if (!(onLoad.peak > 0)) fail(scope, 'no predicted coverage on load — the precompute is not wired');
   if (!/precomputed/.test(onLoad.title)) fail(scope, `coverage does not say it is precomputed: "${onLoad.title}"`);
   if (!(onLoad.single > 0)) fail(scope, 'no single-track curve on load');
@@ -275,11 +284,16 @@ async function auditStaleState(browser, baseURL, scope) {
           .map((x) => x.textContent).find((x) => /predicted/.test(x)) ?? '',
       };
     });
-    if (after.stamp) fail(scope, `result stamp survived a locus change: "${after.stamp}"`);
-    if (after.loud) fail(scope, `stale loudest-channel readout after a locus change: "${after.loud}"`);
-    if (after.detailInk > 20_000) {
-      fail(scope, `layer detail still holds ${after.detailInk} px after a locus change (stale)`);
+    // Staleness is now about CONTENT, not presence: switching locus loads the new gene's
+    // precomputed pack, so the views stay populated. What must never happen is one gene's
+    // activations sitting under another gene's name.
+    if (after.stamp !== 'YCR012W') {
+      fail(scope, `after switching to PGK1 the result is stamped "${after.stamp}", not YCR012W`);
     }
+    if (after.loud && after.loud === ran.loud) {
+      fail(scope, `loudest-channel readout is unchanged across two different loci: "${after.loud}"`);
+    }
+    if (after.detailInk < 1000) fail(scope, 'layer detail went blank after a locus change');
     // The panel must now show the NEW locus's precomputed prediction, not the old live result and
     // not a blank. PGK1's shipped RNA-seq peak is 400.52; TDH3's is 994.88, so the two are
     // unmistakable and a retained stale curve fails here.
@@ -355,6 +369,75 @@ async function auditInkDistribution(browser, baseURL, scope) {
     if (/Conv stem/.test(second) && !/Conv stem/.test(first)) {
       fail(scope, `deselecting "${first}" fell back to the conv stem`);
     }
+  } finally {
+    await context.close();
+  }
+}
+
+/**
+ * Every layer view and every one of the 5,215 tracks must work with the model BLOCKED.
+ *
+ * The precomputed packs are what make the page usable at all: a 28.6 MB download and a 17 s
+ * inference used to stand between a reader and any result, and any failure in that path -- an
+ * abandoned click, a bad backend -- left the page looking broken.
+ */
+async function auditNoModel(browser, baseURL, scope) {
+  const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1000 } });
+  const page = await context.newPage();
+  let modelRequests = 0;
+  await page.route('**/models/**', (r) => { modelRequests += 1; r.abort(); });
+  try {
+    await page.goto(ROUTE, { waitUntil: 'networkidle' });
+    await page.locator('[data-vp-mode="locus"]').click();
+    await page.waitForFunction(
+      () => document.querySelector('[data-vp]').dataset.vpResultSource === 'precomputed',
+      { timeout: 60_000 },
+    );
+    const count = await page.locator('[data-vp-locus] option').count();
+    for (let i = 0; i < count; i += 1) {
+      await page.selectOption('[data-vp-locus]', String(i));
+      await page.waitForFunction(
+        () => document.querySelector('[data-vp]').dataset.vpResultSource === 'precomputed',
+        { timeout: 60_000 },
+      ).catch(() => {});
+      await page.waitForTimeout(100);
+      const s = await page.evaluate(() => {
+        const paint = (sel, rows) => {
+          const c = document.querySelector(sel);
+          const d = c.getContext('2d').getImageData(0, 0, c.width, rows ?? c.height).data;
+          let n = 0;
+          for (let i = 3; i < d.length; i += 4) if (d[i] > 8) n += 1;
+          return n;
+        };
+        return {
+          src: document.querySelector('[data-vp]').dataset.vpResultSource,
+          peak: Number(document.querySelector('[data-vp-track]')?.dataset.peak ?? '0'),
+          layer: paint('[data-vp-stage-map]', 200),
+          heat: paint('[data-vp-heat]'),
+          gene: document.querySelector('[data-vp-locus]').selectedOptions[0].textContent,
+        };
+      });
+      if (s.src !== 'precomputed') fail(scope, `${s.gene}: no precomputed pack loaded`);
+      if (!(s.peak > 0)) fail(scope, `${s.gene}: no predicted coverage without the model`);
+      if (s.layer < 1000) fail(scope, `${s.gene}: layer view empty without the model`);
+      if (s.heat < 1000) fail(scope, `${s.gene}: track heatmap empty without the model`);
+    }
+
+    // The cascading picker must reach a named track and plot it, still with no model.
+    await page.selectOption('[data-vp-pick-key]', 'ARG80');
+    await page.waitForTimeout(250);
+    const opts = await page.locator('[data-vp-pick-track] option').allTextContents();
+    if (opts.length < 2) fail(scope, `ARG80 offers ${opts.length} tracks, expected its timecourse`);
+    if (new Set(opts).size !== opts.length) fail(scope, 'picker options are not distinguishable');
+    await page.selectOption('[data-vp-pick-track]', { label: opts.at(-1) });
+    await page.waitForTimeout(250);
+    const picked = await page.evaluate(() => ({
+      name: document.querySelector('[data-vp-single]')?.dataset.track ?? '',
+      peak: Number(document.querySelector('[data-vp-single]')?.dataset.peak ?? '0'),
+    }));
+    if (!/^ARG80_T/.test(picked.name)) fail(scope, `picker plotted "${picked.name}", expected an ARG80 track`);
+    if (!(picked.peak > 0)) fail(scope, `picked track ${picked.name} has no curve`);
+    if (modelRequests) fail(scope, `${modelRequests} model request(s) made on the no-model path`);
   } finally {
     await context.close();
   }
@@ -439,6 +522,13 @@ async function auditFullModel(browser, baseURL, scope) {
     if (!/5,215 tracks/.test(after.heat)) fail(scope, `heatmap stat wrong: "${after.heat}"`);
     if (!after.track) fail(scope, 'single-track plot is unnamed');
     if (!(after.peak > 0)) fail(scope, 'predicted peak is not positive');
+    // The regression that started all this: a WebGPU pipeline rejected by validation returns
+    // zeros while onnxruntime reports success. A run that reports Done must have real output.
+    const allZero = await page.evaluate(() => {
+      const svg = document.querySelector('[data-vp-track]');
+      return Number(svg?.dataset.peak ?? '0') === 0;
+    });
+    if (allZero) fail(scope, 'a run reported success with an all-zero prediction');
 
     // Knock out the 5' splice site -- the strongest effect measured on this locus (-34%).
     const donor = page.locator('.vp-motif', { hasText: 'splice site' }).first();
@@ -500,15 +590,17 @@ async function main() {
             await context.close();
           }
         }
-        await auditReducedMotion(browser, baseURL, `${engineName}/reduced-motion`);
-        await auditNavigation(browser, baseURL, `${engineName}/navigation`);
+        await captureFailure(`${engineName}/reduced-motion`, () => auditReducedMotion(browser, baseURL, `${engineName}/reduced-motion`));
+        await captureFailure(`${engineName}/navigation`, () => auditNavigation(browser, baseURL, `${engineName}/navigation`));
         if (FULL && engineName === 'chromium') {
           progress('chromium/full-model (one real inference, ~20 s)');
-          await auditFullModel(browser, baseURL, 'chromium/full-model');
+          await captureFailure('chromium/full-model', () => auditFullModel(browser, baseURL, 'chromium/full-model'));
           progress('chromium/stale-state (two inferences, ~40 s)');
-          await auditStaleState(browser, baseURL, 'chromium/stale-state');
+          await captureFailure('chromium/stale-state', () => auditStaleState(browser, baseURL, 'chromium/stale-state'));
+          progress('chromium/no-model (14 loci, model blocked)');
+          await captureFailure('chromium/no-model', () => auditNoModel(browser, baseURL, 'chromium/no-model'));
           progress('chromium/ink-distribution (one inference, ~20 s)');
-          await auditInkDistribution(browser, baseURL, 'chromium/ink-distribution');
+          await captureFailure('chromium/ink-distribution', () => auditInkDistribution(browser, baseURL, 'chromium/ink-distribution'));
         }
       } finally {
         await browser.close();

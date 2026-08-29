@@ -315,7 +315,15 @@ class ShorkieTorch(nn.Module):
                 # entry in `acts`, which is channels-first.
                 acts[f"attn_out{i + 1}"] = t.transpose(1, 2)
         if want_intermediates and attn_maps:
-            acts["attention"] = torch.stack(attn_maps, dim=1)   # [B, layers, heads, T, T]
+            # Pairwise, not torch.stack: an 8-way stack lowers to a Concat needing 9 storage
+            # buffers, one over WebGPU's per-stage limit of 8. See _tree_cat in build_onnx.py.
+            stacked = [m.unsqueeze(1) for m in attn_maps]
+            while len(stacked) > 1:
+                stacked = [
+                    torch.cat(stacked[i:i + 2], dim=1) if len(stacked[i:i + 2]) == 2 else stacked[i]
+                    for i in range(0, len(stacked), 2)
+                ]
+            acts["attention"] = stacked[0]                      # [B, layers, heads, T, T]
 
         h = t.transpose(1, 2)                                  # [B, 384, 128]
         for i, skip_idx in enumerate((6, 5, 4)):
