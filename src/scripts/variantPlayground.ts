@@ -27,6 +27,7 @@ import {
 } from './shorkieFlow';
 import truthJson from '../data/shorkieTruth.json';
 import trackNamesJson from '../data/shorkieTrackNames.json';
+import predictionsJson from '../data/shorkiePredictions.json';
 import {
   BASES,
   N_BINS,
@@ -36,6 +37,8 @@ import {
   activationInk,
   activationScale,
   scaledInk,
+  paintActivationMap,
+  type Rgb,
   binToWindowOffset,
   positionToBp,
   bpToFraction,
@@ -88,6 +91,31 @@ const LOCI = (lociJson as { loci: Locus[] }).loci;
 interface Truth { loci: Record<string, Record<string, number[]>>; tracks: Record<string, string[]>; }
 const TRUTH = truthJson as Truth;
 const TRACK_NAMES = (trackNamesJson as { identifiers: string[] }).identifiers;
+
+/**
+ * Predictions for every preset locus, computed offline at the full 16,384 bp context.
+ *
+ * The page used to have a prediction only after a ~17 s WASM inference the reader had to click for
+ * and wait through; a missed or abandoned click left every output panel legitimately empty. These
+ * are shipped so the output is populated on load, and the model is loaded for live activations,
+ * sequence editing and motif knockouts -- not to get a number that already exists.
+ */
+interface Predictions {
+  loci: Record<string, { gene: string; groups: number[][]; baseline: number[] }>;
+  baselineTracks: number;
+}
+const PREDICTIONS = predictionsJson as Predictions;
+
+/** The predicted curve for a group, from the live run if there is one, else the shipped one. */
+function predictedGroup(locusId: string, group: number, live: FullResult | null): Float32Array | null {
+  if (live) {
+    const out = new Float32Array(N_BINS);
+    for (let i = 0; i < N_BINS; i += 1) out[i] = live.tracks[i * 4 + group];
+    return out;
+  }
+  const rows = PREDICTIONS.loci[locusId]?.groups;
+  return rows?.[group] ? Float32Array.from(rows[group]) : null;
+}
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const el = <K extends keyof SVGElementTagNameMap>(tag: K) => document.createElementNS(SVG_NS, tag);
@@ -181,6 +209,8 @@ export function initVariantPlayground(root: ParentNode = document) {
   let groupIndex = RNA_SEQ_GROUP;
   let showTruth = true;
   let stageTab: 'activation' | 'attention' = 'activation';
+  /** Which stage the detail last followed, so the sweep only redraws on a real change. */
+  let lastFrontStage = '';
   // ARG80_T0_S757 -- a real T0 baseline experiment, which is the set Figure 4's ISM uses,
   // rather than a mean over all 3,053 induction tracks.
   let selectedTrack: number = TRACK_GROUPS[RNA_SEQ_GROUP].start;
@@ -231,19 +261,7 @@ export function initVariantPlayground(root: ParentNode = document) {
 
     // The same scale the layer detail uses, so the two rasters of the same stage agree.
     const scale = activationScale(act.map);
-    const cellW = cssW / Math.max(act.positions, 1);
-    const fire = getComputedStyle(host).getPropertyValue('--vp-fire').trim() || '#b0455a';
-    const cool = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
-
-    for (let f = 0; f < act.filters; f += 1) {
-      for (let p = 0; p < act.positions; p += 1) {
-        const { magnitude, negative } = scaledInk(act.map[f * act.positions + p], scale);
-        if (magnitude === 0) continue;
-        ctx.fillStyle = negative ? cool : fire;
-        ctx.globalAlpha = magnitude;
-        ctx.fillRect(p * cellW, f * rowH, Math.max(cellW, 0.7), rowH - 0.4);
-      }
-    }
+    blitMap(ctx, act.map, act.filters, act.positions, scale, 0, 0, cssW, act.filters * rowH);
     ctx.globalAlpha = 1;
     ctx.strokeStyle = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
     ctx.lineWidth = 1;
@@ -282,13 +300,13 @@ export function initVariantPlayground(root: ParentNode = document) {
     const W = 960;
     const H = 220;
     attr(trackSvg, { viewBox: `0 0 ${W} ${H}` });
-    if (!current) {
+    const n = N_BINS;
+    const locusId = mode === 'locus' ? LOCI[locusIndex].id : '';
+    const vals = predictedGroup(locusId, groupIndex, current);
+    if (!vals) {
       trackSvg.append(text(W / 2, H / 2, emptyReason, 'vp-ax'));
       return;
     }
-    const n = N_BINS;
-    const vals = new Float32Array(n);
-    for (let i = 0; i < n; i += 1) vals[i] = current.tracks[i * 4 + groupIndex];
     const truth = showTruth
       ? TRUTH.loci?.[LOCI[locusIndex].id]?.[TRACK_GROUPS[groupIndex].id]
       : undefined;
@@ -333,7 +351,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     attr(path, { d, fill: 'none', stroke: 'var(--vp-track)', 'stroke-width': 1.4 });
     trackSvg.append(path);
 
-    if (reference && reference !== current) {
+    if (current && reference && reference !== current) {
       let rd = `M0 ${H - 26}`;
       for (let i = 0; i < n; i += 1) {
         rd += ` L${(i * bw).toFixed(2)} ${yOf(reference.tracks[i * 4 + groupIndex], max).toFixed(2)}`;
@@ -367,18 +385,21 @@ export function initVariantPlayground(root: ParentNode = document) {
     trackSvg.append(
       text(4, 14,
         `predicted ${TRACK_GROUPS[groupIndex].label} · 896 bins × 16 bp · peak ${max.toFixed(2)}`
-        + ` at bin ${argmax} · ${useLogAxis ? 'log' : 'linear'} axis`,
+        + ` at bin ${argmax} · ${useLogAxis ? 'log' : 'linear'} axis`
+        + (current ? ' · live run' : ' · precomputed'),
         'vp-ax', 'start'),
     );
   }
 
   async function ensureSession(): Promise<boolean> {
     if (session) return true;
+    setBusy(true, 'Loading runtime…');
     setStatus('Loading ONNX Runtime…');
     ort = await import('onnxruntime-web');
     ort.env.wasm.wasmPaths = '/ort/';
     ort.env.wasm.numThreads = 1; // no cross-origin isolation on GitHub Pages, so no SharedArrayBuffer
-    setStatus('Downloading Shorkie (28.6 MB)…');
+    setBusy(true, 'Downloading 28.6 MB…');
+    setStatus('Downloading Shorkie (28.6 MB) — this happens once.');
     // Try WebGPU first, then fall back -- and record which one actually initialised. Reporting
     // "WebGPU or maybe WASM" would be a guess, and the whole point of the readout is the real
     // number attached to the real backend.
@@ -406,10 +427,10 @@ export function initVariantPlayground(root: ParentNode = document) {
       setStatus('Switch to a locus to run the full model — a typed fragment is not a 16,384 bp window.');
       return;
     }
-    if (runBtn) runBtn.disabled = true;
     try {
       await ensureSession();
-      setStatus('Running inference…');
+      setBusy(true, 'Running…');
+      setStatus('Running inference — about 17 s on WebAssembly.');
       const t0 = performance.now();
       // `sequence` -- not the locus -- because a motif knockout edits it in place, and reading
       // the locus here would silently run the unmodified window and report no effect.
@@ -444,11 +465,13 @@ export function initVariantPlayground(root: ParentNode = document) {
       renderStageDetail(flow?.selected() ?? null);
       renderHeatmap();
       renderSingleTrack();
+      setBusy(false);
       setStatus(`Done — ${ms.toFixed(0)} ms on ${current.backend}.`);
     } catch (err) {
       setStatus(`Inference failed: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
-      if (runBtn) runBtn.disabled = false;
+      // Whatever happened -- success, a failed download, a thrown session -- the button comes back.
+      setBusy(false);
     }
   }
 
@@ -570,17 +593,23 @@ export function initVariantPlayground(root: ParentNode = document) {
     const W = 960;
     const H = 150;
     attr(singleSvg, { viewBox: `0 0 ${W} ${H}` });
-    const group = trackGroupOf(selectedTrack);
-    if (trackNameEl) {
-      trackNameEl.textContent =
-        `track ${selectedTrack.toLocaleString()} · ${TRACK_NAMES[selectedTrack]} · ${group.label}`;
-    }
-    if (!current) {
-      singleSvg.append(text(W / 2, H / 2, 'no inference yet', 'vp-ax'));
+
+    const locusId = mode === 'locus' ? LOCI[locusIndex].id : '';
+    const shipped = PREDICTIONS.loci[locusId];
+    const vals = new Float32Array(N_BINS);
+    let label: string;
+    if (current) {
+      for (let b = 0; b < N_BINS; b += 1) vals[b] = current.allTracks[b * N_TRACKS + selectedTrack];
+      label = TRACK_NAMES[selectedTrack];
+    } else if (shipped) {
+      // Every one of the 5,215 tracks needs a live forward pass; the shipped file carries the T0
+      // baseline mean, which is the set the paper's Figure 4 ISM uses.
+      vals.set(shipped.baseline.slice(0, N_BINS));
+      label = `T0 baseline · mean of ${PREDICTIONS.baselineTracks.toLocaleString()} tracks`;
+    } else {
+      singleSvg.append(text(W / 2, H / 2, emptyReason, 'vp-ax'));
       return;
     }
-    const vals = new Float32Array(N_BINS);
-    for (let b = 0; b < N_BINS; b += 1) vals[b] = current.allTracks[b * N_TRACKS + selectedTrack];
     let max = 0;
     for (let i = 0; i < N_BINS; i += 1) if (vals[i] > max) max = vals[i];
     const bw = W / N_BINS;
@@ -597,12 +626,16 @@ export function initVariantPlayground(root: ParentNode = document) {
     for (let i = 1; i < N_BINS; i += 1) if (vals[i] > vals[argmax]) argmax = i;
     singleSvg.append(
       text(4, 14,
-        `${TRACK_NAMES[selectedTrack]} · peak ${max.toFixed(2)} at bin ${argmax}`
-        + ` · ${useLogAxis ? 'log' : 'linear'} axis`,
+        `${label} · peak ${max.toFixed(2)} at bin ${argmax} · ${useLogAxis ? 'log' : 'linear'} axis`,
         'vp-ax', 'start'),
     );
     singleSvg.dataset.peak = String(max);
-    singleSvg.dataset.track = TRACK_NAMES[selectedTrack];
+    singleSvg.dataset.track = label;
+    if (trackNameEl) {
+      trackNameEl.textContent = current
+        ? `track ${selectedTrack.toLocaleString()} · ${TRACK_NAMES[selectedTrack]} · ${trackGroupOf(selectedTrack).label}`
+        : 'Load the model to pick any of the 5,215 tracks individually.';
+    }
   }
 
   /**
@@ -719,6 +752,67 @@ export function initVariantPlayground(root: ParentNode = document) {
     renderHeatmap();
     renderSingleTrack();
     renderMotifs();
+  }
+
+  /** Mark the run button busy so a 17 s inference does not look like a frozen page. */
+  function setBusy(on: boolean, label?: string): void {
+    if (!runBtn) return;
+    runBtn.disabled = on;
+    runBtn.dataset.busy = String(on);
+    if (label) runBtn.textContent = label;
+    else if (!on) runBtn.textContent = session ? 'Re-run live layers' : 'Load model — live layers & editing';
+  }
+
+  /**
+   * The card's own background, so a neutral cell sits flush with it in any of the six themes.
+   *
+   * Read off a real ELEMENT, not a custom property: `getPropertyValue('--vp-panel')` hands back the
+   * literal `var(--color-surface, #fff)` rather than a colour. And walk up past transparent
+   * ancestors -- an unpainted element computes to `rgba(0, 0, 0, 0)`, which parses as black and
+   * turned the whole raster near-black on a white page.
+   */
+  function neutralRgb(): Rgb {
+    let el: HTMLElement | null = stageMapCanvas?.parentElement ?? host;
+    while (el) {
+      const m = /rgba?\(([^)]+)\)/.exec(getComputedStyle(el).backgroundColor);
+      if (m) {
+        const parts = m[1].split(',').map((v) => Number.parseFloat(v));
+        if (parts.length < 4 || parts[3] > 0.5) {
+          return [parts[0], parts[1], parts[2]];
+        }
+      }
+      el = el.parentElement;
+    }
+    // Nothing opaque above us: pick from the resolved ink instead of assuming a light page.
+    const ink = /rgba?\(([^)]+)\)/.exec(getComputedStyle(host).color);
+    const lum = ink ? Number.parseFloat(ink[1].split(',')[0]) : 0;
+    return lum > 128 ? [24, 26, 30] : [255, 255, 255];
+  }
+
+  /** Blit a [channels][positions] map, one pixel per cell, scaled to fill `w` x `h`. */
+  function blitMap(
+    ctx: CanvasRenderingContext2D,
+    data: ArrayLike<number>,
+    channels: number,
+    positions: number,
+    scale: Parameters<typeof paintActivationMap>[3],
+    x: number, y: number, w: number, h: number,
+  ): void {
+    const rgba = paintActivationMap(data, channels, positions, scale, neutralRgb());
+    // Draw at native cell size on an offscreen canvas, then scale it up in one call: 49,000
+    // fillRects per redraw is what made painting every cell unaffordable before.
+    const off = document.createElement('canvas');
+    off.width = positions;
+    off.height = channels;
+    const offCtx = off.getContext('2d');
+    if (!offCtx) return;
+    // createImageData + set, rather than the ImageData constructor, so the buffer type is the
+    // canvas's own rather than whatever ArrayBuffer flavour the caller's array carries.
+    const img = offCtx.createImageData(positions, channels);
+    img.data.set(rgba);
+    offCtx.putImageData(img, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(off, x, y, w, h);
   }
 
   function setStatus(msg: string): void {
@@ -870,8 +964,6 @@ export function initVariantPlayground(root: ParentNode = document) {
     // set the range, flattening every other cell onto the same ink -- measured, the drawn contrast
     // falls tenfold from block 1 to block 7.
     const cellW = cssW / positions;
-    const pos = getComputedStyle(host).getPropertyValue('--vp-fire').trim() || '#b0455a';
-    const neg = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
 
     // The output head's four assay groups differ ~40x in range, so one shared scale left three of
     // them drawing 0.0% of their 896 bins. Each gets its own, on the log axis coverage is read on
@@ -887,18 +979,20 @@ export function initVariantPlayground(root: ParentNode = document) {
       }
     }
 
-    for (let c = 0; c < channels; c += 1) {
-      for (let p = 0; p < positions; p += 1) {
-        const v = data[c * positions + p];
-        const magnitude = perChannel ? logAxis(v, rowMax[c]) : scaledInk(v, scale!).magnitude;
-        const negative = perChannel ? false : scaledInk(v, scale!).negative;
-        if (magnitude < 0.06) continue;
-        ctx.fillStyle = negative ? neg : pos;
-        ctx.globalAlpha = magnitude;
-        ctx.fillRect(p * cellW, c * rowH, Math.max(cellW, 0.7), Math.max(rowH - 0.3, 0.7));
+    if (perChannel) {
+      // The head's four assay groups differ ~40x, so each is scaled to its own peak on the log
+      // axis the rest of the page reads coverage on -- then painted like everything else.
+      const norm = new Float64Array(channels * positions);
+      for (let c = 0; c < channels; c += 1) {
+        for (let p = 0; p < positions; p += 1) {
+          norm[c * positions + p] = logAxis(data[c * positions + p], rowMax[c]);
+        }
       }
+      blitMap(ctx, norm, channels, positions, { kind: 'sequential', lo: 0, hi: 1, half: 1 },
+        0, 0, cssW, channels * rowH);
+    } else {
+      blitMap(ctx, data, channels, positions, scale!, 0, 0, cssW, channels * rowH);
     }
-    ctx.globalAlpha = 1;
 
     const peaks: { c: number; v: number }[] = [];
     for (let c = 0; c < channels; c += 1) {
@@ -1049,7 +1143,7 @@ export function initVariantPlayground(root: ParentNode = document) {
             (perChannel
               ? 'Each track is scaled to its own peak on a log axis, because the four assay groups differ ~40x. '
               : scale && scale.kind === 'diverging'
-                ? 'Red is a positive activation, blue negative, and a neuron near zero leaves its cell blank. '
+                ? 'Every cell is painted: red is a positive activation, blue negative, and a neuron near zero takes the colour of the card behind it. '
                 : 'Ink runs low to high across the range this stage occupies. ') +
             `Each column covers ${bp} bp of input; the ruler beneath is the real coordinate, with ` +
             `annotated ORFs. The line above it is channel #${ch} alone — click a row in the ` +
@@ -1061,6 +1155,12 @@ export function initVariantPlayground(root: ParentNode = document) {
   if (flowCanvas) {
     flow = createFlow(flowCanvas, host);
     flow.onChange((t, stage, isPlaying) => {
+      // The sweep walks the network: as the front crosses a stage, the detail panel below becomes
+      // that stage, so playing it is a tour rather than a decoration. A held selection wins.
+      if (!flow?.selected() && stage.id !== lastFrontStage) {
+        lastFrontStage = stage.id;
+        renderStageDetail(stage);
+      }
       if (stageStat) {
         stageStat.textContent =
           `${stage.label} · ${stage.positions.toLocaleString()} × ${stage.channels.toLocaleString()}` +
