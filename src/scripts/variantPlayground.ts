@@ -406,7 +406,10 @@ export function initVariantPlayground(root: ParentNode = document) {
    * curves work with no model at all. The browser's own PNG decoder does the decompression.
    */
   async function loadPrecomputed(locusId: string): Promise<FullResult | null> {
-    const base = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/shorkie`;
+    // NOT /shorkie/: with a custom apex domain on the user site, GitHub serves each project repo's
+    // Pages at khchao.com/<repo>/, and the `shorkie` repo already owns that path. Files deployed
+    // there from this site are shadowed and 404 -- they did.
+    const base = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/vp-data`;
     const meta = (await fetch(`${base}/${locusId}.json`).then((r) =>
       r.ok ? r.json() : null,
     ).catch(() => null)) as Record<

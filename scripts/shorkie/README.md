@@ -33,7 +33,7 @@ python3 scripts/shorkie/make_web_assets.py   scripts/shorkie/_scratch/model_best
 python3 scripts/shorkie/make_activations.py public/models/shorkie-fp16.onnx
 ```
 
-Writes `public/shorkie/<id>-{tracks,stages,stem,attn}.png` plus `<id>.json` for every locus: all
+Writes `public/vp-data/<id>-{tracks,stages,stem,attn}.png` plus `<id>.json` for every locus: all
 5,215 track predictions and every layer's activations, uint8 with per-row scales. 2–4 MB a locus,
 56 MB total. **The page needs no model to show any of it** — verified with the model blocked at the
 network layer. Decoded against a live forward pass: ≤ 2.8e-3 on every locus and tensor.

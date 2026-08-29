@@ -14,7 +14,11 @@ inference. The live model is then only needed for sequences the reader edits.
 Quantization is uint8 per row against that row's own min and max, which is 2.0e-3 relative -- the
 same order as the fp16 gap the shipped model already carries, so nothing displayed changes.
 
-Usage:  python3 scripts/shorkie/make_activations.py <onnx> [--out public/shorkie]
+NOT public/shorkie: with a custom apex domain on the user site, GitHub serves every project repo's
+Pages at khchao.com/<repo>/, and `Kuanhao-Chao/shorkie` already owns /shorkie/. Anything this site
+deploys there is shadowed and 404s -- which is exactly what happened.
+
+Usage:  python3 scripts/shorkie/make_activations.py <onnx> [--out public/vp-data]
 """
 
 from __future__ import annotations
@@ -78,7 +82,7 @@ def main() -> int:
     from PIL import Image
 
     onnx_path = sys.argv[1]
-    out_dir = ROOT / (sys.argv[sys.argv.index("--out") + 1] if "--out" in sys.argv else "public/shorkie")
+    out_dir = ROOT / (sys.argv[sys.argv.index("--out") + 1] if "--out" in sys.argv else "public/vp-data")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     loci = json.loads((ROOT / "src" / "data" / "shorkieLoci.json").read_text())
