@@ -205,6 +205,112 @@ async function auditPage(page, scope, want) {
   if (errors.length) fail(scope, `runtime errors: ${errors.slice(0, 3).join(' | ')}`);
 }
 
+/**
+ * Switching locus must invalidate EVERY view of the previous result, not just the track panels.
+ *
+ * It did not: the flow canvas kept the old locus's activations and the layer-detail canvas kept its
+ * pixels, so the page showed one gene's neurons under another gene's name while the panel below
+ * correctly went blank -- which reads as "I ran it and got no output".
+ */
+async function auditStaleState(browser, baseURL, scope) {
+  const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1000 } });
+  const page = await context.newPage();
+  try {
+    await page.goto(ROUTE, { waitUntil: 'networkidle' });
+    await page.locator('[data-vp-mode="locus"]').click();
+    await page.waitForTimeout(300);
+    const options = await page.locator('[data-vp-locus] option').allTextContents();
+    const first = options.findIndex((o) => o.startsWith('TDH3'));
+    const second = options.findIndex((o) => o.startsWith('PGK1'));
+    if (first < 0 || second < 0) { fail(scope, 'TDH3 or PGK1 missing from the locus list'); return; }
+
+    await page.selectOption('[data-vp-locus]', String(first));
+    await page.waitForTimeout(300);
+    await page.locator('[data-vp-run]').click();
+    await page.waitForFunction(
+      () => /Done —|failed/i.test(document.querySelector('[data-vp-status]')?.textContent ?? ''),
+      { timeout: 300_000 },
+    );
+    await page.locator('[data-vp-flow]').click({ position: { x: 700, y: 150 } });
+    await page.waitForTimeout(300);
+
+    const ran = await page.evaluate(() => ({
+      stamp: document.querySelector('[data-vp]').dataset.vpResultLocus ?? '',
+      loud: document.querySelector('[data-vp-stage-top]')?.textContent ?? '',
+    }));
+    if (ran.stamp !== 'YGR192C') fail(scope, `result stamp is "${ran.stamp}", expected YGR192C`);
+    if (!ran.loud) fail(scope, 'no loudest-channel readout after a run');
+
+    await page.selectOption('[data-vp-locus]', String(second));
+    await page.waitForTimeout(600);
+    const after = await page.evaluate(() => {
+      const c = document.querySelector('[data-vp-stage-map]');
+      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      let ink = 0;
+      for (let i = 3; i < d.length; i += 4) if (d[i] > 8) ink += 1;
+      return {
+        stamp: document.querySelector('[data-vp]').dataset.vpResultLocus ?? '',
+        loud: document.querySelector('[data-vp-stage-top]')?.textContent ?? '',
+        detailInk: ink,
+        track: document.querySelector('[data-vp-track] text')?.textContent ?? '',
+      };
+    });
+    if (after.stamp) fail(scope, `result stamp survived a locus change: "${after.stamp}"`);
+    if (after.loud) fail(scope, `stale loudest-channel readout after a locus change: "${after.loud}"`);
+    if (after.detailInk > 20_000) {
+      fail(scope, `layer detail still holds ${after.detailInk} px after a locus change (stale)`);
+    }
+    // The empty state must say WHICH locus is loaded, not just "run the model".
+    if (!/PGK1/.test(after.track)) fail(scope, `empty track state does not name the locus: "${after.track}"`);
+  } finally {
+    await context.close();
+  }
+}
+
+/**
+ * After a run, an activation raster must be neither blank nor a solid wash.
+ *
+ * The p1->p99 ramp drew a ZERO activation at 0.61 ink, so 90-96% of cells on 15 of the 20 stages
+ * drew above 0.4 and the map encoded sign rather than activity. Nothing caught it.
+ */
+async function auditInkDistribution(browser, baseURL, scope) {
+  const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1000 } });
+  const page = await context.newPage();
+  try {
+    await page.goto(ROUTE, { waitUntil: 'networkidle' });
+    await page.locator('[data-vp-mode="locus"]').click();
+    await page.waitForTimeout(300);
+    await page.locator('[data-vp-run]').click();
+    await page.waitForFunction(
+      () => /Done —|failed/i.test(document.querySelector('[data-vp-status]')?.textContent ?? ''),
+      { timeout: 300_000 },
+    );
+    const box = await page.locator('[data-vp-flow]').boundingBox();
+    for (const frac of [0.34, 0.46, 0.58, 0.70]) {          // four transformer layers
+      await page.locator('[data-vp-flow]').click({
+        position: { x: Math.round(box.width * frac), y: 150 },
+      });
+      await page.waitForTimeout(200);
+      const r = await page.evaluate(() => {
+        const c = document.querySelector('[data-vp-stage-map]');
+        const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+        let n = 0;
+        for (let i = 3; i < d.length; i += 4) if (d[i] > 8) n += 1;
+        return {
+          pct: (100 * n) / (c.width * c.height),
+          title: document.querySelector('[data-vp-stage-title]')?.textContent ?? '',
+          legend: document.querySelector('[data-vp-legend]')?.textContent ?? '',
+        };
+      });
+      if (r.pct > 85) fail(scope, `${r.title}: ${r.pct.toFixed(0)}% of the raster is inked (a wash)`);
+      if (r.pct < 5) fail(scope, `${r.title}: only ${r.pct.toFixed(1)}% inked (nothing to see)`);
+      if (!r.legend) fail(scope, `${r.title}: no colour legend`);
+    }
+  } finally {
+    await context.close();
+  }
+}
+
 /** Reduced motion must jump to the finished state rather than sweep. */
 async function auditReducedMotion(browser, baseURL, scope) {
   const context = await browser.newContext({ baseURL, reducedMotion: 'reduce' });
@@ -350,6 +456,10 @@ async function main() {
         if (FULL && engineName === 'chromium') {
           progress('chromium/full-model (one real inference, ~20 s)');
           await auditFullModel(browser, baseURL, 'chromium/full-model');
+          progress('chromium/stale-state (two inferences, ~40 s)');
+          await auditStaleState(browser, baseURL, 'chromium/stale-state');
+          progress('chromium/ink-distribution (one inference, ~20 s)');
+          await auditInkDistribution(browser, baseURL, 'chromium/ink-distribution');
         }
       } finally {
         await browser.close();

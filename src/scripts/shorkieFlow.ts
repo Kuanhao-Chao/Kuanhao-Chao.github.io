@@ -11,14 +11,14 @@
  */
 
 import {
-  activationInk,
   BOTTLENECK_LEN,
   N_BINS,
   N_ATTN_LAYERS,
   flowGeometry,
   stageAt,
   stageMapOffsets,
-  percentileRange,
+  activationScale,
+  scaledInk,
   type FlowStage,
 } from '../lib/shorkieModel';
 import { prefersReducedMotion } from './motion';
@@ -192,19 +192,20 @@ export function createFlow(canvas: HTMLCanvasElement, host: HTMLElement): FlowCo
         // Paint the real activation: channels across the block's width, positions down its height,
         // matching the axes the block itself encodes.
         const { data, channels, positions } = map;
-        const { lo, hi } = percentileRange(data);
+        const scale = activationScale(data);
         const cols = Math.min(channels, Math.max(2, Math.round(bw)));
         const rows = Math.min(positions, Math.max(2, Math.round(bh)));
         const cw = bw / cols;
         const rh = bh / rows;
-        ctx.fillStyle = colour[s.group];
+        const negColour = css('--vp-accent', '#3976a8');
         for (let c = 0; c < cols; c += 1) {
           const ch = Math.floor((c / cols) * channels);
           for (let r = 0; r < rows; r += 1) {
             const pp = Math.floor((r / rows) * positions);
-            const ink = activationInk(data[ch * positions + pp], lo, hi);
-            if (ink === 0) continue;
-            ctx.globalAlpha = 0.2 + 0.8 * ink;
+            const { magnitude, negative } = scaledInk(data[ch * positions + pp], scale);
+            if (magnitude === 0) continue;
+            ctx.fillStyle = negative ? negColour : colour[s.group];
+            ctx.globalAlpha = 0.2 + 0.8 * magnitude;
             ctx.fillRect(x + c * cw, y + r * rh, Math.max(cw, 0.6), Math.max(rh, 0.6));
           }
         }

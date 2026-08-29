@@ -702,3 +702,93 @@ export function geneBodyBins(
     end: Math.max(...own.map((f) => f.end)),
   };
 }
+
+/** How one activation map should be coloured. */
+export interface ActivationScale {
+  /** `diverging` centres on zero and colours by sign; `sequential` runs low → high in one colour. */
+  kind: 'diverging' | 'sequential';
+  /** Diverging: the magnitude that saturates. Sequential: the range endpoints. */
+  half: number;
+  lo: number;
+  hi: number;
+}
+
+/** Below this fraction of the scale nothing is drawn, so a quiet neuron leaves the cell empty. */
+export const INK_FLOOR_DIVERGING = 0.1;
+
+/**
+ * Choose the scale for an activation map from its own distribution.
+ *
+ * The single p1→p99 sequential ramp was wrong for most of this network. Measured on PGK1, it put a
+ * ZERO activation at 0.61 ink for `attn1` and 0.70 for `attn8`, so 90–96 % of every cell on 15 of
+ * the 20 stages drew above 0.4 — the raster encoded sign, not activity, and read as a flat wash.
+ *
+ * The residual stream is genuinely signed (50–66 % negative from block7 onward), so those stages
+ * get a diverging scale centred at zero. The saturating magnitude is the 99th percentile of |v|,
+ * not `max(|p1|, |p99|)`: attn8 runs −34.8…24.8, and taking the larger arm would push everything
+ * positive below the floor. The early convolutions are non-negative and densely active, where a
+ * low→high ramp over their own range is the informative encoding, so they stay sequential.
+ */
+export function activationScale(data: ArrayLike<number>): ActivationScale {
+  const n = data.length;
+  if (n === 0) return { kind: 'sequential', half: 1, lo: 0, hi: 1 };
+  let negatives = 0;
+  for (let i = 0; i < n; i += 1) if (data[i] < 0) negatives += 1;
+
+  // Below ~5% negative the map is effectively one-sided and a diverging scale would waste half
+  // its range; block2 is 0.2% negative, block3 is 9.4%.
+  if (negatives / n <= 0.05) {
+    const { lo, hi } = percentileRange(data);
+    return { kind: 'sequential', half: Math.max(hi - lo, 1e-9), lo, hi };
+  }
+
+  const magnitudes = new Float64Array(n);
+  for (let i = 0; i < n; i += 1) magnitudes[i] = Math.abs(data[i]);
+  const half = percentileRange(magnitudes, 0, 99).hi;
+  return { kind: 'diverging', half: Math.max(half, 1e-9), lo: -half, hi: half };
+}
+
+/**
+ * Ink and sign for one value under a scale.
+ *
+ * `magnitude` is 0 for a value at the scale's centre — the property the old ramp violated, and the
+ * whole point: a neuron doing nothing must leave its cell empty. The square root lifts the middle
+ * of the range so the map is not dominated by its few largest cells.
+ */
+export function scaledInk(
+  value: number,
+  scale: ActivationScale,
+  floor = INK_FLOOR_DIVERGING,
+): { magnitude: number; negative: boolean } {
+  if (scale.kind === 'sequential') {
+    return { magnitude: activationInk(value, scale.lo, scale.hi, floor), negative: false };
+  }
+  const norm = Math.min(Math.abs(value) / scale.half, 1);
+  return {
+    magnitude: norm < floor ? 0 : Math.sqrt((norm - floor) / (1 - floor)),
+    negative: value < 0,
+  };
+}
+
+/**
+ * Where one position of a stage's activation map sits in the input window, in bp.
+ *
+ * Every stage except the head spans the whole 16,384 bp input, so position p covers
+ * `p * SEQ_LEN / positions`. The head is the exception: its 896 bins cover only the cropped
+ * interior, starting CROP_BP into the window. Getting this wrong would slide the ruler under the
+ * raster by 1,024 bp on the one stage a reader is most likely to compare against a gene.
+ */
+export function positionToBp(stageId: string, position: number, positions: number): number {
+  if (positions <= 0) return 0;
+  const p = Math.min(Math.max(position, 0), positions);
+  if (stageId === 'head') return CROP_BP + p * BIN_BP;
+  return (p * SEQ_LEN) / positions;
+}
+
+/** The inverse: which fraction across a stage's map a window offset falls at, in [0, 1]. */
+export function bpToFraction(stageId: string, bp: number, positions: number): number {
+  const lo = positionToBp(stageId, 0, positions);
+  const hi = positionToBp(stageId, positions, positions);
+  if (!(hi > lo)) return 0;
+  return Math.min(Math.max((bp - lo) / (hi - lo), 0), 1);
+}

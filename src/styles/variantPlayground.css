@@ -206,3 +206,20 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
 .vp-motif[aria-pressed='true'] { background: var(--vp-orf); color: #fff; }
 .vp-motif .pos { color: var(--color-muted); margin-left: 0.3rem; }
 .vp-motif[aria-pressed='true'] .pos { color: #fff; opacity: 0.8; }
+
+.vp-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: var(--fs-meta);
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+}
+.vp-legend i {
+  display: inline-block;
+  width: 68px;
+  height: 9px;
+  border: 1px solid var(--color-rule);
+  border-radius: 2px;
+  font-style: normal;
+}

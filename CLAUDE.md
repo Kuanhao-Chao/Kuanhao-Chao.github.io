@@ -720,6 +720,24 @@ Keras checkpoint, ported and exported, producing the same numbers the paper's mo
   stream into `acts`; it now emits `attn_out1..8` (`[1,384,128]`), the export concatenates every mapped
   stage into one `stage_maps [1,5760,128]`, and `stageMapOffsets()` is the single offset table. Attention
   survives as a second tab inside the layer detail, where it belongs.
+- **Invalidating a result must invalidate every view of it, together.** `setMode` nulled `current`
+  and re-rendered only the track panels, so switching locus left the flow canvas and the
+  layer-detail canvas holding the previous gene's activations — measured, both were byte-identical
+  before and after the switch (133,405 px and 216,341 px of ink) — under the new gene's name, while
+  the panels below correctly went blank. That reads as "I ran it and got no output". `clearResults()`
+  is now the single path, and a forward pass stamps `data-vp-result-locus` so the audit can assert
+  no view survives a locus change.
+- **A neuron doing nothing must leave its cell empty.** The p1→p99 ramp put a ZERO activation at
+  0.61 ink on `attn1` and 0.70 on `attn8`, so **90–96 % of cells on 15 of the 20 stages** drew above
+  0.4: the raster encoded *sign*, not activity, and read as a flat wash. The residual stream is
+  genuinely signed (50–66 % negative from block7 on), so `activationScale` picks a **diverging**
+  scale centred at zero for those, saturating at the 99th percentile of |v| — not `max(|p1|,|p99|)`,
+  which on attn8's −34.8…24.8 range would push everything positive below the floor. Non-negative
+  early convolutions stay sequential. Transformer layers went from ~92 % washed to 43–50 % inked.
+- **The output head needs a per-channel log scale.** Its four assay groups differ ~40× in range, so
+  one shared scale drew ChIP-exo, ChIP-MNase and 1,000-strain at **0.0 %** of their 896 bins and
+  RNA-seq at 9.5 % — the empty head block. Each track now scales to its own peak on the log axis the
+  rest of the page reads coverage on.
 - **Normalise an activation map by percentile, not by min–max.** These tensors are heavy-tailed and a
   handful of outliers set the range, so the *contrast* collapses with depth even though almost every
   cell stays above the ink floor: measured IQR of drawn ink runs 0.299 at block1 → **0.030** at block7,
@@ -745,7 +763,9 @@ Keras checkpoint, ported and exported, producing the same numbers the paper's mo
   × 1440/768/390/320 × light/dark, asserting one `<h1>`, no overflow, no console errors, **that the
   content area actually scrolls**, that every stage selects with a non-empty detail, that the three
   removed panels stay removed, that a theme change repaints the canvases, plus reduced motion and a
-  client-side navigation round trip. Panel count is derived from the `.astro` source. `:ci` is the
+  client-side navigation round trip; `:full` adds that a locus change clears every view and that a
+  raster is neither blank nor a wash (5 % < inked < 85 %). Panel count is derived from the `.astro`
+  source. `:ci` is the
   chromium smoke form and **never clicks Run** (28.6 MB model, ~15 s WASM inference); `:full` adds one
   real inference and a motif knockout.
 - **The raster is a `<canvas>`, not SVG.** 96 filters × 390 positions is ~37k nodes; as SVG a
