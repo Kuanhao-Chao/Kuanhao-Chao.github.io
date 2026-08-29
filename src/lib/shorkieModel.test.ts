@@ -47,6 +47,11 @@ import {
   layerSpecs as specs,
   knockoutMotif,
   geneBodyBins,
+  activationScale,
+  scaledInk,
+  INK_FLOOR_DIVERGING,
+  positionToBp,
+  bpToFraction,
 } from './shorkieModel';
 import tracks from '../data/shorkieTracks.json';
 import trackNames from '../data/shorkieTrackNames.json';
@@ -996,5 +1001,160 @@ describe('geneBodyBins', () => {
     // The tallest gene in that window (YNL135C) sits ~200 bins away.
     const other = geneBodyBins(kre33.features, 'YNL135C')!;
     expect(Math.abs(other.start - span.start)).toBeGreaterThan(150);
+  });
+});
+
+describe('activationScale', () => {
+  /**
+   * A signed residual stream shaped like a real one: concentrated near zero with a heavy tail,
+   * not the bimodal sine sum a naive synthetic gives. Seeded so the test is deterministic.
+   */
+  const laplace = (n: number, scale: number) => {
+    let s = 12345;
+    return Array.from({ length: n }, () => {
+      s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+      const u = s / 0x100000000 - 0.5;
+      return -scale * Math.sign(u) * Math.log(1 - 2 * Math.abs(u));
+    });
+  };
+  const signed = laplace(4000, 2);
+  /** A non-negative conv output, the shape of block1. */
+  const positive = Array.from({ length: 4000 }, (_, i) => 1.5 + Math.sin(i * 0.11) * 1.2);
+
+  it('picks diverging for a signed map and sequential for a one-sided one', () => {
+    expect(activationScale(signed).kind).toBe('diverging');
+    expect(activationScale(positive).kind).toBe('sequential');
+  });
+
+  it('is sequential when only a trace of the map is negative', () => {
+    // block2 is 0.2% negative and block3 is 9.4%; the split has to fall between them.
+    const trace = positive.map((v, i) => (i % 500 === 0 ? -0.4 : v));
+    expect(activationScale(trace).kind).toBe('sequential');
+    const some = positive.map((v, i) => (i % 8 === 0 ? -0.4 : v));
+    expect(activationScale(some).kind).toBe('diverging');
+  });
+
+  it('centres a diverging scale on zero, symmetrically', () => {
+    const s = activationScale(signed);
+    expect(s.lo).toBeCloseTo(-s.hi, 12);
+    expect(s.half).toBeGreaterThan(0);
+  });
+
+  it('saturates at the 99th percentile of |v|, not at the larger arm', () => {
+    // attn8 runs -34.8..24.8. Using max(|p1|,|p99|) would put every positive value under the
+    // floor; the magnitude percentile keeps both arms usable.
+    const lopsided = [...signed, ...Array.from({ length: 40 }, () => -200)];
+    const s = activationScale(lopsided);
+    expect(s.half).toBeLessThan(50);
+  });
+});
+
+describe('scaledInk', () => {
+  const laplace = (n: number, scale: number) => {
+    let s = 12345;
+    return Array.from({ length: n }, () => {
+      s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+      const u = s / 0x100000000 - 0.5;
+      return -scale * Math.sign(u) * Math.log(1 - 2 * Math.abs(u));
+    });
+  };
+  const signed = laplace(4000, 2);
+  const scale = activationScale(signed);
+
+  it('draws NOTHING at zero — the property the old ramp violated', () => {
+    // Measured on PGK1, the p1→p99 ramp gave a zero activation 0.610 ink on attn1 and 0.702 on
+    // attn8, so a neuron doing nothing looked as lit as one firing.
+    expect(scaledInk(0, scale).magnitude).toBe(0);
+    expect(scaledInk(1e-9, scale).magnitude).toBe(0);
+    expect(scaledInk(-1e-9, scale).magnitude).toBe(0);
+  });
+
+  it('is symmetric in sign and reports which side a value is on', () => {
+    for (const v of [0.5, 2, 5, 50]) {
+      expect(scaledInk(v, scale).magnitude).toBeCloseTo(scaledInk(-v, scale).magnitude, 12);
+      expect(scaledInk(v, scale).negative).toBe(false);
+      expect(scaledInk(-v, scale).negative).toBe(true);
+    }
+  });
+
+  it('is monotone in |value| along each arm and saturates at 1', () => {
+    let prev = -1;
+    for (const v of [0, 0.5, 1, 2, 4, 8, 16, 1000]) {
+      const m = scaledInk(v, scale).magnitude;
+      expect(m).toBeGreaterThanOrEqual(prev);
+      prev = m;
+    }
+    expect(scaledInk(1e6, scale).magnitude).toBeCloseTo(1, 12);
+  });
+
+  it('clears the wash: a signed map no longer inks nearly every cell', () => {
+    // The regression this whole change exists to prevent. Under the old scale 90-96% of cells on
+    // 15 of 20 stages drew above 0.4 ink.
+    const inked = signed.filter((v) => scaledInk(v, scale).magnitude > 0.4).length / signed.length;
+    expect(inked).toBeLessThan(0.75);
+    expect(inked).toBeGreaterThan(0.05); // and it must not go blank either
+  });
+
+  it('honours the floor so near-zero noise stays empty', () => {
+    const justUnder = scale.half * INK_FLOOR_DIVERGING * 0.9;
+    expect(scaledInk(justUnder, scale).magnitude).toBe(0);
+    expect(scaledInk(scale.half * 0.5, scale).magnitude).toBeGreaterThan(0);
+  });
+
+  it('falls back to the sequential ramp for a one-sided map', () => {
+    const positive = Array.from({ length: 500 }, (_, i) => i / 100);
+    const s = activationScale(positive);
+    expect(s.kind).toBe('sequential');
+    expect(scaledInk(5, s).negative).toBe(false);
+    expect(scaledInk(0, s).magnitude).toBe(0);
+  });
+});
+
+describe('positionToBp', () => {
+  it('spans the whole 16,384 bp input for every stage except the head', () => {
+    for (const [id, positions] of [['stem', 1024], ['block1', 128], ['attn4', 128], ['decoder2', 128]] as const) {
+      expect(positionToBp(id, 0, positions)).toBe(0);
+      expect(positionToBp(id, positions, positions)).toBe(SEQ_LEN);
+    }
+  });
+
+  it('starts the head 1,024 bp in and steps by the 16 bp bin', () => {
+    // The head's 896 bins cover the cropped interior, not the whole window. Treating it like the
+    // others would slide the ruler by CROP_BP under the one stage a reader compares to a gene.
+    expect(positionToBp('head', 0, N_BINS)).toBe(CROP_BP);
+    expect(positionToBp('head', 1, N_BINS)).toBe(CROP_BP + BIN_BP);
+    expect(positionToBp('head', N_BINS, N_BINS)).toBe(CROP_BP + N_BINS * BIN_BP);
+    expect(positionToBp('head', N_BINS, N_BINS)).toBe(SEQ_LEN - CROP_BP);
+  });
+
+  it('agrees with binToWindowOffset, which the coverage plot already uses', () => {
+    for (const bin of [0, 1, 435, 895]) {
+      expect(positionToBp('head', bin, N_BINS)).toBe(binToWindowOffset(bin));
+    }
+  });
+
+  it('is monotone and clamps out-of-range positions', () => {
+    expect(positionToBp('attn1', -5, 128)).toBe(0);
+    expect(positionToBp('attn1', 999, 128)).toBe(SEQ_LEN);
+    let prev = -1;
+    for (let p = 0; p <= 128; p += 8) {
+      const bp = positionToBp('attn1', p, 128);
+      expect(bp).toBeGreaterThan(prev);
+      prev = bp;
+    }
+  });
+
+  it('round-trips through bpToFraction', () => {
+    for (const [id, positions] of [['attn1', 128], ['head', N_BINS], ['stem', 1024]] as const) {
+      for (const frac of [0, 0.25, 0.5, 1]) {
+        const p = frac * positions;
+        expect(bpToFraction(id, positionToBp(id, p, positions), positions)).toBeCloseTo(frac, 10);
+      }
+    }
+  });
+
+  it('clamps a bp outside the stage rather than drawing off the raster', () => {
+    expect(bpToFraction('head', 0, N_BINS)).toBe(0);            // before the crop
+    expect(bpToFraction('head', SEQ_LEN, N_BINS)).toBe(1);      // after it
   });
 });

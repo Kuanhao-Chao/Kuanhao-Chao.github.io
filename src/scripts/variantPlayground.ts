@@ -34,7 +34,11 @@ import {
   RNA_SEQ_GROUP,
   pearson,
   activationInk,
-  percentileRange,
+  activationScale,
+  scaledInk,
+  binToWindowOffset,
+  positionToBp,
+  bpToFraction,
   subLayers,
   knockoutMotif,
   geneBodyBins,
@@ -143,6 +147,7 @@ export function initVariantPlayground(root: ParentNode = document) {
   const subLayerList = $('[data-vp-sublayers]');
   const stageNote = $('[data-vp-stage-note]');
   const tabBtns = host.querySelectorAll<HTMLButtonElement>('[data-vp-tab]');
+  const legendEl = $('[data-vp-legend]');
   const heatCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-heat]');
   const heatStat = $('[data-vp-heat-stat]');
   const trackNameEl = $('[data-vp-track-name]');
@@ -180,6 +185,8 @@ export function initVariantPlayground(root: ParentNode = document) {
   // rather than a mean over all 3,053 induction tracks.
   let selectedTrack: number = TRACK_GROUPS[RNA_SEQ_GROUP].start;
   let useLogAxis = true;
+  /** Why there is no result to show, named so the empty state can say it. */
+  let emptyReason = 'No prediction yet.';
   /** Which motif is currently knocked out, and the peak before it was. */
   let knockedOut: Motif | null = null;
   let peakBeforeKnockout = 0;
@@ -222,17 +229,18 @@ export function initVariantPlayground(root: ParentNode = document) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cssW, cssH);
 
-    // Percentile, matching the layer detail and this panel's own caption.
-    const { lo, hi } = percentileRange(act.map);
+    // The same scale the layer detail uses, so the two rasters of the same stage agree.
+    const scale = activationScale(act.map);
     const cellW = cssW / Math.max(act.positions, 1);
     const fire = getComputedStyle(host).getPropertyValue('--vp-fire').trim() || '#b0455a';
+    const cool = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
 
-    ctx.fillStyle = fire;
     for (let f = 0; f < act.filters; f += 1) {
       for (let p = 0; p < act.positions; p += 1) {
-        const ink = activationInk(act.map[f * act.positions + p], lo, hi, FIRE_FLOOR);
-        if (ink === 0) continue;
-        ctx.globalAlpha = ink;
+        const { magnitude, negative } = scaledInk(act.map[f * act.positions + p], scale);
+        if (magnitude === 0) continue;
+        ctx.fillStyle = negative ? cool : fire;
+        ctx.globalAlpha = magnitude;
         ctx.fillRect(p * cellW, f * rowH, Math.max(cellW, 0.7), rowH - 0.4);
       }
     }
@@ -275,7 +283,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     const H = 220;
     attr(trackSvg, { viewBox: `0 0 ${W} ${H}` });
     if (!current) {
-      trackSvg.append(text(W / 2, H / 2, 'Run the model to see the predicted track', 'vp-ax'));
+      trackSvg.append(text(W / 2, H / 2, emptyReason, 'vp-ax'));
       return;
     }
     const n = N_BINS;
@@ -422,6 +430,10 @@ export function initVariantPlayground(root: ParentNode = document) {
         ms,
       };
       if (!reference) reference = current;
+      // Stamp which locus this forward pass belongs to. The audit asserts it matches the selected
+      // one, so a view that survives a locus change fails the gate instead of quietly misleading.
+      host.dataset.vpResultLocus = LOCI[locusIndex].id;
+      emptyReason = `${LOCI[locusIndex].gene} predicted.`;
       flow?.setActivations({
         stemProfile: current.stemProfile,
         stageMaps: current.stageMaps,
@@ -461,7 +473,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     if (!current) {
       ctx.fillStyle = muted;
       ctx.font = '11px system-ui, sans-serif';
-      ctx.fillText('Run the model to see all 5,215 predicted tracks.', 4, 22);
+      ctx.fillText(`${emptyReason}  All 5,215 tracks appear here once it has run.`, 4, 22);
       if (heatStat) heatStat.textContent = '';
       return;
     }
@@ -688,6 +700,27 @@ export function initVariantPlayground(root: ParentNode = document) {
     return max;
   }
 
+  /**
+   * Throw away the current forward pass and every view of it, together.
+   *
+   * `setMode` used to null `current` and re-render only the track panels. The flow canvas kept the
+   * previous locus's activations and the layer-detail canvas kept its pixels, so switching from
+   * TDH3 to PGK1 left 133,405 px of TDH3's neurons on screen under PGK1's name while the track
+   * panel below correctly went blank -- which reads as "I ran it and got no output".
+   */
+  function clearResults(reason: string): void {
+    delete host.dataset.vpResultLocus;
+    current = null;
+    reference = null;
+    flow?.setActivations(null);
+    emptyReason = reason;
+    renderTrack();
+    renderStageDetail(flow?.selected() ?? null);
+    renderHeatmap();
+    renderSingleTrack();
+    renderMotifs();
+  }
+
   function setStatus(msg: string): void {
     if (statusEl) statusEl.textContent = msg;
   }
@@ -700,19 +733,15 @@ export function initVariantPlayground(root: ParentNode = document) {
       knockedOut = null;
       sequence = LOCI[locusIndex].sequence;
       editable = sequence.slice(SLICE_START, SLICE_START + SLICE_LEN);
-      reference = null;
-      current = null;
-      renderTrack();
       if (seqInput) seqInput.value = editable;
+      clearResults(`${LOCI[locusIndex].gene} loaded — press Run to predict.`);
     } else {
       editable = cleanSequence(seqInput?.value ?? '') || editable;
       sequence = editable;
       if (seqInput) seqInput.value = editable;
+      clearResults('Free typing — switch to a locus to predict a track.');
     }
     if (knockoutStat) knockoutStat.textContent = '';
-    renderMotifs();
-    renderHeatmap();
-    renderSingleTrack();
     refreshLive();
   }
 
@@ -813,8 +842,11 @@ export function initVariantPlayground(root: ParentNode = document) {
 
     const ctx = stageMapCanvas.getContext('2d');
     const cssW = stageMapCanvas.clientWidth || 900;
-    const rowH = map ? Math.max(1, Math.min(5, Math.floor(300 / map.channels))) : 3;
-    const cssH = map ? map.channels * rowH + 34 : 40;   // + the single-channel profile strip
+    // A stage with few channels should use the height, not squeeze into 5 px rows: the output
+    // head has four, and they are the most consequential rows on the page.
+    const rowH = map ? Math.max(1, Math.min(34, Math.floor(300 / map.channels))) : 3;
+    const RULER_H = 30;
+    const cssH = map ? map.channels * rowH + 34 + RULER_H : 40;   // + profile strip + genome ruler
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     stageMapCanvas.width = Math.round(cssW * dpr);
     stageMapCanvas.height = Math.round(cssH * dpr);
@@ -826,9 +858,10 @@ export function initVariantPlayground(root: ParentNode = document) {
     if (!map) {
       ctx.fillStyle = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
       ctx.font = '11px system-ui, sans-serif';
-      ctx.fillText('Run the model to fill this layer with its activations.', 4, 22);
+      ctx.fillText(`${emptyReason}  This layer will fill with that run's activations.`, 4, 22);
       if (stageTop) stageTop.textContent = '';
       if (stageNote) stageNote.textContent = '';
+      if (legendEl) clear(legendEl);
       return;
     }
 
@@ -836,14 +869,32 @@ export function initVariantPlayground(root: ParentNode = document) {
     // Percentile, not min-max. These tensors are heavy-tailed and a handful of outliers otherwise
     // set the range, flattening every other cell onto the same ink -- measured, the drawn contrast
     // falls tenfold from block 1 to block 7.
-    const { lo, hi } = percentileRange(data);
     const cellW = cssW / positions;
-    ctx.fillStyle = getComputedStyle(host).getPropertyValue('--vp-fire').trim() || '#b0455a';
+    const pos = getComputedStyle(host).getPropertyValue('--vp-fire').trim() || '#b0455a';
+    const neg = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
+
+    // The output head's four assay groups differ ~40x in range, so one shared scale left three of
+    // them drawing 0.0% of their 896 bins. Each gets its own, on the log axis coverage is read on
+    // everywhere else on this page.
+    const perChannel = spec.id === 'head';
+    const scale = perChannel ? null : activationScale(data);
+    const rowMax = new Float64Array(perChannel ? channels : 0);
+    if (perChannel) {
+      for (let c = 0; c < channels; c += 1) {
+        let m = 0;
+        for (let p = 0; p < positions; p += 1) if (data[c * positions + p] > m) m = data[c * positions + p];
+        rowMax[c] = m;
+      }
+    }
+
     for (let c = 0; c < channels; c += 1) {
       for (let p = 0; p < positions; p += 1) {
-        const inkV = activationInk(data[c * positions + p], lo, hi, FIRE_FLOOR);
-        if (inkV === 0) continue;
-        ctx.globalAlpha = inkV;
+        const v = data[c * positions + p];
+        const magnitude = perChannel ? logAxis(v, rowMax[c]) : scaledInk(v, scale!).magnitude;
+        const negative = perChannel ? false : scaledInk(v, scale!).negative;
+        if (magnitude < 0.06) continue;
+        ctx.fillStyle = negative ? neg : pos;
+        ctx.globalAlpha = magnitude;
         ctx.fillRect(p * cellW, c * rowH, Math.max(cellW, 0.7), Math.max(rowH - 0.3, 0.7));
       }
     }
@@ -873,20 +924,112 @@ export function initVariantPlayground(root: ParentNode = document) {
       if (v > chHi) chHi = v;
     }
     const profH = 34;
+    const profTop = cssH - RULER_H - profH;   // the ruler owns the bottom RULER_H px
     const span = Math.max(chHi - chLo, 1e-9);
     ctx.strokeStyle = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (let p = 0; p < positions; p += 1) {
       const x = p * cellW;
-      const y = cssH - profH + (1 - (data[ch * positions + p] - chLo) / span) * (profH - 4);
+      const y = profTop + (1 - (data[ch * positions + p] - chLo) / span) * (profH - 4);
       if (p === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
     ctx.stroke();
     ctx.fillStyle = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
     ctx.font = '9px system-ui, sans-serif';
-    ctx.fillText(`channel #${ch}  ${chLo.toFixed(2)} … ${chHi.toFixed(2)}`, 3, cssH - profH + 9);
+    ctx.fillText(`channel #${ch}  ${chLo.toFixed(2)} … ${chHi.toFixed(2)}`, 3, profTop + 9);
+
+    // Name the head's four rows; with 5,215 channels collapsed to four group means, "channel #2"
+    // is not a useful label.
+    if (perChannel && rowH >= 10) {
+      ctx.fillStyle = getComputedStyle(host).getPropertyValue('--color-ink').trim() || '#141414';
+      ctx.font = '10px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      TRACK_GROUPS.forEach((g, i) => {
+        ctx.fillText(g.label, 4, i * rowH + rowH / 2 + 3.5);
+      });
+    }
+
+    // A genome ruler under the raster: without it the x-axis is an index, and you cannot tell
+    // which neurons fire over the gene. Positions map to bp through positionToBp, which knows the
+    // head's 896 bins start CROP_BP into the window while every other stage spans the whole input.
+    if (mode === 'locus') {
+      const locus = LOCI[locusIndex];
+      const rulerY = cssH - RULER_H;
+      const fx = (bp: number) => bpToFraction(spec.id, bp, positions) * cssW;
+      const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
+      const rule = getComputedStyle(host).getPropertyValue('--color-rule').trim() || '#e5e7eb';
+
+      ctx.strokeStyle = rule;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, rulerY + 0.5);
+      ctx.lineTo(cssW, rulerY + 0.5);
+      ctx.stroke();
+
+      // Annotated ORFs. `features` are in output-bin coordinates, so convert bins -> bp -> x.
+      ctx.fillStyle = getComputedStyle(host).getPropertyValue('--vp-orf').trim() || '#6f62a8';
+      ctx.font = '9px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      for (const f of locus.features) {
+        const x0 = fx(binToWindowOffset(f.start));
+        const x1 = fx(binToWindowOffset(f.end));
+        if (x1 - x0 < 0.5) continue;
+        ctx.globalAlpha = f.name === locus.id ? 0.75 : 0.32;
+        ctx.fillRect(x0, rulerY + 4, Math.max(x1 - x0, 1), 7);
+        if (f.name === locus.id && x1 - x0 > 34) {
+          ctx.globalAlpha = 1;
+          ctx.fillText(locus.gene, x0 + 2, rulerY + 10.5);
+        }
+      }
+      ctx.globalAlpha = 1;
+
+      // The window the paper's figure prints, where there is one.
+      if (locus.figureWindow) {
+        const a = fx(locus.figureWindow.seqStart);
+        const b = fx(locus.figureWindow.seqEnd);
+        ctx.strokeStyle = getComputedStyle(host).getPropertyValue('--vp-orf').trim() || '#6f62a8';
+        ctx.setLineDash([3, 2]);
+        ctx.strokeRect(a, rulerY + 2, Math.max(b - a, 2), 11);
+        ctx.setLineDash([]);
+      }
+
+      // bp ticks, labelled with real chromosome coordinates.
+      ctx.fillStyle = muted;
+      ctx.textAlign = 'center';
+      const ticks = 6;
+      for (let i = 0; i <= ticks; i += 1) {
+        const bp = positionToBp(spec.id, (i / ticks) * positions, positions);
+        const x = Math.min(Math.max(fx(bp), 14), cssW - 14);
+        ctx.fillRect(x, rulerY + 14, 1, 3);
+        const kb = (locus.start + bp) / 1000;
+        ctx.fillText(`${kb.toFixed(1)} kb`, x, rulerY + 26);
+      }
+      ctx.textAlign = 'left';
+    }
+
+    // Say what the colours mean. A diverging map is meaningless without it: blue and red are not
+    // "two kinds of neuron", they are the sign of one number.
+    if (legendEl) {
+      clear(legendEl);
+      const swatch = document.createElement('i');
+      const posC = getComputedStyle(host).getPropertyValue('--vp-fire').trim() || '#b0455a';
+      const negC = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
+      const label = document.createElement('span');
+      if (perChannel) {
+        swatch.style.background = `linear-gradient(90deg, transparent, ${posC})`;
+        label.textContent = '0 → peak, per track, log';
+      } else if (scale && scale.kind === 'diverging') {
+        swatch.style.background =
+          `linear-gradient(90deg, ${negC}, transparent 50%, ${posC})`;
+        label.textContent = `−${scale.half.toFixed(2)} ← 0 → +${scale.half.toFixed(2)}`;
+      } else {
+        swatch.style.background = `linear-gradient(90deg, transparent, ${posC})`;
+        label.textContent = scale ? `${scale.lo.toFixed(2)} → ${scale.hi.toFixed(2)}` : '';
+      }
+      legendEl.append(swatch, label);
+    }
 
     if (stageNote) {
       // The head's 896 positions are 16 bp BINS covering the cropped 14,336 bp interior, not
@@ -902,9 +1045,15 @@ export function initVariantPlayground(root: ParentNode = document) {
       stageNote.textContent =
         stageTab === 'attention'
           ? `Row = query position, column = key position. Each position covers ${bp} bp.`
-          : `${drawn}One row per channel, one column per position; ink is the activation between ` +
-            `its 1st and 99th percentile. Each column covers ${bp} bp of input. The line below is ` +
-            `channel #${ch} alone — click a row in the conv-stem raster to change it.`;
+          : `${drawn}One row per channel, one column per position. ` +
+            (perChannel
+              ? 'Each track is scaled to its own peak on a log axis, because the four assay groups differ ~40x. '
+              : scale && scale.kind === 'diverging'
+                ? 'Red is a positive activation, blue negative, and a neuron near zero leaves its cell blank. '
+                : 'Ink runs low to high across the range this stage occupies. ') +
+            `Each column covers ${bp} bp of input; the ruler beneath is the real coordinate, with ` +
+            `annotated ORFs. The line above it is channel #${ch} alone — click a row in the ` +
+            `conv-stem raster to change it.`;
     }
   }
 
