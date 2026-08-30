@@ -925,6 +925,36 @@ Keras checkpoint, ported and exported, producing the same numbers the paper's mo
   on the page — it is a canvas, so there is no element to inspect — and counting the *decomposition*
   instead would pass while the drawing was wrong. 7 of the 14 loci draw at least one intron as a gap.
 
+- **A newline between prose and an inline tag is DELETED by JSX, not collapsed to a space.** So
+  `for⏎<em>every` renders as "forevery". It is invisible in the source — every line looks correctly
+  spaced — survives `astro check`, the test suite and every rendering gate, and **21 of them shipped
+  on this page in one round** of writing the explanation disclosures. Find them on the *built* HTML
+  (a word character butted against an inline opening tag whose text starts with one), never in the
+  source; fix with an explicit `{' '}` at the end of the preceding line. `audit:playground` now walks
+  the rendered DOM for it, and the check was verified by reintroducing one.
+
+- **Dense annotation inside a plot area collides with the data — on this page too.** The neuron
+  traces drew each channel's `relevance · fires · % in region` label across its own trace *and*
+  across the traced-region box, the one thing the label described. Each row is now two lanes, label
+  above trace, with the region painted behind at 0.1 alpha instead of stroked over the top. Same rule
+  the deep-dive figures already carry; a canvas is not an exception to it.
+
+- **A zero rule is only meaningful when the series crosses zero.** `attn4` channel #161 fires
+  −31.08 … −9.13, so `(0 − lo)/span` exceeds 1 and its "zero" line was drawn *above its own lane*,
+  landing in the neighbouring row's label and implying a crossing that never happens. Guard on
+  `lo < 0 && hi > 0`; several channels of the residual stream fire entirely negative.
+
+- **An axis tick centred on the axis endpoint is clipped mid-number**, which reads as a different
+  coordinate rather than as a cut-off one — the zoomed logo's 2235 and 2385 rendered as "35" and
+  "23". Anchor the first tick `start` and the last `end`. A canvas caption has the same failure and
+  no `overflow` to report it: give it long/short/minimal tiers chosen by `measureText`, and keep any
+  definition it might drop (what 1.0× enrichment means) in the prose as well.
+
+- **`verify_pipeline.py` runs under a global `torch.set_grad_enabled(False)`** — everything else in
+  it is inference — so a check that needs a backward pass must open `with torch.enable_grad():`
+  around exactly that block. Without it the section dies inside `.backward()` with a traceback that
+  names autograd rather than the script.
+
 - **`windowFraction` is the page's one horizontal coordinate, and its domain is the WHOLE window.**
   The panels are stacked, so a reader reads down a column expecting one bp — and they did not share
   one: the coverage curve mapped x across bins 0–896 (bp 1,024–15,360) while the attribution
@@ -1157,8 +1187,11 @@ earlier assumptions did not survive reading it.
   IG attributions while leaving the gap forward-only pushed the completeness error from 0.002–0.15
   to **0.22–0.57**. The average of two complete decompositions is a complete decomposition of the
   average — `rc_grad` is a permutation so it preserves the sum, and `rc(x) − rc(b) = rc(x − b)` —
-  so the gap must be `½[f(x)−f(b)] + ½[f(rc x)−f(rc b)]`. With that, the error is **0.016–0.087**,
-  better than forward-only was.
+  so the gap must be `½[f(x)−f(b)] + ½[f(rc x)−f(rc b)]`. With that, over **all 138 region-locus
+  pairs** at 32 steps: **0.0019–0.1325** absolute (median 0.0488), **0.14–9.41 %** relative on the 81
+  regions whose target moves by more than 1. A single-locus smoke test read 0.016–0.087 during
+  development and was quoted here until the full run showed a top end three times wider — **a range
+  measured on one locus is not the range.**
 - **The drawn coverage and the attributed quantity are different track sets.** The curve is the
   3,053-track RNA-seq group mean; every attribution scores the 384 `_T0_` subset. Measured, they
   correlate at **r = 1.0000** and differ by **1 %** at the peak — state it, do not "fix" it.
