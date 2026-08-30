@@ -753,6 +753,33 @@ async function auditExplanations(browser, baseURL, scope) {
         rows: document.querySelectorAll('.vp-collapse-table tbody tr').length,
       };
     });
+    // A newline between prose and an inline tag is DELETED by JSX, not collapsed to a space, so
+    // `for\n<em>every` renders as "forevery". It is invisible in the source, survives every other
+    // gate, and this page shipped 21 of them in one round. Checked on the rendered text.
+    const joins = await page.evaluate(() => {
+      const out = [];
+      const walk = (node) => {
+        for (const el of node.children) {
+          for (const kid of el.childNodes) {
+            if (kid.nodeType !== Node.ELEMENT_NODE) continue;
+            if (!/^(EM|STRONG|CODE|SPAN|A|B|I)$/.test(kid.tagName)) continue;
+            const before = kid.previousSibling;
+            const text = (kid.textContent ?? '').trim();
+            if (!before || before.nodeType !== Node.TEXT_NODE || !text) continue;
+            const tail = before.textContent ?? '';
+            // A word character butted straight against a tag whose text starts with one.
+            if (/[\w),.;:%]$/.test(tail) && /^[\w(]/.test(text)) {
+              out.push((tail.slice(-30) + text.slice(0, 20)).replace(/\s+/g, ' '));
+            }
+          }
+          walk(el);
+        }
+      };
+      walk(document.body);
+      return out.slice(0, 8);
+    });
+    for (const j of joins) fail(scope, `swallowed space before an inline tag: "…${j}…"`);
+
     if (how.n < 4) fail(scope, `${how.n} "how this is computed" disclosures, expected at least 4`);
     if (how.anyOpen) fail(scope, 'a disclosure is open by default — they must not crowd the panels');
     // A disclosure that exists but says nothing is worse than none.

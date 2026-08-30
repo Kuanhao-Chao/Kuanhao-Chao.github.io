@@ -104,7 +104,7 @@ const breadcrumbLd = buildBreadcrumbLd([
           activations from that same forward pass.
           <br /><br />
           <strong>Switch to “relevance” and the same blocks show one region instead of the whole
-          window.</strong> Trace a region below, and every stage repaints with what it contributed to
+          window.</strong> Trace a region below, and every stage repaints with what it contributed to{' '}
           <em>that region alone</em> — every other output bin masked out. Both of the map's margins
           are exact: the per-channel one and the per-position one are each a row-sum of precomputed
           groups, because gradients are linear in which outputs you select. Its interior is their
@@ -146,13 +146,13 @@ const breadcrumbLd = buildBreadcrumbLd([
                   aria-label="Every interpretability method on one axis, aligned with the annotation"></canvas>
           <p class="vp-notes" style="margin:0.35rem 0 0;">
             <strong>Four methods, one axis, one annotation.</strong> They do not measure the same
-            thing and are not expected to agree everywhere:
-            <em>mutagenesis</em> substitutes one base and re-runs the model;
+            thing and are not expected to agree everywhere:{' '}
+            <em>mutagenesis</em> substitutes one base and re-runs the model;{' '}
             <em>gradient × input</em> is a local linear sensitivity at the reference base, mean-centred
-            across the four bases as Borzoi does;
+            across the four bases as Borzoi does;{' '}
             <em>integrated gradients</em> accumulates that gradient along a path from an all-zero
             baseline and is the only one here whose values <em>sum</em> to the prediction difference —
-            a property it would lose if it were mean-centred, so it is not;
+            a property it would lose if it were mean-centred, so it is not;{' '}
             <em>occlusion</em> ablates a whole 64 bp stretch and measures what the model loses.
             Where they agree the result is robust; where they diverge, the divergence is the finding.
             A method that covers only part of the window is drawn in place with the rest left blank,
@@ -187,9 +187,9 @@ const breadcrumbLd = buildBreadcrumbLd([
         <details class="vp-how">
           <summary>How the four method tracks are computed</summary>
           <div class="vp-how-body">
-            <p><strong>All four answer the same scalar</strong>, so they can be laid on one axis:
+            <p><strong>All four answer the same scalar</strong>, so they can be laid on one axis:{' '}
             <code>f = log2( Σ<sub>gene bins</sub> mean<sub>384 T0 tracks</sub> coverage + 1 )</code>.
-            That is the paper's own logSED target (<code>ensemble.py:97-104</code>): mean over
+            That is the paper's own logSED target (<code>ensemble.py:97-104</code>): mean over{' '}
             <em>tracks</em>, sum over <em>bins</em>, +1 pseudocount, log base 2. Being a log ratio is
             what makes a silent promoter and a maximal one comparable.</p>
             <ol>
@@ -207,7 +207,7 @@ const breadcrumbLd = buildBreadcrumbLd([
               multiplied by <code>x − baseline</code>. <strong>Not mean-centred</strong>, deliberately:
               completeness — that the values sum to <code>f(x) − f(baseline)</code> — is a telescoping
               integral of the <em>raw</em> gradient, and centring destroys it. Measured, centring
-              pushed the error from ~0.05 to 8–650%. <em>Cost:</em> 32 forward+backward per region.
+              pushed the error from ~0.05 to 8–650%. <em>Cost:</em> 32 forward+backward per region.{' '}
               <em>Reads as:</em> this base's share of the whole difference between the real sequence
               and an empty one. <em>Unique property:</em> it is the only method here you can check
               against its own total, and the panel prints that check.</li>
@@ -215,16 +215,16 @@ const breadcrumbLd = buildBreadcrumbLd([
               half-and-half with the identity to account for the residual stream, renormalised and
               composed: <code>∏ (½A<sub>ℓ</sub> + ½I)</code>. Row <em>i</em> then reads as where
               position <em>i</em>'s representation came from. <em>Cost:</em> free — the maps already
-              ship. <em>Reads as:</em> what the transformer <em>can</em> see for this region.
+              ship. <em>Reads as:</em> what the transformer <em>can</em> see for this region.{' '}
               <em>Not an attribution:</em> it says what could influence what, never what changed the
               prediction, and it is unsigned by construction.</li>
               <li><strong>Occlusion.</strong> Zero the four DNA channels across a 64 bp window and
-              re-run; the change in <code>f</code> per output bin is that window's effect. <em>Cost:</em>
+              re-run; the change in <code>f</code> per output bin is that window's effect. <em>Cost:</em>{' '}
               256 real forward passes × 2 strands. <em>Reads as:</em> what the model loses without
               this stretch. <em>Fails when:</em> two stretches are redundant — remove either alone and
               nothing happens, which occlusion reports as "neither matters".</li>
             </ol>
-            <p><strong>Both strands, averaged</strong>, for all four, matching Borzoi and the
+            <p><strong>Both strands, averaged</strong>, for all four, matching Borzoi and the{' '}
             <code>--rc</code> every published Shorkie ISM run passes. Worth knowing what that is:
             this model was <em>not</em> trained with reverse-complement augmentation
             (<code>augment_rc: false</code> in all four <code>params.json</code>), so it is not
@@ -232,7 +232,7 @@ const breadcrumbLd = buildBreadcrumbLd([
             and the two gradients correlate at 0.31. Averaging them is a test-time augmentation, not
             a free symmetry.</p>
             <p><strong>How much do they actually agree?</strong> Measured on TDH3's own gene body,
-            at the 64 bp grid occlusion resolves: gradient × input against integrated gradients
+            at the 64 bp grid occlusion resolves: gradient × input against integrated gradients{' '}
             <code>r = 0.874</code>, gradient × input against occlusion <code>r = 0.901</code>,
             integrated gradients against occlusion <code>r = 0.856</code>. The three full-window
             methods agree strongly, which is the reassuring part. Against mutagenesis, per base over
@@ -260,7 +260,7 @@ const breadcrumbLd = buildBreadcrumbLd([
             is the second curve where it is loaded: Shorkie's own BigWigs binned exactly as its training
             labels were — 16 bp sums, soft-clipped, 1,024 bp cropped from each end — so the two curves are
             the same quantity and Pearson <em>r</em> means something. The bucket they live in is
-            requester-pays, so this site ships none of them; <code>scripts/shorkie/make_truth.py</code>
+            requester-pays, so this site ships none of them; <code>scripts/shorkie/make_truth.py</code>{' '}
             builds the overlay from a local copy.
           </p>
         </section>
@@ -296,13 +296,20 @@ const breadcrumbLd = buildBreadcrumbLd([
         <canvas class="vp-canvas" data-vp-neurons-trace role="img"
                 aria-label="The top contributing neurons for the traced region, each as its real activation profile"></canvas>
         <p class="vp-notes" style="margin:0.35rem 0 0;">
-          <strong>The individual neurons, exactly.</strong> The map above reconstructs a stage's
+          <strong>The individual neurons, exactly.</strong> The map above reconstructs a stage's{' '}
           <em>[channels × positions]</em> relevance as the outer product of two exact margins — the
           margins are measured, the interior is an independence assumption. These traces are not:
           each line is one channel's <em>real activation profile</em> straight from the shipped
           stage maps, and the ranking is its exact relevance to the selected region. So this answers
           “which neurons fire, where, and how much” with nothing reconstructed.
-          Click a stage in the list to change which layer they come from.
+          Click a stage in the list to change which layer they come from.</p>
+          <p><strong>Reading a row.</strong> <em>Enrichment</em> is the share of that channel's total
+          activity falling inside the traced region, divided by the share of the window the region
+          occupies — so <strong>1.0× means the channel fires there no more than anywhere else</strong>,
+          and the interesting rows are the ones well above it. Each trace is scaled to its own range,
+          so heights are not comparable between rows; the <code>fires</code> pair gives the real
+          range. A faint horizontal rule marks zero, and is drawn only where the channel actually
+          crosses it — several fire entirely negative.
         </p>
         <canvas class="vp-canvas" data-vp-stage-stack role="img"
                 aria-label="Where each stage's contributing neurons fire across the window, one row per stage"
@@ -310,7 +317,7 @@ const breadcrumbLd = buildBreadcrumbLd([
         <p class="vp-notes" style="margin:0.35rem 0 0;">
           <strong>One row per stage, the window along x.</strong> Each row is that stage's activation
           weighted by how much each channel carried the selected region — <em>where the neurons that
-          matter for this region actually fire</em>. Each row is painted against its
+          matter for this region actually fire</em>. Each row is painted against its{' '}
           <em>own mean</em> — red where that stage draws more than average, blue less, neutral where it
           has no positional preference. The early residual blocks come out close to neutral, and that
           is a real property: pooled to 128 positions, a convolution over 16,384 is spatially almost
@@ -330,12 +337,12 @@ const breadcrumbLd = buildBreadcrumbLd([
           <summary>How the layer-by-layer trace is computed, and what each collapse throws away</summary>
           <div class="vp-how-body">
             <p>Every view in this panel starts from the same tensor and collapses it differently.
-            For one stage, <code>relevance = |∂f/∂a ⊙ a|</code> over its activations
+            For one stage, <code>relevance = |∂f/∂a ⊙ a|</code> over its activations{' '}
             <span class="shape">a: [channels × positions]</span> — how much each neuron, at each
             place, moved the prediction over the selected bins. That array is far too large to ship
             for every region, so what is precomputed is its two <strong>margins</strong>:</p>
             <ol>
-              <li><strong>Channel margin</strong> — <em>sum over position</em>, giving
+              <li><strong>Channel margin</strong> — <em>sum over position</em>, giving{' '}
               <span class="shape">[channels]</span>. "Which neurons mattered, wherever they fired."</li>
               <li><strong>Position margin</strong> — <em>sum over channel</em>, then sum-pooled to a
               common <span class="shape">128</span>, giving <span class="shape">[128]</span>.
@@ -345,7 +352,7 @@ const breadcrumbLd = buildBreadcrumbLd([
             linear in which outputs you select, so an arbitrary contiguous region is the row-sum of
             the precomputed 112 groups of 8 bins — no model run, no interpolation. That is why
             dragging is instant and still exact.</p>
-            <p><strong>The map's interior is not exact.</strong> Reconstructing
+            <p><strong>The map's interior is not exact.</strong> Reconstructing{' '}
             <span class="shape">[channels × positions]</span> from two margins requires an
             assumption, and the one used is independence: the outer product, normalised to sum to 1.
             It is the unique reconstruction consistent with both margins, and it is still an
@@ -365,7 +372,7 @@ const breadcrumbLd = buildBreadcrumbLd([
             channel's <code>Σ|activation|</code> falling inside the traced region, divided by the
             share of the window the region occupies. 1.0× means the neuron fires there no more than
             anywhere else. Measured on block 4, the top-relevance channels come out 0.85–1.32× —
-            so a channel's relevance to a region generally comes from <em>what it computes</em>
+            so a channel's relevance to a region generally comes from <em>what it computes</em>{' '}
             there, not from firing only there.</p>
           </div>
         </details>
@@ -424,7 +431,7 @@ const breadcrumbLd = buildBreadcrumbLd([
           <div class="vp-how-body">
             <p><strong>The geometry is the paper's, not an approximation of it.</strong> Real DejaVu
             Sans Bold outlines for A/C/G/T with the paper's own hand-tuned per-letter x-offsets
-            (A −0.350, C −0.366, G −0.384, T −0.305 — not half-advances), scaled by
+            (A −0.350, C −0.366, G −0.384, T −0.305 — not half-advances), scaled by{' '}
             <code>globscale = 1.35</code> on <em>both</em> axes, which is what makes a stack summing
             to S fill height S and what makes adjacent letters touch. Colours are the paper's
             saturated X11 values <code>#008000 / #0000FF / #FFA500 / #FF0000</code>, fixed in every
@@ -433,13 +440,13 @@ const breadcrumbLd = buildBreadcrumbLd([
             with y-limits at the data min and max each padded by 5% of max|v|.</p>
             <p><strong>Mutagenesis</strong> is the paper's Figure 4 quantity, in three steps
             (<code>fig4_common.py:227-230</code>, and identically in two other files):
-            average logSED over the T0 tracks → <em>mean-centre across the four bases</em> →
+            average logSED over the T0 tracks → <em>mean-centre across the four bases</em> →{' '}
             <em>project on the reference one-hot</em>. Step two is what turns "what this substitution
             did" into "how much the base that is <em>there</em> matters"; step three is why exactly
             one letter survives per position. Given the shipped plane <code>P</code> with the
             reference cell zero, that value is exactly <code>−(Σ P)/4</code>.</p>
             <p><strong>Gradient × input</strong> also draws one letter per position, but for a
-            different reason: the input is one-hot, so gradient × input is <em>identically zero</em>
+            different reason: the input is one-hot, so gradient × input is <em>identically zero</em>{' '}
             at the three bases that are not there. That is a property of the method, not a rendering
             choice.</p>
             <p><strong>Occlusion</strong> resolves 64 bp, so every base inside a window carries that
@@ -496,7 +503,7 @@ const breadcrumbLd = buildBreadcrumbLd([
           <summary>How the occlusion map is computed</summary>
           <div class="vp-how-body">
             <p>For each of 256 windows of 64 bp: zero the four DNA channels across that window, run
-            the model, and record <code>log2(alt + 1) − log2(ref + 1)</code> for
+            the model, and record <code>log2(alt + 1) − log2(ref + 1)</code> for{' '}
             <em>every one of the 896 output bins</em>. One forward pass answers a whole row, which is
             why a complete <span class="shape">[256 × 896]</span> map costs 256 passes — 27 s a
             locus, 54 s with both strands — and why this is the cheapest exact method here.</p>
@@ -554,8 +561,8 @@ const breadcrumbLd = buildBreadcrumbLd([
         <p class="vp-notes" style="margin:0 0 0.5rem;">
           Nothing here is drawable at its real size. A stage is <em>[channels × positions]</em> with
           up to 16,384 positions; the output is <em>[896 × 5,215]</em>. Every panel therefore
-          collapses at least one axis, and — this is the part worth knowing —
-          <strong>they do not all collapse the same axis the same way</strong>. Position is
+          collapses at least one axis, and — this is the part worth knowing —{' '}
+          <strong>they do not all collapse the same axis the same way</strong>. Position is{' '}
           <em>max</em>-pooled for display, because the question there is “did any neuron fire here”,
           and <em>sum</em>-pooled for relevance, because relevance is additive and a mean would make
           a coarse stage look quiet for being coarse. Both are right; the difference is invisible
@@ -602,7 +609,7 @@ const breadcrumbLd = buildBreadcrumbLd([
         </div>
         <p class="vp-notes" style="margin:0.5rem 0 0;">
           Two rows are worth reading against each other. The <strong>layer relevance map</strong> is
-          the only place on this page where a number is reconstructed rather than measured, and the
+          the only place on this page where a number is reconstructed rather than measured, and the{' '}
           <strong>neuron traces</strong> exist directly beneath it as the un-collapsed answer to the
           same question. Where they disagree, trust the traces.
         </p>

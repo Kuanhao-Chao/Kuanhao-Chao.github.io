@@ -1849,7 +1849,12 @@ export function initVariantPlayground(root: ParentNode = document) {
   function renderNeuronTraces(): void {
     if (!neuronTraceCanvas) return;
     const TOP = 8;
-    const rowH = 26;
+    // Two lanes per row: the annotation on top, the trace below it. Drawing the label INSIDE the
+    // plot put it straight through every trace and across the traced-region box -- the one part of
+    // the drawing it was describing. Same rule as the deep-dive figures: annotation never shares
+    // space with the geometry.
+    const LABEL_H = 15;
+    const rowH = 37;
     const cssW = neuronTraceCanvas.clientWidth || 900;
     const cssH = TOP * rowH + 26;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -1887,10 +1892,21 @@ export function initVariantPlayground(root: ParentNode = document) {
     const regionLoBp = CROP_BP + tracedBins.start * BIN_BP;
     const regionHiBp = CROP_BP + tracedBins.end * BIN_BP;
     const windowShare = (regionHiBp - regionLoBp) / SEQ_LEN;
+
+    // The traced region, painted UNDER the traces so "does this neuron fire where I asked" is
+    // answerable by eye without the marker crossing out the line or the label.
+    const regA = xOfBp(regionLoBp, cssW);
+    const regB = xOfBp(regionHiBp, cssW);
+    ctx.fillStyle = accent;
+    ctx.globalAlpha = 0.1;
+    ctx.fillRect(regA, 2, Math.max(regB - regA, 2), TOP * rowH);
+    ctx.globalAlpha = 1;
     ranked.forEach((n, i) => {
       const top = i * rowH + 4;
-      const mid = top + rowH / 2;
-      const half = rowH / 2 - 3;
+      const plotTop = top + LABEL_H;
+      const plotH = rowH - LABEL_H - 4;
+      const mid = plotTop + plotH / 2;
+      const half = plotH / 2;
       const base = (off.start + n.c) * P;
       let lo = Infinity;
       let hi = -Infinity;
@@ -1900,14 +1916,16 @@ export function initVariantPlayground(root: ParentNode = document) {
         if (v > hi) hi = v;
       }
       const span = Math.max(hi - lo, 1e-9);
-      const zero = mid + half - ((0 - lo) / span) * (2 * half);
-      ctx.strokeStyle = muted;
-      ctx.globalAlpha = 0.25;
-      ctx.beginPath();
-      ctx.moveTo(PLOT.left, zero + 0.5);
-      ctx.lineTo(cssW - PLOT.right, zero + 0.5);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
+      if (lo < 0 && hi > 0) {
+        const zero = mid + half - ((0 - lo) / span) * (2 * half);
+        ctx.strokeStyle = muted;
+        ctx.globalAlpha = 0.25;
+        ctx.beginPath();
+        ctx.moveTo(PLOT.left, zero + 0.5);
+        ctx.lineTo(cssW - PLOT.right, zero + 0.5);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
       ctx.strokeStyle = accent;
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -1937,19 +1955,17 @@ export function initVariantPlayground(root: ParentNode = document) {
       ctx.textAlign = 'right';
       ctx.fillText(`#${n.c}`, PLOT.left - 4, mid + 3);
       ctx.textAlign = 'left';
-      ctx.fillText(
-        `relevance ${n.v.toPrecision(2)} · fires ${lo.toFixed(2)} … ${hi.toFixed(2)}`
-        + ` · ${(share * 100).toFixed(1)}% of its activity is in the region (${enrich.toFixed(2)}× enriched)`,
-        PLOT.left + 3, top + 8);
+      // The long form where it fits, a short one where it does not -- clipped text at 320px would
+      // silently truncate the enrichment, which is the number the row exists to report.
+      const long = `relevance ${n.v.toPrecision(2)} · fires ${lo.toFixed(2)} … ${hi.toFixed(2)}`
+        + ` · ${(share * 100).toFixed(1)}% of its activity is in the region`
+        + ` (${enrich.toFixed(2)}× enriched)`;
+      const short = `rel ${n.v.toPrecision(2)} · ${(share * 100).toFixed(1)}% in region`
+        + ` (${enrich.toFixed(2)}×)`;
+      const room = cssW - PLOT.left - PLOT.right - 4;
+      ctx.fillText(ctx.measureText(long).width <= room ? long : short, PLOT.left + 3, top + 9);
     });
 
-    // The traced region, so "does this neuron fire where I asked" is answerable by eye.
-    ctx.strokeStyle = accent;
-    ctx.globalAlpha = 0.5;
-    const a = xOfBp(CROP_BP + tracedBins.start * BIN_BP, cssW);
-    const b2 = xOfBp(CROP_BP + tracedBins.end * BIN_BP, cssW);
-    ctx.strokeRect(a, 2, Math.max(b2 - a, 2), TOP * rowH);
-    ctx.globalAlpha = 1;
 
     ctx.fillStyle = muted;
     ctx.textAlign = 'center';
@@ -1958,11 +1974,16 @@ export function initVariantPlayground(root: ParentNode = document) {
       ctx.fillText(bpLabel(bp), xOfBp(bp, cssW), cssH - 12);
     }
     ctx.textAlign = 'left';
-    ctx.fillText(
-      `${spec!.label} · top ${TOP} of ${off.channels} channels by exact relevance · real activations, `
-      + `each scaled to its own range · the region is ${(windowShare * 100).toFixed(1)}% of the window, `
-      + `so 1.0× enrichment means a channel fires there no more than anywhere else`,
-      PLOT.left, cssH - 2);
+    const capLong = `${spec!.label} · top ${TOP} of ${off.channels} channels by exact relevance · `
+      + `real activations, each scaled to its own range · the region is `
+      + `${(windowShare * 100).toFixed(1)}% of the window, so 1.0× enrichment means a channel fires `
+      + 'there no more than anywhere else';
+    const capShort = `${spec!.label} · top ${TOP} of ${off.channels} by relevance · region is `
+      + `${(windowShare * 100).toFixed(1)}% of the window, so 1.0× = no preference`;
+    const capMin = `${spec!.label} · top ${TOP} of ${off.channels} by relevance`;
+    const capRoom = cssW - PLOT.left - 2;
+    const cap = [capLong, capShort, capMin].find((c) => ctx.measureText(c).width <= capRoom) ?? capMin;
+    ctx.fillText(cap, PLOT.left, cssH - 2);
     neuronTraceCanvas.dataset.neurons = ranked.map((n) => n.c).join(',');
     neuronTraceCanvas.dataset.stage = spec!.id;
   }
@@ -2320,8 +2341,12 @@ export function initVariantPlayground(root: ParentNode = document) {
     }
 
     const { lo, hi, letters } = drawLogo(seqLogoSvg, column, width, 0, W, 14, H - 34);
-    for (let k = 0; k <= width; k += Math.max(10, Math.round(width / 10))) {
-      seqLogoSvg.append(text((k / width) * W, H - 4, String(start + k), 'vp-ax'));
+    // The end ticks anchor inward: centred on the axis endpoints they run outside the viewBox and
+    // are clipped mid-number, which reads as a different coordinate rather than as a cut-off one.
+    const tickStep = Math.max(10, Math.round(width / 10));
+    for (let k = 0; k <= width; k += tickStep) {
+      const anchor = k === 0 ? 'start' : k + tickStep > width ? 'end' : 'middle';
+      seqLogoSvg.append(text((k / width) * W, H - 4, String(start + k), 'vp-ax', anchor));
     }
     seqLogoSvg.dataset.letters = String(letters);
     seqLogoSvg.dataset.window = `${start}-${start + width}`;

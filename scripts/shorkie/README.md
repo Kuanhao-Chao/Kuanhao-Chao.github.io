@@ -363,8 +363,14 @@ perturbation, and the check failed against correct code.
 **rc-averaging an attribution means rc-averaging its completeness target too.** Averaging the IG
 attributions while leaving the gap forward-only pushed the completeness error from 0.002–0.15 to
 **0.22–0.57**. The average of two complete decompositions is a complete decomposition of the
-average, so the gap must be `½[f(x)−f(b)] + ½[f(rc x)−f(rc b)]`. With that it is **0.016–0.087**,
-tighter than forward-only was.
+average, so the gap must be `½[f(x)−f(b)] + ½[f(rc x)−f(rc b)]`.
+
+Measured with that, over **all 138 region-locus pairs** at 32 steps: absolute gap **0.0019 to
+0.1325** (median 0.0488), worst at `YDR009W/YDR010C` where the target itself moves −3.10; relative
+**0.14 % to 9.41 %** over the 81 regions whose target moves by more than 1. A single-locus smoke
+test during development reported 0.016–0.087 — the full run is three times wider at the top, which
+is what a range measured on one locus is worth. Every region's own numbers are in the pack's
+`anchors`, and the panel prints the check beside the track.
 
 ## Why mutagenesis is not a full-window track
 
