@@ -31,6 +31,8 @@ import math
 
 import h5py
 import numpy as np
+from dataclasses import dataclass
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -234,9 +236,39 @@ class MultiheadAttention(nn.Module):
 # --------------------------------------------------------------------------------------------
 # The model.
 # --------------------------------------------------------------------------------------------
+@dataclass(frozen=True)
+class DecoderSpec:
+    """What differs between Shorkie and Shorkie_LM. The trunk is identical in both.
+
+    Shorkie stops the U-Net at 1,024 positions and crops to 896, because coverage is a 16 bp
+    quantity; the LM upsamples all the way back to 16,384 because a base is what it predicts.
+    Everything above the decoder -- stem, seven residual blocks, eight transformer layers -- is the
+    same shape in both checkpoints, which is why one port can serve both.
+    """
+    stages: int                  # U-Net blocks: 3 for Shorkie, 7 for the LM
+    crop: int                    # per-side crop after the decoder; 0 for the LM
+    head_activation: str         # 'softplus' (coverage) or 'softmax' (base distribution)
+
+    @property
+    def skips(self) -> tuple[int, ...]:
+        """Encoder residual blocks feeding each stage, deepest first."""
+        return tuple(6 - i for i in range(self.stages))
+
+    @property
+    def head_index(self) -> int:
+        # Encoder uses batch_normalization_0..13 and dense_0..15; the decoder starts after them,
+        # two dense layers per stage, and the head is the next one.
+        return 16 + 2 * self.stages
+
+
+SHORKIE = DecoderSpec(stages=3, crop=CROP, head_activation="softplus")
+SHORKIE_LM = DecoderSpec(stages=7, crop=0, head_activation="softmax")
+
+
 class ShorkieTorch(nn.Module):
-    def __init__(self, w: Weights):
+    def __init__(self, w: Weights, spec: DecoderSpec = SHORKIE):
         super().__init__()
+        self.spec = spec
         self.stem = load_conv1d(w, "conv1d")
 
         self.bn_a, self.conv_a, self.bn_b, self.conv_b, self.scales = (
@@ -261,15 +293,19 @@ class ShorkieTorch(nn.Module):
             self.ff1.append(load_dense(w, kname("dense", 2 * i)))
             self.ff2.append(load_dense(w, kname("dense", 2 * i + 1)))
 
-        # Decoder: three U-Net stages, skips from encoder add_6 / add_5 / add_4.
-        self.dec_bn_main = nn.ModuleList([load_bn(w, f"batch_normalization_{n}") for n in (14, 16, 18)])
-        self.dec_bn_skip = nn.ModuleList([load_bn(w, f"batch_normalization_{n}") for n in (15, 17, 19)])
-        self.dec_main = nn.ModuleList([load_dense(w, f"dense_{n}") for n in (16, 18, 20)])
-        self.dec_skip = nn.ModuleList([load_dense(w, f"dense_{n}") for n in (17, 19, 21)])
+        # Decoder: `spec.stages` U-Net stages, each taking a skip from the encoder residual block
+        # at the matching resolution, deepest first. The layer numbering is positional -- the
+        # encoder consumes batch_normalization_0..13 and dense_0..15 -- so both models index the
+        # same way and only the count differs.
+        n = spec.stages
+        self.dec_bn_main = nn.ModuleList([load_bn(w, f"batch_normalization_{14 + 2 * i}") for i in range(n)])
+        self.dec_bn_skip = nn.ModuleList([load_bn(w, f"batch_normalization_{15 + 2 * i}") for i in range(n)])
+        self.dec_main = nn.ModuleList([load_dense(w, f"dense_{16 + 2 * i}") for i in range(n)])
+        self.dec_skip = nn.ModuleList([load_dense(w, f"dense_{17 + 2 * i}") for i in range(n)])
         self.dec_sep = nn.ModuleList(
-            [load_separable(w, kname("separable_conv1d", i)) for i in range(3)]
+            [load_separable(w, kname("separable_conv1d", i)) for i in range(n)]
         )
-        self.head = load_dense(w, "dense_22")
+        self.head = load_dense(w, f"dense_{spec.head_index}")
 
         # The relative-position basis is a constant of the architecture, not of the input.
         distances = torch.arange(
@@ -330,7 +366,7 @@ class ShorkieTorch(nn.Module):
             acts["attention"] = stacked[0]                      # [B, layers, heads, T, T]
 
         h = t.transpose(1, 2)                                  # [B, 384, 128]
-        for i, skip_idx in enumerate((6, 5, 4)):
+        for i, skip_idx in enumerate(self.spec.skips):
             main = self.dec_main[i](F.gelu(self.dec_bn_main[i](h)).transpose(1, 2))
             main = F.interpolate(main.transpose(1, 2), scale_factor=2, mode="nearest")
             skip = self.dec_skip[i](F.gelu(self.dec_bn_skip[i](skips[skip_idx])).transpose(1, 2))
@@ -338,12 +374,17 @@ class ShorkieTorch(nn.Module):
             if want_intermediates:
                 acts[f"decoder{i + 1}"] = h
 
-        h = h[:, :, CROP:-CROP]                                # 1024 -> 896
-        out = F.softplus(self.head(F.gelu(h).transpose(1, 2)))  # [B, 896, 5215]
+        if self.spec.crop:
+            h = h[:, :, self.spec.crop:-self.spec.crop]         # 1024 -> 896
+        logits = self.head(F.gelu(h).transpose(1, 2))
+        # softplus for coverage (non-negative, unbounded); softmax over the four bases for the LM,
+        # whose output is a distribution and must sum to 1 at every position.
+        out = (F.softmax(logits, dim=-1) if self.spec.head_activation == "softmax"
+               else F.softplus(logits))
         return (out, acts) if want_intermediates else (out, None)
 
 
-def build(checkpoint: str) -> tuple[ShorkieTorch, Weights]:
+def build(checkpoint: str, spec: DecoderSpec = SHORKIE) -> tuple[ShorkieTorch, Weights]:
     w = Weights(checkpoint)
-    model = ShorkieTorch(w).eval()
+    model = ShorkieTorch(w, spec).eval()
     return model, w

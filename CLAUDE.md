@@ -683,7 +683,84 @@ checked for document overflow along with reduced motion and a client-side naviga
 (no leaked canvas, renderer restarts). Headless chromium rasterises in software, so its frame
 rate is a floor and not a GPU figure.
 
-### The Live Variant Playground (`/variant-playground/`)
+### The Shorkie Lab (`/shorkie-lab/`)
+
+Two pages under one hub, both `bare`, both over the same fourteen windows and the same annotation:
+
+| route | model | question |
+| --- | --- | --- |
+| `/shorkie-lab/` | — | hub: how the two relate |
+| `/shorkie-lab/shorkie/` | Shorkie, 14,253,567 params | "how much does this base change the prediction" |
+| `/shorkie-lab/shorkie_lm/` | Shorkie_LM, 13,651,812 params | "how constrained is this base" |
+
+- **`/shorkie/` is NOT available to this repo and never will be.** It is the `shorkie` project repo's
+  gh-pages Sphinx site, and GitHub Pages routes the whole prefix there. `/shorkie-lab/` is a
+  different prefix and is unclaimed — **but a repo named `shorkie-lab` would silently shadow all
+  three pages.** `LIVE_SAME_ORIGIN_PREFIXES` in `audit-links.mjs` listed five prefixes when eleven
+  repos have Pages; it is now derived from `has_pages` and the derivation is in a comment.
+- **`/variant-playground/` moved and is redirected** in `astro.config.mjs`. Astro treats `'/x'` and
+  `'/x/'` as one route, so declaring both is a build-time collision.
+- **Moving an Astro page one directory deeper breaks its imports in three places**, and only the
+  frontmatter is obvious: the side-effect CSS import and the `<script>` block's import are outside
+  it, and the script one fails at *rolldown* time with `UNRESOLVED_IMPORT`, long after `astro check`
+  reports zero errors.
+
+#### Shorkie_LM (`/shorkie-lab/shorkie_lm/`)
+
+- **The same encoder, seven U-Net stages instead of three.** 128 × 2⁷ = 16,384, so the LM returns to
+  single-base resolution with a four-way softmax head, where Shorkie stops at 1,024 and crops to 896
+  bins of 16 bp. `shorkie_torch.py` now takes a `DecoderSpec` (`SHORKIE` / `SHORKIE_LM`) and reads
+  stage count, crop and head activation from it — the layer numbering is positional, so both models
+  index the same way and only the count differs. **Shorkie's verification must pass unchanged before
+  any LM number is trusted**, and it does: 14,253,567 and 4.98e-04.
+- **13,665,828 was the mystery checkpoint.** CLAUDE.md recorded a `model_best.h5` of exactly that
+  size that could not regenerate attribution packs. It was Shorkie_LM: 13,651,812 parameters +
+  14,016 batch-norm statistics, every tensor consumed, none unused.
+- **Three passes that are not the same number, and the page says which it draws.** Unmasked, the
+  model sees the base it scores: 97.8% argmax across a window — it is copying, not predicting — and
+  over a 200 bp promoter span its cross-entropy is **3.159 bits, worse than a uniform guess**,
+  because a few positions get near-zero probability on the truth and dominate the mean. That is
+  nonetheless the pass the paper's Figure 2A logo uses.
+- **The iterative reconstruction is the prediction.** Partition positions into K disjoint strided
+  sets, mask each in turn, read each position back only from the pass that masked it. K = 7 puts
+  14.3% under mask, matching the checkpoint's own `mask_rate: 0.15`, and the stride leaves every
+  masked base with unmasked neighbours as in training. **43.0% argmax, 1.757 bits, perplexity 3.380,
+  seven passes, two seconds.** K = 10 gives 43.93% / 1.7528 — a property of the model, not the
+  stride.
+- **The page ships no model.** The iterative pass covers all 16,384 positions, so everything is
+  precomputed — 2.4 MB for fourteen loci. The cost is that a reader-edited sequence cannot be
+  scored, which the page states rather than hiding.
+- **Quantise probabilities in LOG space and verify the decode on the ENTROPY.** Entropy is what
+  every panel displays and `−p log₂ p` is steepest where p is smallest, which is where a linear
+  uint8 grid is coarsest. The generator tries both spaces per locus and keeps the better; log wins
+  everywhere, worst error **0.0198 bits** on a 0–2 bit axis.
+- **The LM cannot fill a contiguous hole, and that is the finding.** Masked whole, curated binding
+  sites come back as homopolymer runs: mean identity 25.3% at TDH3 against a **32.4% composition
+  floor**, and **8 of 14 loci score below their own floor** across 306 sites. The apparent successes
+  are A/T-rich sites where poly-A happens to be right. Pretraining masks 15% *scattered*, so the
+  model has never been asked to fill a 10 bp gap — the same positions under scattered masking come
+  back 43% of the time. **Always report identity against the composition floor**, never against
+  zero.
+- **The exon prediction fails and the repeat prediction holds.** `params.json` carries
+  `exon_loss_scale: 0.1` and `repeat_loss_scale: 0.1` against 1.0 otherwise — the model was trained
+  to care ten times less about both. Measured: coding sequence is **more** constrained in **14 of 14**
+  windows (mean 1.128×, range 1.041–1.266), while LTRs and transposons sit at **0.68–0.80×**. A loss
+  weight can discourage memorising a repeat; it cannot make a sequence constrained by the genetic
+  code look random. `verify_pipeline` §3f asserts the 14/14 rather than trusting the page.
+- **The glyph is one em tall and the per-letter offsets are baked into the paths.** A first attempt
+  divided by 1000 and re-applied `LOGO_OFFSETS`, which drew 581 letters at a millionth of their
+  size: present in the DOM, `dataset.letters` correct, nothing on screen. Copy the transform in
+  `drawLogo`, do not re-derive it.
+- **The IC axis is fixed at 0–2 bits and must never auto-scale.** Comparability between positions,
+  loci and models is the entire point of information content; auto-scaling would make an
+  unconstrained window look as structured as a constrained one. Mean IC here is ~0.22 bits, so the
+  logo is genuinely mostly flat — that is the model, not the drawing.
+- **A per-route prose gate does not protect a subtree.** The JSX swallowed-space check existed and
+  still let **12** through, because it ran on the playground route only while the hub and the LM page
+  are different documents. It now walks all three. Site-wide there are **101 more on 22 older pages**
+  (KaTeX `log<span>` filtered out), which are pre-existing and untouched.
+
+### The Live Variant Playground (`/shorkie-lab/shorkie/`, formerly `/variant-playground/`)
 
 Runs the **real Shorkie model** in the browser — the fungal sequence-to-function network from Chao
 et al. 2025, fold f0, 14,253,567 parameters. Not a re-creation and not a heuristic: the released

@@ -339,6 +339,83 @@ def verify_occlusion(Image) -> None:
               f"local share of the worst window: {min(local_fracs):.1%}-{max(local_fracs):.1%}")
 
 
+def verify_lm_packs(Image) -> None:
+    """The language-model packs, checked from the repository alone.
+
+    The LM shares Shorkie's encoder and differs only in its decoder: seven U-Net stages instead of
+    three, so it returns to all 16,384 positions, with a four-way softmax head. These checks are on
+    the SHIPPED packs, so they hold with no checkpoint present.
+    """
+    lm_dir = ROOT / "public" / "lm-data"
+    loci = json.loads((ROOT / "src" / "data" / "shorkieLoci.json").read_text())
+    have = 0
+    sums_ok = True
+    worst_sum = 0.0
+    beats_chance = 0
+    cds_above = cds_n = 0
+    n_loci = 0
+
+    for locus in loci["loci"]:
+        meta_p = lm_dir / f"{locus['id']}-lm.json"
+        if not meta_p.exists():
+            continue
+        have += 1
+        meta = json.loads(meta_p.read_text())
+        spec = meta["masked"]
+        q = np.array(Image.open(lm_dir / f"{locus['id']}-masked.png"))
+        lo = np.array(spec["lo"])[:, None]
+        hi = np.array(spec["hi"])[:, None]
+        v = q.astype(np.float64) / 255.0 * (hi - lo) + lo
+        p = 10.0 ** v if spec["space"] == "log" else v
+        p = np.clip(p, 0, None).T                                # [16384, 4]
+        s = p.sum(axis=1)
+        worst_sum = max(worst_sum, float(np.abs(s - 1.0).max()))
+        p = p / np.maximum(s[:, None], 1e-12)
+
+        # The masked pass must beat chance, or the pack is not a prediction.
+        ref = np.array([{"A": 0, "C": 1, "G": 2, "T": 3}.get(c, -1)
+                        for c in locus["sequence"].upper()])
+        ok = ref >= 0
+        acc = float((p[ok].argmax(1) == ref[ok]).mean())
+        if acc > 0.25:
+            beats_chance += 1
+        # And it must match the metric the pack itself publishes, which is what the page prints.
+        if abs(acc - meta["metrics"]["maskedArgmax"]) > 0.01:
+            check(False, "pack argmax matches its own recorded metric",
+                  f"{locus['id']}: decoded {acc:.4f} vs recorded "
+                  f"{meta['metrics']['maskedArgmax']:.4f}")
+            sums_ok = False
+
+        # The exon prediction, re-derived here rather than trusted from the page.
+        ann_p = ROOT / "public" / "vp-data" / f"{locus['id']}-ann.json"
+        if ann_p.exists():
+            ann = json.loads(ann_p.read_text())
+            cds = [f for f in ann["features"] if f["cls"] == "cds"]
+            if cds:
+                ic = 2.0 + (p * np.log2(np.clip(p, 1e-12, 1))).sum(axis=1)
+                ic = np.maximum(ic, 0)
+                m = np.zeros(len(ic))
+                for f in cds:
+                    m[max(0, f["start"]):min(len(ic), f["end"])] = 1
+                if m.sum() > 0:
+                    ratio = float((ic * m).sum() / m.sum() / ic.mean())
+                    cds_n += 1
+                    cds_above += ratio > 1.0
+        n_loci += 1
+
+    check(have == len(loci["loci"]), "every locus carries a language-model pack",
+          f"{have}/{len(loci['loci'])}")
+    check(worst_sum < 0.02, "decoded distributions sum to 1 before renormalising",
+          f"worst deviation {worst_sum:.4f}")
+    check(sums_ok, "each pack reproduces the metric it publishes", "no mismatches")
+    check(beats_chance == n_loci and n_loci > 0,
+          "the masked pass beats chance at every locus", f"{beats_chance}/{n_loci} above 25%")
+    # Published on the page as a claim about all fourteen windows, so it is asserted as one.
+    check(cds_n > 0 and cds_above == cds_n,
+          "coding sequence is MORE constrained at every locus, against the loss weighting",
+          f"{cds_above}/{cds_n} above 1.0x -- exon_loss_scale=0.1 left no trace")
+
+
 def verify_annotation() -> None:
     """The annotation's coordinates, checked against the sequence rather than against its source.
 
@@ -476,6 +553,9 @@ def main() -> int:
 
     section("3e. the knockout sweep")
     verify_knockout_sweep()
+
+    section("3f. the Shorkie_LM packs")
+    verify_lm_packs(Image)
 
     if ckpt is None:
         print("\n  no checkpoint given -- sections 4-9 need <ckpt.h5> and were skipped.")

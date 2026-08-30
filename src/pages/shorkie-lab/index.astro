@@ -1,0 +1,192 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import { site } from '../../data/site';
+
+const description =
+  'Interactive interpretability for Shorkie and Shorkie_LM — the fungal expression model and the '
+  + 'masked DNA language model it is built on, both running in the browser.';
+
+const itemListLd = {
+  '@context': 'https://schema.org',
+  '@type': 'ItemList',
+  name: 'Shorkie Lab',
+  itemListElement: [
+    {
+      '@type': 'ListItem',
+      position: 1,
+      name: 'Shorkie — expression',
+      url: `${site.url}/shorkie-lab/shorkie/`,
+    },
+    {
+      '@type': 'ListItem',
+      position: 2,
+      name: 'Shorkie_LM — the language model',
+      url: `${site.url}/shorkie-lab/shorkie_lm/`,
+    },
+  ],
+};
+---
+
+<PageLayout
+  title="Shorkie Lab"
+  eyebrow="Two models, in the browser"
+  lead="Shorkie predicts what a yeast sequence expresses. Shorkie_LM predicts what belongs at each base. Same encoder, different question — and the same drawing means opposite things in each."
+  description={description}
+>
+  <div class="sl-intro">
+    <p>
+      Both pages run the <strong>real published models</strong> — the checkpoints from
+      Chao et al. 2025, converted and executed in your browser, not re-creations or
+      heuristics. Both work over the same fourteen <em>S. cerevisiae</em> windows with the
+      same curated annotation, so a result on one page can be read directly against the other.
+    </p>
+  </div>
+
+  <div class="sl-grid">
+    <a class="sl-card" href="/shorkie-lab/shorkie/">
+      <span class="sl-card__tag">expression</span>
+      <h2>Shorkie</h2>
+      <p class="sl-card__q">“How much does this base change the prediction?”</p>
+      <p>
+        The fine-tuned model: 16,384 bp in, coverage over 896 bins × 5,215 tracks out.
+        Five attribution methods on one axis, a region traced back through every layer,
+        an occlusion map of what drives what, and every curated binding site knocked out
+        and measured.
+      </p>
+      <span class="sl-card__go">Open the expression playground →</span>
+    </a>
+
+    <a class="sl-card" href="/shorkie-lab/shorkie_lm/">
+      <span class="sl-card__tag">language model</span>
+      <h2>Shorkie_LM</h2>
+      <p class="sl-card__q">“How constrained is this base?”</p>
+      <p>
+        The masked DNA language model Shorkie is built on, pretrained on 165{' '}
+        <em>Saccharomycetales</em> genomes. A four-way distribution at every one of the
+        16,384 positions: mask a base and ask what belongs there, read constraint as
+        information content, and test it against what the annotation says is really there.
+      </p>
+      <span class="sl-card__go">Open the language-model playground →</span>
+    </a>
+  </div>
+
+  <section class="sl-section">
+    <h2>The same trunk, a different decoder</h2>
+    <p>
+      The two models share their entire encoder — an 11 bp convolutional stem, seven residual
+      blocks that pool 16,384 positions down to 128, and eight transformer layers at that
+      bottleneck. They diverge only in what they do on the way back up, and the divergence is
+      not arbitrary: each decoder resolves exactly as finely as its output is defined.
+    </p>
+    <div class="sl-scroll">
+      <table class="sl-table">
+        <thead>
+          <tr><th></th><th>Shorkie</th><th>Shorkie_LM</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>stem · residual tower · transformer</td><td colspan="2" class="sl-same">identical — the shared trunk</td></tr>
+          <tr><td>U-Net decoder blocks</td><td>3 &nbsp;(128 → 1,024, cropped to 896)</td><td><strong>7</strong> &nbsp;(128 → 16,384, no crop)</td></tr>
+          <tr><td>head</td><td>5,215 units, softplus</td><td><strong>4 units, softmax</strong></td></tr>
+          <tr><td>output</td><td>896 bins × 5,215 tracks</td><td>16,384 positions × 4 bases</td></tr>
+          <tr><td>resolution</td><td>16 bp — a coverage bin</td><td>1 bp — a base</td></tr>
+          <tr><td>training</td><td>fine-tuned, lr 2e-5, 8 folds</td><td>masked LM, 15% mask rate, 1 fold</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Shorkie stops at 16 bp because coverage <em>is</em> a 16 bp quantity; the LM upsamples all
+      the way back because a base is what it predicts. Everything else in the two networks is
+      the same weights-shaped object trained toward a different loss.
+    </p>
+  </section>
+
+  <section class="sl-section">
+    <h2>Which page answers which question</h2>
+    <dl class="sl-dl">
+      <dt>“Which bases drive this gene's expression?”</dt>
+      <dd>Shorkie. Attribution is a statement about a prediction, and only the expression model makes one.</dd>
+
+      <dt>“Is this stretch of sequence under constraint?”</dt>
+      <dd>Shorkie_LM. Low entropy in the predicted distribution means the model finds the base highly determined by its context — the model's own analogue of conservation, computed without an alignment.</dd>
+
+      <dt>“Is that peak a real binding site?”</dt>
+      <dd>Either — both pages carry the same curated annotation layer from SGD, the Harbison/MacIsaac regulatory code, ORegAnno and JASPAR, drawn with its evidence tier.</dd>
+
+      <dt>“What did pretraining buy?”</dt>
+      <dd>Neither, yet. That needs the published <code>Shorkie_Random_Init</code> ablation, which is not on the site.</dd>
+    </dl>
+  </section>
+
+  <p class="sl-foot">
+    Source, weights and documentation: <a href="https://github.com/Kuanhao-Chao/shorkie">the Shorkie
+    repository</a> and its <a href="https://khchao.com/shorkie/">documentation site</a>. The paper is{' '}
+    <a href="https://doi.org/10.1101/2025.09.19.677475">Chao et al. 2025</a>.
+  </p>
+
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(itemListLd)} />
+</PageLayout>
+
+<style>
+  .sl-intro { max-width: 60ch; color: var(--color-muted); }
+
+  .sl-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+    gap: 1rem;
+    margin: 1.75rem 0 2.5rem;
+  }
+
+  .sl-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 1.25rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg, 0.75rem);
+    background: var(--color-surface);
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .sl-card:hover { border-color: var(--color-accent); transform: translateY(-2px); }
+  .sl-card h2 { margin: 0; font-size: 1.35rem; }
+  .sl-card p { margin: 0; color: var(--color-muted); font-size: var(--fs-sm, 0.94rem); }
+
+  .sl-card__tag {
+    align-self: flex-start;
+    padding: 0.12rem 0.5rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+    color: var(--color-accent);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  /* The question each model answers, which is the whole distinction between the two pages. */
+  .sl-card__q { font-style: italic; color: var(--color-ink) !important; }
+  .sl-card__go { margin-top: 0.35rem; color: var(--color-accent); font-size: var(--fs-meta); }
+
+  .sl-section { margin: 2.5rem 0; }
+  .sl-section > h2 { margin-bottom: 0.5rem; }
+  .sl-section p { max-width: 68ch; color: var(--color-muted); }
+
+  /* A wide table must scroll inside its own container rather than force the document to. */
+  .sl-scroll { overflow-x: auto; margin: 1rem 0; }
+  .sl-table { border-collapse: collapse; font-size: var(--fs-meta); min-width: 34rem; }
+  .sl-table th, .sl-table td {
+    padding: 0.4rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: top;
+  }
+  .sl-table thead th { color: var(--color-muted); }
+  .sl-table td:first-child { color: var(--color-muted); }
+  .sl-same { color: var(--color-muted); font-style: italic; }
+
+  .sl-dl { margin: 1rem 0; max-width: 68ch; }
+  .sl-dl dt { font-weight: 600; margin-top: 0.9rem; }
+  .sl-dl dd { margin: 0.2rem 0 0; color: var(--color-muted); }
+
+  .sl-foot { margin-top: 2.5rem; font-size: var(--fs-meta); color: var(--color-muted); }
+</style>

@@ -1,6 +1,6 @@
 # Shorkie → browser: the conversion pipeline
 
-Everything under `/variant-playground/` runs the real Shorkie model. These scripts turn the
+Everything under `/shorkie-lab/` runs the real published models. These scripts turn the
 released Keras checkpoint into the artefacts the page loads. They are **offline tooling** — none of
 this runs at build time, and CI never touches it.
 
@@ -441,3 +441,48 @@ REB1 at FBA1 and MMS2. Nothing in the pipeline knows which factor should matter.
 
 Re-run order after touching either: `make_annotations.py` first (the sweep reads its output), then
 `make_knockout_sweep.py`, then `verify_pipeline.py` sections 3d and 3e.
+
+
+## Shorkie_LM
+
+`make_lm_packs.py <lm_checkpoint.h5>` produces everything `/shorkie-lab/shorkie_lm/` draws. The
+checkpoint is public over plain HTTPS and needs no auth:
+
+    curl -o _scratch/lm/model_best.h5 \
+      https://storage.googleapis.com/seqnn-share/shorkie_models/shorkie_lm/train/model_best.h5
+    # 55,329,168 bytes; params.json sits beside it
+
+`shorkie_torch.py` serves both models through a `DecoderSpec`. The trunk is identical; the LM has
+**seven** U-Net stages to Shorkie's three (128 × 2⁷ = 16,384) and a four-unit softmax head instead
+of a 5,215-unit softplus one. Accounting is exact: **13,651,812 parameters + 14,016 batch-norm
+statistics = 13,665,828**, every tensor consumed. Run Shorkie's own verification first — if
+14,253,567 and 4.98e-04 have moved, the refactor broke the model that was already right.
+
+### The three passes
+
+| pass | what it is | argmax | cross-entropy |
+| --- | --- | --- | --- |
+| unmasked | the model sees the base it scores | 97.8% | 0.607 bits (3.159 over one promoter span) |
+| iteratively masked, K=7 | **the prediction** | 43.0% | 1.757 bits, perplexity 3.380 |
+| chance | — | 25.0% | 2.000 bits |
+
+The iterative pass partitions positions into K strided sets and masks each in turn, so every
+position is predicted exactly once with unmasked neighbours — matching the checkpoint's own
+`mask_rate: 0.15` at K = 7. K = 10 gives 43.93% / 1.7528, so the number is the model's, not the
+stride's. Seven forward passes, ~2 s a locus.
+
+### Two results worth keeping
+
+**The LM cannot fill a contiguous hole.** Masked whole, curated binding sites come back as
+homopolymer runs — mean identity 25.3% against a 32.4% composition floor at TDH3, and 8 of 14 loci
+below their own floor across 306 sites. Pretraining masks 15% *scattered*; a 10 bp gap is a task it
+has never been set. Always report identity against the composition floor.
+
+**The exon loss weighting left no trace; the repeat weighting did.** `params.json` sets
+`exon_loss_scale: 0.1` and `repeat_loss_scale: 0.1`. Measured, coding sequence is *more* constrained
+in 14/14 windows (mean 1.128×) while repeats sit at 0.68–0.80×. A loss weight can discourage
+memorising a repeat; it cannot make sequence constrained by the genetic code look random.
+
+Packing note: probabilities go to uint8 in **log** space and the decode error is verified on the
+**entropy**, not the probabilities — entropy is what the page displays and `−p log₂ p` is steepest
+where a linear grid is coarsest. Worst error 0.0198 bits on a 0–2 bit axis.
