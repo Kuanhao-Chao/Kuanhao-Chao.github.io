@@ -330,7 +330,7 @@ async function auditPublicRichSnippets(urls) {
     }
   }
 
-  const vpPath = join(DIST, 'variant-playground', 'index.html');
+  const vpPath = join(DIST, 'shorkie-lab', 'shorkie', 'index.html');
   if (await pathExists(vpPath)) {
     const html = await readFile(vpPath, 'utf8');
     if (!html.includes('"@type":"WebApplication"')) {

@@ -418,3 +418,16 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
   text-decoration: underline dotted;
 }
 .vp-chan:hover { text-decoration: underline; }
+
+/* The Shorkie_LM page: the masked-base readout and its table cells. */
+.vp-basegrid { display: grid; gap: 0.3rem; max-width: 34rem; }
+.vp-baserow {
+  display: grid;
+  grid-template-columns: 2.4rem 1fr 4rem;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--fs-meta);
+}
+.vp-basebar { height: 0.6rem; border-radius: 2px; display: block; min-width: 2px; }
+.vp-enrich td.mono, .vp-enrich th.mono { font-family: var(--font-mono, ui-monospace, monospace); }
+.vp-enrich td.mono { letter-spacing: 0.02em; }

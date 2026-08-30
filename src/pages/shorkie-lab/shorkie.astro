@@ -1,9 +1,9 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro';
-import '../styles/variantPlayground.css';
-import { SPEC_NOTES } from '../lib/shorkieModel';
-import { site } from '../data/site';
-import { buildBreadcrumbLd } from '../lib/breadcrumbs';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import '../../styles/variantPlayground.css';
+import { SPEC_NOTES } from '../../lib/shorkieModel';
+import { site } from '../../data/site';
+import { buildBreadcrumbLd } from '../../lib/breadcrumbs';
 
 // A `bare` page, so it carries its own header and needs its own <h1> -- audit:indexing asserts a
 // visible heading on every sitemap URL. The page is NOT at /shorkie/: that path already serves the
@@ -19,13 +19,14 @@ const webAppLd = {
   applicationCategory: 'DeveloperApplication, ScienceApplication',
   operatingSystem: 'Web Browser (WebAssembly ONNX Runtime)',
   description,
-  url: `${site.url}/variant-playground/`,
+  url: `${site.url}/shorkie-lab/shorkie/`,
   author: { '@id': `${site.url}/#person` },
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
 };
 
 const breadcrumbLd = buildBreadcrumbLd([
-  { name: 'Variant Playground', path: '/variant-playground/' },
+  { name: 'Shorkie Lab', path: '/shorkie-lab/' },
+  { name: 'Shorkie — expression', path: '/shorkie-lab/shorkie/' },
 ]);
 ---
 
@@ -37,8 +38,9 @@ const breadcrumbLd = buildBreadcrumbLd([
       <h1 class="vp-title">The Live Variant Playground</h1>
       <span class="vp-sub">Shorkie · Chao et al. 2025 · fold f0, 14,253,567 parameters</span>
       <span class="vp-spacer"></span>
-      <a class="vp-sub" href="/posts/shorkie/">Read the post →</a>
-      <a class="vp-sub" href="/">Home</a>
+      <a class="vp-sub" href="/shorkie-lab/shorkie_lm/">Language model →</a>
+      <a class="vp-sub" href="/shorkie-lab/">Lab</a>
+      <a class="vp-sub" href="/posts/shorkie/">Post</a>
     </header>
 
     <div class="vp-scroll">
@@ -895,5 +897,5 @@ const breadcrumbLd = buildBreadcrumbLd([
 </BaseLayout>
 
 <script>
-  import '../scripts/variantPlayground';
+  import '../../scripts/variantPlayground';
 </script>

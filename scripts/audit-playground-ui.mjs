@@ -1,5 +1,5 @@
 /**
- * The rendering gate for /variant-playground/.
+ * The rendering gate for /shorkie-lab/shorkie/.
  *
  * This page had no browser gate at all, which is how it shipped unable to scroll: `bare` pins
  * html/body to `position:fixed; overflow:hidden`, so everything past the fold was clipped and
@@ -26,7 +26,7 @@ import { readFileSync } from 'node:fs';
 import process from 'node:process';
 import { chromium, webkit } from 'playwright';
 
-const ROUTE = '/variant-playground/';
+const ROUTE = '/shorkie-lab/shorkie/';
 const SMOKE = process.argv.includes('--smoke');
 const FULL = process.argv.includes('--full');
 const browserTypes = { chromium, webkit };
@@ -54,7 +54,7 @@ async function captureFailure(scope, task) {
 
 /** Panels the page must render, and panels it must NOT -- the three removed by the redesign. */
 function expected() {
-  const src = readFileSync(new URL('../src/pages/variant-playground.astro', import.meta.url), 'utf8');
+  const src = readFileSync(new URL('../src/pages/shorkie-lab/shorkie.astro', import.meta.url), 'utf8');
   const headings = [...src.matchAll(/<h2>([^<{]*)/g)].map((m) => m[1].trim()).filter(Boolean);
   return {
     panels: (src.match(/class="vp-panel/g) ?? []).length,
@@ -1425,6 +1425,166 @@ async function auditAnnotation(browser, baseURL, scope) {
   }
 }
 
+const LM_ROUTE = '/shorkie-lab/shorkie_lm/';
+const LAB_ROUTES = ['/shorkie-lab/', '/shorkie-lab/shorkie/', LM_ROUTE];
+
+/**
+ * A newline between prose and an inline tag is DELETED by JSX, not collapsed to a space, so
+ * `for<newline><em>every` renders as "forevery". Invisible in the source and survives every other
+ * gate.
+ *
+ * This walks the rendered DOM of EVERY page in the lab rather than one route: the check existed and
+ * still let 12 through, because it ran only on the playground and the hub and the language-model
+ * page are different documents. A per-route check does not protect a subtree.
+ */
+async function auditSwallowedSpaces(browser, baseURL, scope) {
+  const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1000 } });
+  const page = await context.newPage();
+  try {
+    for (const route of LAB_ROUTES) {
+      await page.goto(route, { waitUntil: 'networkidle' });
+      await page.waitForTimeout(600);
+      const joins = await page.evaluate(() => {
+        const out = [];
+        const walk = (node) => {
+          for (const el of node.children) {
+            // KaTeX legitimately butts `log` against a span for its subscript.
+            if (el.classList?.contains('katex')) continue;
+            for (const kid of el.childNodes) {
+              if (kid.nodeType !== Node.ELEMENT_NODE) continue;
+              if (!/^(EM|STRONG|CODE|SPAN|A|B|I)$/.test(kid.tagName)) continue;
+              const before = kid.previousSibling;
+              const raw = kid.textContent ?? '';
+              if (!before || before.nodeType !== Node.TEXT_NODE || !raw.trim()) continue;
+              const tail = before.textContent ?? '';
+              // The RAW first character, never a trimmed one: trimming removes the very space
+              // whose absence is being looked for.
+              if (/[\w),.;:%]$/.test(tail) && /^[\w(]/.test(raw)) {
+                out.push((tail.slice(-30) + raw.slice(0, 20)).replace(/\s+/g, ' '));
+              }
+            }
+            walk(el);
+          }
+        };
+        walk(document.body);
+        return out.slice(0, 6);
+      });
+      for (const j of joins) fail(scope, `${route}: swallowed space "…${j}…"`);
+    }
+  } finally {
+    await context.close();
+  }
+}
+
+/**
+ * The Shorkie_LM page. Everything is precomputed, so this is fast -- but a page that silently
+ * renders empty panels looks identical to one that is loading, which is exactly what happened to
+ * the expression page's output panels once.
+ */
+async function auditLanguageModel(browser, baseURL, scope) {
+  const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1400 } });
+  const page = await context.newPage();
+  const consoleErrors = [];
+  page.on('pageerror', (e) => consoleErrors.push(String(e.message)));
+  page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text()); });
+  try {
+    await page.goto(LM_ROUTE, { waitUntil: 'networkidle' });
+    await page.waitForFunction(() => document.querySelector('[data-lm]')?.dataset.lmLocus,
+      { timeout: 60_000 });
+    await page.waitForTimeout(1200);
+
+    const st = await page.evaluate(() => {
+      const d = (sel, key) => document.querySelector(sel)?.dataset?.[key] ?? null;
+      return {
+        passes: Number(d('[data-lm-passes]', 'lmPasses') ?? 0),
+        ic: d('[data-lm-ic]', 'lmIc'),
+        ann: Number(d('[data-lm-annotation]', 'lmAnnotation') ?? 0),
+        letters: Number(d('[data-lm-logo]', 'letters') ?? 0),
+        motifs: Number(d('[data-lm-motifs]', 'lmMotifs') ?? 0),
+        enrich: Number(d('[data-lm-enrichment]', 'lmEnrichment') ?? 0),
+        embed: Number(d('[data-lm-embed]', 'lmEmbed') ?? 0),
+        h1: document.querySelectorAll('h1').length,
+        how: document.querySelectorAll('details.vp-how').length,
+        openByDefault: [...document.querySelectorAll('details.vp-how')].some((x) => x.open),
+        metrics: document.querySelector('[data-lm-metrics]')?.textContent ?? '',
+        window: d('[data-lm-logo]', 'window'),
+      };
+    });
+    if (st.h1 !== 1) fail(scope, `expected exactly one <h1>, found ${st.h1}`);
+    if (st.passes !== 3) fail(scope, `the three-passes table has ${st.passes} rows, expected 3`);
+    if (!st.ic) fail(scope, 'the information-content track drew nothing');
+    if (st.ann < 1) fail(scope, 'the annotation track drew no features');
+    if (st.letters < 50) fail(scope, `the constraint logo drew only ${st.letters} letters`);
+    if (st.motifs < 1) fail(scope, 'the motif reconstruction table is empty');
+    if (st.enrich < 4) fail(scope, `enrichment measured only ${st.enrich} classes`);
+    if (st.embed !== 128) fail(scope, `the embedding map drew ${st.embed} points, expected 128`);
+    if (st.how < 4) fail(scope, `${st.how} disclosures, expected at least 4`);
+    if (st.openByDefault) fail(scope, 'a disclosure is open by default');
+    if (!/perplexity/.test(st.metrics)) fail(scope, `metrics line missing perplexity: "${st.metrics}"`);
+
+    // The two passes must give DIFFERENT numbers. If they ever agree, one of them is not being
+    // read -- which is the failure this page's whole framing exists to prevent.
+    const masked = await page.evaluate(() =>
+      document.querySelector('[data-lm-logo-stat]')?.textContent ?? '');
+    await page.selectOption('[data-lm-pass]', 'unmasked');
+    await page.waitForTimeout(900);
+    const unmasked = await page.evaluate(() =>
+      document.querySelector('[data-lm-logo-stat]')?.textContent ?? '');
+    if (masked === unmasked) {
+      fail(scope, `the masked and unmasked passes report the same constraint ("${masked}") -- `
+        + 'one of them is not being read');
+    }
+    await page.selectOption('[data-lm-pass]', 'masked');
+    await page.waitForTimeout(600);
+
+    // Clicking a base must produce a real distribution.
+    const before = await page.evaluate(() => document.querySelector('[data-lm-base]')?.dataset.lmBase ?? null);
+    await page.evaluate(() => {
+      const hit = document.querySelector('[data-lm-logo] rect[data-pos]');
+      hit?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await page.waitForTimeout(500);
+    const after = await page.evaluate(() => ({
+      pos: document.querySelector('[data-lm-base]')?.dataset.lmBase ?? null,
+      rows: document.querySelectorAll('[data-lm-base] .vp-baserow').length,
+      note: document.querySelector('[data-lm-base-note]')?.textContent ?? '',
+    }));
+    if (after.pos === before) fail(scope, 'clicking a logo column did not select a base');
+    if (after.rows !== 4) fail(scope, `the base readout shows ${after.rows} bases, expected 4`);
+    if (after.note.length < 40) fail(scope, 'the base readout has no interpretation line');
+
+    // Brushing the constraint track must move the logo window.
+    const w0 = st.window;
+    const strip = await page.$('[data-lm-ic]');
+    if (strip) {
+      await strip.scrollIntoViewIfNeeded();
+      const box = await strip.boundingBox();
+      await page.mouse.move(box.x + box.width * 0.3, box.y + box.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width * 0.45, box.y + box.height / 2, { steps: 6 });
+      await page.mouse.up();
+      await page.waitForTimeout(500);
+      const w1 = await page.evaluate(() => document.querySelector('[data-lm-logo]')?.dataset.window);
+      if (w1 === w0) fail(scope, 'brushing the constraint track did not move the logo window');
+    }
+
+    // Reduced motion and a theme change must not break it.
+    await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'dark' });
+    await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
+    await page.evaluate(() => document.dispatchEvent(new CustomEvent('khc:theme-change')));
+    await page.waitForTimeout(600);
+    const afterTheme = await page.evaluate(() =>
+      document.querySelector('[data-lm-embed]')?.dataset.lmEmbed ?? null);
+    if (afterTheme !== '128') fail(scope, 'the embedding map did not survive a theme change');
+
+    if (consoleErrors.length) {
+      fail(scope, `${consoleErrors.length} console error(s): ${consoleErrors[0].slice(0, 120)}`);
+    }
+  } finally {
+    await context.close();
+  }
+}
+
 async function main() {
   const port = await availablePort();
   const baseURL = `http://127.0.0.1:${port}`;
@@ -1475,6 +1635,10 @@ async function main() {
           await captureFailure('chromium/annotation', () => auditAnnotation(browser, baseURL, 'chromium/annotation'));
           progress('chromium/explanations');
           await captureFailure('chromium/explanations', () => auditExplanations(browser, baseURL, 'chromium/explanations'));
+          progress('chromium/language-model');
+          await captureFailure('chromium/language-model', () => auditLanguageModel(browser, baseURL, 'chromium/language-model'));
+          progress('chromium/lab-prose (all three routes)');
+          await captureFailure('chromium/lab-prose', () => auditSwallowedSpaces(browser, baseURL, 'chromium/lab-prose'));
           progress('chromium/region-views');
           await captureFailure('chromium/region-views', () => auditRegionViews(browser, baseURL, 'chromium/region-views'));
           progress('chromium/paper-fidelity');

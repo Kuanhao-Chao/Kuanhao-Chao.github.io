@@ -31,7 +31,17 @@ const REQUIRED_STRINGS = [
 // These paths are separate project sites or intentional legacy redirects on the
 // same custom domain. They must be checked live, but are not emitted by this
 // Astro build and therefore cannot be resolved inside dist/.
-const LIVE_SAME_ORIGIN_PREFIXES = ['/shorkie', '/splam', '/LiftOn', '/OpenSpliceAI', '/gffbase'];
+//
+// The list is exactly the repos with GitHub Pages enabled: with a custom apex domain on the user
+// site, GitHub serves every such PROJECT repo at khchao.com/<repo>/ and it shadows anything this
+// site deploys at the same path -- silently, and only in production, because a preview server has
+// no such shadowing. This site once shipped 71 files under /shorkie/ and every one 404'd live.
+// Re-derive with: gh api "users/Kuanhao-Chao/repos?per_page=100" | jq -r '.[]|select(.has_pages)|.name'
+// It previously listed only five of the eleven.
+const LIVE_SAME_ORIGIN_PREFIXES = [
+  '/shorkie', '/splam', '/splam-analysis-results', '/LiftOn', '/OpenSpliceAI', '/gffbase',
+  '/Biobaby', '/khchao-archive', '/Kuanhao-Chao', '/CSX_RProject_Spring_2018',
+];
 // '/posts/lifton-v1-0-9' used to sit here, which is exactly how a redirect to a
 // `draft: true` post stayed green while 404ing on the live site. Do not re-add a
 // path here to silence a redirect; point the redirect at a page that is built.

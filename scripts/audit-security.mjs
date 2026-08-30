@@ -79,13 +79,16 @@ const SAFE_SET_HTML_FILES = new Set([
   'src/pages/games/proofreader.astro',
   'src/pages/posts/[...slug].astro',
   'src/pages/projects.astro',
+  // JSON-LD only, built from static page constants -- no visitor input reaches it.
+  'src/pages/shorkie-lab/index.astro',
+  'src/pages/shorkie-lab/shorkie_lm.astro',
   'src/pages/publications/[...slug].astro',
   'src/pages/reports/[...slug].astro',
   'src/pages/research/[...slug].astro',
   'src/pages/software.astro',
   'src/pages/sonic-genome.astro',
   'src/pages/terminal.astro',
-  'src/pages/variant-playground.astro',
+  'src/pages/shorkie-lab/shorkie.astro',
 ]);
 
 const SAFE_INNER_HTML_FILES = new Set([

@@ -1,0 +1,351 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import '../../styles/variantPlayground.css';
+import { LM_SPEC } from '../../lib/shorkieLm';
+import { site } from '../../data/site';
+import { buildBreadcrumbLd } from '../../lib/breadcrumbs';
+
+// A `bare` page, so it carries its own header and needs its own <h1> -- audit:indexing asserts a
+// visible heading on every sitemap URL. Not at /shorkie/: that path serves the project docs.
+const title = 'Shorkie_LM — what belongs at every base';
+const description =
+  'An in-browser study of Shorkie_LM, the masked DNA language model behind Shorkie: a four-way '
+  + 'distribution at all 16,384 positions of a yeast window, read as sequence constraint and '
+  + 'tested against the curated annotation.';
+
+const webAppLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: 'Shorkie_LM — the fungal DNA language model',
+  applicationCategory: 'DeveloperApplication, ScienceApplication',
+  operatingSystem: 'Web Browser',
+  description,
+  url: `${site.url}/shorkie-lab/shorkie_lm/`,
+  author: { '@id': `${site.url}/#person` },
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+};
+
+const breadcrumbLd = buildBreadcrumbLd([
+  { name: 'Shorkie Lab', path: '/shorkie-lab/' },
+  { name: 'Shorkie_LM — the language model', path: '/shorkie-lab/shorkie_lm/' },
+]);
+---
+
+<BaseLayout title={title} description={description} bare={true}>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(webAppLd)} />
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} />
+  <div class="vp" data-lm>
+    <header class="vp-top">
+      <h1 class="vp-title">Shorkie_LM</h1>
+      <span class="vp-sub">
+        masked DNA language model · 165 <em>Saccharomycetales</em> genomes ·
+        {LM_SPEC.parameters.toLocaleString()} parameters
+      </span>
+      <span class="vp-spacer"></span>
+      <a class="vp-sub" href="/shorkie-lab/shorkie/">← Expression model</a>
+      <a class="vp-sub" href="/shorkie-lab/">Lab</a>
+      <a class="vp-sub" href="https://khchao.com/shorkie/">Docs</a>
+    </header>
+
+    <div class="vp-scroll">
+      <div class="vp-wrap">
+
+        <!-- ------------------------------------------------- what this model is -->
+        <section class="vp-panel">
+          <h2>The same encoder, asked a different question</h2>
+          <p class="vp-notes vp-lede">
+            Shorkie_LM is the model Shorkie was fine-tuned <em>from</em>. It shares its entire
+            encoder — an 11 bp convolutional stem, seven residual blocks pooling 16,384 positions
+            down to 128, and eight transformer layers at that bottleneck — and then diverges
+            completely on the way back up. Shorkie runs <strong>three</strong> U-Net stages to
+            1,024 positions and crops to 896 bins of 16 bp, because coverage is a 16 bp quantity.
+            The LM runs <strong>seven</strong>, all the way back to 16,384, because a base is what
+            it predicts.
+          </p>
+          <div class="vp-scroll-x">
+            <table class="vp-enrich">
+              <thead><tr><th>stage</th><th>Shorkie</th><th>Shorkie_LM</th></tr></thead>
+              <tbody>
+                <tr><td>encoder</td><td colspan="2" style="text-align:left;color:var(--color-muted)">identical — the shared trunk, 128 positions × 384 channels at the bottleneck</td></tr>
+                <tr><td>U-Net stages</td><td>3</td><td><strong>7</strong></td></tr>
+                <tr><td>output</td><td>896 × 5,215</td><td><strong>16,384 × 4</strong></td></tr>
+                <tr><td>head</td><td>softplus</td><td><strong>softmax</strong></td></tr>
+                <tr><td>parameters</td><td>14,253,567</td><td>{LM_SPEC.parameters.toLocaleString()}</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="vp-notes" style="margin:0.5rem 0 0;">
+            Everything on this page is <strong>precomputed and shipped</strong> — there is no model
+            to download and nothing to wait for. Fourteen <em>S. cerevisiae</em> windows, the same
+            ones the expression playground uses, with the same curated annotation, so a result here
+            can be read directly against one there.
+          </p>
+        </section>
+
+        <!-- ------------------------------------------------- the three passes -->
+        <section class="vp-panel">
+          <h2>Three passes that are not the same number <span class="vp-stat" data-lm-metrics></span></h2>
+          <p class="vp-notes" style="margin:0 0 0.5rem;">
+            A masked language model can be run three ways, and confusing them is the easiest
+            mistake to make with one. This page keeps them apart everywhere and always says which
+            it is drawing.
+          </p>
+          <div class="vp-scroll-x"><table class="vp-enrich" data-lm-passes></table></div>
+          <p class="vp-notes" style="margin:0.4rem 0 0;">
+            <strong>The unmasked pass is not a prediction.</strong> The model can see the base it is
+            scoring, so it mostly copies its own input — and its cross-entropy is far better than
+            the masked pass's for that reason alone, not because it knows more. It is nonetheless
+            the pass the paper's Figure 2A logo is built on, which is worth knowing when comparing
+            this page against that figure.
+          </p>
+          <details class="vp-how">
+            <summary>How the iterative reconstruction works, and why K = 7</summary>
+            <div class="vp-how-body">
+              <p><strong>The problem.</strong> A masked language model only predicts where it is
+              masked. To get a genuine prediction at <em>every</em> one of the 16,384 positions you
+              must mask every position at some point — but masking all of them at once leaves the
+              model nothing to condition on.</p>
+              <p><strong>The method.</strong> Partition the positions into <code>K</code> disjoint
+              strided sets — position <code>i</code> joins set <code>i mod K</code> — mask each set
+              in turn, and read every position back only from the pass that masked it. With{' '}
+              <code>K = 7</code> that puts <strong>14.3%</strong> of positions under mask, matching
+              the checkpoint's own <code>mask_rate: 0.15</code>, and the stride guarantees every
+              masked base keeps unmasked immediate neighbours, exactly as in pretraining. Seven
+              forward passes, about two seconds a locus.</p>
+              <p><strong>Why the stride and not a random 15%.</strong> A partition means each
+              position is predicted exactly once, with no position predicted twice and none missed
+              — so the result is a function of the model, not of a seed.</p>
+              <p><strong>The check that it is not an artefact of K.</strong> At <code>K = 10</code>{' '}
+              the same window gives 43.93% argmax and 1.7528 bits against <code>K = 7</code>'s
+              43.00% and 1.7571. The number is a property of the model.</p>
+              <p><strong>What it is not.</strong> Not the same as masking one base alone: the
+              iterative pass also has 1/7 of the rest of the window hidden, so it is the same
+              question asked slightly harder. And not a generative sample — each position is scored
+              independently, so reading the argmax across a span is not "the sequence the model
+              would write".</p>
+            </div>
+          </details>
+        </section>
+
+        <!-- ------------------------------------------------- constraint across the window -->
+        <section class="vp-panel">
+          <h2>Where the genome is predictable <span class="vp-stat" data-lm-ic-stat></span></h2>
+          <p class="vp-notes" style="margin:0 0 0.5rem;">
+            Information content, <code>2 − H(p)</code>, at every base — the paper's own quantity,
+            and the model's analogue of conservation computed <em>without an alignment</em>. High
+            means the model finds the base strongly determined by its surroundings. The annotation
+            beneath is the same curated layer the expression page carries.
+          </p>
+          <canvas class="vp-canvas" data-lm-ic role="img"
+                  aria-label="Information content of the language model's prediction across the window"></canvas>
+          <canvas class="vp-canvas" data-lm-annotation role="img"
+                  aria-label="Curated annotation aligned to the constraint track"></canvas>
+          <p class="vp-notes" style="margin:0.35rem 0 0;">
+            Drag to zoom the logo below. The curve is smoothed for display at this width — one pixel
+            covers many bases — and the per-base values are exact in the logo.
+          </p>
+        </section>
+
+        <!-- ------------------------------------------------- the constraint logo -->
+        <section class="vp-panel">
+          <h2>The constraint logo <span class="vp-stat" data-lm-logo-stat></span></h2>
+          <div class="vp-controls">
+            <input type="range" class="vp-range" data-lm-pan min="0" max="1000" value="500"
+                   aria-label="Pan the logo across the window" />
+            <select class="vp-select" data-lm-pass aria-label="Which pass to draw">
+              <option value="masked" selected>iteratively masked — the prediction</option>
+              <option value="unmasked">unmasked — the paper's Figure 2A quantity</option>
+            </select>
+            <select class="vp-select" data-lm-width aria-label="Logo window width">
+              <option value="60">60 bp</option>
+              <option value="150" selected>150 bp</option>
+              <option value="400">400 bp</option>
+            </select>
+          </div>
+          <svg class="vp-svg" data-lm-logo role="img"
+               aria-label="Sequence logo of the language model's predicted distribution"></svg>
+          <p class="vp-notes" style="margin:0.4rem 0 0;">
+            <strong>The same drawing as the expression page, answering the opposite question.</strong>{' '}
+            There, one letter survives per position — the input is one-hot, so an attribution is
+            identically zero at the three bases that are not there — heights are signed, and the
+            axis is the attribution's own range. Here every base has a probability, letter height is{' '}
+            <code>p × IC</code>, nothing is signed, and the axis is a fixed 0–2 bits. A tall column
+            means <em>constrained</em>, not <em>influential</em>.
+          </p>
+          <details class="vp-how">
+            <summary>How the logo is built, and what a tall column does not mean</summary>
+            <div class="vp-how-body">
+              <p><strong>The formula</strong> is the paper's verbatim:{' '}
+              <code>conservation = 2 − entropy</code>, with{' '}
+              <code>H(p) = −Σ p log₂ p</code> over the four bases and each letter drawn at{' '}
+              <code>p × IC</code>. Letters stack <em>ascending</em> by probability, the PWM
+              convention, over a fixed 0–2 bit axis — not descending by magnitude with a zero rule,
+              which is the attribution convention on the other page.</p>
+              <p><strong>Glyphs are the paper's</strong>: real DejaVu Sans Bold outlines at its
+              hand-tuned per-letter offsets, scaled 1.35× on both axes, in its saturated X11 colours
+              (A green, C blue, G orange, T red), fixed across every theme because a figure's base
+              colours are part of the figure.</p>
+              <p><strong>A tall column is not a functional site.</strong> It says the model can
+              predict the base from its context. Homopolymer runs, repeats and strongly biased
+              composition all produce high information content with no regulatory meaning whatever —
+              which is exactly why the enrichment panel below tests constraint against annotation
+              rather than asserting the connection.</p>
+              <p><strong>Quantisation.</strong> Probabilities ship as uint8 in <em>log</em> space,
+              not linear: the displayed quantity is the entropy and <code>−p log₂ p</code> is
+              steepest where <code>p</code> is smallest, which is where a linear grid is coarsest.
+              Measured across all fourteen loci the worst entropy error is under 0.02 bits on a 2-bit
+              axis.</p>
+            </div>
+          </details>
+        </section>
+
+        <!-- ------------------------------------------------- masked-base interactive -->
+        <section class="vp-panel">
+          <h2>Ask the model what belongs here <span class="vp-stat" data-lm-base-stat></span></h2>
+          <p class="vp-notes" style="margin:0 0 0.5rem;">
+            Click any base in the logo above. This is the canonical language-model question, and the
+            answer is a distribution rather than a letter.
+          </p>
+          <div class="vp-basegrid" data-lm-base></div>
+          <p class="vp-notes" style="margin:0.4rem 0 0;" data-lm-base-note></p>
+        </section>
+
+        <!-- ------------------------------------------------- motif reconstruction -->
+        <section class="vp-panel">
+          <h2>Can it put a motif back? <span class="vp-stat" data-lm-motif-stat></span></h2>
+          <p class="vp-notes" style="margin:0 0 0.5rem;">
+            Every curated, ChIP-supported binding site in this window, masked <em>whole</em>, with
+            what the model puts in the hole. Read the identity column against the{' '}
+            <strong>composition floor</strong> beside it — the score you get by guessing the
+            window's most common base at every position.
+          </p>
+          <div class="vp-scroll-x"><table class="vp-enrich" data-lm-motifs></table></div>
+          <p class="vp-notes" style="margin:0.4rem 0 0;" data-lm-motif-verdict></p>
+          <details class="vp-how">
+            <summary>Why a whole-site mask is a different task from the one it was trained on</summary>
+            <div class="vp-how-body">
+              <p><strong>The method.</strong> Zero the four DNA channels across the entire site —
+              the model's own masking, indistinguishable from a run of N — run one forward pass, and
+              read the argmax across the masked span.</p>
+              <p><strong>The mismatch.</strong> Pretraining masks 15% of positions <em>scattered</em>,
+              so every masked base keeps unmasked immediate neighbours. A contiguous 7–11 bp hole
+              removes exactly that local context, and the model has never been asked to fill one.
+              The same positions, masked in the scattered pattern instead, are recovered far more
+              often — the two numbers are on the same page above.</p>
+              <p><strong>Read identity against the floor, never against zero.</strong> A promoter
+              that is 60% A/T rewards a constant-A guess, so an unanchored "recalled 6 of 11 bases"
+              has no scale. The floor is the largest single-base frequency in that window.</p>
+              <p><strong>What a success would and would not mean.</strong> Recovering a site's
+              sequence from its surroundings is evidence the model has learned that this sequence is
+              likely in this context. It is <em>not</em> evidence the model represents the
+              transcription factor, and it says nothing about whether the site is used.</p>
+            </div>
+          </details>
+        </section>
+
+        <!-- ------------------------------------------------- constraint vs annotation -->
+        <section class="vp-panel">
+          <h2>Is constraint where the biology is? <span class="vp-stat" data-lm-enrich-stat></span></h2>
+          <p class="vp-notes" style="margin:0 0 0.5rem;">
+            The same statistic the expression page uses, on a different signal: mean information
+            content inside each annotation class over mean across the window, against a null from
+            circularly shifting the annotation. <strong>1.00× means no preference.</strong>
+          </p>
+          <div class="vp-scroll-x"><table class="vp-enrich" data-lm-enrichment></table></div>
+          <p class="vp-notes" style="margin:0.4rem 0 0;" data-lm-exon-verdict></p>
+          <details class="vp-how">
+            <summary>The falsifiable prediction this panel exists to test</summary>
+            <div class="vp-how-body">
+              <p>The released checkpoint's <code>params.json</code> carries four loss weights that
+              are not mentioned in the paper text: <code>exon_loss_scale: 0.1</code> and{' '}
+              <code>repeat_loss_scale: 0.1</code>, against <code>1.0</code> for non-exon and
+              non-repeat. <strong>The model was deliberately trained to care ten times less about
+              exons and repeats.</strong></p>
+              <p>That is a prediction, not a description: if the loss weights did what they were
+              meant to, the LM should be measurably <em>less</em> constrained over coding sequence
+              than over the intergenic sequence around it. The CDS row in the table above is that
+              test.</p>
+              <p><strong>Measured across all fourteen windows, the exon half of the prediction
+              fails and the repeat half holds.</strong> Coding sequence scores above 1.0 in{' '}
+              <strong>14 of 14</strong> loci — mean <strong>1.128×</strong>, range 1.041–1.266 —
+              so the model is <em>more</em> certain over exons, not less, despite their loss being
+              weighted at a tenth. Repeats go the other way: LTRs and transposable elements score{' '}
+              <strong>0.68–0.80×</strong>, genuinely less constrained. So the same tenfold
+              down-weighting left a clear mark on repeats and none on exons.</p>
+              <p>The likely reason is that the two classes are not comparable targets. A repeat is
+              only predictable because it recurs, and down-weighting it removes the incentive to
+              memorise it. Coding sequence is predictable because the genetic code constrains it —
+              reading frame, codon bias, amino-acid composition — and that structure is there to be
+              learned from the 90% of the loss that remains. A loss weight can discourage
+              memorisation; it cannot make a compositionally constrained sequence look random.</p>
+              <p><strong>The null is a circular shift</strong>, the same one the expression page
+              uses: rotating the annotation preserves the feature count, every length and every gap,
+              and destroys only the alignment. Offsets are deterministic and zero is excluded, so a
+              published ratio is reproducible rather than a draw.</p>
+              <p><strong>What it cannot tell you.</strong> Constraint and function are different
+              things. Repeats and homopolymers are highly predictable and carry no regulatory
+              meaning; a class can be enriched here because it is compositionally simple rather than
+              because it matters.</p>
+            </div>
+          </details>
+        </section>
+
+        <!-- ------------------------------------------------- embeddings -->
+        <section class="vp-panel">
+          <h2>What the bottleneck separates <span class="vp-stat" data-lm-embed-stat></span></h2>
+          <p class="vp-notes" style="margin:0 0 0.5rem;">
+            Each of the 128 bottleneck positions is a 384-dimensional vector from the first
+            self-attention layer — the representation the paper's Figure 2E clusters. Each point is
+            one position, coloured by what the annotation says is there. One point covers 128 bp.
+          </p>
+          <canvas class="vp-canvas" data-lm-embed role="img"
+                  aria-label="Bottleneck embeddings projected to two dimensions, coloured by genomic element"></canvas>
+          <p class="vp-notes" style="margin:0.4rem 0 0;" data-lm-embed-note></p>
+          <details class="vp-how">
+            <summary>PCA here, t-SNE in the paper — and why the difference matters</summary>
+            <div class="vp-how-body">
+              <p><strong>This is PCA</strong>, computed in the browser by power iteration from a
+              fixed seed. The paper's Figure 2E uses t-SNE. The swap is deliberate: a projection
+              whose axes move between page loads cannot be written about, and t-SNE distances are
+              not distances — its cluster separations and gaps are famously not interpretable as
+              magnitudes. PCA's axes are the directions of greatest variance and its distances are
+              real, at the cost of showing less separation.</p>
+              <p><strong>So a lack of visible clustering here is weaker evidence than a lack in the
+              paper's figure would be</strong>, and the reverse is stronger: anything PCA does
+              separate is separated along genuine high-variance directions.</p>
+              <p><strong>One point is 128 bp</strong>, so a position's label is whatever annotation
+              covers most of that stretch — at this resolution a 7 bp binding site cannot have its
+              own point, and the classes shown are the ones large enough to dominate a cell.</p>
+            </div>
+          </details>
+        </section>
+
+        <section class="vp-panel">
+          <h2>What is not here</h2>
+          <p class="vp-notes">
+            <strong>Live inference.</strong> Everything is precomputed, so an arbitrary edited
+            sequence cannot be scored — the iterative pass covers every position of the shipped
+            windows, and the motif sweep covers every curated site, but a span you choose yourself
+            would need the model in the browser. The expression page carries that machinery; this
+            one deliberately does not, in exchange for working instantly with no download.
+          </p>
+          <p class="vp-notes">
+            <strong>The pretraining ablation.</strong> The published{' '}
+            <code>Shorkie_Random_Init</code> — the same architecture and data trained from scratch —
+            is what would measure what pretraining actually bought. It is not on the site.
+          </p>
+          <p class="vp-notes">
+            <strong>TF-MoDISco motifs.</strong> The paper derives motifs from contributions and
+            matches them with TomTom. This page reports constraint and reconstruction directly and
+            does not attempt de-novo motif discovery.
+          </p>
+        </section>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    import '../../scripts/shorkieLm';
+  </script>
+</BaseLayout>
