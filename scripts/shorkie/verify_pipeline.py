@@ -179,8 +179,11 @@ def verify_ism(ort, Image) -> None:
         r0, r1 = N_BINS - g1, N_BINS - g0
 
         def cover(x, p, q):
+            # y[0, p:q, T0] would be (tracks, bins) -- an integer beside an array index moves the
+            # broadcast axis to the front. Index in two steps so the axes stay (bins, tracks), or
+            # this re-derives the pack's own mistake and agrees with it.
             y = sess.run(["all_tracks"], {"sequence": x})[0]
-            return float(y[0, p:q, T0].mean(axis=-1).sum())
+            return float(y[0][p:q][:, T0].mean(axis=-1).sum())
 
         x = encode(locus["sequence"], loci["speciesIndex"])
         ref_f, ref_r = cover(x, g0, g1), cover(rc(x), r0, r1)
@@ -238,6 +241,91 @@ def verify_ism(ort, Image) -> None:
           f"the rest of the top twelve is the branch point")
 
 
+def verify_attribution(Image) -> None:
+    """The attribution packs: both margins present, IG complete, and the conventions recorded.
+
+    Checked from the repository alone. The margins are exact by construction -- gradients are linear
+    in the output selection -- so what can go wrong is a packing or decoding error, and what must be
+    recorded is which convention each method uses, because two of them deliberately differ.
+    """
+    import numpy as np
+
+    packs = ROOT / "public" / "vp-data"
+    loci = json.loads((ROOT / "src" / "data" / "shorkieLoci.json").read_text())
+    missing, worst_err, worst_at, no_ig = [], 0.0, "", []
+
+    for locus in loci["loci"]:
+        f = packs / f"{locus['id']}-attr.json"
+        if not f.exists():
+            missing.append(locus["id"])
+            continue
+        meta = json.loads(f.read_text())
+        if "positions" not in meta or not (packs / f"{locus['id']}-positions.png").exists():
+            missing.append(f"{locus['id']}:positions")
+            continue
+        spec = meta["positions"]
+        if spec["cols"] != meta["stages"] * meta["stagePositions"]:
+            missing.append(f"{locus['id']}:shape")
+        # Completeness, from what the generator recorded. IG is the only method here with a
+        # property that can be checked at all, so it is checked.
+        for a in meta["anchors"]:
+            if "igGap" not in a:
+                no_ig.append(locus["id"])
+                break
+            err = abs(a["igSum"] - a["igGap"])
+            if err > worst_err:
+                worst_err, worst_at = err, f"{locus['id']}/{a['label']}"
+
+    check(not missing, "every pack carries both attribution margins",
+          f"{len(loci['loci']) - len({m.split(':')[0] for m in missing})}/{len(loci['loci'])} complete"
+          + (f", missing {missing[:3]}" if missing else ""))
+    check(not no_ig, "every pack carries integrated gradients", f"{len(no_ig)} without")
+    # The Riemann-sum error at 32 steps. Absolute, because a near-zero prediction gap makes the
+    # relative figure meaningless -- one anchor's 0.04 miss reads as 652%.
+    check(worst_err < 0.25, "integrated gradients satisfy completeness",
+          f"worst |sum - (f(x)-f(0))| = {worst_err:.4f} at {worst_at} (32 steps)")
+
+    # The two conventions that deliberately differ, recorded rather than inferred.
+    meta = json.loads((packs / f"{loci['loci'][0]['id']}-attr.json").read_text())
+    check(meta.get("meanCentred") is True and "log2" in str(meta.get("target", "")),
+          "gradient x input is mean-centred, on the logSED scalar",
+          f"target={meta.get('target')}, meanCentred={meta.get('meanCentred')}")
+
+
+def verify_occlusion(Image) -> None:
+    """The occlusion matrices: present, non-degenerate, and genuinely two-dimensional."""
+    import numpy as np
+
+    packs = ROOT / "public" / "vp-data"
+    loci = json.loads((ROOT / "src" / "data" / "shorkieLoci.json").read_text())
+    missing, local_fracs = [], []
+    for locus in loci["loci"]:
+        meta_path = packs / f"{locus['id']}.json"
+        spec = json.loads(meta_path.read_text()).get("occl") if meta_path.exists() else None
+        if not spec or not (packs / f"{locus['id']}-occl.png").exists():
+            missing.append(locus["id"])
+            continue
+        a = np.asarray(Image.open(packs / f"{locus['id']}-occl.png")).astype(np.float64)
+        lo = np.asarray(spec["lo"], dtype=np.float64)
+        hi = np.asarray(spec["hi"], dtype=np.float64)
+        m = lo[:, None] + (hi - lo)[:, None] * (a / 255.0)
+        win = spec["win"]
+        row = int(np.argmax(np.abs(m).sum(axis=1)))
+        g0 = max(0, (row * win - 1024) // 16)
+        g1 = min(m.shape[1], ((row + 1) * win - 1024) // 16 + 1)
+        local_fracs.append(float(np.abs(m[row, g0:g1]).sum() / max(np.abs(m[row]).sum(), 1e-12)))
+
+    check(not missing, "every locus carries an occlusion matrix",
+          f"{len(loci['loci']) - len(missing)}/{len(loci['loci'])}"
+          + (f", missing {missing[:3]}" if missing else ""))
+    if local_fracs:
+        # The finding, pinned: the most damaging window's effect is overwhelmingly OFF its own
+        # footprint. If this ever came out near 1 the model would be purely local and the whole
+        # two-dimensional panel would be pointless.
+        check(max(local_fracs) < 0.25, "occlusion effects are mostly long-range",
+              f"local share of the worst window: {min(local_fracs):.1%}-{max(local_fracs):.1%}")
+
+
 def main() -> int:
     import torch
     import onnx
@@ -265,6 +353,12 @@ def main() -> int:
 
     section("3. mutagenesis planes <-> shipped graph")
     verify_ism(ort, Image)
+
+    section("3b. attribution planes and their conventions")
+    verify_attribution(Image)
+
+    section("3c. occlusion matrices")
+    verify_occlusion(Image)
 
     if ckpt is None:
         print("\n  no checkpoint given -- sections 4-9 need <ckpt.h5> and were skipped.")

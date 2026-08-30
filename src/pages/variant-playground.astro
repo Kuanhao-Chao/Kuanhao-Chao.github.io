@@ -62,6 +62,9 @@ const description =
         <div class="vp-controls" style="margin-bottom:0.45rem;">
           <button type="button" class="vp-btn" data-vp-view="2d" aria-pressed="true">flat</button>
           <button type="button" class="vp-btn" data-vp-view="3d" aria-pressed="false">volume</button>
+          <span class="vp-stat" style="margin-left:0.5rem">showing</span>
+          <button type="button" class="vp-btn" data-vp-showing="activation" aria-pressed="true">activation</button>
+          <button type="button" class="vp-btn" data-vp-showing="relevance" aria-pressed="false">relevance for the traced region</button>
           <button type="button" class="vp-btn" data-vp-spin hidden>↻ resume rotation</button>
           <span class="vp-stat">Same layout either way: height is positions, width is channels.</span>
         </div>
@@ -79,6 +82,14 @@ const description =
           Each block is one stage, sized by its real dimensions on the log scales named above. Click a stage to inspect it.
           Before you run the model the blocks are empty outlines; afterwards they fill with the
           activations from that same forward pass.
+          <br /><br />
+          <strong>Switch to “relevance” and the same blocks show one region instead of the whole
+          window.</strong> Trace a region below, and every stage repaints with what it contributed to
+          <em>that region alone</em> — every other output bin masked out. Both of the map's margins
+          are exact: the per-channel one and the per-position one are each a row-sum of precomputed
+          groups, because gradients are linear in which outputs you select. Its interior is their
+          outer product, which is the only reconstruction consistent with both margins if channel and
+          position act independently — a real assumption, and the reason the panel names it.
         </p>
       </section>
 
@@ -111,6 +122,22 @@ const description =
                aria-label="Predicted RNA-seq coverage across 896 bins"></svg>
           <canvas class="vp-canvas vp-attr" data-vp-attr role="img"
                   aria-label="Which input bases drive the selected output region"></canvas>
+          <canvas class="vp-canvas" data-vp-methods role="img"
+                  aria-label="Every interpretability method on one axis, aligned with the annotation"></canvas>
+          <p class="vp-notes" style="margin:0.35rem 0 0;">
+            <strong>Four methods, one axis, one annotation.</strong> They do not measure the same
+            thing and are not expected to agree everywhere:
+            <em>mutagenesis</em> substitutes one base and re-runs the model;
+            <em>gradient × input</em> is a local linear sensitivity at the reference base, mean-centred
+            across the four bases as Borzoi does;
+            <em>integrated gradients</em> accumulates that gradient along a path from an all-zero
+            baseline and is the only one here whose values <em>sum</em> to the prediction difference —
+            a property it would lose if it were mean-centred, so it is not;
+            <em>occlusion</em> ablates a whole 64 bp stretch and measures what the model loses.
+            Where they agree the result is robust; where they diverge, the divergence is the finding.
+            A method that covers only part of the window is drawn in place with the rest left blank,
+            which is what the paper does for its own partial windows.
+          </p>
           <div class="vp-controls" style="margin-top:0.35rem;">
             <span class="vp-stat" data-vp-trace-label>Drag across the curve above to trace a region back to the sequence.</span>
             <select class="vp-select" data-vp-anchor aria-label="Trace a gene at single-base resolution"></select>
@@ -240,6 +267,36 @@ const description =
           gradients at all</strong>; its single gradient routine is unreached scaffolding that still
           declares a 4-channel input the 170-channel model cannot accept. Gradient × input is here
           because it is instant, not because it is what the paper did.
+        </p>
+      </section>
+
+      <section class="vp-panel">
+        <h2>What drives what <span class="vp-stat" data-vp-occl-stat></span></h2>
+        <canvas class="vp-canvas vp-occl" data-vp-occl role="img"
+                aria-label="Occlusion map: input window on x, output bin on y, colour is what that output loses"></canvas>
+        <p class="vp-notes" style="margin:0.4rem 0 0;">
+          <strong>Every input window against every output bin.</strong> Each column is a 64 bp stretch
+          of the input, ablated; each row is one of the 896 output bins; the colour is what that bin
+          loses when that stretch is gone. Blue is a loss, red a gain. This is the only genuinely
+          two-dimensional view on the page — every other method collapses to a single profile over
+          the input — and it is measured, not inferred: 256 real forward passes a locus.
+        </p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>Read it as a map, and read both parts.</strong> The dark diagonal is local effect —
+          a window damaging the output directly above it — and per cell it is by far the strongest
+          thing here. But it is also narrow: one window of 256. Summed across the row, the local
+          footprint accounts for only <strong>0.3–8%</strong> of the most damaging window's total
+          effect, so the diagonal is where the model is <em>most intense</em> and the off-diagonal is
+          where most of what it does actually lives. Neither statement alone is the truth.
+          Off the diagonal, a <em>vertical stripe</em> is an input stretch many outputs depend on and
+          a <em>horizontal stripe</em> is an output bin that reads widely.
+        </p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          Ablation zeroes the four DNA channels, which is exactly how the paper's language model masks
+          a position and is indistinguishable from a run of N. That is a different question from the
+          motif knockouts above, which <em>shuffle</em>: a shuffle keeps base composition and asks
+          whether the arrangement matters, while zeroing asks whether the stretch carries information
+          at all.
         </p>
       </section>
 

@@ -278,3 +278,66 @@ for DTD1 lands on bp 8,165 — the exact `GT` donor of its 71 bp intron — whil
 5′ splice site costs 34 %. Nothing is shared between the two calculations but the model. The paper's
 own transform then recovers the full `GTATGT` donor consensus as the window's six largest
 saliencies, which is published Figure 4D.
+
+
+## Occlusion, and the two-dimensional picture
+
+`make_occlusion.py` ablates a sliding 64 bp window and records what **every** output bin loses. One
+forward pass answers the whole row, so the complete `[256 windows x 896 bins]` matrix costs 256
+passes — about 22 s a locus, five minutes for all fourteen, and roughly 230 KB shipped.
+
+```bash
+python3 scripts/shorkie/make_occlusion.py --win 64
+```
+
+Ablation zeroes the four DNA channels, which is how the paper's language model masks a position and
+is indistinguishable from a run of N. That is a *different question* from the motif knockouts, which
+shuffle: a shuffle preserves base composition and asks whether the arrangement matters, zeroing asks
+whether the stretch carries information at all.
+
+**Read both halves of the map.** Per cell the diagonal dominates — ablating a window damages the
+output above it. But the diagonal is one window in 256, so summed across a row the local footprint is
+only **0.3–8 %** of the most damaging window's total effect. The model is most intense locally and
+does most of its work at range; either statement alone is half the truth.
+
+## Integrated gradients, and why they are not mean-centred
+
+`make_attribution.py` now emits five planes. Two of them are new:
+
+| plane | shape | what it is |
+| --- | --- | --- |
+| `positions` | `[112 x 18*128]` | the per-stage **positional** margin — the axis the generator used to discard |
+| `ig` | `[anchors x 16384]` | integrated gradients, 32 steps from an all-zero-DNA baseline |
+
+Both margins are **exact** and both **superpose**, because gradients are linear in which outputs you
+select. So an arbitrary contiguous region's per-channel *and* per-position relevance is a row-sum of
+the precomputed groups — no model run, computed in the browser.
+
+The positional margin is not a nicety. The site previously estimated it as the channel margin times
+the stage's *activation*, and the two turn out to be essentially uncorrelated: `corr` runs −0.08 to
+0.23 across the stages, and the argmax positions disagree completely. For a region at bp
+1,536–3,088 the exact margin peaks at bottleneck positions 12–24 — where the region actually is —
+while the estimate peaks anywhere from 15 to 105.
+
+Gradient × input is now **mean-centred** across the four bases before projecting (the Borzoi
+convention, and what makes it comparable with the paper's ISM saliency) and differentiates
+`log2(T0 coverage + 1)` over the region — the same scalar logSED measures.
+
+**Integrated gradients is deliberately NOT mean-centred.** Completeness — that the attributions sum
+to `f(x) − f(baseline)` — is IG's entire reason for being, and that identity is a telescoping
+integral of the raw gradient. Measured: mean-centred, the completeness error ran **8–650 %**;
+un-centred it is **0.4–13 %** at 32 steps. The generator records the sum, the true gap and the error
+both absolutely and relatively, because a near-zero gap turns a 0.04 absolute miss into "652 %".
+
+## An indexing trap that shipped once
+
+`y[0, a:b, T0]` on a `[1, bins, tracks]` array returns **(tracks, bins)**, not (bins, tracks): an
+integer index beside an array index makes numpy treat the integer as advanced too and move the
+broadcast axis to the front. So `y[0, a:b, T0].mean(axis=-1).sum()` averages over bins and sums over
+tracks — the paper's quantity with its axes swapped.
+
+It shipped in the mutagenesis generator, and `verify_pipeline.py` re-derived it **with the same wrong
+indexing**, so the check agreed with the pack and passed. The damage was small — logSED is a log
+ratio and the coverage sums far exceed the +1 pseudocount, so a constant factor cancels; the worst
+error across all fourteen loci was 5e-3, at or below the packs' uint8 floor — but the check was
+worthless while both sides shared the mistake. Index in two steps: `y[0][a:b][:, T0]`.

@@ -13,6 +13,8 @@ import {
   logSED,
   spliceAnnotations,
   stageRelevanceProfile,
+  exactStageProfiles,
+  relevanceMap,
   windowFraction,
   fractionToBp,
   predictedSpan,
@@ -2193,5 +2195,104 @@ describe('stageRelevanceProfile', () => {
     rel.fill(0);
     const rows = stageRelevanceProfile(maps, rel, P);
     for (const r of rows) for (const v of r.profile) expect(Number.isFinite(v)).toBe(true);
+  });
+});
+
+describe('exactStageProfiles', () => {
+  const S = 18;
+  const P = 128;
+
+  it('names one profile per mapped stage, in stageMapOffsets order', () => {
+    const rows = exactStageProfiles(new Float64Array(S * P), P);
+    expect(rows.map((r) => r.id)).toEqual(stageMapOffsets().map((o) => o.id));
+    expect(rows).toHaveLength(S);
+  });
+
+  it('reads each stage from its own slice, so a stage cannot show its neighbour\'s profile', () => {
+    // Every value carries the stage it came from, so a wrong offset reports the wrong number
+    // rather than merely looking different -- the same marker trick shorkieFlow.test.ts uses.
+    const flat = new Float64Array(S * P);
+    for (let s = 0; s < S; s += 1) for (let p = 0; p < P; p += 1) flat[s * P + p] = s + p / 1000;
+    const rows = exactStageProfiles(flat, P);
+    rows.forEach((r, s) => {
+      expect(r.profile[0]).toBeCloseTo(s, 12);
+      expect(r.profile[P - 1]).toBeCloseTo(s + (P - 1) / 1000, 12);
+    });
+  });
+
+  it('superposes: a region equals the sum of the groups it covers', () => {
+    // This is the property that makes an arbitrary dragged region EXACT rather than interpolated.
+    // Gradients are linear in the output selection, so the margin for bins [a, b) is the sum of
+    // the group rows covering them -- no model run, no approximation.
+    const groups = 112;
+    const groupBins = 8;
+    const cols = S * P;
+    const plane = new Float64Array(groups * cols);
+    for (let g = 0; g < groups; g += 1) for (let i = 0; i < cols; i += 1) plane[g * cols + i] = g * 0.5 + i;
+    const start = 3 * groupBins;
+    const end = 7 * groupBins;
+    const summed = sumAttributionRows(plane, cols, groupBins, groups, start, end);
+    const byHand = new Float64Array(cols);
+    for (let g = 3; g < 7; g += 1) for (let i = 0; i < cols; i += 1) byHand[i] += g * 0.5 + i;
+    for (let i = 0; i < cols; i += 4096) expect(summed[i]).toBeCloseTo(byHand[i], 6);
+    // and the reshape preserves it
+    const rows = exactStageProfiles(summed, P);
+    expect(rows[5].profile[7]).toBeCloseTo(byHand[5 * P + 7], 6);
+  });
+
+  it('returns finite zeros for an all-zero plane rather than NaN', () => {
+    for (const r of exactStageProfiles(new Float64Array(S * P), P)) {
+      for (const v of r.profile) expect(v).toBe(0);
+    }
+  });
+});
+
+describe('relevanceMap', () => {
+  const C = 4;
+  const P = 3;
+
+  it('reproduces BOTH margins exactly, which is the property it is built on', () => {
+    const chan = new Float64Array([0, 0, 0, 1, 3, 0, 0, 0]);   // stage starts at 3, four channels
+    const pos = new Float64Array([2, 1, 1]);
+    const m = relevanceMap(chan, pos, 0, 3, C, P);
+    // Row sums must be the channel margin, normalised; column sums the position margin.
+    const rows = Array.from({ length: C }, (_, c) =>
+      Array.from({ length: P }, (_, p) => m[c * P + p]).reduce((a, b) => a + b, 0));
+    const cols = Array.from({ length: P }, (_, p) =>
+      Array.from({ length: C }, (_, c) => m[c * P + p]).reduce((a, b) => a + b, 0));
+    expect(rows).toEqual(expect.arrayContaining([]));
+    expect(rows[0]).toBeCloseTo(1 / 4, 12);
+    expect(rows[1]).toBeCloseTo(3 / 4, 12);
+    expect(cols[0]).toBeCloseTo(2 / 4, 12);
+    expect(cols[1]).toBeCloseTo(1 / 4, 12);
+  });
+
+  it('sums to 1, so stages spanning orders of magnitude stay comparable', () => {
+    const m = relevanceMap(new Float64Array([5, 2, 9, 1]), new Float64Array([3, 3, 4]), 0, 0, C, P);
+    expect(Array.from(m).reduce((a, b) => a + b, 0)).toBeCloseTo(1, 12);
+  });
+
+  it('reads the stage\'s own slice of each margin', () => {
+    const chan = new Float64Array(8).fill(0);
+    chan[4] = 1;                                  // channel 0 of a stage starting at 4
+    const pos = new Float64Array([0, 0, 0, 7, 0, 0]);   // stage index 1, position 0
+    const m = relevanceMap(chan, pos, 1, 4, C, P);
+    expect(m[0 * P + 0]).toBeCloseTo(1, 12);
+    expect(m[0 * P + 1]).toBe(0);
+    expect(m[1 * P + 0]).toBe(0);
+  });
+
+  it('uses magnitude, so a negative margin still contributes', () => {
+    const m = relevanceMap(new Float64Array([-4, 0, 0, 0]), new Float64Array([-1, 0, 0]), 0, 0, C, P);
+    expect(m[0]).toBeCloseTo(1, 12);
+  });
+
+  it('returns all zeros rather than NaN when a margin is empty', () => {
+    for (const m of [
+      relevanceMap(new Float64Array(C), new Float64Array(P), 0, 0, C, P),
+      relevanceMap(new Float64Array([1, 1, 1, 1]), new Float64Array(P), 0, 0, C, P),
+    ]) {
+      for (const v of m) expect(v).toBe(0);
+    }
   });
 });

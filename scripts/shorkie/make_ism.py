@@ -85,6 +85,24 @@ def encode(sequence: str, species: int) -> np.ndarray:
     return x
 
 
+def t0_coverage(y: np.ndarray, lo: int, hi: int, tracks: np.ndarray) -> float:
+    """Sum over gene-body bins of the track-averaged coverage -- the inside of one logSED log.
+
+    The indexing here is the whole point. `y[0, lo:hi, tracks]` mixes an INTEGER index with an
+    ARRAY index, and numpy then treats the integer as advanced too and moves the broadcast axis to
+    the FRONT: the result is (tracks, bins), not (bins, tracks). Writing
+    `y[0, lo:hi, tracks].mean(axis=-1).sum()` therefore averages over BINS and sums over TRACKS --
+    the paper's quantity with its two axes swapped, off by a constant factor of n_bins/n_tracks.
+
+    It shipped that way once. The consequence was small, because logSED is a log RATIO and the
+    coverage sums are far greater than the +1 pseudocount, so a constant factor cancels: the worst
+    error across all fourteen loci was 5e-3 in logSED, at or below the packs' own uint8 floor. But
+    it was wrong, and `verify_pipeline.py` re-derived it with the SAME wrong indexing and so agreed
+    with the pack and passed -- an assertion is not evidence when both sides share the mistake.
+    """
+    return float(y[0][lo:hi][:, tracks].mean(axis=-1).sum())
+
+
 def rc(x: np.ndarray) -> np.ndarray:
     """Reverse-complement the window: reverse positions, and swap A<->T and C<->G.
 
@@ -184,9 +202,8 @@ def main() -> int:
         rc_lo, rc_hi = N_BINS - hi_bin, N_BINS - lo_bin
 
         def coverage(x: np.ndarray, a: int, b: int) -> float:
-            """Sum of the T0-track-averaged coverage over bins [a, b) -- the inside of one log."""
             y = sess.run(["all_tracks"], {"sequence": x})[0]   # [1, 896, 5215]
-            return float(y[0, a:b, T0].mean(axis=-1).sum())
+            return t0_coverage(y, a, b, T0)
 
         def both_strands(x: np.ndarray) -> tuple[float, float]:
             return coverage(x, lo_bin, hi_bin), coverage(rc(x), rc_lo, rc_hi)

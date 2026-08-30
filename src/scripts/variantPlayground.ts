@@ -55,6 +55,8 @@ import {
   packGeneRows,
   attentionRollout,
   stageRelevanceProfile,
+  exactStageProfiles,
+  relevanceMap,
   STAGE_MAP_POSITIONS,
   LOGO_GLOBSCALE,
   LOGO_GLYPHS,
@@ -63,6 +65,8 @@ import {
   logoRange,
   ismSaliency,
   spliceAnnotations,
+  stageRasterHeight,
+  PX_PER_CHANNEL,
   binsToBottleneck,
   BOTTLENECK_LEN,
   N_DNA,
@@ -204,6 +208,7 @@ export function initVariantPlayground(root: ParentNode = document) {
   const stageProfileEl = host.querySelector<HTMLElement>('[data-vp-stage-profile]');
   const rolloutCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-rollout]');
   const stackCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-stage-stack]');
+  const showingBtns = host.querySelectorAll<HTMLButtonElement>('[data-vp-showing]');
   const regionSelect = host.querySelector<HTMLSelectElement>('[data-vp-region]');
   const regionStat = host.querySelector<HTMLElement>('[data-vp-region-stat]');
   const seqLogoSvg = host.querySelector<SVGSVGElement>('[data-vp-seq-logo]');
@@ -240,6 +245,9 @@ export function initVariantPlayground(root: ParentNode = document) {
   const singleSvg = host.querySelector<SVGSVGElement>('[data-vp-single]');
   const logToggle = $<HTMLInputElement>('[data-vp-logaxis]');
   const attrCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-attr]');
+  const methodsCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-methods]');
+  const occlCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-occl]');
+  const occlStat = host.querySelector<HTMLElement>('[data-vp-occl-stat]');
   const traceLabel = $('[data-vp-trace-label]');
   const anchorSelect = $<HTMLSelectElement>('[data-vp-anchor]');
   const traceClear = $<HTMLButtonElement>('[data-vp-trace-clear]');
@@ -283,6 +291,9 @@ export function initVariantPlayground(root: ParentNode = document) {
   // compact view rather than the honest one.
   let geneRowsExpanded = true;
   let ism: Ism | null = null;
+  let occl: Occl | null = null;
+  /** Whether the flow canvas and layer raster show activations or the traced region's relevance. */
+  let showing: 'activation' | 'relevance' = 'activation';
   /** Why there is no result to show, named so the empty state can say it. */
   let emptyReason = 'No prediction yet.';
   /** Which motif is currently knocked out, and the peak before it was. */
@@ -1174,6 +1185,7 @@ export function initVariantPlayground(root: ParentNode = document) {
    */
   function clearResults(reason: string): void {
     ism = null;
+    occl = null;
     delete host.dataset.vpResultLocus;
     delete host.dataset.vpResultSource;
     current = null;
@@ -1286,10 +1298,13 @@ export function initVariantPlayground(root: ParentNode = document) {
 
     // The traceback and mutagenesis packs, fetched after the activations so the page is usable
     // first. Both are small beside the 2-4 MB activation pack.
-    const [attr, gotIsm] = await Promise.all([loadAttribution(locusId), loadIsm(locusId)]);
+    const [attr, gotIsm, gotOccl] = await Promise.all([
+      loadAttribution(locusId), loadIsm(locusId), loadOccl(locusId),
+    ]);
     if (token !== precomputeToken || locusId !== LOCI[locusIndex].id) return;
     attribution = attr;
     ism = gotIsm;
+    occl = gotOccl;
     // Open the sequence logo on the mutagenesis window. It is only ~500 bp of a 16,384 bp window,
     // so the default centre misses it entirely and the panel would greet every reader with "pan
     // into it" -- while the paper's own picture sits just off screen.
@@ -1314,10 +1329,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     }
     renderRegionList();
     renderAttribution();
-    renderStageProfile();
-    renderRollout();
-  renderStageStack();
-    renderStageStack();
+    refreshRegionViews();
     renderSeqLogo();
   }
 
@@ -1476,11 +1488,16 @@ export function initVariantPlayground(root: ParentNode = document) {
     groups: number;
     inputBins: number;
     anchors: { label: string; kind: string; binStart: number; binEnd: number; massInside: number;
-               windowFraction: number }[];
+               windowFraction: number; igSum?: number; igGap?: number; igAbsError?: number }[];
+    stagePositions: number;
     input: Float32Array;
     channels: Float32Array;
     anchor: Float32Array;
-    cols: { input: number; channels: number; anchor: number };
+    /** The exact per-stage positional margin, [groups x (stages x stagePositions)]. */
+    positions: Float32Array | null;
+    /** Integrated gradients per anchor, [anchors x 16384]. */
+    ig: Float32Array | null;
+    cols: { input: number; channels: number; anchor: number; positions: number; ig: number };
   }
 
   async function loadAttribution(locusId: string): Promise<Attribution | null> {
@@ -1489,7 +1506,7 @@ export function initVariantPlayground(root: ParentNode = document) {
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null);
     if (!meta) return null;
-    const planes = await Promise.all(['input', 'channels', 'anchor'].map(async (key) => {
+    const planes = await Promise.all(['input', 'channels', 'anchor', 'positions', 'ig'].map(async (key) => {
       const spec = meta[key];
       const blob = await fetch(`${base}/${locusId}-${key}.png`).then((r) => (r.ok ? r.blob() : null));
       if (!blob || !spec) return null;
@@ -1512,13 +1529,27 @@ export function initVariantPlayground(root: ParentNode = document) {
       }
       return out;
     }));
-    if (planes.some((p) => !p)) return null;
+    // `positions` and `ig` arrived after the first three, so a pack written by the older
+    // generator has neither. Degrade to the exact-margins-unavailable path rather than failing.
+    if (planes.slice(0, 3).some((p) => !p)) return null;
     return {
       groupBins: meta.groupBins, groups: meta.groups, inputBins: meta.inputBins,
       anchors: meta.anchors,
+      stagePositions: meta.stagePositions ?? 128,
       input: planes[0]!, channels: planes[1]!, anchor: planes[2]!,
-      cols: { input: meta.input.cols, channels: meta.channels.cols, anchor: meta.anchor.cols },
+      positions: planes[3] ?? null, ig: planes[4] ?? null,
+      cols: {
+        input: meta.input.cols, channels: meta.channels.cols, anchor: meta.anchor.cols,
+        positions: meta.positions?.cols ?? 0, ig: meta.ig?.cols ?? 0,
+      },
     };
+  }
+
+  interface Occl {
+    plane: Float32Array;   // [windows x 896], logSED per output bin when that window is ablated
+    rows: number;
+    cols: number;
+    win: number;
   }
 
   interface Ism {
@@ -1533,6 +1564,40 @@ export function initVariantPlayground(root: ParentNode = document) {
    * Load a locus's mutagenesis plane. It rides in the same sidecar as the activation packs, so a
    * locus without one simply has no `ism` key and the panel says so rather than failing.
    */
+  /**
+   * Load a locus's occlusion matrix: what every output bin loses when each input window is ablated.
+   *
+   * The only genuinely two-dimensional thing on the page. Every other method collapses to one
+   * profile over the input; this keeps the output axis, so a vertical stripe is an input window
+   * many outputs depend on and a horizontal one is an output bin that reads widely.
+   */
+  async function loadOccl(locusId: string): Promise<Occl | null> {
+    const base = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/vp-data`;
+    const meta = await fetch(`${base}/${locusId}.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    const spec = meta?.occl;
+    if (!spec) return null;
+    const blob = await fetch(`${base}/${locusId}-occl.png`).then((r) => (r.ok ? r.blob() : null));
+    if (!blob) return null;
+    const bitmap = await createImageBitmap(blob);
+    const cv = document.createElement('canvas');
+    cv.width = spec.cols;
+    cv.height = spec.rows;
+    const cx = cv.getContext('2d', { willReadFrequently: true });
+    if (!cx) return null;
+    cx.drawImage(bitmap, 0, 0);
+    bitmap.close();
+    const px = cx.getImageData(0, 0, spec.cols, spec.rows).data;
+    const plane = new Float32Array(spec.rows * spec.cols);
+    for (let r = 0; r < spec.rows; r += 1) {
+      const lo = spec.lo[r];
+      const range = Math.max(spec.hi[r] - lo, 1e-12);
+      for (let c = 0; c < spec.cols; c += 1) {
+        plane[r * spec.cols + c] = (px[(r * spec.cols + c) * 4] / 255) * range + lo;
+      }
+    }
+    return { plane, rows: spec.rows, cols: spec.cols, win: spec.win };
+  }
+
   async function loadIsm(locusId: string): Promise<Ism | null> {
     const base = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/vp-data`;
     const meta = await fetch(`${base}/${locusId}.json`)
@@ -1764,7 +1829,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     flow?.select(i);
     flow3d?.select(id);
     renderStageDetail(FLOW_STAGES[i]);
-    renderStageProfile();
+    refreshRegionViews();
   }
 
   /**
@@ -1799,8 +1864,19 @@ export function initVariantPlayground(root: ParentNode = document) {
       delete stackCanvas.dataset.rows;
       return;
     }
-    const rel = traceChannels(attribution, tracedBins.start, tracedBins.end);
-    const profiles = stageRelevanceProfile(current.stageMaps, rel, STAGE_MAP_POSITIONS);
+    // Exact when the pack carries the positional margin -- a row-sum of the groups the region
+    // covers, with no model run. The factorised estimate is the fallback for an older pack, and
+    // the caption says which one is on screen because they answer different questions.
+    const exact = attribution.positions
+      ? exactStageProfiles(
+        sumAttributionRows(attribution.positions, attribution.cols.positions,
+          attribution.groupBins, attribution.groups, tracedBins.start, tracedBins.end),
+        attribution.stagePositions,
+      )
+      : null;
+    const profiles = exact
+      ?? stageRelevanceProfile(current.stageMaps,
+        traceChannels(attribution, tracedBins.start, tracedBins.end), STAGE_MAP_POSITIONS);
     const neutral = neutralRgb();
     const top = 4;
 
@@ -1848,10 +1924,14 @@ export function initVariantPlayground(root: ParentNode = document) {
     }
     ctx.textAlign = 'left';
     ctx.fillText(
-      `${tracedBins.label} · ${profiles.length} stages · each row against its own mean:`
-      + ' red draws more than average from there, blue less, neutral means no preference',
+      `${tracedBins.label} · ${profiles.length} stages · `
+      + (exact
+        ? 'EXACT per-stage relevance for this region, summed over each stage\'s channels'
+        : 'estimated: per-channel relevance x per-position activation')
+      + ' · each row against its own mean: red above average, blue below, neutral no preference',
       PLOT.left, cssH - 3);
     stackCanvas.dataset.rows = String(profiles.length);
+    stackCanvas.dataset.exact = String(!!exact);
     stackCanvas.dataset.region = tracedBins.label;
   }
 
@@ -2340,6 +2420,350 @@ export function initVariantPlayground(root: ParentNode = document) {
     }
   }
 
+  /**
+   * The traced region's relevance for one stage, as a [channels x positions] map.
+   *
+   * Returns null when there is nothing to show -- no region traced, or a pack without the
+   * positional margin -- so the caller falls back to activations rather than drawing zeros.
+   */
+  function stageRelevance(stageId: string): {
+    data: ArrayLike<number>; channels: number; positions: number;
+  } | null {
+    if (!attribution?.positions || !tracedBins) return null;
+    const offsets = stageMapOffsets();
+    const si = offsets.findIndex((o) => o.id === stageId);
+    if (si < 0) return null;
+    const off = offsets[si];
+    const chan = traceChannels(attribution, tracedBins.start, tracedBins.end);
+    const pos = sumAttributionRows(attribution.positions, attribution.cols.positions,
+      attribution.groupBins, attribution.groups, tracedBins.start, tracedBins.end);
+    const data = relevanceMap(chan, pos, si, off.start, off.channels, attribution.stagePositions);
+    return { data, channels: off.channels, positions: attribution.stagePositions };
+  }
+
+  /** Point the flow canvas and the layer raster at whichever tensor is selected. */
+  function applyShowing(): void {
+    showingBtns.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.vpShowing === showing)));
+    flow?.setRelevance(showing === 'relevance' ? (s) => stageRelevance(s.id) : null);
+    renderStageDetail(flow?.selected() ?? null);
+  }
+
+  showingBtns.forEach((b) => b.addEventListener('click', () => {
+    showing = b.dataset.vpShowing === 'relevance' ? 'relevance' : 'activation';
+    applyShowing();
+  }));
+
+  /** One interpretability method, as a per-position signal over the window. */
+  interface MethodTrack {
+    label: string;
+    /** Value per position, and the bp each position covers. Sparse coverage is allowed. */
+    at: (bp: number) => number | null;
+    peak: number;
+    note: string;
+  }
+
+  /**
+   * Every method that has data, as a signal, on the page's one bp axis.
+   *
+   * The point is comparison. Each track is scaled to its own peak -- they are in different units
+   * and a shared scale would be meaningless -- so what is comparable is WHERE each one puts its
+   * weight, read against the same gene models below.
+   */
+  function methodTracks(): MethodTrack[] {
+    const out: MethodTrack[] = [];
+    const locus = LOCI[locusIndex];
+
+    if (ism) {
+      const plane = ism;
+      const sal = ismSaliency(plane.plane, plane.width, locus.sequence, plane.start);
+      let peak = 0;
+      for (const v of sal) peak = Math.max(peak, Math.abs(v));
+      out.push({
+        label: 'mutagenesis (logSED)',
+        at: (bp) => {
+          const k = Math.round(bp) - plane.start;
+          return k >= 0 && k < plane.width ? sal[k] : null;
+        },
+        peak,
+        note: `${plane.width} bp`,
+      });
+    }
+
+    if (attribution && tracedBins) {
+      const ai = attribution.anchors.findIndex(
+        (a) => a.binStart === tracedBins!.start && a.binEnd === tracedBins!.end,
+      );
+      const grad = ai >= 0
+        ? attribution.anchor.subarray(ai * attribution.cols.anchor, (ai + 1) * attribution.cols.anchor)
+        : traceRegion(attribution, tracedBins.start, tracedBins.end);
+      const perBase = ai >= 0;
+      let peak = 0;
+      for (let i = 0; i < grad.length; i += 1) peak = Math.max(peak, Math.abs(grad[i]));
+      out.push({
+        label: 'gradient × input',
+        at: (bp) => grad[perBase ? Math.round(bp) : Math.floor((bp / SEQ_LEN) * grad.length)] ?? null,
+        peak,
+        note: perBase ? 'single base' : '128 bp',
+      });
+      if (ai >= 0 && attribution.ig) {
+        const ig = attribution.ig.subarray(ai * attribution.cols.ig, (ai + 1) * attribution.cols.ig);
+        let ipk = 0;
+        for (let i = 0; i < ig.length; i += 1) ipk = Math.max(ipk, Math.abs(ig[i]));
+        const a = attribution.anchors[ai];
+        out.push({
+          label: 'integrated gradients',
+          at: (bp) => ig[Math.round(bp)] ?? null,
+          peak: ipk,
+          note: a.igAbsError !== undefined
+            ? `sums to ${a.igSum?.toFixed(2)} vs a true gap of ${a.igGap?.toFixed(2)}`
+            : 'single base',
+        });
+      }
+    }
+
+    if (current?.attention && tracedBins) {
+      // The architecture-derived view, on the same axis as the three attribution ones. It is NOT
+      // an attribution: it says what the transformer can read for this region, not what changed
+      // the prediction, and it is unsigned by construction. Where it disagrees with the others,
+      // that is a fact about the architecture rather than about this locus.
+      const roll = attentionRollout(current.attention, BOTTLENECK_LEN);
+      const { start, end } = binsToBottleneck(tracedBins.start, tracedBins.end);
+      const prof = new Float64Array(BOTTLENECK_LEN);
+      const n = Math.max(end - start, 1);
+      for (let i = start; i < end; i += 1) {
+        for (let j = 0; j < BOTTLENECK_LEN; j += 1) prof[j] += roll[i * BOTTLENECK_LEN + j] / n;
+      }
+      let peak = 0;
+      for (const v of prof) peak = Math.max(peak, v);
+      const per = SEQ_LEN / BOTTLENECK_LEN;
+      out.push({
+        label: 'attention rollout',
+        at: (bp) => prof[Math.min(BOTTLENECK_LEN - 1, Math.floor(bp / per))] ?? null,
+        peak,
+        note: `${BOTTLENECK_LEN} × ${per} bp · architecture, not attribution`,
+      });
+    }
+
+    if (occl && tracedBins) {
+      // Occlusion is a matrix; the track is the column-sum over the traced output bins -- how much
+      // each input window matters to THIS region, which is the same question the others answer.
+      const o = occl;
+      const prof = new Float64Array(o.rows);
+      for (let w = 0; w < o.rows; w += 1) {
+        let s = 0;
+        for (let b = tracedBins.start; b < tracedBins.end; b += 1) s += o.plane[w * o.cols + b];
+        prof[w] = s / Math.max(tracedBins.end - tracedBins.start, 1);
+      }
+      let peak = 0;
+      for (const v of prof) peak = Math.max(peak, Math.abs(v));
+      out.push({
+        label: `occlusion (${o.win} bp)`,
+        at: (bp) => prof[Math.min(o.rows - 1, Math.floor(bp / o.win))] ?? null,
+        peak,
+        note: `${o.rows} windows`,
+      });
+    }
+    return out;
+  }
+
+  /** Draw every available method as a small signal track on the shared bp axis. */
+  function renderMethods(): void {
+    if (!methodsCanvas) return;
+    const tracks = methodTracks();
+    const cssW = methodsCanvas.clientWidth || 900;
+    const rowH = 38;   // room for the label above each track
+    const cssH = Math.max(tracks.length, 1) * rowH + 20;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    methodsCanvas.width = Math.round(cssW * dpr);
+    methodsCanvas.height = Math.round(cssH * dpr);
+    methodsCanvas.style.height = `${cssH}px`;
+    const ctx = methodsCanvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+    const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
+    const pos = getComputedStyle(host).getPropertyValue('--vp-fire').trim() || '#b0455a';
+    const neg = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
+    ctx.font = '9px system-ui, sans-serif';
+
+    if (!tracks.length) {
+      ctx.fillStyle = muted;
+      ctx.fillText('Trace a region to compare the attribution methods.', 8, 18);
+      delete methodsCanvas.dataset.tracks;
+      return;
+    }
+
+    // The plot band starts at PLOT.left, exactly like every other panel, because the entire point
+    // of this strip is that the four methods line up with the coverage curve and the gene models
+    // above them. An earlier version gave it a wider gutter to fit the method names and silently
+    // broke that registration -- the labels go ABOVE each track instead.
+    const GUTTER = PLOT.left;
+    tracks.forEach((tr, i) => {
+      const mid = i * rowH + rowH / 2 + 4;
+      const half = rowH / 2 - 3;
+      ctx.strokeStyle = muted;
+      ctx.globalAlpha = 0.3;
+      ctx.beginPath();
+      ctx.moveTo(GUTTER, mid + 0.5);
+      ctx.lineTo(cssW - PLOT.right, mid + 0.5);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      for (let x = GUTTER; x < cssW - PLOT.right; x += 1) {
+        // bp across the plot band, which starts at GUTTER here rather than PLOT.left.
+        const v = tr.at(((x - GUTTER) / Math.max(cssW - GUTTER - PLOT.right, 1)) * SEQ_LEN);
+        if (v === null || v === 0) continue;
+        const h = (Math.abs(v) / Math.max(tr.peak, 1e-12)) * half;
+        ctx.fillStyle = v < 0 ? neg : pos;
+        ctx.fillRect(x, v < 0 ? mid : mid - h, 1, h);
+      }
+      ctx.fillStyle = muted;
+      ctx.textAlign = 'left';
+      ctx.fillText(tr.label, GUTTER + 2, mid - half + 7);
+      ctx.textAlign = 'right';
+      ctx.fillText(`±${tr.peak.toPrecision(2)} · ${tr.note}`, cssW - PLOT.right, mid - half + 7);
+    });
+
+    ctx.fillStyle = muted;
+    ctx.textAlign = 'center';
+    for (const bp of bpTicks(4000)) {
+      const x = GUTTER + (bp / SEQ_LEN) * (cssW - GUTTER - PLOT.right);
+      ctx.textAlign = bp === 0 ? 'left' : bp >= SEQ_LEN ? 'right' : 'center';
+      ctx.fillText(bpLabel(bp), x, cssH - 4);
+    }
+    ctx.textAlign = 'left';
+    methodsCanvas.dataset.tracks = String(tracks.length);
+    methodsCanvas.dataset.labels = tracks.map((t) => t.label).join('|');
+  }
+
+  /**
+   * The occlusion matrix: input window on x, output bin on y.
+   *
+   * Drawn with the input axis horizontal so it shares the page's bp ruler, and the output axis
+   * vertical. The two axes cover DIFFERENT spans -- the input is the whole 16,384 bp window and the
+   * output only the cropped 1,024-15,360 interior -- so the diagonal is not the identity line and
+   * the panel draws where it actually falls rather than leaving a reader to assume.
+   */
+  function renderOcclusion(): void {
+    if (!occlCanvas) return;
+    const cssW = occlCanvas.clientWidth || 900;
+    const cssH = 300;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    occlCanvas.width = Math.round(cssW * dpr);
+    occlCanvas.height = Math.round(cssH * dpr);
+    occlCanvas.style.height = `${cssH}px`;
+    const ctx = occlCanvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+    const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
+    ctx.font = '10px system-ui, sans-serif';
+    ctx.fillStyle = muted;
+
+    if (!occl) {
+      ctx.fillText('Occlusion has not loaded for this locus.', PLOT.left, 20);
+      if (occlStat) occlStat.textContent = '';
+      delete occlCanvas.dataset.peak;
+      return;
+    }
+    const o = occl;
+    const top = 16;
+    const plotH = cssH - top - 30;
+    const x0 = PLOT.left;
+    const plotW = cssW - PLOT.left - PLOT.right;
+
+    // One diverging scale across the whole matrix -- the cells are all logSED, so they ARE
+    // comparable, and a per-row scale would hide which windows matter most.
+    const scale = activationScale(o.plane);
+    const rgba = paintActivationMap(o.plane, o.rows, o.cols, scale, neutralRgb());
+    // The pack is [windows x bins]; the drawing wants bins down and windows across, so transpose.
+    const off = document.createElement('canvas');
+    off.width = o.rows;
+    off.height = o.cols;
+    const octx = off.getContext('2d');
+    if (octx) {
+      const img = octx.createImageData(o.rows, o.cols);
+      const d = img.data;
+      for (let w = 0; w < o.rows; w += 1) {
+        for (let b = 0; b < o.cols; b += 1) {
+          const src = (w * o.cols + b) * 4;
+          const dst = (b * o.rows + w) * 4;
+          d[dst] = rgba[src];
+          d[dst + 1] = rgba[src + 1];
+          d[dst + 2] = rgba[src + 2];
+          d[dst + 3] = rgba[src + 3];
+        }
+      }
+      octx.putImageData(img, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(off, x0, top, plotW, plotH);
+    }
+
+    // Where the diagonal actually is. The input spans 0-16,384 and the output only the cropped
+    // interior, so it is a line of slope < 1 that does not reach either corner.
+    ctx.strokeStyle = muted;
+    ctx.globalAlpha = 0.4;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    for (let b = 0; b <= N_BINS; b += 32) {
+      const bp = CROP_BP + b * BIN_BP;
+      const px = x0 + (bp / SEQ_LEN) * plotW;
+      const py = top + (b / N_BINS) * plotH;
+      if (b === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+
+    // The traced region, as a band on the output axis.
+    if (tracedBins) {
+      ctx.strokeStyle = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
+      const ya = top + (tracedBins.start / N_BINS) * plotH;
+      const yb = top + (tracedBins.end / N_BINS) * plotH;
+      ctx.strokeRect(x0, ya, plotW, Math.max(yb - ya, 2));
+    }
+
+    ctx.fillStyle = muted;
+    ctx.textAlign = 'center';
+    for (const bp of bpTicks(4000)) {
+      const px = x0 + (bp / SEQ_LEN) * plotW;
+      ctx.textAlign = bp === 0 ? 'left' : bp >= SEQ_LEN ? 'right' : 'center';
+      ctx.fillText(bpLabel(bp), px, cssH - 16);
+    }
+    ctx.textAlign = 'left';
+    ctx.fillText('input window, bp →', x0, cssH - 3);
+    ctx.save();
+    ctx.translate(11, top + plotH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillText('output bin', 0, 0);
+    ctx.restore();
+    let peak = 0;
+    for (let i = 0; i < o.plane.length; i += 1) peak = Math.max(peak, Math.abs(o.plane[i]));
+    ctx.fillText(`dashed line = the diagonal · blue: ablating that window LOWERS that bin`, x0 + 130, cssH - 3);
+    occlCanvas.dataset.peak = String(peak);
+    if (occlStat) {
+      occlStat.textContent = `${o.rows} windows × ${o.win} bp vs ${o.cols} output bins · `
+        + `${(o.rows).toLocaleString()} real forward passes · peak |logSED| ${peak.toFixed(2)}`;
+    }
+  }
+
+  /**
+   * Every view that depends on the traced region, refreshed together.
+   *
+   * One call site rather than five scattered ones. The five renderers were being invoked from four
+   * places each, in slightly different orders and with one place missing the flow-canvas repaint --
+   * which is exactly how the relevance mode came to be stale for a new region while every panel
+   * below it updated correctly.
+   */
+  function refreshRegionViews(): void {
+    renderStageProfile();
+    renderRollout();
+    renderStageStack();
+    renderMethods();
+    renderOcclusion();
+    applyShowing();          // the flow canvas is region-specific in relevance mode
+  }
+
   /** Trace a bin range and update every view that shows it. */
   function traceBins(start: number, end: number, label: string): void {
     tracedBins = { start: Math.max(0, start), end: Math.min(N_BINS, end), label };
@@ -2352,10 +2776,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     }
     renderTrack();          // the curve carries the selection marker, so it has to redraw too
     renderAttribution();
-    renderStageProfile();
-    renderRollout();
-  renderStageStack();
-    renderStageStack();
+    refreshRegionViews();
     renderSeqLogo();
     trace3d();
     renderStageDetail(flow?.selected() ?? null);
@@ -2480,9 +2901,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     renderHeatmap();
     renderIsm();
     renderIsmLogo();
-    renderRollout();
-  renderStageStack();
-    renderStageStack();
+    refreshRegionViews();
     renderStageDetail(flow?.selected() ?? null);
   };
   document.addEventListener('khc:theme-change', onTheme);
@@ -2546,23 +2965,31 @@ export function initVariantPlayground(root: ParentNode = document) {
         }
       : null;
 
+    // In relevance mode the raster shows what this stage contributed to the traced region, with
+    // every other output bin masked out -- the same tensor the flow canvas paints above.
+    const rel = showing === 'relevance' ? stageRelevance(spec.id) : null;
     const map =
       stageTab === 'attention'
         ? (() => {
             const a = attentionMap(spec as FlowStage, acts);
             return a ? { data: a, channels: 128, positions: 128 } : null;
           })()
-        : stageMap(spec as FlowStage, acts);
+        : rel ?? stageMap(spec as FlowStage, acts);
 
     const ctx = stageMapCanvas.getContext('2d');
     const cssW = stageMapCanvas.clientWidth || 900;
-    // A stage with few channels should use the height, not squeeze into 5 px rows: the output
-    // head has four, and they are the most consequential rows on the page.
-    const rowH = map ? Math.max(1, Math.min(34, Math.floor(300 / map.channels))) : 3;
+    // One row is one channel, at every stage -- so the raster's height IS the channel count and
+    // stages are comparable. The two stages whose rows are NAMED rather than numbered (the input's
+    // four bases, the head's four assay groups) keep legible rows and say so below.
+    const namedRows = spec.id === 'input' || spec.id === 'head';
+    const geom = map
+      ? stageRasterHeight(map.channels, namedRows)
+      : { height: 12, rowH: 3, shared: true };
+    const rowH = geom.rowH;
     // Deep enough for the tick labels AND two gene rows below them. At 30 px the two bands
     // overlapped by 4 px, so a gene block was painted through the top of a coordinate label.
     const RULER_H = 56;
-    const cssH = map ? map.channels * rowH + 34 + RULER_H : 40;   // + profile strip + genome ruler
+    const cssH = map ? geom.height + 34 + RULER_H : 40;   // + profile strip + genome ruler
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     stageMapCanvas.width = Math.round(cssW * dpr);
     stageMapCanvas.height = Math.round(cssH * dpr);
@@ -2619,9 +3046,9 @@ export function initVariantPlayground(root: ParentNode = document) {
         }
       }
       blitMap(ctx, norm, channels, positions, { kind: 'sequential', lo: 0, hi: 1, half: 1 },
-        bandX0, 0, bandW, channels * rowH);
+        bandX0, 0, bandW, geom.height);
     } else {
-      blitMap(ctx, data, channels, positions, scale!, bandX0, 0, bandW, channels * rowH);
+      blitMap(ctx, data, channels, positions, scale!, bandX0, 0, bandW, geom.height);
     }
     drawChannelAxis(ctx, channels, rowH, cssW, perChannel);
 
@@ -2805,10 +3232,32 @@ export function initVariantPlayground(root: ParentNode = document) {
               + `code the paper ships and is zero here; the language model masks by zeroing the DNA `
               + `channels, not by setting it. `
             : '';
+      // Say when a stage is NOT on the shared scale, rather than leaving a reader to wonder why
+      // the input's four rows are 30 px each and a transformer layer's 384 are one.
+      const scaleNote = geom.shared
+        ? `One row is one channel, ${PX_PER_CHANNEL} px each — the same scale at every stage, so this `
+          + `raster's height is its channel count. `
+        : `These ${spec.channels === IN_CHANNELS ? N_DNA : 4} rows are NAMED, not numbered, so they `
+          + `are drawn legibly rather than on the one-pixel-per-channel scale the other stages share. `;
+      const modeNote = rel
+        ? `Showing this stage's RELEVANCE to ${tracedBins?.label ?? 'the traced region'}, not its `
+          + 'activation: every other output bin masked out. Both margins are exact; the interior is '
+          + 'their outer product. '
+        : showing !== 'relevance'
+          ? ''
+          // Three distinct reasons, and conflating them reads as a bug on the two stages where it
+          // is simply not measurable: the input, stem and head live on their own tensors and have
+          // no per-layer relevance in the pack at all.
+          : !stageMapOffsets().some((o) => o.id === spec.id)
+            ? 'This stage has no per-layer relevance in the pack — the input, conv stem and head '
+              + 'live on their own tensors — so it shows its activation. '
+            : !tracedBins
+              ? 'Trace a region below and this stage will show its relevance to that region. '
+              : 'Relevance is unavailable for this locus — showing the activation instead. ';
       stageNote.textContent =
         stageTab === 'attention'
           ? `Row = query position, column = key position. Each position covers ${bp} bp.`
-          : `${drawn}One row per channel, one column per position. ` +
+          : `${modeNote}${drawn}${scaleNote}` +
             (perChannel
               ? 'Each track is scaled to its own peak on a log axis, because the four assay groups differ ~40x. '
               : scale && scale.kind === 'diverging'
@@ -2980,10 +3429,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     if (traceLabel) traceLabel.textContent = 'Drag across the curve above to trace a region back to the sequence.';
     renderTrack();
     renderAttribution();
-    renderStageProfile();
-    renderRollout();
-  renderStageStack();
-    renderStageStack();
+    refreshRegionViews();
     renderSeqLogo();
     trace3d();
     renderStageDetail(flow?.selected() ?? null);
@@ -3067,9 +3513,7 @@ export function initVariantPlayground(root: ParentNode = document) {
   renderHeatmap();
   renderSingleTrack();
   renderAttribution();
-  renderStageProfile();
-  renderRollout();
-  renderStageStack();
+  refreshRegionViews();
   renderSeqLogo();
   renderIsm();
   renderIsmLogo();

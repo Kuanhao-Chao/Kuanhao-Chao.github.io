@@ -1140,6 +1140,74 @@ export function logSED(sumRef: number, sumAlt: number): number {
 }
 
 /**
+ * Split the summed positional margin into one exact profile per mapped stage.
+ *
+ * `sumAttributionRows` already gives the region's exact positional relevance as a flat
+ * `[18 x 128]`, because both margins superpose over output bins. This only reshapes it and names
+ * the stages, so an arbitrary contiguous region gets an EXACT per-stage positional profile with no
+ * model run and no approximation.
+ *
+ * This replaces the factorised estimate the panel used to draw. That estimate multiplied the
+ * per-channel margin by the per-position activation, which is a legitimate quantity but not this
+ * one -- it reports where a stage is loud, and where a stage is loud on a 16 kb yeast window is
+ * whichever gene is most expressed, whatever region you asked about.
+ */
+export function exactStageProfiles(
+  positions: ArrayLike<number>,
+  stagePositions: number,
+): { id: string; profile: Float64Array }[] {
+  const ids = stageMapOffsets().map((o) => o.id);
+  return ids.map((id, s) => {
+    const profile = new Float64Array(stagePositions);
+    for (let p = 0; p < stagePositions; p += 1) {
+      profile[p] = Number(positions[s * stagePositions + p]) || 0;
+    }
+    return { id, profile };
+  });
+}
+
+/**
+ * One stage's relevance to a selected output region, as a [channels x positions] map.
+ *
+ * Both margins are EXACT: the per-channel one and the per-position one are each a row-sum of the
+ * precomputed groups, because gradients are linear in the output selection. What is estimated is
+ * only the interior, as their outer product -- which is the unique reconstruction consistent with
+ * both margins if channel and position contribute independently.
+ *
+ * That is a real assumption and the page says so. It is also a much better one than the map this
+ * replaced, which weighted the channel margin by the stage's ACTIVATION: activation is largest
+ * wherever the stage is loudest, which on a 16 kb yeast window is whichever gene is most expressed
+ * regardless of the region asked about. The positional margin is region-specific by construction.
+ *
+ * Normalised so the map sums to 1, making stages comparable despite spanning orders of magnitude.
+ */
+export function relevanceMap(
+  channelMargin: ArrayLike<number>,
+  positionMargin: ArrayLike<number>,
+  stageIndex: number,
+  channelStart: number,
+  channels: number,
+  positions: number,
+): Float64Array {
+  const out = new Float64Array(channels * positions);
+  let cSum = 0;
+  let pSum = 0;
+  for (let c = 0; c < channels; c += 1) cSum += Math.abs(Number(channelMargin[channelStart + c]) || 0);
+  for (let p = 0; p < positions; p += 1) {
+    pSum += Math.abs(Number(positionMargin[stageIndex * positions + p]) || 0);
+  }
+  if (cSum <= 0 || pSum <= 0) return out;
+  for (let c = 0; c < channels; c += 1) {
+    const cv = Math.abs(Number(channelMargin[channelStart + c]) || 0) / cSum;
+    if (cv === 0) continue;
+    for (let p = 0; p < positions; p += 1) {
+      out[c * positions + p] = cv * (Math.abs(Number(positionMargin[stageIndex * positions + p]) || 0) / pSum);
+    }
+  }
+  return out;
+}
+
+/**
  * Where each stage's contributing neurons actually fire, across the window.
  *
  * The traceback answers "which channels" per stage. This answers "and where", which is what makes
@@ -1199,6 +1267,35 @@ export function stageRelevanceProfile(
     out.push({ id: off.id, profile });
   }
   return out;
+}
+
+/**
+ * Pixels per channel in the layer raster. One row is one channel, at every stage.
+ *
+ * The panel used to stretch every stage to about 300 px regardless of its channel count, which
+ * destroyed exactly the comparison it exists to make: a 96-channel stem and a 384-channel
+ * transformer layer drew the same height, so the raster said nothing about depth. At a fixed
+ * scale the nineteen anonymous-channel stages draw 96-384 px and the height IS the channel count.
+ */
+export const PX_PER_CHANNEL = 1;
+
+/**
+ * Height of a stage's raster, and whether it is drawn on the shared scale.
+ *
+ * Two stages are exempt, and the exemption is principled rather than cosmetic: the input's four
+ * rows are BASES and the head's four are ASSAY GROUPS. Those rows are named, not numbered -- there
+ * is no "channel 200" to find among them -- and four pixels of "A/C/G/T" is not a scale, it is
+ * unreadable. Everything with anonymous channels shares one scale; those two say they do not.
+ */
+export function stageRasterHeight(channels: number, named: boolean): {
+  height: number; rowH: number; shared: boolean;
+} {
+  if (named) {
+    // Named rows get a legible fixed height, and the panel states they are off the shared scale.
+    const rowH = Math.max(18, Math.min(34, Math.floor(120 / Math.max(channels, 1))));
+    return { height: channels * rowH, rowH, shared: false };
+  }
+  return { height: channels * PX_PER_CHANNEL, rowH: PX_PER_CHANNEL, shared: true };
 }
 
 /** A landmark the paper annotates on its ISM logos. */
