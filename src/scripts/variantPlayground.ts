@@ -46,6 +46,13 @@ import {
   bpToFraction,
   subLayers,
   knockoutMotif,
+  ANNOTATION_CLASSES,
+  motifTier,
+  featureMask,
+  poolCoverage,
+  weightedEnrichment,
+  type AnnotationFeature,
+  type MotifTier,
   geneBodyBins,
   windowFraction,
   fractionToBp,
@@ -210,6 +217,18 @@ export function initVariantPlayground(root: ParentNode = document) {
   const stackCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-stage-stack]');
   const neuronTraceCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-neurons-trace]');
   const showingBtns = host.querySelectorAll<HTMLButtonElement>('[data-vp-showing]');
+  const annCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-annotation]');
+  const annStat = host.querySelector<HTMLElement>('[data-vp-annstat]');
+  const methodLogosSvg = host.querySelector<SVGSVGElement>('[data-vp-method-logos]');
+  const brushStat = host.querySelector<HTMLElement>('[data-vp-brush-stat]');
+  const brushWidth = host.querySelector<HTMLSelectElement>('[data-vp-brush-width]');
+  const logoFigureBtn = host.querySelector<HTMLButtonElement>('[data-vp-logo-figure]');
+  const koTable = host.querySelector<HTMLTableElement>('[data-vp-ko]');
+  const koStat = host.querySelector<HTMLElement>('[data-vp-ko-stat]');
+  const nclassTable = host.querySelector<HTMLTableElement>('[data-vp-nclass]');
+  const nclassStat = host.querySelector<HTMLElement>('[data-vp-nclass-stat]');
+  const enrichTable = host.querySelector<HTMLTableElement>('[data-vp-enrichment]');
+  const enrichStat = host.querySelector<HTMLElement>('[data-vp-enrich-stat]');
   const regionSelect = host.querySelector<HTMLSelectElement>('[data-vp-region]');
   const regionStat = host.querySelector<HTMLElement>('[data-vp-region-stat]');
   const seqLogoSvg = host.querySelector<SVGSVGElement>('[data-vp-seq-logo]');
@@ -295,6 +314,48 @@ export function initVariantPlayground(root: ParentNode = document) {
   let geneRowsExpanded = true;
   let ism: Ism | null = null;
   let occl: Occl | null = null;
+  let annotations: Annotations | null = null;
+  interface KoSite {
+    name: string; start: number; end: number; tier: string; source: string;
+    evidence: string; effect: number; sd: number; n: number;
+    /** Distinct permutations the shuffles actually produced -- 1 means the site cannot be shuffled. */
+    distinct?: number;
+  }
+  interface KoSweep { gene: string; shuffles: number; tier: string; sites: KoSite[]; }
+  let knockoutSweep: KoSweep | null = null;
+  let koExpanded = false;
+  /**
+   * The zoom window every letter-logo view reads, in bp.
+   *
+   * One piece of state, not three: a 16,384 bp window is 0.078 px per base, so letters exist only
+   * inside a zoom, and two panels showing letters for different windows under one heading is the
+   * same class of bug as the coordinate mismatch that was fixed earlier. The brush on the method
+   * strip, the pan slider and a click on a motif all write here.
+   */
+  let logoWindow = { start: 8000, width: 150 };
+
+  function setLogoWindow(start: number, width: number): void {
+    const w = Math.max(20, Math.min(SEQ_LEN, Math.round(width)));
+    logoWindow = { start: Math.max(0, Math.min(SEQ_LEN - w, Math.round(start))), width: w };
+    if (logoPan) logoPan.value = String(Math.round(windowFraction(logoWindow.start + w / 2) * 1000));
+    renderMethodLogos();
+    renderIsmLogo();
+    renderNeuronClasses();
+    renderSeqLogo();
+    renderMethods();          // the brush rectangle lives on the method strip
+  }
+  /**
+   * Which motif tiers are drawn. ChIP-supported on by default; the conservation-only tier (~4x
+   * larger) and the PWM scan (23,071 hits before thresholding) are opt-in, because a layer that
+   * dense buries the features it is meant to explain.
+   */
+  const motifTiersOn: Record<MotifTier, boolean> = {
+    chip: true, conserved: false, pwm: false, paper: true,
+  };
+  /** Which annotation lanes are drawn. */
+  const annLanesOn: Record<string, boolean> = {
+    gene: true, rna: true, element: true, tfbs: true, regulatory: true,
+  };
   /** Whether the flow canvas and layer raster show activations or the traced region's relevance. */
   let showing: 'activation' | 'relevance' = 'activation';
   /** Why there is no result to show, named so the empty state can say it. */
@@ -1189,6 +1250,8 @@ export function initVariantPlayground(root: ParentNode = document) {
   function clearResults(reason: string): void {
     ism = null;
     occl = null;
+    annotations = null;
+    knockoutSweep = null;
     delete host.dataset.vpResultLocus;
     delete host.dataset.vpResultSource;
     current = null;
@@ -1301,20 +1364,34 @@ export function initVariantPlayground(root: ParentNode = document) {
 
     // The traceback and mutagenesis packs, fetched after the activations so the page is usable
     // first. Both are small beside the 2-4 MB activation pack.
-    const [attr, gotIsm, gotOccl] = await Promise.all([
-      loadAttribution(locusId), loadIsm(locusId), loadOccl(locusId),
+    const [attr, gotIsm, gotOccl, gotAnn, gotKo] = await Promise.all([
+      loadAttribution(locusId), loadIsm(locusId), loadOccl(locusId), loadAnnotations(locusId),
+      loadKnockoutSweep(locusId),
     ]);
     if (token !== precomputeToken || locusId !== LOCI[locusIndex].id) return;
     attribution = attr;
     ism = gotIsm;
     occl = gotOccl;
+    annotations = gotAnn;
+    knockoutSweep = gotKo;
     // Open the sequence logo on the mutagenesis window. It is only ~500 bp of a 16,384 bp window,
     // so the default centre misses it entirely and the panel would greet every reader with "pan
     // into it" -- while the paper's own picture sits just off screen.
-    if (ism && logoPan) {
-      logoPan.value = String(Math.round(windowFraction(ism.start + ism.width / 2) * 1000));
-    }
+    // Open on the paper's own published window where the locus has one -- those six are the panels
+    // Figure 4 draws, and opening elsewhere puts the reproduction off screen -- otherwise on the
+    // promoter of the gene the window is named for, which is the reader's likely first question.
+    const locus = LOCI[locusIndex];
+    const fig = locus.figureWindow;
+    const own = locus.features.find((f) => f.name === locus.id);
+    const w = Number(brushWidth?.value ?? 150);
+    if (fig) setLogoWindow((fig.seqStart + fig.seqEnd) / 2 - w / 2, w);
+    else if (own) setLogoWindow(own.txStart - 200, w);
+    if (logoFigureBtn) logoFigureBtn.hidden = !fig;
     renderIsmLogo();
+    renderMethodLogos();
+    renderAnnotation();
+    renderEnrichment();
+    renderKnockoutSweep();
     host.dataset.vpTraceReady = attribution ? 'true' : 'false';
     if (anchorSelect) {
       clear(anchorSelect);
@@ -1500,6 +1577,327 @@ export function initVariantPlayground(root: ParentNode = document) {
     /** Integrated gradients per anchor, [anchors x 16384]. */
     ig: Float32Array | null;
     cols: { input: number; channels: number; anchor: number; positions: number; ig: number };
+  }
+
+  /** The annotation for the current locus, in window coordinates. */
+  interface Annotations {
+    features: AnnotationFeature[];
+    /** How many PWM hits the scan found BEFORE thresholding -- the argument for the threshold. */
+    jasparScanned: number;
+    jasparMin: number;
+    sources: Record<string, string>;
+  }
+
+  /**
+   * Fetch the annotation pack. Per-locus, beside the tensors, for the same reason they are: the
+   * fourteen files are 760 KB raw, and bundling them into the page chunk would make every reader
+   * pay for thirteen loci they are not looking at.
+   */
+  async function loadAnnotations(locusId: string): Promise<Annotations | null> {
+    const base = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/vp-data`;
+    const d = await fetch(`${base}/${locusId}-ann.json`)
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null);
+    if (!d || !Array.isArray(d.features)) return null;
+    return {
+      features: d.features as AnnotationFeature[],
+      jasparScanned: Number(d.jasparScanned) || 0,
+      jasparMin: Number(d.jasparMin) || 0,
+      sources: d.sources ?? {},
+    };
+  }
+
+  /** The features currently visible, after the lane and tier toggles. */
+  function visibleAnnotations(): AnnotationFeature[] {
+    if (!annotations) return [];
+    return annotations.features.filter((f) => {
+      const info = ANNOTATION_CLASSES[f.cls];
+      if (!info || !annLanesOn[info.lane]) return false;
+      const tier = motifTier(f);
+      // A record with no tier is not a binding-site claim (a gene, an ARS) and is governed only by
+      // its lane. A record WITH one is governed by its tier, because the three tiers are three
+      // different strengths of evidence and must not be toggled together.
+      return tier === null || motifTiersOn[tier];
+    });
+  }
+
+  /**
+   * The annotation track: every curated feature in the window, on the page's shared bp axis.
+   *
+   * Drawn as lanes rather than one row because the classes answer different questions -- where the
+   * genes are, where the non-coding RNAs are, where the replication and repeat elements are, and
+   * where transcription factors bind. Within a lane, overlapping features are packed by
+   * `packGeneRows`, the same first-fit the gene track uses, so nothing is painted over anything.
+   *
+   * Returns the height consumed, and publishes the tally on the canvas: this is a canvas, so there
+   * is no element for an audit to inspect, and counting what was DRAWN is the only way a missing
+   * lane shows up as a failure rather than as a slightly emptier picture.
+   */
+  function drawAnnotationTrack(
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    top: number,
+  ): number {
+    const feats = visibleAnnotations();
+    if (!feats.length) return 0;
+    const css = (name: string, fallback: string) =>
+      getComputedStyle(host).getPropertyValue(name).trim() || fallback;
+    const muted = css('--color-muted', '#6b7280');
+    // Short labels: the left gutter is PLOT.left wide and "regulatory" ran off it, rendering as
+    // "egulatory" -- a clipped label reads as a different word rather than as a truncated one.
+    const LANES: { id: string; label: string; colour: string }[] = [
+      { id: 'gene', label: 'gene', colour: css('--vp-orf', '#6f62a8') },
+      { id: 'rna', label: 'RNA', colour: css('--vp-rna', '#2f8f6f') },
+      { id: 'element', label: 'elem', colour: css('--vp-element', '#a8762a') },
+      { id: 'tfbs', label: 'TFBS', colour: css('--vp-tfbs', '#b4485f') },
+      { id: 'regulatory', label: 'reg', colour: css('--vp-reg', '#4a7fb5') },
+    ];
+    const ROW_H = 9;
+    let y = top;
+    let drawn = 0;
+
+    ctx.font = '9px system-ui, sans-serif';
+    ctx.textBaseline = 'alphabetic';
+    for (const lane of LANES) {
+      const inLane = feats.filter((f) => ANNOTATION_CLASSES[f.cls]?.lane === lane.id);
+      if (!inLane.length) continue;
+      // packGeneRows is generic over {txStart, txEnd}; feed it the annotation spans rather than
+      // writing a second packer that could disagree with the gene track's.
+      const rows = packGeneRows(inLane.map((f) => ({ txStart: f.start, txEnd: f.end })));
+      const nRows = Math.max(...rows, 0) + 1;
+      ctx.fillStyle = muted;
+      ctx.textAlign = 'right';
+      ctx.fillText(lane.label, PLOT.left - 4, y + ROW_H - 2);
+      inLane.forEach((f, i) => {
+        const x0 = xOfBp(f.start, width);
+        const x1 = Math.max(xOfBp(f.end, width), x0 + 1.2);
+        const ry = y + rows[i] * ROW_H;
+        const tier = motifTier(f);
+        // Evidence is drawn, not only recorded: a ChIP-supported call is solid, a conserved-only
+        // call is hollow, a PWM hit is a hairline. Three tiers that looked alike would be three
+        // claims presented as one.
+        ctx.globalAlpha = tier === 'pwm' ? 0.4 : tier === 'conserved' ? 0.55 : 0.85;
+        if (tier === 'conserved' || tier === 'pwm') {
+          ctx.strokeStyle = lane.colour;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(x0 + 0.5, ry + 1.5, Math.max(x1 - x0 - 1, 0.5), ROW_H - 4);
+        } else {
+          ctx.fillStyle = lane.colour;
+          ctx.fillRect(x0, ry + 1, Math.max(x1 - x0, 1.2), ROW_H - 3);
+        }
+        // A clipped edge is not a real boundary; mark it so nobody reads the window edge as one.
+        if (f.truncated) {
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = muted;
+          const edge = f.start <= 0 ? x0 : x1 - 2;
+          ctx.fillRect(edge, ry + 1, 2, ROW_H - 3);
+        }
+        drawn += 1;
+      });
+      ctx.globalAlpha = 1;
+      y += nRows * ROW_H + 3;
+    }
+    ctx.textAlign = 'left';
+    return y - top;
+  }
+
+  /** Paint the annotation canvas, sized to whatever the visible lanes need. */
+  function renderAnnotation(): void {
+    if (!annCanvas) return;
+    const cssW = annCanvas.clientWidth || 900;
+    const feats = visibleAnnotations();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // Measure first: the canvas has to be tall enough for the lanes that are on, and a lane count
+    // that changes with the toggles means the height cannot be a constant.
+    const probe = document.createElement('canvas').getContext('2d');
+    let need = 24;
+    if (probe && feats.length) {
+      probe.font = '9px system-ui, sans-serif';
+      need = drawAnnotationTrack(probe, cssW, 0) + 20;
+    }
+    const cssH = Math.max(need, 30);
+    annCanvas.width = Math.round(cssW * dpr);
+    annCanvas.height = Math.round(cssH * dpr);
+    annCanvas.style.height = `${cssH}px`;
+    const ctx = annCanvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+    const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
+    ctx.font = '9px system-ui, sans-serif';
+    if (!feats.length) {
+      ctx.fillStyle = muted;
+      ctx.fillText(annotations ? 'No annotation in the selected lanes.'
+        : 'Annotation loads with the locus.', PLOT.left, 16);
+      delete annCanvas.dataset.vpAnnotation;
+      if (annStat) annStat.textContent = '';
+      return;
+    }
+    drawAnnotationTrack(ctx, cssW, 2);
+
+    ctx.fillStyle = muted;
+    ctx.textAlign = 'left';
+    for (const bp of bpTicks(4000)) {
+      ctx.textAlign = bp === 0 ? 'left' : bp >= SEQ_LEN ? 'right' : 'center';
+      ctx.fillText(bpLabel(bp), xOfBp(bp, cssW), cssH - 2);
+    }
+    ctx.textAlign = 'left';
+
+    const tally = annotationTally();
+    annCanvas.dataset.vpAnnotation = Object.entries(tally)
+      .map(([k, v]) => `${k}:${v}`).join(',');
+    if (annStat && annotations) {
+      const chip = annotations.features.filter((f) => motifTier(f) === 'chip').length;
+      const cons = annotations.features.filter((f) => motifTier(f) === 'conserved').length;
+      const pwm = annotations.features.filter((f) => motifTier(f) === 'pwm').length;
+      // The unfiltered scan count is on the face of the control, not buried in a disclosure: it is
+      // the reason the PWM tier is off by default and the reason it should be read differently.
+      annStat.textContent = `${chip} ChIP-supported · ${cons} conserved only · ${pwm} PWM hits at `
+        + `score ≥ ${annotations.jasparMin} of ${annotations.jasparScanned.toLocaleString()} scanned`;
+    }
+  }
+
+  /** What the annotation track drew, for the audit and for the legend. */
+  function annotationTally(): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const f of visibleAnnotations()) {
+      const lane = ANNOTATION_CLASSES[f.cls]?.lane ?? 'other';
+      out[lane] = (out[lane] ?? 0) + 1;
+    }
+    return out;
+  }
+
+  async function loadKnockoutSweep(locusId: string): Promise<KoSweep | null> {
+    const base = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/vp-data`;
+    const d = await fetch(`${base}/${locusId}-ko.json`)
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null);
+    return d && Array.isArray(d.sites) ? (d as KoSweep) : null;
+  }
+
+  /**
+   * Every curated site in the window, ranked by what the model loses when it is shuffled.
+   *
+   * Each row carries its own spread, and the bar is drawn against it: a site whose effect is inside
+   * its own sd did nothing measurable, and the drawing has to say so rather than showing a
+   * confident short bar.
+   */
+  function renderKnockoutSweep(): void {
+    if (!koTable) return;
+    clear(koTable);
+    if (!knockoutSweep || !knockoutSweep.sites.length) {
+      const cell = koTable.insertRow().insertCell();
+      cell.className = 'n';
+      cell.textContent = knockoutSweep
+        ? 'No curated sites in this window.'
+        : 'The sweep has not loaded for this locus.';
+      delete koTable.dataset.vpKo;
+      if (koStat) koStat.textContent = '';
+      return;
+    }
+    // Ranked by MAGNITUDE -- how much the model loses -- because that is what "strongest knockout"
+    // means and what the summary above it claims. Reproducibility is a separate axis and gets its
+    // own column: ranking by effect/sd instead put a -0.0003 site above a -0.0138 one and then
+    // called it the strongest, which is two different definitions of the word in one panel.
+    const scored = knockoutSweep.sites
+      .map((s) => ({ s, ratio: s.sd > 0 ? Math.abs(s.effect) / s.sd : 0 }))
+      .sort((a, b) => Math.abs(b.s.effect) - Math.abs(a.s.effect));
+    // Capped: 52 sites made the panel 5,764 px tall and its tail was a screen of 0.0000 effects,
+    // which buries the dozen rows that carry the finding.
+    const CAP = 12;
+    const sites = (koExpanded ? scored : scored.slice(0, CAP)).map((r) => r.s);
+    const hidden = scored.length - sites.length;
+    const head = koTable.createTHead().insertRow();
+    for (const label of ['site', 'position', 'effect (logSED)', 'reproducibility (effect ÷ sd)']) {
+      const th = document.createElement('th');
+      th.textContent = label;
+      head.append(th);
+    }
+    const body = koTable.createTBody();
+    const fire = getComputedStyle(host).getPropertyValue('--vp-fire').trim() || '#b0455a';
+    const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
+    // Counted over EVERY site, not the drawn subset -- the headline must not change when the table
+    // is collapsed.
+    const significant = scored.filter((r) => r.ratio >= 2).length;
+    for (const s of sites) {
+      const row = body.insertRow();
+      const nameCell = row.insertCell();
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'vp-chan';
+      b.textContent = s.name;
+      b.title = `${s.evidence} ChIP evidence · click to zoom the logo onto this site`;
+      // Clicking sends the reader to the bases: a number in this table is only useful if the
+      // sequence it refers to is one click away.
+      b.addEventListener('click', () => {
+        setLogoWindow((s.start + s.end) / 2 - 30, 60);
+        koTable.scrollIntoView({ block: 'nearest' });
+      });
+      nameCell.append(b);
+      const pos = row.insertCell();
+      pos.className = 'n';
+      pos.textContent = `${s.start.toLocaleString()}–${s.end.toLocaleString()}`;
+      const eff = row.insertCell();
+      eff.textContent = `${s.effect >= 0 ? '+' : ''}${s.effect.toFixed(4)}`;
+      const sd = document.createElement('span');
+      sd.className = 'null';
+      // A site whose bases barely permute cannot be knocked out by shuffling at all, and its
+      // near-zero effect means "not shuffleable" rather than "the model ignores it". Saying so is
+      // the difference between a null result and a meaningless one.
+      const degenerate = (s.distinct ?? 2) <= 1;
+      sd.textContent = degenerate
+        ? `low complexity — only ${s.distinct} distinct permutation`
+        : `± ${s.sd.toFixed(4)} over ${s.n} shuffles`;
+      eff.append(sd);
+      // The bar is |effect| / sd, not |effect|: a large effect with a large spread is not a
+      // stronger result than a small one that reproduces, and drawing raw magnitude would say it
+      // was.
+      const ratio = degenerate ? 0 : (s.sd > 0 ? Math.abs(s.effect) / s.sd : 0);
+      const barCell = row.insertCell();
+      const bar = document.createElement('span');
+      bar.style.display = 'inline-block';
+      bar.style.height = '0.55rem';
+      bar.style.width = `${Math.min(ratio / 8, 1) * 100}%`;
+      bar.style.minWidth = '2px';
+      bar.style.background = ratio >= 2 ? fire : muted;
+      bar.style.opacity = ratio >= 2 ? '0.8' : '0.35';
+      bar.title = `${ratio.toFixed(1)}× its own sd`;
+      barCell.style.width = '9rem';
+      barCell.append(bar);
+    }
+    if (hidden > 0) {
+      const row = body.insertRow();
+      const cell = row.insertCell();
+      cell.colSpan = 4;
+      cell.className = 'n';
+      const more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'vp-chan';
+      const weak = scored.slice(CAP).filter((r) => r.ratio < 2).length;
+      more.textContent = `show ${hidden} smaller site${hidden === 1 ? '' : 's'}`;
+      more.addEventListener('click', () => { koExpanded = true; renderKnockoutSweep(); });
+      cell.append(more);
+      cell.append(document.createTextNode(
+        ` — ${weak} of them within 2× their own spread, i.e. no measurable effect`));
+    } else if (scored.length > CAP) {
+      const row = body.insertRow();
+      const cell = row.insertCell();
+      cell.colSpan = 4;
+      cell.className = 'n';
+      const less = document.createElement('button');
+      less.type = 'button';
+      less.className = 'vp-chan';
+      less.textContent = 'show fewer';
+      less.addEventListener('click', () => { koExpanded = false; renderKnockoutSweep(); });
+      cell.append(less);
+    }
+    koTable.dataset.vpKo = String(scored.length);
+    if (koStat) {
+      const worst = scored[0].s;
+      koStat.textContent = `${scored.length} sites × ${knockoutSweep.shuffles} shuffles · `
+        + `${significant} beyond 2× their own spread · largest effect ${worst.name} `
+        + `${worst.effect >= 0 ? '+' : ''}${worst.effect.toFixed(4)}`;
+    }
   }
 
   async function loadAttribution(locusId: string): Promise<Attribution | null> {
@@ -1828,6 +2226,8 @@ export function initVariantPlayground(root: ParentNode = document) {
   function selectStage(id: string): void {
     const i = FLOW_STAGES.findIndex((s) => s.id === id);
     if (i < 0) return;
+    // The class table is per-stage, like the neuron traces beside it.
+    queueMicrotask(renderNeuronClasses);
     flow?.select(i);
     flow3d?.select(id);
     renderStageDetail(FLOW_STAGES[i]);
@@ -2238,13 +2638,11 @@ export function initVariantPlayground(root: ParentNode = document) {
     const W = 1000;
     const H = 150;
     attr(seqLogoSvg, { viewBox: `0 0 ${W} ${H}` });
-    const width = Number(logoWidth?.value ?? 150);
     const seq = LOCI[locusIndex].sequence;
-    const src = logoSource?.value ?? 'ism';
-
-    const pan = Number(logoPan?.value ?? 500) / 1000;
-    const centre = Math.round(pan * SEQ_LEN);
-    const start = Math.max(0, Math.min(SEQ_LEN - width, centre - Math.floor(width / 2)));
+    const src = logoSource?.value ?? 'grad';
+    // The shared window, so this panel and the method stack above can never show letters for two
+    // different stretches under one heading.
+    const { start, width } = logoWindow;
 
     // Per-position values, four per column. Mutagenesis gives all four; gradient x input is zero
     // at the three bases that are not there, because the input is one-hot.
@@ -2253,27 +2651,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     // Mutagenesis covers only the promoter window (~500 bp) while a traced region can be anywhere
     // in the 16,384 bp window, so asking for it outside its span would leave the panel empty.
     // Fall through to the gradient, which covers everything, and say which one is being shown.
-    const ismCovers = !!ism && start + width > ism.start && start < ism.start + ism.width;
-    if (src === 'ism' && ism && ismCovers) {
-      // Captured, because `ism` is a mutable module-scope binding and TS will not narrow it
-      // inside the closure below -- a locus change could null it between the check and the call.
-      const plane = ism;
-      const k0 = start - plane.start;
-      // The paper's steps 2 and 3, exactly as the panel below draws them: mean-centre across the
-      // four bases, then project on the reference. One label, one meaning -- rendering the same
-      // named source two different ways in two panels is how a reader stops trusting either.
-      const sal = ismSaliency(plane.plane, plane.width, seq, plane.start);
-      column = (i) => {
-        const k = k0 + i;
-        const out = [0, 0, 0, 0];
-        if (k < 0 || k >= plane.width) return out;
-        const b = BASES.indexOf((seq[start + i] ?? 'N').toUpperCase() as Base);
-        if (b >= 0) out[b] = sal[k];
-        return out;
-      };
-      note = 'in-silico mutagenesis, mean-centred and projected on the reference — the paper\'s '
-        + 'Figure 4 quantity';
-    } else if (src === 'occl' && occl && tracedBins) {
+    if (src === 'occl' && occl && tracedBins) {
       // Occlusion is a 64 bp measurement, so every base inside a window carries that window's
       // value. The logo therefore reads as blocks rather than per-base spikes -- which is exactly
       // what the method resolves, and pretending otherwise by interpolating would be a lie about
@@ -2318,9 +2696,6 @@ export function initVariantPlayground(root: ParentNode = document) {
       };
       const why = src === 'ig' && !useIg
         ? ' (integrated gradients exist only for the precomputed regions — pick one from the stepper)'
-        : src === 'ism' && ism && !ismCovers
-        ? ` (mutagenesis covers only bp ${ism.start.toLocaleString()}–`
-          + `${(ism.start + ism.width).toLocaleString()}, so this window falls back to the gradient)`
         : '';
       note = (useIg
         ? 'integrated gradients, single base — the only method here whose values sum to the '
@@ -2367,47 +2742,80 @@ export function initVariantPlayground(root: ParentNode = document) {
    * the paper computes that same position x base array (`run_ism_eqtl.py` builds exactly it, with
    * the reference pinned to zero) and simply never plots it.
    */
+  /** The method track the logo source dropdown is asking for, or the first available. */
+  function selectedMethodTrack(): MethodTrack | null {
+    const tracks = methodTracks();
+    if (!tracks.length) return null;
+    const want = logoSource?.value ?? 'grad';
+    const byKey: Record<string, (l: string) => boolean> = {
+      grad: (l) => l.startsWith('gradient'),
+      ig: (l) => l.startsWith('integrated'),
+      occl: (l) => l.startsWith('occlusion'),
+    };
+    return tracks.find((tr) => (byKey[want] ?? byKey.grad)(tr.label)) ?? tracks[0];
+  }
+
   function renderIsmLogo(): void {
     if (!ismLogoSvg) return;
     clear(ismLogoSvg);
     const W = 1000;
     const H = 210;
     attr(ismLogoSvg, { viewBox: `0 0 ${W} ${H}` });
-    if (!ism) {
-      ismLogoSvg.append(text(W / 2, H / 2, 'Mutagenesis has not loaded for this locus.', 'vp-ax'));
+    const track = selectedMethodTrack();
+    if (!track) {
+      ismLogoSvg.append(text(W / 2, H / 2,
+        'Trace a region to see its bases.', 'vp-ax'));
       delete ismLogoSvg.dataset.letters;
       return;
     }
-    const plane = ism;
     const locus = LOCI[locusIndex];
     const seq = locus.sequence;
-    const lo = plane.start;
-    const hi = plane.start + plane.width;
-    const px = (bp: number) => PLOT.left + ((bp - lo) / plane.width) * (W - PLOT.left - PLOT.right);
+    const lo = logoWindow.start;
+    const span = logoWindow.width;
+    const hi = lo + span;
+    const px = (bp: number) => PLOT.left + ((bp - lo) / span) * (W - PLOT.left - PLOT.right);
     const logoTop = 46;
     const logoH = 96;
 
-    // The paper's steps 2 and 3: mean-centre across the four bases, then PROJECT on the reference
-    // one-hot. That leaves exactly one letter per position -- the importance of the base that is
-    // actually there -- which is what Figure 4's panels plot. The raster below keeps the full
-    // position x base view, so nothing is lost by matching the figure here.
-    const sal = ismSaliency(plane.plane, plane.width, seq, plane.start);
+    // One letter per position: the input is one-hot, so an attribution is identically zero at the
+    // three bases that are not there. That is a property of the method, not a simplification --
+    // the same reason the paper's own ISM logos carry one letter per column after projection.
     const column = (i: number): number[] => {
       const out = [0, 0, 0, 0];
-      const b = BASES.indexOf((seq[plane.start + i] ?? 'N').toUpperCase() as Base);
-      if (b >= 0) out[b] = sal[i];
+      const b = BASES.indexOf((seq[lo + i] ?? 'N').toUpperCase() as Base);
+      if (b >= 0) out[b] = track.at(lo + i) ?? 0;
       return out;
     };
     const { lo: yLo, hi: yHi, letters } = drawLogo(
-      ismLogoSvg, column, plane.width, PLOT.left, W - PLOT.left - PLOT.right, logoTop, logoH,
+      ismLogoSvg, column, span, PLOT.left, W - PLOT.left - PLOT.right, logoTop, logoH,
     );
 
-    // Motif hits from this locus's own scan, boxed and labelled as Figure 4 boxes them.
+    // Boxed features: the paper's own Figure 4 consensuses AND whatever curated annotation is in
+    // view. The paper's set is six motifs across six loci; the databases cover all fourteen, which
+    // is what makes this panel answer "is that peak a real site" rather than only "does it match
+    // the figure".
     const boxes: { label: string; a: number; b: number }[] = [];
     for (const m of locus.motifs ?? []) {
       if (m.end <= lo || m.start >= hi) continue;
       boxes.push({ label: m.name, a: Math.max(m.start, lo), b: Math.min(m.end, hi) });
     }
+    for (const f of visibleAnnotations()) {
+      // Only the point-like classes: a gene spanning the whole zoom would box the entire panel.
+      if (f.cls !== 'tfbs' && f.cls !== 'regulatory' && f.cls !== 'ars_consensus'
+          && f.cls !== 'uorf') continue;
+      if (f.end <= lo || f.start >= hi) continue;
+      if (f.end - f.start > span * 0.6) continue;
+      const tier = motifTier(f);
+      boxes.push({
+        label: tier === 'chip' ? `${f.name}✓` : tier === 'pwm' ? `${f.name}·pwm` : f.name,
+        a: Math.max(f.start, lo),
+        b: Math.min(f.end, hi),
+      });
+    }
+    // Cap the labels: at 1,000 bp a promoter can carry dozens of overlapping calls, and a wall of
+    // text over the letters is the annotation burying the data it exists to explain.
+    boxes.sort((x, y) => (x.b - x.a) - (y.b - y.a));
+    boxes.splice(14);
     // Splice and codon landmarks derived from the gene model -- but only where the scan above has
     // not already found them. Several loci carry the splice sites in their motif list with a real
     // matched consensus (DTD1's branch point is a scanned TACTAAC at 8,210), which beats the
@@ -2457,7 +2865,7 @@ export function initVariantPlayground(root: ParentNode = document) {
       r.style.cursor = 'pointer';
       r.addEventListener('click', () => {
         // Zoom the sequence logo onto this motif.
-        if (logoPan) logoPan.value = String(Math.round(windowFraction((box.a + box.b) / 2) * 1000));
+        setLogoWindow((box.a + box.b) / 2 - 30, 60);
         if (logoWidth) logoWidth.value = '60';
         if (logoSource) logoSource.value = 'ism';
         renderSeqLogo();
@@ -2502,13 +2910,14 @@ export function initVariantPlayground(root: ParentNode = document) {
     }
 
     // A bp ruler on the window's own coordinates -- this panel is a zoom, not the full window.
-    const step = Math.max(50, Math.round(plane.width / 8 / 50) * 50);
+    const step = Math.max(10, Math.round(span / 8 / 10) * 10);
     for (let bp = Math.ceil(lo / step) * step; bp <= hi; bp += step) {
       ismLogoSvg.append(text(px(bp), H - 4, `${(locus.start + bp) / 1000}`.slice(0, 7) + ' kb', 'vp-ax'));
     }
     ismLogoSvg.append(text(PLOT.left, 12,
       `${locus.gene} · ${lo.toLocaleString()}–${hi.toLocaleString()} bp of the window`
-      + ` · logSED range ${yLo.toFixed(2)} … ${yHi.toFixed(2)}`, 'vp-ax vp-caption', 'start'));
+      + ` · ${track.label} · range ${yLo.toFixed(3)} … ${yHi.toFixed(3)}`,
+      'vp-ax vp-caption', 'start'));
     ismLogoSvg.dataset.letters = String(letters);
     ismLogoSvg.dataset.boxes = String(boxes.length);
     ismLogoSvg.dataset.window = `${lo}-${hi}`;
@@ -2555,6 +2964,12 @@ export function initVariantPlayground(root: ParentNode = document) {
     at: (bp: number) => number | null;
     peak: number;
     note: string;
+    /**
+     * The bp one value of this method actually covers. A number, not a phrase parsed out of
+     * `note`: integrated gradients' note is its completeness check, so string-sniffing marked the
+     * one single-base method on the page as coarse.
+     */
+    resolutionBp: number;
   }
 
   /**
@@ -2589,6 +3004,7 @@ export function initVariantPlayground(root: ParentNode = document) {
         at: (bp) => grad[perBase ? Math.round(bp) : Math.floor((bp / SEQ_LEN) * grad.length)] ?? null,
         peak,
         note: perBase ? 'single base' : '128 bp',
+        resolutionBp: perBase ? 1 : 128,
       });
       if (ai >= 0 && attribution.ig) {
         const ig = attribution.ig.subarray(ai * attribution.cols.ig, (ai + 1) * attribution.cols.ig);
@@ -2602,6 +3018,7 @@ export function initVariantPlayground(root: ParentNode = document) {
           note: a.igAbsError !== undefined
             ? `sums to ${a.igSum?.toFixed(2)} vs a true gap of ${a.igGap?.toFixed(2)}`
             : 'single base',
+          resolutionBp: 1,
         });
       }
     }
@@ -2626,6 +3043,7 @@ export function initVariantPlayground(root: ParentNode = document) {
         at: (bp) => prof[Math.min(BOTTLENECK_LEN - 1, Math.floor(bp / per))] ?? null,
         peak,
         note: `${BOTTLENECK_LEN} × ${per} bp · architecture, not attribution`,
+        resolutionBp: per,
       });
     }
 
@@ -2646,9 +3064,351 @@ export function initVariantPlayground(root: ParentNode = document) {
         at: (bp) => prof[Math.min(o.rows - 1, Math.floor(bp / o.win))] ?? null,
         peak,
         note: `${o.rows} windows`,
+        resolutionBp: o.win,
       });
     }
     return out;
+  }
+
+  /**
+   * Every method against every annotation class: does the attribution land on real biology?
+   *
+   * The one analysis on this page that can return a negative and mean it. A class at 1.00x says
+   * the model puts no more weight there than anywhere else, which is a finding about the model
+   * rather than a gap in the drawing -- so the table shows every class it can measure, not the
+   * ones that came out well.
+   */
+  function renderEnrichment(): void {
+    if (!enrichTable) return;
+    clear(enrichTable);
+    const feats = annotations?.features ?? [];
+    const tracks = methodTracks();
+    if (!feats.length || !tracks.length) {
+      const row = enrichTable.insertRow();
+      const cell = row.insertCell();
+      cell.colSpan = 2;
+      cell.className = 'n';
+      cell.textContent = tracks.length
+        ? 'No annotation in the selected lanes.'
+        : 'Trace a region to compare the methods against the annotation.';
+      delete enrichTable.dataset.vpEnrichment;
+      if (enrichStat) enrichStat.textContent = '';
+      return;
+    }
+
+    // One group per class, plus the binding sites split by evidence tier -- the split is the point,
+    // since "curated site" and "PWM match" are the two rows a reader most needs to see apart.
+    const groups: { label: string; feats: AnnotationFeature[]; }[] = [];
+    const byClass = new Map<string, AnnotationFeature[]>();
+    for (const f of feats) {
+      if (f.cls === 'tfbs') continue;
+      const list = byClass.get(f.cls) ?? [];
+      list.push(f);
+      byClass.set(f.cls, list);
+    }
+    for (const [cls, list] of [...byClass].sort((a, b) => b[1].length - a[1].length)) {
+      groups.push({ label: ANNOTATION_CLASSES[cls]?.label ?? cls, feats: list });
+    }
+    for (const tier of ['chip', 'conserved', 'pwm', 'paper'] as MotifTier[]) {
+      const list = feats.filter((f) => f.cls === 'tfbs' && motifTier(f) === tier);
+      if (list.length) {
+        groups.push({
+          label: { chip: 'TFBS · ChIP-supported', conserved: 'TFBS · conserved only',
+                   pwm: 'TFBS · PWM scan', paper: "TFBS · the paper's" }[tier],
+          feats: list,
+        });
+      }
+    }
+
+    // Sample each method onto the per-base axis once, rather than per class.
+    const signals = tracks.map((tr) => {
+      const s = new Float64Array(SEQ_LEN);
+      for (let bp = 0; bp < SEQ_LEN; bp += 1) s[bp] = tr.at(bp) ?? 0;
+      return s;
+    });
+
+    const head = enrichTable.createTHead().insertRow();
+    const h0 = document.createElement('th');
+    h0.textContent = 'annotation class';
+    head.append(h0);
+    tracks.forEach((tr) => {
+      const th = document.createElement('th');
+      th.textContent = tr.label;
+      // A method cannot resolve a feature finer than its own step. Saying so in the header is what
+      // stops a 64 bp occlusion column being read as a statement about a 7 bp site.
+      if (tr.resolutionBp > 1) {
+        th.classList.add('coarse');
+        // Only add the resolution where the label does not already carry it, or occlusion's
+        // header reads "occlusion (64 bp) · 64 bp".
+        if (!tr.label.includes('bp')) th.textContent = `${tr.label} · ${tr.resolutionBp} bp`;
+        th.title = `one value covers ${tr.resolutionBp} bp, so it cannot resolve a shorter feature`;
+      }
+      head.append(th);
+    });
+
+    const body = enrichTable.createTBody();
+    const accent = getComputedStyle(host).getPropertyValue('--vp-fire').trim() || '#b0455a';
+    let measured = 0;
+    let strongest = { label: '', ratio: 0, method: '' };
+    for (const g of groups) {
+      const mask = featureMask(g.feats, SEQ_LEN);
+      const row = body.insertRow();
+      const name = row.insertCell();
+      name.textContent = g.label;
+      const n = document.createElement('span');
+      n.className = 'n';
+      n.textContent = ` (${g.feats.length})`;
+      name.append(n);
+      signals.forEach((sig, i) => {
+        const cell = row.insertCell();
+        const r = weightedEnrichment(sig, mask, 256);
+        if (!r) { cell.textContent = '—'; cell.className = 'n'; return; }
+        measured += 1;
+        cell.textContent = `${r.ratio.toFixed(2)}×`;
+        const nullSpan = document.createElement('span');
+        nullSpan.className = 'null';
+        nullSpan.textContent = `null ${r.nullMean.toFixed(2)}±${r.nullSd.toFixed(2)} · p ${
+          r.p <= 1 / 257 ? '<0.004' : r.p.toFixed(3)}`;
+        cell.append(nullSpan);
+        // Shade by distance from the null, never by the ratio itself: a class covering 40% of the
+        // window cannot reach a large ratio however strongly it is preferred.
+        const a = Math.min(Math.abs(r.z) / 8, 1) * 0.32;
+        if (r.z > 0) cell.style.background = `color-mix(in srgb, ${accent} ${a * 100}%, transparent)`;
+        cell.title = `mean signed value inside: ${r.signedInside.toPrecision(3)}`;
+        if (r.ratio > strongest.ratio && r.z > 2) {
+          strongest = { label: g.label, ratio: r.ratio, method: tracks[i].label };
+        }
+      });
+    }
+    enrichTable.dataset.vpEnrichment = String(measured);
+    if (enrichStat) {
+      enrichStat.textContent = strongest.label
+        ? `strongest: ${strongest.label} at ${strongest.ratio.toFixed(2)}× (${strongest.method})`
+        : `${groups.length} classes, none above its null`;
+    }
+  }
+
+  /**
+   * Every method over the brushed window: letters where the method is per-base, a band where it
+   * is not.
+   *
+   * The honest part is the split. Gradient x input and integrated gradients produce one value per
+   * base, so a logo is a faithful rendering of what they computed. Attention rollout resolves
+   * 128 bp and occlusion 64 bp; drawing either as per-base letters would invent 63 or 127 values
+   * the method never produced. They get a band at their real step instead, on the same axis, so
+   * the comparison is still possible without the fiction.
+   */
+  function renderMethodLogos(): void {
+    if (!methodLogosSvg) return;
+    clear(methodLogosSvg);
+    const tracks = methodTracks();
+    const seq = LOCI[locusIndex].sequence;
+    const { start, width } = logoWindow;
+    const W = 1000;
+    const ROW = 74;
+    const H = Math.max(tracks.length, 1) * ROW + 26;
+    attr(methodLogosSvg, { viewBox: `0 0 ${W} ${H}` });
+    if (!tracks.length) {
+      methodLogosSvg.append(text(W / 2, 24, 'Trace a region to compare the methods here.', 'vp-ax'));
+      delete methodLogosSvg.dataset.rows;
+      return;
+    }
+    const inner = W - PLOT.left - PLOT.right;
+    const px = (i: number) => PLOT.left + (i / width) * inner;
+
+    tracks.forEach((tr, r) => {
+      const top = r * ROW + 16;
+      const perBase = tr.resolutionBp <= 1;
+      methodLogosSvg.append(text(PLOT.left, top - 4, tr.label, 'vp-ax', 'start'));
+      if (perBase) {
+        const column = (i: number): number[] => {
+          const out = [0, 0, 0, 0];
+          const b = BASES.indexOf((seq[start + i] ?? 'N').toUpperCase() as Base);
+          if (b >= 0) out[b] = tr.at(start + i) ?? 0;
+          return out;
+        };
+        const { lo, hi } = drawLogo(methodLogosSvg, column, width, PLOT.left, inner, top, ROW - 22);
+        methodLogosSvg.append(text(W - PLOT.right, top - 4,
+          `per base · ${lo.toFixed(3)} … ${hi.toFixed(3)}`, 'vp-ax', 'end'));
+      } else {
+        // A band at the method's own step. Its edges are where the method's windows actually fall,
+        // so a reader can see that one value covers many bases rather than inferring it.
+        const step = tr.resolutionBp;
+        const vals: { a: number; b: number; v: number }[] = [];
+        let peak = 1e-12;
+        for (let bp = Math.floor(start / step) * step; bp < start + width; bp += step) {
+          const v = tr.at(bp) ?? 0;
+          vals.push({ a: Math.max(bp - start, 0), b: Math.min(bp + step - start, width), v });
+          peak = Math.max(peak, Math.abs(v));
+        }
+        const mid = top + (ROW - 22) / 2;
+        const half = (ROW - 22) / 2;
+        for (const cell of vals) {
+          const h = (Math.abs(cell.v) / peak) * half;
+          const rect = el('rect');
+          attr(rect, {
+            x: px(cell.a) + 0.5, y: cell.v >= 0 ? mid - h : mid,
+            width: Math.max(px(cell.b) - px(cell.a) - 1, 0.5), height: Math.max(h, 0.5),
+            fill: 'currentColor', opacity: 0.28, stroke: 'currentColor', 'stroke-width': 0.6,
+          });
+          methodLogosSvg.append(rect);
+          // The value, printed on each step. A near-constant band over a 150 bp window is a grey
+          // block otherwise -- true, but it reads as "no data" rather than as "one number covers
+          // all of this", which is the thing the row exists to show.
+          const w = px(cell.b) - px(cell.a);
+          if (w > 34) {
+            methodLogosSvg.append(text((px(cell.a) + px(cell.b)) / 2,
+              cell.v >= 0 ? mid - h - 3 : mid + h + 9, cell.v.toPrecision(2), 'vp-ax'));
+          }
+        }
+        const rule = el('line');
+        attr(rule, { x1: PLOT.left, x2: W - PLOT.right, y1: mid, y2: mid,
+                     stroke: 'currentColor', 'stroke-width': 0.5, opacity: 0.4 });
+        methodLogosSvg.append(rule);
+        methodLogosSvg.append(text(W - PLOT.right, top - 4,
+          `${step} bp steps · not per base`, 'vp-ax', 'end'));
+      }
+    });
+
+    // One axis for the stack, in real genomic coordinates.
+    const locus = LOCI[locusIndex];
+    const step = Math.max(10, Math.round(width / 6));
+    for (let k = 0; k <= width; k += step) {
+      const anchorPos = k === 0 ? 'start' : k + step > width ? 'end' : 'middle';
+      methodLogosSvg.append(text(px(k), H - 6,
+        (locus.start + start + k).toLocaleString(), 'vp-ax', anchorPos));
+    }
+    methodLogosSvg.dataset.rows = String(tracks.length);
+    methodLogosSvg.dataset.window = `${start}-${start + width}`;
+    if (brushStat) {
+      brushStat.textContent = `bp ${start.toLocaleString()}–${(start + width).toLocaleString()} `
+        + `of the window · ${locus.chrom}:${(locus.start + start).toLocaleString()}`;
+    }
+  }
+
+  /**
+   * What each relevant neuron responds to, in the curated annotation.
+   *
+   * The same statistic as the enrichment table, one channel at a time: the channel's real
+   * activation profile is the signal and the pooled annotation is the weight. It answers the
+   * question the trace panel could not -- "channel #14 matters here" becomes "channel #14 fires on
+   * binding sites" -- and it needs no new data, only the packs already shipped.
+   *
+   * Scored on the 32 most relevant channels rather than all of them: the question is what the
+   * neurons that matter HERE respond to, and 1,536 channels x 8 classes x 64 shifts is work with
+   * no reader behind it.
+   */
+  function renderNeuronClasses(): void {
+    if (!nclassTable) return;
+    clear(nclassTable);
+    const spec = flow?.selected() ?? null;
+    const off = spec ? stageMapOffsets().find((o) => o.id === spec.id) : undefined;
+    const feats = visibleAnnotations();
+    if (!current || !attribution || !tracedBins || !off || !feats.length) {
+      const cell = nclassTable.insertRow().insertCell();
+      cell.className = 'n';
+      cell.textContent = !off
+        ? 'Select a residual, transformer or decoder stage in step 1.'
+        : feats.length ? 'Trace a region first.' : 'No annotation in the selected lanes.';
+      delete nclassTable.dataset.vpNclass;
+      if (nclassStat) nclassStat.textContent = '';
+      return;
+    }
+
+    const TOP = 32;
+    const SHOW = 3;
+    const P = off.positions;
+    const rel = traceChannels(attribution, tracedBins.start, tracedBins.end);
+    const ranked = Array.from({ length: off.channels }, (_, c) => ({ c, v: Math.abs(rel[off.start + c]) }))
+      .sort((a, b) => b.v - a.v)
+      .slice(0, Math.min(TOP, off.channels));
+
+    // One pooled coverage per class, computed once and reused across every channel.
+    const classes: { label: string; cover: Float64Array }[] = [];
+    const byClass = new Map<string, AnnotationFeature[]>();
+    for (const f of feats) {
+      const key = f.cls === 'tfbs' ? `tfbs:${motifTier(f)}` : f.cls;
+      const list = byClass.get(key) ?? [];
+      list.push(f);
+      byClass.set(key, list);
+    }
+    for (const [key, list] of byClass) {
+      const cover = poolCoverage(featureMask(list, SEQ_LEN), P);
+      let sum = 0;
+      for (const v of cover) sum += v;
+      // A class covering almost everything cannot be distinguished from the background, and one
+      // covering nothing has no signal; either way the ratio is not informative.
+      if (sum <= 0 || sum / P > 0.6) continue;
+      const TIER_LABEL: Record<string, string> = {
+        chip: 'ChIP-supported', conserved: 'conserved only', pwm: 'PWM scan', paper: "the paper's",
+      };
+      const label = key.startsWith('tfbs:')
+        ? `TFBS · ${TIER_LABEL[key.slice(5)] ?? key.slice(5)}`
+        : ANNOTATION_CLASSES[key]?.label ?? key;
+      classes.push({ label, cover });
+    }
+    if (!classes.length) {
+      const cell = nclassTable.insertRow().insertCell();
+      cell.className = 'n';
+      cell.textContent = 'Every visible class covers too much of the window to test against.';
+      delete nclassTable.dataset.vpNclass;
+      return;
+    }
+
+    const head = nclassTable.createTHead().insertRow();
+    for (const label of ['feature class', `strongest of the top ${ranked.length} channels`]) {
+      const th = document.createElement('th');
+      th.textContent = label;
+      head.append(th);
+    }
+    const body = nclassTable.createTBody();
+    const accent = getComputedStyle(host).getPropertyValue('--vp-fire').trim() || '#b0455a';
+    let best = { cls: '', channel: -1, ratio: 0 };
+    let tested = 0;
+
+    for (const cls of classes) {
+      const hits: { c: number; ratio: number; p: number }[] = [];
+      for (const { c } of ranked) {
+        const base = (off.start + c) * P;
+        const prof = current.stageMaps.subarray(base, base + P);
+        const r = weightedEnrichment(prof, cls.cover, 64);
+        tested += 1;
+        if (r) hits.push({ c, ratio: r.ratio, p: r.p });
+      }
+      hits.sort((a, b) => b.ratio - a.ratio);
+      const row = body.insertRow();
+      const name = row.insertCell();
+      name.textContent = cls.label;
+      const cell = row.insertCell();
+      if (!hits.length) { cell.textContent = '—'; cell.className = 'n'; continue; }
+      hits.slice(0, SHOW).forEach((h, i) => {
+        if (i) cell.append(document.createTextNode('  ·  '));
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'vp-chan';
+        b.textContent = `#${h.c} ${h.ratio.toFixed(2)}×`;
+        b.title = `p ${h.p <= 1 / 65 ? '<0.016' : h.p.toFixed(3)} · click to plot this neuron`;
+        // Clicking plots the neuron, so a lead from this table goes straight to its own trace --
+        // which is where a reader can see whether the association is real or an artefact.
+        b.addEventListener('click', () => {
+          selectedFilter = h.c;
+          selectStage(off.id);
+        });
+        cell.append(b);
+        if (i === 0 && h.ratio > best.ratio) best = { cls: cls.label, channel: h.c, ratio: h.ratio };
+      });
+      const top = hits[0];
+      if (top.ratio > 1) {
+        const a = Math.min((top.ratio - 1) / 2, 1) * 0.28;
+        cell.style.background = `color-mix(in srgb, ${accent} ${a * 100}%, transparent)`;
+      }
+    }
+    nclassTable.dataset.vpNclass = String(tested);
+    if (nclassStat) {
+      nclassStat.textContent = best.channel >= 0
+        ? `${spec!.label} · #${best.channel} on ${best.cls} at ${best.ratio.toFixed(2)}×`
+        : `${spec!.label} · nothing above chance`;
+    }
   }
 
   /** Draw every available method as a small signal track on the shared bp axis. */
@@ -2933,23 +3693,26 @@ export function initVariantPlayground(root: ParentNode = document) {
     renderNeuronTraces();
     renderMethods();
     renderOcclusion();
+    renderEnrichment();
+    // Both logo views are fed by methodTracks(), which needs a traced region -- so they are region
+    // views too, and leaving them out left them showing their empty state after a trace.
+    renderMethodLogos();
+    renderIsmLogo();
     applyShowing();          // the flow canvas is region-specific in relevance mode
   }
 
   /** Trace a bin range and update every view that shows it. */
   function traceBins(start: number, end: number, label: string): void {
     tracedBins = { start: Math.max(0, start), end: Math.min(N_BINS, end), label };
-    // Centre the logo on the region just selected. Leaving the pan where it was showed the letters
-    // of wherever the reader last looked, which under a new region's heading reads as that
-    // region's bases -- the same class of stale-view bug as a locus change that kept its canvases.
-    if (logoPan) {
-      const midBp = CROP_BP + ((tracedBins.start + tracedBins.end) / 2) * BIN_BP;
-      logoPan.value = String(Math.round(windowFraction(midBp) * 1000));
-    }
+    // Centre EVERY letter view on the region just selected. Leaving the window where it was showed
+    // the letters of wherever the reader last looked, which under a new region's heading reads as
+    // that region's bases -- the same class of stale-view bug as a locus change that kept its
+    // canvases. Goes through the shared setter so all three views move together.
+    const midBp = CROP_BP + ((tracedBins.start + tracedBins.end) / 2) * BIN_BP;
+    setLogoWindow(midBp - logoWindow.width / 2, logoWindow.width);
     renderTrack();          // the curve carries the selection marker, so it has to redraw too
     renderAttribution();
     refreshRegionViews();
-    renderSeqLogo();
     trace3d();
     renderStageDetail(flow?.selected() ?? null);
     if (traceLabel) {
@@ -3073,6 +3836,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     renderHeatmap();
     renderIsmLogo();
     refreshRegionViews();
+    renderAnnotation();          // a canvas, so it keeps the old palette unless repainted
     renderStageDetail(flow?.selected() ?? null);
   };
   document.addEventListener('khc:theme-change', onTheme);
@@ -3543,9 +4307,81 @@ export function initVariantPlayground(root: ParentNode = document) {
     const a = attribution?.anchors.find((x) => x.binStart === s && x.binEnd === e);
     if (a) traceBins(a.binStart, a.binEnd, a.label);
   });
-  logoPan?.addEventListener('input', renderSeqLogo);
-  logoWidth?.addEventListener('change', renderSeqLogo);
-  logoSource?.addEventListener('change', renderSeqLogo);
+  // Both write the shared window rather than being read at draw time, so every logo view moves
+  // together. Read the DOM value into a local FIRST: setLogoWindow writes the pan slider back, and
+  // reading it after that would return the value just written rather than the one dragged to.
+  logoPan?.addEventListener('input', () => {
+    const pan = Number(logoPan.value) / 1000;
+    setLogoWindow(Math.round(pan * SEQ_LEN) - logoWindow.width / 2, logoWindow.width);
+  });
+  logoWidth?.addEventListener('change', () => {
+    const w = Number(logoWidth.value);
+    setLogoWindow(logoWindow.start + logoWindow.width / 2 - w / 2, w);
+  });
+  logoSource?.addEventListener('change', () => { renderSeqLogo(); renderIsmLogo(); });
+
+  /**
+   * Drag across the method strip to pick the zoom window every logo view reads.
+   *
+   * A click (no drag) recentres at the current width rather than selecting a zero-width window,
+   * because a pointer that moves two pixels between down and up is a click by intent.
+   */
+  if (methodsCanvas) {
+    let anchorBp: number | null = null;
+    const bpAt = (ev: PointerEvent): number => {
+      const r = methodsCanvas.getBoundingClientRect();
+      return Math.max(0, Math.min(SEQ_LEN, bpOfX(ev.clientX - r.left, r.width)));
+    };
+    methodsCanvas.addEventListener('pointerdown', (ev) => {
+      anchorBp = bpAt(ev);
+      methodsCanvas.setPointerCapture(ev.pointerId);
+    });
+    methodsCanvas.addEventListener('pointermove', (ev) => {
+      if (anchorBp === null) return;
+      const b = bpAt(ev);
+      const w = Math.abs(b - anchorBp);
+      if (w >= 20) setLogoWindow(Math.min(anchorBp, b), w);
+    });
+    methodsCanvas.addEventListener('pointerup', (ev) => {
+      if (anchorBp === null) return;
+      const b = bpAt(ev);
+      if (Math.abs(b - anchorBp) < 20) {
+        const w = Number(brushWidth?.value ?? logoWindow.width);
+        setLogoWindow(b - w / 2, w);
+      }
+      anchorBp = null;
+    });
+    methodsCanvas.addEventListener('pointercancel', () => { anchorBp = null; });
+  }
+  // Jump to the window Figure 4 actually publishes. Present only on the six loci that have one --
+  // a control that does nothing on eight of fourteen loci is worse than no control.
+  logoFigureBtn?.addEventListener('click', () => {
+    const fig = LOCI[locusIndex].figureWindow;
+    if (!fig) return;
+    setLogoWindow(fig.seqStart, fig.seqEnd - fig.seqStart);
+  });
+  brushWidth?.addEventListener('change', () => {
+    const w = Number(brushWidth.value);
+    setLogoWindow(logoWindow.start + logoWindow.width / 2 - w / 2, w);
+  });
+
+  // Annotation lane and evidence-tier toggles. Both re-render the annotation and the enrichment,
+  // because the enrichment is computed over exactly the features that are drawn -- if a reader
+  // turns off a lane, the statistic must not keep counting it.
+  for (const el of host.querySelectorAll<HTMLInputElement>('[data-vp-lane]')) {
+    el.addEventListener('change', () => {
+      annLanesOn[el.dataset.vpLane!] = el.checked;
+      renderAnnotation();
+      renderEnrichment();
+    });
+  }
+  for (const el of host.querySelectorAll<HTMLInputElement>('[data-vp-tier]')) {
+    el.addEventListener('change', () => {
+      motifTiersOn[el.dataset.vpTier as MotifTier] = el.checked;
+      renderAnnotation();
+      renderEnrichment();
+    });
+  }
 
   occlNorm?.addEventListener('change', renderOcclusion);
 

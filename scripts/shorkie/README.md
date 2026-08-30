@@ -385,3 +385,59 @@ single-base resolution.
 The coverage curve is the 3,053-track RNA-seq group mean. Every attribution scores the 384 `_T0_`
 subset the paper uses. Measured, they correlate at **r = 1.0000** and differ by **1 %** at the peak
 — worth stating on the page, not worth "fixing".
+
+
+## The annotation layer
+
+`make_annotations.py` writes `public/vp-data/<id>-ann.json`, one per locus, from SGD's chromosomal
+feature GFF3 and three UCSC sacCer3 tracks. It is the only script here that needs the network at
+run time, and it caches the 20 MB GFF in the gitignored `_scratch/`.
+
+**Two gates, both of which must pass before anything is written.** Every window must be
+byte-identical to sacCer3 at its recorded `chrom`/`start` — every offset in the output is a
+subtraction from that, so a wrong window mislabels everything and looks fine. And SGD's CDS spans
+must reproduce the gene models already in `shorkieLoci.json`; a single mismatch stops the run.
+
+That second gate earned its place immediately: it found that **HOP2's shipped gene model was one
+intron short**, drawing its second intron as coding and ending the gene 50 bp early. One of 112, and
+the shape of the failure is what identified it — a conversion bug would have moved all 112 by one
+base, not one of them by fifty.
+
+Coordinate conventions, which are the whole risk here:
+
+| source | convention | to window offset |
+| --- | --- | --- |
+| SGD GFF3 | 1-based inclusive | `(start - 1) - window.start` |
+| UCSC API | 0-based half-open | `chromStart - window.start` |
+
+### Three tiers of binding-site evidence, never merged
+
+| tier | source | per 16 kb window | drawn as |
+| --- | --- | --- | --- |
+| ChIP-supported | `transRegCode`, evidence ≠ none | ~53 | solid |
+| conserved only | `transRegCode`, evidence = none | ~414 | hollow |
+| PWM scan | `jaspar2026`, UCSC score ≥ 500 | ~67 (of **23,071** unfiltered) | hairline |
+
+MacIsaac 2006's own host is a 404 and ScerTF does not respond; UCSC is where that work is still
+reachable. The unfiltered scan count is carried in the pack and rendered on the control, because it
+is the only number that says how much the threshold discarded.
+
+## The knockout sweep
+
+`make_knockout_sweep.py` shuffles every curated site and re-runs the model, **k times per site**,
+reporting mean ± sd. One shuffle is one draw; a single number presented as a measurement is what
+this replaces. It reuses the browser's exact seeded Fisher–Yates — same LCG, same direction —
+verified against `knockoutMotif`'s output for three seeds, so a swept value and a clicked one are
+the same number rather than similar ones.
+
+It also records how many **distinct** permutations the shuffles actually produced. A low-complexity
+site (`CCACCC` — five Cs and an A) has almost none, so its shuffles coincide and its sd is
+legitimately zero; that is "unshuffleable", not "the model ignores it", and the two would otherwise
+be indistinguishable in the output.
+
+**The result worth knowing:** across the fourteen windows the strongest knockout is the textbook
+regulator of the gene — GAL4 at GAL1, FHL1 at RPL26A, RAP1 at TDH3 and PDC1, MCM1 at HOP2, ABF1 and
+REB1 at FBA1 and MMS2. Nothing in the pipeline knows which factor should matter.
+
+Re-run order after touching either: `make_annotations.py` first (the sweep reads its output), then
+`make_knockout_sweep.py`, then `verify_pipeline.py` sections 3d and 3e.

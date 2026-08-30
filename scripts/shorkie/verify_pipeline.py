@@ -339,6 +339,104 @@ def verify_occlusion(Image) -> None:
               f"local share of the worst window: {min(local_fracs):.1%}-{max(local_fracs):.1%}")
 
 
+def verify_annotation() -> None:
+    """The annotation's coordinates, checked against the sequence rather than against its source.
+
+    `make_annotations.py` already refuses to write unless every window is byte-identical to sacCer3
+    and unless SGD's CDS spans reproduce the shipped gene models. This re-checks the OUTCOME from
+    the repository alone, and by a different route: a CDS must begin with a start codon and an
+    intron must be bounded by GT..AG, on the strand the record claims. Those are properties of the
+    sequence, so they cannot be satisfied by a coordinate system that merely agrees with itself.
+    """
+    comp = str.maketrans("ACGTacgt", "TGCAtgca")
+    loci = json.loads((ROOT / "src" / "data" / "shorkieLoci.json").read_text())
+    have = 0
+    atg_ok = atg_n = 0
+    splice_ok = splice_n = 0
+    tiers: dict[str, int] = {}
+    scanned = 0
+    for locus in loci["loci"]:
+        path = ROOT / "public" / "vp-data" / f"{locus['id']}-ann.json"
+        if not path.exists():
+            continue
+        have += 1
+        ann = json.loads(path.read_text())
+        seq = locus["sequence"].upper()
+        scanned = max(scanned, ann.get("jasparScanned", 0))
+        by_id: dict[str, list[dict]] = {}
+        for f in ann["features"]:
+            src = f.get("source")
+            ev = f.get("evidence", "none")
+            if f["cls"] == "tfbs":
+                tier = "pwm" if src == "jaspar" else ("chip" if ev != "none" else "conserved")
+                tiers[tier] = tiers.get(tier, 0) + 1
+            if f["cls"] == "cds" and not f.get("truncated"):
+                by_id.setdefault(f.get("id") or f["name"], []).append(f)
+
+        for _, parts in by_id.items():
+            parts.sort(key=lambda r: r["start"])
+            strand = parts[0]["strand"]
+            if strand == "+":
+                codon = seq[parts[0]["start"]:parts[0]["start"] + 3]
+            else:
+                tail = seq[parts[-1]["end"] - 3:parts[-1]["end"]]
+                codon = tail.translate(comp)[::-1]
+            atg_n += 1
+            atg_ok += codon == "ATG"
+            # Every gap between consecutive CDS parts of one gene is an intron.
+            for a, b in zip(parts, parts[1:]):
+                if b["start"] <= a["end"]:
+                    continue
+                donor, acceptor = seq[a["end"]:a["end"] + 2], seq[b["start"] - 2:b["start"]]
+                want = ("GT", "AG") if strand == "+" else ("CT", "AC")
+                splice_n += 1
+                splice_ok += (donor, acceptor) == want
+
+    check(have == len(loci["loci"]), "every locus carries an annotation pack",
+          f"{have}/{len(loci['loci'])}")
+    check(atg_n > 0 and atg_ok == atg_n, "every complete CDS starts with ATG on its own strand",
+          f"{atg_ok}/{atg_n}")
+    check(splice_n > 0 and splice_ok == splice_n,
+          "every CDS-internal intron reads GT..AG on its own strand", f"{splice_ok}/{splice_n}")
+    check(all(tiers.get(k, 0) > 0 for k in ("chip", "conserved", "pwm")),
+          "all three binding-site evidence tiers are present and separable",
+          " · ".join(f"{k}={v}" for k, v in sorted(tiers.items())))
+    # The unfiltered scan count is what justifies the threshold; if it stopped being recorded the
+    # page would lose the only number that says how much was discarded.
+    check(scanned > 1000, "the unfiltered PWM scan size is recorded",
+          f"{scanned:,} hits in a 16 kb window before thresholding")
+
+
+def verify_knockout_sweep() -> None:
+    """The sweep's sites must be real annotation records, and its spread must be real."""
+    loci = json.loads((ROOT / "src" / "data" / "shorkieLoci.json").read_text())
+    have = matched = total = 0
+    single = 0
+    for locus in loci["loci"]:
+        ko_path = ROOT / "public" / "vp-data" / f"{locus['id']}-ko.json"
+        ann_path = ROOT / "public" / "vp-data" / f"{locus['id']}-ann.json"
+        if not ko_path.exists() or not ann_path.exists():
+            continue
+        have += 1
+        ko = json.loads(ko_path.read_text())
+        ann = json.loads(ann_path.read_text())
+        spans = {(f["name"], f["start"], f["end"]) for f in ann["features"] if f["cls"] == "tfbs"}
+        for s in ko["sites"]:
+            total += 1
+            matched += (s["name"], s["start"], s["end"]) in spans
+            # A zero spread over several shuffles is legitimate only when the shuffles produced
+            # one distinct permutation -- a low-complexity site such as `CCACCC` has almost none,
+            # so every "shuffle" is the same sequence. Anything else is an sd that was never
+            # computed, which is the failure the k-shuffle mean exists to prevent.
+            if s["n"] > 1 and s["sd"] == 0 and s.get("distinct", 0) > 1:
+                single += 1
+    check(have > 0, "the knockout sweep is present", f"{have} loci")
+    check(total > 0 and matched == total, "every swept site is a real annotation record",
+          f"{matched}/{total}")
+    check(single == 0, "no swept site reports a zero spread it did not earn",
+          f"{single} suspicious")
+
+
 def main() -> int:
     import torch
     import onnx
@@ -372,6 +470,12 @@ def main() -> int:
 
     section("3c. occlusion matrices")
     verify_occlusion(Image)
+
+    section("3d. the annotation layer lands where it claims")
+    verify_annotation()
+
+    section("3e. the knockout sweep")
+    verify_knockout_sweep()
 
     if ckpt is None:
         print("\n  no checkpoint given -- sections 4-9 need <ckpt.h5> and were skipped.")

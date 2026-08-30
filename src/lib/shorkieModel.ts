@@ -1594,3 +1594,226 @@ export function flowSlabs(): FlowSlab[] {
     channels: s.channels,
   }));
 }
+
+/* ------------------------------------------------------------------------------------------- *
+ * The S. cerevisiae annotation layer, and the statistics that use it.
+ *
+ * Everything here operates on window coordinates: `public/vp-data/<id>-ann.json` is written by
+ * `scripts/shorkie/make_annotations.py`, which refuses to emit a file unless the window is
+ * byte-identical to sacCer3 at its recorded coordinates. So an offset here is a real offset into
+ * the sequence the model was actually run on, not an approximate one.
+ * ------------------------------------------------------------------------------------------- */
+
+/** One annotated feature, clipped to the window it was fetched for. */
+export interface AnnotationFeature {
+  cls: string;
+  name: string;
+  id?: string;
+  start: number;
+  end: number;
+  strand: string;
+  /** Never inferred: which database this record came from. */
+  source: 'sgd' | 'harbison-macisaac' | 'oreganno' | 'jaspar' | 'paper';
+  /** `transRegCode` only: 'good' | 'weak' | 'none' -- whether ChIP supports the conserved call. */
+  evidence?: string;
+  score?: number;
+  matrix?: string;
+  note?: string;
+  truncated?: boolean;
+}
+
+export interface AnnotationClassInfo {
+  label: string;
+  /** Which drawing lane the class belongs to; classes in one lane are packed into shared rows. */
+  lane: 'gene' | 'rna' | 'element' | 'tfbs' | 'regulatory';
+}
+
+/**
+ * Every class the annotation file can carry, and where it is drawn.
+ *
+ * Kept exhaustive rather than defaulting, so a class added upstream shows up as a test failure
+ * instead of silently rendering in whichever lane happens to be first.
+ */
+export const ANNOTATION_CLASSES: Record<string, AnnotationClassInfo> = {
+  gene: { label: 'gene', lane: 'gene' },
+  cds: { label: 'CDS', lane: 'gene' },
+  intron: { label: 'intron', lane: 'gene' },
+  utr_intron: { label: "5' UTR intron", lane: 'gene' },
+  uorf: { label: 'uORF', lane: 'gene' },
+  pseudogene: { label: 'pseudogene', lane: 'gene' },
+  trna: { label: 'tRNA', lane: 'rna' },
+  snorna: { label: 'snoRNA', lane: 'rna' },
+  ncrna: { label: 'ncRNA', lane: 'rna' },
+  snrna: { label: 'snRNA', lane: 'rna' },
+  rrna: { label: 'rRNA', lane: 'rna' },
+  ars: { label: 'ARS', lane: 'element' },
+  ars_consensus: { label: 'ARS consensus', lane: 'element' },
+  ltr: { label: 'LTR', lane: 'element' },
+  transposon: { label: 'transposon', lane: 'element' },
+  centromere: { label: 'centromere', lane: 'element' },
+  telomere: { label: 'telomere', lane: 'element' },
+  tfbs: { label: 'TF binding site', lane: 'tfbs' },
+  regulatory: { label: 'regulatory region', lane: 'regulatory' },
+};
+
+/**
+ * The three tiers of binding-site evidence, which must never be merged into one "motif" layer.
+ *
+ * They are three different claims. A conserved-only call is a computational prediction filtered by
+ * cross-species conservation; a ChIP-supported one adds direct experimental binding; a PWM scan is
+ * a string match. The unfiltered PWM scan is 23,071 hits in a 16 kb window -- 1.4 per base -- so
+ * treating it as equivalent to the other two would drown them.
+ */
+export type MotifTier = 'chip' | 'conserved' | 'pwm' | 'paper';
+
+export function motifTier(f: AnnotationFeature): MotifTier | null {
+  if (f.source === 'paper') return 'paper';
+  if (f.source === 'jaspar') return 'pwm';
+  if (f.source === 'harbison-macisaac') {
+    return f.evidence && f.evidence !== 'none' ? 'chip' : 'conserved';
+  }
+  return null;
+}
+
+/**
+ * A per-position weight for one set of features: 1 inside a feature, 0 outside.
+ *
+ * Overlapping features do not stack -- this is "is this base annotated as X", not "how many X
+ * cover it" -- because the enrichment statistic below reads it as a set membership.
+ */
+export function featureMask(
+  features: AnnotationFeature[],
+  length: number,
+): Uint8Array {
+  const mask = new Uint8Array(length);
+  for (const f of features) {
+    const a = Math.max(0, Math.min(length, Math.floor(f.start)));
+    const b = Math.max(0, Math.min(length, Math.ceil(f.end)));
+    for (let p = a; p < b; p += 1) mask[p] = 1;
+  }
+  return mask;
+}
+
+/**
+ * Pool a mask down to `outLen`, as the FRACTION of each output position that is covered.
+ *
+ * A mean, not a max: at 128 positions each cell is 128 bp of sequence, and a 7 bp binding site
+ * covers 5% of it. Taking a max would report that cell as fully annotated and make every class
+ * look identical once pooled.
+ */
+export function poolCoverage(mask: ArrayLike<number>, outLen: number): Float64Array {
+  const out = new Float64Array(outLen);
+  const n = mask.length;
+  if (n === 0 || outLen === 0) return out;
+  for (let i = 0; i < outLen; i += 1) {
+    const a = Math.floor((i * n) / outLen);
+    const b = Math.max(a + 1, Math.floor(((i + 1) * n) / outLen));
+    let s = 0;
+    for (let p = a; p < b; p += 1) s += Number(mask[p]) || 0;
+    out[i] = s / (b - a);
+  }
+  return out;
+}
+
+export interface EnrichmentResult {
+  /** Mean |signal| inside the feature set, over mean |signal| across the whole window. */
+  ratio: number;
+  nullMean: number;
+  nullSd: number;
+  /** (ratio - nullMean) / nullSd. Not a t statistic; the null is empirical. */
+  z: number;
+  /** Empirical one-sided p, (#{null >= observed} + 1) / (shifts + 1). Never exactly zero. */
+  p: number;
+  /** Fraction of the window the feature set covers -- the denominator's whole story. */
+  covered: number;
+  /** Mean SIGNED signal inside, so a class the model suppresses is distinguishable. */
+  signedInside: number;
+  shifts: number;
+}
+
+/**
+ * Deterministic circular-shift offsets. Not random, so a result is reproducible and testable.
+ *
+ * Evenly spaced across the window and excluding zero: a shift preserves the number of features,
+ * their lengths and their spacing exactly, and destroys only their alignment to the signal. That
+ * is the right null here -- resampling positions instead would compare against a feature set that
+ * does not look like the real one.
+ */
+export function circularShiftOffsets(length: number, shifts: number): number[] {
+  const out: number[] = [];
+  for (let i = 1; i <= shifts; i += 1) {
+    const o = Math.round((i * length) / (shifts + 1)) % length;
+    if (o !== 0) out.push(o);
+  }
+  return out;
+}
+
+/**
+ * How much more of `signal` lands on `weight` than on the window at large.
+ *
+ * `weight` may be binary (a feature mask) or fractional (a pooled coverage), which is what lets the
+ * same statistic answer both "does attribution land on splice sites" and "does this neuron respond
+ * to splice sites" -- one implementation, one null, one test.
+ *
+ * A ratio of 1.0 means no preference. It is a CORRELATION against a stated null, not evidence the
+ * model uses the feature: an annotated site sitting in a region the model attends to for unrelated
+ * reasons scores exactly the same.
+ */
+export function weightedEnrichment(
+  signal: ArrayLike<number>,
+  weight: ArrayLike<number>,
+  shifts = 256,
+): EnrichmentResult | null {
+  const n = Math.min(signal.length, weight.length);
+  if (n === 0) return null;
+  let wSum = 0;
+  let absTotal = 0;
+  for (let i = 0; i < n; i += 1) {
+    wSum += Number(weight[i]) || 0;
+    absTotal += Math.abs(Number(signal[i]) || 0);
+  }
+  if (wSum <= 0 || absTotal <= 0) return null;
+  const background = absTotal / n;
+
+  const inside = (offset: number): { abs: number; signed: number } => {
+    let a = 0;
+    let s = 0;
+    for (let i = 0; i < n; i += 1) {
+      const w = Number(weight[(i + offset) % n]) || 0;
+      if (w === 0) continue;
+      const v = Number(signal[i]) || 0;
+      a += Math.abs(v) * w;
+      s += v * w;
+    }
+    return { abs: a, signed: s };
+  };
+
+  const obs = inside(0);
+  const ratio = obs.abs / wSum / background;
+
+  const offsets = circularShiftOffsets(n, shifts);
+  let sum = 0;
+  let sumSq = 0;
+  let atLeast = 0;
+  for (const o of offsets) {
+    const r = inside(o).abs / wSum / background;
+    sum += r;
+    sumSq += r * r;
+    if (r >= ratio) atLeast += 1;
+  }
+  const k = offsets.length;
+  const nullMean = k ? sum / k : 0;
+  const variance = k > 1 ? Math.max(sumSq / k - nullMean * nullMean, 0) : 0;
+  const nullSd = Math.sqrt(variance);
+
+  return {
+    ratio,
+    nullMean,
+    nullSd,
+    z: nullSd > 0 ? (ratio - nullMean) / nullSd : 0,
+    p: (atLeast + 1) / (k + 1),
+    covered: wSum / n,
+    signedInside: obs.signed / wSum,
+    shifts: k,
+  };
+}
