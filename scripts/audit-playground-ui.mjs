@@ -700,12 +700,14 @@ async function auditTraceback(browser, baseURL, scope) {
     if (a.sig === b.sig) fail(scope, 'attribution is identical for two different regions — not region-specific');
     if (!/bins \d+–\d+/.test(a.label)) fail(scope, `trace label does not name a bin range: "${a.label}"`);
 
-    // An anchor is the base-resolution half of the same feature.
-    const anchors = await page.locator('[data-vp-anchor] option').count();
-    if (anchors < 2) fail(scope, `only ${anchors} anchor option(s); expected gene bodies and peaks`);
-    const labels = await page.locator('[data-vp-anchor] option').allTextContents();
-    await page.selectOption('[data-vp-anchor]', { label: labels.at(-1) });
-    await page.waitForTimeout(400);
+    // The sticky bar is now the ONE region control -- `data-vp-anchor` and the clear button were
+    // two more ways to write the same state, which is how an interface starts disagreeing with
+    // itself. Selecting from the bar must drive the same attribution the drag does.
+    const anchors = await page.locator('[data-vp-region] option').count();
+    if (anchors < 2) fail(scope, `only ${anchors} region option(s); expected gene bodies and peaks`);
+    const labels = await page.locator('[data-vp-region] option').allTextContents();
+    await page.selectOption('[data-vp-region]', { label: labels.at(-1) });
+    await page.waitForTimeout(500);
     const anchor = await page.evaluate(`(async () => {
       const c = document.querySelector('[data-vp-attr]');
       const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
@@ -713,12 +715,23 @@ async function auditTraceback(browser, baseURL, scope) {
       for (let i = 3; i < d.length; i += 4) if (d[i] > 8) ink += 1;
       return { ink, label: document.querySelector('[data-vp-trace-label]').textContent };
     })()`);
-    if (anchor.ink < 500) fail(scope, `anchor "${labels.at(-1)}" painted only ${anchor.ink} pixels`);
-    // Clearing must actually clear, not leave the last region lit.
-    await page.locator('[data-vp-trace-clear]').click();
-    await page.waitForTimeout(300);
-    const cleared = await page.evaluate(() => document.querySelector('[data-vp-trace-label]').textContent);
-    if (/bins \d+/.test(cleared)) fail(scope, `clearing left a trace: "${cleared}"`);
+    if (anchor.ink < 500) fail(scope, `region "${labels.at(-1)}" painted only ${anchor.ink} pixels`);
+
+    // There must be exactly ONE region control on the page, and the read-only context lines must
+    // agree with it rather than carrying their own.
+    const controls = await page.evaluate(() => ({
+      selects: document.querySelectorAll('[data-vp-region], [data-vp-anchor]').length,
+      contexts: document.querySelectorAll('[data-vp-trace-context]').length,
+      contextText: document.querySelector('[data-vp-trace-context]')?.textContent ?? '',
+      bar: document.querySelector('[data-vp-trace-label]')?.textContent ?? '',
+    }));
+    if (controls.selects !== 1) fail(scope, `${controls.selects} region selectors; expected exactly 1`);
+    if (controls.contexts < 2) fail(scope, `${controls.contexts} context lines; expected one per panel`);
+    const bins = controls.bar.match(/bins (\d+)–(\d+)/);
+    if (!bins) fail(scope, `the bar does not name a bin range: "${controls.bar}"`);
+    else if (!controls.contextText.includes(`bins ${bins[1]}–${bins[2]}`)) {
+      fail(scope, `a context line disagrees with the bar: "${controls.contextText}"`);
+    }
   } finally {
     await context.close();
   }

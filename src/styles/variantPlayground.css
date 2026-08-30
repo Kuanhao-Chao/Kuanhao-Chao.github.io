@@ -431,3 +431,75 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
 .vp-basebar { height: 0.6rem; border-radius: 2px; display: block; min-width: 2px; }
 .vp-enrich td.mono, .vp-enrich th.mono { font-family: var(--font-mono, ui-monospace, monospace); }
 .vp-enrich td.mono { letter-spacing: 0.02em; }
+
+/* ---------------------------------------------------------------------------------------------
+   The sticky selection bar and the act headings.
+
+   The bar is the ONE place locus and region are chosen. It sticks to `.vp-scroll`, not to the
+   document -- this is a `bare` page, so html/body are pinned and the inner pane is what scrolls.
+   --------------------------------------------------------------------------------------------- */
+.vp-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.9rem;
+  padding: 0.5rem 1rem;
+  background: var(--vp-panel);
+  border-bottom: 1px solid var(--color-rule);
+  /* Opaque: panels scroll underneath it, and a translucent bar over a dense raster is unreadable. */
+  backdrop-filter: none;
+}
+.vp-nav__group { display: inline-flex; align-items: center; gap: 0.3rem; }
+.vp-nav__label {
+  font-size: var(--fs-meta);
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.68rem;
+}
+.vp-nav__read { font-variant-numeric: tabular-nums; }
+.vp-btn--icon { padding: 0.15rem 0.45rem; line-height: 1.1; }
+
+/* An act is a question the panels beneath it answer. */
+.vp-act {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  margin: 2.2rem 0 0.75rem;
+  font-family: var(--font-display);
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+.vp-body > .vp-act:first-child { margin-top: 0.9rem; }
+.vp-act__n {
+  display: inline-grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  flex: none;
+  border-radius: 50%;
+  background: var(--vp-accent);
+  color: var(--color-bg);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.vp-act__sub {
+  margin: -0.4rem 0 1rem 2.15rem;
+  max-width: 70ch;
+  font-size: var(--fs-meta);
+  color: var(--color-muted);
+}
+
+/* The read-only context line: what is traced, stated where you are reading. */
+.vp-context {
+  margin: 0.5rem 0;
+  padding: 0.4rem 0.6rem;
+  border-left: 2px solid var(--vp-accent);
+  background: color-mix(in srgb, var(--vp-accent) 6%, transparent);
+  font-size: var(--fs-meta);
+  color: var(--color-muted);
+}

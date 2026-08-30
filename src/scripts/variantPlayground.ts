@@ -342,7 +342,12 @@ export function initVariantPlayground(root: ParentNode = document) {
     renderIsmLogo();
     renderNeuronClasses();
     renderSeqLogo();
-    renderMethods();          // the brush rectangle lives on the method strip
+    // Every full-window track carries the focus band, so every one of them repaints when it moves.
+    // Missing one leaves a band pointing at a stretch the panel below is no longer showing.
+    renderMethods();
+    renderTrack();
+    renderAttribution();
+    renderAnnotation();
   }
   /**
    * Which motif tiers are drawn. ChIP-supported on by default; the conservation-only tier (~4x
@@ -737,9 +742,14 @@ export function initVariantPlayground(root: ParentNode = document) {
     for (let i = 1; i < n; i += 1) if (vals[i] > vals[argmax]) argmax = i;
     // Full precision, for the python-vs-browser parity check. The visible label is rounded, and
     // comparing rounded labels is how two different numbers come to look identical.
+    // The same focus band the canvases draw, over the plot area only -- the gene rows below get
+    // theirs from the annotation track, and banding both doubles the ink on a ~7 px marker.
+    focusBandSvg(trackSvg, W, plotTop, plotBottom - plotTop);
+    bindFocusDrag(trackSvg);
     trackSvg.dataset.peak = String(max);
     trackSvg.dataset.peakBin = String(argmax);
     trackSvg.dataset.domainBp = `0-${SEQ_LEN}`;
+    trackSvg.dataset.vpFocus = `${logoWindow.start}-${logoWindow.start + logoWindow.width}`;
     trackSvg.append(
       text(PLOT.left, 13,
         `predicted ${TRACK_GROUPS[groupIndex].label} · 896 bins × 16 bp over bp `
@@ -1393,7 +1403,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     renderEnrichment();
     renderKnockoutSweep();
     host.dataset.vpTraceReady = attribution ? 'true' : 'false';
-    if (anchorSelect) {
+    if (anchorSelect) {                       // removed from the markup; kept null-safe
       clear(anchorSelect);
       const none = document.createElement('option');
       none.value = '';
@@ -1658,7 +1668,23 @@ export function initVariantPlayground(root: ParentNode = document) {
 
     ctx.font = '9px system-ui, sans-serif';
     ctx.textBaseline = 'alphabetic';
+
+    // Genes first, through the SAME renderer the coverage plot uses: exons as blocks, introns as
+    // chevroned lines, strand-aware, with names. Drawing them as plain rectangles here -- which is
+    // what this lane did -- put a solid bar over every intron the plot above draws as a gap.
+    {
+      const locus = LOCI[locusIndex];
+      ctx.fillStyle = muted;
+      ctx.textAlign = 'right';
+      ctx.fillText('genes', PLOT.left - 4, y + 9);
+      ctx.textAlign = 'left';
+      const usedRows = drawGeneRowsCanvas(ctx, locus, width, y);
+      y += usedRows * 11 + 6;
+      drawn += locus.features.length;
+    }
+
     for (const lane of LANES) {
+      if (lane.id === 'gene') continue;      // drawn above, as real gene models
       const inLane = feats.filter((f) => ANNOTATION_CLASSES[f.cls]?.lane === lane.id);
       if (!inLane.length) continue;
       // packGeneRows is generic over {txStart, txEnd}; feed it the annotation spans rather than
@@ -1715,7 +1741,7 @@ export function initVariantPlayground(root: ParentNode = document) {
       probe.font = '9px system-ui, sans-serif';
       need = drawAnnotationTrack(probe, cssW, 0) + 20;
     }
-    const cssH = Math.max(need, 30);
+    const cssH = Math.max(need, 44);   // the gene lane alone needs more than the old 30 px floor
     annCanvas.width = Math.round(cssW * dpr);
     annCanvas.height = Math.round(cssH * dpr);
     annCanvas.style.height = `${cssH}px`;
@@ -1734,6 +1760,9 @@ export function initVariantPlayground(root: ParentNode = document) {
       return;
     }
     drawAnnotationTrack(ctx, cssW, 2);
+    drawFocusBand(ctx, cssW, 0, cssH - 14);
+    bindFocusDrag(annCanvas);
+    annCanvas.dataset.vpFocus = `${logoWindow.start}-${logoWindow.start + logoWindow.width}`;
 
     ctx.fillStyle = muted;
     ctx.textAlign = 'left';
@@ -2035,6 +2064,8 @@ export function initVariantPlayground(root: ParentNode = document) {
   /** Draw the traced attribution: which input positions drive the selected output region. */
   function renderAttribution(): void {
     if (!attrCanvas) return;
+    // Bound once; the helper is idempotent via a dataset flag.
+    bindFocusDrag(attrCanvas);
     const cssW = attrCanvas.clientWidth || 900;
     const cssH = 150;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -2145,9 +2176,13 @@ export function initVariantPlayground(root: ParentNode = document) {
       + ` · peak |attribution| ${peak.toFixed(3)} · same 0–${SEQ_LEN.toLocaleString()} bp axis as the curve above`,
       PLOT.left, 11,
     );
+    // The band, over the attribution plot but not the gene rows beneath it -- the annotation track
+    // bands its own genes, and doubling it on a ~7 px marker is ink without information.
+    drawFocusBand(ctx, cssW, 14, geneTop - 20);
     attrCanvas.dataset.peak = String(peak);
     attrCanvas.dataset.region = tracedBins.label;
     attrCanvas.dataset.domainBp = `0-${SEQ_LEN}`;
+    attrCanvas.dataset.vpFocus = `${logoWindow.start}-${logoWindow.start + logoWindow.width}`;
   }
 
   /**
@@ -2184,6 +2219,7 @@ export function initVariantPlayground(root: ParentNode = document) {
       return { spec, mean: sum / off.channels, top: chans.slice(0, 3) };
     });
     const hi = Math.max(...rows.map((r) => r.mean ?? 0), 1e-12);
+    const totalMean = Math.max(rows.reduce((s, r) => s + (r.mean ?? 0), 0), 1e-12);
 
     for (const row of rows) {
       const li = document.createElement('li');
@@ -2193,7 +2229,13 @@ export function initVariantPlayground(root: ParentNode = document) {
       const val = document.createElement('span');
       // A stage with no per-layer relevance in the pack says so, rather than reporting zero --
       // which would read as "contributes nothing" when it means "not measured here".
-      val.textContent = row.mean === null ? 'own tensor' : row.mean.toPrecision(3);
+      // A share of the traced region's total, not the raw mean: |grad x act| has arbitrary units,
+      // so 13.9 against 0.0486 is unreadable while "48% of the relevance" is not. The ranking is
+      // identical -- this is the same number divided by a constant.
+      val.textContent = row.mean === null
+        ? 'own tensor'
+        : `${((row.mean / totalMean) * 100).toFixed(1)}%`;
+      if (row.mean !== null) val.title = `mean |∂f/∂a ⊙ a| = ${row.mean.toPrecision(3)} (arbitrary units)`;
       li.append(name, val);
       const bar = document.createElement('i');
       bar.className = 'bar';
@@ -2532,6 +2574,9 @@ export function initVariantPlayground(root: ParentNode = document) {
 
     const top = 16;
     const bottom = cssH - 18;
+    // Uniform attention over the bottleneck is 1/128 = 0.0078. Without that line the profile is
+    // normalised to its own peak, so a flat distribution and a concentrated one draw identically.
+    const uniform = 1 / BOTTLENECK_LEN;
     const per = SEQ_LEN / BOTTLENECK_LEN;
     ctx.fillStyle = getComputedStyle(host).getPropertyValue('--vp-orf').trim() || '#6f62a8';
     for (let j = 0; j < BOTTLENECK_LEN; j += 1) {
@@ -2540,6 +2585,22 @@ export function initVariantPlayground(root: ParentNode = document) {
       const h = (profile[j] / Math.max(peak, 1e-12)) * (bottom - top);
       ctx.fillRect(x, bottom - h, w, h);
     }
+    // The uniform line. Everything above it is attention the region spends more than chance on.
+    const uy = bottom - (uniform / Math.max(peak, 1e-12)) * (bottom - top);
+    ctx.save();
+    ctx.strokeStyle = muted;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(PLOT.left, uy + 0.5);
+    ctx.lineTo(cssW - PLOT.right, uy + 0.5);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = muted;
+    ctx.textAlign = 'right';
+    ctx.fillText('uniform', cssW - PLOT.right - 2, Math.max(uy - 2, 8));
+    ctx.textAlign = 'left';
+    ctx.restore();
+
     // Mark the region itself, so "it reads mostly itself" is visible rather than inferred.
     ctx.strokeStyle = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
     ctx.strokeRect(xOfBp(start * per, cssW), top,
@@ -2550,7 +2611,9 @@ export function initVariantPlayground(root: ParentNode = document) {
     ctx.fillStyle = muted;
     ctx.fillText(
       `attention rollout · ${BOTTLENECK_LEN} bottleneck positions of ${per} bp · `
-      + `${(inside * 100).toFixed(1)}% of the region's attention stays inside it`,
+      + `${(inside * 100).toFixed(1)}% of the region's attention stays inside it`
+      + ` · dashed line is uniform (1/${BOTTLENECK_LEN} = ${uniform.toFixed(4)}), peak is `
+      + `${(peak / uniform).toFixed(1)}× it`,
       4, 11,
     );
     ctx.textAlign = 'center';
@@ -3205,8 +3268,11 @@ export function initVariantPlayground(root: ParentNode = document) {
     const seq = LOCI[locusIndex].sequence;
     const { start, width } = logoWindow;
     const W = 1000;
-    const ROW = 74;
-    const H = Math.max(tracks.length, 1) * ROW + 26;
+    const LOGO_ROW = 74;
+    const BAND_ROW = 40;
+    const rowH = (tr: MethodTrack) => (tr.resolutionBp <= 1 ? LOGO_ROW : BAND_ROW);
+    const rowTop = (i: number) => tracks.slice(0, i).reduce((s, tr) => s + rowH(tr), 0) + 16;
+    const H = tracks.reduce((s, tr) => s + rowH(tr), 0) + 26;
     attr(methodLogosSvg, { viewBox: `0 0 ${W} ${H}` });
     if (!tracks.length) {
       methodLogosSvg.append(text(W / 2, 24, 'Trace a region to compare the methods here.', 'vp-ax'));
@@ -3217,7 +3283,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     const px = (i: number) => PLOT.left + (i / width) * inner;
 
     tracks.forEach((tr, r) => {
-      const top = r * ROW + 16;
+      const top = rowTop(r);
       const perBase = tr.resolutionBp <= 1;
       methodLogosSvg.append(text(PLOT.left, top - 4, tr.label, 'vp-ax', 'start'));
       if (perBase) {
@@ -3227,7 +3293,7 @@ export function initVariantPlayground(root: ParentNode = document) {
           if (b >= 0) out[b] = tr.at(start + i) ?? 0;
           return out;
         };
-        const { lo, hi } = drawLogo(methodLogosSvg, column, width, PLOT.left, inner, top, ROW - 22);
+        const { lo, hi } = drawLogo(methodLogosSvg, column, width, PLOT.left, inner, top, LOGO_ROW - 22);
         methodLogosSvg.append(text(W - PLOT.right, top - 4,
           `per base · ${lo.toFixed(3)} … ${hi.toFixed(3)}`, 'vp-ax', 'end'));
       } else {
@@ -3241,8 +3307,8 @@ export function initVariantPlayground(root: ParentNode = document) {
           vals.push({ a: Math.max(bp - start, 0), b: Math.min(bp + step - start, width), v });
           peak = Math.max(peak, Math.abs(v));
         }
-        const mid = top + (ROW - 22) / 2;
-        const half = (ROW - 22) / 2;
+        const mid = top + (BAND_ROW - 20) / 2;
+        const half = (BAND_ROW - 20) / 2;
         for (const cell of vals) {
           const h = (Math.abs(cell.v) / peak) * half;
           const rect = el('rect');
@@ -3411,6 +3477,106 @@ export function initVariantPlayground(root: ParentNode = document) {
     }
   }
 
+  /**
+   * The focus band: the zoom window, drawn identically on EVERY full-window track.
+   *
+   * The zoomed logos show 150 bp of 16,384 -- 0.9% of the axis above them -- and until now nothing
+   * marked which 0.9%. One helper, one colour, one geometry, called from the coverage plot, the
+   * attribution canvas, the method tracks and the annotation track, so the eye can follow the same
+   * band straight down the column.
+   *
+   * `fx` maps a bp offset to an x coordinate in whatever space the caller is drawing in, so the
+   * same routine serves canvases and the SVG without either re-deriving the axis.
+   */
+  function drawFocusBand(
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    top: number,
+    height: number,
+    opts: { label?: boolean } = {},
+  ): void {
+    const a = xOfBp(logoWindow.start, width);
+    const b = xOfBp(logoWindow.start + logoWindow.width, width);
+    const accent = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
+    ctx.save();
+    // Fill, then two hard edges. At 150 bp of 16,384 the band is ~7 px wide, so the edges are what
+    // actually locate it -- a fill alone at that width reads as a smudge.
+    ctx.fillStyle = accent;
+    ctx.globalAlpha = 0.13;
+    ctx.fillRect(a, top, Math.max(b - a, 1.5), height);
+    ctx.globalAlpha = 0.85;
+    ctx.fillRect(a - 0.5, top, 1.25, height);
+    ctx.fillRect(b - 0.5, top, 1.25, height);
+    ctx.globalAlpha = 1;
+    if (opts.label) {
+      ctx.fillStyle = accent;
+      ctx.font = '9px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      const text = `${logoWindow.width} bp`;
+      const w = ctx.measureText(text).width;
+      // Flip the label inside when the band is near the right edge, or it is drawn off the canvas.
+      const x = b + 3 + w > width ? a - 3 - w : b + 3;
+      ctx.fillText(text, x, top + 8);
+    }
+    ctx.restore();
+  }
+
+  /** The same band on the coverage SVG, which is not a canvas. */
+  function focusBandSvg(svg: SVGSVGElement, W: number, top: number, height: number): void {
+    const a = xOfBp(logoWindow.start, W);
+    const b = xOfBp(logoWindow.start + logoWindow.width, W);
+    const rect = el('rect');
+    attr(rect, {
+      x: a, y: top, width: Math.max(b - a, 1.5), height,
+      fill: 'currentColor', opacity: 0.13, class: 'vp-focus',
+    });
+    svg.append(rect);
+    for (const x of [a, b]) {
+      const line = el('line');
+      attr(line, { x1: x, x2: x, y1: top, y2: top + height,
+                   stroke: 'currentColor', 'stroke-width': 1, opacity: 0.85, class: 'vp-focus' });
+      svg.append(line);
+    }
+  }
+
+  /**
+   * Make one full-window track a handle for the focus band.
+   *
+   * Every such track is draggable, not just the method strip: six tracks sharing an axis but only
+   * one of them grabbable is what makes an interface feel like six things instead of one.
+   */
+  function bindFocusDrag(node: HTMLCanvasElement | SVGSVGElement): void {
+    if (node.dataset.vpFocusBound === 'true') return;
+    node.dataset.vpFocusBound = 'true';
+    let anchorBp: number | null = null;
+    const bpAt = (ev: PointerEvent): number => {
+      const r = node.getBoundingClientRect();
+      return Math.max(0, Math.min(SEQ_LEN, bpOfX(ev.clientX - r.left, r.width)));
+    };
+    // The union of canvas and SVG widens addEventListener's parameter to `Event`, so the pointer
+    // type is asserted once here rather than at every use.
+    node.addEventListener('pointerdown', (e) => {
+      const ev = e as PointerEvent;
+      anchorBp = bpAt(ev);
+      (node as unknown as HTMLElement).setPointerCapture?.(ev.pointerId);
+    });
+    node.addEventListener('pointermove', (e) => {
+      if (anchorBp === null) return;
+      const b = bpAt(e as PointerEvent);
+      if (Math.abs(b - anchorBp) >= 20) setLogoWindow(Math.min(anchorBp, b), Math.abs(b - anchorBp));
+    });
+    node.addEventListener('pointerup', (e) => {
+      if (anchorBp === null) return;
+      const b = bpAt(e as PointerEvent);
+      // A pointer that moves a couple of pixels between down and up is a click by intent: recentre
+      // at the current width rather than selecting a zero-width window.
+      if (Math.abs(b - anchorBp) < 20) setLogoWindow(b - logoWindow.width / 2, logoWindow.width);
+      anchorBp = null;
+    });
+    node.addEventListener('pointercancel', () => { anchorBp = null; });
+    (node as unknown as HTMLElement).style.cursor = 'ew-resize';
+  }
+
   /** Draw every available method as a small signal track on the shared bp axis. */
   function renderMethods(): void {
     if (!methodsCanvas) return;
@@ -3476,7 +3642,11 @@ export function initVariantPlayground(root: ParentNode = document) {
       ctx.fillText(bpLabel(bp), x, cssH - 4);
     }
     ctx.textAlign = 'left';
+    // The band, over the whole stack, so all four methods share one visible focus.
+    drawFocusBand(ctx, cssW, 8, Math.max(cssH - 26, 10), { label: true });
+    bindFocusDrag(methodsCanvas);
     methodsCanvas.dataset.tracks = String(tracks.length);
+    methodsCanvas.dataset.vpFocus = `${logoWindow.start}-${logoWindow.start + logoWindow.width}`;
     methodsCanvas.dataset.labels = tracks.map((t) => t.label).join('|');
   }
 
@@ -3702,6 +3872,24 @@ export function initVariantPlayground(root: ParentNode = document) {
   }
 
   /** Trace a bin range and update every view that shows it. */
+  /**
+   * The read-only context lines, in every panel that needs to know what is traced.
+   *
+   * They are text, not controls. Two selectors for one piece of state is how an interface starts
+   * disagreeing with itself; the sticky bar owns the selection and everything else reports it.
+   */
+  function renderTraceContext(): void {
+    const text = tracedBins
+      ? `Tracing ${tracedBins.label} — bins ${tracedBins.start}–${tracedBins.end}`
+        + ` (${(((tracedBins.end - tracedBins.start) * BIN_BP) / SEQ_LEN * 100).toFixed(1)}%`
+        + ' of the window). Change it in the bar at the top, or drag on any full-window track.'
+      : 'No region traced yet — pick one in the bar at the top, or drag across any full-window'
+        + ' track to select one.';
+    for (const el of host.querySelectorAll<HTMLElement>('[data-vp-trace-context]')) {
+      el.textContent = text;
+    }
+  }
+
   function traceBins(start: number, end: number, label: string): void {
     tracedBins = { start: Math.max(0, start), end: Math.min(N_BINS, end), label };
     // Centre EVERY letter view on the region just selected. Leaving the window where it was showed
@@ -3718,9 +3906,10 @@ export function initVariantPlayground(root: ParentNode = document) {
     if (traceLabel) {
       const frac = ((tracedBins.end - tracedBins.start) * BIN_BP) / SEQ_LEN;
       traceLabel.textContent =
-        `Tracing ${label} — bins ${tracedBins.start}–${tracedBins.end}`
-        + ` (${(frac * 100).toFixed(1)}% of the window)`;
+        `${label} · bins ${tracedBins.start}–${tracedBins.end} · ${(frac * 100).toFixed(1)}%`;
     }
+    renderTraceContext();
+    if (regionSelect) regionSelect.value = `${tracedBins.start}:${tracedBins.end}`;
   }
 
   /**
@@ -4326,33 +4515,6 @@ export function initVariantPlayground(root: ParentNode = document) {
    * A click (no drag) recentres at the current width rather than selecting a zero-width window,
    * because a pointer that moves two pixels between down and up is a click by intent.
    */
-  if (methodsCanvas) {
-    let anchorBp: number | null = null;
-    const bpAt = (ev: PointerEvent): number => {
-      const r = methodsCanvas.getBoundingClientRect();
-      return Math.max(0, Math.min(SEQ_LEN, bpOfX(ev.clientX - r.left, r.width)));
-    };
-    methodsCanvas.addEventListener('pointerdown', (ev) => {
-      anchorBp = bpAt(ev);
-      methodsCanvas.setPointerCapture(ev.pointerId);
-    });
-    methodsCanvas.addEventListener('pointermove', (ev) => {
-      if (anchorBp === null) return;
-      const b = bpAt(ev);
-      const w = Math.abs(b - anchorBp);
-      if (w >= 20) setLogoWindow(Math.min(anchorBp, b), w);
-    });
-    methodsCanvas.addEventListener('pointerup', (ev) => {
-      if (anchorBp === null) return;
-      const b = bpAt(ev);
-      if (Math.abs(b - anchorBp) < 20) {
-        const w = Number(brushWidth?.value ?? logoWindow.width);
-        setLogoWindow(b - w / 2, w);
-      }
-      anchorBp = null;
-    });
-    methodsCanvas.addEventListener('pointercancel', () => { anchorBp = null; });
-  }
   // Jump to the window Figure 4 actually publishes. Present only on the six loci that have one --
   // a control that does nothing on eight of fourteen loci is worse than no control.
   logoFigureBtn?.addEventListener('click', () => {
