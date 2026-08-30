@@ -85,10 +85,8 @@ for (const [slug, expectedCount] of expected) {
   }
 
   const html = read(outputPath);
-  const canonical = `https://khchao.com/deep_dives/${slug}/`;
-  if (!html.includes(`<link rel="canonical" href="${canonical}"`))
-    fail(scope, 'self-canonical is missing');
-  if (/name="robots" content="[^"]*noindex/i.test(html)) fail(scope, 'published lesson is noindex');
+  if (!/name="robots" content="[^"]*noindex/i.test(html))
+    fail(scope, 'lesson must be noindex while deep dives are non-indexable');
   if (count(html, /<h1(?:\s|>)/g) !== 1) fail(scope, 'must render exactly one h1');
   if (count(html, /data-interview-question(?:\s|>)/g) !== expectedCount) {
     fail(
@@ -200,7 +198,9 @@ const sitemap = readdirSync(DIST)
   .join('\n');
 for (const slug of [hub, ...expected.keys()]) {
   const url = `https://khchao.com/deep_dives/${slug}/`;
-  if (!sitemap.includes(`<loc>${url}</loc>`)) fail('sitemap', `missing ${url}`);
+  if (sitemap.includes(`<loc>${url}</loc>`)) {
+    fail('sitemap', `${url} must not appear in sitemap while deep dives are non-indexable`);
+  }
 }
 
 if (failures.length) {
