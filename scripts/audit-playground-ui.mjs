@@ -725,6 +725,124 @@ async function auditTraceback(browser, baseURL, scope) {
 }
 
 /**
+ * The explanatory layer and the panels that replaced two others.
+ *
+ * A disclosure that does not open, or a merged panel that lost a source in the merge, both look
+ * fine in a screenshot. These assert behaviour: every disclosure opens and reveals real content,
+ * the logo draws for every source it offers, the occlusion map responds to a click, and the panels
+ * that were archived stay archived.
+ */
+async function auditExplanations(browser, baseURL, scope) {
+  const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1400 } });
+  const page = await context.newPage();
+  try {
+    await enterLocus(page);
+    await page.waitForFunction(
+      () => document.querySelector('[data-vp]').dataset.vpTraceReady === 'true',
+      { timeout: 60_000 },
+    );
+    await page.waitForTimeout(400);
+
+    // --- disclosures ----------------------------------------------------------------------
+    const how = await page.evaluate(() => {
+      const ds = [...document.querySelectorAll('details.vp-how')];
+      return {
+        n: ds.length,
+        anyOpen: ds.some((x) => x.open),
+        bodies: ds.map((x) => (x.querySelector('.vp-how-body')?.textContent ?? '').length),
+        rows: document.querySelectorAll('.vp-collapse-table tbody tr').length,
+      };
+    });
+    if (how.n < 4) fail(scope, `${how.n} "how this is computed" disclosures, expected at least 4`);
+    if (how.anyOpen) fail(scope, 'a disclosure is open by default — they must not crowd the panels');
+    // A disclosure that exists but says nothing is worse than none.
+    how.bodies.forEach((len, i) => {
+      if (len < 400) fail(scope, `disclosure ${i} has only ${len} characters of body`);
+    });
+    if (how.rows < 12) fail(scope, `the collapse table has ${how.rows} rows, expected every collapse`);
+    // It must actually open.
+    await page.locator('details.vp-how').first().click();
+    await page.waitForTimeout(200);
+    const opened = await page.evaluate(
+      () => document.querySelector('details.vp-how')?.open === true,
+    );
+    if (!opened) fail(scope, 'the first disclosure did not open on click');
+
+    // --- the merged logo draws for every source it offers ----------------------------------
+    await page.locator('[data-vp-region-next]').scrollIntoViewIfNeeded();
+    await page.locator('[data-vp-region-next]').click();
+    await page.waitForTimeout(600);
+    const sources = await page.locator('[data-vp-logo-source] option').evaluateAll(
+      (os) => os.map((o) => o.value),
+    );
+    if (sources.length < 4) fail(scope, `logo offers ${sources.length} sources, expected 4`);
+    const seen = new Set();
+    for (const src of sources) {
+      await page.selectOption('[data-vp-logo-source]', src);
+      await page.waitForTimeout(300);
+      const s = await page.evaluate(() => {
+        const e = document.querySelector('[data-vp-seq-logo]');
+        return { letters: Number(e?.dataset.letters ?? '0'), stat: e?.dataset.window ?? '' };
+      });
+      if (!(s.letters > 20)) fail(scope, `logo source "${src}" drew ${s.letters} letters`);
+      seen.add(src);
+    }
+    // The annotated whole-window logo came over from the archived panel and must still be here.
+    const panel = await page.evaluate(() => ({
+      letters: Number(document.querySelector('[data-vp-ism-logo]')?.dataset.letters ?? '0'),
+      boxes: Number(document.querySelector('[data-vp-ism-logo]')?.dataset.boxes ?? '0'),
+    }));
+    if (!(panel.letters > 100)) fail(scope, `the annotated logo drew ${panel.letters} letters`);
+    if (!(panel.boxes > 0)) fail(scope, 'the annotated logo lost its motif and splice boxes in the merge');
+
+    // --- occlusion: marginals and click-through ---------------------------------------------
+    const occl = page.locator('[data-vp-occl]');
+    await occl.scrollIntoViewIfNeeded();
+    const box = await occl.boundingBox();
+    await page.mouse.click(box.x + box.width * 0.45, box.y + box.height * 0.45);
+    await page.waitForTimeout(400);
+    const row = await page.evaluate(() => ({
+      sel: document.querySelector('[data-vp-occl]')?.dataset.selection ?? '',
+      pick: document.querySelector('[data-vp-occl-pick]')?.textContent ?? '',
+    }));
+    if (!/^row:\d+$/.test(row.sel)) fail(scope, `clicking the occlusion map selected "${row.sel}"`);
+    if (!/output bin/.test(row.pick)) fail(scope, `no readout for the clicked row: "${row.pick}"`);
+    await page.keyboard.down('Shift');
+    await page.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.5);
+    await page.keyboard.up('Shift');
+    await page.waitForTimeout(400);
+    const col = await page.evaluate(
+      () => document.querySelector('[data-vp-occl]')?.dataset.selection ?? '',
+    );
+    if (!/^col:\d+$/.test(col)) fail(scope, `shift-clicking selected "${col}", expected a column`);
+
+    // --- the neuron traces are exact and enrichment is reported ------------------------------
+    await page.locator('[data-vp-stage-profile] li').nth(5).click();
+    await page.waitForTimeout(500);
+    const nt = await page.evaluate(() => {
+      const c = document.querySelector('[data-vp-neurons-trace]');
+      return { stage: c?.dataset.stage ?? '', neurons: (c?.dataset.neurons ?? '').split(',').filter(Boolean) };
+    });
+    if (nt.neurons.length < 4) fail(scope, `neuron traces drew ${nt.neurons.length} channels`);
+    if (new Set(nt.neurons).size !== nt.neurons.length) {
+      fail(scope, `neuron traces repeated a channel: ${nt.neurons.join()}`);
+    }
+
+    // --- the archived panels stay archived --------------------------------------------------
+    const gone = await page.evaluate(() => ({
+      ismRaster: document.querySelectorAll('[data-vp-ism]').length,
+      headings: [...document.querySelectorAll('h2')].map((h) => h.textContent ?? ''),
+    }));
+    if (gone.ismRaster) fail(scope, 'the archived mutagenesis raster is back on the page');
+    if (gone.headings.some((h) => /In-silico mutagenesis/.test(h))) {
+      fail(scope, 'the archived mutagenesis panel is back on the page');
+    }
+  } finally {
+    await context.close();
+  }
+}
+
+/**
  * The region-conditioned views: relevance mode, the layer raster's shared scale, the method strip
  * and the occlusion map.
  *
@@ -799,8 +917,13 @@ async function auditRegionViews(browser, baseURL, scope) {
       const c = document.querySelector('[data-vp-methods]');
       return { n: Number(c?.dataset.tracks ?? '0'), labels: c?.dataset.labels ?? '' };
     });
-    if (methods.n < 3) fail(scope, `method strip drew ${methods.n} tracks, expected at least 3`);
-    for (const want of ['mutagenesis', 'gradient', 'occlusion']) {
+    if (methods.n < 4) fail(scope, `method strip drew ${methods.n} tracks, expected at least 4`);
+    // Mutagenesis is deliberately NOT here: it covers 500 bp of 16,384, and the full window is
+    // 39.6 h. It lives in the logo panel. Its absence is a decision, so it is asserted.
+    if (/mutagenesis/i.test(methods.labels)) {
+      fail(scope, 'mutagenesis is back on the coverage strip, where it spans 3% of the axis');
+    }
+    for (const want of ['gradient', 'integrated', 'rollout', 'occlusion']) {
       if (!methods.labels.toLowerCase().includes(want)) {
         fail(scope, `method strip is missing "${want}"; got ${methods.labels}`);
       }
@@ -858,7 +981,7 @@ async function auditPaperFidelity(browser, baseURL, scope) {
       const s = document.querySelector('[data-vp-ism-logo]');
       const paths = [...(s?.querySelectorAll('path.vp-glyph') ?? [])];
       const boxes = [...(s?.querySelectorAll('rect[stroke]') ?? [])];
-      const ism = document.querySelector('[data-vp-ism]')?.dataset.window ?? '0-0';
+      const ism = s?.dataset.window ?? '0-0';
       const [wa, wb] = ism.split('-').map(Number);
       return {
         letters: Number(s?.dataset.letters ?? '0'),
@@ -1032,24 +1155,8 @@ async function auditInterpretation(browser, baseURL, scope) {
       fail(scope, `clicking "${wanted.slice(0, 24)}" opened "${opened.slice(0, 40)}"`);
     }
 
-    // Mutagenesis: present, non-degenerate, and scoped to a stated window.
-    const ismInfo = await page.evaluate(() => {
-      const c = document.querySelector('[data-vp-ism]');
-      if (!c || !c.width) return null;
-      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
-      let ink = 0;
-      const colours = new Set();
-      for (let i = 0; i < d.length; i += 4) {
-        if (d[i + 3] > 8) { ink += 1; if (colours.size < 400) colours.add(`${d[i]},${d[i + 1]},${d[i + 2]}`); }
-      }
-      return { ink, colours: colours.size, peak: Number(c.dataset.peak ?? '0'), window: c.dataset.window ?? '' };
-    });
-    if (!ismInfo) fail(scope, 'no mutagenesis canvas');
-    else {
-      if (!(ismInfo.peak > 0)) fail(scope, 'mutagenesis plane is all zero');
-      if (ismInfo.colours < 10) fail(scope, `mutagenesis raster has ${ismInfo.colours} distinct colours — it is a wash`);
-      if (!/^\d+-\d+$/.test(ismInfo.window)) fail(scope, `mutagenesis window unstated: "${ismInfo.window}"`);
-    }
+    // The mutagenesis raster was archived; its logo lives in the merged panel and is asserted
+    // by the paper-fidelity gate instead.
   } finally {
     await context.close();
   }
@@ -1268,6 +1375,8 @@ async function main() {
           await captureFailure('chromium/traceback', () => auditTraceback(browser, baseURL, 'chromium/traceback'));
           progress('chromium/annotation (14 loci)');
           await captureFailure('chromium/annotation', () => auditAnnotation(browser, baseURL, 'chromium/annotation'));
+          progress('chromium/explanations');
+          await captureFailure('chromium/explanations', () => auditExplanations(browser, baseURL, 'chromium/explanations'));
           progress('chromium/region-views');
           await captureFailure('chromium/region-views', () => auditRegionViews(browser, baseURL, 'chromium/region-views'));
           progress('chromium/paper-fidelity');

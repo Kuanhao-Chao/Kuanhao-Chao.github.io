@@ -30,6 +30,27 @@ export const identity = {
   alumniOf: [
     { name: 'Johns Hopkins University', url: 'https://www.jhu.edu' },
     { name: 'National Taiwan University', url: 'https://www.ntu.edu.tw/english/' },
+    { name: 'Australian National University', url: 'https://www.anu.edu.au/' },
+  ],
+  hasCredential: [
+    {
+      '@type': 'EducationalOccupationalCredential',
+      credentialCategory: 'degree',
+      name: 'Ph.D. in Computer Science',
+      recognizedBy: { '@type': 'CollegeOrUniversity', name: 'Johns Hopkins University' },
+    },
+    {
+      '@type': 'EducationalOccupationalCredential',
+      credentialCategory: 'degree',
+      name: 'M.S.E. in Computer Science',
+      recognizedBy: { '@type': 'CollegeOrUniversity', name: 'Johns Hopkins University' },
+    },
+    {
+      '@type': 'EducationalOccupationalCredential',
+      credentialCategory: 'degree',
+      name: 'B.S. in Electrical Engineering',
+      recognizedBy: { '@type': 'CollegeOrUniversity', name: 'National Taiwan University' },
+    },
   ],
   knowsAbout: [
     'Computational biology',
@@ -42,6 +63,15 @@ export const identity = {
     'Genome annotation',
     'RNA splicing',
     'Genome assembly',
+    'In silico mutagenesis',
+    'Variant effect prediction',
+    'Wavefront Alignment Algorithm',
+    'Minimap2',
+    'Burrows-Wheeler Transform',
+    'Pangenome indexing',
+    'Single-cell genomics',
+    'Statistical genetics',
+    'Genome-wide association studies (GWAS)',
   ],
   // Every spelling/order of the name (romanization spacing/hyphen/case + Chinese
   // forms) so the Person JSON-LD ties each variant to this profile for search.
@@ -59,6 +89,16 @@ export const identity = {
     'khc',
   ],
   twitter: '@KuanHaoChao',
+  sameAs: [
+    'https://scholar.google.com/citations?user=n2AvFg0AAAAJ&hl=en',
+    'https://orcid.org/0000-0003-0099-0692',
+    'https://github.com/Kuanhao-Chao',
+    'https://www.linkedin.com/in/kuanhao-chao/',
+    'https://x.com/KuanHaoChao',
+    'https://bsky.app/profile/kuanhaochao.bsky.social',
+    'https://www.semanticscholar.org/author/Kuan-Hao-Chao/148720875',
+    'https://dblp.org/pid/283/4611.html',
+  ],
 };
 
 /**

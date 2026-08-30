@@ -59,6 +59,31 @@ def quantize_rows(a: np.ndarray) -> tuple[np.ndarray, list[float], list[float]]:
     return q, [round(float(v), 6) for v in lo], [round(float(v), 6) for v in hi]
 
 
+def rc_input(x):
+    """Reverse-complement the model input: reverse position, swap A<->T and C<->G.
+
+    The species channels are position-indexed but base-agnostic, so they reverse without being
+    complemented -- the same split the paper's own RC augmentation makes.
+    """
+    o = x.flip(1).clone()
+    o[:, :, :4] = o[:, :, [3, 2, 1, 0]]
+    return o
+
+
+def rc_grad(g):
+    """Map a gradient computed in reverse-complement coordinates back to forward coordinates.
+
+    `rc` is a permutation, so it is its own inverse and orthogonal: d f(rc x)/dx = rc(df/dy) at
+    y = rc(x). Applying the same reverse-and-swap to the gradient is therefore exactly right, and
+    getting it wrong is silent -- the numbers stay the same size and land on the wrong bases.
+
+    Verified against finite differences on the real model before this shipped: at the same cell,
+    the forward gradient reads -0.002388 against a finite difference of -0.002384, and the mapped
+    reverse gradient +0.003716 against +0.003815 at eps = 1e-3.
+    """
+    return g.flip(0)[:, [3, 2, 1, 0]]
+
+
 def main() -> int:
     import torch
     from PIL import Image
@@ -108,16 +133,36 @@ def main() -> int:
             cov = out[0][bin_lo:bin_hi][:, T0_t].mean(dim=-1).sum()
             return torch.log2(cov + 1.0)
 
-        def attribute(bin_lo: int, bin_hi: int, want_channels: bool):
-            """One backward pass. Returns (grad x input, per-channel relevance, per-position)."""
-            xt = base.clone().requires_grad_(True)
+        def raw_grad(x, bin_lo: int, bin_hi: int, want_channels: bool):
+            """One backward pass on one strand. Returns (input gradient, activations)."""
+            xt = x.clone().requires_grad_(True)
             out, acts = model(xt, want_intermediates=want_channels)
             if want_channels:
-                keys = [k for k in acts if k != "attention"]
-                for k in keys:
+                for k in [k for k in acts if k != "attention"]:
                     acts[k].retain_grad()
             target(out, bin_lo, bin_hi).backward()
-            g = xt.grad[0, :, :4].detach()
+            return xt.grad[0, :, :4].detach(), acts
+
+        def attribute(bin_lo: int, bin_hi: int, want_channels: bool):
+            """Returns (grad x input, per-channel relevance, per-position relevance).
+
+            The INPUT-SPACE attribution is averaged over both strands, which is what Borzoi does and
+            what every published Shorkie ISM run does (`--rc`). Worth knowing what that averaging
+            is and is not: this model was NOT trained with reverse-complement augmentation
+            (`augment_rc: false` in all four params.json), so it is not rc-equivariant and the two
+            strands genuinely disagree -- measured on TDH3, the target reads 15.60 forward against
+            14.23 reversed, and the two gradients correlate at 0.31. Averaging them is a deliberate
+            test-time augmentation, not a free symmetry, and the page says so.
+
+            The per-stage RELEVANCE margins stay forward-only, deliberately. They describe the
+            internal state of one forward pass; averaging a forward-strand activation with a
+            reverse-strand one is not a state the model is ever in, and nothing in the literature
+            does it.
+            """
+            g_f, acts = raw_grad(base, bin_lo, bin_hi, want_channels)
+            # The output bins reverse too: bin b maps to N_BINS-1-b under a whole-window flip.
+            g_r, _ = raw_grad(rc_input(base), N_BINS - bin_hi, N_BINS - bin_lo, False)
+            g = 0.5 * (g_f + rc_grad(g_r))
             # Mean-centre across the four bases before projecting. This is the Borzoi convention --
             # present verbatim in the paper's own helper at yeast_helpers.py:274-277, though gated
             # behind a `subtract_avg` that defaults to False and is never reached -- and it is what
@@ -176,6 +221,11 @@ def main() -> int:
                 xs = (b0 + (float(s) / steps) * delta).requires_grad_(True)
                 out, _ = model(xs, want_intermediates=False)
                 target(out, bin_lo, bin_hi).backward()
+                # Both strands, like gradient x input above, so the two methods differ only in the
+                # path and not in the convention.
+                xr = rc_input(b0 + (float(s) / steps) * delta).requires_grad_(True)
+                out_r, _ = model(xr, want_intermediates=False)
+                target(out_r, N_BINS - bin_hi, N_BINS - bin_lo).backward()
                 # NOT mean-centred, deliberately -- and this is the one place on the page where
                 # that differs from gradient x input. Completeness is IG's whole reason for being:
                 # sum(attributions) = f(x) - f(baseline), exactly. That identity is a telescoping
@@ -184,12 +234,22 @@ def main() -> int:
                 # percent to 8-650%. Given the choice between matching the other method's
                 # convention and keeping the only checkable property any method here has, keep the
                 # property -- and say the two differ.
-                total += xs.grad[0, :, :N_DNA].detach()
+                total += 0.5 * (xs.grad[0, :, :N_DNA].detach()
+                                + rc_grad(xr.grad[0, :, :N_DNA].detach()))
             ig = (delta[0, :, :N_DNA] * (total / steps)).sum(dim=-1).numpy()
+            # The gap must be averaged over the SAME two strands the attributions were, or
+            # completeness is being checked against the wrong target. The average of two complete
+            # decompositions is a complete decomposition of the average -- `rc_grad` is a
+            # permutation so it preserves the sum, and rc(x) - rc(b) = rc(x - b). Leaving the gap
+            # forward-only pushed the error from 0.002-0.15 to 0.22-0.57, which is the change
+            # announcing itself rather than a property genuinely lost.
+            rlo, rhi = N_BINS - bin_hi, N_BINS - bin_lo
             with torch.no_grad():
                 f_x = float(target(model(base, want_intermediates=False)[0], bin_lo, bin_hi))
                 f_0 = float(target(model(b0, want_intermediates=False)[0], bin_lo, bin_hi))
-            return ig, f_x - f_0
+                r_x = float(target(model(rc_input(base), want_intermediates=False)[0], rlo, rhi))
+                r_0 = float(target(model(rc_input(b0), want_intermediates=False)[0], rlo, rhi))
+            return ig, 0.5 * ((f_x - f_0) + (r_x - r_0))
 
         # --- the draggable matrix: one row per group of 8 output bins
         inp = np.zeros((N_GROUPS, INPUT_BINS), dtype=np.float64)
@@ -233,7 +293,8 @@ def main() -> int:
 
         meta = {"groupBins": GROUP_BINS, "groups": N_GROUPS, "inputBins": INPUT_BINS,
                 "stages": N_STAGES, "stagePositions": STAGE_POS, "target": "log2(T0 coverage + 1)",
-                "meanCentred": True, "anchors": anchors}
+                "meanCentred": True, "strands": "rc-averaged (input space); forward only (relevance)",
+                "igSteps": 32, "anchors": anchors}
         sizes = []
         for name, arr in (("attr-input", inp), ("attr-channels", chan), ("attr-anchor", anch),
                           ("attr-positions", posn), ("attr-ig", ig_plane)):

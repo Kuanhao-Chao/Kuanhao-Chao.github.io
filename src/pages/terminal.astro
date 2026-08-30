@@ -4,6 +4,7 @@ import { getCollection } from 'astro:content';
 import { site, identity } from '../data/site';
 import { software, honors, reviewing } from '../data/cv';
 import TerminalKeybar from '../components/TerminalKeybar.astro';
+import { buildBreadcrumbLd } from '../lib/breadcrumbs';
 import '../styles/terminal.css';
 
 // The banner's identity and counts are inlined into the page so it paints on the
@@ -39,12 +40,33 @@ const boot = {
     reviewing: reviewing.length,
   },
 };
+
+const title = "Terminal";
+const description = "An interactive UNIX terminal for khchao.com — browse Kuan-Hao Chao's publications, software, research, and talks from a command line, or ask the built-in bot a question.";
+
+const webAppLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: 'Interactive UNIX Terminal — khchao.com',
+  applicationCategory: 'DeveloperApplication, UtilityApplication',
+  operatingSystem: 'Web Browser',
+  description,
+  url: `${site.url}/terminal/`,
+  author: { '@id': `${site.url}/#person` },
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+};
+
+const breadcrumbLd = buildBreadcrumbLd([
+  { name: 'Terminal', path: '/terminal/' },
+]);
 ---
 <BaseLayout
   bare
-  title="Terminal"
-  description="An interactive UNIX terminal for khchao.com — browse Kuan-Hao Chao's publications, software, research, and talks from a command line, or ask the built-in bot a question."
+  title={title}
+  description={description}
 >
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(webAppLd)} />
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} />
   {/*
     The page *is* the terminal, so there is no site chrome and no visible heading.
     The h1 stays for screen readers and for audit-indexing.mjs, which asserts every

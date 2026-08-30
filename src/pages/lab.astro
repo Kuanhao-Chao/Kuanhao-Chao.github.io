@@ -1,12 +1,35 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import { site } from '../data/site';
+import { buildBreadcrumbLd } from '../lib/breadcrumbs';
+
+const title = "Cell Lab — Interactive Cellular Automata & Biology Playground";
+const description = "A full-screen interactive biological simulation playground. Control cellular homeostasis, proliferation rates, apoptosis, growth speed, chemotaxis, laser tweezers, and epifluorescent staining in real time.";
+
+const webAppLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: 'Cell Lab',
+  applicationCategory: 'EducationalApplication, ScienceApplication',
+  operatingSystem: 'Web Browser (HTML5 Canvas)',
+  description,
+  url: `${site.url}/lab/`,
+  author: { '@id': `${site.url}/#person` },
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+};
+
+const breadcrumbLd = buildBreadcrumbLd([
+  { name: 'Cell Lab', path: '/lab/' },
+]);
 ---
 
 <BaseLayout
-  title="Cell Lab — Interactive Cellular Automata & Biology Playground"
-  description="A full-screen interactive biological simulation playground. Control cellular homeostasis, proliferation rates, apoptosis, growth speed, chemotaxis, laser tweezers, and epifluorescent staining in real time."
+  title={title}
+  description={description}
   bare={true}
 >
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(webAppLd)} />
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} />
   <main class="lab-viewport" id="lab-root">
     <!-- Full-screen simulation canvas -->
     <canvas id="lab-canvas" class="lab-canvas" role="img" aria-label="Cell Lab biological simulation canvas"></canvas>

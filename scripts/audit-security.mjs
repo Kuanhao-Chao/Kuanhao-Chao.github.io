@@ -70,7 +70,10 @@ const SAFE_SET_HTML_FILES = new Set([
   // JSON-LD only: `JSON.stringify` of build-time frontmatter, the same pattern as
   // the posts and reports routes below. No visitor input reaches it.
   'src/layouts/DeepDiveLesson.astro',
+  'src/layouts/PageLayout.astro',
+  'src/pages/chromatin.astro',
   'src/pages/logo-options.astro',
+  'src/pages/lab.astro',
   'src/pages/games/genome-jumper.astro',
   'src/pages/games/jetpack-joyride.astro',
   'src/pages/games/proofreader.astro',
@@ -80,6 +83,9 @@ const SAFE_SET_HTML_FILES = new Set([
   'src/pages/reports/[...slug].astro',
   'src/pages/research/[...slug].astro',
   'src/pages/software.astro',
+  'src/pages/sonic-genome.astro',
+  'src/pages/terminal.astro',
+  'src/pages/variant-playground.astro',
 ]);
 
 const SAFE_INNER_HTML_FILES = new Set([

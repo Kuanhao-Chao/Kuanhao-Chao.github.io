@@ -1,6 +1,7 @@
 ---
 import BaseLayout from './BaseLayout.astro';
 import GenomeAxis from '../components/genomic/GenomeAxis.astro';
+import { buildBreadcrumbLd } from '../lib/breadcrumbs';
 
 interface Props {
   title: string;
@@ -11,8 +12,16 @@ interface Props {
   noindex?: boolean;
 }
 const { title, eyebrow, lead, description, width = 'wide', noindex = false } = Astro.props;
+
+const breadcrumbLd =
+  !noindex && Astro.url.pathname !== '/'
+    ? buildBreadcrumbLd([{ name: title, path: Astro.url.pathname }])
+    : null;
 ---
 <BaseLayout title={title} description={description ?? lead} noindex={noindex}>
+  {breadcrumbLd && (
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} />
+  )}
   <header class="page-head">
     <div class:list={['container', width === 'narrow' && 'container--narrow']}>
       {eyebrow && <p class="eyebrow">{eyebrow}</p>}

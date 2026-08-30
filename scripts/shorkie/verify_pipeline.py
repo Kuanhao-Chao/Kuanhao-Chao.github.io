@@ -290,6 +290,19 @@ def verify_attribution(Image) -> None:
     check(meta.get("meanCentred") is True and "log2" in str(meta.get("target", "")),
           "gradient x input is mean-centred, on the logSED scalar",
           f"target={meta.get('target')}, meanCentred={meta.get('meanCentred')}")
+    # The strand convention, recorded rather than inferred. Every method on the page averages both
+    # strands in input space, matching Borzoi and the `--rc` every published Shorkie ISM run passes;
+    # the per-stage relevance margins deliberately do not, because they describe one forward pass's
+    # internal state and a forward/reverse average is not a state the model is ever in.
+    strands = str(meta.get("strands", ""))
+    check("rc-averaged" in strands and "forward only (relevance)" in strands,
+          "the strand convention is recorded and is the intended split", strands or "(absent)")
+
+    occl_meta = json.loads((packs / f"{loci['loci'][0]['id']}.json").read_text()).get("occl", {})
+    ism_meta = json.loads((packs / f"{loci['loci'][0]['id']}.json").read_text()).get("ism", {})
+    check(occl_meta.get("strands") == "rc-averaged" and ism_meta.get("strands") == "rc-averaged",
+          "occlusion and mutagenesis are rc-averaged too",
+          f"occlusion={occl_meta.get('strands')}, mutagenesis={ism_meta.get('strands')}")
 
 
 def verify_occlusion(Image) -> None:
@@ -389,6 +402,42 @@ def main() -> int:
     if isinstance(report, dict):
         unused = report.get("unused", [])
         check(not unused, "every checkpoint tensor consumed", f"{len(unused)} unused")
+
+    section("4b. the reverse-complement transform")
+    # The mapping that makes rc-averaging correct: rc is a permutation, so it is its own inverse
+    # and d f(rc x)/dx = rc(df/dy). Getting it wrong is silent -- the numbers stay the same size
+    # and land on the wrong bases -- so it is checked against a finite difference on the real model.
+    seq = loci["loci"][0]["sequence"]
+    xb = torch.from_numpy(encode(seq, loci["speciesIndex"]))
+    names_t = json.loads((ROOT / "src" / "data" / "shorkieTrackNames.json").read_text())["identifiers"]
+    T0t = torch.tensor([i for i, n in enumerate(names_t) if "_T0_" in n and 1148 <= i < 4201])
+
+    def rc_in(v):
+        o = v.flip(1).clone()
+        o[:, :, :4] = o[:, :, [3, 2, 1, 0]]
+        return o
+
+    def tgt(out, a, b):
+        return torch.log2(out[0][a:b][:, T0t].mean(dim=-1).sum() + 1.0)
+
+    check(bool(torch.equal(rc_in(rc_in(xb)), xb)),
+          "the reverse-complement transform is an involution", "rc(rc(x)) == x")
+    lo_b, hi_b = 416, 480
+    xr = rc_in(xb).clone().requires_grad_(True)
+    tgt(model(xr)[0], N_BINS - hi_b, N_BINS - lo_b).backward()
+    g_mapped = xr.grad[0, :, :4].detach().flip(0)[:, [3, 2, 1, 0]]
+    i_probe, b_probe = 8500, 2
+    eps = 1e-3
+    with torch.no_grad():
+        r = rc_in(xb).clone()
+        f0 = float(tgt(model(r)[0], N_BINS - hi_b, N_BINS - lo_b))
+        r[0, SEQ_LEN - 1 - i_probe, 3 - b_probe] += eps
+        f1 = float(tgt(model(r)[0], N_BINS - hi_b, N_BINS - lo_b))
+    fd = (f1 - f0) / eps
+    got = float(g_mapped[i_probe, b_probe])
+    check(abs(fd - got) < 0.15 * max(abs(fd), 1e-9),
+          "the mapped reverse gradient lands on the right base",
+          f"finite difference {fd:+.6f} vs mapped gradient {got:+.6f}")
 
     section("5. PyTorch <-> onnxruntime, on real sequence")
     locus = loci["loci"][0]

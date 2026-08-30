@@ -229,11 +229,113 @@ async function auditRobots() {
     return;
   }
   const robots = await readFile(robotsPath, 'utf8');
-  if (!/^Disallow:\s*\/reports\/\s*$/im.test(robots)) {
-    errors.push('robots.txt does not disallow /reports/ while reports are non-indexable.');
+  for (const section of ['reports', 'papers', 'algorithms', 'deep_dives', 'photos']) {
+    if (!new RegExp(`^Disallow:\\s*\\/${section}\\/\\s*$`, 'im').test(robots)) {
+      errors.push(`robots.txt does not disallow /${section}/ while it is non-indexable.`);
+    }
   }
-  if (!/^Disallow:\s*\/papers\/\s*$/im.test(robots)) {
-    errors.push('robots.txt does not disallow /papers/ while papers are non-indexable.');
+}
+
+async function auditAlgorithmsIndex(urls) {
+  const algoSlugs = [
+    '',
+    'debruijn',
+    'duel',
+    'fm-index',
+    'ghmm',
+    'gwas',
+    'ism',
+    'minimap2',
+    'pairwise',
+    'phmm',
+    'string-graph',
+    'wfa',
+  ];
+  for (const slug of algoSlugs) {
+    const url = slug ? `${SITE}/algorithms/${slug}/` : `${SITE}/algorithms/`;
+    const htmlPath = slug
+      ? join(DIST, 'algorithms', slug, 'index.html')
+      : join(DIST, 'algorithms', 'index.html');
+
+    if (urls.has(url)) {
+      errors.push(`${url} appears in sitemap while /algorithms/ is non-indexable.`);
+    }
+    if (await pathExists(htmlPath)) {
+      const html = await readFile(htmlPath, 'utf8');
+      if (!metaContents(html, 'robots').some((v) => v.includes('noindex'))) {
+        errors.push(`${url} is missing noindex meta while /algorithms/ is non-indexable.`);
+      }
+    }
+  }
+}
+
+async function auditDeepDivesIndex(urls) {
+  const ddDir = join(DIST, 'deep_dives');
+  if (!(await pathExists(ddDir))) return;
+  const htmlFiles = (await walkFiles(ddDir)).filter((f) => basename(f) === 'index.html');
+
+  for (const file of htmlFiles) {
+    const rel = file.replace(DIST, '').replace(/\/index\.html$/, '/');
+    const url = `${SITE}${rel}`;
+    if (urls.has(url)) {
+      errors.push(`${url} appears in sitemap while /deep_dives/ is non-indexable.`);
+    }
+    const html = await readFile(file, 'utf8');
+    if (!metaContents(html, 'robots').some((v) => v.includes('noindex'))) {
+      errors.push(`${url} is missing noindex meta while /deep_dives/ is non-indexable.`);
+    }
+  }
+}
+
+async function auditPhotosIndex(urls) {
+  const photoUrl = `${SITE}/photos/`;
+  const htmlPath = join(DIST, 'photos', 'index.html');
+  if (urls.has(photoUrl)) {
+    errors.push('/photos/ appears in sitemap while photo gallery is non-indexable.');
+  }
+  if (await pathExists(htmlPath)) {
+    const html = await readFile(htmlPath, 'utf8');
+    if (!metaContents(html, 'robots').some((v) => v.includes('noindex'))) {
+      errors.push('/photos/ is missing noindex meta while photo gallery is non-indexable.');
+    }
+  }
+}
+
+async function auditStaticPhotoAsset() {
+  const photoPath = join(DIST, 'photos', 'ismb_2024_present_kuan-hao_chao.jpg');
+  if (!(await pathExists(photoPath))) {
+    errors.push('dist/photos/ismb_2024_present_kuan-hao_chao.jpg is missing.');
+    return;
+  }
+  const photoStat = await stat(photoPath);
+  if (photoStat.size < 100_000) {
+    errors.push(`dist/photos/ismb_2024_present_kuan-hao_chao.jpg is unexpectedly small (${photoStat.size} bytes).`);
+  }
+}
+
+async function auditPublicRichSnippets(urls) {
+  const homePath = join(DIST, 'index.html');
+  if (await pathExists(homePath)) {
+    const html = await readFile(homePath, 'utf8');
+    if (!html.includes('"@type":"ProfilePage"') || !html.includes('"@type":"Person"')) {
+      errors.push('Homepage is missing ProfilePage/Person JSON-LD graph.');
+    }
+  }
+
+  const chromatinPath = join(DIST, 'chromatin', 'index.html');
+  if (await pathExists(chromatinPath)) {
+    const html = await readFile(chromatinPath, 'utf8');
+    if (!html.includes('"@type":"WebApplication"')) {
+      errors.push('Chromatin page is missing WebApplication JSON-LD schema.');
+    }
+  }
+
+  const vpPath = join(DIST, 'variant-playground', 'index.html');
+  if (await pathExists(vpPath)) {
+    const html = await readFile(vpPath, 'utf8');
+    if (!html.includes('"@type":"WebApplication"')) {
+      errors.push('Variant playground is missing WebApplication JSON-LD schema.');
+    }
   }
 }
 
@@ -464,6 +566,11 @@ async function main() {
   await auditRobots();
   await auditReportsIndex(reports, urls);
   await auditPapersIndex(urls);
+  await auditAlgorithmsIndex(urls);
+  await auditDeepDivesIndex(urls);
+  await auditPhotosIndex(urls);
+  await auditStaticPhotoAsset();
+  await auditPublicRichSnippets(urls);
   await auditNoDraftReportPdfs();
   await auditTerminalIndex(posts, reports);
   await auditResearchResources();
