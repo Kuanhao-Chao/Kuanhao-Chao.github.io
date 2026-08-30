@@ -44,11 +44,34 @@ const breadcrumbLd = buildBreadcrumbLd([
     </header>
 
     <div class="vp-scroll">
+      <!-- The one place locus and region are chosen. `position: sticky` resolves against the
+           nearest scrolling ancestor, which is .vp-scroll and not the document, so this bar has to
+           live inside it. -->
+      <nav class="vp-nav" aria-label="Locus and region">
+        <span class="vp-nav__group">
+          <label class="vp-nav__label" for="vp-locus">locus</label>
+          <select class="vp-select" id="vp-locus" data-vp-locus aria-label="Preset locus"></select>
+        </span>
+        <span class="vp-nav__group">
+          <label class="vp-nav__label" for="vp-region">region</label>
+          <button type="button" class="vp-btn vp-btn--icon" data-vp-region-prev
+                  aria-label="Previous region">‹</button>
+          <select class="vp-select" id="vp-region" data-vp-region aria-label="Region to trace"></select>
+          <button type="button" class="vp-btn vp-btn--icon" data-vp-region-next
+                  aria-label="Next region">›</button>
+        </span>
+        <span class="vp-stat vp-nav__read" data-vp-trace-label></span>
+        <span class="vp-spacer"></span>
+        <span class="vp-stat" data-vp-region-stat></span>
+      </nav>
     <div class="vp-body">
+        <p class="vp-act" id="act-1"><span class="vp-act__n">1</span>
+          What does the model predict?</p>
+        <p class="vp-act__sub">A 16,384 bp window in, coverage over 896 bins and 5,215 tracks out. Start here: pick a locus and a region in the bar above, and read down the shared axis — prediction, attribution, the four methods, then the curated evidence for what is really there.</p>
+
         <section class="vp-panel">
           <h2>Sequence</h2>
           <div class="vp-controls" style="margin-bottom:0.55rem;">
-            <select class="vp-select" data-vp-locus aria-label="Preset locus"></select>
             <span class="vp-stat" data-vp-livestat></span>
           </div>
           <div class="vp-motifs" data-vp-motifs hidden>
@@ -79,61 +102,6 @@ const breadcrumbLd = buildBreadcrumbLd([
         </section>
 
       <!-- ------------------------------------------------- full-width flow -->
-      <section class="vp-panel vp-flow-panel">
-        <h2>The network, end to end — watch a sequence pass through it</h2>
-        <div class="vp-controls" style="margin-bottom:0.45rem;">
-          <button type="button" class="vp-btn" data-vp-view="2d" aria-pressed="true">flat</button>
-          <button type="button" class="vp-btn" data-vp-view="3d" aria-pressed="false">volume</button>
-          <span class="vp-stat" style="margin-left:0.5rem">showing</span>
-          <button type="button" class="vp-btn" data-vp-showing="activation" aria-pressed="true">activation</button>
-          <button type="button" class="vp-btn" data-vp-showing="relevance" aria-pressed="false">relevance for the traced region</button>
-          <button type="button" class="vp-btn" data-vp-spin hidden>↻ resume rotation</button>
-          <span class="vp-stat">Same layout either way: height is positions, width is channels.</span>
-        </div>
-        <canvas class="vp-canvas vp-flow3d" data-vp-flow3d hidden role="img"
-                aria-label="The network as slabs along a depth axis; drag to orbit"></canvas>
-        <canvas class="vp-canvas vp-flow" data-vp-flow role="img"
-                aria-label="Shorkie architecture: 20 stages from the 16,384 bp input to 896 output bins"></canvas>
-        <div class="vp-controls" style="margin-top:0.5rem;">
-          <button type="button" class="vp-btn" data-vp-play aria-pressed="false">▶ Play</button>
-          <input class="vp-range" type="range" min="0" max="1000" value="1000" data-vp-scrub
-                 style="flex:1;min-width:9rem" aria-label="Position of the wavefront through the network" />
-          <span class="vp-stat" data-vp-stagestat></span>
-        </div>
-        <p class="vp-notes" style="margin:0.4rem 0 0;">
-          Each block is one stage, sized by its real dimensions on the log scales named above. Click a stage to inspect it.
-          Before you run the model the blocks are empty outlines; afterwards they fill with the
-          activations from that same forward pass.
-          <br /><br />
-          <strong>Switch to “relevance” and the same blocks show one region instead of the whole
-          window.</strong> Trace a region below, and every stage repaints with what it contributed to{' '}
-          <em>that region alone</em> — every other output bin masked out. Both of the map's margins
-          are exact: the per-channel one and the per-position one are each a row-sum of precomputed
-          groups, because gradients are linear in which outputs you select. Its interior is their
-          outer product, which is the only reconstruction consistent with both margins if channel and
-          position act independently — a real assumption, and the reason the panel names it.
-        </p>
-      </section>
-
-      <!-- ------------------------------------------------- layer detail -->
-      <section class="vp-panel" data-vp-stage-detail>
-        <h2>This layer, in detail <span class="vp-stat" data-vp-stage-title></span>
-          <canvas class="vp-aspect" data-vp-aspect width="34" height="22" role="img"
-                  aria-label="The tensor's real proportions: width is positions, height is channels"
-          ></canvas></h2>
-        <div class="vp-controls">
-          <button type="button" class="vp-btn" data-vp-tab="activation" aria-pressed="true">activation</button>
-          <button type="button" class="vp-btn" data-vp-tab="attention" aria-pressed="false" hidden>attention</button>
-          <span class="vp-stat" data-vp-stage-top></span>
-          <span class="vp-legend" data-vp-legend aria-hidden="true"></span>
-        </div>
-        <ol class="vp-sublayers" data-vp-sublayers></ol>
-        <canvas class="vp-canvas" data-vp-stage-map role="img"
-                aria-label="Activation map for the selected layer"></canvas>
-        <p class="vp-notes" data-vp-stage-note style="margin:0.4rem 0 0;"></p>
-      </section>
-
-
         <section class="vp-panel">
           <h2>Predicted coverage — the full model</h2>
           <div class="vp-controls" style="margin-bottom:0.5rem;">
@@ -146,28 +114,6 @@ const breadcrumbLd = buildBreadcrumbLd([
                   aria-label="Which input bases drive the selected output region"></canvas>
           <canvas class="vp-canvas" data-vp-methods role="img"
                   aria-label="Every interpretability method on one axis, aligned with the annotation"></canvas>
-
-          <svg class="vp-svg" data-vp-method-logos role="img"
-               aria-label="Each method as a DNA logo over the selected window"></svg>
-          <div class="vp-controls vp-annctl">
-            <span class="vp-stat" data-vp-brush-stat>drag across the method tracks to zoom</span>
-            <select class="vp-select" data-vp-brush-width aria-label="Zoom window width">
-              <option value="60">60 bp</option>
-              <option value="150" selected>150 bp</option>
-              <option value="400">400 bp</option>
-              <option value="1000">1,000 bp</option>
-            </select>
-          </div>
-          <p class="vp-notes" style="margin:0.35rem 0 0;">
-            <strong>The same window, as letters, for every method that has them.</strong> A logo of
-            the whole 16,384 bp window is not a drawing that exists — one base is{' '}
-            <strong>0.078 px</strong> — so the strip above stays a signal and the letters live in a
-            zoom. Drag across any method track to move it. Only{' '}
-            <em>gradient × input</em> and <em>integrated gradients</em> are per-base, so only those
-            two become letters; attention rollout resolves 128 bp and occlusion 64 bp, and they are
-            drawn as bands at their real resolution rather than stretched into letters they cannot
-            support.
-          </p>
 
           <canvas class="vp-canvas" data-vp-annotation role="img"
                   aria-label="Curated S. cerevisiae annotation across the window"></canvas>
@@ -193,6 +139,29 @@ const breadcrumbLd = buildBreadcrumbLd([
             strengths of evidence that must not be read as one. A grey cap marks a feature clipped
             by the window edge, so that edge is never mistaken for a real boundary.
           </p>
+
+          <svg class="vp-svg" data-vp-method-logos role="img"
+               aria-label="Each method as a DNA logo over the selected window"></svg>
+          <div class="vp-controls vp-annctl">
+            <span class="vp-stat" data-vp-brush-stat>drag across the method tracks to zoom</span>
+            <select class="vp-select" data-vp-brush-width aria-label="Zoom window width">
+              <option value="60">60 bp</option>
+              <option value="150" selected>150 bp</option>
+              <option value="400">400 bp</option>
+              <option value="1000">1,000 bp</option>
+            </select>
+          </div>
+          <p class="vp-notes" style="margin:0.35rem 0 0;">
+            <strong>The same window, as letters, for every method that has them.</strong> A logo of
+            the whole 16,384 bp window is not a drawing that exists — one base is{' '}
+            <strong>0.078 px</strong> — so the strip above stays a signal and the letters live in a
+            zoom. Drag across any method track to move it. Only{' '}
+            <em>gradient × input</em> and <em>integrated gradients</em> are per-base, so only those
+            two become letters; attention rollout resolves 128 bp and occlusion 64 bp, and they are
+            drawn as bands at their real resolution rather than stretched into letters they cannot
+            support.
+          </p>
+
           <p class="vp-notes" style="margin:0.35rem 0 0;">
             <strong>Four methods, one axis, one annotation.</strong> They do not measure the same
             thing and are not expected to agree everywhere:{' '}
@@ -207,11 +176,7 @@ const breadcrumbLd = buildBreadcrumbLd([
             A method that covers only part of the window is drawn in place with the rest left blank,
             which is what the paper does for its own partial windows.
           </p>
-          <div class="vp-controls" style="margin-top:0.35rem;">
-            <span class="vp-stat" data-vp-trace-label>Drag across the curve above to trace a region back to the sequence.</span>
-            <select class="vp-select" data-vp-anchor aria-label="Trace a gene at single-base resolution"></select>
-            <button type="button" class="vp-btn" data-vp-trace-clear>clear</button>
-          </div>
+          <p class="vp-context" data-vp-trace-context></p>
           <p class="vp-notes" style="margin:0.35rem 0 0;">
             <strong>Traceback.</strong> Gradient × input: how much the prediction over the selected
             bins moves per unit of each input base, times the base that is actually there. It is a{' '}
@@ -316,13 +281,249 @@ const breadcrumbLd = buildBreadcrumbLd([
 
       <!-- ------------------------------------------------- interpretation -->
       <section class="vp-panel">
-        <h2>Trace a region — layer by layer, back to the sequence</h2>
-        <div class="vp-controls" style="margin-bottom:0.5rem;">
-          <button type="button" class="vp-btn" data-vp-region-prev>‹ prev</button>
-          <select class="vp-select" data-vp-region aria-label="Region to trace"></select>
-          <button type="button" class="vp-btn" data-vp-region-next>next ›</button>
-          <span class="vp-stat" data-vp-region-stat></span>
+        <h2>Every output track <span class="vp-stat" data-vp-heat-stat></span></h2>
+        <canvas class="vp-canvas vp-heat" data-vp-heat role="img"
+                aria-label="All 5,215 predicted output tracks, one row each, grouped by assay"></canvas>
+        <div class="vp-controls" style="margin-top:0.5rem;">
+          <select class="vp-select" data-vp-pick-group aria-label="Assay block"></select>
+          <select class="vp-select" data-vp-pick-key aria-label="Regulator, ChIP target or run"></select>
+          <select class="vp-select" data-vp-pick-track aria-label="Timepoint or replicate"></select>
         </div>
+        <div class="vp-controls" style="margin-top:0.35rem;">
+          <span class="vp-stat" data-vp-track-name></span>
+        </div>
+        <svg class="vp-svg" data-vp-single role="img"
+             aria-label="The selected output track across the window"></svg>
+        <p class="vp-notes" style="margin:0.4rem 0 0;">
+          One row per predicted experiment, in the order the released targets sheet lists them, so
+          the four assay blocks read as bands. Click a row to plot that single track below — the
+          overview above averages thousands of experiments, which is a curve no instrument would
+          produce. Where rows outnumber pixels each drawn row is the maximum over the tracks it covers.
+        </p>
+      </section>
+
+
+        <p class="vp-act" id="act-2"><span class="vp-act__n">2</span>
+          Which bases drive it?</p>
+        <p class="vp-act__sub">Zoom into the focus band and read the attribution base by base, then ask the complementary question the logo cannot: which stretches of input drive which outputs.</p>
+
+      <section class="vp-panel">
+        <h2>The bases themselves <span class="vp-stat" data-vp-logo-stat></span></h2>
+        <svg class="vp-svg" data-vp-ism-logo role="img"
+             aria-label="The window's attribution as the paper's sequence logo, with motif and splice annotations"></svg>
+        <p class="vp-notes" style="margin:0.35rem 0 0.6rem;">
+          <strong>The whole window, as the paper draws it.</strong> Red dashed boxes are matched
+          motifs and splice landmarks; click one to zoom the logo below onto it. The navy track is
+          the gene model in the paper's own IGV style.
+        </p>
+        <div class="vp-controls" style="margin-bottom:0.45rem;">
+          <input class="vp-range" type="range" min="0" max="1000" value="500" data-vp-logo-pan
+                 style="flex:1;min-width:9rem" aria-label="Position of the sequence logo window" />
+          <select class="vp-select" data-vp-logo-source aria-label="Attribution source">
+            <option value="grad" selected>gradient × input</option>
+            <option value="ig">integrated gradients</option>
+            <option value="occl">occlusion</option>
+          </select>
+          <select class="vp-select" data-vp-logo-width aria-label="Logo window width">
+            <option value="60">60 bp</option>
+            <option value="150" selected>150 bp</option>
+            <option value="400">400 bp</option>
+          </select>
+          <button type="button" class="vp-btn" data-vp-logo-figure hidden>the paper's window</button>
+        </div>
+        <svg class="vp-svg" data-vp-seq-logo role="img"
+             aria-label="Gradient times input attribution as a sequence logo"></svg>
+        <p class="vp-notes" style="margin:0.4rem 0 0;">
+          <strong>Drawn exactly as the paper draws it</strong> — the real DejaVu Sans Bold glyphs at
+          the paper's own per-letter offsets, scaled 1.35× on both axes, A green / C blue / G orange /
+          T red, stacked largest-magnitude nearest the axis with positives up and negatives mirrored
+          below. Letters overflow their column and touch; that density is the published look, not a
+          bug. The colours are fixed in every theme, because a figure's base colours are part of the
+          figure.
+        </p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>Two sources, and they are not the same method.</strong> <em>Mutagenesis</em> is the
+          paper's Figure 4 quantity: every substitution actually run, then mean-centred across the
+          four bases and projected on the reference, so the height reads as “how much the base that
+          is <em>there</em> matters” rather than “what this one substitution did”. It covers the
+          promoter window only — a full-window single-base mutagenesis is 1.4 h a locus and 39.6 h
+          for all fourteen, measured — so outside that window the panel says so rather than quietly
+          drawing something else. <em>Gradient × input</em> is a local linear
+          sensitivity — it is identically zero at the three bases not present, because the input is
+          one-hot, so it draws one letter per position. <strong>The paper's published figures use no
+          gradients at all</strong>; its single gradient routine is unreached scaffolding that still
+          declares a 4-channel input the 170-channel model cannot accept. Gradient × input is here
+          because it is instant, not because it is what the paper did.
+        </p>
+              <details class="vp-how">
+          <summary>How the logo is drawn, and why only one letter appears per position</summary>
+          <div class="vp-how-body">
+            <p><strong>The geometry is the paper's, not an approximation of it.</strong> Real DejaVu
+            Sans Bold outlines for A/C/G/T with the paper's own hand-tuned per-letter x-offsets
+            (A −0.350, C −0.366, G −0.384, T −0.305 — not half-advances), scaled by{' '}
+            <code>globscale = 1.35</code> on <em>both</em> axes, which is what makes a stack summing
+            to S fill height S and what makes adjacent letters touch. Colours are the paper's
+            saturated X11 values <code>#008000 / #0000FF / #FFA500 / #FF0000</code>, fixed in every
+            theme because a figure's base colours are part of the figure. Letters are stacked
+            descending by magnitude, positives up from zero and negatives <em>mirrored</em> below,
+            with y-limits at the data min and max each padded by 5% of max|v|.</p>
+            <p><strong>Mutagenesis</strong> is the paper's Figure 4 quantity, in three steps
+            (<code>fig4_common.py:227-230</code>, and identically in two other files):
+            average logSED over the T0 tracks → <em>mean-centre across the four bases</em> →{' '}
+            <em>project on the reference one-hot</em>. Step two is what turns "what this substitution
+            did" into "how much the base that is <em>there</em> matters"; step three is why exactly
+            one letter survives per position. Given the shipped plane <code>P</code> with the
+            reference cell zero, that value is exactly <code>−(Σ P)/4</code>.</p>
+            <p><strong>Gradient × input</strong> also draws one letter per position, but for a
+            different reason: the input is one-hot, so gradient × input is <em>identically zero</em>{' '}
+            at the three bases that are not there. That is a property of the method, not a rendering
+            choice.</p>
+            <p><strong>Occlusion</strong> resolves 64 bp, so every base inside a window carries that
+            window's value and the logo reads as blocks. Its sign is flipped to match the others:
+            occlusion measures what is <em>lost</em>, so a base that matters has a negative logSED,
+            and the logo convention is that up means "raises the prediction".</p>
+          </div>
+        </details>
+</section>
+
+      <section class="vp-panel">
+        <h2>What drives what <span class="vp-stat" data-vp-occl-stat></span></h2>
+        <div class="vp-controls" style="margin-bottom:0.4rem;">
+          <label class="vp-stat" style="display:inline-flex;align-items:center;gap:0.35rem;">
+            <input type="checkbox" data-vp-occl-norm /> scale each output bin to its own range
+          </label>
+          <span class="vp-stat" data-vp-occl-pick></span>
+        </div>
+        <canvas class="vp-canvas vp-occl" data-vp-occl role="img"
+                aria-label="Occlusion map: input window on x, output bin on y, colour is what that output loses"></canvas>
+        <p class="vp-notes" style="margin:0.4rem 0 0;">
+          <strong>Every input window against every output bin.</strong> Each column is a 64 bp stretch
+          of the input, ablated; each row is one of the 896 output bins; the colour is what that bin
+          loses when that stretch is gone. Blue is a loss, red a gain. This is the only genuinely
+          two-dimensional view on the page — every other method collapses to a single profile over
+          the input — and it is measured, not inferred: 256 real forward passes a locus.
+        </p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>Read it as a map, and read both parts.</strong> The dark diagonal is local effect —
+          a window damaging the output directly above it — and per cell it is by far the strongest
+          thing here. But it is also narrow: one window of 256. Summed across the row, the local
+          footprint accounts for only <strong>0.2–5.6%</strong> of the most damaging window's total
+          effect, so the diagonal is where the model is <em>most intense</em> and the off-diagonal is
+          where most of what it does actually lives. Neither statement alone is the truth.
+          Off the diagonal, a <em>vertical stripe</em> is an input stretch many outputs depend on and
+          a <em>horizontal stripe</em> is an output bin that reads widely.
+        </p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>The edges are the margins.</strong> The strip along the top is the column sum —
+          how much each input window matters summed over every output — and the strip down the right
+          is the row sum, how much each output bin depends on the sequence at all. <strong>Click a
+          row</strong> to read that one output bin's input profile, or <strong>a column</strong> to
+          see which outputs that window drives; click again to clear. Bins differ in expression by
+          orders of magnitude, so the checkbox rescales each row to its own range when the raw map is
+          dominated by the loudest ones.
+          <br /><br />
+          Ablation zeroes the four DNA channels, which is exactly how the paper's language model masks
+          a position and is indistinguishable from a run of N. That is a different question from the
+          motif knockouts above, which <em>shuffle</em>: a shuffle keeps base composition and asks
+          whether the arrangement matters, while zeroing asks whether the stretch carries information
+          at all.
+        </p>
+              <details class="vp-how">
+          <summary>How the occlusion map is computed</summary>
+          <div class="vp-how-body">
+            <p>For each of 256 windows of 64 bp: zero the four DNA channels across that window, run
+            the model, and record <code>log2(alt + 1) − log2(ref + 1)</code> for{' '}
+            <em>every one of the 896 output bins</em>. One forward pass answers a whole row, which is
+            why a complete <span class="shape">[256 × 896]</span> map costs 256 passes — 27 s a
+            locus, 54 s with both strands — and why this is the cheapest exact method here.</p>
+            <p><strong>Per cell the unit is logSED</strong>, a log2 fold change, so bins of wildly
+            different expression are comparable within a row. The default colour scale is shared
+            across the whole matrix for that reason; the checkbox rescales each output bin to its own
+            range, which trades the between-bin comparison for the within-bin one and is worth it
+            when a few loud bins dominate.</p>
+            <p><strong>The margins</strong> are plain sums of <code>|logSED|</code>: the top strip is
+            each input window summed over all 896 bins, the right strip each output bin summed over
+            all 256 windows.</p>
+            <p><strong>The diagonal is not the identity line.</strong> The two axes cover different
+            spans — the input is the whole 16,384 bp window, the output only the cropped
+            1,024–15,360 interior — so it is a line of slope &lt;1 that reaches neither corner. It is
+            drawn dashed where it actually falls.</p>
+            <p><strong>Zeroing is not shuffling.</strong> Zeroing the DNA channels is how the paper's
+            language model masks a position and is indistinguishable from a run of N: it asks whether
+            the stretch carries information at all. The motif knockouts above <em>shuffle</em>, which
+            preserves base composition and asks whether the arrangement matters. Different questions,
+            and they can disagree.</p>
+            <p><strong>What occlusion cannot see:</strong> redundancy. If two stretches carry the same
+            information, removing either alone changes nothing, and this map reports both as
+            unimportant.</p>
+          </div>
+        </details>
+</section>
+
+
+      <!-- ------------------------------------------------- every output track -->
+        <p class="vp-act" id="act-3"><span class="vp-act__n">3</span>
+          What happens inside?</p>
+        <p class="vp-act__sub">The same prediction, from the inside. Watch a sequence pass through all twenty stages, open any one of them, then trace one output region back through every layer to the bases.</p>
+
+      <section class="vp-panel vp-flow-panel">
+        <h2>The network, end to end — watch a sequence pass through it</h2>
+        <div class="vp-controls" style="margin-bottom:0.45rem;">
+          <button type="button" class="vp-btn" data-vp-view="2d" aria-pressed="true">flat</button>
+          <button type="button" class="vp-btn" data-vp-view="3d" aria-pressed="false">volume</button>
+          <span class="vp-stat" style="margin-left:0.5rem">showing</span>
+          <button type="button" class="vp-btn" data-vp-showing="activation" aria-pressed="true">activation</button>
+          <button type="button" class="vp-btn" data-vp-showing="relevance" aria-pressed="false">relevance for the traced region</button>
+          <button type="button" class="vp-btn" data-vp-spin hidden>↻ resume rotation</button>
+          <span class="vp-stat">Same layout either way: height is positions, width is channels.</span>
+        </div>
+        <canvas class="vp-canvas vp-flow3d" data-vp-flow3d hidden role="img"
+                aria-label="The network as slabs along a depth axis; drag to orbit"></canvas>
+        <canvas class="vp-canvas vp-flow" data-vp-flow role="img"
+                aria-label="Shorkie architecture: 20 stages from the 16,384 bp input to 896 output bins"></canvas>
+        <div class="vp-controls" style="margin-top:0.5rem;">
+          <button type="button" class="vp-btn" data-vp-play aria-pressed="false">▶ Play</button>
+          <input class="vp-range" type="range" min="0" max="1000" value="1000" data-vp-scrub
+                 style="flex:1;min-width:9rem" aria-label="Position of the wavefront through the network" />
+          <span class="vp-stat" data-vp-stagestat></span>
+        </div>
+        <p class="vp-notes" style="margin:0.4rem 0 0;">
+          Each block is one stage, sized by its real dimensions on the log scales named above. Click a stage to inspect it.
+          Before you run the model the blocks are empty outlines; afterwards they fill with the
+          activations from that same forward pass.
+          <br /><br />
+          <strong>Switch to “relevance” and the same blocks show one region instead of the whole
+          window.</strong> Trace a region below, and every stage repaints with what it contributed to{' '}
+          <em>that region alone</em> — every other output bin masked out. Both of the map's margins
+          are exact: the per-channel one and the per-position one are each a row-sum of precomputed
+          groups, because gradients are linear in which outputs you select. Its interior is their
+          outer product, which is the only reconstruction consistent with both margins if channel and
+          position act independently — a real assumption, and the reason the panel names it.
+        </p>
+      </section>
+
+      <!-- ------------------------------------------------- layer detail -->
+      <section class="vp-panel" data-vp-stage-detail>
+        <h2>This layer, in detail <span class="vp-stat" data-vp-stage-title></span>
+          <canvas class="vp-aspect" data-vp-aspect width="34" height="22" role="img"
+                  aria-label="The tensor's real proportions: width is positions, height is channels"
+          ></canvas></h2>
+        <div class="vp-controls">
+          <button type="button" class="vp-btn" data-vp-tab="activation" aria-pressed="true">activation</button>
+          <button type="button" class="vp-btn" data-vp-tab="attention" aria-pressed="false" hidden>attention</button>
+          <span class="vp-stat" data-vp-stage-top></span>
+          <span class="vp-legend" data-vp-legend aria-hidden="true"></span>
+        </div>
+        <ol class="vp-sublayers" data-vp-sublayers></ol>
+        <canvas class="vp-canvas" data-vp-stage-map role="img"
+                aria-label="Activation map for the selected layer"></canvas>
+        <p class="vp-notes" data-vp-stage-note style="margin:0.4rem 0 0;"></p>
+      </section>
+
+
+      <section class="vp-panel">
+        <h2>Trace a region — layer by layer, back to the sequence</h2>
+        <p class="vp-context" data-vp-trace-context></p>
         <p class="vp-notes vp-lede">
           Five questions, in order. Each one narrows the last: <strong>which stages</strong> carry
           this region, then <strong>which neurons</strong> inside the strongest of them,{' '}
@@ -498,183 +699,9 @@ const breadcrumbLd = buildBreadcrumbLd([
         </details>
 </section>
 
-      <section class="vp-panel">
-        <h2>The bases themselves <span class="vp-stat" data-vp-logo-stat></span></h2>
-        <svg class="vp-svg" data-vp-ism-logo role="img"
-             aria-label="The window's attribution as the paper's sequence logo, with motif and splice annotations"></svg>
-        <p class="vp-notes" style="margin:0.35rem 0 0.6rem;">
-          <strong>The whole window, as the paper draws it.</strong> Red dashed boxes are matched
-          motifs and splice landmarks; click one to zoom the logo below onto it. The navy track is
-          the gene model in the paper's own IGV style.
-        </p>
-        <div class="vp-controls" style="margin-bottom:0.45rem;">
-          <input class="vp-range" type="range" min="0" max="1000" value="500" data-vp-logo-pan
-                 style="flex:1;min-width:9rem" aria-label="Position of the sequence logo window" />
-          <select class="vp-select" data-vp-logo-source aria-label="Attribution source">
-            <option value="grad" selected>gradient × input</option>
-            <option value="ig">integrated gradients</option>
-            <option value="occl">occlusion</option>
-          </select>
-          <select class="vp-select" data-vp-logo-width aria-label="Logo window width">
-            <option value="60">60 bp</option>
-            <option value="150" selected>150 bp</option>
-            <option value="400">400 bp</option>
-          </select>
-          <button type="button" class="vp-btn" data-vp-logo-figure hidden>the paper's window</button>
-        </div>
-        <svg class="vp-svg" data-vp-seq-logo role="img"
-             aria-label="Gradient times input attribution as a sequence logo"></svg>
-        <p class="vp-notes" style="margin:0.4rem 0 0;">
-          <strong>Drawn exactly as the paper draws it</strong> — the real DejaVu Sans Bold glyphs at
-          the paper's own per-letter offsets, scaled 1.35× on both axes, A green / C blue / G orange /
-          T red, stacked largest-magnitude nearest the axis with positives up and negatives mirrored
-          below. Letters overflow their column and touch; that density is the published look, not a
-          bug. The colours are fixed in every theme, because a figure's base colours are part of the
-          figure.
-        </p>
-        <p class="vp-notes" style="margin:0.35rem 0 0;">
-          <strong>Two sources, and they are not the same method.</strong> <em>Mutagenesis</em> is the
-          paper's Figure 4 quantity: every substitution actually run, then mean-centred across the
-          four bases and projected on the reference, so the height reads as “how much the base that
-          is <em>there</em> matters” rather than “what this one substitution did”. It covers the
-          promoter window only — a full-window single-base mutagenesis is 1.4 h a locus and 39.6 h
-          for all fourteen, measured — so outside that window the panel says so rather than quietly
-          drawing something else. <em>Gradient × input</em> is a local linear
-          sensitivity — it is identically zero at the three bases not present, because the input is
-          one-hot, so it draws one letter per position. <strong>The paper's published figures use no
-          gradients at all</strong>; its single gradient routine is unreached scaffolding that still
-          declares a 4-channel input the 170-channel model cannot accept. Gradient × input is here
-          because it is instant, not because it is what the paper did.
-        </p>
-              <details class="vp-how">
-          <summary>How the logo is drawn, and why only one letter appears per position</summary>
-          <div class="vp-how-body">
-            <p><strong>The geometry is the paper's, not an approximation of it.</strong> Real DejaVu
-            Sans Bold outlines for A/C/G/T with the paper's own hand-tuned per-letter x-offsets
-            (A −0.350, C −0.366, G −0.384, T −0.305 — not half-advances), scaled by{' '}
-            <code>globscale = 1.35</code> on <em>both</em> axes, which is what makes a stack summing
-            to S fill height S and what makes adjacent letters touch. Colours are the paper's
-            saturated X11 values <code>#008000 / #0000FF / #FFA500 / #FF0000</code>, fixed in every
-            theme because a figure's base colours are part of the figure. Letters are stacked
-            descending by magnitude, positives up from zero and negatives <em>mirrored</em> below,
-            with y-limits at the data min and max each padded by 5% of max|v|.</p>
-            <p><strong>Mutagenesis</strong> is the paper's Figure 4 quantity, in three steps
-            (<code>fig4_common.py:227-230</code>, and identically in two other files):
-            average logSED over the T0 tracks → <em>mean-centre across the four bases</em> →{' '}
-            <em>project on the reference one-hot</em>. Step two is what turns "what this substitution
-            did" into "how much the base that is <em>there</em> matters"; step three is why exactly
-            one letter survives per position. Given the shipped plane <code>P</code> with the
-            reference cell zero, that value is exactly <code>−(Σ P)/4</code>.</p>
-            <p><strong>Gradient × input</strong> also draws one letter per position, but for a
-            different reason: the input is one-hot, so gradient × input is <em>identically zero</em>{' '}
-            at the three bases that are not there. That is a property of the method, not a rendering
-            choice.</p>
-            <p><strong>Occlusion</strong> resolves 64 bp, so every base inside a window carries that
-            window's value and the logo reads as blocks. Its sign is flipped to match the others:
-            occlusion measures what is <em>lost</em>, so a base that matters has a negative logSED,
-            and the logo convention is that up means "raises the prediction".</p>
-          </div>
-        </details>
-</section>
-
-      <section class="vp-panel">
-        <h2>What drives what <span class="vp-stat" data-vp-occl-stat></span></h2>
-        <div class="vp-controls" style="margin-bottom:0.4rem;">
-          <label class="vp-stat" style="display:inline-flex;align-items:center;gap:0.35rem;">
-            <input type="checkbox" data-vp-occl-norm /> scale each output bin to its own range
-          </label>
-          <span class="vp-stat" data-vp-occl-pick></span>
-        </div>
-        <canvas class="vp-canvas vp-occl" data-vp-occl role="img"
-                aria-label="Occlusion map: input window on x, output bin on y, colour is what that output loses"></canvas>
-        <p class="vp-notes" style="margin:0.4rem 0 0;">
-          <strong>Every input window against every output bin.</strong> Each column is a 64 bp stretch
-          of the input, ablated; each row is one of the 896 output bins; the colour is what that bin
-          loses when that stretch is gone. Blue is a loss, red a gain. This is the only genuinely
-          two-dimensional view on the page — every other method collapses to a single profile over
-          the input — and it is measured, not inferred: 256 real forward passes a locus.
-        </p>
-        <p class="vp-notes" style="margin:0.35rem 0 0;">
-          <strong>Read it as a map, and read both parts.</strong> The dark diagonal is local effect —
-          a window damaging the output directly above it — and per cell it is by far the strongest
-          thing here. But it is also narrow: one window of 256. Summed across the row, the local
-          footprint accounts for only <strong>0.2–5.6%</strong> of the most damaging window's total
-          effect, so the diagonal is where the model is <em>most intense</em> and the off-diagonal is
-          where most of what it does actually lives. Neither statement alone is the truth.
-          Off the diagonal, a <em>vertical stripe</em> is an input stretch many outputs depend on and
-          a <em>horizontal stripe</em> is an output bin that reads widely.
-        </p>
-        <p class="vp-notes" style="margin:0.35rem 0 0;">
-          <strong>The edges are the margins.</strong> The strip along the top is the column sum —
-          how much each input window matters summed over every output — and the strip down the right
-          is the row sum, how much each output bin depends on the sequence at all. <strong>Click a
-          row</strong> to read that one output bin's input profile, or <strong>a column</strong> to
-          see which outputs that window drives; click again to clear. Bins differ in expression by
-          orders of magnitude, so the checkbox rescales each row to its own range when the raw map is
-          dominated by the loudest ones.
-          <br /><br />
-          Ablation zeroes the four DNA channels, which is exactly how the paper's language model masks
-          a position and is indistinguishable from a run of N. That is a different question from the
-          motif knockouts above, which <em>shuffle</em>: a shuffle keeps base composition and asks
-          whether the arrangement matters, while zeroing asks whether the stretch carries information
-          at all.
-        </p>
-              <details class="vp-how">
-          <summary>How the occlusion map is computed</summary>
-          <div class="vp-how-body">
-            <p>For each of 256 windows of 64 bp: zero the four DNA channels across that window, run
-            the model, and record <code>log2(alt + 1) − log2(ref + 1)</code> for{' '}
-            <em>every one of the 896 output bins</em>. One forward pass answers a whole row, which is
-            why a complete <span class="shape">[256 × 896]</span> map costs 256 passes — 27 s a
-            locus, 54 s with both strands — and why this is the cheapest exact method here.</p>
-            <p><strong>Per cell the unit is logSED</strong>, a log2 fold change, so bins of wildly
-            different expression are comparable within a row. The default colour scale is shared
-            across the whole matrix for that reason; the checkbox rescales each output bin to its own
-            range, which trades the between-bin comparison for the within-bin one and is worth it
-            when a few loud bins dominate.</p>
-            <p><strong>The margins</strong> are plain sums of <code>|logSED|</code>: the top strip is
-            each input window summed over all 896 bins, the right strip each output bin summed over
-            all 256 windows.</p>
-            <p><strong>The diagonal is not the identity line.</strong> The two axes cover different
-            spans — the input is the whole 16,384 bp window, the output only the cropped
-            1,024–15,360 interior — so it is a line of slope &lt;1 that reaches neither corner. It is
-            drawn dashed where it actually falls.</p>
-            <p><strong>Zeroing is not shuffling.</strong> Zeroing the DNA channels is how the paper's
-            language model masks a position and is indistinguishable from a run of N: it asks whether
-            the stretch carries information at all. The motif knockouts above <em>shuffle</em>, which
-            preserves base composition and asks whether the arrangement matters. Different questions,
-            and they can disagree.</p>
-            <p><strong>What occlusion cannot see:</strong> redundancy. If two stretches carry the same
-            information, removing either alone changes nothing, and this map reports both as
-            unimportant.</p>
-          </div>
-        </details>
-</section>
-
-
-      <!-- ------------------------------------------------- every output track -->
-      <section class="vp-panel">
-        <h2>Every output track <span class="vp-stat" data-vp-heat-stat></span></h2>
-        <canvas class="vp-canvas vp-heat" data-vp-heat role="img"
-                aria-label="All 5,215 predicted output tracks, one row each, grouped by assay"></canvas>
-        <div class="vp-controls" style="margin-top:0.5rem;">
-          <select class="vp-select" data-vp-pick-group aria-label="Assay block"></select>
-          <select class="vp-select" data-vp-pick-key aria-label="Regulator, ChIP target or run"></select>
-          <select class="vp-select" data-vp-pick-track aria-label="Timepoint or replicate"></select>
-        </div>
-        <div class="vp-controls" style="margin-top:0.35rem;">
-          <span class="vp-stat" data-vp-track-name></span>
-        </div>
-        <svg class="vp-svg" data-vp-single role="img"
-             aria-label="The selected output track across the window"></svg>
-        <p class="vp-notes" style="margin:0.4rem 0 0;">
-          One row per predicted experiment, in the order the released targets sheet lists them, so
-          the four assay blocks read as bands. Click a row to plot that single track below — the
-          overview above averages thousands of experiments, which is a curve no instrument would
-          produce. Where rows outnumber pixels each drawn row is the maximum over the tracks it covers.
-        </p>
-      </section>
-
+        <p class="vp-act" id="act-4"><span class="vp-act__n">4</span>
+          Does any of it match real biology?</p>
+        <p class="vp-act__sub">The tests that can come out negative. Every curated binding site knocked out and measured, and the attribution scored against annotation the model never saw.</p>
 
       <section class="vp-panel">
         <h2>Every curated site, knocked out <span class="vp-stat" data-vp-ko-stat></span></h2>
@@ -788,6 +815,10 @@ const breadcrumbLd = buildBreadcrumbLd([
           </div>
         </details>
       </section>
+
+        <p class="vp-act" id="act-5"><span class="vp-act__n">5</span>
+          How do I read any of this?</p>
+        <p class="vp-act__sub">Every panel collapses a multi-dimensional tensor to something drawable, and they do not all collapse the same axis the same way.</p>
 
       <section class="vp-panel">
         <h2>Every dimension this page collapses</h2>
