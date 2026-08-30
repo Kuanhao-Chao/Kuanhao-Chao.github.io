@@ -725,6 +725,118 @@ async function auditTraceback(browser, baseURL, scope) {
 }
 
 /**
+ * The region-conditioned views: relevance mode, the layer raster's shared scale, the method strip
+ * and the occlusion map.
+ *
+ * The rule throughout is that a panel must change when the thing it depends on changes. A relevance
+ * map wired to the activations paints exactly as much ink as a correct one, and a method track
+ * reading the wrong plane looks identical to one reading the right plane.
+ */
+async function auditRegionViews(browser, baseURL, scope) {
+  const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1400 } });
+  const page = await context.newPage();
+  try {
+    await enterLocus(page);
+    await page.waitForFunction(
+      () => document.querySelector('[data-vp]').dataset.vpTraceReady === 'true',
+      { timeout: 60_000 },
+    );
+    await page.waitForTimeout(500);
+
+    // --- one row is one channel, at every anonymous-channel stage -------------------------
+    const heights = [];
+    for (const v of [60, 200, 380, 620, 860]) {
+      await page.evaluate((n) => {
+        const s = document.querySelector('[data-vp-scrub]');
+        s.value = String(n);
+        s.dispatchEvent(new Event('input', { bubbles: true }));
+      }, v);
+      await page.waitForTimeout(200);
+      heights.push(await page.evaluate(() => {
+        const c = document.querySelector('[data-vp-stage-map]');
+        const shape = document.querySelector('[data-vp-aspect]')?.dataset.shape ?? '0x0';
+        return { channels: Number(shape.split('x')[1]), h: Math.round(c.getBoundingClientRect().height) };
+      }));
+    }
+    // Furniture is a constant, so height minus channels must be the same at every stage.
+    const furniture = [...new Set(heights.map((x) => x.h - x.channels))];
+    if (furniture.length !== 1) {
+      fail(scope, `layer raster is not one row per channel: height-minus-channels varies ${furniture.join()}`);
+    }
+    if (new Set(heights.map((x) => x.h)).size < 3) {
+      fail(scope, 'layer raster height barely varies across stages — it is still being stretched');
+    }
+
+    // --- relevance mode ------------------------------------------------------------------
+    const flowInk = () => page.evaluate(() => {
+      const c = document.querySelector('[data-vp-flow]');
+      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      let sum = 0;
+      for (let i = 0; i < d.length; i += 4) sum = (sum + d[i] * (i % 11)) % 2147483647;
+      return sum;
+    });
+    await page.locator('[data-vp-region-next]').scrollIntoViewIfNeeded();
+    await page.locator('[data-vp-region-next]').click();
+    await page.waitForTimeout(700);
+    const asActivation = await flowInk();
+    await page.locator('[data-vp-showing="relevance"]').click();
+    await page.waitForTimeout(700);
+    const asRelevance = await flowInk();
+    if (asActivation === asRelevance) {
+      fail(scope, 'the flow canvas is identical in activation and relevance mode');
+    }
+    // ... and relevance must be region-specific, or it is not relevance.
+    await page.locator('[data-vp-region-next]').click();
+    await page.waitForTimeout(700);
+    if (await flowInk() === asRelevance) {
+      fail(scope, 'relevance mode does not change with the traced region');
+    }
+    await page.locator('[data-vp-showing="activation"]').click();
+    await page.waitForTimeout(400);
+
+    // --- the method strip ----------------------------------------------------------------
+    const methods = await page.evaluate(() => {
+      const c = document.querySelector('[data-vp-methods]');
+      return { n: Number(c?.dataset.tracks ?? '0'), labels: c?.dataset.labels ?? '' };
+    });
+    if (methods.n < 3) fail(scope, `method strip drew ${methods.n} tracks, expected at least 3`);
+    for (const want of ['mutagenesis', 'gradient', 'occlusion']) {
+      if (!methods.labels.toLowerCase().includes(want)) {
+        fail(scope, `method strip is missing "${want}"; got ${methods.labels}`);
+      }
+    }
+
+    // --- the occlusion map ---------------------------------------------------------------
+    const occ = await page.evaluate(() => {
+      const c = document.querySelector('[data-vp-occl]');
+      if (!c || !c.width) return null;
+      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      let ink = 0;
+      const colours = new Set();
+      for (let i = 0; i < d.length; i += 4) {
+        if (d[i + 3] > 8) { ink += 1; if (colours.size < 500) colours.add(`${d[i]},${d[i + 1]},${d[i + 2]}`); }
+      }
+      return { ink, colours: colours.size, peak: Number(c.dataset.peak ?? '0') };
+    });
+    if (!occ) fail(scope, 'no occlusion canvas');
+    else {
+      if (!(occ.peak > 0)) fail(scope, 'occlusion matrix is all zero');
+      if (occ.colours < 20) fail(scope, `occlusion map has ${occ.colours} distinct colours — a wash`);
+    }
+
+    // --- the stage stack must be the EXACT margin now -------------------------------------
+    const exact = await page.evaluate(
+      () => document.querySelector('[data-vp-stage-stack]')?.dataset.exact,
+    );
+    if (exact !== 'true') {
+      fail(scope, 'the stage stack is still using the factorised estimate — the packs lack the positional margin');
+    }
+  } finally {
+    await context.close();
+  }
+}
+
+/**
  * The paper-faithful pieces: the logo's own geometry, the ISM logo panel, and the stage stack.
  *
  * Fidelity here is the whole point, so these assert the exact constants rather than "it drew
@@ -1156,6 +1268,8 @@ async function main() {
           await captureFailure('chromium/traceback', () => auditTraceback(browser, baseURL, 'chromium/traceback'));
           progress('chromium/annotation (14 loci)');
           await captureFailure('chromium/annotation', () => auditAnnotation(browser, baseURL, 'chromium/annotation'));
+          progress('chromium/region-views');
+          await captureFailure('chromium/region-views', () => auditRegionViews(browser, baseURL, 'chromium/region-views'));
           progress('chromium/paper-fidelity');
           await captureFailure('chromium/paper-fidelity', () => auditPaperFidelity(browser, baseURL, 'chromium/paper-fidelity'));
           progress('chromium/interpretation');

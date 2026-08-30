@@ -38,6 +38,17 @@ export interface FlowActivations {
 export interface FlowController {
   setScrub(t: number): void;
   setActivations(a: FlowActivations | null): void;
+  /**
+   * Override what each block paints, so the same canvas can show a traced region's RELEVANCE
+   * instead of the forward activation. Pass null to go back to activations.
+   *
+   * A provider rather than a second canvas: the geometry, the hit testing, the wavefront and the
+   * play control are all identical, and only the tensor differs. Building a parallel canvas would
+   * have duplicated every one of those and let the two drift.
+   */
+  setRelevance(fn: ((stage: FlowStage) => {
+    data: ArrayLike<number>; channels: number; positions: number;
+  } | null) | null): void;
   setPlaying(on: boolean): void;
   isPlaying(): boolean;
   select(index: number | null): void;
@@ -116,6 +127,7 @@ export function nearestStage(frac: number, stages: FlowStage[]): number {
 export function createFlow(canvas: HTMLCanvasElement, host: HTMLElement): FlowController {
   let scrub = 1;
   let acts: FlowActivations | null = null;
+  let relevanceFn: ((s: FlowStage) => { data: ArrayLike<number>; channels: number; positions: number } | null) | null = null;
   let selectedIndex: number | null = null;
   let playing = false;
   let raf = 0;
@@ -211,7 +223,7 @@ export function createFlow(canvas: HTMLCanvasElement, host: HTMLElement): FlowCo
     STAGES.forEach((s, i) => {
       const { x, y, bw, bh } = box(s);
       const reached = x <= front;
-      const map = reached ? stageMap(s, acts) : null;
+      const map = reached ? (relevanceFn ? relevanceFn(s) : stageMap(s, acts)) : null;
 
       if (map) {
         // Paint the real activation, every cell, transposed so the block's own axes hold:
@@ -391,6 +403,10 @@ export function createFlow(canvas: HTMLCanvasElement, host: HTMLElement): FlowCo
       scrub = Math.min(Math.max(t, 0), 1);
       draw();
       changeFn?.(scrub, STAGES[stageAt(scrub, STAGES).index], playing);
+    },
+    setRelevance(fn) {
+      relevanceFn = fn;
+      draw();
     },
     setActivations(a) {
       acts = a;

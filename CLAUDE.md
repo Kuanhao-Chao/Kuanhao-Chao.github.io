@@ -1067,6 +1067,69 @@ earlier assumptions did not survive reading it.
   the early residual blocks are spatially near-uniform once pooled to 128 positions, and a
   sequential ramp renders that truth as a saturated bar reading "maximally relevant everywhere".
 
+#### Region-conditioned interpretation
+
+- **`y[0, a:b, T0]` is (tracks, bins), not (bins, tracks).** An integer index beside an array index
+  makes numpy treat the integer as advanced too and move the broadcast axis to the FRONT. So
+  `y[0, a:b, T0].mean(axis=-1).sum()` averages over BINS and sums over TRACKS — the paper's quantity
+  with its axes swapped, off by a factor of `n_bins/n_tracks`. It shipped that way in the mutagenesis
+  generator. **`verify_pipeline.py` re-derived it with the same wrong indexing and therefore agreed
+  with the pack and passed** — an assertion is not evidence when both sides share the mistake. Index
+  in two steps: `y[0][a:b][:, T0]`.
+  The numerical damage was small and is worth knowing why: logSED is a log RATIO and the coverage
+  sums are far above the +1 pseudocount, so a constant factor cancels. Measured, the worst error
+  across all fourteen loci was **5e-3 in logSED**, at or below the packs' own uint8 floor.
+- **Mean-centring destroys integrated gradients' completeness.** IG's whole value is that its
+  attributions SUM to `f(x) − f(baseline)`; that identity is a telescoping integral of the RAW
+  gradient, and subtracting the per-position mean across bases breaks it. Measured: mean-centred, the
+  completeness error was **8–650 %**; un-centred, **0.4–13 %** at 32 steps, and most of that 13 % is
+  one anchor whose gap is only −0.08. So gradient × input IS mean-centred (the Borzoi convention, and
+  what makes it comparable with the paper's ISM) and IG deliberately is NOT — the page says the two
+  differ and why. Report the completeness error **absolutely as well as relatively**: a near-zero gap
+  turns a 0.04 miss into "652 %".
+- **Occlusion is the cheapest exact method here, because one pass answers every output at once.**
+  Ablating input window *w* and reading all 896 bins costs a single forward pass, so the complete
+  `[256 × 896]` input-region × output-region matrix is 256 passes — **22 s a locus**. Nothing else on
+  the page is two-dimensional.
+- **The occlusion map's diagonal is intense but narrow, and both halves of that are the finding.**
+  Per cell the diagonal dominates; but it is one window in 256, so summed over a row the local
+  footprint is only **0.3–8 %** of the most damaging window's total effect. Saying only "the model is
+  local" or only "the model is long-range" is half the truth, and the panel says both.
+- **Ablation-by-zeroing and motif-shuffling ask different questions.** Zeroing the four DNA channels
+  is how the paper's LM masks a position and is indistinguishable from a run of N: it asks whether
+  the stretch carries information at all. A shuffle preserves base composition and asks whether the
+  *arrangement* matters. The knockout panel does the second; occlusion deliberately does the first.
+- **Both attribution margins are exact and both superpose; only the interior is estimated.** The
+  per-channel margin `[112 × 5760]` and the per-position margin `[112 × 18×128]` are each a row-sum
+  of the precomputed groups, because gradients are linear in which outputs you select — so an
+  arbitrary contiguous region is exact with no model run. `relevanceMap` reconstructs the interior as
+  their outer product, which is the unique distribution matching both margins under independence.
+  That replaced an estimate that weighted the channel margin by the stage's **activation**, which
+  reports wherever the stage is loudest — on a 16 kb yeast window, whichever gene is most expressed,
+  whatever region was asked about. **Measured, the two are essentially uncorrelated**: across the
+  stages, `corr(exact, estimate)` runs −0.08 to 0.23, and their argmax positions disagree entirely.
+  The exact profile peaks at bottleneck positions 12–24 for a region occupying bp 1,536–3,088 —
+  i.e. exactly where the region is — while the estimate peaks anywhere from 15 to 105. The old
+  panel was not answering the question it asked.
+- **The positional margins are not a rectangle until you pool them.** The stages do not share a
+  position count: block1 has 16,384 and block7 has 256, so the raw margins total 35,328. Pool to the
+  packs' common 128 **by sum, not mean** — relevance is additive, and a mean makes a coarse stage
+  look quieter merely for being coarse.
+- **`PX_PER_CHANNEL` — one row is one channel, at every stage.** The layer raster used to stretch
+  every stage to ~300 px, which destroyed exactly the comparison it exists for. The two stages whose
+  rows are NAMED rather than numbered (the input's four bases, the head's four assay groups) are a
+  deliberate exception at 4 px they would be unreadable, and the panel says so rather than hiding it.
+- **The fold-f0 checkpoint is fetchable**, 54.9 MB from the URL `scripts/shorkie/README.md`
+  documents, into the gitignored `scripts/shorkie/_scratch/`. With it, `verify_pipeline.py` sections
+  4–9 run for the first time and all pass: accounting exact at 14,253,567, PyTorch ↔ shipped fp16
+  graph 4.98e-04, shipped predictions ↔ live 8.59e-04, every pack ↔ live ≤ 2.8e-03.
+- **A blanket string replace across a render function duplicates call sites silently.** Adding two
+  renderers by `t.replace(call, call + new)` across four call sites produced eleven mangled calls at
+  three indentation levels and dropped the flow-canvas repaint from one of them — so relevance mode
+  went stale for a new region while every panel below it updated. The audit caught it. The fix was
+  one `refreshRegionViews()` helper; the lesson is that N call sites wanting the same list is a
+  function, not a replace.
+
 **The volume view** (`src/scripts/shorkieFlow3d.ts`) is the third view, behind a `flat`/`volume`
 toggle, built on first use so the `three` chunk is only fetched for a reader who asks:
 
