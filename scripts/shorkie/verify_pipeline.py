@@ -423,8 +423,11 @@ def main() -> int:
     check(bool(torch.equal(rc_in(rc_in(xb)), xb)),
           "the reverse-complement transform is an involution", "rc(rc(x)) == x")
     lo_b, hi_b = 416, 480
-    xr = rc_in(xb).clone().requires_grad_(True)
-    tgt(model(xr)[0], N_BINS - hi_b, N_BINS - lo_b).backward()
+    # The script disables grad globally -- everything else here is inference -- so turn it back on
+    # for exactly this check rather than leaving it on for the whole run.
+    with torch.enable_grad():
+        xr = rc_in(xb).clone().requires_grad_(True)
+        tgt(model(xr)[0], N_BINS - hi_b, N_BINS - lo_b).backward()
     g_mapped = xr.grad[0, :, :4].detach().flip(0)[:, [3, 2, 1, 0]]
     i_probe, b_probe = 8500, 2
     eps = 1e-3
