@@ -925,6 +925,76 @@ Keras checkpoint, ported and exported, producing the same numbers the paper's mo
   on the page — it is a canvas, so there is no element to inspect — and counting the *decomposition*
   instead would pass while the drawing was wrong. 7 of the 14 loci draw at least one intron as a gap.
 
+#### The yeast annotation layer
+
+- **`make_annotations.py` refuses to write unless the window IS sacCer3 at its stated coordinates.**
+  Every offset in `public/vp-data/<id>-ann.json` is a subtraction from the locus `start`, so if the
+  sequence the model ran on is not the sequence at those coordinates, every feature is wrong by an
+  unknown amount and looks perfectly plausible. All 14 windows are byte-identical, verified.
+- **Two sources, two conventions.** SGD's GFF3 is **1-based inclusive**; UCSC's API is **0-based
+  half-open**. Confusing them shifts every feature by one, which is invisible on a 16 kb drawing and
+  fatal to a motif coordinate. The script cross-checks its own conversion against the gene models
+  already in `shorkieLoci.json` and **refuses to write on a single mismatch**.
+- **That cross-check found a real defect on its first run: HOP2's shipped gene model was one intron
+  short.** SGD gives `YGL033W` three CDS exons and two introns; the shipped model had two exons and
+  one, ending 50 bp early, so its second intron (window 8491–8553) was drawn as coding. It was the
+  only one of 112 CDS spans that disagreed — a systematic off-by-one would have moved all 112 by 1,
+  which is how the shape of the failure identified it as stale annotation rather than bad
+  arithmetic. Fixing it moved HOP2's anchor bins 423–470 → 423–473, so its attribution and
+  mutagenesis packs were regenerated.
+- **A cross-check that examines nothing must fail, not pass.** That same check first reported
+  `0/0` and was green: SGD names a CDS `YGR189C_CDS` and parents it to `YGR189C_id001`, so the name
+  join matched nothing. `systematic_id` strips those suffixes and the script now stops on zero
+  comparisons.
+- **Curated TFBS locations are reachable, but not from their original hosts.** MacIsaac 2006's MIT
+  page is a 404 and ScerTF does not respond; **UCSC mirrors the same work for sacCer3**. Per 16 kb
+  window: `transRegCode` **467** conserved calls of which **53 carry ChIP evidence**, `oreganno`
+  **52** curated regions, `jaspar2026` **23,071** PWM hits — 1.4 per base.
+- **That 23,071 is the argument for the threshold and belongs on the face of the page.** At UCSC
+  score ≥ 500 it is 67 a window; ≥ 600 is 7. The three evidence tiers are drawn differently — solid
+  for ChIP-supported, hollow for conserved-only, hairline for a PWM match — because they are three
+  different claims and merging them into one "motif" layer would drown the strong one in the weak.
+- **The enrichment table measures every tier whatever the canvas is drawing.** Tying it to the
+  drawing toggles hid the three-tier comparison, which is the finding: gradient × input enriches
+  **3.26×** on ChIP-supported sites against **1.25×** conserved-only and **1.49×** PWM. The evidence
+  tier predicts where the model looks.
+- **The null is a circular shift, not a resample.** Rotation preserves the feature count, every
+  length and every gap, and destroys only alignment. Resampling positions compares against an
+  annotation that does not resemble the real one and calls almost everything significant. Offsets
+  are deterministic (evenly spaced, zero excluded) so a published ratio is reproducible.
+- **Pool an annotation mask by MEAN, never by max.** A 7 bp site covers 5 % of a 128 bp cell; a max
+  marks the whole cell annotated and makes every class identical once pooled — numbers that mean
+  nothing while looking exactly like numbers that do.
+- **The knockout sweep recovers the textbook regulator of each gene, unprompted**, and that is the
+  strongest evidence on the page that the model learned regulation rather than composition: **GAL4**
+  at GAL1, **FHL1** at RPL26A, **RAP1** at TDH3 and PDC1, **MCM1** at HOP2, **ABF1**/**REB1** at
+  FBA1/MMS2. The sites come from a database, the ranking from the model.
+- **Report a knockout as a mean over k shuffles with its spread.** One shuffle is one draw, and the
+  page had been presenting a single draw as a measurement. The bar is drawn from effect ÷ sd, but
+  the table **sorts by magnitude** — ranking by the ratio put a −0.0003 site above a −0.0138 one and
+  then called it "strongest", which is two definitions of the word in one panel.
+- **A low-complexity site cannot be knocked out by shuffling.** `CCACCC` is five Cs and an A and has
+  almost no distinct permutations, so repeated shuffles coincide and the sd is legitimately zero.
+  The sweep records how many **distinct** permutations it actually produced, and verify_pipeline
+  fails a zero spread only when there was more than one — "unshuffleable" and "the model ignores it"
+  are different findings that produce the same number.
+- **`verify_pipeline.py` §3d checks the annotation against the SEQUENCE, not against its source.**
+  Every complete CDS must start with ATG on its own strand (**113/113**) and every CDS-internal
+  intron must read GT..AG (**9/9**). Those are properties of the sequence, so they cannot be
+  satisfied by a coordinate system that merely agrees with itself.
+- **The annotation ships per locus, not bundled.** 14 files × 84 KB raw is 1.14 MB, and
+  `src/data/*.json` goes into the page chunk while `public/vp-data/` is fetched only for the locus
+  being viewed. Gzipped it is **7 KB a locus**.
+- **One shared window drives every letter view.** A logo of the whole window is not a drawing that
+  exists — 16,384 bases across ~1,280 px is **0.078 px per base** — so the full-window strip stays a
+  signal and letters live in a zoom. `setLogoWindow` is the single setter; the brush, the pan
+  slider, a motif click and a traced region all go through it, so two panels can never show letters
+  for different stretches under one heading.
+- **Only gradient × input and integrated gradients are per-base.** Attention rollout resolves 128 bp
+  and occlusion 64 bp, so they are drawn as bands at their real step rather than stretched into
+  letters they cannot support. `MethodTrack.resolutionBp` carries this as a **number** — sniffing
+  the `note` string for "single base" marked IG coarse, because its note is its completeness check.
+
 - **A newline between prose and an inline tag is DELETED by JSX, not collapsed to a space.** So
   `for⏎<em>every` renders as "forevery". It is invisible in the source — every line looks correctly
   spaced — survives `astro check`, the test suite and every rendering gate, and **21 of them shipped

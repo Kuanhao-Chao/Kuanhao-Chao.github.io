@@ -7,6 +7,12 @@
   --vp-fire: #b0455a;
   --vp-track: #2f8069;
   --vp-orf: #6f62a8;
+  /* Annotation lanes. One hue per lane, so a feature's class is readable without its label at the
+     widths where labels do not fit. */
+  --vp-rna: #2f8f6f;
+  --vp-element: #a8762a;
+  --vp-tfbs: #b4485f;
+  --vp-reg: #4a7fb5;
   --vp-panel: var(--color-surface, #fff);
   display: flex;
   flex-direction: column;
@@ -21,6 +27,10 @@ html[data-theme='dark'] .vp {
   --vp-fire: #e07f92;
   --vp-track: #58b49a;
   --vp-orf: #a292d7;
+  --vp-rna: #5fc4a2;
+  --vp-element: #d6a75a;
+  --vp-tfbs: #e5788d;
+  --vp-reg: #7fb0e0;
 }
 
 .vp-top {
@@ -329,3 +339,82 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
 .vp-how th { text-align: left; font-weight: 600; }
 .vp-how .shape { font-family: ui-monospace, Menlo, monospace; white-space: nowrap; }
 .vp-collapse-table td:first-child { white-space: nowrap; }
+
+/* Annotation controls. Inline checkboxes, wrapping, because there are eight of them and at 320px
+   they must stack rather than overflow. */
+.vp-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: var(--fs-meta);
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+.vp-check input { margin: 0; }
+.vp-annctl { flex-wrap: wrap; gap: 0.35rem 0.7rem; margin-top: 0.35rem; }
+
+/* The enrichment matrix. A wide table must scroll inside its own container rather than force the
+   document to -- the same rule the deep-dive tables follow. */
+.vp-scroll-x { overflow-x: auto; }
+.vp-enrich {
+  border-collapse: collapse;
+  font-size: var(--fs-meta);
+  min-width: 32rem;
+}
+.vp-enrich th, .vp-enrich td {
+  padding: 0.28rem 0.5rem;
+  text-align: right;
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+  white-space: nowrap;
+}
+.vp-enrich th:first-child, .vp-enrich td:first-child { text-align: left; }
+.vp-enrich thead th { color: var(--color-muted); font-weight: 600; }
+.vp-enrich .n { color: var(--color-muted); font-variant-numeric: tabular-nums; }
+.vp-enrich .coarse { color: var(--color-muted); font-style: italic; }
+.vp-enrich td .null { color: var(--color-muted); font-size: 0.86em; display: block; }
+
+/* The trace panel's numbered steps. Each step is one question with its result and its reading, so
+   the panel stops being a single tall column of alternating canvas and paragraph. */
+.vp-step { margin-top: 1.15rem; }
+.vp-step:first-of-type { margin-top: 0.6rem; }
+.vp-step h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+.vp-step__n {
+  display: inline-grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  flex: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--vp-accent) 16%, transparent);
+  color: var(--vp-accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+/* The one-line reading sits directly under the question and above the drawing, so a reader knows
+   what they are about to look at rather than discovering it in a paragraph underneath. */
+.vp-step__read {
+  margin: 0 0 0.5rem;
+  padding-left: 1.85rem;
+  font-size: var(--fs-meta);
+  color: var(--color-ink);
+}
+.vp-lede { margin: 0 0 0.75rem; }
+.vp-step + .vp-step { border-top: 1px solid var(--color-border, #e5e7eb); padding-top: 1rem; }
+.vp-chan {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--vp-accent);
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+.vp-chan:hover { text-decoration: underline; }

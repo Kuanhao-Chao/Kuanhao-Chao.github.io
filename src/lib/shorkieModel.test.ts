@@ -79,6 +79,13 @@ import {
   geneTrackShapes,
   sumAttributionRows,
   flowSlabs,
+  ANNOTATION_CLASSES,
+  motifTier,
+  featureMask,
+  poolCoverage,
+  circularShiftOffsets,
+  weightedEnrichment,
+  type AnnotationFeature,
 } from './shorkieModel';
 import tracks from '../data/shorkieTracks.json';
 import trackNames from '../data/shorkieTrackNames.json';
@@ -1443,7 +1450,10 @@ describe('transcript models, JBrowse-style', () => {
         checked += 1;
       }
     }
-    expect(checked).toBe(8);
+    // 9, not 8: HOP2's shipped model was one intron short until the SGD cross-check in
+    // make_annotations.py caught it -- its second intron was being drawn as coding. The restored
+    // boundary reads GT..AG here, which is what says the corrected coordinates are right.
+    expect(checked).toBe(9);
   });
 
   it('keeps bin coordinates in step with the bp ones for the coverage plot', () => {
@@ -1498,7 +1508,7 @@ describe('geneTrackShapes', () => {
         introns += n;
       }
     }
-    expect(introns).toBe(8);
+    expect(introns).toBe(9);   // see the GT..AG test: HOP2 regained a second intron
   });
 });
 
@@ -2105,16 +2115,18 @@ describe('spliceAnnotations — the landmarks Figure 4 marks', () => {
   });
 
   it('finds landmarks for every multi-exon gene in the shipped windows', () => {
-    let introns = 0;
+    // Counts GENES, not introns -- HOP2 has two introns but is one gene, which is why this stays
+    // at 8 while the intron counts moved to 9.
+    let genes = 0;
     for (const l of windows) {
       for (const f of l.features) {
         if (f.exons.length < 2) continue;
-        introns += 1;
+        genes += 1;
         const a = spliceAnnotations(f);
         expect(a.filter((x) => x.label === "5′ splice site").length).toBe(f.exons.length - 1);
       }
     }
-    expect(introns).toBe(8);   // the eight multi-exon features across the fourteen windows
+    expect(genes).toBe(8);     // the eight multi-exon features across the fourteen windows
   });
 });
 
@@ -2294,5 +2306,175 @@ describe('relevanceMap', () => {
     ]) {
       for (const v of m) expect(v).toBe(0);
     }
+  });
+});
+
+/* ------------------------------------------------------------------------------------------- *
+ * The annotation layer and its statistics.
+ * ------------------------------------------------------------------------------------------- */
+
+const feat = (over: Partial<AnnotationFeature> = {}): AnnotationFeature => ({
+  cls: 'tfbs', name: 'X', start: 0, end: 10, strand: '+', source: 'harbison-macisaac', ...over,
+});
+
+describe('motifTier', () => {
+  it('separates ChIP-supported from conservation-only, which is the whole point', () => {
+    expect(motifTier(feat({ evidence: 'good' }))).toBe('chip');
+    expect(motifTier(feat({ evidence: 'weak' }))).toBe('chip');
+    expect(motifTier(feat({ evidence: 'none' }))).toBe('conserved');
+    expect(motifTier(feat({}))).toBe('conserved');            // absent evidence is not support
+  });
+
+  it('keeps a PWM scan and the paper\'s own consensuses in their own tiers', () => {
+    expect(motifTier(feat({ source: 'jaspar', score: 900 }))).toBe('pwm');
+    expect(motifTier(feat({ source: 'paper' }))).toBe('paper');
+  });
+
+  it('is null for anything that is not a binding-site claim', () => {
+    expect(motifTier(feat({ source: 'sgd', cls: 'gene' }))).toBeNull();
+    expect(motifTier(feat({ source: 'oreganno', cls: 'regulatory' }))).toBeNull();
+  });
+});
+
+describe('featureMask', () => {
+  it('marks exactly the half-open span', () => {
+    const m = featureMask([feat({ start: 3, end: 6 })], 10);
+    expect([...m]).toEqual([0, 0, 0, 1, 1, 1, 0, 0, 0, 0]);
+  });
+
+  it('does not stack overlaps -- it is set membership, not a count', () => {
+    const m = featureMask([feat({ start: 2, end: 6 }), feat({ start: 4, end: 8 })], 10);
+    expect([...m]).toEqual([0, 0, 1, 1, 1, 1, 1, 1, 0, 0]);
+    expect(Math.max(...m)).toBe(1);
+  });
+
+  it('clamps a feature running off either edge', () => {
+    expect([...featureMask([feat({ start: -5, end: 3 })], 6)]).toEqual([1, 1, 1, 0, 0, 0]);
+    expect([...featureMask([feat({ start: 4, end: 99 })], 6)]).toEqual([0, 0, 0, 0, 1, 1]);
+  });
+});
+
+describe('poolCoverage', () => {
+  it('returns the covered FRACTION, not a max -- a 7 bp site in a 128 bp cell is 5%, not 100%', () => {
+    const mask = new Uint8Array(128);
+    for (let i = 0; i < 7; i += 1) mask[i] = 1;
+    const pooled = poolCoverage(mask, 1);
+    expect(pooled[0]).toBeCloseTo(7 / 128, 12);
+  });
+
+  it('conserves total mass across the pooling', () => {
+    const mask = featureMask([feat({ start: 100, end: 340 })], 1024);
+    const pooled = poolCoverage(mask, 128);
+    const before = mask.reduce((a, b) => a + b, 0);
+    const after = pooled.reduce((a, b) => a + b, 0) * (1024 / 128);
+    expect(after).toBeCloseTo(before, 9);
+  });
+
+  it('is all ones for a fully covered window and all zeros for an empty one', () => {
+    expect([...poolCoverage(featureMask([feat({ start: 0, end: 64 })], 64), 8)])
+      .toEqual(new Array(8).fill(1));
+    expect([...poolCoverage(new Uint8Array(64), 8)]).toEqual(new Array(8).fill(0));
+  });
+});
+
+describe('circularShiftOffsets', () => {
+  it('never returns a zero shift -- that would put the observed value in its own null', () => {
+    for (const k of [1, 7, 64, 255, 256]) {
+      expect(circularShiftOffsets(16384, k)).not.toContain(0);
+    }
+  });
+
+  it('is deterministic, so a published enrichment can be reproduced exactly', () => {
+    expect(circularShiftOffsets(1000, 9)).toEqual(circularShiftOffsets(1000, 9));
+    expect(circularShiftOffsets(1000, 9)).toEqual([100, 200, 300, 400, 500, 600, 700, 800, 900]);
+  });
+
+  it('stays inside the window', () => {
+    for (const o of circularShiftOffsets(128, 300)) {
+      expect(o).toBeGreaterThan(0);
+      expect(o).toBeLessThan(128);
+    }
+  });
+});
+
+describe('weightedEnrichment', () => {
+  it('is exactly 1.0 for a flat signal, whatever the mask', () => {
+    const signal = new Float64Array(512).fill(3);
+    const mask = featureMask([feat({ start: 10, end: 40 }), feat({ start: 300, end: 305 })], 512);
+    const r = weightedEnrichment(signal, mask, 64)!;
+    expect(r.ratio).toBeCloseTo(1, 12);
+    expect(r.nullMean).toBeCloseTo(1, 12);
+    expect(r.nullSd).toBeCloseTo(0, 12);
+  });
+
+  it('recovers the ratio a hand-computed example must give', () => {
+    // 8 positions; signal 4 on the two masked ones, 1 elsewhere.
+    // inside mean = 4; window mean = (4+4+1*6)/8 = 1.75; ratio = 4/1.75 = 2.2857...
+    const signal = [4, 4, 1, 1, 1, 1, 1, 1];
+    const mask = [1, 1, 0, 0, 0, 0, 0, 0];
+    const r = weightedEnrichment(signal, mask, 6)!;
+    expect(r.ratio).toBeCloseTo(4 / 1.75, 12);
+    expect(r.covered).toBeCloseTo(2 / 8, 12);
+  });
+
+  it('uses |signal| for the ratio but reports the signed mean, so suppression is visible', () => {
+    const signal = [-4, -4, 1, 1, 1, 1, 1, 1];
+    const mask = [1, 1, 0, 0, 0, 0, 0, 0];
+    const r = weightedEnrichment(signal, mask, 6)!;
+    expect(r.ratio).toBeCloseTo(4 / 1.75, 12);      // magnitude, so it still reads as enriched
+    expect(r.signedInside).toBeCloseTo(-4, 12);     // ...but the direction is not lost
+  });
+
+  it('detects a planted signal and rejects an unaligned one', () => {
+    const n = 2048;
+    const signal = new Float64Array(n).fill(1);
+    const hit = featureMask([feat({ start: 500, end: 520 })], n);
+    for (let p = 500; p < 520; p += 1) signal[p] = 50;
+    const aligned = weightedEnrichment(signal, hit, 256)!;
+    const elsewhere = weightedEnrichment(signal, featureMask([feat({ start: 1500, end: 1520 })], n), 256)!;
+    expect(aligned.ratio).toBeGreaterThan(20);
+    expect(aligned.p).toBeCloseTo(1 / 257, 12);     // nothing in the null reaches it
+    expect(elsewhere.ratio).toBeLessThan(1.1);
+    expect(elsewhere.p).toBeGreaterThan(0.1);
+  });
+
+  it('is invariant to scaling the signal -- it is a ratio', () => {
+    const n = 512;
+    const signal = Array.from({ length: n }, (_, i) => 1 + Math.sin(i / 7) ** 2);
+    const mask = featureMask([feat({ start: 60, end: 90 })], n);
+    const a = weightedEnrichment(signal, mask, 32)!;
+    const b = weightedEnrichment(signal.map((v) => v * 1000), mask, 32)!;
+    expect(b.ratio).toBeCloseTo(a.ratio, 12);
+  });
+
+  it('gives a fractional weight the same answer as an equivalent binary mask', () => {
+    // Coverage 0.5 over twice the span carries the same total weight as 1.0 over half of it,
+    // and the ratio is normalised by that total -- so a pooled mask is not penalised for pooling.
+    const signal = [2, 2, 2, 2, 1, 1, 1, 1];
+    const binary = weightedEnrichment(signal, [1, 1, 1, 1, 0, 0, 0, 0], 6)!;
+    const frac = weightedEnrichment(signal, [0.5, 0.5, 0.5, 0.5, 0, 0, 0, 0], 6)!;
+    expect(frac.ratio).toBeCloseTo(binary.ratio, 12);
+  });
+
+  it('returns null rather than a fake number when there is nothing to measure', () => {
+    expect(weightedEnrichment([1, 2, 3], [0, 0, 0], 4)).toBeNull();
+    expect(weightedEnrichment([0, 0, 0], [1, 1, 1], 4)).toBeNull();
+    expect(weightedEnrichment([], [], 4)).toBeNull();
+  });
+});
+
+describe('ANNOTATION_CLASSES', () => {
+  it('covers every class the shipped annotation files actually use', async () => {
+    // Exhaustive rather than defaulted: a class added upstream must fail here, not quietly render
+    // in whichever lane happens to be first.
+    const fs = await import('node:fs');
+    const dir = 'public/vp-data';
+    const seen = new Set<string>();
+    for (const f of fs.readdirSync(dir).filter((n) => n.endsWith('-ann.json'))) {
+      const d = JSON.parse(fs.readFileSync(`${dir}/${f}`, 'utf8'));
+      for (const r of d.features) seen.add(r.cls);
+    }
+    expect(seen.size).toBeGreaterThan(0);
+    for (const cls of seen) expect(ANNOTATION_CLASSES[cls], `class ${cls}`).toBeDefined();
   });
 });

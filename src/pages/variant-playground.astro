@@ -144,6 +144,53 @@ const breadcrumbLd = buildBreadcrumbLd([
                   aria-label="Which input bases drive the selected output region"></canvas>
           <canvas class="vp-canvas" data-vp-methods role="img"
                   aria-label="Every interpretability method on one axis, aligned with the annotation"></canvas>
+
+          <svg class="vp-svg" data-vp-method-logos role="img"
+               aria-label="Each method as a DNA logo over the selected window"></svg>
+          <div class="vp-controls vp-annctl">
+            <span class="vp-stat" data-vp-brush-stat>drag across the method tracks to zoom</span>
+            <select class="vp-select" data-vp-brush-width aria-label="Zoom window width">
+              <option value="60">60 bp</option>
+              <option value="150" selected>150 bp</option>
+              <option value="400">400 bp</option>
+              <option value="1000">1,000 bp</option>
+            </select>
+          </div>
+          <p class="vp-notes" style="margin:0.35rem 0 0;">
+            <strong>The same window, as letters, for every method that has them.</strong> A logo of
+            the whole 16,384 bp window is not a drawing that exists — one base is{' '}
+            <strong>0.078 px</strong> — so the strip above stays a signal and the letters live in a
+            zoom. Drag across any method track to move it. Only{' '}
+            <em>gradient × input</em> and <em>integrated gradients</em> are per-base, so only those
+            two become letters; attention rollout resolves 128 bp and occlusion 64 bp, and they are
+            drawn as bands at their real resolution rather than stretched into letters they cannot
+            support.
+          </p>
+
+          <canvas class="vp-canvas" data-vp-annotation role="img"
+                  aria-label="Curated S. cerevisiae annotation across the window"></canvas>
+          <div class="vp-controls vp-annctl">
+            <span class="vp-stat">show</span>
+            <label class="vp-check"><input type="checkbox" data-vp-lane="gene" checked /> genes</label>
+            <label class="vp-check"><input type="checkbox" data-vp-lane="rna" checked /> ncRNA</label>
+            <label class="vp-check"><input type="checkbox" data-vp-lane="element" checked /> elements</label>
+            <label class="vp-check"><input type="checkbox" data-vp-lane="regulatory" checked /> regulatory</label>
+            <span class="vp-stat">binding sites</span>
+            <label class="vp-check"><input type="checkbox" data-vp-tier="chip" checked /> ChIP-supported</label>
+            <label class="vp-check"><input type="checkbox" data-vp-tier="conserved" /> conserved only</label>
+            <label class="vp-check"><input type="checkbox" data-vp-tier="pwm" /> PWM scan</label>
+            <span class="vp-stat" data-vp-annstat></span>
+          </div>
+          <p class="vp-notes" style="margin:0.35rem 0 0;">
+            <strong>What is actually there, from the databases.</strong> Genes, CDS, introns, uORFs,
+            tRNA and snoRNA genes, replication origins, LTRs and transposons come from{' '}
+            <em>SGD</em>; regulatory regions from <em>ORegAnno</em>; binding sites from the{' '}
+            <em>Harbison 2004 / MacIsaac 2006</em> conserved regulatory code and from a{' '}
+            <em>JASPAR</em> PWM scan. Provenance is drawn, not just recorded: a ChIP-supported site
+            is solid, a conserved-only call is hollow, a PWM match is a hairline — three different
+            strengths of evidence that must not be read as one. A grey cap marks a feature clipped
+            by the window edge, so that edge is never mistaken for a real boundary.
+          </p>
           <p class="vp-notes" style="margin:0.35rem 0 0;">
             <strong>Four methods, one axis, one annotation.</strong> They do not measure the same
             thing and are not expected to agree everywhere:{' '}
@@ -274,65 +321,136 @@ const breadcrumbLd = buildBreadcrumbLd([
           <button type="button" class="vp-btn" data-vp-region-next>next ›</button>
           <span class="vp-stat" data-vp-region-stat></span>
         </div>
-        <div class="vp-trace-grid">
-          <ol class="vp-stages" data-vp-stage-profile></ol>
-          <div>
-            <p class="vp-notes" style="margin:0 0 0.4rem;">
-              <strong>Every stage, for one region.</strong> Each bar is how much of the selected
-              region's relevance passes through that stage — a <em>mean</em> over the stage's
-              channels, never a sum, because summing would rank a 1,536-channel stage above a
-              384-channel one on width alone, which is a fact about the architecture and not about
-              this region. Click a stage to open it above; click a channel to plot that neuron.
-            </p>
-            <p class="vp-notes" style="margin:0 0 0.4rem;">
-              <strong>Attention rollout</strong> is a second, independent answer. It composes the
-              eight attention matrices — each mixed half-and-half with the identity to account for
-              the residual stream — so it reports what the transformer <em>can</em> read for this
-              region. That is an architectural quantity, not an attribution: where it disagrees with
-              gradient × input, the disagreement is the interesting part, not a bug.
-            </p>
+        <p class="vp-notes vp-lede">
+          Five questions, in order. Each one narrows the last: <strong>which stages</strong> carry
+          this region, then <strong>which neurons</strong> inside the strongest of them,{' '}
+          <strong>where those neurons fire</strong>, <strong>what they respond to</strong> in the
+          curated annotation, and finally <strong>what the transformer could have read</strong>
+          regardless of what moved the prediction.
+        </p>
+
+        <section class="vp-step">
+          <h3><span class="vp-step__n">1</span> Which stages carry this region?</h3>
+          <p class="vp-step__read">
+            Longer bar, more of this region's relevance passes through that stage. Click a stage to
+            open it in <em>This layer, in detail</em> above; click one of its channel chips to plot
+            that neuron in step 2.
+          </p>
+          <div class="vp-trace-grid">
+            <ol class="vp-stages" data-vp-stage-profile></ol>
+            <div>
+              <p class="vp-notes" style="margin:0;">
+                Each bar is a <em>mean</em> over the stage's channels, never a sum: summing would
+                rank a 1,536-channel stage above a 384-channel one on width alone, which is a fact
+                about the architecture and not about this region. Stages whose activations live on
+                their own tensors report <em>own tensor</em> rather than zero — "not measured here"
+                is not the same claim as "contributes nothing".
+              </p>
+            </div>
           </div>
-        </div>
-        <canvas class="vp-canvas" data-vp-neurons-trace role="img"
-                aria-label="The top contributing neurons for the traced region, each as its real activation profile"></canvas>
-        <p class="vp-notes" style="margin:0.35rem 0 0;">
-          <strong>The individual neurons, exactly.</strong> The map above reconstructs a stage's{' '}
-          <em>[channels × positions]</em> relevance as the outer product of two exact margins — the
-          margins are measured, the interior is an independence assumption. These traces are not:
-          each line is one channel's <em>real activation profile</em> straight from the shipped
-          stage maps, and the ranking is its exact relevance to the selected region. So this answers
-          “which neurons fire, where, and how much” with nothing reconstructed.
-          Click a stage in the list to change which layer they come from.</p>
-          <p><strong>Reading a row.</strong> <em>Enrichment</em> is the share of that channel's total
-          activity falling inside the traced region, divided by the share of the window the region
-          occupies — so <strong>1.0× means the channel fires there no more than anywhere else</strong>,
-          and the interesting rows are the ones well above it. Each trace is scaled to its own range,
-          so heights are not comparable between rows; the <code>fires</code> pair gives the real
-          range. A faint horizontal rule marks zero, and is drawn only where the channel actually
-          crosses it — several fire entirely negative.
-        </p>
-        <canvas class="vp-canvas" data-vp-stage-stack role="img"
-                aria-label="Where each stage's contributing neurons fire across the window, one row per stage"
-                style="margin-top:0.5rem"></canvas>
-        <p class="vp-notes" style="margin:0.35rem 0 0;">
-          <strong>One row per stage, the window along x.</strong> Each row is that stage's activation
-          weighted by how much each channel carried the selected region — <em>where the neurons that
-          matter for this region actually fire</em>. Each row is painted against its{' '}
-          <em>own mean</em> — red where that stage draws more than average, blue less, neutral where it
-          has no positional preference. The early residual blocks come out close to neutral, and that
-          is a real property: pooled to 128 positions, a convolution over 16,384 is spatially almost
-          uniform. Structure appears from the transformer on, which is where the receptive field is
-          the whole window and the model can choose where to look.
-        </p>
-        <p class="vp-notes" style="margin:0.35rem 0 0;">
-          It is the <em>factorised</em> combination — per-channel relevance times per-position
-          activation — not a per-position gradient, because the shipped pack carries relevance summed
-          over position. It answers “where do the channels that matter fire”, which is not quite the
-          same question as “which positions the gradient flows through”.
-        </p>
-        <canvas class="vp-canvas" data-vp-rollout role="img"
-                aria-label="Attention rollout: which parts of the window the transformer reads for this region"
-                style="margin-top:0.5rem"></canvas>
+        </section>
+
+        <section class="vp-step">
+          <h3><span class="vp-step__n">2</span> Which neurons, exactly?</h3>
+          <p class="vp-step__read">
+            The top eight channels of the selected stage, each drawn as its <em>real activation
+            profile</em> — nothing reconstructed. <strong>Enrichment</strong> is the share of a
+            channel's activity inside the traced region over the share of the window that region
+            occupies, so <strong>1.0× means it fires there no more than anywhere else</strong> and
+            the interesting rows are well above it.
+          </p>
+          <canvas class="vp-canvas" data-vp-neurons-trace role="img"
+                  aria-label="The top contributing neurons for the traced region, each as its real activation profile"></canvas>
+          <p class="vp-notes" style="margin:0.35rem 0 0;">
+            Each trace is scaled to its own range, so heights are <em>not</em> comparable between
+            rows — the <code>fires</code> pair gives the real range. A faint rule marks zero, drawn
+            only where the channel actually crosses it; several fire entirely negative. These traces
+            are the un-collapsed answer to the same question the relevance map asks in{' '}
+            <em>This layer, in detail</em> above: that map reconstructs a stage's{' '}
+            <em>[channels × positions]</em> relevance as the outer product of two exact margins, so
+            its margins are measured and its interior is an independence assumption.{' '}
+            <strong>These are measured throughout.</strong> Where the two disagree, trust these.
+          </p>
+        </section>
+
+        <section class="vp-step">
+          <h3><span class="vp-step__n">3</span> Where do those neurons fire?</h3>
+          <p class="vp-step__read">
+            One row per stage, the window along x. Red where that stage draws more than its own
+            average, blue less, neutral where it has no positional preference. Read it top to
+            bottom: structure appears only from the transformer on.
+          </p>
+          <canvas class="vp-canvas" data-vp-stage-stack role="img"
+                  aria-label="Where each stage's contributing neurons fire across the window, one row per stage"></canvas>
+          <p class="vp-notes" style="margin:0.35rem 0 0;">
+            The early residual blocks come out close to neutral, and that is a real property rather
+            than a flat drawing: pooled to 128 positions, a convolution over 16,384 bp is spatially
+            almost uniform. Structure appears where the receptive field becomes the whole window and
+            the model can choose where to look. Each row is the <em>factorised</em> combination —
+            per-channel relevance times per-position activation — not a per-position gradient,
+            because the shipped pack carries relevance summed over position. It answers “where do
+            the channels that matter fire”, which is not quite “which positions the gradient flows
+            through”.
+          </p>
+        </section>
+
+        <section class="vp-step">
+          <h3><span class="vp-step__n">4</span> What are those neurons responding to?
+            <span class="vp-stat" data-vp-nclass-stat></span></h3>
+          <p class="vp-step__read">
+            The same neurons as step 2, scored against the curated annotation instead of against
+            the region: for each feature class, which of this stage's relevant channels fire on it
+            more than chance. This is what turns “channel #14 matters here” into “channel #14
+            responds to binding sites”.
+          </p>
+          <div class="vp-scroll-x"><table class="vp-enrich" data-vp-nclass></table></div>
+          <p class="vp-notes" style="margin:0.4rem 0 0;">
+            Scored on the 32 channels with the highest exact relevance for this region, not all of
+            them — the question is what the neurons that <em>matter here</em> respond to. Both the
+            activation profile and the annotation are pooled to the packs' common{' '}
+            <span class="shape">128</span> positions, so one cell is 128 bp: a channel cannot be
+            shown to respond to a 7 bp site, only to the 128 bp neighbourhood containing it.{' '}
+            <strong>That resolution limit is why a high ratio here is a lead, not a conclusion.</strong>
+          </p>
+          <details class="vp-how">
+            <summary>How a neuron is matched to a feature class</summary>
+            <div class="vp-how-body">
+              <p><strong>Same statistic as the enrichment table</strong>, applied one channel at a
+              time. The channel's real activation profile{' '}
+              <span class="shape">[128]</span> plays the role of the signal; the annotation mask,
+              pooled from <span class="shape">[16384]</span> to <span class="shape">[128]</span> as
+              the <em>covered fraction</em> of each cell, plays the role of the weight. The ratio is
+              mean |activation| where the class is, over mean |activation| everywhere, and the null
+              is the same deterministic circular shift.</p>
+              <p><strong>Pooling by fraction, not by max.</strong> A 7 bp site covers 5% of a 128 bp
+              cell. Taking a max would mark that whole cell as annotated and make every class look
+              identical once pooled, which is the failure that would make this panel meaningless
+              while still producing numbers.</p>
+              <p><strong>What it is not.</strong> A channel that responds to a class is not a
+              detector for it: the pooled resolution is 128 bp, the classes overlap each other, and
+              nothing here controls for a channel simply firing where the gene is. Read a row as
+              "worth looking at", then check the neuron's own trace in step 2.</p>
+            </div>
+          </details>
+        </section>
+
+        <section class="vp-step">
+          <h3><span class="vp-step__n">5</span> What could the transformer read at all?</h3>
+          <p class="vp-step__read">
+            Attention rollout: the eight attention matrices composed, each mixed half-and-half with
+            the identity to account for the residual stream. This is <strong>architecture, not
+            attribution</strong> — it says what information could reach this region, never what
+            changed the prediction, and it is unsigned by construction.
+          </p>
+          <canvas class="vp-canvas" data-vp-rollout role="img"
+                  aria-label="Attention rollout: which parts of the window the transformer reads for this region"></canvas>
+          <p class="vp-notes" style="margin:0.35rem 0 0;">
+            It is a second, independent answer, and it needs no new data: the eight{' '}
+            <span class="shape">[128 × 128]</span> maps already ship in every pack. Where it
+            disagrees with gradient × input, the disagreement is the finding — a region the
+            transformer can see but does not use is a different statement from one it cannot see.
+          </p>
+        </section>
               <details class="vp-how">
           <summary>How the layer-by-layer trace is computed, and what each collapse throws away</summary>
           <div class="vp-how-body">
@@ -391,8 +509,7 @@ const breadcrumbLd = buildBreadcrumbLd([
           <input class="vp-range" type="range" min="0" max="1000" value="500" data-vp-logo-pan
                  style="flex:1;min-width:9rem" aria-label="Position of the sequence logo window" />
           <select class="vp-select" data-vp-logo-source aria-label="Attribution source">
-            <option value="ism" selected>mutagenesis (the paper's)</option>
-            <option value="grad">gradient × input</option>
+            <option value="grad" selected>gradient × input</option>
             <option value="ig">integrated gradients</option>
             <option value="occl">occlusion</option>
           </select>
@@ -401,6 +518,7 @@ const breadcrumbLd = buildBreadcrumbLd([
             <option value="150" selected>150 bp</option>
             <option value="400">400 bp</option>
           </select>
+          <button type="button" class="vp-btn" data-vp-logo-figure hidden>the paper's window</button>
         </div>
         <svg class="vp-svg" data-vp-seq-logo role="img"
              aria-label="Gradient times input attribution as a sequence logo"></svg>
@@ -557,6 +675,119 @@ const breadcrumbLd = buildBreadcrumbLd([
 
 
       <section class="vp-panel">
+        <h2>Every curated site, knocked out <span class="vp-stat" data-vp-ko-stat></span></h2>
+        <p class="vp-notes" style="margin:0 0 0.5rem;">
+          <strong>Not six hand-picked motifs — all of them.</strong> Every ChIP-supported binding
+          site in this window was shuffled and the model re-run, five times per site, and what is
+          reported is the <em>mean logSED with its spread</em>. One shuffle is one sample; a single
+          draw presented as a measurement is exactly what this replaces. Scored over the window's
+          own gene body on the paper's 384 T₀ tracks, both strands — the same quantity the
+          interactive knockout reports, using the same seeded shuffle, so a swept value and a
+          clicked one agree exactly rather than approximately.
+        </p>
+        <div class="vp-scroll-x"><table class="vp-enrich" data-vp-ko></table></div>
+        <p class="vp-notes" style="margin:0.4rem 0 0;">
+          <strong>Across the fourteen windows the sweep recovers the textbook regulator of each
+          gene, unprompted.</strong> The strongest knockout is <em>GAL4</em> at GAL1,{' '}
+          <em>FHL1</em> at the ribosomal protein gene RPL26A, <em>RAP1</em> at both glycolytic
+          genes TDH3 and PDC1, <em>MCM1</em> at the meiotic gene HOP2, and <em>ABF1</em> and{' '}
+          <em>REB1</em> — the two general regulatory factors — at FBA1 and MMS2. Nothing in this
+          pipeline knows which transcription factor is supposed to matter: the sites come from a
+          database, the ranking comes from the model. That agreement is the strongest evidence on
+          this page that the network learned real regulatory biology rather than sequence
+          composition.
+        </p>
+        <p class="vp-notes" style="margin:0.4rem 0 0;">
+          <strong>A site whose bar is inside its own spread did nothing measurable</strong>, and
+          that is a result about that site rather than a broken button. Shuffling preserves base
+          composition and destroys only the arrangement, so this asks whether the <em>order</em> of
+          those bases matters — a different question from the occlusion map, which zeroes a stretch
+          and asks whether it carries information at all. The two can disagree.{' '}
+          <strong>A low-complexity site cannot be shuffled at all</strong> — one site across the
+          fourteen windows is five Cs and an A, which has almost no distinct permutations — so those
+          are labelled rather than reported as a null result. “Unshuffleable” and “the model ignores
+          it” are different findings that produce the same number.
+        </p>
+        <details class="vp-how">
+          <summary>How the sweep is computed, and why a mean over shuffles</summary>
+          <div class="vp-how-body">
+            <p><strong>Per site:</strong> Fisher–Yates shuffle the bases inside the site, re-run the
+            model, and record <code>log2(Σ coverage + 1)</code> over the gene body minus the same
+            quantity on the unedited sequence. Repeat with <code>k = 5</code> independent
+            permutations and report mean ± sd. Cost is one forward pass per shuffle — 104 ms — so
+            the whole ChIP-supported tier across all fourteen windows is a few thousand passes.</p>
+            <p><strong>Why not one shuffle.</strong> A single permutation is one draw from the
+            distribution of "sequences with this composition". Two shuffles of the same site can
+            differ by more than the effect being reported, so the single number the page used to
+            show was a measurement with an unstated error bar of unknown size. The sd here is that
+            error bar, measured.</p>
+            <p><strong>Why the gene body, not the peak.</strong> A 16 kb yeast window holds a dozen
+            genes and the tallest is rarely the one whose promoter was edited. Measuring globally
+            reports a number about an unrelated gene — on one window the global peak is 114.3 while
+            the named gene's own body peaks at 7.8.</p>
+            <p><strong>What it cannot tell you.</strong> Shuffling a site does not remove the
+            possibility that the model reads a different, overlapping element; sites here overlap
+            frequently. And a null effect at a real binding site can mean the model is robust to
+            it, that a redundant site elsewhere covers it, or that the site is not used in the
+            condition the T₀ tracks represent.</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="vp-panel">
+        <h2>Does the attribution land on real biology? <span class="vp-stat" data-vp-enrich-stat></span></h2>
+        <p class="vp-notes" style="margin:0 0 0.5rem;">
+          <strong>One number per method, per annotation class.</strong> For each class, the mean
+          |attribution| on the bases that class covers, divided by the mean across the whole
+          window — so <strong>1.00× means no preference</strong>. The null comes from circularly
+          shifting the annotation against the signal, which keeps the number of features, their
+          lengths and their spacing exactly and destroys only their alignment; the shaded figure
+          beside each ratio is that null's spread. Cells are shaded by how far the ratio sits from
+          its own null, not by its size. The table measures <em>every</em> evidence tier whatever
+          the lanes above are drawing — comparing the three tiers against each other is the point,
+          and a drawing toggle should not silently change a statistic.
+        </p>
+        <div class="vp-scroll-x"><table class="vp-enrich" data-vp-enrichment></table></div>
+        <p class="vp-notes" style="margin:0.4rem 0 0;">
+          <strong>Read the negatives too.</strong> A class at 1.0× is a real answer: it says the
+          model puts no more weight there than anywhere else. And a method cannot resolve a feature
+          finer than its own resolution — occlusion moves in 64 bp steps and attention rollout in
+          128 bp, so neither can say anything about a 7 bp binding site, which is why their columns
+          are marked. <strong>This is a correlation against a stated null, not evidence the model
+          uses the feature</strong>: a site that happens to sit inside a region the model attends to
+          for unrelated reasons scores exactly the same.
+        </p>
+        <details class="vp-how">
+          <summary>How the enrichment and its null are computed</summary>
+          <div class="vp-how-body">
+            <p><strong>The statistic.</strong> Take the per-base signal <code>s</code> over the
+            16,384 bp window and a binary mask <code>m</code> for the class. The ratio is{' '}
+            <code>(Σ|s|·m / Σm) / (Σ|s| / L)</code> — mean magnitude inside over mean magnitude
+            everywhere. It is scale-free, so two methods with wildly different units are directly
+            comparable, and it is a magnitude, so a class the model <em>suppresses</em> still reads
+            as enriched. The mean signed value inside is reported alongside so that direction is
+            not lost.</p>
+            <p><strong>The null is a circular shift, not a resample.</strong> The mask is rotated
+            by each of 256 evenly spaced offsets and the ratio recomputed. Rotation preserves the
+            feature count, every feature's length, and the spacing between them — so the null
+            compares against an annotation that looks exactly like the real one but is not aligned
+            to the signal. Resampling positions instead would compare against a feature set that
+            does not resemble the real one at all, and would call almost everything significant.
+            The offsets are deterministic (evenly spaced, zero excluded), so a published number is
+            reproducible rather than a draw.</p>
+            <p><strong>The p is empirical</strong>, <code>(#{'{'}null ≥ observed{'}'} + 1) / (256 + 1)</code>,
+            so it is never exactly zero and its floor is 1/257 ≈ 0.0039. A cell at that floor means
+            "no shift out of 256 reached this", not "p = 0".</p>
+            <p><strong>What it cannot tell you.</strong> Circular shifts are a weak null against
+            broad positional trends: if a method's signal is concentrated near the window centre
+            and a class happens to be too, the shift will not fully break that. It is also a
+            per-class test with no multiple-testing correction across the table — read a single
+            marginal cell with that in mind.</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="vp-panel">
         <h2>Every dimension this page collapses</h2>
         <p class="vp-notes" style="margin:0 0 0.5rem;">
           Nothing here is drawable at its real size. A stage is <em>[channels × positions]</em> with
@@ -604,9 +835,25 @@ const breadcrumbLd = buildBreadcrumbLd([
                   <td><strong>mean</strong> over the group's tracks (3,053 for RNA-seq)</td></tr>
               <tr><td>Attribution target</td><td class="shape">5,215 tracks × 896 bins</td>
                   <td><strong>mean</strong> over 384 T0, <strong>sum</strong> over gene bins, then log2</td></tr>
+              <tr><td>Annotation mask (enrichment)</td><td class="shape">features → [16,384]</td>
+                  <td><strong>union</strong>, not a count — overlapping features do not stack</td></tr>
+              <tr><td>Annotation mask (neuron classes)</td><td class="shape">[16,384] → [128]</td>
+                  <td><strong>mean</strong> — the covered <em>fraction</em> of each cell, never a max</td></tr>
+              <tr><td>Enrichment ratio</td><td class="shape">signal × mask</td>
+                  <td><strong>mean |·| inside</strong> ÷ <strong>mean |·| overall</strong>; null by circular shift</td></tr>
+              <tr><td>Knockout sweep</td><td class="shape">k shuffles per site</td>
+                  <td><strong>mean ± sd</strong> over shuffles, never a single draw</td></tr>
+              <tr><td>Method logo stack</td><td class="shape">method → letters</td>
+                  <td><strong>none</strong> for per-base methods; a band at its own step for the rest</td></tr>
             </tbody>
           </table>
         </div>
+        <p class="vp-notes" style="margin:0.5rem 0 0;">
+          The last five rows are new, and the second is the one most easily got wrong: a 7 bp binding
+          site covers 5% of a 128 bp cell, so pooling the annotation by <em>max</em> would mark that
+          whole cell as annotated and make every class look identical — producing numbers that mean
+          nothing while looking exactly like numbers that do.
+        </p>
         <p class="vp-notes" style="margin:0.5rem 0 0;">
           Two rows are worth reading against each other. The <strong>layer relevance map</strong> is
           the only place on this page where a number is reconstructed rather than measured, and the{' '}

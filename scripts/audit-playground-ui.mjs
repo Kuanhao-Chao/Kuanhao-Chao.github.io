@@ -741,7 +741,11 @@ async function auditExplanations(browser, baseURL, scope) {
       () => document.querySelector('[data-vp]').dataset.vpTraceReady === 'true',
       { timeout: 60_000 },
     );
-    await page.waitForTimeout(400);
+    // Trace a region: the method tracks, both logo views, the enrichment table and the neuron
+    // class table are all region-conditioned and legitimately draw nothing without one.
+    await page.locator('[data-vp-region-next]').scrollIntoViewIfNeeded();
+    await page.locator('[data-vp-region-next]').click();
+    await page.waitForTimeout(900);
 
     // --- disclosures ----------------------------------------------------------------------
     const how = await page.evaluate(() => {
@@ -764,12 +768,14 @@ async function auditExplanations(browser, baseURL, scope) {
             if (kid.nodeType !== Node.ELEMENT_NODE) continue;
             if (!/^(EM|STRONG|CODE|SPAN|A|B|I)$/.test(kid.tagName)) continue;
             const before = kid.previousSibling;
-            const text = (kid.textContent ?? '').trim();
-            if (!before || before.nodeType !== Node.TEXT_NODE || !text) continue;
+            const raw = kid.textContent ?? '';
+            if (!before || before.nodeType !== Node.TEXT_NODE || !raw.trim()) continue;
             const tail = before.textContent ?? '';
-            // A word character butted straight against a tag whose text starts with one.
-            if (/[\w),.;:%]$/.test(tail) && /^[\w(]/.test(text)) {
-              out.push((tail.slice(-30) + text.slice(0, 20)).replace(/\s+/g, ' '));
+            // Test the RAW first character, never a trimmed one: trimming removes the very space
+            // whose absence is being looked for, and reported eight false positives on text that
+            // was correctly spaced.
+            if (/[\w),.;:%]$/.test(tail) && /^[\w(]/.test(raw)) {
+              out.push((tail.slice(-30) + raw.slice(0, 20)).replace(/\s+/g, ' '));
             }
           }
           walk(el);
@@ -779,6 +785,61 @@ async function auditExplanations(browser, baseURL, scope) {
       return out.slice(0, 8);
     });
     for (const j of joins) fail(scope, `swallowed space before an inline tag: "…${j}…"`);
+
+    // --- the annotation layer and the analyses built on it -------------------------------
+    const bio = await page.evaluate(() => ({
+      // Canvas tallies: a canvas has no elements to inspect, so what was DRAWN is published.
+      ann: document.querySelector('[data-vp-annotation]')?.dataset.vpAnnotation ?? null,
+      annStat: document.querySelector('[data-vp-annstat]')?.textContent ?? '',
+      enrich: Number(document.querySelector('[data-vp-enrichment]')?.dataset.vpEnrichment ?? 0),
+      ko: Number(document.querySelector('[data-vp-ko]')?.dataset.vpKo ?? 0),
+      koStat: document.querySelector('[data-vp-ko-stat]')?.textContent ?? '',
+      logoRows: Number(document.querySelector('[data-vp-method-logos]')?.dataset.rows ?? 0),
+      // The one window every letter view must agree on.
+      windows: [...document.querySelectorAll('[data-vp-method-logos],[data-vp-ism-logo],[data-vp-seq-logo]')]
+        .map((e) => e.dataset.window ?? null),
+      ismOption: !!document.querySelector('[data-vp-logo-source] option[value="ism"]'),
+    }));
+    if (!bio.ann) fail(scope, 'the annotation track drew nothing');
+    else {
+      const lanes = Object.fromEntries(bio.ann.split(',').map((p) => p.split(':')));
+      if (!(Number(lanes.gene) > 0)) fail(scope, `annotation drew no gene features (${bio.ann})`);
+      if (!(Number(lanes.tfbs) > 0)) fail(scope, `annotation drew no binding sites (${bio.ann})`);
+    }
+    // The unfiltered PWM count is the argument for the threshold and must be on the control.
+    if (!/of [\d,]+ scanned/.test(bio.annStat)) {
+      fail(scope, `the annotation status does not state what the PWM scan discarded: "${bio.annStat}"`);
+    }
+    if (bio.enrich < 8) fail(scope, `enrichment table measured only ${bio.enrich} cells`);
+    if (bio.ko < 1) fail(scope, 'the knockout sweep table is empty');
+    if (!/largest effect/.test(bio.koStat)) fail(scope, `knockout headline missing: "${bio.koStat}"`);
+    if (bio.logoRows < 2) fail(scope, `method logo stack drew ${bio.logoRows} rows, expected >= 2`);
+    // Every letter view reads one window. Two panels showing different stretches of sequence under
+    // one heading is the defect this state exists to prevent.
+    const uniq = [...new Set(bio.windows.filter(Boolean))];
+    if (bio.windows.some((w) => !w)) fail(scope, `a logo view has no window: ${JSON.stringify(bio.windows)}`);
+    else if (uniq.length !== 1) fail(scope, `logo views disagree about the window: ${uniq.join(' vs ')}`);
+    // Removed deliberately: mutagenesis is no longer a logo source.
+    if (bio.ismOption) fail(scope, 'the mutagenesis logo source was removed but is still in the dropdown');
+
+    // The brush must move every logo view together.
+    const before = uniq[0];
+    const strip = await page.$('[data-vp-methods]');
+    if (strip) {
+      await strip.scrollIntoViewIfNeeded();
+      const box = await strip.boundingBox();
+      await page.mouse.move(box.x + box.width * 0.3, box.y + box.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width * 0.42, box.y + box.height / 2, { steps: 6 });
+      await page.mouse.up();
+      await page.waitForTimeout(500);
+      const after = await page.evaluate(() =>
+        [...document.querySelectorAll('[data-vp-method-logos],[data-vp-ism-logo],[data-vp-seq-logo]')]
+          .map((e) => e.dataset.window ?? null));
+      const afterUniq = [...new Set(after.filter(Boolean))];
+      if (afterUniq.length !== 1) fail(scope, `after brushing, logo views disagree: ${afterUniq.join(' vs ')}`);
+      else if (afterUniq[0] === before) fail(scope, 'brushing the method strip did not move the logo window');
+    }
 
     if (how.n < 4) fail(scope, `${how.n} "how this is computed" disclosures, expected at least 4`);
     if (how.anyOpen) fail(scope, 'a disclosure is open by default — they must not crowd the panels');
@@ -802,7 +863,10 @@ async function auditExplanations(browser, baseURL, scope) {
     const sources = await page.locator('[data-vp-logo-source] option').evaluateAll(
       (os) => os.map((o) => o.value),
     );
-    if (sources.length < 4) fail(scope, `logo offers ${sources.length} sources, expected 4`);
+    // Three, not four: mutagenesis was removed as a logo source this round. The packs still ship
+    // and verify_pipeline still checks them; the page simply no longer draws them.
+    if (sources.length !== 3) fail(scope, `logo offers ${sources.length} sources, expected 3`);
+    if (sources.includes('ism')) fail(scope, 'the mutagenesis source is still offered');
     const seen = new Set();
     for (const src of sources) {
       await page.selectOption('[data-vp-logo-source]', src);
@@ -998,10 +1062,17 @@ async function auditPaperFidelity(browser, baseURL, scope) {
   const page = await context.newPage();
   try {
     await enterLocus(page, 11);                       // DTD1 -- published Figure 4 panel E
+    // Every logo view is fed by the region-conditioned method tracks now, so a region has to be
+    // traced before any of them draws anything at all.
+    await page.locator('[data-vp-region-next]').scrollIntoViewIfNeeded();
+    await page.locator('[data-vp-region-next]').click();
     await page.waitForFunction(
       () => document.querySelector('[data-vp-ism-logo]')?.dataset.letters !== undefined,
       { timeout: 60_000 },
     ).catch(() => {});
+    // Then jump to the window the figure actually publishes -- the logo now follows the traced
+    // region, which for most regions is nowhere near it.
+    await page.locator('[data-vp-logo-figure]').click();
     await page.waitForTimeout(600);
 
     const logo = await page.evaluate(() => {
