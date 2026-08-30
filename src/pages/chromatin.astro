@@ -1,6 +1,8 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { REGIMES } from '../lib/chromatinModel';
+import { site } from '../data/site';
+import { buildBreadcrumbLd } from '../lib/breadcrumbs';
 
 const milestones = REGIMES.map((r) => ({
   id: r.id,
@@ -8,6 +10,24 @@ const milestones = REGIMES.map((r) => ({
   at: (r.from + r.to) / 2,
   short: r.short,
 }));
+
+const webAppLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: 'Chromatin 3D Compaction Visualizer',
+  applicationCategory: 'EducationalApplication, ScienceApplication',
+  operatingSystem: 'Web Browser (WebGL)',
+  browserRequirements: 'Requires WebGL',
+  description:
+    'An interactive 3D WebGL model visualizing the multi-scale packaging of human chromosomes across five orders of magnitude: B-form DNA, nucleosomes, 10 nm fibre, 30 nm regime, loop domains, and mitotic loop arrays.',
+  url: `${site.url}/chromatin/`,
+  author: { '@id': `${site.url}/#person` },
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+};
+
+const breadcrumbLd = buildBreadcrumbLd([
+  { name: 'Chromatin Compaction', path: '/chromatin/' },
+]);
 ---
 
 <BaseLayout
@@ -15,6 +35,8 @@ const milestones = REGIMES.map((r) => ({
   description="An interactive WebGL playground for the multi-scale packaging of human chromosomes: B-form DNA, the nucleosome, the 10 nm fibre, the contested 30 nm regime, loop domains, and the mitotic loop array. Scrub continuously through five orders of magnitude."
   bare={true}
 >
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(webAppLd)} />
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} />
   <main class="chr-viewport" id="chromatin-root">
     <canvas
       id="chromatin-canvas"

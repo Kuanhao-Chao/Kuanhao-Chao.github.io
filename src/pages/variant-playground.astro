@@ -2,6 +2,8 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import '../styles/variantPlayground.css';
 import { SPEC_NOTES } from '../lib/shorkieModel';
+import { site } from '../data/site';
+import { buildBreadcrumbLd } from '../lib/breadcrumbs';
 
 // A `bare` page, so it carries its own header and needs its own <h1> -- audit:indexing asserts a
 // visible heading on every sitemap URL. The page is NOT at /shorkie/: that path already serves the
@@ -9,9 +11,27 @@ import { SPEC_NOTES } from '../lib/shorkieModel';
 const title = 'The Live Variant Playground — Shorkie, layer by layer';
 const description =
   'An in-browser sandbox running the real Shorkie fungal sequence-to-function model: edit DNA and watch the conv-stem neurons fire live, then run the full 14 M-parameter network to predict RNA-seq coverage across a 16,384 bp yeast window.';
+
+const webAppLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: 'The Live Variant Playground — Shorkie',
+  applicationCategory: 'DeveloperApplication, ScienceApplication',
+  operatingSystem: 'Web Browser (WebAssembly ONNX Runtime)',
+  description,
+  url: `${site.url}/variant-playground/`,
+  author: { '@id': `${site.url}/#person` },
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+};
+
+const breadcrumbLd = buildBreadcrumbLd([
+  { name: 'Variant Playground', path: '/variant-playground/' },
+]);
 ---
 
 <BaseLayout title={title} description={description} bare={true}>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(webAppLd)} />
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} />
   <div class="vp" data-vp>
     <header class="vp-top">
       <h1 class="vp-title">The Live Variant Playground</h1>
@@ -164,6 +184,72 @@ const description =
             </label>
             <span class="vp-stat" data-vp-truthstat></span>
           </div>
+        <details class="vp-how">
+          <summary>How the four method tracks are computed</summary>
+          <div class="vp-how-body">
+            <p><strong>All four answer the same scalar</strong>, so they can be laid on one axis:
+            <code>f = log2( Σ<sub>gene bins</sub> mean<sub>384 T0 tracks</sub> coverage + 1 )</code>.
+            That is the paper's own logSED target (<code>ensemble.py:97-104</code>): mean over
+            <em>tracks</em>, sum over <em>bins</em>, +1 pseudocount, log base 2. Being a log ratio is
+            what makes a silent promoter and a maximal one comparable.</p>
+            <ol>
+              <li><strong>Gradient × input.</strong> One backward pass of <code>f</code> w.r.t. the
+              one-hot input gives <span class="shape">[16384 × 4]</span>. Mean-centre across the four
+              bases (<code>g − mean<sub>ACGT</sub> g</code>) — the Borzoi convention — then multiply
+              by the input and sum the base axis. Because the input is one-hot, three of every four
+              values are exactly zero, so this is one number per position. <em>Cost:</em> 1 backward
+              pass. <em>Reads as:</em> if I nudged this base up a little, how would the prediction
+              move. <em>Fails when:</em> the model is locally flat but globally sensitive — a
+              saturated promoter can show near-zero gradient at a base that matters enormously.</li>
+              <li><strong>Integrated gradients.</strong> The same gradient, accumulated over 32 steps
+              along a straight path from an all-zero-DNA baseline (species channel kept, because a
+              baseline with no species is not a sequence this model was trained to see), then
+              multiplied by <code>x − baseline</code>. <strong>Not mean-centred</strong>, deliberately:
+              completeness — that the values sum to <code>f(x) − f(baseline)</code> — is a telescoping
+              integral of the <em>raw</em> gradient, and centring destroys it. Measured, centring
+              pushed the error from ~0.05 to 8–650%. <em>Cost:</em> 32 forward+backward per region.
+              <em>Reads as:</em> this base's share of the whole difference between the real sequence
+              and an empty one. <em>Unique property:</em> it is the only method here you can check
+              against its own total, and the panel prints that check.</li>
+              <li><strong>Attention rollout.</strong> The eight attention matrices, each mixed
+              half-and-half with the identity to account for the residual stream, renormalised and
+              composed: <code>∏ (½A<sub>ℓ</sub> + ½I)</code>. Row <em>i</em> then reads as where
+              position <em>i</em>'s representation came from. <em>Cost:</em> free — the maps already
+              ship. <em>Reads as:</em> what the transformer <em>can</em> see for this region.
+              <em>Not an attribution:</em> it says what could influence what, never what changed the
+              prediction, and it is unsigned by construction.</li>
+              <li><strong>Occlusion.</strong> Zero the four DNA channels across a 64 bp window and
+              re-run; the change in <code>f</code> per output bin is that window's effect. <em>Cost:</em>
+              256 real forward passes × 2 strands. <em>Reads as:</em> what the model loses without
+              this stretch. <em>Fails when:</em> two stretches are redundant — remove either alone and
+              nothing happens, which occlusion reports as "neither matters".</li>
+            </ol>
+            <p><strong>Both strands, averaged</strong>, for all four, matching Borzoi and the
+            <code>--rc</code> every published Shorkie ISM run passes. Worth knowing what that is:
+            this model was <em>not</em> trained with reverse-complement augmentation
+            (<code>augment_rc: false</code> in all four <code>params.json</code>), so it is not
+            rc-equivariant — measured on TDH3 the target reads 15.60 forward against 14.23 reversed
+            and the two gradients correlate at 0.31. Averaging them is a test-time augmentation, not
+            a free symmetry.</p>
+            <p><strong>How much do they actually agree?</strong> Measured on TDH3's own gene body,
+            at the 64 bp grid occlusion resolves: gradient × input against integrated gradients
+            <code>r = 0.874</code>, gradient × input against occlusion <code>r = 0.901</code>,
+            integrated gradients against occlusion <code>r = 0.856</code>. The three full-window
+            methods agree strongly, which is the reassuring part. Against mutagenesis, per base over
+            its own 500 bp, gradient × input falls to <code>r = 0.658</code> — and that is expected
+            rather than alarming: a gradient is a local linear sensitivity and a substitution is a
+            finite jump to a different base. Where a promoter is saturated the two genuinely differ.</p>
+            <p><strong>One thing the curve above does not share.</strong> The drawn coverage is the
+            3,053-track RNA-seq group mean; every attribution scores the 384 <code>_T0_</code> subset
+            the paper uses. Measured, the two correlate at <code>r = 1.0000</code> and differ by 1% at
+            the peak, so the distinction does not affect reading — but it is a distinction.</p>
+            <p><strong>Why there is no mutagenesis track here.</strong> Single-base mutagenesis over
+            the full window is 16,384 × 3 substitutions; a forward pass is 104 ms and the ONNX batch
+            axis is fixed at 1, so that is 1.4 h a locus one strand and <strong>39.6 h</strong> for all
+            fourteen both strands. It lives in the logo panel instead, over the promoter window, where
+            its span is the point rather than a gap.</p>
+          </div>
+        </details>
           <p class="vp-notes" style="margin:0.4rem 0 0;">
             <strong>The curve is already here.</strong> Every preset locus was run offline at the full
             16,384 bp context and the predictions ship with the page, so there is nothing to wait for.
@@ -207,6 +293,17 @@ const description =
             </p>
           </div>
         </div>
+        <canvas class="vp-canvas" data-vp-neurons-trace role="img"
+                aria-label="The top contributing neurons for the traced region, each as its real activation profile"></canvas>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>The individual neurons, exactly.</strong> The map above reconstructs a stage's
+          <em>[channels × positions]</em> relevance as the outer product of two exact margins — the
+          margins are measured, the interior is an independence assumption. These traces are not:
+          each line is one channel's <em>real activation profile</em> straight from the shipped
+          stage maps, and the ranking is its exact relevance to the selected region. So this answers
+          “which neurons fire, where, and how much” with nothing reconstructed.
+          Click a stage in the list to change which layer they come from.
+        </p>
         <canvas class="vp-canvas" data-vp-stage-stack role="img"
                 aria-label="Where each stage's contributing neurons fire across the window, one row per stage"
                 style="margin-top:0.5rem"></canvas>
@@ -229,16 +326,68 @@ const description =
         <canvas class="vp-canvas" data-vp-rollout role="img"
                 aria-label="Attention rollout: which parts of the window the transformer reads for this region"
                 style="margin-top:0.5rem"></canvas>
-      </section>
+              <details class="vp-how">
+          <summary>How the layer-by-layer trace is computed, and what each collapse throws away</summary>
+          <div class="vp-how-body">
+            <p>Every view in this panel starts from the same tensor and collapses it differently.
+            For one stage, <code>relevance = |∂f/∂a ⊙ a|</code> over its activations
+            <span class="shape">a: [channels × positions]</span> — how much each neuron, at each
+            place, moved the prediction over the selected bins. That array is far too large to ship
+            for every region, so what is precomputed is its two <strong>margins</strong>:</p>
+            <ol>
+              <li><strong>Channel margin</strong> — <em>sum over position</em>, giving
+              <span class="shape">[channels]</span>. "Which neurons mattered, wherever they fired."</li>
+              <li><strong>Position margin</strong> — <em>sum over channel</em>, then sum-pooled to a
+              common <span class="shape">128</span>, giving <span class="shape">[128]</span>.
+              "Where in the window this stage drew from, whichever neuron did it."</li>
+            </ol>
+            <p>Both are <strong>exact</strong>, and both <strong>superpose</strong>: gradients are
+            linear in which outputs you select, so an arbitrary contiguous region is the row-sum of
+            the precomputed 112 groups of 8 bins — no model run, no interpolation. That is why
+            dragging is instant and still exact.</p>
+            <p><strong>The map's interior is not exact.</strong> Reconstructing
+            <span class="shape">[channels × positions]</span> from two margins requires an
+            assumption, and the one used is independence: the outer product, normalised to sum to 1.
+            It is the unique reconstruction consistent with both margins, and it is still an
+            assumption. The <em>neuron traces</em> below the map exist precisely because they are
+            not: each is one channel's real activation, straight from the shipped stage maps.</p>
+            <p><strong>The stage stack</strong> is the position margin, one row per stage, each row
+            scaled by its own 99th percentile and then painted against its own mean — red above
+            average, blue below, neutral where the stage has no positional preference. Per-row
+            scaling because stages differ by orders of magnitude; against the mean because the early
+            residual blocks are genuinely near-uniform once pooled to 128, and a from-zero ramp draws
+            that truth as a saturated bar reading "maximally relevant everywhere".</p>
+            <p><strong>Three stages are missing from all of this</strong>, and that is not an
+            oversight: the input one-hot, the conv stem and the output head live on their own tensors
+            in the exported graph and have no per-layer relevance in the pack. They show their
+            activations and say so.</p>
+            <p><strong>The enrichment number on each neuron trace</strong> is the share of that
+            channel's <code>Σ|activation|</code> falling inside the traced region, divided by the
+            share of the window the region occupies. 1.0× means the neuron fires there no more than
+            anywhere else. Measured on block 4, the top-relevance channels come out 0.85–1.32× —
+            so a channel's relevance to a region generally comes from <em>what it computes</em>
+            there, not from firing only there.</p>
+          </div>
+        </details>
+</section>
 
       <section class="vp-panel">
         <h2>The bases themselves <span class="vp-stat" data-vp-logo-stat></span></h2>
+        <svg class="vp-svg" data-vp-ism-logo role="img"
+             aria-label="The window's attribution as the paper's sequence logo, with motif and splice annotations"></svg>
+        <p class="vp-notes" style="margin:0.35rem 0 0.6rem;">
+          <strong>The whole window, as the paper draws it.</strong> Red dashed boxes are matched
+          motifs and splice landmarks; click one to zoom the logo below onto it. The navy track is
+          the gene model in the paper's own IGV style.
+        </p>
         <div class="vp-controls" style="margin-bottom:0.45rem;">
           <input class="vp-range" type="range" min="0" max="1000" value="500" data-vp-logo-pan
                  style="flex:1;min-width:9rem" aria-label="Position of the sequence logo window" />
           <select class="vp-select" data-vp-logo-source aria-label="Attribution source">
             <option value="ism" selected>mutagenesis (the paper's)</option>
             <option value="grad">gradient × input</option>
+            <option value="ig">integrated gradients</option>
+            <option value="occl">occlusion</option>
           </select>
           <select class="vp-select" data-vp-logo-width aria-label="Logo window width">
             <option value="60">60 bp</option>
@@ -261,17 +410,54 @@ const description =
           paper's Figure 4 quantity: every substitution actually run, then mean-centred across the
           four bases and projected on the reference, so the height reads as “how much the base that
           is <em>there</em> matters” rather than “what this one substitution did”. It covers the
-          promoter window only, so panning outside it falls back to the gradient and says so. <em>Gradient × input</em> is a local linear
+          promoter window only — a full-window single-base mutagenesis is 1.4 h a locus and 39.6 h
+          for all fourteen, measured — so outside that window the panel says so rather than quietly
+          drawing something else. <em>Gradient × input</em> is a local linear
           sensitivity — it is identically zero at the three bases not present, because the input is
           one-hot, so it draws one letter per position. <strong>The paper's published figures use no
           gradients at all</strong>; its single gradient routine is unreached scaffolding that still
           declares a 4-channel input the 170-channel model cannot accept. Gradient × input is here
           because it is instant, not because it is what the paper did.
         </p>
-      </section>
+              <details class="vp-how">
+          <summary>How the logo is drawn, and why only one letter appears per position</summary>
+          <div class="vp-how-body">
+            <p><strong>The geometry is the paper's, not an approximation of it.</strong> Real DejaVu
+            Sans Bold outlines for A/C/G/T with the paper's own hand-tuned per-letter x-offsets
+            (A −0.350, C −0.366, G −0.384, T −0.305 — not half-advances), scaled by
+            <code>globscale = 1.35</code> on <em>both</em> axes, which is what makes a stack summing
+            to S fill height S and what makes adjacent letters touch. Colours are the paper's
+            saturated X11 values <code>#008000 / #0000FF / #FFA500 / #FF0000</code>, fixed in every
+            theme because a figure's base colours are part of the figure. Letters are stacked
+            descending by magnitude, positives up from zero and negatives <em>mirrored</em> below,
+            with y-limits at the data min and max each padded by 5% of max|v|.</p>
+            <p><strong>Mutagenesis</strong> is the paper's Figure 4 quantity, in three steps
+            (<code>fig4_common.py:227-230</code>, and identically in two other files):
+            average logSED over the T0 tracks → <em>mean-centre across the four bases</em> →
+            <em>project on the reference one-hot</em>. Step two is what turns "what this substitution
+            did" into "how much the base that is <em>there</em> matters"; step three is why exactly
+            one letter survives per position. Given the shipped plane <code>P</code> with the
+            reference cell zero, that value is exactly <code>−(Σ P)/4</code>.</p>
+            <p><strong>Gradient × input</strong> also draws one letter per position, but for a
+            different reason: the input is one-hot, so gradient × input is <em>identically zero</em>
+            at the three bases that are not there. That is a property of the method, not a rendering
+            choice.</p>
+            <p><strong>Occlusion</strong> resolves 64 bp, so every base inside a window carries that
+            window's value and the logo reads as blocks. Its sign is flipped to match the others:
+            occlusion measures what is <em>lost</em>, so a base that matters has a negative logSED,
+            and the logo convention is that up means "raises the prediction".</p>
+          </div>
+        </details>
+</section>
 
       <section class="vp-panel">
         <h2>What drives what <span class="vp-stat" data-vp-occl-stat></span></h2>
+        <div class="vp-controls" style="margin-bottom:0.4rem;">
+          <label class="vp-stat" style="display:inline-flex;align-items:center;gap:0.35rem;">
+            <input type="checkbox" data-vp-occl-norm /> scale each output bin to its own range
+          </label>
+          <span class="vp-stat" data-vp-occl-pick></span>
+        </div>
         <canvas class="vp-canvas vp-occl" data-vp-occl role="img"
                 aria-label="Occlusion map: input window on x, output bin on y, colour is what that output loses"></canvas>
         <p class="vp-notes" style="margin:0.4rem 0 0;">
@@ -285,70 +471,59 @@ const description =
           <strong>Read it as a map, and read both parts.</strong> The dark diagonal is local effect —
           a window damaging the output directly above it — and per cell it is by far the strongest
           thing here. But it is also narrow: one window of 256. Summed across the row, the local
-          footprint accounts for only <strong>0.3–8%</strong> of the most damaging window's total
+          footprint accounts for only <strong>0.2–5.6%</strong> of the most damaging window's total
           effect, so the diagonal is where the model is <em>most intense</em> and the off-diagonal is
           where most of what it does actually lives. Neither statement alone is the truth.
           Off the diagonal, a <em>vertical stripe</em> is an input stretch many outputs depend on and
           a <em>horizontal stripe</em> is an output bin that reads widely.
         </p>
         <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>The edges are the margins.</strong> The strip along the top is the column sum —
+          how much each input window matters summed over every output — and the strip down the right
+          is the row sum, how much each output bin depends on the sequence at all. <strong>Click a
+          row</strong> to read that one output bin's input profile, or <strong>a column</strong> to
+          see which outputs that window drives; click again to clear. Bins differ in expression by
+          orders of magnitude, so the checkbox rescales each row to its own range when the raw map is
+          dominated by the loudest ones.
+          <br /><br />
           Ablation zeroes the four DNA channels, which is exactly how the paper's language model masks
           a position and is indistinguishable from a run of N. That is a different question from the
           motif knockouts above, which <em>shuffle</em>: a shuffle keeps base composition and asks
           whether the arrangement matters, while zeroing asks whether the stretch carries information
           at all.
         </p>
-      </section>
+              <details class="vp-how">
+          <summary>How the occlusion map is computed</summary>
+          <div class="vp-how-body">
+            <p>For each of 256 windows of 64 bp: zero the four DNA channels across that window, run
+            the model, and record <code>log2(alt + 1) − log2(ref + 1)</code> for
+            <em>every one of the 896 output bins</em>. One forward pass answers a whole row, which is
+            why a complete <span class="shape">[256 × 896]</span> map costs 256 passes — 27 s a
+            locus, 54 s with both strands — and why this is the cheapest exact method here.</p>
+            <p><strong>Per cell the unit is logSED</strong>, a log2 fold change, so bins of wildly
+            different expression are comparable within a row. The default colour scale is shared
+            across the whole matrix for that reason; the checkbox rescales each output bin to its own
+            range, which trades the between-bin comparison for the within-bin one and is worth it
+            when a few loud bins dominate.</p>
+            <p><strong>The margins</strong> are plain sums of <code>|logSED|</code>: the top strip is
+            each input window summed over all 896 bins, the right strip each output bin summed over
+            all 256 windows.</p>
+            <p><strong>The diagonal is not the identity line.</strong> The two axes cover different
+            spans — the input is the whole 16,384 bp window, the output only the cropped
+            1,024–15,360 interior — so it is a line of slope &lt;1 that reaches neither corner. It is
+            drawn dashed where it actually falls.</p>
+            <p><strong>Zeroing is not shuffling.</strong> Zeroing the DNA channels is how the paper's
+            language model masks a position and is indistinguishable from a run of N: it asks whether
+            the stretch carries information at all. The motif knockouts above <em>shuffle</em>, which
+            preserves base composition and asks whether the arrangement matters. Different questions,
+            and they can disagree.</p>
+            <p><strong>What occlusion cannot see:</strong> redundancy. If two stretches carry the same
+            information, removing either alone changes nothing, and this map reports both as
+            unimportant.</p>
+          </div>
+        </details>
+</section>
 
-      <section class="vp-panel">
-        <h2>In-silico mutagenesis <span class="vp-stat" data-vp-ism-stat></span></h2>
-        <svg class="vp-svg" data-vp-ism-logo role="img"
-             aria-label="Mutagenesis saliency as the paper's sequence logo, with motif and splice annotations"></svg>
-        <p class="vp-notes" style="margin:0.35rem 0 0.5rem;">
-          <strong>This is the paper's Figure 4 panel, reproduced.</strong> Mean-centred across the
-          four bases and projected on the reference, so each position carries one letter — the
-          importance of the base that is actually <em>there</em>, rather than what one substitution
-          did. Red dashed boxes are matched motifs and splice landmarks; click one to zoom the
-          sequence logo above onto it. The raster below keeps the full position × base view, which
-          the paper computes but never plots.
-        </p>
-        <canvas class="vp-canvas vp-ism" data-vp-ism role="img"
-                aria-label="Every substitution in the promoter window and its measured effect"></canvas>
-        <p class="vp-notes" style="margin:0.4rem 0 0;">
-          <strong>Every base mutated to all three alternatives, and the model re-run.</strong> Not a
-          gradient and not an approximation: each cell is a real forward pass, so it is the model's
-          own answer to “what if this base were different”, with no linearity assumption. The plane is
-          <em>mutant minus reference</em>, so it takes the same colours as every other raster here:
-          <strong>blue is negative — the substitution lowers the prediction — and red raises it.</strong>
-          The reference base's own cell is zero by definition, which is why one row of every column
-          is blank.
-          The measured quantity is the RNA-seq group mean over <em>this window's own gene</em> — the
-          same quantity the motif knockouts report, because a 14,336 bp window holds a dozen genes
-          and the tallest is rarely the one whose promoter you edited.
-        </p>
-        <p class="vp-notes" style="margin:0.35rem 0 0;">
-          <strong>Scope.</strong> A full window is 49,152 substitutions and about seventy minutes a
-          locus, so this is 512 bp centred on the gene's transcription start — the core promoter.
-          It is the honest local answer for that promoter and says nothing about the rest of the
-          window.
-        </p>
-        <p class="vp-notes" style="margin:0.35rem 0 0;">
-          <strong>The unit is logSED</strong> — <code>log2(Σ_alt + 1) − log2(Σ_ref + 1)</code> summed
-          over the gene's own body bins and averaged over the <strong>384 T0 RNA-seq tracks</strong>,
-          which is the paper's own variant score. Being a log ratio, it is directly comparable across
-          genes: −1 is a halving whether the promoter is silent or maximal. An earlier version of this
-          panel reported a linear difference as a percentage, which made HOP2's +448% look like the
-          largest effect on the page when it was a move of 1.9 on a reference of 0.42. A log ratio is
-          how the paper avoided that, and the panel now uses it.
-        </p>
-        <p class="vp-notes" style="margin:0.35rem 0 0;">
-          <strong>An independent check.</strong> DTD1's strongest single substitution lands on bp
-          8,165 — the exact <code>GT</code> donor of its 71 bp intron — at −38.5%. The motif panel
-          above reaches the same site by an unrelated route, scrambling the whole 5′ splice site for
-          −34%. Two methods that share no arithmetic agreeing on one base is the strongest evidence
-          on this page that the pipeline is right.
-        </p>
-      </section>
 
       <!-- ------------------------------------------------- every output track -->
       <section class="vp-panel">
@@ -370,6 +545,66 @@ const description =
           the four assay blocks read as bands. Click a row to plot that single track below — the
           overview above averages thousands of experiments, which is a curve no instrument would
           produce. Where rows outnumber pixels each drawn row is the maximum over the tracks it covers.
+        </p>
+      </section>
+
+
+      <section class="vp-panel">
+        <h2>Every dimension this page collapses</h2>
+        <p class="vp-notes" style="margin:0 0 0.5rem;">
+          Nothing here is drawable at its real size. A stage is <em>[channels × positions]</em> with
+          up to 16,384 positions; the output is <em>[896 × 5,215]</em>. Every panel therefore
+          collapses at least one axis, and — this is the part worth knowing —
+          <strong>they do not all collapse the same axis the same way</strong>. Position is
+          <em>max</em>-pooled for display, because the question there is “did any neuron fire here”,
+          and <em>sum</em>-pooled for relevance, because relevance is additive and a mean would make
+          a coarse stage look quiet for being coarse. Both are right; the difference is invisible
+          unless it is written down.
+        </p>
+        <div class="vp-notes">
+          <table class="vp-collapse-table">
+            <thead>
+              <tr><th>where</th><th>tensor</th><th>collapsed how</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Flow canvas, layer raster</td><td class="shape">[C × T] per stage</td>
+                  <td><strong>max</strong>-pool position → 128</td></tr>
+              <tr><td>Conv-stem profile</td><td class="shape">[96 × 16,384]</td>
+                  <td><strong>max</strong>-pool → 1,024, plus a per-filter max</td></tr>
+              <tr><td>Attention map</td><td class="shape">[8 × 4 heads × 128 × 128]</td>
+                  <td><strong>mean</strong> over heads</td></tr>
+              <tr><td>Output-head raster</td><td class="shape">[896 × 5,215]</td>
+                  <td><strong>mean</strong> over the tracks in each of 4 assay groups</td></tr>
+              <tr><td>Every-output-track heatmap</td><td class="shape">5,215 rows → pixels</td>
+                  <td><strong>max</strong> over the tracks a pixel row covers</td></tr>
+              <tr><td>Channel margin (trace)</td><td class="shape">|∂f/∂a ⊙ a| [C × T]</td>
+                  <td><strong>sum</strong> over position</td></tr>
+              <tr><td>Position margin (trace)</td><td class="shape">|∂f/∂a ⊙ a| [C × T]</td>
+                  <td><strong>sum</strong> over channel, then <strong>sum</strong>-pool → 128</td></tr>
+              <tr><td>Layer relevance map</td><td>the two margins</td>
+                  <td><strong>outer product</strong>, normalised to sum 1 — the one estimate here</td></tr>
+              <tr><td>Stage-stack row</td><td class="shape">position margin [128]</td>
+                  <td>scaled by its <strong>99th percentile</strong>, then centred on its own mean</td></tr>
+              <tr><td>Neuron traces</td><td class="shape">[C × T]</td>
+                  <td><strong>none</strong> — top 8 channels drawn whole</td></tr>
+              <tr><td>Attention rollout</td><td class="shape">8 × [128 × 128]</td>
+                  <td>∏(½A + ½I) row-normalised, then <strong>mean</strong> over the region's rows</td></tr>
+              <tr><td>Occlusion track</td><td class="shape">[256 × 896]</td>
+                  <td><strong>mean</strong> over the traced output bins</td></tr>
+              <tr><td>Mutagenesis logo</td><td class="shape">[4 × W]</td>
+                  <td>mean-centre across bases, then <strong>project</strong> — keeps 1 of 4</td></tr>
+              <tr><td>Coverage curve</td><td class="shape">5,215 tracks</td>
+                  <td><strong>mean</strong> over the group's tracks (3,053 for RNA-seq)</td></tr>
+              <tr><td>Attribution target</td><td class="shape">5,215 tracks × 896 bins</td>
+                  <td><strong>mean</strong> over 384 T0, <strong>sum</strong> over gene bins, then log2</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="vp-notes" style="margin:0.5rem 0 0;">
+          Two rows are worth reading against each other. The <strong>layer relevance map</strong> is
+          the only place on this page where a number is reconstructed rather than measured, and the
+          <strong>neuron traces</strong> exist directly beneath it as the un-collapsed answer to the
+          same question. Where they disagree, trust the traces.
         </p>
       </section>
 

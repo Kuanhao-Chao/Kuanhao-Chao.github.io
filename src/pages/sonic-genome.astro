@@ -3,12 +3,32 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import Icon from '../components/Icon.astro';
 import Katex from '../components/Katex.astro';
 import { SONIC_PRESETS } from '../data/sonicPresets';
+import { site } from '../data/site';
+import { buildBreadcrumbLd } from '../lib/breadcrumbs';
 
 const title = "Sonic Genome — Real-Time DNA Audio Synthesizer & Acoustic Playground";
 const description = "A full-screen interactive biological DNA synthesizer and ambient soundscape playground. Transform raw nucleotides, codons, GC-content filter sweeps, and transcription factor motifs into real-time harmonic music.";
+
+const webAppLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: 'Sonic Genome',
+  applicationCategory: 'MultimediaApplication, ScienceApplication',
+  operatingSystem: 'Web Browser (Web Audio API)',
+  description,
+  url: `${site.url}/sonic-genome/`,
+  author: { '@id': `${site.url}/#person` },
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+};
+
+const breadcrumbLd = buildBreadcrumbLd([
+  { name: 'Sonic Genome', path: '/sonic-genome/' },
+]);
 ---
 
 <BaseLayout title={title} description={description} bare={true}>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(webAppLd)} />
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} />
   <main class="sonic-viewport" id="sonic-root">
     <!-- Fullscreen Audio-Reactive Canvas -->
     <canvas id="sonic-canvas" class="sonic-canvas" role="img" aria-label="Sonic Genome real-time audio visualizer"></canvas>

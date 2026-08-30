@@ -208,6 +208,7 @@ export function initVariantPlayground(root: ParentNode = document) {
   const stageProfileEl = host.querySelector<HTMLElement>('[data-vp-stage-profile]');
   const rolloutCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-rollout]');
   const stackCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-stage-stack]');
+  const neuronTraceCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-neurons-trace]');
   const showingBtns = host.querySelectorAll<HTMLButtonElement>('[data-vp-showing]');
   const regionSelect = host.querySelector<HTMLSelectElement>('[data-vp-region]');
   const regionStat = host.querySelector<HTMLElement>('[data-vp-region-stat]');
@@ -216,8 +217,6 @@ export function initVariantPlayground(root: ParentNode = document) {
   const logoWidth = host.querySelector<HTMLSelectElement>('[data-vp-logo-width]');
   const logoSource = host.querySelector<HTMLSelectElement>('[data-vp-logo-source]');
   const logoStat = host.querySelector<HTMLElement>('[data-vp-logo-stat]');
-  const ismCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-ism]');
-  const ismStat = host.querySelector<HTMLElement>('[data-vp-ism-stat]');
   const ismLogoSvg = host.querySelector<SVGSVGElement>('[data-vp-ism-logo]');
   const trackSvg = host.querySelector<SVGSVGElement>('[data-vp-track]');
   const layerList = $('[data-vp-layers]');
@@ -248,6 +247,10 @@ export function initVariantPlayground(root: ParentNode = document) {
   const methodsCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-methods]');
   const occlCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-occl]');
   const occlStat = host.querySelector<HTMLElement>('[data-vp-occl-stat]');
+  const occlNorm = host.querySelector<HTMLInputElement>('[data-vp-occl-norm]');
+  const occlPick = host.querySelector<HTMLElement>('[data-vp-occl-pick]');
+  /** A clicked row (output bin) or column (input window) on the occlusion map, or null. */
+  let occlSel: { kind: 'row' | 'col'; index: number } | null = null;
   const traceLabel = $('[data-vp-trace-label]');
   const anchorSelect = $<HTMLSelectElement>('[data-vp-anchor]');
   const traceClear = $<HTMLButtonElement>('[data-vp-trace-clear]');
@@ -1311,7 +1314,6 @@ export function initVariantPlayground(root: ParentNode = document) {
     if (ism && logoPan) {
       logoPan.value = String(Math.round(windowFraction(ism.start + ism.width / 2) * 1000));
     }
-    renderIsm();
     renderIsmLogo();
     host.dataset.vpTraceReady = attribution ? 'true' : 'false';
     if (anchorSelect) {
@@ -1833,6 +1835,139 @@ export function initVariantPlayground(root: ParentNode = document) {
   }
 
   /**
+   * The top contributing neurons for the traced region, each as its own real activation profile.
+   *
+   * Everything else in this panel collapses a dimension. The stage profile sums over position, the
+   * stack sums over channel, the map reconstructs the interior as an outer product. This collapses
+   * nothing: it picks the handful of channels that matter most -- ranked by their EXACT relevance
+   * margin -- and draws each one's actual activation across the window, straight from the shipped
+   * stage maps.
+   *
+   * Eight of them, because that is about what a reader can hold at once; the 384-row raster above
+   * contains the same information and is unreadable per-neuron, which is the point of having both.
+   */
+  function renderNeuronTraces(): void {
+    if (!neuronTraceCanvas) return;
+    const TOP = 8;
+    const rowH = 26;
+    const cssW = neuronTraceCanvas.clientWidth || 900;
+    const cssH = TOP * rowH + 26;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    neuronTraceCanvas.width = Math.round(cssW * dpr);
+    neuronTraceCanvas.height = Math.round(cssH * dpr);
+    neuronTraceCanvas.style.height = `${cssH}px`;
+    const ctx = neuronTraceCanvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+    const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
+    const accent = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
+    ctx.font = '9px system-ui, sans-serif';
+    ctx.fillStyle = muted;
+
+    const spec = flow?.selected() ?? null;
+    const off = spec ? stageMapOffsets().find((o) => o.id === spec.id) : undefined;
+    if (!current || !attribution || !tracedBins || !off) {
+      ctx.font = '11px system-ui, sans-serif';
+      ctx.fillText(
+        off ? 'Trace a region to see its strongest neurons.'
+          : 'Select a residual, transformer or decoder stage above — the input, conv stem and head '
+            + 'have no per-layer relevance.',
+        PLOT.left, 20,
+      );
+      delete neuronTraceCanvas.dataset.neurons;
+      return;
+    }
+    const rel = traceChannels(attribution, tracedBins.start, tracedBins.end);
+    const ranked = Array.from({ length: off.channels }, (_, c) => ({ c, v: Math.abs(rel[off.start + c]) }))
+      .sort((a, b) => b.v - a.v)
+      .slice(0, TOP);
+
+    const P = off.positions;
+    const regionLoBp = CROP_BP + tracedBins.start * BIN_BP;
+    const regionHiBp = CROP_BP + tracedBins.end * BIN_BP;
+    const windowShare = (regionHiBp - regionLoBp) / SEQ_LEN;
+    ranked.forEach((n, i) => {
+      const top = i * rowH + 4;
+      const mid = top + rowH / 2;
+      const half = rowH / 2 - 3;
+      const base = (off.start + n.c) * P;
+      let lo = Infinity;
+      let hi = -Infinity;
+      for (let p = 0; p < P; p += 1) {
+        const v = current!.stageMaps[base + p];
+        if (v < lo) lo = v;
+        if (v > hi) hi = v;
+      }
+      const span = Math.max(hi - lo, 1e-9);
+      const zero = mid + half - ((0 - lo) / span) * (2 * half);
+      ctx.strokeStyle = muted;
+      ctx.globalAlpha = 0.25;
+      ctx.beginPath();
+      ctx.moveTo(PLOT.left, zero + 0.5);
+      ctx.lineTo(cssW - PLOT.right, zero + 0.5);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let p = 0; p < P; p += 1) {
+        // The stage's positions span the whole window, so p maps straight onto the shared bp axis.
+        const x = xOfBp((p / P) * SEQ_LEN, cssW);
+        const y = mid + half - ((current!.stageMaps[base + p] - lo) / span) * (2 * half);
+        if (p === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      // How much of this channel's activity actually sits inside the traced region, against how
+      // much of the window that region is. The traces otherwise read as noise and leave a reader
+      // to judge concentration by eye -- and the answer is usually "barely concentrated", which is
+      // a real result about the model rather than a defect in the drawing.
+      const pLo = Math.floor((regionLoBp / SEQ_LEN) * P);
+      const pHi = Math.ceil((regionHiBp / SEQ_LEN) * P);
+      let inside = 0;
+      let all = 0;
+      for (let p = 0; p < P; p += 1) {
+        const m = Math.abs(current!.stageMaps[base + p]);
+        all += m;
+        if (p >= pLo && p < pHi) inside += m;
+      }
+      const share = all > 0 ? inside / all : 0;
+      const enrich = windowShare > 0 ? share / windowShare : 0;
+      ctx.fillStyle = muted;
+      ctx.textAlign = 'right';
+      ctx.fillText(`#${n.c}`, PLOT.left - 4, mid + 3);
+      ctx.textAlign = 'left';
+      ctx.fillText(
+        `relevance ${n.v.toPrecision(2)} · fires ${lo.toFixed(2)} … ${hi.toFixed(2)}`
+        + ` · ${(share * 100).toFixed(1)}% of its activity is in the region (${enrich.toFixed(2)}× enriched)`,
+        PLOT.left + 3, top + 8);
+    });
+
+    // The traced region, so "does this neuron fire where I asked" is answerable by eye.
+    ctx.strokeStyle = accent;
+    ctx.globalAlpha = 0.5;
+    const a = xOfBp(CROP_BP + tracedBins.start * BIN_BP, cssW);
+    const b2 = xOfBp(CROP_BP + tracedBins.end * BIN_BP, cssW);
+    ctx.strokeRect(a, 2, Math.max(b2 - a, 2), TOP * rowH);
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = muted;
+    ctx.textAlign = 'center';
+    for (const bp of bpTicks(4000)) {
+      ctx.textAlign = bp === 0 ? 'left' : bp >= SEQ_LEN ? 'right' : 'center';
+      ctx.fillText(bpLabel(bp), xOfBp(bp, cssW), cssH - 12);
+    }
+    ctx.textAlign = 'left';
+    ctx.fillText(
+      `${spec!.label} · top ${TOP} of ${off.channels} channels by exact relevance · real activations, `
+      + `each scaled to its own range · the region is ${(windowShare * 100).toFixed(1)}% of the window, `
+      + `so 1.0× enrichment means a channel fires there no more than anywhere else`,
+      PLOT.left, cssH - 2);
+    neuronTraceCanvas.dataset.neurons = ranked.map((n) => n.c).join(',');
+    neuronTraceCanvas.dataset.stage = spec!.id;
+  }
+
+  /**
    * Where each stage's contributing neurons fire, stacked by depth on the page's shared bp axis.
    *
    * This is the picture the layer-by-layer traceback was missing. The profile list answers "which
@@ -2117,14 +2252,40 @@ export function initVariantPlayground(root: ParentNode = document) {
       };
       note = 'in-silico mutagenesis, mean-centred and projected on the reference — the paper\'s '
         + 'Figure 4 quantity';
+    } else if (src === 'occl' && occl && tracedBins) {
+      // Occlusion is a 64 bp measurement, so every base inside a window carries that window's
+      // value. The logo therefore reads as blocks rather than per-base spikes -- which is exactly
+      // what the method resolves, and pretending otherwise by interpolating would be a lie about
+      // its resolution.
+      const o = occl;
+      const prof = new Float64Array(o.rows);
+      for (let w = 0; w < o.rows; w += 1) {
+        let s = 0;
+        for (let b = tracedBins.start; b < tracedBins.end; b += 1) s += o.plane[w * o.cols + b];
+        prof[w] = s / Math.max(tracedBins.end - tracedBins.start, 1);
+      }
+      column = (i) => {
+        const at = start + i;
+        const out = [0, 0, 0, 0];
+        const b = BASES.indexOf((seq[at] ?? 'N').toUpperCase() as Base);
+        // Negated: occlusion measures what is LOST when the stretch goes, so a base that matters
+        // has a negative logSED. The logo convention is that height means importance and up means
+        // "raises the prediction", so the sign has to be flipped to read like the others.
+        if (b >= 0) out[b] = -(prof[Math.min(o.rows - 1, Math.floor(at / o.win))] ?? 0);
+        return out;
+      };
+      note = `occlusion at ${o.win} bp — every base in a window carries that window's value`;
     } else if (attribution && tracedBins) {
       const anchorIdx = attribution.anchors.findIndex(
         (a) => a.binStart === tracedBins!.start && a.binEnd === tracedBins!.end,
       );
-      const series = anchorIdx >= 0
-        ? attribution.anchor.subarray(anchorIdx * attribution.cols.anchor,
-                                      (anchorIdx + 1) * attribution.cols.anchor)
-        : traceRegion(attribution, tracedBins.start, tracedBins.end);
+      const useIg = src === 'ig' && attribution.ig && anchorIdx >= 0;
+      const series = useIg
+        ? attribution.ig!.subarray(anchorIdx * attribution.cols.ig, (anchorIdx + 1) * attribution.cols.ig)
+        : anchorIdx >= 0
+          ? attribution.anchor.subarray(anchorIdx * attribution.cols.anchor,
+                                        (anchorIdx + 1) * attribution.cols.anchor)
+          : traceRegion(attribution, tracedBins.start, tracedBins.end);
       const perBase = anchorIdx >= 0;
       column = (i) => {
         const at = start + i;
@@ -2134,13 +2295,18 @@ export function initVariantPlayground(root: ParentNode = document) {
         if (b >= 0) out[b] = v;
         return out;
       };
-      const why = src === 'ism' && ism && !ismCovers
+      const why = src === 'ig' && !useIg
+        ? ' (integrated gradients exist only for the precomputed regions — pick one from the stepper)'
+        : src === 'ism' && ism && !ismCovers
         ? ` (mutagenesis covers only bp ${ism.start.toLocaleString()}–`
           + `${(ism.start + ism.width).toLocaleString()}, so this window falls back to the gradient)`
         : '';
-      note = (perBase
-        ? 'gradient × input, single base — a local sensitivity, not the paper\'s method'
-        : 'gradient × input at 128 bp — pick a gene below the curve for single-base letters') + why;
+      note = (useIg
+        ? 'integrated gradients, single base — the only method here whose values sum to the '
+          + 'prediction difference'
+        : perBase
+          ? 'gradient × input, single base — a local sensitivity, not the paper\'s method'
+          : 'gradient × input at 128 bp — pick a gene below the curve for single-base letters') + why;
     }
 
     if (!column) {
@@ -2320,105 +2486,9 @@ export function initVariantPlayground(root: ParentNode = document) {
       + ` · logSED range ${yLo.toFixed(2)} … ${yHi.toFixed(2)}`, 'vp-ax vp-caption', 'start'));
     ismLogoSvg.dataset.letters = String(letters);
     ismLogoSvg.dataset.boxes = String(boxes.length);
+    ismLogoSvg.dataset.window = `${lo}-${hi}`;
   }
 
-  /**
-   * The mutagenesis panel: every substitution in the promoter window, and what it actually did.
-   *
-   * Four rows of real forward passes rather than a gradient. The reference base's own cell is zero
-   * by construction, which is why one row of every column is blank -- that blank IS the reference,
-   * and the panel says so rather than leaving it as an unexplained gap.
-   */
-  function renderIsm(): void {
-    if (!ismCanvas) return;
-    const cssW = ismCanvas.clientWidth || 900;
-    const rowH = 16;
-    const cssH = 4 * rowH + 40;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    ismCanvas.width = Math.round(cssW * dpr);
-    ismCanvas.height = Math.round(cssH * dpr);
-    ismCanvas.style.height = `${cssH}px`;
-    const ctx = ismCanvas.getContext('2d');
-    if (!ctx) return;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, cssW, cssH);
-    const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
-    ctx.font = '10px system-ui, sans-serif';
-    ctx.fillStyle = muted;
-
-    if (!ism) {
-      ctx.fillText('Mutagenesis for this locus has not loaded.', 4, 20);
-      if (ismStat) ismStat.textContent = '';
-      delete ismCanvas.dataset.peak;
-      return;
-    }
-    const { plane, start, width, tss } = ism;
-    const seq = LOCI[locusIndex].sequence;
-    let peak = 0;
-    for (let i = 0; i < plane.length; i += 1) peak = Math.max(peak, Math.abs(plane[i]));
-
-    const left = 26;
-    const top = 18;
-    const colW = (cssW - left - 6) / width;
-    const neutral = neutralRgb();
-    const scale = { kind: 'diverging' as const, half: Math.max(peak, 1e-12), lo: -peak, hi: peak };
-    const rgba = paintActivationMap(plane, 4, width, scale, neutral);
-    const off = document.createElement('canvas');
-    off.width = width;
-    off.height = 4;
-    const octx = off.getContext('2d');
-    if (octx) {
-      const img = octx.createImageData(width, 4);
-      img.data.set(rgba);
-      octx.putImageData(img, 0, 0);
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(off, left, top, cssW - left - 6, 4 * rowH);
-    }
-    ctx.fillStyle = muted;
-    ctx.textAlign = 'right';
-    BASES.forEach((b, i) => ctx.fillText(b, left - 4, top + i * rowH + rowH / 2 + 3.5));
-
-    // The TSS, which is what the window is centred on.
-    ctx.textAlign = 'center';
-    const tssX = left + ((tss - start) / width) * (cssW - left - 6);
-    if (tssX > left && tssX < cssW - 6) {
-      ctx.strokeStyle = getComputedStyle(host).getPropertyValue('--vp-orf').trim() || '#6f62a8';
-      ctx.setLineDash([2, 2]);
-      ctx.beginPath();
-      ctx.moveTo(tssX, top);
-      ctx.lineTo(tssX, top + 4 * rowH);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.fillText('TSS', tssX, top - 4);
-    }
-    for (let k = 0; k <= width; k += 64) {
-      const x = left + (k / width) * (cssW - left - 6);
-      ctx.fillText(String(start + k), x, cssH - 4);
-    }
-    ctx.textAlign = 'left';
-    // BOTH the absolute and the relative change, because a percentage of a silent gene is
-    // misleading in the direction that matters: HOP2's strongest substitution is +448% of a
-    // reference of 0.42 -- an absolute move of 1.9 -- while ADH1's is -19% of 488, a move of 92.
-    // Ranked by percentage HOP2 leads; ranked by what the model actually predicts, ADH1 does.
-    // logSED is a log2 ratio, so the fold-change it implies is the readable companion: a logSED
-    // of -1 is a halving, whatever the gene's absolute expression. No percentage of a reference is
-    // needed, and that is precisely the incomparability the linear score used to have.
-    const fold = 2 ** peak;
-    ctx.fillText(
-      `${LOCI[locusIndex].gene} · bp ${start}–${start + width}`
-      + ` · strongest substitution logSED ±${peak.toFixed(3)}`
-      + ` (a ${fold >= 2 ? `${fold.toFixed(1)}×` : `${((fold - 1) * 100).toFixed(0)}%`} change)`,
-      left, 11,
-    );
-    ismCanvas.dataset.peak = String(peak);
-    ismCanvas.dataset.window = `${start}-${start + width}`;
-    if (ismStat) {
-      const seqAt = seq.slice(start, start + width);
-      const gc = [...seqAt].filter((c) => c === 'G' || c === 'C').length / Math.max(seqAt.length, 1);
-      ismStat.textContent = `${width} bp · GC ${(gc * 100).toFixed(0)}% · `
-        + `${(width * 3 * 2).toLocaleString()} real forward passes, both strands`;
-    }
-  }
 
   /**
    * The traced region's relevance for one stage, as a [channels x positions] map.
@@ -2473,22 +2543,12 @@ export function initVariantPlayground(root: ParentNode = document) {
     const out: MethodTrack[] = [];
     const locus = LOCI[locusIndex];
 
-    if (ism) {
-      const plane = ism;
-      const sal = ismSaliency(plane.plane, plane.width, locus.sequence, plane.start);
-      let peak = 0;
-      for (const v of sal) peak = Math.max(peak, Math.abs(v));
-      out.push({
-        label: 'mutagenesis (logSED)',
-        at: (bp) => {
-          const k = Math.round(bp) - plane.start;
-          return k >= 0 && k < plane.width ? sal[k] : null;
-        },
-        peak,
-        note: `${plane.width} bp`,
-      });
-    }
-
+    // Mutagenesis is deliberately NOT a track here. It covers ~500 bp of a 16,384 bp window, so
+    // it sat blank across 97% of this axis; and the full window is not affordable -- a forward pass
+    // is 104 ms and the ONNX batch axis is fixed at 1, so 16,384 x 3 substitutions is 1.4 h a locus
+    // one strand, 39.6 h for all fourteen both strands. The full window is covered here by
+    // occlusion (exact, measured) and by integrated gradients (single base). Mutagenesis lives in
+    // the logo panel, where its window is the whole point rather than a gap.
     if (attribution && tracedBins) {
       const ai = attribution.anchors.findIndex(
         (a) => a.binStart === tracedBins!.start && a.binEnd === tracedBins!.end,
@@ -2666,15 +2726,30 @@ export function initVariantPlayground(root: ParentNode = document) {
       return;
     }
     const o = occl;
-    const top = 16;
+    const MARG = 22;                 // the marginal strips, top and right
+    const top = 16 + MARG;
     const plotH = cssH - top - 30;
     const x0 = PLOT.left;
-    const plotW = cssW - PLOT.left - PLOT.right;
+    const plotW = cssW - PLOT.left - PLOT.right - MARG;
 
-    // One diverging scale across the whole matrix -- the cells are all logSED, so they ARE
-    // comparable, and a per-row scale would hide which windows matter most.
-    const scale = activationScale(o.plane);
-    const rgba = paintActivationMap(o.plane, o.rows, o.cols, scale, neutralRgb());
+    // One diverging scale across the whole matrix by default -- the cells are all logSED, so they
+    // ARE comparable, and a per-row scale hides which windows matter most. The toggle exists
+    // because output bins differ in expression by orders of magnitude, so the raw map is dominated
+    // by a handful of loud bins and the quiet ones are unreadable; per-bin scaling trades the
+    // between-bin comparison for the within-bin one.
+    const perBin = occlNorm?.checked ?? false;
+    let shown = o.plane;
+    if (perBin) {
+      shown = new Float32Array(o.plane.length);
+      for (let b = 0; b < o.cols; b += 1) {
+        let m = 0;
+        for (let w = 0; w < o.rows; w += 1) m = Math.max(m, Math.abs(o.plane[w * o.cols + b]));
+        if (m <= 0) continue;
+        for (let w = 0; w < o.rows; w += 1) shown[w * o.cols + b] = o.plane[w * o.cols + b] / m;
+      }
+    }
+    const scale = activationScale(shown);
+    const rgba = paintActivationMap(shown, o.rows, o.cols, scale, neutralRgb());
     // The pack is [windows x bins]; the drawing wants bins down and windows across, so transpose.
     const off = document.createElement('canvas');
     off.width = o.rows;
@@ -2696,6 +2771,41 @@ export function initVariantPlayground(root: ParentNode = document) {
       octx.putImageData(img, 0, 0);
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(off, x0, top, plotW, plotH);
+    }
+
+    // --- the margins: what each axis totals, drawn on the axis it belongs to ---------------
+    const colSum = new Float64Array(o.rows);
+    const rowSum = new Float64Array(o.cols);
+    for (let w = 0; w < o.rows; w += 1) {
+      for (let b = 0; b < o.cols; b += 1) {
+        const v = Math.abs(o.plane[w * o.cols + b]);
+        colSum[w] += v;
+        rowSum[b] += v;
+      }
+    }
+    const cMax = Math.max(...colSum, 1e-12);
+    const rMax = Math.max(...rowSum, 1e-12);
+    ctx.fillStyle = getComputedStyle(host).getPropertyValue('--vp-orf').trim() || '#6f62a8';
+    for (let w = 0; w < o.rows; w += 1) {
+      const h = (colSum[w] / cMax) * (MARG - 4);
+      ctx.fillRect(x0 + (w / o.rows) * plotW, top - 3 - h, Math.max(plotW / o.rows, 1), h);
+    }
+    for (let b = 0; b < o.cols; b += 1) {
+      const wdt = (rowSum[b] / rMax) * (MARG - 4);
+      ctx.fillRect(x0 + plotW + 3, top + (b / o.cols) * plotH, wdt, Math.max(plotH / o.cols, 1));
+    }
+
+    // --- a clicked row or column, and what it says -------------------------------------------
+    if (occlSel) {
+      ctx.strokeStyle = getComputedStyle(host).getPropertyValue('--vp-fire').trim() || '#b0455a';
+      ctx.lineWidth = 1;
+      if (occlSel.kind === 'row') {
+        const y = top + (occlSel.index / o.cols) * plotH;
+        ctx.strokeRect(x0, y - 1, plotW, Math.max(plotH / o.cols, 2) + 2);
+      } else {
+        const x = x0 + (occlSel.index / o.rows) * plotW;
+        ctx.strokeRect(x - 1, top, Math.max(plotW / o.rows, 2) + 2, plotH);
+      }
     }
 
     // Where the diagonal actually is. The input spans 0-16,384 and the output only the cropped
@@ -2741,6 +2851,42 @@ export function initVariantPlayground(root: ParentNode = document) {
     for (let i = 0; i < o.plane.length; i += 1) peak = Math.max(peak, Math.abs(o.plane[i]));
     ctx.fillText(`dashed line = the diagonal · blue: ablating that window LOWERS that bin`, x0 + 130, cssH - 3);
     occlCanvas.dataset.peak = String(peak);
+    occlCanvas.dataset.selection = occlSel ? `${occlSel.kind}:${occlSel.index}` : '';
+    // Click to pick a row or a column. Which one depends on where the pointer lands relative to
+    // the diagonal's own geometry -- so the handler is registered once, here, against the same
+    // plot rectangle the drawing used, rather than recomputed from the element box.
+    occlCanvas.onclick = (ev) => {
+      const box = occlCanvas.getBoundingClientRect();
+      const px = ((ev.clientX - box.left) / box.width) * cssW;
+      const py = ((ev.clientY - box.top) / box.height) * cssH;
+      if (px < x0 || px > x0 + plotW || py < top || py > top + plotH) {
+        occlSel = null;
+      } else {
+        const col = Math.floor(((px - x0) / plotW) * o.rows);
+        const row = Math.floor(((py - top) / plotH) * o.cols);
+        // A row is an output bin and a column an input window; pick whichever the pointer is
+        // nearer to selecting uniquely -- the map is 256 wide and 896 tall, so a vertical drag
+        // resolves rows far more finely than columns.
+        const same = occlSel && ((occlSel.kind === 'row' && occlSel.index === row)
+          || (occlSel.kind === 'col' && occlSel.index === col));
+        occlSel = same ? null
+          : ev.shiftKey ? { kind: 'col', index: col } : { kind: 'row', index: row };
+      }
+      renderOcclusion();
+      renderMethods();
+    };
+    if (occlPick) {
+      if (!occlSel) {
+        occlPick.textContent = 'click a row for one output bin, shift-click for an input window';
+      } else if (occlSel.kind === 'row') {
+        const bp = CROP_BP + occlSel.index * BIN_BP;
+        occlPick.textContent = `output bin ${occlSel.index} (${bp.toLocaleString()} bp) · `
+          + `depends on the sequence by ${rowSum[occlSel.index].toFixed(2)} summed |logSED|`;
+      } else {
+        occlPick.textContent = `input window ${occlSel.index * o.win}–${(occlSel.index + 1) * o.win} bp · `
+          + `drives ${colSum[occlSel.index].toFixed(2)} summed |logSED| across all 896 bins`;
+      }
+    }
     if (occlStat) {
       occlStat.textContent = `${o.rows} windows × ${o.win} bp vs ${o.cols} output bins · `
         + `${(o.rows).toLocaleString()} real forward passes · peak |logSED| ${peak.toFixed(2)}`;
@@ -2759,6 +2905,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     renderStageProfile();
     renderRollout();
     renderStageStack();
+    renderNeuronTraces();
     renderMethods();
     renderOcclusion();
     applyShowing();          // the flow canvas is region-specific in relevance mode
@@ -2899,7 +3046,6 @@ export function initVariantPlayground(root: ParentNode = document) {
   // do not.
   const onTheme = () => {
     renderHeatmap();
-    renderIsm();
     renderIsmLogo();
     refreshRegionViews();
     renderStageDetail(flow?.selected() ?? null);
@@ -3376,6 +3522,8 @@ export function initVariantPlayground(root: ParentNode = document) {
   logoWidth?.addEventListener('change', renderSeqLogo);
   logoSource?.addEventListener('change', renderSeqLogo);
 
+  occlNorm?.addEventListener('change', renderOcclusion);
+
   spinBtn?.addEventListener('click', () => {
     flow3d?.resumeSpin();
     spinBtn.hidden = true;
@@ -3515,7 +3663,6 @@ export function initVariantPlayground(root: ParentNode = document) {
   renderAttribution();
   refreshRegionViews();
   renderSeqLogo();
-  renderIsm();
   renderIsmLogo();
   // Locus mode is the only mode, so the first locus loads immediately rather than waiting for a
   // click on a toggle that no longer exists.

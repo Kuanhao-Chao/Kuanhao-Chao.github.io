@@ -1093,7 +1093,7 @@ earlier assumptions did not survive reading it.
   the page is two-dimensional.
 - **The occlusion map's diagonal is intense but narrow, and both halves of that are the finding.**
   Per cell the diagonal dominates; but it is one window in 256, so summed over a row the local
-  footprint is only **0.3–8 %** of the most damaging window's total effect. Saying only "the model is
+  footprint is only **0.2–5.6 %** of the most damaging window's total effect. Saying only "the model is
   local" or only "the model is long-range" is half the truth, and the panel says both.
 - **Ablation-by-zeroing and motif-shuffling ask different questions.** Zeroing the four DNA channels
   is how the paper's LM masks a position and is indistinguishable from a run of N: it asks whether
@@ -1129,6 +1129,60 @@ earlier assumptions did not survive reading it.
   went stale for a new region while every panel below it updated. The audit caught it. The fix was
   one `refreshRegionViews()` helper; the lesson is that N call sites wanting the same list is a
   function, not a replace.
+
+#### Conventions, costs, and what every panel collapses
+
+- **Full-window single-base mutagenesis is not affordable, and the number is worth keeping.** A
+  forward pass is **104 ms** and the ONNX batch axis is fixed at `[1, 16384, 170]`, so batching
+  cannot rescue it: 16,384 × 3 substitutions is **1.4 h a locus** one strand and **39.6 h** for all
+  fourteen both strands. Mutagenesis therefore stays on its promoter window and is not a track on
+  the full-window coverage strip, where it spanned 3 % of the axis.
+- **Every input-space method is rc-averaged; the relevance margins deliberately are not.** Borzoi
+  averages both strands and every published Shorkie ISM run passes `--rc`, so gradient × input,
+  integrated gradients, occlusion and mutagenesis all do. The per-stage relevance margins do not:
+  they describe one forward pass's *internal state*, and a forward/reverse average is not a state
+  the model is ever in.
+- **This model is NOT reverse-complement equivariant, so that averaging is a real choice.**
+  `augment_rc: false` in all four `params.json`. Measured on TDH3, the target reads **15.60 forward
+  against 14.23 reversed** and the two gradients correlate at **0.31**. It is a test-time
+  augmentation the paper adopts, not a symmetry being exploited — say that rather than implying
+  variance reduction over a symmetry.
+- **The rc gradient mapping is `g.flip(0)[:, [3,2,1,0]]`, and getting it wrong is silent.** `rc` is a
+  permutation, so it is its own inverse and `d f(rc x)/dx = rc(df/dy)`. Verified against finite
+  differences on the real model before it shipped: forward gradient −0.002388 against a finite
+  difference of −0.002384, mapped reverse +0.003716 against +0.003815 at eps = 1e-3. **Test at
+  eps ≤ 1e-2** — a first attempt used eps = 1.0 on a one-hot input, which is not a small
+  perturbation, and the check failed against correct code.
+- **rc-averaging an attribution requires rc-averaging its completeness target too.** Averaging the
+  IG attributions while leaving the gap forward-only pushed the completeness error from 0.002–0.15
+  to **0.22–0.57**. The average of two complete decompositions is a complete decomposition of the
+  average — `rc_grad` is a permutation so it preserves the sum, and `rc(x) − rc(b) = rc(x − b)` —
+  so the gap must be `½[f(x)−f(b)] + ½[f(rc x)−f(rc b)]`. With that, the error is **0.016–0.087**,
+  better than forward-only was.
+- **The drawn coverage and the attributed quantity are different track sets.** The curve is the
+  3,053-track RNA-seq group mean; every attribution scores the 384 `_T0_` subset. Measured, they
+  correlate at **r = 1.0000** and differ by **1 %** at the peak — state it, do not "fix" it.
+- **The same axis is collapsed by different rules in different panels, and the page now says so.**
+  Position is **max**-pooled for display ("did any neuron fire here", `build_onnx.py:139`) and
+  **sum**-pooled for relevance ("how much relevance is here" — a mean would make a coarse stage look
+  quiet for being coarse). The full table is rendered on the page in *Every dimension this page
+  collapses*; that panel exists because the difference is invisible otherwise.
+- **The layer relevance map is the only reconstructed number on the page.** Both its margins are
+  exact and superpose; its interior is their outer product, which is the unique reconstruction under
+  independence. The **neuron traces** sit directly beneath it as the un-collapsed answer to the same
+  question — top-k channels by exact relevance, each drawn as its real activation.
+- **A high-relevance channel does not fire only where it is relevant.** Measured on block 4, the top
+  eight channels for a region covering 9.5 % of the window are enriched only **0.85–1.32×** inside
+  it. Relevance comes from *what a channel computes* there, not from firing only there — which is
+  also why the outer-product interior is a defensible approximation at that depth.
+- **The methods agree, and the number is worth keeping.** On TDH3's gene body at the 64 bp grid:
+  gradient × input vs integrated gradients **r = 0.874**, gradient × input vs occlusion **0.901**,
+  IG vs occlusion **0.856**. Against mutagenesis per base over its own 500 bp, gradient × input
+  falls to **0.658** — expected, because a gradient is a local linear sensitivity and a substitution
+  is a finite jump; where a promoter is saturated the two genuinely differ.
+- **Disclosures are collapsed by default and are gated.** A `<details class="vp-how">` on each panel
+  carries the formula, the shapes, the collapse and the cost. The audit asserts each one opens and
+  has real content, because a disclosure that exists and says nothing is worse than none.
 
 **The volume view** (`src/scripts/shorkieFlow3d.ts`) is the third view, behind a `flat`/`volume`
 toggle, built on first use so the `three` chunk is only fetched for a reader who asks:

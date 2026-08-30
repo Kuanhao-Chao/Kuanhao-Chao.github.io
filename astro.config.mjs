@@ -22,16 +22,31 @@ export default defineConfig({
   integrations: [
     mdx(),
     sitemap({
-      // The `reports` section is in private launch: every report is `unlisted`
-      // (noindex). Keep the whole /reports/ subtree out of the sitemap so its
-      // URLs are never advertised. Search is also noindex, so keep it out too.
+      // The `reports`, `papers`, `algorithms`, `deep_dives`, and `photos`
+      // sections are non-indexed. Keep them out of the sitemap so their URLs
+      // are never advertised to search engines.
       filter: (page) =>
-        !page.includes('/reports/') && !page.includes('/papers/') && !page.includes('/logo-options/') && !page.includes('/search/'),
+        !page.includes('/reports/') &&
+        !page.includes('/papers/') &&
+        !page.includes('/logo-options/') &&
+        !page.includes('/search/') &&
+        !page.includes('/algorithms/') &&
+        !page.includes('/deep_dives/') &&
+        !page.includes('/photos/'),
       serialize(item) {
-        // Nudge crawl priority: homepage highest, primary sections next.
+        // Nudge crawl priority based on content depth and discovery value:
         if (item.url === 'https://khchao.com/') {
           item.priority = 1.0;
-        } else if (/\/(research|publications|talks|cv|teaching|news|photos)\/$/.test(item.url)) {
+        } else if (
+          /\/(research|publications|software|posts|chromatin|variant-playground)\/$/.test(item.url)
+        ) {
+          item.priority = 0.9;
+        } else if (
+          /\/(talks|cv|teaching|news|projects)\/$/.test(item.url) ||
+          /\/publications\/[^\/]+\/$/.test(item.url) ||
+          /\/posts\/[^\/]+\/$/.test(item.url) ||
+          /\/research\/[^\/]+\/$/.test(item.url)
+        ) {
           item.priority = 0.8;
         } else {
           item.priority = 0.7;

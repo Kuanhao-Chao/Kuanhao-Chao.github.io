@@ -294,3 +294,38 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
 .vp-stages .chans button:hover { color: var(--vp-accent); }
 
 .vp-ism { image-rendering: pixelated; }
+
+/* "How this is computed" disclosures. Collapsed by default: the panels have to read cleanly for
+   someone who wants the picture, and open all the way down for someone who wants the arithmetic. */
+.vp-how {
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--color-rule);
+  padding-top: 0.4rem;
+  font-size: var(--fs-meta);
+}
+.vp-how > summary {
+  cursor: pointer;
+  color: var(--color-muted);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.vp-how > summary::-webkit-details-marker { display: none; }
+.vp-how > summary::before { content: '▸'; font-size: 0.85em; }
+.vp-how[open] > summary::before { content: '▾'; }
+.vp-how > summary:hover { color: var(--vp-accent); }
+.vp-how .vp-how-body { margin-top: 0.5rem; color: var(--color-muted); }
+.vp-how .vp-how-body > * + * { margin-top: 0.5rem; }
+.vp-how ol, .vp-how ul { margin: 0; padding-left: 1.2rem; }
+.vp-how li + li { margin-top: 0.25rem; }
+.vp-how code {
+  font-size: 0.92em;
+  background: color-mix(in srgb, var(--color-ink) 7%, transparent);
+  padding: 0.05em 0.3em;
+  border-radius: 2px;
+}
+.vp-how table { font-size: 0.95em; margin-top: 0.4rem; }
+.vp-how th { text-align: left; font-weight: 600; }
+.vp-how .shape { font-family: ui-monospace, Menlo, monospace; white-space: nowrap; }
+.vp-collapse-table td:first-child { white-space: nowrap; }

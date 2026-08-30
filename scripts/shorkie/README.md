@@ -297,7 +297,7 @@ whether the stretch carries information at all.
 
 **Read both halves of the map.** Per cell the diagonal dominates — ablating a window damages the
 output above it. But the diagonal is one window in 256, so summed across a row the local footprint is
-only **0.3–8 %** of the most damaging window's total effect. The model is most intense locally and
+only **0.2–5.6 %** of the most damaging window's total effect. The model is most intense locally and
 does most of its work at range; either statement alone is half the truth.
 
 ## Integrated gradients, and why they are not mean-centred
@@ -341,3 +341,41 @@ indexing**, so the check agreed with the pack and passed. The damage was small �
 ratio and the coverage sums far exceed the +1 pseudocount, so a constant factor cancels; the worst
 error across all fourteen loci was 5e-3, at or below the packs' uint8 floor — but the check was
 worthless while both sides shared the mistake. Index in two steps: `y[0][a:b][:, T0]`.
+
+
+## The strand convention, and what rc-averaging is here
+
+Every **input-space** method — mutagenesis, gradient × input, integrated gradients, occlusion —
+averages both strands, matching Borzoi and the `--rc` every published Shorkie ISM run passes. The
+per-stage **relevance margins** deliberately do not: they describe the internal state of one forward
+pass, and a forward/reverse average is not a state the model is ever in.
+
+**This model is not reverse-complement equivariant, so that averaging is a real choice rather than a
+free symmetry.** `augment_rc: false` in all four `params.json`. Measured on TDH3, the target reads
+**15.60 forward against 14.23 reversed**, and the two gradients correlate at **0.31**.
+
+The mapping is `g.flip(0)[:, [3,2,1,0]]`: `rc` is a permutation, so it is its own inverse and
+`d f(rc x)/dx = rc(df/dy)`. Getting it wrong is silent — the numbers stay the same size and land on
+the wrong bases — so `verify_pipeline.py` checks it against a finite difference on the real model.
+**Test at eps ≤ 1e-2.** A first attempt used eps = 1.0 on a one-hot input, which is not a small
+perturbation, and the check failed against correct code.
+
+**rc-averaging an attribution means rc-averaging its completeness target too.** Averaging the IG
+attributions while leaving the gap forward-only pushed the completeness error from 0.002–0.15 to
+**0.22–0.57**. The average of two complete decompositions is a complete decomposition of the
+average, so the gap must be `½[f(x)−f(b)] + ½[f(rc x)−f(rc b)]`. With that it is **0.016–0.087**,
+tighter than forward-only was.
+
+## Why mutagenesis is not a full-window track
+
+A forward pass is **104 ms** and the ONNX batch axis is fixed at `[1, 16384, 170]`, so batching
+cannot help. 16,384 bp × 3 substitutions = 49,152 passes = **1.4 h a locus** on one strand,
+**39.6 h** for all fourteen on both. It stays on the promoter window, where its span is the point;
+the full window is covered by occlusion (256 passes, exact, measured) and by integrated gradients at
+single-base resolution.
+
+## The drawn curve and the attributed quantity
+
+The coverage curve is the 3,053-track RNA-seq group mean. Every attribution scores the 384 `_T0_`
+subset the paper uses. Measured, they correlate at **r = 1.0000** and differ by **1 %** at the peak
+— worth stating on the page, not worth "fixing".

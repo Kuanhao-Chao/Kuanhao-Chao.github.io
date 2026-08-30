@@ -1,7 +1,11 @@
 User-agent: *
 Disallow: /reports/
 Disallow: /papers/
+Disallow: /algorithms/
+Disallow: /deep_dives/
+Disallow: /photos/
 Disallow: /logo-options/
+Disallow: /search/
 Allow: /
 
 Sitemap: https://khchao.com/sitemap-index.xml
