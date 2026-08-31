@@ -1,7 +1,6 @@
 /**
  * Phage Defense — Canvas 2D Renderer & Game Loop
- *
- * Renders in a standardized 800 x 500 Virtual Coordinate Space with responsive scaling.
+ * Features dynamic Light/Dark theme palette synchronization and biological viral morphology
  */
 
 import {
@@ -59,6 +58,59 @@ interface Organelle {
 }
 
 const STORAGE_KEY = 'khc_phage_defense_highscore';
+
+interface DefenseThemePalette {
+  isDark: boolean;
+  bg: string;
+  membrane: string;
+  pathTrack: string;
+  pathLine: string;
+  nucleoidFill: string;
+  nucleoidStroke: string;
+  nucleoidText: string;
+  towerBody: string;
+  ink: string;
+  muted: string;
+  overlayBg: string;
+}
+
+function getDefenseThemePalette(): DefenseThemePalette {
+  const isDark =
+    typeof document !== 'undefined' &&
+    document.documentElement.getAttribute('data-theme') === 'dark';
+
+  if (isDark) {
+    return {
+      isDark: true,
+      bg: '#050811',
+      membrane: 'rgba(56, 189, 248, 0.25)',
+      pathTrack: 'rgba(56, 189, 248, 0.12)',
+      pathLine: 'rgba(56, 189, 248, 0.45)',
+      nucleoidFill: 'rgba(16, 185, 129, 0.18)',
+      nucleoidStroke: '#10b981',
+      nucleoidText: '#10b981',
+      towerBody: '#1e293b',
+      ink: '#f8fafc',
+      muted: '#94a3b8',
+      overlayBg: 'rgba(5, 8, 17, 0.90)',
+    };
+  }
+
+  return {
+    isDark: false,
+    bg: '#f8fafc',
+    membrane: 'rgba(2, 132, 199, 0.25)',
+    pathTrack: 'rgba(226, 232, 240, 0.85)',
+    pathLine: 'rgba(2, 132, 199, 0.65)',
+    nucleoidFill: 'rgba(16, 185, 129, 0.12)',
+    nucleoidStroke: '#059669',
+    nucleoidText: '#047857',
+    towerBody: '#ffffff',
+    ink: '#0f172a',
+    muted: '#64748b',
+    overlayBg: 'rgba(248, 250, 252, 0.92)',
+  };
+}
 
 class DefenseSoundController {
   private ctx: AudioContext | null = null;
@@ -234,6 +286,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
   } catch {}
 
   let state: DefenseGameState = createInitialDefenseState(savedHigh);
+  let palette: DefenseThemePalette = getDefenseThemePalette();
   let particles: Particle[] = [];
   let floatingTexts: FloatingText[] = [];
   let organelles: Organelle[] = [];
@@ -327,7 +380,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
     ctx.clearRect(0, 0, w, h);
 
     // 1. Draw Cellular Cytoplasm Map Background
-    ctx.fillStyle = '#050811';
+    ctx.fillStyle = palette.bg;
     ctx.fillRect(0, 0, w, h);
 
     // Drifting cellular organelles
@@ -345,12 +398,12 @@ export function initPhageDefense(containerEl: HTMLElement) {
     }
 
     // Membrane outer lipid bilayer
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
+    ctx.strokeStyle = palette.membrane;
     ctx.lineWidth = 4;
     ctx.strokeRect(2, 2, w - 4, h - 4);
 
     // 2. Draw Waypoint Cytosolic Pathway
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.12)';
+    ctx.strokeStyle = palette.pathTrack;
     ctx.lineWidth = 36;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -362,7 +415,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
     ctx.stroke();
 
     // Central dashed path track with animated flow offset
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+    ctx.strokeStyle = palette.pathLine;
     ctx.lineWidth = 2;
     ctx.setLineDash([8, 8]);
     ctx.lineDashOffset = -animTick * 18;
@@ -371,21 +424,21 @@ export function initPhageDefense(containerEl: HTMLElement) {
 
     // 3. Draw Destination Nucleoid Core (Circular Genome Plasmid)
     const dest = state.waypoints[state.waypoints.length - 1];
-    ctx.shadowColor = '#10b981';
-    ctx.shadowBlur = 18;
-    ctx.fillStyle = 'rgba(16, 185, 129, 0.18)';
+    ctx.shadowColor = palette.nucleoidStroke;
+    ctx.shadowBlur = palette.isDark ? 18 : 8;
+    ctx.fillStyle = palette.nucleoidFill;
     ctx.beginPath();
     ctx.arc(dest.x, dest.y, 44, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.strokeStyle = '#10b981';
+    ctx.strokeStyle = palette.nucleoidStroke;
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.arc(dest.x, dest.y, 38, 0, Math.PI * 2);
     ctx.stroke();
     ctx.shadowBlur = 0;
 
-    ctx.fillStyle = '#10b981';
+    ctx.fillStyle = palette.nucleoidText;
     ctx.font = 'bold 11px monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -410,8 +463,8 @@ export function initPhageDefense(containerEl: HTMLElement) {
 
       // Base circle
       ctx.shadowColor = def.color;
-      ctx.shadowBlur = 12;
-      ctx.fillStyle = '#1e293b';
+      ctx.shadowBlur = palette.isDark ? 12 : 6;
+      ctx.fillStyle = palette.towerBody;
       ctx.strokeStyle = def.color;
       ctx.lineWidth = 2.5;
       ctx.beginPath();
@@ -434,13 +487,13 @@ export function initPhageDefense(containerEl: HTMLElement) {
       ctx.stroke();
       if (t.level >= 2) {
         ctx.rotate(Math.PI / 4);
-        ctx.strokeStyle = '#ffffff';
+        ctx.strokeStyle = palette.isDark ? '#ffffff' : '#0f172a';
         ctx.stroke();
       }
       ctx.restore();
 
       // Level text
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = palette.isDark ? '#ffffff' : '#0f172a';
       ctx.font = 'bold 10px monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -473,11 +526,11 @@ export function initPhageDefense(containerEl: HTMLElement) {
       }
     }
 
-    // 5. Draw Projectiles in flight (CRITICAL RENDERING FIX!)
+    // 5. Draw Projectiles in flight
     for (const proj of state.projectiles) {
       ctx.save();
       ctx.shadowColor = proj.color;
-      ctx.shadowBlur = 14;
+      ctx.shadowBlur = palette.isDark ? 14 : 6;
       ctx.fillStyle = proj.color;
 
       // Draw projectile sphere with glowing energy core
@@ -505,7 +558,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
       ctx.save();
       ctx.translate(p.x, p.y);
       ctx.shadowColor = p.color;
-      ctx.shadowBlur = 14;
+      ctx.shadowBlur = palette.isDark ? 14 : 6;
 
       if (p.type === 't4_myoviridae') {
         // Icosahedral head
@@ -577,7 +630,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
       const barH = 4;
       const barX = p.x - barW / 2;
       const barY = p.y - p.radius - 9;
-      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
       ctx.fillRect(barX, barY, barW, barH);
       ctx.fillStyle = p.shieldHealth > 0 ? '#ec4899' : '#10b981';
       const fillW = Math.max(0, (p.health / p.maxHealth) * barW);
@@ -661,13 +714,13 @@ export function initPhageDefense(containerEl: HTMLElement) {
 
     // 11. Game Over / Victory / Pause Overlays
     if (state.isGameOver) {
-      ctx.fillStyle = 'rgba(5, 8, 17, 0.88)';
+      ctx.fillStyle = palette.overlayBg;
       ctx.fillRect(0, 0, w, h);
       ctx.fillStyle = '#f43f5e';
       ctx.font = 'bold 32px sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('CELL LYSIS — NUCLEOID DESTROYED', w / 2, h / 2 - 25);
-      ctx.fillStyle = '#e2e8f0';
+      ctx.fillStyle = palette.ink;
       ctx.font = '16px monospace';
       ctx.fillText(
         `Final Score: ${state.score}  ·  Waves Survived: ${state.currentWave}`,
@@ -675,19 +728,19 @@ export function initPhageDefense(containerEl: HTMLElement) {
         h / 2 + 15
       );
     } else if (state.isVictory) {
-      ctx.fillStyle = 'rgba(5, 8, 17, 0.88)';
+      ctx.fillStyle = palette.overlayBg;
       ctx.fillRect(0, 0, w, h);
       ctx.fillStyle = '#10b981';
       ctx.font = 'bold 32px sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('CELL SURVIVAL VICTORY!', w / 2, h / 2 - 25);
-      ctx.fillStyle = '#e2e8f0';
+      ctx.fillStyle = palette.ink;
       ctx.font = '16px monospace';
       ctx.fillText(`All 15 Phage Waves Repelled! Score: ${state.score}`, w / 2, h / 2 + 15);
     } else if (state.isPaused) {
-      ctx.fillStyle = 'rgba(5, 8, 17, 0.7)';
+      ctx.fillStyle = palette.overlayBg;
       ctx.fillRect(0, 0, w, h);
-      ctx.fillStyle = '#38bdf8';
+      ctx.fillStyle = palette.nucleoidStroke;
       ctx.font = 'bold 28px sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('PAUSED', w / 2, h / 2);
@@ -812,6 +865,12 @@ export function initPhageDefense(containerEl: HTMLElement) {
     updateHUD();
 
     animationFrameId = requestAnimationFrame(gameLoop);
+  }
+
+  function onThemeChange() {
+    palette = getDefenseThemePalette();
+    render();
+    updateHUD();
   }
 
   // Click & Interaction handlers
@@ -948,6 +1007,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
   }
 
   window.addEventListener('resize', resizeCanvas);
+  document.addEventListener('khc:theme-change', onThemeChange);
   resizeCanvas();
   updateHUD();
 
@@ -961,6 +1021,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
     destroy: () => {
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener('resize', resizeCanvas);
+      document.removeEventListener('khc:theme-change', onThemeChange);
       if (win.__phageDefense === controller) {
         delete win.__phageDefense;
       }

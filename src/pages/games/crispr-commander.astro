@@ -1,5 +1,6 @@
 ---
 import PageLayout from '../../layouts/PageLayout.astro';
+import CrisprCommanderLogo from '../../components/games/CrisprCommanderLogo.astro';
 import { site } from '../../data/site';
 import '../../styles/crisprCommander.css';
 
@@ -8,12 +9,12 @@ const gameLd = {
   '@type': 'VideoGame',
   name: 'CRISPR Commander',
   description:
-    'An interactive molecular slicing action arcade game where you wield Cas9/Cas12 endonuclease enzymes to cleave invading viral DNA at PAM target motifs.',
+    'An interactive molecular biology web game where you command Cas9 and Cas12a enzymes to slice viral DNA at PAM target motifs.',
   url: `${site.url}/games/crispr-commander/`,
   author: { '@id': `${site.url}/#person` },
   applicationCategory: 'Game',
   gamePlatform: ['Web browser', 'Mobile web browser'],
-  genre: ['Arcade', 'Action', 'Precision Slicing'],
+  genre: ['Action', 'Arcade', 'Science Game'],
   inLanguage: 'en',
   isAccessibleForFree: true,
 };
@@ -22,13 +23,21 @@ const gameLd = {
 <PageLayout
   title="CRISPR Commander"
   eyebrow="Side project"
-  lead="Defend the host cell from cascading viral phages and jumping transposons. Slice matching PAM target motifs with precision Cas9/Cas12 cleavage."
-  description="CRISPR Commander — an original precision molecular slicing web game by Kuan-Hao Chao. Cleave viral DNA at PAM motifs, activate base editors, and protect host genome integrity."
+  lead="Take command of CRISPR-Cas molecular machinery. Slice invading viral DNA strands at specific Protospacer Adjacent Motifs (PAM) before they integrate into the host bacterial genome."
+  description="CRISPR Commander — an original molecular slicing web game by Kuan-Hao Chao. Slice viral DNA with Cas9 and Cas12a enzymes."
   width="narrow"
 >
   <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
 
   <section class="crispr-game-container" data-crispr-game aria-label="CRISPR Commander game">
+    <div class="crispr-header-card">
+      <CrisprCommanderLogo size={58} />
+      <div class="crispr-header-info">
+        <h2 class="crispr-header-title">CRISPR-Cas Ribonucleoprotein Complex</h2>
+        <p class="crispr-header-subtitle">Target and cleave viral DNA strands at PAM motifs: NGG (SpCas9) and TTTV (AsCas12a).</p>
+      </div>
+    </div>
+
     <div class="crispr-hud">
       <div class="crispr-stats">
         <div class="crispr-stat">
@@ -40,19 +49,15 @@ const gameLd = {
           <span class="crispr-stat-value" data-crispr-best>0</span>
         </div>
         <div class="crispr-stat">
-          <span class="crispr-stat-label">Combo</span>
-          <span class="crispr-stat-value" data-crispr-combo>0x</span>
-        </div>
-        <div class="crispr-stat">
           <span class="crispr-stat-label">ATP Pool</span>
-          <span class="crispr-stat-value" data-crispr-atp>60 ATP</span>
+          <span class="crispr-stat-value" data-crispr-energy>60 ATP</span>
         </div>
         <div class="crispr-stat">
-          <span class="crispr-stat-label">Level</span>
-          <span class="crispr-stat-value" data-crispr-level>Lvl 1</span>
+          <span class="crispr-stat-label">Combo Multiplier</span>
+          <span class="crispr-combo-badge" data-crispr-combo>1x NORMAL</span>
         </div>
         <div class="crispr-integrity-container">
-          <span class="crispr-stat-label">Cell Integrity: <strong data-crispr-integrity-text>100%</strong></span>
+          <span class="crispr-stat-label">Host Genome Viability: <strong data-crispr-integrity-text>100%</strong></span>
           <div class="crispr-integrity-bar">
             <div class="crispr-integrity-fill" data-crispr-integrity-fill></div>
           </div>
@@ -72,14 +77,33 @@ const gameLd = {
       </div>
     </div>
 
-    <div class="crispr-enzyme-bar" aria-label="Active Endonuclease Selection">
-      <span class="crispr-enzyme-label">Active Endonuclease:</span>
-      <button type="button" class="crispr-enzyme-btn active" data-crispr-enzyme="SpCas9">
-        SpCas9 (PAM: 3'-NGG)
-      </button>
-      <button type="button" class="crispr-enzyme-btn" data-crispr-enzyme="AsCas12a">
-        AsCas12a (PAM: 5'-TTTV)
-      </button>
+    <div class="crispr-enzyme-bar">
+      <div class="crispr-enzyme-group" aria-label="Cas Enzyme Selection">
+        <span class="crispr-enzyme-label">Active Nuclease:</span>
+        <button type="button" class="crispr-enzyme-btn active" data-enzyme="SpCas9" aria-label="Select SpCas9 nuclease (PAM: NGG, shortcut 1)">
+          <span>[1] SpCas9</span>
+          <span class="enzyme-pam">PAM: NGG</span>
+        </button>
+        <button type="button" class="crispr-enzyme-btn" data-enzyme="AsCas12a" aria-label="Select AsCas12a nuclease (PAM: TTTV, shortcut 2)">
+          <span>[2] AsCas12a</span>
+          <span class="enzyme-pam">PAM: TTTV</span>
+        </button>
+      </div>
+
+      <div class="crispr-powerups-group" aria-label="Tactical Cellular Power-ups">
+        <button type="button" class="crispr-powerup-btn" data-powerup="dcas9_shield" disabled aria-label="Activate dCas9 Shield (40 ATP)">
+          dCas9 Shield (40 ATP)
+        </button>
+        <button type="button" class="crispr-powerup-btn" data-powerup="prime_editor" disabled aria-label="Activate Prime Editor (50 ATP)">
+          Prime Edit (+40) (50 ATP)
+        </button>
+        <button type="button" class="crispr-powerup-btn" data-powerup="base_editor" disabled aria-label="Activate Base Editor (35 ATP)">
+          Base Edit (C→T) (35 ATP)
+        </button>
+        <button type="button" class="crispr-powerup-btn" data-powerup="hyper_drive" disabled aria-label="Activate Hyper-Drive (75 ATP)">
+          Hyper-Drive (75 ATP)
+        </button>
+      </div>
     </div>
 
     <div class="crispr-board">
@@ -87,51 +111,18 @@ const gameLd = {
         data-crispr-canvas
         class="crispr-canvas"
         role="img"
-        aria-label="CRISPR Commander interactive molecular slicing canvas"
+        aria-label="CRISPR Commander interactive molecular canvas. Slice viral DNA strands."
       ></canvas>
     </div>
 
-    <div class="crispr-powerups">
-      <button type="button" class="crispr-powerup-card" data-crispr-powerup data-powerup="base_editor" data-cost="35">
-        <span class="crispr-powerup-title">
-          <span>Base Editor (CBE)</span>
-          <span class="crispr-powerup-cost">35 ATP</span>
-        </span>
-        <span class="crispr-powerup-desc">Deaminate cytosines (C&rarr;T) to disarm viral promoters and reduce strand health.</span>
-      </button>
-
-      <button type="button" class="crispr-powerup-card" data-crispr-powerup data-powerup="dcas9_shield" data-cost="40">
-        <span class="crispr-powerup-title">
-          <span>dCas9 Shield</span>
-          <span class="crispr-powerup-cost">40 ATP</span>
-        </span>
-        <span class="crispr-powerup-desc">Deploy catalytically dead Cas9 to freeze replication forks and slow strands by 65%.</span>
-      </button>
-
-      <button type="button" class="crispr-powerup-card" data-crispr-powerup data-powerup="prime_editor" data-cost="50">
-        <span class="crispr-powerup-title">
-          <span>Prime Repair</span>
-          <span class="crispr-powerup-cost">50 ATP</span>
-        </span>
-        <span class="crispr-powerup-desc">Repair damaged host genome segments with reverse transcriptase (+40% Integrity).</span>
-      </button>
-
-      <button type="button" class="crispr-powerup-card" data-crispr-powerup data-powerup="hyper_drive" data-cost="75">
-        <span class="crispr-powerup-title">
-          <span>Hyper-Drive</span>
-          <span class="crispr-powerup-cost">75 ATP</span>
-        </span>
-        <span class="crispr-powerup-desc">Overclock endonuclease cleavage kinetics to auto-slice nearby viral strands.</span>
-      </button>
-    </div>
-
     <article class="crispr-guide">
-      <h3>How to Play & Biological Mechanics</h3>
+      <h3>How to Play & Molecular Mechanics</h3>
       <ul>
-        <li><strong>Drag / Swipe to Cleave:</strong> Click and drag your mouse (or swipe on touchscreens) across incoming viral strands to initiate Cas9 double-strand breaks.</li>
-        <li><strong>PAM Recognition:</strong> Viral strands require matching Protospacer Adjacent Motifs (<code>NGG</code> for SpCas9, <code>TTTV</code> for AsCas12a) to be cleanly sliced.</li>
-        <li><strong>Consecutive Combos:</strong> Slice multiple strands without missing to build combo multipliers (up to 4.0x score boost).</li>
-        <li><strong>Beware of Breaches:</strong> If viral genomes reach the bottom host integration threshold line, cell viability is compromised.</li>
+        <li><strong>Slice to Cleave:</strong> Drag your mouse or swipe on mobile across falling viral nucleic acid strands to execute a double-strand break (DSB).</li>
+        <li><strong>PAM Specificity:</strong> Match the active Cas enzyme to the target's PAM motif. <strong>SpCas9</strong> cleaves targets with <code>NGG</code>; <strong>AsCas12a</strong> cleaves T-rich <code>TTTV</code> motifs.</li>
+        <li><strong>Enzyme Hotkeys:</strong> Press <code>1</code> or <code>2</code> on desktop (or tap the enzyme buttons) to switch Cas complexes in real time.</li>
+        <li><strong>Combos & Multipliers:</strong> Chain multiple successful cleaves without letting strands hit the bottom integration line to build up your streak multiplier and earn bonus ATP.</li>
+        <li><strong>Tactical Cellular Overdrives:</strong> Spend ATP on <em>dCas9 Shield</em> (blocks integration), <em>Prime Edit</em> (+40 health), <em>Base Edit</em> (converts C→T), or <em>Hyper-Drive</em> (high-speed clearing).</li>
       </ul>
     </article>
   </section>
