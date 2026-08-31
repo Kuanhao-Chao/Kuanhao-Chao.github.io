@@ -1,5 +1,6 @@
 /**
  * CRISPR Commander Stylesheet
+ * Fully harmonized with Calico design tokens for Light and Dark themes
  */
 
 .crispr-game-container {
@@ -12,6 +13,36 @@
   box-sizing: border-box;
 }
 
+.crispr-header-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-md, 8px);
+  box-sizing: border-box;
+}
+
+.crispr-header-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.crispr-header-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-ink);
+  margin: 0;
+}
+
+.crispr-header-subtitle {
+  font-size: 0.82rem;
+  color: var(--color-muted);
+  margin: 0;
+}
+
 .crispr-hud {
   display: flex;
   flex-wrap: wrap;
@@ -19,8 +50,8 @@
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  background: var(--color-surface, #1e293b);
-  border: 1px solid var(--color-rule, #334155);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
   border-radius: var(--radius-md, 8px);
   box-sizing: border-box;
 }
@@ -42,29 +73,53 @@
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--color-muted, #94a3b8);
+  color: var(--color-muted);
 }
 
 .crispr-stat-value {
   font-family: var(--font-mono, monospace);
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   font-weight: 700;
-  color: var(--color-fg, #f8fafc);
+  color: var(--color-ink);
+}
+
+.crispr-combo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid #f59e0b;
+  color: #f59e0b;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.82rem;
+  font-weight: 700;
+  transition: transform 0.15s ease;
+}
+
+.crispr-combo-badge.active {
+  transform: scale(1.08);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.35);
 }
 
 .crispr-integrity-container {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  min-width: 130px;
+  min-width: 140px;
 }
 
 .crispr-integrity-bar {
   height: 10px;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.15);
   border-radius: 999px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--color-rule);
+}
+
+:root[data-theme='dark'] .crispr-integrity-bar {
+  background: rgba(0, 0, 0, 0.4);
 }
 
 .crispr-integrity-fill {
@@ -82,13 +137,13 @@
 
 .crispr-btn {
   min-height: 44px;
-  padding: 0.4rem 0.85rem;
+  padding: 0.45rem 0.95rem;
   font-size: var(--fs-small, 0.85rem);
   font-weight: 600;
-  border: 1px solid var(--color-rule, #334155);
+  border: 1px solid var(--color-rule);
   border-radius: var(--radius-sm, 6px);
-  background: var(--color-bg, #0f172a);
-  color: var(--color-fg, #f8fafc);
+  background: var(--color-surface);
+  color: var(--color-ink);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -98,9 +153,9 @@
 }
 
 .crispr-btn:hover:not(:disabled) {
-  background: var(--color-accent, #38bdf8);
-  color: #090d16;
-  border-color: var(--color-accent, #38bdf8);
+  background: var(--color-accent);
+  color: var(--color-on-accent, #ffffff);
+  border-color: var(--color-accent);
 }
 
 .crispr-btn:disabled {
@@ -112,125 +167,127 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid var(--color-rule, #334155);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
   border-radius: var(--radius-md, 8px);
 }
 
+.crispr-enzyme-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .crispr-enzyme-label {
-  font-size: 0.76rem;
-  font-weight: 600;
+  font-size: 0.75rem;
+  font-weight: 700;
   text-transform: uppercase;
-  color: var(--color-muted, #94a3b8);
+  letter-spacing: 0.05em;
+  color: var(--color-muted);
   margin-right: 4px;
 }
 
 .crispr-enzyme-btn {
   min-height: 44px;
-  padding: 0.35rem 0.85rem;
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0.35rem 0.75rem;
   font-size: 0.82rem;
   font-weight: 600;
-  font-family: var(--font-mono, monospace);
-  border: 1px solid var(--color-rule, #334155);
+  border: 1px solid var(--color-rule);
   border-radius: var(--radius-sm, 6px);
-  background: var(--color-bg, #0f172a);
-  color: var(--color-muted, #94a3b8);
+  background: var(--color-bg);
+  color: var(--color-ink);
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   transition: all 0.15s ease;
 }
 
+.crispr-enzyme-btn .enzyme-pam {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.7rem;
+  color: var(--color-muted);
+}
+
+.crispr-enzyme-btn:hover:not(:disabled) {
+  border-color: var(--color-accent);
+}
+
 .crispr-enzyme-btn.active {
-  border-color: var(--color-accent, #38bdf8);
-  background: rgba(56, 189, 248, 0.15);
-  color: var(--color-fg, #f8fafc);
-  box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+  border-color: var(--color-accent);
+  background: rgba(46, 110, 94, 0.12);
+  color: var(--color-accent);
+}
+
+:root[data-theme='dark'] .crispr-enzyme-btn.active {
+  background: rgba(117, 199, 175, 0.18);
+  color: #75c7af;
+}
+
+.crispr-powerups-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.crispr-powerup-btn {
+  min-height: 44px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.78rem;
+  font-family: var(--font-mono, monospace);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--color-bg);
+  color: var(--color-ink);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+
+.crispr-powerup-btn:hover:not(:disabled) {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.crispr-powerup-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .crispr-board {
   position: relative;
   width: 100%;
-  height: 520px;
-  border: 1px solid var(--color-rule, #334155);
+  aspect-ratio: 16 / 10;
+  max-width: 880px;
+  max-height: 550px;
+  border: 1px solid var(--color-rule);
   border-radius: var(--radius-lg, 12px);
   overflow: hidden;
-  background: #070b14;
-  touch-action: none;
+  background: var(--color-surface);
   user-select: none;
   box-sizing: border-box;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
 .crispr-canvas {
   width: 100%;
   height: 100%;
   display: block;
-  cursor: crosshair;
-}
-
-.crispr-powerups {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: var(--space-3);
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.crispr-powerup-card {
-  min-height: 44px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: var(--space-3);
-  background: var(--color-surface, #1e293b);
-  border: 1px solid var(--color-rule, #334155);
-  border-radius: var(--radius-md, 8px);
-  text-align: left;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  box-sizing: border-box;
-}
-
-.crispr-powerup-card:hover:not(:disabled) {
-  border-color: var(--color-accent, #38bdf8);
-  transform: translateY(-2px);
-}
-
-.crispr-powerup-card:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.crispr-powerup-title {
-  font-weight: 700;
-  font-size: 0.88rem;
-  color: var(--color-fg, #f8fafc);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.crispr-powerup-cost {
-  font-family: var(--font-mono, monospace);
-  font-size: 0.78rem;
-  color: #f59e0b;
-}
-
-.crispr-powerup-desc {
-  font-size: 0.76rem;
-  color: var(--color-muted, #94a3b8);
-  line-height: 1.35;
+  touch-action: none;
 }
 
 .crispr-guide {
   margin-top: var(--space-4);
   padding: var(--space-4);
-  background: var(--color-surface, #1e293b);
-  border: 1px solid var(--color-rule, #334155);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
   border-radius: var(--radius-md, 8px);
   box-sizing: border-box;
 }
@@ -238,11 +295,16 @@
 .crispr-guide h3 {
   font-size: 1.05rem;
   margin-bottom: var(--space-2);
+  color: var(--color-ink);
 }
 
 .crispr-guide p,
 .crispr-guide li {
   font-size: 0.88rem;
-  color: var(--color-muted, #94a3b8);
+  color: var(--color-muted);
   line-height: 1.5;
+}
+
+.crispr-guide strong {
+  color: var(--color-ink);
 }

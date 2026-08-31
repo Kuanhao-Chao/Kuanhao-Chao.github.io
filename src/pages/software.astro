@@ -6,6 +6,8 @@ import type { ImageMetadata } from 'astro';
 import { software, sideProjects, type SoftwareTool } from '../data/cv';
 import { resolveRelatedPosts } from '../lib/relatedPosts';
 import { site } from '../data/site';
+import CrisprCommanderLogo from '../components/games/CrisprCommanderLogo.astro';
+import PhageDefenseLogo from '../components/games/PhageDefenseLogo.astro';
 
 // Resolve each tool's logo (src/assets/logos/software/<logo>.png) to an optimized asset.
 const logoFiles = import.meta.glob<{ default: ImageMetadata }>('../assets/logos/software/*.png', {
@@ -143,6 +145,16 @@ const toolBlog = await Promise.all(tools.map((t) => resolveRelatedPosts(t.posts 
                 </a>
               </p>
             </div>
+            {p.name === 'CRISPR Commander' && (
+              <span class="tool-logo-frame" aria-hidden="true">
+                <CrisprCommanderLogo size={70} />
+              </span>
+            )}
+            {p.name === 'Phage Defense' && (
+              <span class="tool-logo-frame" aria-hidden="true">
+                <PhageDefenseLogo size={70} />
+              </span>
+            )}
           </li>
         ))
       }

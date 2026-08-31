@@ -1,0 +1,139 @@
+---
+interface Props {
+  size?: number;
+  class?: string;
+}
+
+const { size = 72, class: className } = Astro.props;
+---
+
+<svg
+  width={size}
+  height={size}
+  viewBox="0 0 100 100"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+  class:list={['phage-logo-svg', className]}
+  role="img"
+  aria-label="Phage Defense Logo"
+>
+  <defs>
+    <!-- Background glow gradient -->
+    <radialGradient id="pd-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Phage Head Facet Gradients -->
+    <linearGradient id="pd-capsid-top" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+    <linearGradient id="pd-capsid-left" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60a5fa" />
+      <stop offset="100%" stop-color="#2563eb" />
+    </linearGradient>
+    <linearGradient id="pd-capsid-right" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#93c5fd" />
+      <stop offset="100%" stop-color="#3b82f6" />
+    </linearGradient>
+
+    <!-- Shield Border Gradient -->
+    <linearGradient id="pd-shield-border" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="50%" stop-color="#059669" />
+      <stop offset="100%" stop-color="var(--color-rule, #334155)" />
+    </linearGradient>
+  </defs>
+
+  <!-- Ambient Glow -->
+  <circle cx="50" cy="50" r="46" fill="url(#pd-glow)" />
+
+  <!-- Octagonal Defense Shield Crest -->
+  <polygon
+    points="50,4 82,16 96,50 82,84 50,96 18,84 4,50 18,16"
+    fill="var(--color-surface, #1e293b)"
+    stroke="url(#pd-shield-border)"
+    stroke-width="2.5"
+    stroke-linejoin="round"
+  />
+
+  <!-- Circular Nucleoid Plasmid Defense Ring -->
+  <circle
+    cx="50"
+    cy="50"
+    r="36"
+    stroke="#10b981"
+    stroke-width="1.8"
+    stroke-dasharray="4 3"
+    fill="none"
+    opacity="0.6"
+  />
+
+  <!-- Cellular Cytoplasm Current Lines -->
+  <path d="M18,36 Q34,28 50,34 T82,30" stroke="rgba(56, 189, 248, 0.25)" stroke-width="1.2" fill="none" />
+  <path d="M18,64 Q34,72 50,66 T82,70" stroke="rgba(56, 189, 248, 0.25)" stroke-width="1.2" fill="none" />
+
+  <!-- T4 Bacteriophage Sentinel -->
+  <g transform="translate(50, 44)">
+    <!-- 1. Icosahedral Capsid Head (Multi-faceted 3D geometry) -->
+    <!-- Top Apex Facet -->
+    <polygon points="0,-30 -12,-20 0,-14 12,-20" fill="url(#pd-capsid-top)" stroke="#ffffff" stroke-width="0.7" />
+    <!-- Left Facet -->
+    <polygon points="-12,-20 0,-14 -8,-3 -18,-10" fill="url(#pd-capsid-left)" stroke="#ffffff" stroke-width="0.7" />
+    <!-- Right Facet -->
+    <polygon points="12,-20 0,-14 8,-3 18,-10" fill="url(#pd-capsid-right)" stroke="#ffffff" stroke-width="0.7" />
+    <!-- Center Lower Facet -->
+    <polygon points="0,-14 -8,-3 0,4 8,-3" fill="#1e40af" stroke="#ffffff" stroke-width="0.7" />
+
+    <!-- 2. Collar & Contractile Sheath (Helical ribbed tail) -->
+    <rect x="-3" y="4" width="6" height="2" rx="1" fill="#cbd5e1" />
+    <!-- Sheath Cylinders -->
+    <line x1="-3" y1="7" x2="3" y2="7" stroke="#e2e8f0" stroke-width="1.5" />
+    <line x1="-3" y1="10" x2="3" y2="10" stroke="#94a3b8" stroke-width="1.5" />
+    <line x1="-3" y1="13" x2="3" y2="13" stroke="#e2e8f0" stroke-width="1.5" />
+    <line x1="-3" y1="16" x2="3" y2="16" stroke="#94a3b8" stroke-width="1.5" />
+    <line x1="-3" y1="19" x2="3" y2="19" stroke="#e2e8f0" stroke-width="1.5" />
+
+    <!-- 3. Baseplate & Tail Spikes -->
+    <polygon points="-5,21 5,21 0,24" fill="#64748b" />
+
+    <!-- 4. Articulated Spider Tail Fibers (Jointed Legs) -->
+    <!-- Left Fibers -->
+    <path d="M-4,21 L-14,24 L-22,36" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" fill="none" />
+    <path d="M-4,21 L-18,29 L-15,38" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" fill="none" />
+    <!-- Right Fibers -->
+    <path d="M4,21 L14,24 L22,36" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" fill="none" />
+    <path d="M4,21 L18,29 L15,38" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" fill="none" />
+
+    <!-- Restriction Cleavage Energy Sparks around base -->
+    <circle cx="-16" cy="12" r="1.5" fill="#f59e0b" />
+    <circle cx="16" cy="12" r="1.5" fill="#f59e0b" />
+    <circle cx="0" cy="27" r="1.8" fill="#10b981" />
+  </g>
+
+  <!-- Bacterial Host Defense Banner -->
+  <rect x="28" y="80" width="44" height="12" rx="3" fill="var(--color-bg, #0f172a)" stroke="#10b981" stroke-width="1.2" />
+  <text
+    x="50"
+    y="88.5"
+    fill="#10b981"
+    font-family="monospace"
+    font-size="6.5"
+    font-weight="bold"
+    text-anchor="middle"
+  >DEFENSE MATRIX</text>
+</svg>
+
+<style>
+  .phage-logo-svg {
+    display: inline-block;
+    vertical-align: middle;
+    filter: drop-shadow(0 4px 12px rgba(16, 185, 129, 0.2));
+    transition: transform 0.2s ease, filter 0.2s ease;
+  }
+  .phage-logo-svg:hover {
+    transform: scale(1.05);
+    filter: drop-shadow(0 6px 18px rgba(16, 185, 129, 0.35));
+  }
+</style>

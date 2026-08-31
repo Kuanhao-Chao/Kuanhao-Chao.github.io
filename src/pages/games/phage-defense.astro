@@ -1,5 +1,6 @@
 ---
 import PageLayout from '../../layouts/PageLayout.astro';
+import PhageDefenseLogo from '../../components/games/PhageDefenseLogo.astro';
 import { site } from '../../data/site';
 import '../../styles/phageDefense.css';
 
@@ -29,6 +30,14 @@ const gameLd = {
   <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
 
   <section class="defense-game-container" data-defense-game aria-label="Phage Defense game">
+    <div class="defense-header-card">
+      <PhageDefenseLogo size={58} />
+      <div class="defense-header-info">
+        <h2 class="defense-header-title">Host Nucleoid Defense Complex</h2>
+        <p class="defense-header-subtitle">Deploy restriction endonucleases (EcoRI), CRISPR-Cas9 snipers, and RNase jammers to neutralize phage swarms.</p>
+      </div>
+    </div>
+
     <div class="defense-hud">
       <div class="defense-stats">
         <div class="defense-stat">
@@ -80,7 +89,7 @@ const gameLd = {
 
     <div class="defense-dock">
       <div class="defense-tower-cards">
-        <button type="button" class="defense-tower-card" data-tower-type="restriction_enzyme">
+        <button type="button" class="defense-tower-card" data-tower-type="restriction_enzyme" aria-label="Deploy EcoRI Cleaver (100 ATP)">
           <div class="defense-tower-header">
             <span class="defense-tower-name">EcoRI Cleaver</span>
             <span class="defense-tower-cost">100 ATP</span>
@@ -88,7 +97,7 @@ const gameLd = {
           <span class="defense-tower-desc">Rapid restriction endonuclease firing palindromic cleavage bolts.</span>
         </button>
 
-        <button type="button" class="defense-tower-card" data-tower-type="crispr_cas9">
+        <button type="button" class="defense-tower-card" data-tower-type="crispr_cas9" aria-label="Deploy CRISPR-Cas9 (175 ATP)">
           <div class="defense-tower-header">
             <span class="defense-tower-name">CRISPR-Cas9</span>
             <span class="defense-tower-cost">175 ATP</span>
@@ -96,7 +105,7 @@ const gameLd = {
           <span class="defense-tower-desc">Long-range sniper delivering devastating double-strand break beams.</span>
         </button>
 
-        <button type="button" class="defense-tower-card" data-tower-type="rnase_interceptor">
+        <button type="button" class="defense-tower-card" data-tower-type="rnase_interceptor" aria-label="Deploy RNase Jammer (125 ATP)">
           <div class="defense-tower-header">
             <span class="defense-tower-name">RNase Jammer</span>
             <span class="defense-tower-cost">125 ATP</span>
@@ -104,7 +113,7 @@ const gameLd = {
           <span class="defense-tower-desc">Area-of-effect suppression degrading viral mRNA and slowing phages by 50%.</span>
         </button>
 
-        <button type="button" class="defense-tower-card" data-tower-type="ligase_drone">
+        <button type="button" class="defense-tower-card" data-tower-type="ligase_drone" aria-label="Deploy DNA Ligase (150 ATP)">
           <div class="defense-tower-header">
             <span class="defense-tower-name">DNA Ligase</span>
             <span class="defense-tower-cost">150 ATP</span>
@@ -116,13 +125,13 @@ const gameLd = {
       <div class="defense-emergency-deck" aria-label="Tactical Emergency Protocols">
         <span class="defense-emergency-label">Tactical Emergency Protocols:</span>
         <div class="defense-emergency-grid">
-          <button type="button" class="defense-emergency-btn" data-emergency-ability="autophagy">
+          <button type="button" class="defense-emergency-btn" data-emergency-ability="autophagy" aria-label="Trigger Autophagy Purge (150 ATP)">
             Autophagy Purge (150 ATP)
           </button>
-          <button type="button" class="defense-emergency-btn" data-emergency-ability="crispri">
+          <button type="button" class="defense-emergency-btn" data-emergency-ability="crispri" aria-label="Trigger CRISPRi Stasis (80 ATP)">
             CRISPRi Stasis (80 ATP)
           </button>
-          <button type="button" class="defense-emergency-btn" data-emergency-ability="overcharge">
+          <button type="button" class="defense-emergency-btn" data-emergency-ability="overcharge" aria-label="Trigger Plasmid Overcharge (100 ATP)">
             Plasmid Overcharge (100 ATP)
           </button>
         </div>
