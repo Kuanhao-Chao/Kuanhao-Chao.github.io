@@ -523,3 +523,22 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
 .vp-finding--yes .vp-finding__mark { color: var(--vp-track); }
 .vp-finding--no .vp-finding__mark { color: var(--vp-fire); }
 .vp-finding--mixed .vp-finding__mark { color: var(--color-muted); }
+
+/* The zoom section inside Predicted coverage: the focus band above, at letter resolution. */
+.vp-zoomhead {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin: 0.9rem 0 0.15rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--color-rule);
+}
+.vp-zoomhead__label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--vp-accent);
+}
+/* The lens connector. `color` drives the band's currentColor, matching the band on the tracks. */
+.vp-lens { color: var(--vp-accent); display: block; margin: 0; height: 22px; }
