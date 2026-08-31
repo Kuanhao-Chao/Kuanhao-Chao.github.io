@@ -3,8 +3,14 @@
  *
  * Simulates microbial path & cytoplasm tower defense where players deploy
  * molecular biology defense units (Restriction Endonucleases, CRISPR-Cas9,
- * RNases, DNA Ligase) to protect a bacterial cell nucleoid from bacteriophages.
+ * RNases, DNA Ligase) and tactical emergency abilities (Autophagy, CRISPRi,
+ * Plasmid Overcharge) to protect a bacterial cell nucleoid from bacteriophages.
+ *
+ * Uses a normalized Virtual Game Coordinate Resolution of 800 x 500.
  */
+
+export const VIRTUAL_WIDTH = 800;
+export const VIRTUAL_HEIGHT = 500;
 
 export interface Point {
   x: number;
@@ -14,6 +20,40 @@ export interface Point {
 export type TowerType = 'restriction_enzyme' | 'crispr_cas9' | 'rnase_interceptor' | 'ligase_drone';
 
 export type TargetPriority = 'first' | 'strongest' | 'weakest' | 'closest';
+
+export type EmergencyAbilityType = 'autophagy' | 'crispri' | 'overcharge';
+
+export interface EmergencyAbilityDef {
+  type: EmergencyAbilityType;
+  name: string;
+  cost: number;
+  durationSec: number;
+  description: string;
+}
+
+export const EMERGENCY_ABILITIES: Record<EmergencyAbilityType, EmergencyAbilityDef> = {
+  autophagy: {
+    type: 'autophagy',
+    name: 'Autophagy Purge',
+    cost: 150,
+    durationSec: 0,
+    description: 'Lysosomal cellular purge that instantly incinerates all basic phages on screen.',
+  },
+  crispri: {
+    type: 'crispri',
+    name: 'CRISPRi Stasis',
+    cost: 80,
+    durationSec: 6.0,
+    description: 'Catalytic dCas9 silencing that freezes all phages in place for 6.0 seconds.',
+  },
+  overcharge: {
+    type: 'overcharge',
+    name: 'Plasmid Overcharge',
+    cost: 100,
+    durationSec: 8.0,
+    description: 'ATP supercharge that doubles the catalytic turnover rate (2x speed) of all towers for 8.0s.',
+  },
+};
 
 export interface TowerStats {
   type: TowerType;
@@ -33,42 +73,42 @@ export const TOWER_DEFINITIONS: Record<TowerType, TowerStats> = {
     type: 'restriction_enzyme',
     name: 'EcoRI Cleaver',
     cost: 100,
-    range: 110,
-    damage: 28,
-    fireRate: 1.6,
-    description: 'Fast-acting endonuclease that cleaves palindromic viral DNA motifs (GAATTC).',
+    range: 120,
+    damage: 32,
+    fireRate: 1.8,
+    description: 'Rapid endonuclease firing palindromic restriction bolts (GAATTC).',
     color: '#38bdf8', // cyan
   },
   crispr_cas9: {
     type: 'crispr_cas9',
     name: 'CRISPR-Cas9 Array',
     cost: 175,
-    range: 200,
-    damage: 95,
-    fireRate: 0.8,
+    range: 220,
+    damage: 110,
+    fireRate: 0.9,
     description: 'Long-range precision ribonucleoprotein delivering devastating double-strand breaks.',
     color: '#a855f7', // purple
   },
   rnase_interceptor: {
     type: 'rnase_interceptor',
-    name: 'RNase / Translation Jammer',
+    name: 'RNase Jammer',
     cost: 125,
-    range: 130,
-    damage: 10,
-    fireRate: 2.0,
-    aoeRadius: 85,
-    slowRatio: 0.55,
-    description: 'Degrades viral messenger RNA and slows phage migration velocity by 45%.',
+    range: 135,
+    damage: 14,
+    fireRate: 2.2,
+    aoeRadius: 90,
+    slowRatio: 0.5,
+    description: 'Degrades viral mRNA and slows phage migration velocity by 50%.',
     color: '#f59e0b', // amber
   },
   ligase_drone: {
     type: 'ligase_drone',
-    name: 'DNA Ligase Booster',
+    name: 'DNA Ligase Beacon',
     cost: 150,
-    range: 140,
+    range: 145,
     damage: 0,
-    fireRate: 0.5,
-    description: 'Support beacon that enhances adjacent enzyme turnover rate by +30% and heals cell wall.',
+    fireRate: 0.6,
+    description: 'Support beacon that enhances adjacent enzyme turnover rate by +35% and heals the nucleoid.',
     color: '#10b981', // emerald
   },
 };
@@ -89,7 +129,7 @@ export const PHAGE_DEFINITIONS: Record<PhageType, PhageStats> = {
   lambda_phage: {
     type: 'lambda_phage',
     name: 'Lambda Siphophage',
-    maxHealth: 50,
+    maxHealth: 55,
     speed: 85,
     atpReward: 15,
     radius: 13,
@@ -98,7 +138,7 @@ export const PHAGE_DEFINITIONS: Record<PhageType, PhageStats> = {
   t4_myoviridae: {
     type: 't4_myoviridae',
     name: 'T4 Myoviridae Phage',
-    maxHealth: 140,
+    maxHealth: 150,
     speed: 55,
     atpReward: 25,
     radius: 17,
@@ -107,7 +147,7 @@ export const PHAGE_DEFINITIONS: Record<PhageType, PhageStats> = {
   m13_filamentous: {
     type: 'm13_filamentous',
     name: 'M13 Inovirus',
-    maxHealth: 90,
+    maxHealth: 95,
     speed: 70,
     atpReward: 20,
     radius: 14,
@@ -116,10 +156,10 @@ export const PHAGE_DEFINITIONS: Record<PhageType, PhageStats> = {
   giant_megaphage: {
     type: 'giant_megaphage',
     name: 'Giant Jumbo Megaphage',
-    maxHealth: 750,
+    maxHealth: 800,
     speed: 35,
-    atpReward: 120,
-    radius: 25,
+    atpReward: 130,
+    radius: 26,
     color: '#ec4899',
   },
 };
@@ -144,6 +184,8 @@ export interface ActivePhage {
   y: number;
   health: number;
   maxHealth: number;
+  shieldHealth: number;
+  maxShieldHealth: number;
   speed: number;
   baseSpeed: number;
   slowTimerSec: number;
@@ -152,6 +194,7 @@ export interface ActivePhage {
   atpReward: number;
   radius: number;
   color: string;
+  animTick?: number;
 }
 
 export interface Projectile {
@@ -169,6 +212,12 @@ export interface Projectile {
   slowRatio?: number;
 }
 
+export interface ActiveEmergency {
+  type: EmergencyAbilityType;
+  timerSec: number;
+  maxTimerSec: number;
+}
+
 export interface DefenseGameState {
   atp: number;
   score: number;
@@ -184,30 +233,27 @@ export interface DefenseGameState {
   towers: ActiveTower[];
   phages: ActivePhage[];
   projectiles: Projectile[];
+  activeEmergencies: ActiveEmergency[];
   isGameOver: boolean;
   isVictory: boolean;
   isPaused: boolean;
   waypoints: Point[];
 }
 
-export function getDefaultWaypoints(canvasW: number = 800, canvasH: number = 550): Point[] {
+export function getDefaultWaypoints(): Point[] {
   return [
-    { x: 0, y: canvasH * 0.2 },
-    { x: canvasW * 0.25, y: canvasH * 0.2 },
-    { x: canvasW * 0.35, y: canvasH * 0.55 },
-    { x: canvasW * 0.65, y: canvasH * 0.55 },
-    { x: canvasW * 0.75, y: canvasH * 0.25 },
-    { x: canvasW * 0.9, y: canvasH * 0.25 },
-    { x: canvasW * 0.9, y: canvasH * 0.8 },
-    { x: canvasW * 0.5, y: canvasH * 0.8 },
+    { x: 0, y: 100 },
+    { x: 220, y: 100 },
+    { x: 280, y: 280 },
+    { x: 520, y: 280 },
+    { x: 580, y: 120 },
+    { x: 720, y: 120 },
+    { x: 720, y: 400 },
+    { x: 400, y: 400 },
   ];
 }
 
-export function createInitialDefenseState(
-  savedHighScore: number = 0,
-  canvasW: number = 800,
-  canvasH: number = 550
-): DefenseGameState {
+export function createInitialDefenseState(savedHighScore: number = 0): DefenseGameState {
   return {
     atp: 350,
     score: 0,
@@ -223,10 +269,11 @@ export function createInitialDefenseState(
     towers: [],
     phages: [],
     projectiles: [],
+    activeEmergencies: [],
     isGameOver: false,
     isVictory: false,
     isPaused: false,
-    waypoints: getDefaultWaypoints(canvasW, canvasH),
+    waypoints: getDefaultWaypoints(),
   };
 }
 
@@ -277,6 +324,10 @@ export function canPlaceTower(
   pathBuffer: number = 36,
   minTowerDist: number = 44
 ): boolean {
+  if (x < 30 || x > VIRTUAL_WIDTH - 30 || y < 30 || y > VIRTUAL_HEIGHT - 30) {
+    return false;
+  }
+
   for (const t of towers) {
     if (Math.hypot(t.x - x, t.y - y) < minTowerDist) return false;
   }
@@ -372,7 +423,10 @@ export function sellTower(
   if (!tower) return { state, refundAtp: 0 };
 
   const def = TOWER_DEFINITIONS[tower.type];
-  const totalInvested = def.cost + (tower.level > 1 ? def.cost * 0.85 : 0) + (tower.level > 2 ? def.cost * 1.7 : 0);
+  const totalInvested =
+    def.cost +
+    (tower.level > 1 ? def.cost * 0.85 : 0) +
+    (tower.level > 2 ? def.cost * 1.7 : 0);
   const refundAtp = Math.round(totalInvested * 0.7);
 
   return {
@@ -393,6 +447,50 @@ export function setTowerPriority(
   return {
     ...state,
     towers: state.towers.map((t) => (t.id === towerId ? { ...t, targetPriority: priority } : t)),
+  };
+}
+
+export function activateEmergencyAbility(
+  state: DefenseGameState,
+  abilityType: EmergencyAbilityType
+): { state: DefenseGameState; success: boolean } {
+  const def = EMERGENCY_ABILITIES[abilityType];
+  if (state.atp < def.cost || state.isGameOver) {
+    return { state, success: false };
+  }
+
+  let nextAtp = state.atp - def.cost;
+  let nextPhages = [...state.phages];
+  let nextEmergencies = [...state.activeEmergencies.filter((e) => e.type !== abilityType)];
+
+  if (abilityType === 'autophagy') {
+    // Autophagy immediately lyses all non-boss phages on screen and awards 50% reward
+    const surviving: ActivePhage[] = [];
+    for (const p of nextPhages) {
+      if (p.type === 'giant_megaphage') {
+        p.health = Math.max(1, p.health - 250);
+        surviving.push(p);
+      } else {
+        nextAtp += Math.round(p.atpReward * 0.5);
+      }
+    }
+    nextPhages = surviving;
+  } else {
+    nextEmergencies.push({
+      type: abilityType,
+      timerSec: def.durationSec,
+      maxTimerSec: def.durationSec,
+    });
+  }
+
+  return {
+    state: {
+      ...state,
+      atp: nextAtp,
+      phages: nextPhages,
+      activeEmergencies: nextEmergencies,
+    },
+    success: true,
   };
 }
 
@@ -437,12 +535,32 @@ export function updateDefenseGame(
   const defeatedPhages: ActivePhage[] = [];
   const breachedPhages: ActivePhage[] = [];
 
-  // 1. Spawn phages from queue
-  if (state.isWaveActive && nextQueue.length > 0 && nextSpawnTimer >= state.spawnIntervalSec) {
+  // Update active emergency abilities timers
+  const updatedEmergencies: ActiveEmergency[] = [];
+  let isCrispriActive = false;
+  let isOverchargeActive = false;
+
+  for (const emergency of state.activeEmergencies) {
+    const nextTimer = emergency.timerSec - dt;
+    if (nextTimer > 0) {
+      updatedEmergencies.push({ ...emergency, timerSec: nextTimer });
+      if (emergency.type === 'crispri') isCrispriActive = true;
+      if (emergency.type === 'overcharge') isOverchargeActive = true;
+    }
+  }
+
+  // 1. Spawn phages from queue (if not frozen by CRISPRi)
+  if (
+    state.isWaveActive &&
+    nextQueue.length > 0 &&
+    !isCrispriActive &&
+    nextSpawnTimer >= state.spawnIntervalSec
+  ) {
     nextSpawnTimer -= state.spawnIntervalSec;
     const type = nextQueue.shift()!;
     const def = PHAGE_DEFINITIONS[type];
     const startPt = state.waypoints[0];
+    const shield = type === 'giant_megaphage' ? 250 : 0;
     nextPhages.push({
       id: `phage-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       type,
@@ -450,6 +568,8 @@ export function updateDefenseGame(
       y: startPt.y,
       health: def.maxHealth,
       maxHealth: def.maxHealth,
+      shieldHealth: shield,
+      maxShieldHealth: shield,
       speed: def.speed,
       baseSpeed: def.speed,
       slowTimerSec: 0,
@@ -458,16 +578,22 @@ export function updateDefenseGame(
       atpReward: def.atpReward,
       radius: def.radius,
       color: def.color,
+      animTick: 0,
     });
   }
 
-  // 2. Advance existing phages
+  // 2. Advance existing phages (frozen if CRISPRi active)
   for (const phage of state.phages) {
-    let p = { ...phage };
+    let p = { ...phage, animTick: (phage.animTick || 0) + dt * 5 };
 
     if (p.slowTimerSec > 0) {
       p.slowTimerSec -= dt;
       if (p.slowTimerSec <= 0) p.speed = p.baseSpeed;
+    }
+
+    if (isCrispriActive) {
+      nextPhages.push(p);
+      continue;
     }
 
     const targetWpIndex = p.waypointIndex + 1;
@@ -495,8 +621,19 @@ export function updateDefenseGame(
     }
   }
 
-  // 3. Update towers, targeting & firing projectiles
-  const nextProjectiles: Projectile[] = [];
+  // 3. DNA Ligase Support Aura (+35% turnover rate for adjacent enzymes & nucleoid repair)
+  const ligaseTowers = state.towers.filter((t) => t.type === 'ligase_drone');
+  for (const ligase of ligaseTowers) {
+    const def = TOWER_DEFINITIONS.ligase_drone;
+    const healRange = def.range * (1 + (ligase.level - 1) * 0.2);
+    // Slowly heal cell wall / nucleoid
+    if (nextViability < state.maxViability && Math.random() < 0.05 * dt) {
+      nextViability = Math.min(state.maxViability, nextViability + 1);
+    }
+  }
+
+  // 4. Update towers, targeting & spawn new projectiles
+  const newProjectiles: Projectile[] = [];
   const updatedTowers: ActiveTower[] = [];
 
   for (const tower of state.towers) {
@@ -504,7 +641,18 @@ export function updateDefenseGame(
     const def = TOWER_DEFINITIONS[t.type];
     const range = def.range * (1 + (t.level - 1) * 0.15);
     const damage = def.damage * (1 + (t.level - 1) * 0.45);
-    const rate = def.fireRate * (1 + (t.level - 1) * 0.2);
+
+    // Calculate ligase aura boost
+    let ligaseBoost = 1.0;
+    for (const lig of ligaseTowers) {
+      if (lig.id !== t.id && Math.hypot(lig.x - t.x, lig.y - t.y) <= 145) {
+        ligaseBoost += 0.35;
+      }
+    }
+
+    const overchargeMultiplier = isOverchargeActive ? 2.0 : 1.0;
+    const effectiveFireRate =
+      def.fireRate * (1 + (t.level - 1) * 0.2) * ligaseBoost * overchargeMultiplier;
 
     if (t.cooldownSec > 0) {
       t.cooldownSec = Math.max(0, t.cooldownSec - dt);
@@ -514,9 +662,10 @@ export function updateDefenseGame(
     t.targetId = bestTarget ? bestTarget.id : null;
 
     if (bestTarget && t.cooldownSec <= 0 && def.damage > 0) {
-      t.cooldownSec = 1 / rate;
+      t.cooldownSec = 1 / effectiveFireRate;
       t.totalDamage += damage;
-      nextProjectiles.push({
+
+      newProjectiles.push({
         id: `proj-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         sourceTowerId: t.id,
         targetPhageId: bestTarget.id,
@@ -525,7 +674,7 @@ export function updateDefenseGame(
         targetX: bestTarget.x,
         targetY: bestTarget.y,
         damage,
-        speed: 400,
+        speed: t.type === 'crispr_cas9' ? 650 : 450,
         color: def.color,
         aoeRadius: def.aoeRadius,
         slowRatio: def.slowRatio,
@@ -535,8 +684,10 @@ export function updateDefenseGame(
     updatedTowers.push(t);
   }
 
-  // 4. Update projectiles & apply hits
-  for (const proj of [...state.projectiles, ...nextProjectiles]) {
+  // 5. Update ALL in-flight projectiles & apply hit damage (CRITICAL FIX: Retain surviving projectiles!)
+  const survivingProjectiles: Projectile[] = [];
+
+  for (const proj of [...state.projectiles, ...newProjectiles]) {
     const target = nextPhages.find((p) => p.id === proj.targetPhageId);
     const destX = target ? target.x : proj.targetX;
     const destY = target ? target.y : proj.targetY;
@@ -546,11 +697,12 @@ export function updateDefenseGame(
     const dist = Math.hypot(dx, dy);
     const step = proj.speed * dt;
 
-    if (dist <= step) {
+    if (dist <= step || dist < 8) {
+      // Direct Hit / AoE Application
       if (proj.aoeRadius && proj.aoeRadius > 0) {
         for (const p of nextPhages) {
           if (Math.hypot(p.x - destX, p.y - destY) <= proj.aoeRadius) {
-            p.health -= proj.damage;
+            applyDamageToPhage(p, proj.damage);
             if (proj.slowRatio) {
               p.speed = p.baseSpeed * proj.slowRatio;
               p.slowTimerSec = 2.5;
@@ -558,15 +710,19 @@ export function updateDefenseGame(
           }
         }
       } else if (target) {
-        target.health -= proj.damage;
+        applyDamageToPhage(target, proj.damage);
       }
     } else {
+      // In flight: advance projectile along trajectory and keep in state!
       proj.x += (dx / dist) * step;
       proj.y += (dy / dist) * step;
+      proj.targetX = destX;
+      proj.targetY = destY;
+      survivingProjectiles.push(proj);
     }
   }
 
-  // 5. Clean up defeated phages
+  // 6. Clean up defeated phages & award ATP + score
   const survivingPhages: ActivePhage[] = [];
   for (const p of nextPhages) {
     if (p.health <= 0) {
@@ -583,7 +739,7 @@ export function updateDefenseGame(
   let isVictory: boolean = state.isVictory;
   if (isWaveActive && nextQueue.length === 0 && survivingPhages.length === 0) {
     isWaveActive = false;
-    nextAtp += 50; // wave clear bonus
+    nextAtp += 60; // wave clear bonus
     if (state.currentWave >= state.totalWaves) {
       isVictory = true;
     }
@@ -606,9 +762,25 @@ export function updateDefenseGame(
       spawnTimerSec: nextSpawnTimer,
       towers: updatedTowers,
       phages: survivingPhages,
-      projectiles: [],
+      projectiles: survivingProjectiles,
+      activeEmergencies: updatedEmergencies,
     },
     defeatedPhages,
     breachedPhages,
   };
+}
+
+function applyDamageToPhage(phage: ActivePhage, rawDamage: number) {
+  if (phage.shieldHealth > 0) {
+    if (phage.shieldHealth >= rawDamage) {
+      phage.shieldHealth -= rawDamage;
+      return;
+    } else {
+      const remainder = rawDamage - phage.shieldHealth;
+      phage.shieldHealth = 0;
+      phage.health -= remainder;
+      return;
+    }
+  }
+  phage.health -= rawDamage;
 }

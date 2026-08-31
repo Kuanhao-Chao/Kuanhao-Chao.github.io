@@ -1,5 +1,7 @@
 /**
  * Phage Defense — Canvas 2D Renderer & Game Loop
+ *
+ * Renders in a standardized 800 x 500 Virtual Coordinate Space with responsive scaling.
  */
 
 import {
@@ -9,13 +11,18 @@ import {
   upgradeTower,
   sellTower,
   setTowerPriority,
+  activateEmergencyAbility,
   canPlaceTower,
   updateDefenseGame,
   TOWER_DEFINITIONS,
+  EMERGENCY_ABILITIES,
+  VIRTUAL_WIDTH,
+  VIRTUAL_HEIGHT,
   type DefenseGameState,
   type TowerType,
   type ActiveTower,
   type TargetPriority,
+  type EmergencyAbilityType,
 } from '../lib/phageDefense';
 
 interface Particle {
@@ -28,6 +35,7 @@ interface Particle {
   alpha: number;
   life: number;
   maxLife: number;
+  text?: string;
 }
 
 interface FloatingText {
@@ -38,6 +46,16 @@ interface FloatingText {
   alpha: number;
   life: number;
   maxLife: number;
+}
+
+interface Organelle {
+  x: number;
+  y: number;
+  radius: number;
+  vx: number;
+  vy: number;
+  type: 'mitochondria' | 'ribosome' | 'vesicle';
+  color: string;
 }
 
 const STORAGE_KEY = 'khc_phage_defense_highscore';
@@ -69,14 +87,14 @@ class DefenseSoundController {
 
     if (type === 'crispr_cas9') {
       osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(340, now);
-      osc.frequency.exponentialRampToValueAtTime(70, now + 0.16);
+      osc.frequency.setValueAtTime(420, now);
+      osc.frequency.exponentialRampToValueAtTime(70, now + 0.18);
       gain.gain.setValueAtTime(0.18, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
       osc.connect(gain);
       gain.connect(this.ctx.destination);
       osc.start(now);
-      osc.stop(now + 0.16);
+      osc.stop(now + 0.18);
     } else {
       osc.type = 'sine';
       osc.frequency.setValueAtTime(580, now);
@@ -101,14 +119,14 @@ class DefenseSoundController {
 
     osc.type = 'triangle';
     osc.frequency.setValueAtTime(220, now);
-    osc.frequency.exponentialRampToValueAtTime(440, now + 0.08);
-    gain.gain.setValueAtTime(0.12, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+    osc.frequency.exponentialRampToValueAtTime(480, now + 0.1);
+    gain.gain.setValueAtTime(0.14, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
 
     osc.connect(gain);
     gain.connect(this.ctx.destination);
     osc.start(now);
-    osc.stop(now + 0.09);
+    osc.stop(now + 0.11);
   }
 
   playWaveStart() {
@@ -125,6 +143,29 @@ class DefenseSoundController {
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, startTime);
       gain.gain.setValueAtTime(0.15, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.12);
+
+      osc.connect(gain);
+      gain.connect(this.ctx!.destination);
+      osc.start(startTime);
+      osc.stop(startTime + 0.12);
+    });
+  }
+
+  playAbility() {
+    if (!this.enabled) return;
+    this.init();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    [349.23, 440.0, 554.37, 659.25, 880.0].forEach((freq, i) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+      const startTime = now + i * 0.04;
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(0.12, startTime);
       gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.12);
 
       osc.connect(gain);
@@ -180,6 +221,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
   const restartBtn = containerEl.querySelector<HTMLButtonElement>('[data-phage-restart]');
   const soundBtn = containerEl.querySelector<HTMLButtonElement>('[data-phage-sound]');
   const towerBuildCards = containerEl.querySelectorAll<HTMLButtonElement>('[data-tower-type]');
+  const emergencyBtns = containerEl.querySelectorAll<HTMLButtonElement>('[data-emergency-ability]');
   const selectedTowerPanel = containerEl.querySelector<HTMLElement>('[data-selected-tower-panel]');
   const upgradeBtn = containerEl.querySelector<HTMLButtonElement>('[data-tower-upgrade-btn]');
   const sellBtn = containerEl.querySelector<HTMLButtonElement>('[data-tower-sell-btn]');
@@ -194,6 +236,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
   let state: DefenseGameState = createInitialDefenseState(savedHigh);
   let particles: Particle[] = [];
   let floatingTexts: FloatingText[] = [];
+  let organelles: Organelle[] = [];
   let selectedBuildType: TowerType | null = null;
   let selectedTower: ActiveTower | null = null;
   let mousePos = { x: 0, y: 0 };
@@ -202,37 +245,63 @@ export function initPhageDefense(containerEl: HTMLElement) {
   let lastTimestamp = 0;
   let animationFrameId = 0;
 
+  // Initialize decorative cytoplasmic organelles
+  for (let i = 0; i < 18; i++) {
+    organelles.push({
+      x: Math.random() * VIRTUAL_WIDTH,
+      y: Math.random() * VIRTUAL_HEIGHT,
+      radius: 4 + Math.random() * 8,
+      vx: (Math.random() - 0.5) * 6,
+      vy: (Math.random() - 0.5) * 6,
+      type: i % 3 === 0 ? 'mitochondria' : i % 3 === 1 ? 'ribosome' : 'vesicle',
+      color:
+        i % 3 === 0
+          ? 'rgba(56, 189, 248, 0.08)'
+          : i % 3 === 1
+            ? 'rgba(168, 85, 247, 0.08)'
+            : 'rgba(16, 185, 129, 0.08)',
+    });
+  }
+
   function resizeCanvas() {
-    if (!canvas) return;
+    if (!canvas || !ctx) return;
     const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
+
     canvas.width = Math.round(rect.width * dpr);
     canvas.height = Math.round(rect.height * dpr);
-    ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // Transform virtual 800x500 space to device pixels
+    const scaleX = (rect.width * dpr) / VIRTUAL_WIDTH;
+    const scaleY = (rect.height * dpr) / VIRTUAL_HEIGHT;
+    ctx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
   }
 
   function getCanvasPos(e: MouseEvent | Touch): { x: number; y: number } {
     const rect = canvas!.getBoundingClientRect();
+    const clientX = e.clientX - rect.left;
+    const clientY = e.clientY - rect.top;
     return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
+      x: (clientX / rect.width) * VIRTUAL_WIDTH,
+      y: (clientY / rect.height) * VIRTUAL_HEIGHT,
     };
   }
 
-  function createExplosion(x: number, y: number, color: string) {
-    for (let i = 0; i < 18; i++) {
+  function createExplosion(x: number, y: number, color: string, isBoss = false) {
+    const count = isBoss ? 45 : 20;
+    for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const speed = 1.2 + Math.random() * 4.2;
+      const speed = 1.2 + Math.random() * (isBoss ? 6.5 : 4.2);
       particles.push({
         x,
         y,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
-        size: 2 + Math.random() * 4,
+        size: 2 + Math.random() * (isBoss ? 6 : 4),
         color,
         alpha: 1,
         life: 0,
-        maxLife: 25 + Math.random() * 15,
+        maxLife: 25 + Math.random() * 18,
       });
     }
   }
@@ -251,9 +320,9 @@ export function initPhageDefense(containerEl: HTMLElement) {
 
   function render() {
     if (!canvas || !ctx) return;
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight;
-    animTick += 0.05;
+    const w = VIRTUAL_WIDTH;
+    const h = VIRTUAL_HEIGHT;
+    animTick += 0.04;
 
     ctx.clearRect(0, 0, w, h);
 
@@ -261,14 +330,28 @@ export function initPhageDefense(containerEl: HTMLElement) {
     ctx.fillStyle = '#050811';
     ctx.fillRect(0, 0, w, h);
 
+    // Drifting cellular organelles
+    for (const org of organelles) {
+      org.x = (org.x + org.vx * 0.05 + w) % w;
+      org.y = (org.y + org.vy * 0.05 + h) % h;
+      ctx.fillStyle = org.color;
+      ctx.beginPath();
+      if (org.type === 'mitochondria') {
+        ctx.ellipse(org.x, org.y, org.radius * 1.6, org.radius * 0.8, 0.4, 0, Math.PI * 2);
+      } else {
+        ctx.arc(org.x, org.y, org.radius, 0, Math.PI * 2);
+      }
+      ctx.fill();
+    }
+
     // Membrane outer lipid bilayer
     ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
-    ctx.lineWidth = 6;
-    ctx.strokeRect(3, 3, w - 6, h - 6);
+    ctx.lineWidth = 4;
+    ctx.strokeRect(2, 2, w - 4, h - 4);
 
     // 2. Draw Waypoint Cytosolic Pathway
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.1)';
-    ctx.lineWidth = 34;
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.12)';
+    ctx.lineWidth = 36;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.beginPath();
@@ -278,10 +361,11 @@ export function initPhageDefense(containerEl: HTMLElement) {
     }
     ctx.stroke();
 
-    // Central dashed path track
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+    // Central dashed path track with animated flow offset
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
     ctx.lineWidth = 2;
-    ctx.setLineDash([6, 6]);
+    ctx.setLineDash([8, 8]);
+    ctx.lineDashOffset = -animTick * 18;
     ctx.stroke();
     ctx.setLineDash([]);
 
@@ -302,7 +386,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
     ctx.shadowBlur = 0;
 
     ctx.fillStyle = '#10b981';
-    ctx.font = 'bold 10px monospace';
+    ctx.font = 'bold 11px monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('NUCLEOID', dest.x, dest.y - 6);
@@ -314,8 +398,8 @@ export function initPhageDefense(containerEl: HTMLElement) {
       const isSelected = selectedTower?.id === t.id;
 
       if (isSelected) {
-        ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
-        ctx.fillStyle = 'rgba(56, 189, 248, 0.06)';
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.08)';
         ctx.lineWidth = 1;
         ctx.beginPath();
         const range = def.range * (1 + (t.level - 1) * 0.15);
@@ -326,12 +410,12 @@ export function initPhageDefense(containerEl: HTMLElement) {
 
       // Base circle
       ctx.shadowColor = def.color;
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 12;
       ctx.fillStyle = '#1e293b';
       ctx.strokeStyle = def.color;
       ctx.lineWidth = 2.5;
       ctx.beginPath();
-      ctx.arc(t.x, t.y, 18, 0, Math.PI * 2);
+      ctx.arc(t.x, t.y, 19, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
       ctx.shadowBlur = 0;
@@ -339,44 +423,89 @@ export function initPhageDefense(containerEl: HTMLElement) {
       // Rotating catalytic active site scissors
       ctx.save();
       ctx.translate(t.x, t.y);
-      ctx.rotate(animTick * (t.type === 'crispr_cas9' ? 0.5 : 1.2));
+      ctx.rotate(animTick * (t.type === 'crispr_cas9' ? 0.6 : 1.4));
       ctx.strokeStyle = def.color;
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(-10, 0);
       ctx.lineTo(10, 0);
       ctx.moveTo(0, -10);
       ctx.lineTo(0, 10);
       ctx.stroke();
+      if (t.level >= 2) {
+        ctx.rotate(Math.PI / 4);
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+      }
       ctx.restore();
 
-      // Level stars / dots
+      // Level text
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 9px monospace';
+      ctx.font = 'bold 10px monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(`L${t.level}`, t.x, t.y);
 
-      // Targeting laser line
-      if (t.targetId) {
+      // Targeting laser beam line for CRISPR Cas9
+      if (t.targetId && t.type === 'crispr_cas9') {
         const target = state.phages.find((p) => p.id === t.targetId);
         if (target) {
-          ctx.strokeStyle = def.color;
-          ctx.lineWidth = t.type === 'crispr_cas9' ? 2.5 : 1.5;
+          ctx.strokeStyle = 'rgba(168, 85, 247, 0.8)';
+          ctx.lineWidth = 3;
+          ctx.shadowColor = '#a855f7';
+          ctx.shadowBlur = 10;
           ctx.beginPath();
           ctx.moveTo(t.x, t.y);
           ctx.lineTo(target.x, target.y);
           ctx.stroke();
+          ctx.shadowBlur = 0;
         }
+      }
+
+      // RNase pulse wave expanding circle
+      if (t.type === 'rnase_interceptor' && t.targetId) {
+        const pulseR = 20 + ((animTick * 35) % 70);
+        ctx.strokeStyle = 'rgba(245, 158, 11, 0.35)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, pulseR, 0, Math.PI * 2);
+        ctx.stroke();
       }
     }
 
-    // 5. Draw Phages with authentic morphology
+    // 5. Draw Projectiles in flight (CRITICAL RENDERING FIX!)
+    for (const proj of state.projectiles) {
+      ctx.save();
+      ctx.shadowColor = proj.color;
+      ctx.shadowBlur = 14;
+      ctx.fillStyle = proj.color;
+
+      // Draw projectile sphere with glowing energy core
+      ctx.beginPath();
+      ctx.arc(proj.x, proj.y, proj.speed > 500 ? 5 : 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Motion streak tail
+      const dx = proj.targetX - proj.x;
+      const dy = proj.targetY - proj.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 1) {
+        ctx.strokeStyle = proj.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(proj.x, proj.y);
+        ctx.lineTo(proj.x - (dx / dist) * 12, proj.y - (dy / dist) * 12);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // 6. Draw Phages with authentic morphology & crawling animations
     for (const p of state.phages) {
       ctx.save();
       ctx.translate(p.x, p.y);
       ctx.shadowColor = p.color;
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = 14;
 
       if (p.type === 't4_myoviridae') {
         // Icosahedral head
@@ -391,45 +520,71 @@ export function initPhageDefense(containerEl: HTMLElement) {
         ctx.closePath();
         ctx.fill();
 
-        // Contractile tail sheath & fibers
+        // Contractile tail sheath & articulated walking fibers
+        const legSwing = Math.sin(animTick * 6) * 4;
         ctx.strokeStyle = p.color;
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(-6, p.radius * 0.6);
-        ctx.lineTo(-12, p.radius * 1.2);
+        ctx.lineTo(-12 + legSwing, p.radius * 1.3);
         ctx.moveTo(6, p.radius * 0.6);
-        ctx.lineTo(12, p.radius * 1.2);
+        ctx.lineTo(12 - legSwing, p.radius * 1.3);
         ctx.stroke();
       } else if (p.type === 'm13_filamentous') {
         // Helical rod filament
+        const wave = Math.sin(animTick * 5) * 3;
         ctx.fillStyle = p.color;
         ctx.beginPath();
-        ctx.ellipse(0, 0, p.radius * 1.4, p.radius * 0.6, 0, 0, Math.PI * 2);
+        ctx.ellipse(wave, 0, p.radius * 1.5, p.radius * 0.6, 0.2, 0, Math.PI * 2);
         ctx.fill();
-      } else {
-        // Standard / Lambda / Megaphage
+      } else if (p.type === 'giant_megaphage') {
+        // Boss megaphage with anti-CRISPR hex shield
         ctx.fillStyle = p.color;
         ctx.beginPath();
         ctx.arc(0, 0, p.radius, 0, Math.PI * 2);
         ctx.fill();
+
+        if (p.shieldHealth > 0) {
+          ctx.strokeStyle = 'rgba(236, 72, 153, 0.8)';
+          ctx.lineWidth = 3;
+          ctx.setLineDash([6, 4]);
+          ctx.beginPath();
+          ctx.arc(0, 0, p.radius + 6, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      } else {
+        // Lambda Siphophage
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Wavy tail
+        ctx.strokeStyle = p.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, p.radius);
+        ctx.quadraticCurveTo(Math.sin(animTick * 5) * 6, p.radius + 8, 0, p.radius + 14);
+        ctx.stroke();
       }
 
       ctx.shadowBlur = 0;
       ctx.restore();
 
-      // Health bar above phage
-      const barW = p.radius * 2 + 4;
-      const barH = 3;
+      // Health & Shield bar above phage
+      const barW = p.radius * 2 + 6;
+      const barH = 4;
       const barX = p.x - barW / 2;
-      const barY = p.y - p.radius - 8;
-      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      const barY = p.y - p.radius - 9;
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
       ctx.fillRect(barX, barY, barW, barH);
-      ctx.fillStyle = '#10b981';
+      ctx.fillStyle = p.shieldHealth > 0 ? '#ec4899' : '#10b981';
       const fillW = Math.max(0, (p.health / p.maxHealth) * barW);
       ctx.fillRect(barX, barY, fillW, barH);
     }
 
-    // 6. Draw Tower Build Placement Preview
+    // 7. Draw Tower Build Placement Preview
     if (selectedBuildType && isMouseInside) {
       const def = TOWER_DEFINITIONS[selectedBuildType];
       const valid =
@@ -446,11 +601,11 @@ export function initPhageDefense(containerEl: HTMLElement) {
 
       ctx.fillStyle = valid ? def.color : '#f43f5e';
       ctx.beginPath();
-      ctx.arc(mousePos.x, mousePos.y, 18, 0, Math.PI * 2);
+      ctx.arc(mousePos.x, mousePos.y, 19, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    // 7. Update & Draw Particles
+    // 8. Update & Draw Particles
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
       p.x += p.vx;
@@ -469,7 +624,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
       if (p.life >= p.maxLife) particles.splice(i, 1);
     }
 
-    // 8. Update & Draw Floating Tactical Texts
+    // 9. Update & Draw Floating Tactical Texts
     for (let i = floatingTexts.length - 1; i >= 0; i--) {
       const ft = floatingTexts[i];
       ft.y -= 1.1;
@@ -489,7 +644,22 @@ export function initPhageDefense(containerEl: HTMLElement) {
       }
     }
 
-    // 9. Game Over / Victory / Pause Overlays
+    // 10. Active Emergency Ability Overlays
+    const isCrispri = state.activeEmergencies.some((e) => e.type === 'crispri');
+    const isOvercharge = state.activeEmergencies.some((e) => e.type === 'overcharge');
+
+    if (isCrispri) {
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+      ctx.lineWidth = 6;
+      ctx.strokeRect(3, 3, w - 6, h - 6);
+    }
+    if (isOvercharge) {
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.7)';
+      ctx.lineWidth = 6;
+      ctx.strokeRect(3, 3, w - 6, h - 6);
+    }
+
+    // 11. Game Over / Victory / Pause Overlays
     if (state.isGameOver) {
       ctx.fillStyle = 'rgba(5, 8, 17, 0.88)';
       ctx.fillRect(0, 0, w, h);
@@ -555,6 +725,20 @@ export function initPhageDefense(containerEl: HTMLElement) {
       else card.classList.remove('selected');
     });
 
+    emergencyBtns.forEach((btn) => {
+      const type = btn.getAttribute('data-emergency-ability') as EmergencyAbilityType;
+      const def = EMERGENCY_ABILITIES[type];
+      const active = state.activeEmergencies.find((e) => e.type === type);
+      btn.disabled = state.atp < def.cost || state.isGameOver || Boolean(active);
+      if (active) {
+        btn.classList.add('active');
+        btn.textContent = `${def.name} (${Math.ceil(active.timerSec)}s)`;
+      } else {
+        btn.classList.remove('active');
+        btn.textContent = `${def.name} (${def.cost} ATP)`;
+      }
+    });
+
     if (selectedTowerPanel) {
       if (selectedTower) {
         selectedTowerPanel.style.display = 'block';
@@ -604,7 +788,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
     if (defeatedPhages.length > 0) {
       defeatedPhages.forEach((p) => {
         sound.playDefeat();
-        createExplosion(p.x, p.y, p.color);
+        createExplosion(p.x, p.y, p.color, p.type === 'giant_megaphage');
         addFloatingText(p.x, p.y, `+${p.atpReward} ATP`, '#f59e0b');
       });
     }
@@ -656,7 +840,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
 
     let clickedTower: ActiveTower | null = null;
     for (const t of state.towers) {
-      if (Math.hypot(t.x - pos.x, t.y - pos.y) <= 22) {
+      if (Math.hypot(t.x - pos.x, t.y - pos.y) <= 24) {
         clickedTower = t;
         break;
       }
@@ -675,6 +859,21 @@ export function initPhageDefense(containerEl: HTMLElement) {
         selectedTower = null;
       }
       updateHUD();
+    });
+  });
+
+  emergencyBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const type = btn.getAttribute('data-emergency-ability') as EmergencyAbilityType;
+      if (type) {
+        const { state: nextState, success } = activateEmergencyAbility(state, type);
+        if (success) {
+          state = nextState;
+          sound.playAbility();
+          addFloatingText(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2, type.toUpperCase(), '#38bdf8');
+          updateHUD();
+        }
+      }
     });
   });
 
