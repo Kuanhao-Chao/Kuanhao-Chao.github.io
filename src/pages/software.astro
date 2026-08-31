@@ -14,6 +14,9 @@ import DinoRunLogo from '../components/games/DinoRunLogo.astro';
 import SnakeLogo from '../components/games/SnakeLogo.astro';
 import TetrisLogo from '../components/games/TetrisLogo.astro';
 import JetpackJoyrideLogo from '../components/games/JetpackJoyrideLogo.astro';
+import BiobabyLogo from '../components/games/BiobabyLogo.astro';
+import FlappyPenguinLogo from '../components/games/FlappyPenguinLogo.astro';
+import TankFireLogo from '../components/games/TankFireLogo.astro';
 
 // Resolve each tool's logo (src/assets/logos/software/<logo>.png) to an optimized asset.
 const logoFiles = import.meta.glob<{ default: ImageMetadata }>('../assets/logos/software/*.png', {
@@ -189,6 +192,21 @@ const toolBlog = await Promise.all(tools.map((t) => resolveRelatedPosts(t.posts 
             {p.name === 'Jetpack Joyride' && (
               <span class="tool-logo-frame" aria-hidden="true">
                 <JetpackJoyrideLogo size={70} />
+              </span>
+            )}
+            {p.name === 'Biobaby' && (
+              <span class="tool-logo-frame" aria-hidden="true">
+                <BiobabyLogo size={70} />
+              </span>
+            )}
+            {p.name === 'Flappy Penguin' && (
+              <span class="tool-logo-frame" aria-hidden="true">
+                <FlappyPenguinLogo size={70} />
+              </span>
+            )}
+            {p.name === 'Tank Fire' && (
+              <span class="tool-logo-frame" aria-hidden="true">
+                <TankFireLogo size={70} />
               </span>
             )}
           </li>
