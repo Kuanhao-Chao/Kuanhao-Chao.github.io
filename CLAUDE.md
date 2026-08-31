@@ -1002,6 +1002,59 @@ Keras checkpoint, ported and exported, producing the same numbers the paper's mo
   on the page — it is a canvas, so there is no element to inspect — and counting the *decomposition*
   instead would pass while the drawing was wrong. 7 of the 14 loci draw at least one intron as a gap.
 
+#### The page's spine: one selection, one axis, five acts
+
+- **One control per piece of state.** `data-vp-anchor` and `data-vp-region` both wrote `tracedBins`
+  from different paths; the sticky `.vp-nav` now owns locus and region and every panel carries a
+  read-only `[data-vp-trace-context]` line instead. The gate asserts there is exactly **one**
+  region selector on the page and that the context lines agree with the bar.
+- **`position: sticky` resolves against `.vp-scroll`, not the document.** This is a `bare` page, so
+  html/body are pinned and the inner pane is what scrolls — a bar placed outside it does not stick.
+- **The focus band is drawn by one helper on every full-window track** — coverage SVG, attribution,
+  the four method tracks and the annotation — and each publishes it as `data-vp-focus` so the gate
+  can assert they agree. Every one of them is also a drag handle (`bindFocusDrag`, idempotent via a
+  dataset flag). The zoomed logos show 150 bp of 16,384, **0.9% of the axis above them**, and
+  nothing marked which 0.9% before this.
+- **Every banded track must repaint when the band moves.** `setLogoWindow` calls all four; missing
+  one leaves a band pointing at a stretch the panel below is no longer showing.
+- **The annotation belongs above the zoom it contextualises.** The stack reads prediction →
+  attribution → methods → evidence → zoom. Its gene lane uses `drawGeneRowsCanvas`, the same
+  renderer and the same `geneTrackShapes` as the coverage plot, so the two cannot disagree about
+  where an intron is; the plain rectangles it used before painted over every one of them.
+- **A bare relevance number in arbitrary units is unreadable.** Stage relevance spanned 13.9 to
+  0.0486 with no units; it is now a share of the region's total, with the raw mean on the `title`.
+- **A profile normalised to its own peak cannot show concentration.** Attention rollout now draws
+  the uniform line at **1/128 = 0.0078** and says how many times it the peak reaches.
+- **An edit that asserts twice writes nothing if the second assertion fails.** A Python patch with
+  two `assert ... in t` and one `write_text` at the end silently rolled back the first replacement
+  when the second missed — the coverage SVG went unbanded and only a `data-vp-focus` probe caught
+  it. Write each replacement to disk, or assert everything before replacing anything.
+
+#### The biology act, and a claim that had to be corrected
+
+- **"The strongest knockout is the textbook regulator" was too strong, and was an artefact of the
+  sort order.** Ranked by |effect| the winner is a known regulator in most windows — RAP1 at TDH3
+  and PDC1, TYE7 at PGK1, FHL1 at RPL26A, GAL80 at GAL1, GAL4 at GAL3 — and at GAL1 the **six**
+  largest sites are all GAL4 or GAL80. But at HOP2 and ACT1 it is STE12, and at KRE33 and DTD1 it is
+  not a characterised regulator at all. The earlier "GAL4 at GAL1" came from a **most-negative**
+  sort; by magnitude that site is GAL80 at **+0.1059**. Sign is not reliable either: the GAL80
+  repressor site correctly comes out positive, but so do several activator sites.
+- **The cross-locus medians are a much stronger statement than any single locus.** Across fourteen
+  windows: **intron 3.78×**, regulatory 1.76×, **TFBS ChIP-supported 1.73× > conserved-only 1.43× >
+  PWM 1.14×** (monotone), CDS **0.84×**, and tRNA 0.32× / LTR 0.37× / ARS 0.48× all strongly
+  depleted. The single-locus 3.26× quoted earlier is one window, not the result.
+- **Attribution peaks upstream of the TSS**: **1.40×** a gene's own mean base in the 240 bp before
+  the start against **0.94×** in the 240 bp inside it, over 113 genes. Align on the *direction of
+  transcription* — `txStart` on +, `txEnd` on −, minus-strand profiles reversed — or the average
+  puts promoters against terminators and flattens into something that looks like a real null.
+- **`verify_pipeline` §3g re-derives the summary from the packs** rather than trusting it, and it
+  immediately earned that: the page computed the TSS ratio with `250 / 40 = 6.25` bins, slicing 6
+  elements and dividing by 6.25, and printed **1.54×** where whole-bin arithmetic gives **1.40×**.
+  A summary is a *view* of numbers that exist per locus; check it against them.
+- **A caption that promises a mark the drawing does not contain is the same defect as a wrong
+  number.** The class figure's caption said "the dots are the individual windows" before any dots
+  were drawn.
+
 #### The yeast annotation layer
 
 - **`make_annotations.py` refuses to write unless the window IS sacCer3 at its stated coordinates.**
@@ -1042,10 +1095,15 @@ Keras checkpoint, ported and exported, producing the same numbers the paper's mo
 - **Pool an annotation mask by MEAN, never by max.** A 7 bp site covers 5 % of a 128 bp cell; a max
   marks the whole cell annotated and makes every class identical once pooled — numbers that mean
   nothing while looking exactly like numbers that do.
-- **The knockout sweep recovers the textbook regulator of each gene, unprompted**, and that is the
-  strongest evidence on the page that the model learned regulation rather than composition: **GAL4**
-  at GAL1, **FHL1** at RPL26A, **RAP1** at TDH3 and PDC1, **MCM1** at HOP2, **ABF1**/**REB1** at
-  FBA1/MMS2. The sites come from a database, the ranking from the model.
+- **The knockout sweep tends to find a gene's known regulator, but "the strongest knockout is the
+  textbook regulator" is TOO STRONG and was an artefact of sorting.** Ranked by |effect| across the
+  fourteen: **RAP1** at TDH3 and PDC1, **TYE7** at PGK1 (all glycolytic activators), **FHL1** at
+  RPL26A, **GAL80** at GAL1 and **GAL4** at GAL3. At GAL1 the six largest sites are *all* GAL4 or
+  GAL80 — activator and repressor of that regulon — which is the cleanest case. But at HOP2 and ACT1
+  the winner is STE12, and at KRE33 and DTD1 it is not a characterised regulator at all. An earlier
+  round claimed "GAL4 at GAL1" from a **most-negative** sort; by magnitude it is GAL80 at +0.1059.
+  **Sign is not reliable**: the GAL80 repressor site correctly comes out positive, but so do several
+  activator sites.
 - **Report a knockout as a mean over k shuffles with its spread.** One shuffle is one draw, and the
   page had been presenting a single draw as a measurement. The bar is drawn from effect ÷ sd, but
   the table **sorts by magnitude** — ranking by the ratio put a −0.0003 site above a −0.0138 one and
