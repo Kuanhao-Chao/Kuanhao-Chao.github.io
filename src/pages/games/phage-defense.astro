@@ -117,8 +117,21 @@ const gameLd = {
         <div class="defense-selected-content">
           <div>
             <strong data-tower-info-name>EcoRI Cleaver</strong> · <span data-tower-info-lvl>Level 1</span>
+            <div class="muted" style="font-size: 0.78rem; margin-top: 2px;" data-tower-info-dps>Damage: 28</div>
           </div>
-          <button type="button" class="defense-btn defense-btn--primary" data-tower-upgrade-btn>Upgrade (85 ATP)</button>
+
+          <div class="defense-priority-group" aria-label="Targeting Priority Selection">
+            <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--color-muted); margin-right: 4px;">Target:</span>
+            <button type="button" class="defense-priority-btn active" data-tower-priority="first">First</button>
+            <button type="button" class="defense-priority-btn" data-tower-priority="strongest">Strong</button>
+            <button type="button" class="defense-priority-btn" data-tower-priority="weakest">Weak</button>
+            <button type="button" class="defense-priority-btn" data-tower-priority="closest">Close</button>
+          </div>
+
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="defense-btn defense-btn--primary" data-tower-upgrade-btn>Upgrade (85 ATP)</button>
+            <button type="button" class="defense-btn defense-btn--danger" data-tower-sell-btn>Recycle (+70 ATP)</button>
+          </div>
         </div>
       </div>
     </div>
@@ -128,6 +141,7 @@ const gameLd = {
       <ul>
         <li><strong>Select & Deploy:</strong> Click a defense tower card above, then click anywhere on the cytosolic canvas (outside the path) to construct the molecular unit.</li>
         <li><strong>Upgrade Defenses:</strong> Click an existing tower on the battlefield to inspect its range and upgrade its catalytic turnover rate (k<sub>cat</sub>) and damage.</li>
+        <li><strong>Recycle / Sell:</strong> Sell outdated towers to recover 70% of invested ATP and reposition defenses as phage swarms evolve.</li>
         <li><strong>Combating Phage Swarms:</strong> Place <em>RNase Jammers</em> at bends to slow incoming phages, followed by <em>EcoRI Cleavers</em> and <em>CRISPR-Cas9</em> snipers to eliminate heavy armored phages before they reach the nucleoid.</li>
       </ul>
     </article>
@@ -135,7 +149,22 @@ const gameLd = {
 
   <script>
     import { initPhageDefense } from '../../scripts/phageDefense';
-    const container = document.querySelector<HTMLElement>('[data-defense-game]');
-    if (container) initPhageDefense(container);
+
+    let cleanup: (() => void) | null = null;
+
+    function mount() {
+      if (cleanup) return;
+      const container = document.querySelector<HTMLElement>('[data-defense-game]');
+      if (container) cleanup = initPhageDefense(container);
+    }
+
+    function unmount() {
+      cleanup?.();
+      cleanup = null;
+    }
+
+    document.addEventListener('astro:page-load', mount);
+    document.addEventListener('astro:before-swap', unmount);
+    mount();
   </script>
 </PageLayout>

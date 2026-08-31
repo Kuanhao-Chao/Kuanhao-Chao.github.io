@@ -6,9 +6,11 @@ import {
   createInitialState,
   updateGameState,
   activatePowerUp,
+  switchCasEnzyme,
   type GameState,
   type SliceLine,
   type PowerUpType,
+  type CasType,
 } from '../lib/crisprCommander';
 
 interface Particle {
@@ -24,6 +26,16 @@ interface Particle {
   text?: string;
 }
 
+interface FloatingText {
+  x: number;
+  y: number;
+  text: string;
+  color: string;
+  alpha: number;
+  life: number;
+  maxLife: number;
+}
+
 const STORAGE_KEY = 'khc_crispr_commander_highscore';
 
 class SoundController {
@@ -32,7 +44,9 @@ class SoundController {
 
   private init() {
     if (!this.ctx && typeof window !== 'undefined') {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (AudioCtx) {
         this.ctx = new AudioCtx();
       }
@@ -138,6 +152,13 @@ class SoundController {
 }
 
 export function initCrisprCommander(containerEl: HTMLElement) {
+  // Global instance tracking for single-instance SPA safety
+  const win = window as unknown as {
+    __crisprCommander?: { state: () => GameState; restart: () => void; destroy: () => void };
+    __crisprCommanderInstances?: number;
+  };
+  win.__crisprCommanderInstances = (win.__crisprCommanderInstances || 0) + 1;
+
   const canvas = containerEl.querySelector<HTMLCanvasElement>('[data-crispr-canvas]');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
@@ -153,6 +174,7 @@ export function initCrisprCommander(containerEl: HTMLElement) {
   const pauseBtn = containerEl.querySelector<HTMLButtonElement>('[data-crispr-pause]');
   const restartBtn = containerEl.querySelector<HTMLButtonElement>('[data-crispr-restart]');
   const soundBtn = containerEl.querySelector<HTMLButtonElement>('[data-crispr-sound]');
+  const enzymeBtns = containerEl.querySelectorAll<HTMLButtonElement>('[data-crispr-enzyme]');
   const powerUpBtns = containerEl.querySelectorAll<HTMLButtonElement>('[data-crispr-powerup]');
 
   const sound = new SoundController();
@@ -163,8 +185,11 @@ export function initCrisprCommander(containerEl: HTMLElement) {
 
   let state: GameState = createInitialState(savedHigh);
   let particles: Particle[] = [];
+  let floatingTexts: FloatingText[] = [];
   let currentSlice: { x: number; y: number }[] = [];
+  let pointerPos = { x: 0, y: 0 };
   let isPointerDown = false;
+  let isPointerInside = false;
   let lastTimestamp = 0;
   let animationFrameId = 0;
 
@@ -186,24 +211,36 @@ export function initCrisprCommander(containerEl: HTMLElement) {
   }
 
   function createDebris(x: number, y: number, color: string, seq: string) {
-    const count = 14;
+    const count = 16;
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const speed = 1.5 + Math.random() * 4.5;
+      const speed = 1.8 + Math.random() * 4.5;
       const base = seq[i % seq.length] || 'N';
       particles.push({
         x,
         y,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
-        size: 8 + Math.random() * 6,
+        size: 9 + Math.random() * 5,
         color,
         alpha: 1,
         life: 0,
-        maxLife: 30 + Math.random() * 20,
+        maxLife: 35 + Math.random() * 15,
         text: base,
       });
     }
+  }
+
+  function addFloatingText(x: number, y: number, text: string, color = '#38bdf8') {
+    floatingTexts.push({
+      x,
+      y,
+      text,
+      color,
+      alpha: 1.0,
+      life: 0,
+      maxLife: 40,
+    });
   }
 
   function render() {
@@ -214,13 +251,13 @@ export function initCrisprCommander(containerEl: HTMLElement) {
     ctx.clearRect(0, 0, w, h);
 
     // 1. Draw cellular background & host genome boundary
-    ctx.fillStyle = '#090d16';
+    ctx.fillStyle = '#070b14';
     ctx.fillRect(0, 0, w, h);
 
     // Grid matrix
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.06)';
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.05)';
     ctx.lineWidth = 1;
-    const gridSize = 40;
+    const gridSize = 36;
     for (let x = 0; x < w; x += gridSize) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
@@ -236,11 +273,11 @@ export function initCrisprCommander(containerEl: HTMLElement) {
 
     // Host Genome Integration Danger Zone Line
     const dangerY = h * 0.92;
-    const gradient = ctx.createLinearGradient(0, dangerY - 20, 0, h);
+    const gradient = ctx.createLinearGradient(0, dangerY - 25, 0, h);
     gradient.addColorStop(0, 'rgba(244, 63, 94, 0.0)');
-    gradient.addColorStop(1, 'rgba(244, 63, 94, 0.2)');
+    gradient.addColorStop(1, 'rgba(244, 63, 94, 0.25)');
     ctx.fillStyle = gradient;
-    ctx.fillRect(0, dangerY - 20, w, h - dangerY + 20);
+    ctx.fillRect(0, dangerY - 25, w, h - dangerY + 25);
 
     ctx.strokeStyle = '#f43f5e';
     ctx.lineWidth = 2;
@@ -251,18 +288,38 @@ export function initCrisprCommander(containerEl: HTMLElement) {
     ctx.stroke();
     ctx.setLineDash([]);
 
-    ctx.fillStyle = 'rgba(244, 63, 94, 0.8)';
-    ctx.font = '11px monospace';
+    ctx.fillStyle = 'rgba(244, 63, 94, 0.85)';
+    ctx.font = 'bold 10px monospace';
     ctx.fillText('HOST GENOME CORE INTEGRATION THRESHOLD', 12, dangerY - 6);
 
-    // 2. Draw viral strands
+    // 2. Draw Cleaved DNA Fragments (Double-Strand Break Physics)
+    for (const frag of state.fragments) {
+      ctx.save();
+      ctx.globalAlpha = frag.alpha;
+      ctx.translate(frag.x, frag.y);
+      ctx.rotate(frag.angle);
+
+      ctx.fillStyle = frag.color;
+      ctx.font = 'bold 11px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(frag.sequence, 0, 0);
+
+      // Glow outline
+      ctx.strokeStyle = frag.color;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-24, -8, 48, 16);
+      ctx.restore();
+    }
+
+    // 3. Draw viral strands
     for (const strand of state.strands) {
       const px = strand.x * w;
       const py = strand.y * h;
 
       // Glow backing
       ctx.shadowColor = strand.color;
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = 14;
       ctx.fillStyle = strand.color;
       ctx.beginPath();
       ctx.arc(px, py, strand.radius, 0, Math.PI * 2);
@@ -270,7 +327,7 @@ export function initCrisprCommander(containerEl: HTMLElement) {
       ctx.shadowBlur = 0;
 
       // Inner nucleotide circle
-      ctx.fillStyle = '#090d16';
+      ctx.fillStyle = '#070b14';
       ctx.beginPath();
       ctx.arc(px, py, strand.radius - 4, 0, Math.PI * 2);
       ctx.fill();
@@ -280,7 +337,7 @@ export function initCrisprCommander(containerEl: HTMLElement) {
       ctx.font = 'bold 12px monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(strand.sequence.slice(0, 5), px, py - 2);
+      ctx.fillText(strand.sequence.slice(0, 5), px, py - 3);
 
       // PAM badge
       ctx.font = '9px monospace';
@@ -301,12 +358,12 @@ export function initCrisprCommander(containerEl: HTMLElement) {
       }
     }
 
-    // 3. Draw slicing trails
+    // 4. Draw Slicing Trails (Laser Cleave Ribbon)
     if (currentSlice.length >= 2) {
-      ctx.strokeStyle = '#38bdf8';
+      ctx.strokeStyle = state.activeCas === 'SpCas9' ? '#38bdf8' : '#a855f7';
       ctx.lineWidth = 4;
-      ctx.shadowColor = '#38bdf8';
-      ctx.shadowBlur = 16;
+      ctx.shadowColor = state.activeCas === 'SpCas9' ? '#38bdf8' : '#a855f7';
+      ctx.shadowBlur = 18;
       ctx.beginPath();
       ctx.moveTo(currentSlice[0].x, currentSlice[0].y);
       for (let i = 1; i < currentSlice.length; i++) {
@@ -316,12 +373,29 @@ export function initCrisprCommander(containerEl: HTMLElement) {
       ctx.shadowBlur = 0;
     }
 
-    // 4. Update & draw debris particles
+    // 5. Draw Interactive Cas Enzyme Reticle
+    if (isPointerInside && !state.isGameOver) {
+      const rx = pointerPos.x;
+      const ry = pointerPos.y;
+      ctx.strokeStyle = state.activeCas === 'SpCas9' ? '#38bdf8' : '#a855f7';
+      ctx.lineWidth = 1.5;
+
+      // Rotating corner brackets
+      ctx.beginPath();
+      ctx.arc(rx, ry, 16, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = state.activeCas === 'SpCas9' ? '#38bdf8' : '#a855f7';
+      ctx.font = 'bold 9px monospace';
+      ctx.fillText(state.activeCas === 'SpCas9' ? 'Cas9 [NGG]' : 'Cas12a [TTTV]', rx, ry - 22);
+    }
+
+    // 6. Update & Draw Debris Particles
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
       p.x += p.vx;
       p.y += p.vy;
-      p.vy += 0.08; // gravity
+      p.vy += 0.08;
       p.life++;
       p.alpha = Math.max(0, 1 - p.life / p.maxLife);
 
@@ -344,17 +418,44 @@ export function initCrisprCommander(containerEl: HTMLElement) {
       }
     }
 
-    // 5. Active Power-Up Overlay Shields
+    // 7. Update & Draw Floating Tactical Texts
+    for (let i = floatingTexts.length - 1; i >= 0; i--) {
+      const ft = floatingTexts[i];
+      ft.y -= 1.2;
+      ft.life++;
+      ft.alpha = Math.max(0, 1 - ft.life / ft.maxLife);
+
+      ctx.save();
+      ctx.globalAlpha = ft.alpha;
+      ctx.fillStyle = ft.color;
+      ctx.font = 'bold 13px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(ft.text, ft.x, ft.y);
+      ctx.restore();
+
+      if (ft.life >= ft.maxLife) {
+        floatingTexts.splice(i, 1);
+      }
+    }
+
+    // 8. Active Power-Up Overlay Shields
     const hasShield = state.powerUps.some((p) => p.type === 'dcas9_shield');
+    const hasHyper = state.powerUps.some((p) => p.type === 'hyper_drive');
+
     if (hasShield) {
-      ctx.strokeStyle = 'rgba(168, 85, 247, 0.4)';
+      ctx.strokeStyle = 'rgba(168, 85, 247, 0.45)';
       ctx.lineWidth = 6;
+      ctx.strokeRect(3, 3, w - 6, h - 6);
+    }
+    if (hasHyper) {
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+      ctx.lineWidth = 8;
       ctx.strokeRect(4, 4, w - 8, h - 8);
     }
 
-    // 6. Game Over / Paused Overlay
+    // 9. Game Over / Paused Overlay
     if (state.isGameOver) {
-      ctx.fillStyle = 'rgba(9, 13, 22, 0.85)';
+      ctx.fillStyle = 'rgba(7, 11, 20, 0.88)';
       ctx.fillRect(0, 0, w, h);
       ctx.fillStyle = '#f43f5e';
       ctx.font = 'bold 32px sans-serif';
@@ -362,12 +463,16 @@ export function initCrisprCommander(containerEl: HTMLElement) {
       ctx.fillText('CELL VIABILITY DEPLETED', w / 2, h / 2 - 30);
       ctx.fillStyle = '#e2e8f0';
       ctx.font = '16px monospace';
-      ctx.fillText(`Final Score: ${state.score}  ·  Max Combo: ${state.maxCombo}x`, w / 2, h / 2 + 10);
+      ctx.fillText(
+        `Final Score: ${state.score}  ·  Max Combo: ${state.maxCombo}x`,
+        w / 2,
+        h / 2 + 10
+      );
       ctx.fillStyle = '#94a3b8';
       ctx.font = '14px sans-serif';
       ctx.fillText('Click Restart to initiate Cas9 reboot sequence', w / 2, h / 2 + 45);
     } else if (state.isPaused) {
-      ctx.fillStyle = 'rgba(9, 13, 22, 0.7)';
+      ctx.fillStyle = 'rgba(7, 11, 20, 0.7)';
       ctx.fillRect(0, 0, w, h);
       ctx.fillStyle = '#38bdf8';
       ctx.font = 'bold 28px sans-serif';
@@ -392,6 +497,12 @@ export function initCrisprCommander(containerEl: HTMLElement) {
       integrityText.textContent = `${state.cellIntegrity}%`;
     }
 
+    enzymeBtns.forEach((btn) => {
+      const type = btn.getAttribute('data-crispr-enzyme') as CasType;
+      if (type === state.activeCas) btn.classList.add('active');
+      else btn.classList.remove('active');
+    });
+
     powerUpBtns.forEach((btn) => {
       const cost = parseInt(btn.getAttribute('data-cost') || '0', 10);
       btn.disabled = state.atp < cost || state.isGameOver;
@@ -411,7 +522,6 @@ export function initCrisprCommander(containerEl: HTMLElement) {
     const w = canvas!.clientWidth;
     const h = canvas!.clientHeight;
 
-    // Convert current slice path into segments
     const sliceSegments: SliceLine[] = [];
     if (currentSlice.length >= 2) {
       for (let i = 0; i < currentSlice.length - 1; i++) {
@@ -433,18 +543,21 @@ export function initCrisprCommander(containerEl: HTMLElement) {
       h
     );
 
-    // Audio & particles on events
     if (cleavedStrands.length > 0) {
       cleavedStrands.forEach((s) => {
         const pitch = 1.0 + Math.min(nextState.combo * 0.05, 1.2);
         sound.playCleave(pitch);
         if (s.type === 'acr_boss') sound.playDsbBass();
         createDebris(s.x * w, s.y * h, s.color, s.sequence);
+        addFloatingText(s.x * w, s.y * h, `+${s.points * (nextState.combo > 1 ? 2 : 1)}`, s.color);
       });
     }
 
     if (breaches.length > 0) {
       sound.playDamage();
+      breaches.forEach((b) => {
+        addFloatingText(b.x * w, h * 0.9, '-10% INTEGRITY', '#f43f5e');
+      });
     }
 
     if (nextState.isGameOver && !state.isGameOver) {
@@ -461,17 +574,21 @@ export function initCrisprCommander(containerEl: HTMLElement) {
     animationFrameId = requestAnimationFrame(gameLoop);
   }
 
-  // Event Listeners
+  // Pointer Event Listeners
   function onPointerDown(e: MouseEvent | TouchEvent) {
     if (state.isGameOver || state.isPaused) return;
     isPointerDown = true;
+    isPointerInside = true;
     const point = 'touches' in e ? getCanvasPos(e.touches[0]) : getCanvasPos(e);
+    pointerPos = point;
     currentSlice = [point];
   }
 
   function onPointerMove(e: MouseEvent | TouchEvent) {
-    if (!isPointerDown) return;
     const point = 'touches' in e ? getCanvasPos(e.touches[0]) : getCanvasPos(e);
+    pointerPos = point;
+    isPointerInside = true;
+    if (!isPointerDown) return;
     currentSlice.push(point);
     if (currentSlice.length > 6) currentSlice.shift();
   }
@@ -482,21 +599,35 @@ export function initCrisprCommander(containerEl: HTMLElement) {
   }
 
   canvas.addEventListener('mousedown', onPointerDown);
-  window.addEventListener('mousemove', onPointerMove);
+  canvas.addEventListener('mousemove', onPointerMove);
+  canvas.addEventListener('mouseleave', () => {
+    isPointerInside = false;
+  });
   window.addEventListener('mouseup', onPointerUp);
 
   canvas.addEventListener('touchstart', onPointerDown, { passive: true });
-  window.addEventListener('touchmove', onPointerMove, { passive: true });
+  canvas.addEventListener('touchmove', onPointerMove, { passive: true });
   window.addEventListener('touchend', onPointerUp);
 
   window.addEventListener('resize', resizeCanvas);
   resizeCanvas();
 
-  // Control Buttons
+  // Control & Enzyme Buttons
+  enzymeBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const type = btn.getAttribute('data-crispr-enzyme') as CasType;
+      if (type) {
+        state = switchCasEnzyme(state, type);
+        updateHUD();
+      }
+    });
+  });
+
   if (restartBtn) {
     restartBtn.addEventListener('click', () => {
       state = createInitialState(state.highScore);
       particles = [];
+      floatingTexts = [];
       currentSlice = [];
       updateHUD();
     });
@@ -523,6 +654,7 @@ export function initCrisprCommander(containerEl: HTMLElement) {
       if (type) {
         state = activatePowerUp(state, type);
         sound.playPowerUp();
+        addFloatingText(canvas.clientWidth / 2, canvas.clientHeight / 2, type.toUpperCase(), '#10b981');
         updateHUD();
       }
     });
@@ -531,12 +663,23 @@ export function initCrisprCommander(containerEl: HTMLElement) {
   updateHUD();
   animationFrameId = requestAnimationFrame(gameLoop);
 
-  return () => {
-    cancelAnimationFrame(animationFrameId);
-    window.removeEventListener('resize', resizeCanvas);
-    window.removeEventListener('mousemove', onPointerMove);
-    window.removeEventListener('mouseup', onPointerUp);
-    window.removeEventListener('touchmove', onPointerMove);
-    window.removeEventListener('touchend', onPointerUp);
+  const controller = {
+    state: () => state,
+    restart: () => {
+      state = createInitialState(state.highScore);
+    },
+    destroy: () => {
+      cancelAnimationFrame(animationFrameId);
+      window.removeEventListener('resize', resizeCanvas);
+      window.removeEventListener('mouseup', onPointerUp);
+      window.removeEventListener('touchend', onPointerUp);
+      if (win.__crisprCommander === controller) {
+        delete win.__crisprCommander;
+      }
+      win.__crisprCommanderInstances = Math.max(0, (win.__crisprCommanderInstances || 1) - 1);
+    },
   };
+
+  win.__crisprCommander = controller;
+  return controller.destroy;
 }

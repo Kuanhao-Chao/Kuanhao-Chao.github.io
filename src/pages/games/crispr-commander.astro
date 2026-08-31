@@ -45,7 +45,7 @@ const gameLd = {
         </div>
         <div class="crispr-stat">
           <span class="crispr-stat-label">ATP Pool</span>
-          <span class="crispr-stat-value" data-crispr-atp>50 ATP</span>
+          <span class="crispr-stat-value" data-crispr-atp>60 ATP</span>
         </div>
         <div class="crispr-stat">
           <span class="crispr-stat-label">Level</span>
@@ -72,6 +72,16 @@ const gameLd = {
       </div>
     </div>
 
+    <div class="crispr-enzyme-bar" aria-label="Active Endonuclease Selection">
+      <span class="crispr-enzyme-label">Active Endonuclease:</span>
+      <button type="button" class="crispr-enzyme-btn active" data-crispr-enzyme="SpCas9">
+        SpCas9 (PAM: 3'-NGG)
+      </button>
+      <button type="button" class="crispr-enzyme-btn" data-crispr-enzyme="AsCas12a">
+        AsCas12a (PAM: 5'-TTTV)
+      </button>
+    </div>
+
     <div class="crispr-board">
       <canvas
         data-crispr-canvas
@@ -82,6 +92,14 @@ const gameLd = {
     </div>
 
     <div class="crispr-powerups">
+      <button type="button" class="crispr-powerup-card" data-crispr-powerup data-powerup="base_editor" data-cost="35">
+        <span class="crispr-powerup-title">
+          <span>Base Editor (CBE)</span>
+          <span class="crispr-powerup-cost">35 ATP</span>
+        </span>
+        <span class="crispr-powerup-desc">Deaminate cytosines (C&rarr;T) to disarm viral promoters and reduce strand health.</span>
+      </button>
+
       <button type="button" class="crispr-powerup-card" data-crispr-powerup data-powerup="dcas9_shield" data-cost="40">
         <span class="crispr-powerup-title">
           <span>dCas9 Shield</span>
@@ -97,13 +115,21 @@ const gameLd = {
         </span>
         <span class="crispr-powerup-desc">Repair damaged host genome segments with reverse transcriptase (+40% Integrity).</span>
       </button>
+
+      <button type="button" class="crispr-powerup-card" data-crispr-powerup data-powerup="hyper_drive" data-cost="75">
+        <span class="crispr-powerup-title">
+          <span>Hyper-Drive</span>
+          <span class="crispr-powerup-cost">75 ATP</span>
+        </span>
+        <span class="crispr-powerup-desc">Overclock endonuclease cleavage kinetics to auto-slice nearby viral strands.</span>
+      </button>
     </div>
 
     <article class="crispr-guide">
       <h3>How to Play & Biological Mechanics</h3>
       <ul>
         <li><strong>Drag / Swipe to Cleave:</strong> Click and drag your mouse (or swipe on touchscreens) across incoming viral strands to initiate Cas9 double-strand breaks.</li>
-        <li><strong>PAM Recognition:</strong> Viral strands require matching Protospacer Adjacent Motifs (<code>NGG</code> for SpCas9) to be cleanly sliced.</li>
+        <li><strong>PAM Recognition:</strong> Viral strands require matching Protospacer Adjacent Motifs (<code>NGG</code> for SpCas9, <code>TTTV</code> for AsCas12a) to be cleanly sliced.</li>
         <li><strong>Consecutive Combos:</strong> Slice multiple strands without missing to build combo multipliers (up to 4.0x score boost).</li>
         <li><strong>Beware of Breaches:</strong> If viral genomes reach the bottom host integration threshold line, cell viability is compromised.</li>
       </ul>
@@ -112,7 +138,22 @@ const gameLd = {
 
   <script>
     import { initCrisprCommander } from '../../scripts/crisprCommander';
-    const container = document.querySelector<HTMLElement>('[data-crispr-game]');
-    if (container) initCrisprCommander(container);
+
+    let cleanup: (() => void) | null = null;
+
+    function mount() {
+      if (cleanup) return;
+      const container = document.querySelector<HTMLElement>('[data-crispr-game]');
+      if (container) cleanup = initCrisprCommander(container);
+    }
+
+    function unmount() {
+      cleanup?.();
+      cleanup = null;
+    }
+
+    document.addEventListener('astro:page-load', mount);
+    document.addEventListener('astro:before-swap', unmount);
+    mount();
   </script>
 </PageLayout>

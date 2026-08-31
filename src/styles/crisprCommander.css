@@ -6,8 +6,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  max-width: 860px;
+  max-width: 880px;
+  width: 100%;
   margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .crispr-hud {
@@ -20,6 +22,7 @@
   background: var(--color-surface, #1e293b);
   border: 1px solid var(--color-rule, #334155);
   border-radius: var(--radius-md, 8px);
+  box-sizing: border-box;
 }
 
 .crispr-stats {
@@ -53,7 +56,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  min-width: 140px;
+  min-width: 130px;
 }
 
 .crispr-integrity-bar {
@@ -78,7 +81,8 @@
 }
 
 .crispr-btn {
-  padding: 0.35rem 0.75rem;
+  min-height: 44px;
+  padding: 0.4rem 0.85rem;
   font-size: var(--fs-small, 0.85rem);
   font-weight: 600;
   border: 1px solid var(--color-rule, #334155);
@@ -86,7 +90,11 @@
   background: var(--color-bg, #0f172a);
   color: var(--color-fg, #f8fafc);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: all 0.15s ease;
+  box-sizing: border-box;
 }
 
 .crispr-btn:hover:not(:disabled) {
@@ -100,6 +108,49 @@
   cursor: not-allowed;
 }
 
+.crispr-enzyme-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--color-rule, #334155);
+  border-radius: var(--radius-md, 8px);
+}
+
+.crispr-enzyme-label {
+  font-size: 0.76rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--color-muted, #94a3b8);
+  margin-right: 4px;
+}
+
+.crispr-enzyme-btn {
+  min-height: 44px;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: var(--font-mono, monospace);
+  border: 1px solid var(--color-rule, #334155);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--color-bg, #0f172a);
+  color: var(--color-muted, #94a3b8);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.crispr-enzyme-btn.active {
+  border-color: var(--color-accent, #38bdf8);
+  background: rgba(56, 189, 248, 0.15);
+  color: var(--color-fg, #f8fafc);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+}
+
 .crispr-board {
   position: relative;
   width: 100%;
@@ -107,9 +158,10 @@
   border: 1px solid var(--color-rule, #334155);
   border-radius: var(--radius-lg, 12px);
   overflow: hidden;
-  background: #090d16;
+  background: #070b14;
   touch-action: none;
   user-select: none;
+  box-sizing: border-box;
 }
 
 .crispr-canvas {
@@ -123,9 +175,12 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: var(--space-3);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .crispr-powerup-card {
+  min-height: 44px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -136,6 +191,7 @@
   text-align: left;
   cursor: pointer;
   transition: all 0.15s ease;
+  box-sizing: border-box;
 }
 
 .crispr-powerup-card:hover:not(:disabled) {
@@ -151,30 +207,32 @@
 
 .crispr-powerup-title {
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   color: var(--color-fg, #f8fafc);
   display: flex;
   justify-content: space-between;
+  align-items: center;
 }
 
 .crispr-powerup-cost {
   font-family: var(--font-mono, monospace);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: #f59e0b;
 }
 
 .crispr-powerup-desc {
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   color: var(--color-muted, #94a3b8);
   line-height: 1.35;
 }
 
 .crispr-guide {
-  margin-top: var(--space-6);
+  margin-top: var(--space-4);
   padding: var(--space-4);
   background: var(--color-surface, #1e293b);
   border: 1px solid var(--color-rule, #334155);
   border-radius: var(--radius-md, 8px);
+  box-sizing: border-box;
 }
 
 .crispr-guide h3 {
@@ -182,7 +240,8 @@
   margin-bottom: var(--space-2);
 }
 
-.crispr-guide p, .crispr-guide li {
+.crispr-guide p,
+.crispr-guide li {
   font-size: 0.88rem;
   color: var(--color-muted, #94a3b8);
   line-height: 1.5;
