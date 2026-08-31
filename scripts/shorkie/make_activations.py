@@ -113,15 +113,7 @@ def main() -> int:
                 "lo": [round(float(v), 4) for v in lo],
                 "hi": [round(float(v), 4) for v in hi],
             }
-        # MERGE into the existing sidecar, never replace it. This file is shared: make_ism,
-        # make_occlusion and make_lm_packs each own a key in it. Replacing it wholesale silently
-        # deleted the `ism` block for thirteen loci -- the planes and their raw arrays survived, so
-        # nothing was lost that a repack could not restore, but make_ism then saw no metadata and
-        # started recomputing four hours of finished work.
-        side = out_dir / f"{locus['id']}.json"
-        merged = json.loads(side.read_text()) if side.exists() else {}
-        merged.update(meta)
-        side.write_text(json.dumps(merged, separators=(",", ":")))
+        (out_dir / f"{locus['id']}.json").write_text(json.dumps(meta, separators=(",", ":")))
         sidecar = (out_dir / f"{locus['id']}.json").stat().st_size
         locus_total = sum(sizes) + sidecar
         total += locus_total
