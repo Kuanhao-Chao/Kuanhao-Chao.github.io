@@ -264,6 +264,18 @@ export type SideProject = { name: string; detail: string; url: string };
 
 export const sideProjects: SideProject[] = [
   {
+    name: 'CRISPR Commander',
+    detail:
+      'Molecular slicing action arcade — wield Cas9 guide RNAs to cleave invading viral DNA at PAM target motifs',
+    url: '/games/crispr-commander/',
+  },
+  {
+    name: 'Phage Defense',
+    detail:
+      'Microbial tower defense — deploy restriction enzymes, CRISPR arrays, and RNases to protect a bacterial cell from phage swarms',
+    url: '/games/phage-defense/',
+  },
+  {
     name: 'Genome Jumper',
     detail:
       'Endless browser jumper — procedural platforms, nucleotide boosts, and mutation enemies',

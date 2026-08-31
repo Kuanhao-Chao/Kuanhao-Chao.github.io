@@ -1,0 +1,141 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import { site } from '../../data/site';
+import '../../styles/phageDefense.css';
+
+const gameLd = {
+  '@context': 'https://schema.org',
+  '@type': 'VideoGame',
+  name: 'Phage Defense',
+  description:
+    'An interactive microbial tower defense game where you deploy restriction enzymes, CRISPR arrays, and RNases to protect a bacterial cell from bacteriophage swarms.',
+  url: `${site.url}/games/phage-defense/`,
+  author: { '@id': `${site.url}/#person` },
+  applicationCategory: 'Game',
+  gamePlatform: ['Web browser', 'Mobile web browser'],
+  genre: ['Strategy', 'Tower Defense', 'Science Game'],
+  inLanguage: 'en',
+  isAccessibleForFree: true,
+};
+---
+
+<PageLayout
+  title="Phage Defense"
+  eyebrow="Side project"
+  lead="Deploy restriction enzymes, CRISPR-Cas arrays, and RNase interceptors along cytosolic pathways to defend the bacterial chromosome from invading bacteriophages."
+  description="Phage Defense — an original microbial tower defense web game by Kuan-Hao Chao. Build molecular defenses, manage ATP, and protect the host nucleoid."
+  width="narrow"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
+
+  <section class="defense-game-container" data-defense-game aria-label="Phage Defense game">
+    <div class="defense-hud">
+      <div class="defense-stats">
+        <div class="defense-stat">
+          <span class="defense-stat-label">Score</span>
+          <span class="defense-stat-value" data-phage-score>0</span>
+        </div>
+        <div class="defense-stat">
+          <span class="defense-stat-label">Best</span>
+          <span class="defense-stat-value" data-phage-best>0</span>
+        </div>
+        <div class="defense-stat">
+          <span class="defense-stat-label">ATP Pool</span>
+          <span class="defense-stat-value" data-phage-atp>350 ATP</span>
+        </div>
+        <div class="defense-stat">
+          <span class="defense-stat-label">Wave</span>
+          <span class="defense-stat-value" data-phage-wave>Wave 0 / 15</span>
+        </div>
+        <div class="defense-viability-container">
+          <span class="defense-stat-label">Nucleoid Health: <strong data-phage-viability-text>100%</strong></span>
+          <div class="defense-viability-bar">
+            <div class="defense-viability-fill" data-phage-viability-fill></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="defense-controls">
+        <button type="button" class="defense-btn defense-btn--primary" data-phage-next-wave>Start Next Wave</button>
+        <button type="button" class="defense-btn" data-phage-pause>Pause</button>
+        <button type="button" class="defense-btn" data-phage-restart>Restart</button>
+        <button
+          type="button"
+          class="defense-btn"
+          data-phage-sound
+          aria-label="Mute game sounds"
+          aria-pressed="true">Sound on</button
+        >
+      </div>
+    </div>
+
+    <div class="defense-board">
+      <canvas
+        data-phage-canvas
+        class="defense-canvas"
+        role="img"
+        aria-label="Phage Defense interactive microbial canvas"
+      ></canvas>
+    </div>
+
+    <div class="defense-dock">
+      <div class="defense-tower-cards">
+        <button type="button" class="defense-tower-card" data-tower-type="restriction_enzyme">
+          <div class="defense-tower-header">
+            <span class="defense-tower-name">EcoRI Cleaver</span>
+            <span class="defense-tower-cost">100 ATP</span>
+          </div>
+          <span class="defense-tower-desc">Rapid melee endonuclease that cleaves palindromic viral DNA motifs.</span>
+        </button>
+
+        <button type="button" class="defense-tower-card" data-tower-type="crispr_cas9">
+          <div class="defense-tower-header">
+            <span class="defense-tower-name">CRISPR-Cas9</span>
+            <span class="defense-tower-cost">175 ATP</span>
+          </div>
+          <span class="defense-tower-desc">Long-range sniper delivering high-damage sequence-guided double-strand breaks.</span>
+        </button>
+
+        <button type="button" class="defense-tower-card" data-tower-type="rnase_interceptor">
+          <div class="defense-tower-header">
+            <span class="defense-tower-name">RNase Jammer</span>
+            <span class="defense-tower-cost">125 ATP</span>
+          </div>
+          <span class="defense-tower-desc">Area-of-effect suppression that degrades viral mRNA and slows phages by 45%.</span>
+        </button>
+
+        <button type="button" class="defense-tower-card" data-tower-type="ligase_drone">
+          <div class="defense-tower-header">
+            <span class="defense-tower-name">DNA Ligase</span>
+            <span class="defense-tower-cost">150 ATP</span>
+          </div>
+          <span class="defense-tower-desc">Support beacon that repairs membrane damage and boosts turnover rates.</span>
+        </button>
+      </div>
+
+      <div class="defense-selected-panel" data-selected-tower-panel>
+        <div class="defense-selected-content">
+          <div>
+            <strong data-tower-info-name>EcoRI Cleaver</strong> · <span data-tower-info-lvl>Level 1</span>
+          </div>
+          <button type="button" class="defense-btn defense-btn--primary" data-tower-upgrade-btn>Upgrade (85 ATP)</button>
+        </div>
+      </div>
+    </div>
+
+    <article class="defense-guide">
+      <h3>How to Play & Strategic Tactics</h3>
+      <ul>
+        <li><strong>Select & Deploy:</strong> Click a defense tower card above, then click anywhere on the cytosolic canvas (outside the path) to construct the molecular unit.</li>
+        <li><strong>Upgrade Defenses:</strong> Click an existing tower on the battlefield to inspect its range and upgrade its catalytic turnover rate (k<sub>cat</sub>) and damage.</li>
+        <li><strong>Combating Phage Swarms:</strong> Place <em>RNase Jammers</em> at bends to slow incoming phages, followed by <em>EcoRI Cleavers</em> and <em>CRISPR-Cas9</em> snipers to eliminate heavy armored phages before they reach the nucleoid.</li>
+      </ul>
+    </article>
+  </section>
+
+  <script>
+    import { initPhageDefense } from '../../scripts/phageDefense';
+    const container = document.querySelector<HTMLElement>('[data-defense-game]');
+    if (container) initPhageDefense(container);
+  </script>
+</PageLayout>
