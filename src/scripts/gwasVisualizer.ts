@@ -859,6 +859,39 @@ export function initGWASVisualizer(root: ParentNode = document): GWASVisualizerC
     }
   });
 
+  function handleKeydown(e: KeyboardEvent) {
+    const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
+    if (e.code === 'Space') {
+      e.preventDefault();
+      toggleScan();
+    } else if (e.code === 'ArrowRight' || e.key === 'l' || e.key === 'n') {
+      e.preventDefault();
+      // Cycle to next lead SNP
+      const leads = gwasResult.leadSNPs;
+      if (leads.length > 0) {
+        const curIdx = leads.findIndex((s) => s.id === selectedSNP.id);
+        const nextIdx = (curIdx + 1) % leads.length;
+        updateInspector(leads[nextIdx]);
+      }
+    } else if (e.code === 'ArrowLeft' || e.key === 'j' || e.key === 'p') {
+      e.preventDefault();
+      // Cycle to previous lead SNP
+      const leads = gwasResult.leadSNPs;
+      if (leads.length > 0) {
+        const curIdx = leads.findIndex((s) => s.id === selectedSNP.id);
+        const prevIdx = (curIdx - 1 + leads.length) % leads.length;
+        updateInspector(leads[prevIdx]);
+      }
+    } else if (e.key === 'r' || e.key === 'R') {
+      e.preventDefault();
+      resetScan();
+    }
+  }
+
+  window.addEventListener('keydown', handleKeydown);
+
   // Initial build
   renderAll();
 
@@ -866,6 +899,7 @@ export function initGWASVisualizer(root: ParentNode = document): GWASVisualizerC
     destroy: () => {
       pauseScan();
       hideTooltip();
+      window.removeEventListener('keydown', handleKeydown);
     },
   };
 }

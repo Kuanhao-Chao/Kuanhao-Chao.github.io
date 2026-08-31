@@ -216,12 +216,33 @@ export function initAlgorithmDuel(root: ParentNode = document): DuelController |
   };
   container.addEventListener('click', onPresetClick);
 
+  function handleKeydown(e: KeyboardEvent) {
+    const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
+    if (e.code === 'Space') {
+      e.preventDefault();
+      if (isPlaying) pause();
+      else play();
+    } else if (e.code === 'ArrowRight' || e.key === 'l' || e.key === 'n') {
+      e.preventDefault();
+      pause();
+      stepForward();
+    } else if (e.key === 'r' || e.key === 'R') {
+      e.preventDefault();
+      reset();
+    }
+  }
+
+  window.addEventListener('keydown', handleKeydown);
+
   // Initial render
   compute();
 
   return {
     destroy: () => {
       pause();
+      window.removeEventListener('keydown', handleKeydown);
       seq1Input?.removeEventListener('input', onSeq1Input);
       seq2Input?.removeEventListener('input', onSeq2Input);
       playBtn?.removeEventListener('click', onPlayClick);
