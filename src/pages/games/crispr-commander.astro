@@ -144,7 +144,7 @@ const gameLd = {
     function mount() {
       if (cleanup) return;
       const container = document.querySelector<HTMLElement>('[data-crispr-game]');
-      if (container) cleanup = initCrisprCommander(container);
+      if (container) cleanup = initCrisprCommander(container) ?? null;
     }
 
     function unmount() {
