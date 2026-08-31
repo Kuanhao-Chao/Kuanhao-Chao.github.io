@@ -435,9 +435,12 @@ site (`CCACCC` — five Cs and an A) has almost none, so its shuffles coincide a
 legitimately zero; that is "unshuffleable", not "the model ignores it", and the two would otherwise
 be indistinguishable in the output.
 
-**The result worth knowing:** across the fourteen windows the strongest knockout is the textbook
-regulator of the gene — GAL4 at GAL1, FHL1 at RPL26A, RAP1 at TDH3 and PDC1, MCM1 at HOP2, ABF1 and
-REB1 at FBA1 and MMS2. Nothing in the pipeline knows which factor should matter.
+**The result worth knowing, stated carefully:** ranked by |effect|, the strongest site is a known
+regulator of the gene in most windows — RAP1 at TDH3 and PDC1, TYE7 at PGK1, FHL1 at RPL26A, GAL80
+at GAL1 and GAL4 at GAL3. At GAL1 the six largest sites are all GAL4 or GAL80. It is a tendency, not
+a law: at HOP2 and ACT1 the winner is STE12, and at KRE33 and DTD1 it is not a characterised
+regulator. Sorting by most-negative instead of by magnitude gives a different winner at several loci
+and once produced the over-strong claim "GAL4 at GAL1" — by magnitude that is GAL80 at +0.1059.
 
 Re-run order after touching either: `make_annotations.py` first (the sweep reads its output), then
 `make_knockout_sweep.py`, then `verify_pipeline.py` sections 3d and 3e.
@@ -486,3 +489,31 @@ memorising a repeat; it cannot make sequence constrained by the genetic code loo
 Packing note: probabilities go to uint8 in **log** space and the decode error is verified on the
 **entropy**, not the probabilities — entropy is what the page displays and `−p log₂ p` is steepest
 where a linear grid is coarsest. Worst error 0.0198 bits on a 0–2 bit axis.
+
+
+## The cross-locus biology summary
+
+`make_biology_summary.py` writes `src/data/shorkieBiologySummary.json` from the shipped packs — no
+model, no checkpoint. It is a *view* of numbers that already exist per locus, so `verify_pipeline`
+§3g re-derives every one of them and fails if the two disagree.
+
+Medians across the fourteen windows (attribution enrichment, same circular-shift null the page uses):
+
+| class | median | windows |
+| --- | --- | --- |
+| intron | **3.78×** | 8 |
+| regulatory region | 1.76× | 12 |
+| TFBS · ChIP-supported | **1.73×** | 14 |
+| TFBS · conserved only | 1.43× | 14 |
+| TFBS · PWM scan | 1.14× | 14 |
+| CDS | **0.84×** | 14 |
+| ARS / LTR / tRNA | 0.48× / 0.37× / 0.32× | 8 / 3 / 5 |
+
+The evidence-tier ordering is monotone across all fourteen, which is a far stronger statement than
+the 3.26× measured at one locus.
+
+**The TSS metaprofile** aligns every gene on its start *in the direction of transcription* —
+`txStart` on the plus strand, `txEnd` on the minus, minus-strand profiles reversed — and normalises
+each gene to its own total before averaging. Attribution sits at **1.40×** a gene's mean base in the
+240 bp upstream against **0.94×** in the 240 bp inside, over 113 genes. Without the strand flip the
+average puts promoters against terminators and produces a flat curve indistinguishable from a null.

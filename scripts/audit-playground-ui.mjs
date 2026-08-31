@@ -854,6 +854,34 @@ async function auditExplanations(browser, baseURL, scope) {
       else if (afterUniq[0] === before) fail(scope, 'brushing the method strip did not move the logo window');
     }
 
+    // --- the five acts, the focus band, and the cross-locus summary -----------------------
+    const spine = await page.evaluate(() => {
+      const focus = [...document.querySelectorAll(
+        '[data-vp-track],[data-vp-attr],[data-vp-methods],[data-vp-annotation]')]
+        .map((e) => e.dataset.vpFocus ?? null);
+      return {
+        acts: [...document.querySelectorAll('.vp-act')].map((e) => e.textContent.trim()),
+        focus,
+        findings: Number(document.querySelector('[data-vp-findings]')?.dataset.vpFindings ?? 0),
+        classFig: Number(document.querySelector('[data-vp-class-figure]')?.dataset.vpClassFigure ?? 0),
+        tss: Number(document.querySelector('[data-vp-tss]')?.dataset.vpTss ?? 0),
+        navSticky: getComputedStyle(document.querySelector('.vp-nav')).position,
+      };
+    });
+    if (spine.acts.length !== 5) fail(scope, `${spine.acts.length} act headings, expected 5`);
+    if (new Set(spine.acts).size !== spine.acts.length) fail(scope, 'a duplicate act heading');
+    if (spine.navSticky !== 'sticky') fail(scope, `the selection bar is ${spine.navSticky}, not sticky`);
+    // Every full-window track must carry the focus band, and they must agree about it -- the whole
+    // point of the shared axis is that the eye can follow one band down the column.
+    if (spine.focus.some((f) => !f)) {
+      fail(scope, `a full-window track has no focus band: ${JSON.stringify(spine.focus)}`);
+    } else if (new Set(spine.focus).size !== 1) {
+      fail(scope, `tracks disagree about the focus band: ${[...new Set(spine.focus)].join(' vs ')}`);
+    }
+    if (spine.findings < 3) fail(scope, `${spine.findings} findings stated, expected at least 3`);
+    if (spine.classFig < 8) fail(scope, `class figure drew ${spine.classFig} rows`);
+    if (spine.tss < 10) fail(scope, `TSS profile drew ${spine.tss} bins`);
+
     if (how.n < 4) fail(scope, `${how.n} "how this is computed" disclosures, expected at least 4`);
     if (how.anyOpen) fail(scope, 'a disclosure is open by default — they must not crowd the panels');
     // A disclosure that exists but says nothing is worse than none.

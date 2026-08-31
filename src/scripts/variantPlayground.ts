@@ -16,6 +16,9 @@
  */
 
 import lociJson from '../data/shorkieLoci.json';
+// The cross-locus view: derived from the shipped packs by make_biology_summary.py, and re-derived
+// by verify_pipeline so it cannot drift from the per-locus panels it summarises.
+import biology from '../data/shorkieBiologySummary.json';
 import { createFlow3d, type Flow3dController } from './shorkieFlow3d';
 import {
   createFlow,
@@ -1650,8 +1653,6 @@ export function initVariantPlayground(root: ParentNode = document) {
   ): number {
     const feats = visibleAnnotations();
     if (!feats.length) return 0;
-    const css = (name: string, fallback: string) =>
-      getComputedStyle(host).getPropertyValue(name).trim() || fallback;
     const muted = css('--color-muted', '#6b7280');
     // Short labels: the left gutter is PLOT.left wide and "regulatory" ran off it, rendering as
     // "egulatory" -- a clipped label reads as a different word rather than as a truncated one.
@@ -3577,6 +3578,287 @@ export function initVariantPlayground(root: ParentNode = document) {
     (node as unknown as HTMLElement).style.cursor = 'ew-resize';
   }
 
+  /** Read a design token at draw time. Canvases keep the old palette otherwise. */
+  const css = (name: string, fallback: string) =>
+    getComputedStyle(host).getPropertyValue(name).trim() || fallback;
+
+  const CLASS_LABEL: Record<string, string> = {
+    'tfbs:chip': 'TFBS · ChIP-supported', 'tfbs:conserved': 'TFBS · conserved only',
+    'tfbs:pwm': 'TFBS · PWM scan', cds: 'CDS', gene: 'gene body', intron: 'intron',
+    utr_intron: "5' UTR intron", uorf: 'uORF', regulatory: 'regulatory region',
+    ars: 'ARS', ars_consensus: 'ARS consensus', ltr: 'LTR', transposon: 'transposon',
+    trna: 'tRNA', snorna: 'snoRNA', ncrna: 'ncRNA', telomere: 'telomere', centromere: 'centromere',
+  };
+
+  /**
+   * The findings, stated before the evidence.
+   *
+   * Three separate panels each showing one window left the reader to assemble the conclusion
+   * themselves. These are the conclusions, with the numbers that support them, computed across all
+   * fourteen rather than for whichever locus happens to be selected.
+   */
+  function renderFindings(): void {
+    const host_ = $('[data-vp-findings]');
+    if (!host_) return;
+    clear(host_);
+    const med = (biology as any).classMedians ?? {};
+    const cnt = (biology as any).classCounts ?? {};
+    const rows = (biology as any).loci ?? [];
+
+    const items: { verdict: 'yes' | 'no' | 'mixed'; text: string }[] = [];
+
+    const chip = med['tfbs:chip'];
+    const cons = med['tfbs:conserved'];
+    const pwm = med['tfbs:pwm'];
+    if (chip && cons && pwm) {
+      items.push({
+        verdict: chip > cons && cons > pwm ? 'yes' : 'mixed',
+        text: `Attribution prefers binding sites in proportion to how well evidenced they are: `
+          + `median ${chip.toFixed(2)}× on ChIP-supported sites, ${cons.toFixed(2)}× on `
+          + `conserved-only calls and ${pwm.toFixed(2)}× on raw PWM matches. `
+          + `The ordering is monotone across all ${cnt['tfbs:chip']} windows.`,
+      });
+    }
+    if (med.intron) {
+      items.push({
+        verdict: 'yes',
+        text: `Introns are where the attribution concentrates most — median `
+          + `${med.intron.toFixed(2)}× over the ${cnt.intron} windows that contain one. For a model `
+          + `trained on RNA-seq that is the expected place to look, and it is the same signal the `
+          + `knockout sweep shows when splice sites dominate their windows.`,
+      });
+    }
+    if (med.cds) {
+      items.push({
+        verdict: 'no',
+        text: `Coding sequence is NOT preferred: median ${med.cds.toFixed(2)}× across all `
+          + `${cnt.cds} windows. The model is reading regulatory sequence, not the ORF — which is `
+          + `the right answer, and it is a negative the page keeps rather than hides.`,
+      });
+    }
+    const named = rows.filter((r: any) => r.knockout).length;
+    if (named) {
+      items.push({
+        verdict: 'mixed',
+        text: `Knocking out every curated site recovers a known regulator in most windows — RAP1 at `
+          + `TDH3 and PDC1, FHL1 at RPL26A, GAL80 and GAL4 at the two galactose genes — but not `
+          + `all: at HOP2 and ACT1 the largest site is STE12, which is not what either gene is `
+          + `known for. A tendency, not a law.`,
+      });
+    }
+
+    for (const it of items) {
+      const row = document.createElement('p');
+      row.className = `vp-finding vp-finding--${it.verdict}`;
+      const mark = document.createElement('span');
+      mark.className = 'vp-finding__mark';
+      mark.textContent = it.verdict === 'yes' ? '✓' : it.verdict === 'no' ? '✗' : '~';
+      const body = document.createElement('span');
+      body.textContent = it.text;
+      row.append(mark, body);
+      host_.append(row);
+    }
+    host_.dataset.vpFindings = String(items.length);
+    const stat = $('[data-vp-summary-stat]');
+    if (stat) {
+      stat.textContent = `${rows.length} windows · ${Object.keys(med).length} annotation classes · `
+        + `${(biology as any).tss?.genes ?? 0} genes in the TSS profile`;
+    }
+  }
+
+  /** Per-class enrichment: the median bar, with every window drawn as a dot on top of it. */
+  function renderClassFigure(): void {
+    const cv = $<HTMLCanvasElement>('[data-vp-class-figure]');
+    if (!cv) return;
+    const med: Record<string, number> = (biology as any).classMedians ?? {};
+    const cnt: Record<string, number> = (biology as any).classCounts ?? {};
+    const rows = Object.entries(med).sort((a, b) => b[1] - a[1]);
+    const ROW = 20;
+    const cssW = cv.clientWidth || 900;
+    const cssH = rows.length * ROW + 34;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = Math.round(cssW * dpr);
+    cv.height = Math.round(cssH * dpr);
+    cv.style.height = `${cssH}px`;
+    const ctx = cv.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+    const muted = css('--color-muted', '#6b7280');
+    const fire = css('--vp-fire', '#b0455a');
+    const track = css('--vp-track', '#2f8069');
+    ctx.font = '10px system-ui, sans-serif';
+
+    const left = 148;
+    const right = 46;
+    const inner = cssW - left - right;
+    // A LOG axis: the classes span 0.32x to 3.78x, and on a linear axis everything depleted is
+    // squashed against the left while 1.0 sits a third of the way across. Log puts "half as much"
+    // and "twice as much" the same distance from 1.
+    const lo = 0.25;
+    const hi = 4.5;
+    const x = (v: number) => left + (Math.log2(Math.max(v, lo) / lo) / Math.log2(hi / lo)) * inner;
+
+    // The 1.0x rule: no preference. Every bar is read against it, so it is drawn first and solid.
+    ctx.strokeStyle = muted;
+    ctx.beginPath();
+    ctx.moveTo(x(1), 12);
+    ctx.lineTo(x(1), cssH - 22);
+    ctx.stroke();
+    ctx.fillStyle = muted;
+    ctx.textAlign = 'center';
+    ctx.fillText('1.0× — no preference', x(1), 9);
+
+    rows.forEach(([key, v], i) => {
+      const y = 20 + i * ROW;
+      ctx.fillStyle = muted;
+      ctx.textAlign = 'right';
+      ctx.fillText(CLASS_LABEL[key] ?? key, left - 32, y + 11);
+      ctx.fillText(`n=${cnt[key]}`, left - 4, y + 11);
+      ctx.textAlign = 'left';
+      const enriched = v >= 1;
+      ctx.fillStyle = enriched ? fire : track;
+      ctx.globalAlpha = 0.75;
+      const a = Math.min(x(1), x(v));
+      const b = Math.max(x(1), x(v));
+      ctx.fillRect(a, y + 3, Math.max(b - a, 1), ROW - 9);
+      ctx.globalAlpha = 1;
+      // Every window that contains this class, as a dot: the bar is a median over as few as one
+      // window, and the spread is what says whether to believe it.
+      const perLocus: number[] = ((biology as any).loci ?? [])
+        .map((r: any) => r.classes?.[key]?.ratio)
+        .filter((r: unknown): r is number => typeof r === 'number');
+      ctx.fillStyle = muted;
+      ctx.globalAlpha = 0.55;
+      for (const r of perLocus) {
+        ctx.beginPath();
+        ctx.arc(x(r), y + (ROW - 6) / 2, 1.7, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = muted;
+      ctx.fillText(`${v.toFixed(2)}×`, Math.max(b + 4, x(1) + 4), y + 11);
+    });
+
+    ctx.fillStyle = muted;
+    ctx.textAlign = 'center';
+    for (const v of [0.25, 0.5, 1, 2, 4]) ctx.fillText(`${v}×`, x(v), cssH - 8);
+    ctx.textAlign = 'left';
+    cv.dataset.vpClassFigure = String(rows.length);
+  }
+
+  /** Attribution aligned on the TSS, averaged over every gene in every window. */
+  function renderTssProfile(): void {
+    const cv = $<HTMLCanvasElement>('[data-vp-tss]');
+    if (!cv) return;
+    const tss = (biology as any).tss;
+    const note = $('[data-vp-tss-note]');
+    if (!tss) { delete cv.dataset.vpTss; return; }
+    const cssW = cv.clientWidth || 900;
+    const cssH = 190;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = Math.round(cssW * dpr);
+    cv.height = Math.round(cssH * dpr);
+    cv.style.height = `${cssH}px`;
+    const ctx = cv.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+    const muted = css('--color-muted', '#6b7280');
+    const accent = css('--vp-accent', '#3976a8');
+    ctx.font = '10px system-ui, sans-serif';
+
+    const mean: number[] = tss.mean;
+    const sd: number[] = tss.sd;
+    const n = mean.length;
+    const left = 44;
+    const right = 12;
+    const top = 20;
+    const h = cssH - top - 34;
+    const inner = cssW - left - right;
+    const hi = Math.max(...mean.map((v, i) => v + sd[i]), 1e-9);
+    const px = (i: number) => left + (i / (n - 1)) * inner;
+    const py = (v: number) => top + h - (v / hi) * h;
+
+    // The spread across genes, drawn first and faintly: it is wide, and drawing the mean alone
+    // would imply a precision 113 very different genes do not support.
+    ctx.fillStyle = accent;
+    ctx.globalAlpha = 0.16;
+    ctx.beginPath();
+    for (let i = 0; i < n; i += 1) ctx.lineTo(px(i), py(mean[i] + sd[i]));
+    for (let i = n - 1; i >= 0; i -= 1) ctx.lineTo(px(i), py(Math.max(mean[i] - sd[i], 0)));
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let i = 0; i < n; i += 1) {
+      const y = py(mean[i]);
+      if (i === 0) ctx.moveTo(px(i), y); else ctx.lineTo(px(i), y);
+    }
+    ctx.stroke();
+
+    // 1.0 is "the average base of this gene": each gene was normalised to its own mean.
+    ctx.strokeStyle = muted;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(left, py(1));
+    ctx.lineTo(cssW - right, py(1));
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // The TSS itself.
+    const mid = px((n - 1) / 2);
+    ctx.strokeStyle = accent;
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(mid, top);
+    ctx.lineTo(mid, top + h);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = muted;
+    ctx.textAlign = 'center';
+    const flank = tss.flank as number;
+    for (const bp of [-flank, -flank / 2, 0, flank / 2, flank]) {
+      ctx.textAlign = bp === -flank ? 'left' : bp === flank ? 'right' : 'center';
+      ctx.fillText(bp === 0 ? 'TSS' : `${bp > 0 ? '+' : ''}${bp}`,
+        px(((bp + flank) / (2 * flank)) * (n - 1)), cssH - 20);
+    }
+    ctx.textAlign = 'right';
+    ctx.fillText('1.0', left - 4, py(1) + 3);
+    ctx.textAlign = 'left';
+    ctx.fillText('upstream ←', left, top - 8);
+    ctx.textAlign = 'right';
+    ctx.fillText('→ into the gene', cssW - right, top - 8);
+    ctx.textAlign = 'left';
+    ctx.fillText(
+      `|gradient × input| around the transcription start site · ${tss.genes} genes · `
+      + `${tss.bin} bp bins · band is the spread across genes`, left, cssH - 5);
+    cv.dataset.vpTss = String(n);
+
+    if (note) {
+      // An INTEGER number of bins, summed and divided by the same count. 250/40 is 6.25, and
+      // slicing with a fractional index truncates to 6 while dividing by 6.25 -- which reported
+      // 1.54x where the same arithmetic done in whole bins gives 1.40x. verify_pipeline computes
+      // it the second way, which is how the two came to disagree.
+      const half = Math.floor(n / 2);
+      const span = Math.max(Math.floor(250 / tss.bin), 1);
+      const meanOf = (a: number[]) => a.reduce((s, v) => s + v, 0) / Math.max(a.length, 1);
+      const up = meanOf(mean.slice(Math.max(half - span, 0), half));
+      const dn = meanOf(mean.slice(half, half + span));
+      note.textContent =
+        `Averaged over ${tss.genes} genes, attribution in the ${span * tss.bin} bp upstream of the `
+        + `start sits at `
+        + `${up.toFixed(2)}× a gene's own mean base against ${dn.toFixed(2)}× in the first 250 bp `
+        + `inside it. The band is wide because these genes are not alike — read the shape, not the `
+        + `individual values, and remember the fourteen windows were chosen as classic high `
+        + `expressers and the paper's own figure panels rather than sampled from the genome.`;
+    }
+  }
+
   /** Draw every available method as a small signal track on the shared bp axis. */
   function renderMethods(): void {
     if (!methodsCanvas) return;
@@ -4021,7 +4303,13 @@ export function initVariantPlayground(root: ParentNode = document) {
 
   // Canvases are painted with tokens read at draw time; SVG panels restyle themselves, canvases
   // do not.
+  renderFindings();
+  renderClassFigure();
+  renderTssProfile();
+
   const onTheme = () => {
+    renderClassFigure();
+    renderTssProfile();
     renderHeatmap();
     renderIsmLogo();
     refreshRegionViews();

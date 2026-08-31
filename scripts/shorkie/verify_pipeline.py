@@ -339,6 +339,77 @@ def verify_occlusion(Image) -> None:
               f"local share of the worst window: {min(local_fracs):.1%}-{max(local_fracs):.1%}")
 
 
+def verify_biology_summary() -> None:
+    """The summary must be a VIEW of the per-locus packs, not a second copy that can drift.
+
+    Every number in `shorkieBiologySummary.json` also exists per locus in the packs the page reads
+    directly. If the two disagree, the headline block above the tables contradicts the tables below
+    it -- and nothing else on the page would notice.
+    """
+    path = ROOT / "src" / "data" / "shorkieBiologySummary.json"
+    if not path.exists():
+        check(False, "the cross-locus summary is present", "missing")
+        return
+    s = json.loads(path.read_text())
+    rows = s.get("loci", [])
+    vp = ROOT / "public" / "vp-data"
+
+    ko_ok = ko_n = 0
+    for r in rows:
+        ko_path = vp / f"{r['id']}-ko.json"
+        if "knockout" not in r or not ko_path.exists():
+            continue
+        ko = json.loads(ko_path.read_text())
+        best = max(ko["sites"], key=lambda x: abs(x["effect"]))
+        ko_n += 1
+        ko_ok += (best["name"] == r["knockout"]["name"]
+                  and abs(best["effect"] - r["knockout"]["effect"]) < 1e-9)
+
+    check(len(rows) > 0, "the summary covers the loci", f"{len(rows)} windows")
+    check(ko_n > 0 and ko_ok == ko_n,
+          "every knockout winner is the pack's own largest-|effect| site",
+          f"{ko_ok}/{ko_n}")
+
+    # The medians must be the medians of the per-locus ratios the same file carries.
+    import statistics
+    bad = []
+    for key, med in s.get("classMedians", {}).items():
+        vals = [r["classes"][key]["ratio"] for r in rows
+                if key in r.get("classes", {})]
+        if not vals:
+            bad.append(f"{key}: no per-locus values")
+            continue
+        if abs(statistics.median(vals) - med) > 5e-4:
+            bad.append(f"{key}: {statistics.median(vals):.4f} vs {med:.4f}")
+        if s["classCounts"][key] != len(vals):
+            bad.append(f"{key}: count {s['classCounts'][key]} vs {len(vals)}")
+    check(not bad, "each class median is the median of its own per-locus values",
+          "; ".join(bad) if bad else f"{len(s.get('classMedians', {}))} classes")
+
+    # The evidence-tier ordering is published on the page as a claim about all fourteen.
+    m = s.get("classMedians", {})
+    if all(k in m for k in ("tfbs:chip", "tfbs:conserved", "tfbs:pwm")):
+        check(m["tfbs:chip"] > m["tfbs:conserved"] > m["tfbs:pwm"],
+              "attribution prefers binding sites in order of evidence",
+              f"chip {m['tfbs:chip']:.2f}x > conserved {m['tfbs:conserved']:.2f}x "
+              f"> pwm {m['tfbs:pwm']:.2f}x")
+    if "cds" in m:
+        check(m["cds"] < 1.0, "coding sequence is NOT preferred, as the page states",
+              f"median {m['cds']:.3f}x")
+
+    tss = s.get("tss")
+    if tss:
+        mean = tss["mean"]
+        half = len(mean) // 2
+        span = max(250 // tss["bin"], 1)
+        up = sum(mean[half - span:half]) / span
+        dn = sum(mean[half:half + span]) / span
+        check(len(mean) == len(tss["sd"]), "the TSS profile carries a spread for every bin",
+              f"{len(mean)} bins")
+        check(up > dn, "attribution peaks upstream of the start, not inside the gene",
+              f"{up:.3f}x upstream vs {dn:.3f}x inside, over {tss['genes']} genes")
+
+
 def verify_lm_packs(Image) -> None:
     """The language-model packs, checked from the repository alone.
 
@@ -556,6 +627,9 @@ def main() -> int:
 
     section("3f. the Shorkie_LM packs")
     verify_lm_packs(Image)
+
+    section("3g. the cross-locus biology summary")
+    verify_biology_summary()
 
     if ckpt is None:
         print("\n  no checkpoint given -- sections 4-9 need <ckpt.h5> and were skipped.")

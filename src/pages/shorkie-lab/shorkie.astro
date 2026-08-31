@@ -703,6 +703,53 @@ const breadcrumbLd = buildBreadcrumbLd([
           Does any of it match real biology?</p>
         <p class="vp-act__sub">The tests that can come out negative. Every curated binding site knocked out and measured, and the attribution scored against annotation the model never saw.</p>
 
+        <section class="vp-panel">
+          <h2>What all fourteen windows say <span class="vp-stat" data-vp-summary-stat></span></h2>
+          <p class="vp-notes" style="margin:0 0 0.6rem;">
+            Every other panel in this act shows one window at a time. This one is the pattern across
+            all fourteen, computed once from the same packs and the same null those panels use — so
+            it cannot drift from them.
+          </p>
+          <div class="vp-findings" data-vp-findings></div>
+          <div class="vp-scroll-x"><canvas class="vp-canvas" data-vp-class-figure role="img"
+                  aria-label="Attribution enrichment per annotation class, median across fourteen windows"></canvas></div>
+          <p class="vp-notes" style="margin:0.4rem 0 0;">
+            Each row is one annotation class; the bar is the <em>median</em> across the windows that
+            contain it, and the dots are the individual windows. A class present in two windows and
+            a class present in fourteen are drawn the same width, so the count beside each row is
+            what says how much to trust it.
+          </p>
+          <canvas class="vp-canvas" data-vp-tss role="img"
+                  aria-label="Attribution aligned on the transcription start site"></canvas>
+          <p class="vp-notes" style="margin:0.4rem 0 0;" data-vp-tss-note></p>
+          <details class="vp-how">
+            <summary>How the cross-locus summary and the TSS profile are computed</summary>
+            <div class="vp-how-body">
+              <p><strong>Nothing here is new data.</strong> The per-class enrichment is the same
+              statistic the panel below computes, run once per window offline and the medians taken;
+              the knockout winners are read from the same <code>-ko.json</code> packs the sweep
+              panel reads. It is a second <em>view</em> of numbers that already exist, not a second
+              copy of them — <code>verify_pipeline</code> re-derives it from the packs and fails if
+              the two disagree.</p>
+              <p><strong>The TSS profile aligns on the direction of transcription</strong>, not on
+              coordinate order: the start is <code>txStart</code> on the plus strand and{' '}
+              <code>txEnd</code> on the minus, and minus-strand profiles are reversed so "upstream"
+              is the same side of the plot for every gene. Without that flip the average puts
+              promoters against terminators and produces a flat curve that looks exactly like a real
+              null result.</p>
+              <p><strong>Each gene is normalised to its own total before averaging</strong>, so a
+              highly expressed gene does not dominate. The band is the spread <em>across genes</em>,
+              not a confidence interval on the mean — these genes differ by orders of magnitude in
+              expression and the spread is the honest statement of that.</p>
+              <p><strong>What it cannot tell you.</strong> 113 genes from fourteen windows is a
+              small, non-random sample: they were chosen as classic high expressers, the galactose
+              regulon and the paper's own figure panels. A metaprofile from them describes those
+              genes, not the yeast genome.</p>
+            </div>
+          </details>
+        </section>
+
+
       <section class="vp-panel">
         <h2>Every curated site, knocked out <span class="vp-stat" data-vp-ko-stat></span></h2>
         <p class="vp-notes" style="margin:0 0 0.5rem;">
@@ -716,15 +763,24 @@ const breadcrumbLd = buildBreadcrumbLd([
         </p>
         <div class="vp-scroll-x"><table class="vp-enrich" data-vp-ko></table></div>
         <p class="vp-notes" style="margin:0.4rem 0 0;">
-          <strong>Across the fourteen windows the sweep recovers the textbook regulator of each
-          gene, unprompted.</strong> The strongest knockout is <em>GAL4</em> at GAL1,{' '}
-          <em>FHL1</em> at the ribosomal protein gene RPL26A, <em>RAP1</em> at both glycolytic
-          genes TDH3 and PDC1, <em>MCM1</em> at the meiotic gene HOP2, and <em>ABF1</em> and{' '}
-          <em>REB1</em> — the two general regulatory factors — at FBA1 and MMS2. Nothing in this
-          pipeline knows which transcription factor is supposed to matter: the sites come from a
-          database, the ranking comes from the model. That agreement is the strongest evidence on
-          this page that the network learned real regulatory biology rather than sequence
-          composition.
+          <strong>Where a gene has a well-known regulator, the sweep tends to find it,
+          unprompted.</strong> Ranked by the size of the effect, the strongest site is{' '}
+          <em>RAP1</em> at the glycolytic genes TDH3 and PDC1 and <em>TYE7</em> — also a glycolytic
+          activator — at PGK1; <em>FHL1</em> at the ribosomal protein gene RPL26A; and a
+          GAL-regulon factor at both galactose genes, <em>GAL80</em> at GAL1 and <em>GAL4</em> at
+          GAL3. At GAL1 the effect is unusually clean: <strong>the six largest sites in the window
+          are all GAL4 or GAL80</strong>, the activator and the repressor of that regulon. Nothing
+          in this pipeline knows which factor is supposed to matter — the sites come from a
+          database and the ranking comes from the model.
+        </p>
+        <p class="vp-notes" style="margin:0.4rem 0 0;">
+          It is a tendency and not a law, and the table is ranked by magnitude so you can check it:
+          at HOP2 and ACT1 the winner is <em>STE12</em>, which is a mating and filamentation factor
+          rather than the regulator either gene is known for, and at KRE33 and DTD1 the winners are
+          not characterised regulators of those genes at all. <strong>Sign is not reliable
+          either</strong> — knocking out the GAL80 repressor site <em>raises</em> the prediction,
+          which is the right direction for a repressor, but several activator sites also come out
+          positive
         </p>
         <p class="vp-notes" style="margin:0.4rem 0 0;">
           <strong>A site whose bar is inside its own spread did nothing measurable</strong>, and
