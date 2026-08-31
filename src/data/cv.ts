@@ -278,7 +278,7 @@ export const sideProjects: SideProject[] = [
   {
     name: 'Genome Jumper',
     detail:
-      'Endless browser jumper — procedural platforms, nucleotide boosts, and mutation enemies',
+      'Chromatin transcription endless jumper — command RNA Polymerase II to climb DNA ladders, collect ribonucleotides, and blast mutations',
     url: '/games/genome-jumper/',
   },
   {
