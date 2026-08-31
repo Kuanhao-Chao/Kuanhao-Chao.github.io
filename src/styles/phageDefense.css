@@ -1,0 +1,218 @@
+/**
+ * Phage Defense Stylesheet
+ */
+
+.defense-game-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 880px;
+  margin: 0 auto;
+}
+
+.defense-hud {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface, #1e293b);
+  border: 1px solid var(--color-rule, #334155);
+  border-radius: var(--radius-md, 8px);
+}
+
+.defense-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.defense-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.defense-stat-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-muted, #94a3b8);
+}
+
+.defense-stat-value {
+  font-family: var(--font-mono, monospace);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-fg, #f8fafc);
+}
+
+.defense-viability-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 140px;
+}
+
+.defense-viability-bar {
+  height: 10px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.defense-viability-fill {
+  height: 100%;
+  width: 100%;
+  background: #10b981;
+  transition: width 0.2s ease, background-color 0.2s ease;
+}
+
+.defense-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.defense-btn {
+  padding: 0.35rem 0.75rem;
+  font-size: var(--fs-small, 0.85rem);
+  font-weight: 600;
+  border: 1px solid var(--color-rule, #334155);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--color-bg, #0f172a);
+  color: var(--color-fg, #f8fafc);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.defense-btn--primary {
+  background: var(--color-accent, #38bdf8);
+  color: #090d16;
+  border-color: var(--color-accent, #38bdf8);
+}
+
+.defense-btn:hover:not(:disabled) {
+  border-color: var(--color-accent, #38bdf8);
+}
+
+.defense-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.defense-board {
+  position: relative;
+  width: 100%;
+  height: 520px;
+  border: 1px solid var(--color-rule, #334155);
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
+  background: #060a12;
+  user-select: none;
+}
+
+.defense-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.defense-dock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.defense-tower-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-3);
+}
+
+.defense-tower-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-3);
+  background: var(--color-surface, #1e293b);
+  border: 1px solid var(--color-rule, #334155);
+  border-radius: var(--radius-md, 8px);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.defense-tower-card.selected {
+  border-color: var(--color-accent, #38bdf8);
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.defense-tower-card:hover:not(:disabled) {
+  border-color: var(--color-accent, #38bdf8);
+}
+
+.defense-tower-card:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.defense-tower-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.defense-tower-name {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--color-fg, #f8fafc);
+}
+
+.defense-tower-cost {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8rem;
+  color: #f59e0b;
+}
+
+.defense-tower-desc {
+  font-size: 0.76rem;
+  color: var(--color-muted, #94a3b8);
+  line-height: 1.35;
+}
+
+.defense-selected-panel {
+  display: none;
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface, #1e293b);
+  border: 1px solid var(--color-accent, #38bdf8);
+  border-radius: var(--radius-md, 8px);
+}
+
+.defense-selected-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.defense-guide {
+  margin-top: var(--space-6);
+  padding: var(--space-4);
+  background: var(--color-surface, #1e293b);
+  border: 1px solid var(--color-rule, #334155);
+  border-radius: var(--radius-md, 8px);
+}
+
+.defense-guide h3 {
+  font-size: 1.05rem;
+  margin-bottom: var(--space-2);
+}
+
+.defense-guide p, .defense-guide li {
+  font-size: 0.88rem;
+  color: var(--color-muted, #94a3b8);
+  line-height: 1.5;
+}

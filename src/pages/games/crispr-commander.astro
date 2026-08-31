@@ -1,0 +1,118 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import { site } from '../../data/site';
+import '../../styles/crisprCommander.css';
+
+const gameLd = {
+  '@context': 'https://schema.org',
+  '@type': 'VideoGame',
+  name: 'CRISPR Commander',
+  description:
+    'An interactive molecular slicing action arcade game where you wield Cas9/Cas12 endonuclease enzymes to cleave invading viral DNA at PAM target motifs.',
+  url: `${site.url}/games/crispr-commander/`,
+  author: { '@id': `${site.url}/#person` },
+  applicationCategory: 'Game',
+  gamePlatform: ['Web browser', 'Mobile web browser'],
+  genre: ['Arcade', 'Action', 'Precision Slicing'],
+  inLanguage: 'en',
+  isAccessibleForFree: true,
+};
+---
+
+<PageLayout
+  title="CRISPR Commander"
+  eyebrow="Side project"
+  lead="Defend the host cell from cascading viral phages and jumping transposons. Slice matching PAM target motifs with precision Cas9/Cas12 cleavage."
+  description="CRISPR Commander — an original precision molecular slicing web game by Kuan-Hao Chao. Cleave viral DNA at PAM motifs, activate base editors, and protect host genome integrity."
+  width="narrow"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
+
+  <section class="crispr-game-container" data-crispr-game aria-label="CRISPR Commander game">
+    <div class="crispr-hud">
+      <div class="crispr-stats">
+        <div class="crispr-stat">
+          <span class="crispr-stat-label">Score</span>
+          <span class="crispr-stat-value" data-crispr-score>0</span>
+        </div>
+        <div class="crispr-stat">
+          <span class="crispr-stat-label">Best</span>
+          <span class="crispr-stat-value" data-crispr-best>0</span>
+        </div>
+        <div class="crispr-stat">
+          <span class="crispr-stat-label">Combo</span>
+          <span class="crispr-stat-value" data-crispr-combo>0x</span>
+        </div>
+        <div class="crispr-stat">
+          <span class="crispr-stat-label">ATP Pool</span>
+          <span class="crispr-stat-value" data-crispr-atp>50 ATP</span>
+        </div>
+        <div class="crispr-stat">
+          <span class="crispr-stat-label">Level</span>
+          <span class="crispr-stat-value" data-crispr-level>Lvl 1</span>
+        </div>
+        <div class="crispr-integrity-container">
+          <span class="crispr-stat-label">Cell Integrity: <strong data-crispr-integrity-text>100%</strong></span>
+          <div class="crispr-integrity-bar">
+            <div class="crispr-integrity-fill" data-crispr-integrity-fill></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="crispr-controls">
+        <button type="button" class="crispr-btn" data-crispr-pause>Pause</button>
+        <button type="button" class="crispr-btn" data-crispr-restart>Restart</button>
+        <button
+          type="button"
+          class="crispr-btn"
+          data-crispr-sound
+          aria-label="Mute game sounds"
+          aria-pressed="true">Sound on</button
+        >
+      </div>
+    </div>
+
+    <div class="crispr-board">
+      <canvas
+        data-crispr-canvas
+        class="crispr-canvas"
+        role="img"
+        aria-label="CRISPR Commander interactive molecular slicing canvas"
+      ></canvas>
+    </div>
+
+    <div class="crispr-powerups">
+      <button type="button" class="crispr-powerup-card" data-crispr-powerup data-powerup="dcas9_shield" data-cost="40">
+        <span class="crispr-powerup-title">
+          <span>dCas9 Shield</span>
+          <span class="crispr-powerup-cost">40 ATP</span>
+        </span>
+        <span class="crispr-powerup-desc">Deploy catalytically dead Cas9 to freeze replication forks and slow strands by 65%.</span>
+      </button>
+
+      <button type="button" class="crispr-powerup-card" data-crispr-powerup data-powerup="prime_editor" data-cost="50">
+        <span class="crispr-powerup-title">
+          <span>Prime Repair</span>
+          <span class="crispr-powerup-cost">50 ATP</span>
+        </span>
+        <span class="crispr-powerup-desc">Repair damaged host genome segments with reverse transcriptase (+40% Integrity).</span>
+      </button>
+    </div>
+
+    <article class="crispr-guide">
+      <h3>How to Play & Biological Mechanics</h3>
+      <ul>
+        <li><strong>Drag / Swipe to Cleave:</strong> Click and drag your mouse (or swipe on touchscreens) across incoming viral strands to initiate Cas9 double-strand breaks.</li>
+        <li><strong>PAM Recognition:</strong> Viral strands require matching Protospacer Adjacent Motifs (<code>NGG</code> for SpCas9) to be cleanly sliced.</li>
+        <li><strong>Consecutive Combos:</strong> Slice multiple strands without missing to build combo multipliers (up to 4.0x score boost).</li>
+        <li><strong>Beware of Breaches:</strong> If viral genomes reach the bottom host integration threshold line, cell viability is compromised.</li>
+      </ul>
+    </article>
+  </section>
+
+  <script>
+    import { initCrisprCommander } from '../../scripts/crisprCommander';
+    const container = document.querySelector<HTMLElement>('[data-crispr-game]');
+    if (container) initCrisprCommander(container);
+  </script>
+</PageLayout>
