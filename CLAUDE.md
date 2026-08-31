@@ -1030,6 +1030,33 @@ Keras checkpoint, ported and exported, producing the same numbers the paper's mo
   when the second missed — the coverage SVG went unbanded and only a `data-vp-focus` probe caught
   it. Write each replacement to disk, or assert everything before replacing anything.
 
+- **The "shared axis" was not shared, and the gate could not see it.** Every SVG track drew into
+  `viewBox="0 0 1000 H"`, so `PLOT.left = 46` meant *4.6% of the rendered width*, while every canvas
+  used the same constant as *46 CSS pixels*. They coincide only at a container of exactly 1,000 px:
+  measured, **+20.2 px at 1440, +4.6 at 1100, −11.0 at 760, −31.3 at 320**, with the **sign flipping
+  at ~1,043**. The focus band on the coverage curve sat at a different x from the identical band on
+  the methods below it, at every width but one. **The gate compared each track's `data-vp-focus`
+  string** — intent, never geometry — so it passed for a whole round.
+- **Every SVG track now takes its viewBox width from `clientWidth`**, so one user unit is one CSS
+  pixel everywhere. Verified: bp 8,192 lands within **0.01 px** across all four full-window tracks at
+  320/390/760/1043/1440, and `audit:playground` asserts it at those five widths — **1,043 is in the
+  list deliberately**, because that is where the bug is invisible.
+- **Do not clamp `svgWidth` to a minimum.** A 320 floor on a 288 px element makes the viewBox scale
+  down again and reintroduces the offset it exists to remove — measured, 3.4 px.
+- **A pixel viewBox makes SVG label text absolute, and that is a real visual change.** Under a
+  1000-unit viewBox `font-size: 10px` was interpreted in user units, so labels silently grew with
+  the viewport (14.4 px at a 1440 container). At a true 10 px the annotated logo's caption clipped
+  at 320 and its eight ~9-character kb labels smeared into each other. Tick **count** now comes from
+  the available width (`inner / 74`) and the caption picks the widest of three tiers by
+  `measureText`.
+- **There was no resize handler at all.** Canvases were sized once from `clientWidth` and then
+  stretched by `width: 100%`, so every raster on the page had always been drawn at the wrong
+  resolution after a window resize. One debounced listener now redraws the tracks — guarded on
+  *width* only, since a height change does not move the horizontal axis.
+- **The zoom lives in the same panel as the tracks**, under a lens connector whose edges leave the
+  focus band and splay to the zoom's full width. `renderSeqLogo` and `data-vp-seq-logo` are gone —
+  it drew strictly less than the annotated logo of the same window — and the page is four acts.
+
 #### The biology act, and a claim that had to be corrected
 
 - **"The strongest knockout is the textbook regulator" was too strong, and was an artefact of the

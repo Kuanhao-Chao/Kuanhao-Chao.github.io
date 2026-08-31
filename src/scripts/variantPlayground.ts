@@ -223,6 +223,7 @@ export function initVariantPlayground(root: ParentNode = document) {
   const annCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-annotation]');
   const annStat = host.querySelector<HTMLElement>('[data-vp-annstat]');
   const methodLogosSvg = host.querySelector<SVGSVGElement>('[data-vp-method-logos]');
+  const lensSvg = host.querySelector<SVGSVGElement>('[data-vp-lens]');
   const brushStat = host.querySelector<HTMLElement>('[data-vp-brush-stat]');
   const brushWidth = host.querySelector<HTMLSelectElement>('[data-vp-brush-width]');
   const logoFigureBtn = host.querySelector<HTMLButtonElement>('[data-vp-logo-figure]');
@@ -343,8 +344,8 @@ export function initVariantPlayground(root: ParentNode = document) {
     if (logoPan) logoPan.value = String(Math.round(windowFraction(logoWindow.start + w / 2) * 1000));
     renderMethodLogos();
     renderIsmLogo();
+    renderLens();
     renderNeuronClasses();
-    renderSeqLogo();
     // Every full-window track carries the focus band, so every one of them repaints when it moves.
     // Missing one leaves a band pointing at a stretch the panel below is no longer showing.
     renderMethods();
@@ -647,10 +648,27 @@ export function initVariantPlayground(root: ParentNode = document) {
   }
 
   // ---------------------------------------------------------------- predicted track
+  /**
+   * An SVG track's width in CSS PIXELS, for its viewBox.
+   *
+   * Every SVG here used `viewBox="0 0 1000 H"`, which makes `PLOT.left = 46` mean 4.6% of the
+   * rendered width -- while every canvas track uses the same constant to mean 46 actual pixels.
+   * The two agree only at a container of exactly 1,000 px: at 1440 the SVG gutter is 66 px against
+   * the canvas's 46, at 320 it is 15, and the sign flips at ~1,043. So the "shared axis" was not
+   * shared, and the focus band on the coverage plot sat at a different x from the identical band on
+   * the methods below it. One unit is now one pixel everywhere.
+   */
+  function svgWidth(node: SVGSVGElement, fallback = 1000): number {
+    // No minimum clamp: a floor wider than the element makes the viewBox scale down again and
+    // reintroduces exactly the offset this exists to remove -- measured, a 320 floor on a 288 px
+    // element put the coverage curve 3.4 px out from the canvases beside it.
+    return Math.round(node.clientWidth || node.getBoundingClientRect().width || fallback);
+  }
+
   function renderTrack(): void {
     if (!trackSvg) return;
     clear(trackSvg);
-    const W = 1000;
+    const W = svgWidth(trackSvg);
     const H = 250;
     attr(trackSvg, { viewBox: `0 0 ${W} ${H}` });
     const n = N_BINS;
@@ -1101,7 +1119,7 @@ export function initVariantPlayground(root: ParentNode = document) {
   function renderSingleTrack(): void {
     if (!singleSvg) return;
     clear(singleSvg);
-    const W = 1000;
+    const W = svgWidth(singleSvg);
     const H = 178;
     attr(singleSvg, { viewBox: `0 0 ${W} ${H}` });
 
@@ -1422,7 +1440,6 @@ export function initVariantPlayground(root: ParentNode = document) {
     renderRegionList();
     renderAttribution();
     refreshRegionViews();
-    renderSeqLogo();
   }
 
   /**
@@ -2696,105 +2713,6 @@ export function initVariantPlayground(root: ParentNode = document) {
    *     use gradients at all -- its one gradient function is unreached scaffolding -- so this is
    *     the fast interactive companion, not a reproduction.
    */
-  function renderSeqLogo(): void {
-    if (!seqLogoSvg) return;
-    clear(seqLogoSvg);
-    const W = 1000;
-    const H = 150;
-    attr(seqLogoSvg, { viewBox: `0 0 ${W} ${H}` });
-    const seq = LOCI[locusIndex].sequence;
-    const src = logoSource?.value ?? 'grad';
-    // The shared window, so this panel and the method stack above can never show letters for two
-    // different stretches under one heading.
-    const { start, width } = logoWindow;
-
-    // Per-position values, four per column. Mutagenesis gives all four; gradient x input is zero
-    // at the three bases that are not there, because the input is one-hot.
-    let column: ((i: number) => number[]) | null = null;
-    let note = '';
-    // Mutagenesis covers only the promoter window (~500 bp) while a traced region can be anywhere
-    // in the 16,384 bp window, so asking for it outside its span would leave the panel empty.
-    // Fall through to the gradient, which covers everything, and say which one is being shown.
-    if (src === 'occl' && occl && tracedBins) {
-      // Occlusion is a 64 bp measurement, so every base inside a window carries that window's
-      // value. The logo therefore reads as blocks rather than per-base spikes -- which is exactly
-      // what the method resolves, and pretending otherwise by interpolating would be a lie about
-      // its resolution.
-      const o = occl;
-      const prof = new Float64Array(o.rows);
-      for (let w = 0; w < o.rows; w += 1) {
-        let s = 0;
-        for (let b = tracedBins.start; b < tracedBins.end; b += 1) s += o.plane[w * o.cols + b];
-        prof[w] = s / Math.max(tracedBins.end - tracedBins.start, 1);
-      }
-      column = (i) => {
-        const at = start + i;
-        const out = [0, 0, 0, 0];
-        const b = BASES.indexOf((seq[at] ?? 'N').toUpperCase() as Base);
-        // Negated: occlusion measures what is LOST when the stretch goes, so a base that matters
-        // has a negative logSED. The logo convention is that height means importance and up means
-        // "raises the prediction", so the sign has to be flipped to read like the others.
-        if (b >= 0) out[b] = -(prof[Math.min(o.rows - 1, Math.floor(at / o.win))] ?? 0);
-        return out;
-      };
-      note = `occlusion at ${o.win} bp — every base in a window carries that window's value`;
-    } else if (attribution && tracedBins) {
-      const anchorIdx = attribution.anchors.findIndex(
-        (a) => a.binStart === tracedBins!.start && a.binEnd === tracedBins!.end,
-      );
-      const useIg = src === 'ig' && attribution.ig && anchorIdx >= 0;
-      const series = useIg
-        ? attribution.ig!.subarray(anchorIdx * attribution.cols.ig, (anchorIdx + 1) * attribution.cols.ig)
-        : anchorIdx >= 0
-          ? attribution.anchor.subarray(anchorIdx * attribution.cols.anchor,
-                                        (anchorIdx + 1) * attribution.cols.anchor)
-          : traceRegion(attribution, tracedBins.start, tracedBins.end);
-      const perBase = anchorIdx >= 0;
-      column = (i) => {
-        const at = start + i;
-        const v = perBase ? series[at] : series[Math.floor((at / SEQ_LEN) * series.length)];
-        const out = [0, 0, 0, 0];
-        const b = BASES.indexOf((seq[at] ?? 'N').toUpperCase() as Base);
-        if (b >= 0) out[b] = v;
-        return out;
-      };
-      const why = src === 'ig' && !useIg
-        ? ' (integrated gradients exist only for the precomputed regions — pick one from the stepper)'
-        : '';
-      note = (useIg
-        ? 'integrated gradients, single base — the only method here whose values sum to the '
-          + 'prediction difference'
-        : perBase
-          ? 'gradient × input, single base — a local sensitivity, not the paper\'s method'
-          : 'gradient × input at 128 bp — pick a gene below the curve for single-base letters') + why;
-    }
-
-    if (!column) {
-      seqLogoSvg.append(text(W / 2, H / 2,
-        !ism && src === 'ism'
-          ? 'Mutagenesis has not loaded for this locus.'
-          : 'Trace a region on the curve above, or pan into the mutagenesis window.', 'vp-ax'));
-      if (logoStat) logoStat.textContent = '';
-      delete seqLogoSvg.dataset.letters;
-      return;
-    }
-
-    const { lo, hi, letters } = drawLogo(seqLogoSvg, column, width, 0, W, 14, H - 34);
-    // The end ticks anchor inward: centred on the axis endpoints they run outside the viewBox and
-    // are clipped mid-number, which reads as a different coordinate rather than as a cut-off one.
-    const tickStep = Math.max(10, Math.round(width / 10));
-    for (let k = 0; k <= width; k += tickStep) {
-      const anchor = k === 0 ? 'start' : k + tickStep > width ? 'end' : 'middle';
-      seqLogoSvg.append(text((k / width) * W, H - 4, String(start + k), 'vp-ax', anchor));
-    }
-    seqLogoSvg.dataset.letters = String(letters);
-    seqLogoSvg.dataset.window = `${start}-${start + width}`;
-    seqLogoSvg.dataset.source = src;
-    if (logoStat) {
-      logoStat.textContent = `bp ${start.toLocaleString()}–${(start + width).toLocaleString()}`
-        + ` · ${width} bp · ${note} · range ${lo.toFixed(3)} … ${hi.toFixed(3)}`;
-    }
-  }
 
   /**
    * The mutagenesis window as the paper's Figure 4 logo, annotated the way the paper annotates it.
@@ -2822,7 +2740,7 @@ export function initVariantPlayground(root: ParentNode = document) {
   function renderIsmLogo(): void {
     if (!ismLogoSvg) return;
     clear(ismLogoSvg);
-    const W = 1000;
+    const W = svgWidth(ismLogoSvg);
     const H = 210;
     attr(ismLogoSvg, { viewBox: `0 0 ${W} ${H}` });
     const track = selectedMethodTrack();
@@ -2932,7 +2850,6 @@ export function initVariantPlayground(root: ParentNode = document) {
         setLogoWindow((box.a + box.b) / 2 - 30, 60);
         if (logoWidth) logoWidth.value = '60';
         if (logoSource) logoSource.value = 'ism';
-        renderSeqLogo();
         seqLogoSvg?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
     });
@@ -2974,14 +2891,32 @@ export function initVariantPlayground(root: ParentNode = document) {
     }
 
     // A bp ruler on the window's own coordinates -- this panel is a zoom, not the full window.
-    const step = Math.max(10, Math.round(span / 8 / 10) * 10);
+    //
+    // The tick COUNT comes from the available width, not a fixed eight. Now that the viewBox is in
+    // pixels, label text is a true 10 px at every width, so eight ~9-character labels that fit
+    // comfortably at 1,379 px overlap into an unreadable smear at 259 px.
+    const inner2 = W - PLOT.left - PLOT.right;
+    const maxTicks = Math.max(2, Math.floor(inner2 / 74));
+    const step = Math.max(10, Math.round(span / maxTicks / 10) * 10);
     for (let bp = Math.ceil(lo / step) * step; bp <= hi; bp += step) {
-      ismLogoSvg.append(text(px(bp), H - 4, `${(locus.start + bp) / 1000}`.slice(0, 7) + ' kb', 'vp-ax'));
+      const at = px(bp);
+      // Anchor the end labels inward: centred on the plot edges they clip mid-number, which reads
+      // as a different coordinate rather than as a truncated one.
+      const anchor = at - PLOT.left < 24 ? 'start' : W - PLOT.right - at < 24 ? 'end' : 'middle';
+      ismLogoSvg.append(text(at, H - 4, `${(locus.start + bp) / 1000}`.slice(0, 7) + ' kb',
+        'vp-ax', anchor));
     }
+    // The caption in the widest form that fits. At 320 px the long form ran off the edge, and a
+    // clipped caption drops exactly the part that says which method is drawn.
+    const capLong = `${locus.gene} · ${lo.toLocaleString()}–${hi.toLocaleString()} bp of the window`
+      + ` · ${track.label} · range ${yLo.toFixed(3)} … ${yHi.toFixed(3)}`;
+    const capMid = `${locus.gene} · ${lo.toLocaleString()}–${hi.toLocaleString()} bp · ${track.label}`;
+    const capShort = `${locus.gene} · ${track.label}`;
+    const probe = document.createElement('canvas').getContext('2d');
+    if (probe) probe.font = '10px system-ui, sans-serif';
+    const fits = (s: string) => !probe || probe.measureText(s).width <= inner2 - 4;
     ismLogoSvg.append(text(PLOT.left, 12,
-      `${locus.gene} · ${lo.toLocaleString()}–${hi.toLocaleString()} bp of the window`
-      + ` · ${track.label} · range ${yLo.toFixed(3)} … ${yHi.toFixed(3)}`,
-      'vp-ax vp-caption', 'start'));
+      [capLong, capMid, capShort].find(fits) ?? capShort, 'vp-ax vp-caption', 'start'));
     ismLogoSvg.dataset.letters = String(letters);
     ismLogoSvg.dataset.boxes = String(boxes.length);
     ismLogoSvg.dataset.window = `${lo}-${hi}`;
@@ -3268,7 +3203,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     const tracks = methodTracks();
     const seq = LOCI[locusIndex].sequence;
     const { start, width } = logoWindow;
-    const W = 1000;
+    const W = svgWidth(methodLogosSvg);
     const LOGO_ROW = 74;
     const BAND_ROW = 40;
     const rowH = (tr: MethodTrack) => (tr.resolutionBp <= 1 ? LOGO_ROW : BAND_ROW);
@@ -3859,6 +3794,41 @@ export function initVariantPlayground(root: ParentNode = document) {
     }
   }
 
+  /**
+   * The connector between the full-window stack and the zoom beneath it.
+   *
+   * Two edges leaving the focus band and splaying to the full width of the zoom section -- the
+   * standard lens idiom. It shares the pixel axis with everything else, so the top of the lens sits
+   * exactly under the band on the tracks above and the bottom spans exactly the logos below.
+   */
+  function renderLens(): void {
+    if (!lensSvg) return;
+    clear(lensSvg);
+    const W = svgWidth(lensSvg);
+    const H = 22;
+    attr(lensSvg, { viewBox: `0 0 ${W} ${H}` });
+    const a = xOfBp(logoWindow.start, W);
+    const b = xOfBp(logoWindow.start + logoWindow.width, W);
+    const left = PLOT.left;
+    const right = W - PLOT.right;
+    const poly = el('path');
+    attr(poly, {
+      d: `M${a.toFixed(2)} 0 L${b.toFixed(2)} 0 L${right.toFixed(2)} ${H} L${left.toFixed(2)} ${H} Z`,
+      fill: 'currentColor', opacity: 0.1, class: 'vp-focus',
+    });
+    lensSvg.append(poly);
+    for (const [x0, x1] of [[a, left], [b, right]] as const) {
+      const line = el('line');
+      attr(line, { x1: x0, x2: x1, y1: 0, y2: H, stroke: 'currentColor',
+                   'stroke-width': 1, opacity: 0.55, class: 'vp-focus' });
+      lensSvg.append(line);
+    }
+    // Both keys: `vpFocus` for the band-agreement check on the full-window tracks, `window` for
+    // the zoom-view check. The lens spans both, which is the point of it.
+    lensSvg.dataset.vpFocus = `${logoWindow.start}-${logoWindow.start + logoWindow.width}`;
+    lensSvg.dataset.window = `${logoWindow.start}-${logoWindow.start + logoWindow.width}`;
+  }
+
   /** Draw every available method as a small signal track on the shared bp axis. */
   function renderMethods(): void {
     if (!methodsCanvas) return;
@@ -4317,6 +4287,42 @@ export function initVariantPlayground(root: ParentNode = document) {
     renderStageDetail(flow?.selected() ?? null);
   };
   document.addEventListener('khc:theme-change', onTheme);
+
+  /**
+   * Redraw the tracks when the viewport changes size.
+   *
+   * There was no resize handler at all: canvases are sized once from `clientWidth` and then
+   * stretched by `width: 100%`, so every one of them has always been drawn at the wrong resolution
+   * after a resize. Now that the SVGs measure themselves in pixels too, a stale width would also
+   * put their axis out of step with the canvases -- which is the whole defect this round exists to
+   * remove. Debounced, and it redraws only; nothing here re-runs the model.
+   */
+  let resizeTimer = 0;
+  let lastWidth = host.clientWidth;
+  const onResize = () => {
+    window.clearTimeout(resizeTimer);
+    resizeTimer = window.setTimeout(() => {
+      // Width only: a height change (a mobile URL bar, an opened disclosure) does not move the
+      // horizontal axis, and redrawing every raster for one is wasted work.
+      if (host.clientWidth === lastWidth) return;
+      lastWidth = host.clientWidth;
+      renderTrack();
+      renderSingleTrack();
+      renderAttribution();
+      renderAnnotation();
+      renderMethods();
+      renderMethodLogos();
+      renderIsmLogo();
+      renderLens();
+      renderHeatmap();
+      renderOcclusion();
+      renderClassFigure();
+      renderTssProfile();
+      renderStageDetail(flow?.selected() ?? null);
+    }, 150);
+  };
+  window.addEventListener('resize', onResize);
+
   runBtn?.addEventListener('click', () => void runFull());
 
   /**
@@ -4795,7 +4801,8 @@ export function initVariantPlayground(root: ParentNode = document) {
     const w = Number(logoWidth.value);
     setLogoWindow(logoWindow.start + logoWindow.width / 2 - w / 2, w);
   });
-  logoSource?.addEventListener('change', () => { renderSeqLogo(); renderIsmLogo(); });
+  // The source drives both zoom views: the annotated logo and the per-method stack's own labels.
+  logoSource?.addEventListener('change', () => { renderIsmLogo(); renderMethodLogos(); });
 
   /**
    * Drag across the method strip to pick the zoom window every logo view reads.
@@ -4889,7 +4896,6 @@ export function initVariantPlayground(root: ParentNode = document) {
     renderTrack();
     renderAttribution();
     refreshRegionViews();
-    renderSeqLogo();
     trace3d();
     renderStageDetail(flow?.selected() ?? null);
   });
@@ -4979,7 +4985,6 @@ export function initVariantPlayground(root: ParentNode = document) {
   renderSingleTrack();
   renderAttribution();
   refreshRegionViews();
-  renderSeqLogo();
   renderIsmLogo();
   // Locus mode is the only mode, so the first locus loads immediately rather than waiting for a
   // click on a toggle that no longer exists.
@@ -4988,6 +4993,8 @@ export function initVariantPlayground(root: ParentNode = document) {
   return {
     destroy: () => {
       document.removeEventListener('khc:theme-change', onTheme);
+      window.removeEventListener('resize', onResize);
+      window.clearTimeout(resizeTimer);
       flow?.destroy();
       flow = null;
       // Without this a client-side navigation leaks a WebGL context per visit.

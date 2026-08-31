@@ -66,8 +66,8 @@ const breadcrumbLd = buildBreadcrumbLd([
       </nav>
     <div class="vp-body">
         <p class="vp-act" id="act-1"><span class="vp-act__n">1</span>
-          What does the model predict?</p>
-        <p class="vp-act__sub">A 16,384 bp window in, coverage over 896 bins and 5,215 tracks out. Start here: pick a locus and a region in the bar above, and read down the shared axis — prediction, attribution, the four methods, then the curated evidence for what is really there.</p>
+          What does it predict, and which bases drive it?</p>
+        <p class="vp-act__sub">A 16,384 bp window in, coverage over 896 bins and 5,215 tracks out. Everything below shares one horizontal axis: pick a locus and a region in the bar above, then read straight down — prediction, attribution, the four methods, the curated evidence for what is really there, and finally the highlighted window again at single-base resolution.</p>
 
         <section class="vp-panel">
           <h2>Sequence</h2>
@@ -139,6 +139,87 @@ const breadcrumbLd = buildBreadcrumbLd([
             strengths of evidence that must not be read as one. A grey cap marks a feature clipped
             by the window edge, so that edge is never mistaken for a real boundary.
           </p>
+
+
+          <!-- ---- the zoom: the focus band above, at letter resolution ---- -->
+          <div class="vp-zoomhead">
+            <span class="vp-zoomhead__label">zoom · the highlighted window above</span>
+            <span class="vp-stat" data-vp-logo-stat></span>
+          </div>
+          <svg class="vp-svg vp-lens" data-vp-lens role="presentation" aria-hidden="true"></svg>
+          <svg class="vp-svg" data-vp-ism-logo role="img"
+               aria-label="The window's attribution as the paper's sequence logo, with motif and splice annotations"></svg>
+          <p class="vp-notes" style="margin:0.35rem 0 0.6rem;">
+            <strong>The whole window, as the paper draws it.</strong> Red dashed boxes are matched
+            motifs and splice landmarks; click one to zoom the logo below onto it. The navy track is
+            the gene model in the paper's own IGV style.
+          </p>
+          <div class="vp-controls" style="margin-bottom:0.45rem;">
+            <input class="vp-range" type="range" min="0" max="1000" value="500" data-vp-logo-pan
+                   style="flex:1;min-width:9rem" aria-label="Position of the sequence logo window" />
+            <select class="vp-select" data-vp-logo-source aria-label="Attribution source">
+              <option value="grad" selected>gradient × input</option>
+              <option value="ig">integrated gradients</option>
+              <option value="occl">occlusion</option>
+            </select>
+            <select class="vp-select" data-vp-logo-width aria-label="Logo window width">
+              <option value="60">60 bp</option>
+              <option value="150" selected>150 bp</option>
+              <option value="400">400 bp</option>
+            </select>
+            <button type="button" class="vp-btn" data-vp-logo-figure hidden>the paper's window</button>
+          </div>
+          <p class="vp-notes" style="margin:0.4rem 0 0;">
+            <strong>Drawn exactly as the paper draws it</strong> — the real DejaVu Sans Bold glyphs at
+            the paper's own per-letter offsets, scaled 1.35× on both axes, A green / C blue / G orange /
+            T red, stacked largest-magnitude nearest the axis with positives up and negatives mirrored
+            below. Letters overflow their column and touch; that density is the published look, not a
+            bug. The colours are fixed in every theme, because a figure's base colours are part of the
+            figure.
+          </p>
+          <p class="vp-notes" style="margin:0.35rem 0 0;">
+            <strong>Two sources, and they are not the same method.</strong> <em>Mutagenesis</em> is the
+            paper's Figure 4 quantity: every substitution actually run, then mean-centred across the
+            four bases and projected on the reference, so the height reads as “how much the base that
+            is <em>there</em> matters” rather than “what this one substitution did”. It covers the
+            promoter window only — a full-window single-base mutagenesis is 1.4 h a locus and 39.6 h
+            for all fourteen, measured — so outside that window the panel says so rather than quietly
+            drawing something else. <em>Gradient × input</em> is a local linear
+            sensitivity — it is identically zero at the three bases not present, because the input is
+            one-hot, so it draws one letter per position. <strong>The paper's published figures use no
+            gradients at all</strong>; its single gradient routine is unreached scaffolding that still
+            declares a 4-channel input the 170-channel model cannot accept. Gradient × input is here
+            because it is instant, not because it is what the paper did.
+          </p>
+                <details class="vp-how">
+            <summary>How the logo is drawn, and why only one letter appears per position</summary>
+            <div class="vp-how-body">
+              <p><strong>The geometry is the paper's, not an approximation of it.</strong> Real DejaVu
+              Sans Bold outlines for A/C/G/T with the paper's own hand-tuned per-letter x-offsets
+              (A −0.350, C −0.366, G −0.384, T −0.305 — not half-advances), scaled by{' '}
+              <code>globscale = 1.35</code> on <em>both</em> axes, which is what makes a stack summing
+              to S fill height S and what makes adjacent letters touch. Colours are the paper's
+              saturated X11 values <code>#008000 / #0000FF / #FFA500 / #FF0000</code>, fixed in every
+              theme because a figure's base colours are part of the figure. Letters are stacked
+              descending by magnitude, positives up from zero and negatives <em>mirrored</em> below,
+              with y-limits at the data min and max each padded by 5% of max|v|.</p>
+              <p><strong>Mutagenesis</strong> is the paper's Figure 4 quantity, in three steps
+              (<code>fig4_common.py:227-230</code>, and identically in two other files):
+              average logSED over the T0 tracks → <em>mean-centre across the four bases</em> →{' '}
+              <em>project on the reference one-hot</em>. Step two is what turns "what this substitution
+              did" into "how much the base that is <em>there</em> matters"; step three is why exactly
+              one letter survives per position. Given the shipped plane <code>P</code> with the
+              reference cell zero, that value is exactly <code>−(Σ P)/4</code>.</p>
+              <p><strong>Gradient × input</strong> also draws one letter per position, but for a
+              different reason: the input is one-hot, so gradient × input is <em>identically zero</em>{' '}
+              at the three bases that are not there. That is a property of the method, not a rendering
+              choice.</p>
+              <p><strong>Occlusion</strong> resolves 64 bp, so every base inside a window carries that
+              window's value and the logo reads as blocks. Its sign is flipped to match the others:
+              occlusion measures what is <em>lost</em>, so a base that matters has a negative logSED,
+              and the logo convention is that up means "raises the prediction".</p>
+            </div>
+          </details>
 
           <svg class="vp-svg" data-vp-method-logos role="img"
                aria-label="Each method as a DNA logo over the selected window"></svg>
@@ -303,89 +384,6 @@ const breadcrumbLd = buildBreadcrumbLd([
       </section>
 
 
-        <p class="vp-act" id="act-2"><span class="vp-act__n">2</span>
-          Which bases drive it?</p>
-        <p class="vp-act__sub">Zoom into the focus band and read the attribution base by base, then ask the complementary question the logo cannot: which stretches of input drive which outputs.</p>
-
-      <section class="vp-panel">
-        <h2>The bases themselves <span class="vp-stat" data-vp-logo-stat></span></h2>
-        <svg class="vp-svg" data-vp-ism-logo role="img"
-             aria-label="The window's attribution as the paper's sequence logo, with motif and splice annotations"></svg>
-        <p class="vp-notes" style="margin:0.35rem 0 0.6rem;">
-          <strong>The whole window, as the paper draws it.</strong> Red dashed boxes are matched
-          motifs and splice landmarks; click one to zoom the logo below onto it. The navy track is
-          the gene model in the paper's own IGV style.
-        </p>
-        <div class="vp-controls" style="margin-bottom:0.45rem;">
-          <input class="vp-range" type="range" min="0" max="1000" value="500" data-vp-logo-pan
-                 style="flex:1;min-width:9rem" aria-label="Position of the sequence logo window" />
-          <select class="vp-select" data-vp-logo-source aria-label="Attribution source">
-            <option value="grad" selected>gradient × input</option>
-            <option value="ig">integrated gradients</option>
-            <option value="occl">occlusion</option>
-          </select>
-          <select class="vp-select" data-vp-logo-width aria-label="Logo window width">
-            <option value="60">60 bp</option>
-            <option value="150" selected>150 bp</option>
-            <option value="400">400 bp</option>
-          </select>
-          <button type="button" class="vp-btn" data-vp-logo-figure hidden>the paper's window</button>
-        </div>
-        <svg class="vp-svg" data-vp-seq-logo role="img"
-             aria-label="Gradient times input attribution as a sequence logo"></svg>
-        <p class="vp-notes" style="margin:0.4rem 0 0;">
-          <strong>Drawn exactly as the paper draws it</strong> — the real DejaVu Sans Bold glyphs at
-          the paper's own per-letter offsets, scaled 1.35× on both axes, A green / C blue / G orange /
-          T red, stacked largest-magnitude nearest the axis with positives up and negatives mirrored
-          below. Letters overflow their column and touch; that density is the published look, not a
-          bug. The colours are fixed in every theme, because a figure's base colours are part of the
-          figure.
-        </p>
-        <p class="vp-notes" style="margin:0.35rem 0 0;">
-          <strong>Two sources, and they are not the same method.</strong> <em>Mutagenesis</em> is the
-          paper's Figure 4 quantity: every substitution actually run, then mean-centred across the
-          four bases and projected on the reference, so the height reads as “how much the base that
-          is <em>there</em> matters” rather than “what this one substitution did”. It covers the
-          promoter window only — a full-window single-base mutagenesis is 1.4 h a locus and 39.6 h
-          for all fourteen, measured — so outside that window the panel says so rather than quietly
-          drawing something else. <em>Gradient × input</em> is a local linear
-          sensitivity — it is identically zero at the three bases not present, because the input is
-          one-hot, so it draws one letter per position. <strong>The paper's published figures use no
-          gradients at all</strong>; its single gradient routine is unreached scaffolding that still
-          declares a 4-channel input the 170-channel model cannot accept. Gradient × input is here
-          because it is instant, not because it is what the paper did.
-        </p>
-              <details class="vp-how">
-          <summary>How the logo is drawn, and why only one letter appears per position</summary>
-          <div class="vp-how-body">
-            <p><strong>The geometry is the paper's, not an approximation of it.</strong> Real DejaVu
-            Sans Bold outlines for A/C/G/T with the paper's own hand-tuned per-letter x-offsets
-            (A −0.350, C −0.366, G −0.384, T −0.305 — not half-advances), scaled by{' '}
-            <code>globscale = 1.35</code> on <em>both</em> axes, which is what makes a stack summing
-            to S fill height S and what makes adjacent letters touch. Colours are the paper's
-            saturated X11 values <code>#008000 / #0000FF / #FFA500 / #FF0000</code>, fixed in every
-            theme because a figure's base colours are part of the figure. Letters are stacked
-            descending by magnitude, positives up from zero and negatives <em>mirrored</em> below,
-            with y-limits at the data min and max each padded by 5% of max|v|.</p>
-            <p><strong>Mutagenesis</strong> is the paper's Figure 4 quantity, in three steps
-            (<code>fig4_common.py:227-230</code>, and identically in two other files):
-            average logSED over the T0 tracks → <em>mean-centre across the four bases</em> →{' '}
-            <em>project on the reference one-hot</em>. Step two is what turns "what this substitution
-            did" into "how much the base that is <em>there</em> matters"; step three is why exactly
-            one letter survives per position. Given the shipped plane <code>P</code> with the
-            reference cell zero, that value is exactly <code>−(Σ P)/4</code>.</p>
-            <p><strong>Gradient × input</strong> also draws one letter per position, but for a
-            different reason: the input is one-hot, so gradient × input is <em>identically zero</em>{' '}
-            at the three bases that are not there. That is a property of the method, not a rendering
-            choice.</p>
-            <p><strong>Occlusion</strong> resolves 64 bp, so every base inside a window carries that
-            window's value and the logo reads as blocks. Its sign is flipped to match the others:
-            occlusion measures what is <em>lost</em>, so a base that matters has a negative logSED,
-            and the logo convention is that up means "raises the prediction".</p>
-          </div>
-        </details>
-</section>
-
       <section class="vp-panel">
         <h2>What drives what <span class="vp-stat" data-vp-occl-stat></span></h2>
         <div class="vp-controls" style="margin-bottom:0.4rem;">
@@ -462,7 +460,7 @@ const breadcrumbLd = buildBreadcrumbLd([
 
 
       <!-- ------------------------------------------------- every output track -->
-        <p class="vp-act" id="act-3"><span class="vp-act__n">3</span>
+        <p class="vp-act" id="act-2"><span class="vp-act__n">2</span>
           What happens inside?</p>
         <p class="vp-act__sub">The same prediction, from the inside. Watch a sequence pass through all twenty stages, open any one of them, then trace one output region back through every layer to the bases.</p>
 
@@ -699,7 +697,7 @@ const breadcrumbLd = buildBreadcrumbLd([
         </details>
 </section>
 
-        <p class="vp-act" id="act-4"><span class="vp-act__n">4</span>
+        <p class="vp-act" id="act-3"><span class="vp-act__n">3</span>
           Does any of it match real biology?</p>
         <p class="vp-act__sub">The tests that can come out negative. Every curated binding site knocked out and measured, and the attribution scored against annotation the model never saw.</p>
 
@@ -872,7 +870,7 @@ const breadcrumbLd = buildBreadcrumbLd([
         </details>
       </section>
 
-        <p class="vp-act" id="act-5"><span class="vp-act__n">5</span>
+        <p class="vp-act" id="act-4"><span class="vp-act__n">4</span>
           How do I read any of this?</p>
         <p class="vp-act__sub">Every panel collapses a multi-dimensional tensor to something drawable, and they do not all collapse the same axis the same way.</p>
 

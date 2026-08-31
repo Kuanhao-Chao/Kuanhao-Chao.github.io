@@ -809,7 +809,7 @@ async function auditExplanations(browser, baseURL, scope) {
       koStat: document.querySelector('[data-vp-ko-stat]')?.textContent ?? '',
       logoRows: Number(document.querySelector('[data-vp-method-logos]')?.dataset.rows ?? 0),
       // The one window every letter view must agree on.
-      windows: [...document.querySelectorAll('[data-vp-method-logos],[data-vp-ism-logo],[data-vp-seq-logo]')]
+      windows: [...document.querySelectorAll('[data-vp-method-logos],[data-vp-ism-logo],[data-vp-lens]')]
         .map((e) => e.dataset.window ?? null),
       ismOption: !!document.querySelector('[data-vp-logo-source] option[value="ism"]'),
     }));
@@ -847,7 +847,7 @@ async function auditExplanations(browser, baseURL, scope) {
       await page.mouse.up();
       await page.waitForTimeout(500);
       const after = await page.evaluate(() =>
-        [...document.querySelectorAll('[data-vp-method-logos],[data-vp-ism-logo],[data-vp-seq-logo]')]
+        [...document.querySelectorAll('[data-vp-method-logos],[data-vp-ism-logo],[data-vp-lens]')]
           .map((e) => e.dataset.window ?? null));
       const afterUniq = [...new Set(after.filter(Boolean))];
       if (afterUniq.length !== 1) fail(scope, `after brushing, logo views disagree: ${afterUniq.join(' vs ')}`);
@@ -868,7 +868,7 @@ async function auditExplanations(browser, baseURL, scope) {
         navSticky: getComputedStyle(document.querySelector('.vp-nav')).position,
       };
     });
-    if (spine.acts.length !== 5) fail(scope, `${spine.acts.length} act headings, expected 5`);
+    if (spine.acts.length !== 4) fail(scope, `${spine.acts.length} act headings, expected 4`);
     if (new Set(spine.acts).size !== spine.acts.length) fail(scope, 'a duplicate act heading');
     if (spine.navSticky !== 'sticky') fail(scope, `the selection bar is ${spine.navSticky}, not sticky`);
     // Every full-window track must carry the focus band, and they must agree about it -- the whole
@@ -913,7 +913,7 @@ async function auditExplanations(browser, baseURL, scope) {
       await page.selectOption('[data-vp-logo-source]', src);
       await page.waitForTimeout(300);
       const s = await page.evaluate(() => {
-        const e = document.querySelector('[data-vp-seq-logo]');
+        const e = document.querySelector('[data-vp-ism-logo]');
         return { letters: Number(e?.dataset.letters ?? '0'), stat: e?.dataset.window ?? '' };
       });
       if (!(s.letters > 20)) fail(scope, `logo source "${src}" drew ${s.letters} letters`);
@@ -1227,8 +1227,8 @@ async function auditInterpretation(browser, baseURL, scope) {
       region: document.querySelector('[data-vp-region]')?.selectedOptions[0]?.textContent ?? '',
       stages: Number(document.querySelector('[data-vp-stage-profile]')?.dataset.stages ?? '0'),
       inside: document.querySelector('[data-vp-rollout]')?.dataset.inside ?? '',
-      letters: Number(document.querySelector('[data-vp-seq-logo]')?.dataset.letters ?? '0'),
-      logoWindow: document.querySelector('[data-vp-seq-logo]')?.dataset.window ?? '',
+      letters: Number(document.querySelector('[data-vp-ism-logo]')?.dataset.letters ?? '0'),
+      logoWindow: document.querySelector('[data-vp-ism-logo]')?.dataset.window ?? '',
       trace: document.querySelector('[data-vp-trace-label]')?.textContent ?? '',
     }));
 
@@ -1626,6 +1626,66 @@ async function auditLanguageModel(browser, baseURL, scope) {
   }
 }
 
+/**
+ * The same base must land at the same x on every full-window track.
+ *
+ * The existing focus-band check compares each track's `data-vp-focus` STRING, which only says they
+ * intend to show the same range. It passed for a whole round while the drawing was misaligned: the
+ * SVG tracks used a 1000-unit viewBox, so `PLOT.left = 46` meant 4.6% of the width, while the
+ * canvases used the same constant as 46 CSS pixels. Offsets ran +20 px at 1440 and -31 px at 320,
+ * with the SIGN FLIPPING at ~1043 -- which is why that width is measured here deliberately: a
+ * regression that reintroduces the bug would be invisible at exactly one width.
+ */
+async function auditAxisAlignment(browser, baseURL, scope) {
+  for (const width of [320, 390, 760, 1043, 1440]) {
+    const context = await browser.newContext({ baseURL, viewport: { width, height: 1000 } });
+    const page = await context.newPage();
+    try {
+      await enterLocus(page);
+      await page.locator('[data-vp-region-next]').scrollIntoViewIfNeeded();
+      await page.locator('[data-vp-region-next]').click();
+      await page.waitForTimeout(900);
+      const r = await page.evaluate(() => {
+        const BP = 8192, SEQ = 16384, PLOT = { left: 46, right: 10 };
+        const out = {};
+        for (const sel of ['[data-vp-track]', '[data-vp-attr]', '[data-vp-methods]',
+                           '[data-vp-annotation]']) {
+          const el = document.querySelector(sel);
+          if (!el) continue;
+          const box = el.getBoundingClientRect();
+          if (!box.width) continue;
+          let left;
+          let inner;
+          if (el.tagName.toLowerCase() === 'svg') {
+            const vb = el.getAttribute('viewBox').split(' ').map(Number);
+            const s = box.width / vb[2];
+            left = PLOT.left * s;
+            inner = (vb[2] - PLOT.left - PLOT.right) * s;
+          } else {
+            left = PLOT.left;
+            inner = box.width - PLOT.left - PLOT.right;
+          }
+          out[sel] = box.left + left + (BP / SEQ) * inner;
+        }
+        return out;
+      });
+      const vals = Object.values(r);
+      if (vals.length < 3) {
+        fail(scope, `${width}px: only ${vals.length} full-window tracks measured`);
+        continue;
+      }
+      const spread = Math.max(...vals) - Math.min(...vals);
+      if (spread > 1) {
+        const detail = Object.entries(r)
+          .map(([k, v]) => `${k}=${v.toFixed(1)}`).join(' ');
+        fail(scope, `${width}px: bp 8,192 lands ${spread.toFixed(1)}px apart across tracks — ${detail}`);
+      }
+    } finally {
+      await context.close();
+    }
+  }
+}
+
 async function main() {
   const port = await availablePort();
   const baseURL = `http://127.0.0.1:${port}`;
@@ -1678,6 +1738,8 @@ async function main() {
           await captureFailure('chromium/explanations', () => auditExplanations(browser, baseURL, 'chromium/explanations'));
           progress('chromium/language-model');
           await captureFailure('chromium/language-model', () => auditLanguageModel(browser, baseURL, 'chromium/language-model'));
+          progress('chromium/axis-alignment (5 widths)');
+          await captureFailure('chromium/axis-alignment', () => auditAxisAlignment(browser, baseURL, 'chromium/axis-alignment'));
           progress('chromium/lab-prose (all three routes)');
           await captureFailure('chromium/lab-prose', () => auditSwallowedSpaces(browser, baseURL, 'chromium/lab-prose'));
           progress('chromium/region-views');
