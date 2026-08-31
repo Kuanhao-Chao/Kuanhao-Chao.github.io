@@ -326,11 +326,13 @@ export const ALGORITHMS: AlgorithmEntry[] = [
     category: 'deep-learning',
     tag: 'Shorkie / Shorkie_LM',
     summary:
-      'Interactive in-browser neural interpretability for Shorkie (fine-tuned expression model: 16,384 bp → 896 bins × 5,215 tracks) and Shorkie_LM (masked DNA language model on 165 genomes). Compare feature attributions, layer activations, occlusions, and zero-shot sequence constraint in real-time.',
+      'Interactive in-browser neural interpretability for Shorkie (fine-tuned expression model: 16,384 bp → 896 bins × 5,215 tracks) and Shorkie_LM (masked DNA language model on 165 genomes). Compare feature attributions, layer activations, occlusions, and zero-shot sequence constraint.',
     blurb: 'In-browser attribution, occlusion, layer traceback & zero-shot constraint.',
+    timeComplexity: 'O(3 · L · d)',
+    spaceComplexity: 'O(4 · L)',
     keyMechanism: 'Multi-Method Feature Attribution & Sequence Constraint',
     highlights: [
-      'Five attribution methods (Saliency, Input × Gradient, SmoothGrad, Integrated Gradients, ISM)',
+      'Five attribution methods (mutagenesis/ISM, gradient × input, integrated gradients, attention rollout, occlusion)',
       'Layer traceback and occlusion mapping across the Shorkie convolutional-transformer trunk',
       'Zero-shot sequence constraint and information content from 165-genome masked DNA LM',
     ],
