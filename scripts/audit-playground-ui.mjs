@@ -812,6 +812,7 @@ async function auditExplanations(browser, baseURL, scope) {
       windows: [...document.querySelectorAll('[data-vp-method-logos],[data-vp-ism-logo],[data-vp-lens]')]
         .map((e) => e.dataset.window ?? null),
       ismOption: !!document.querySelector('[data-vp-logo-source] option[value="ism"]'),
+      ismDefault: document.querySelector('[data-vp-logo-source]')?.value ?? '',
     }));
     if (!bio.ann) fail(scope, 'the annotation track drew nothing');
     else {
@@ -832,8 +833,11 @@ async function auditExplanations(browser, baseURL, scope) {
     const uniq = [...new Set(bio.windows.filter(Boolean))];
     if (bio.windows.some((w) => !w)) fail(scope, `a logo view has no window: ${JSON.stringify(bio.windows)}`);
     else if (uniq.length !== 1) fail(scope, `logo views disagree about the window: ${uniq.join(' vs ')}`);
-    // Removed deliberately: mutagenesis is no longer a logo source.
-    if (bio.ismOption) fail(scope, 'the mutagenesis logo source was removed but is still in the dropdown');
+    // Mutagenesis is the primary logo source now that it covers the whole window, so it must be
+    // present AND selected by default. This assertion is the inverse of the one it replaced; both
+    // states cannot be right, and pinning only the new prose would let a half-applied revert pass.
+    if (!bio.ismOption) fail(scope, 'the mutagenesis logo source is missing from the dropdown');
+    if (bio.ismDefault !== 'ism') fail(scope, `logo source defaults to "${bio.ismDefault}", expected ism`);
 
     // The brush must move every logo view together.
     const before = uniq[0];
@@ -904,10 +908,11 @@ async function auditExplanations(browser, baseURL, scope) {
     const sources = await page.locator('[data-vp-logo-source] option').evaluateAll(
       (os) => os.map((o) => o.value),
     );
-    // Three, not four: mutagenesis was removed as a logo source this round. The packs still ship
-    // and verify_pipeline still checks them; the page simply no longer draws them.
-    if (sources.length !== 3) fail(scope, `logo offers ${sources.length} sources, expected 3`);
-    if (sources.includes('ism')) fail(scope, 'the mutagenesis source is still offered');
+    // Four: mutagenesis rejoined as the primary source once it covered all 16,384 bp rather than
+    // the ~500 bp promoter window that had it sitting blank across 97% of the axis.
+    if (sources.length !== 4) fail(scope, `logo offers ${sources.length} sources, expected 4`);
+    if (!sources.includes('ism')) fail(scope, 'the mutagenesis source is missing');
+    if (sources[0] !== 'ism') fail(scope, `mutagenesis should lead the source list; got "${sources[0]}"`);
     const seen = new Set();
     for (const src of sources) {
       await page.selectOption('[data-vp-logo-source]', src);
@@ -1049,16 +1054,17 @@ async function auditRegionViews(browser, baseURL, scope) {
       const c = document.querySelector('[data-vp-methods]');
       return { n: Number(c?.dataset.tracks ?? '0'), labels: c?.dataset.labels ?? '' };
     });
-    if (methods.n < 4) fail(scope, `method strip drew ${methods.n} tracks, expected at least 4`);
-    // Mutagenesis is deliberately NOT here: it covers 500 bp of 16,384, and the full window is
-    // 39.6 h. It lives in the logo panel. Its absence is a decision, so it is asserted.
-    if (/mutagenesis/i.test(methods.labels)) {
-      fail(scope, 'mutagenesis is back on the coverage strip, where it spans 3% of the axis');
-    }
-    for (const want of ['gradient', 'integrated', 'rollout', 'occlusion']) {
+    if (methods.n < 5) fail(scope, `method strip drew ${methods.n} tracks, expected at least 5`);
+    // Mutagenesis LEADS the strip now. It was excluded while it covered 500 bp of 16,384 and while
+    // the full window was priced at 39.6 h; it is now full-window and measured, so its presence --
+    // and its position -- are the decision being asserted.
+    for (const want of ['mutagenesis', 'gradient', 'integrated', 'rollout', 'occlusion']) {
       if (!methods.labels.toLowerCase().includes(want)) {
         fail(scope, `method strip is missing "${want}"; got ${methods.labels}`);
       }
+    }
+    if (!/^mutagenesis/i.test(methods.labels)) {
+      fail(scope, `mutagenesis should lead the method strip; got "${methods.labels}"`);
     }
 
     // --- the occlusion map ---------------------------------------------------------------
@@ -1549,6 +1555,11 @@ async function auditLanguageModel(browser, baseURL, scope) {
         openByDefault: [...document.querySelectorAll('details.vp-how')].some((x) => x.open),
         metrics: document.querySelector('[data-lm-metrics]')?.textContent ?? '',
         window: d('[data-lm-logo]', 'window'),
+        loci: document.querySelectorAll('[data-lm-pick-locus] option').length,
+        regions: document.querySelectorAll('[data-lm-region] option').length,
+        summary: Number(d('[data-lm-summary]', 'lmSummary') ?? 0),
+        context: document.querySelector('[data-lm-region-context]')?.textContent ?? '',
+        navs: document.querySelectorAll('[data-lm-region]').length,
       };
     });
     if (st.h1 !== 1) fail(scope, `expected exactly one <h1>, found ${st.h1}`);
@@ -1562,6 +1573,15 @@ async function auditLanguageModel(browser, baseURL, scope) {
     if (st.how < 4) fail(scope, `${st.how} disclosures, expected at least 4`);
     if (st.openByDefault) fail(scope, 'a disclosure is open by default');
     if (!/perplexity/.test(st.metrics)) fail(scope, `metrics line missing perplexity: "${st.metrics}"`);
+    // All fourteen windows reachable. The page shipped for a while with locusIndex pinned at 0 and
+    // thirteen of them unreachable, while the prose made claims about all fourteen.
+    if (st.loci !== 14) fail(scope, `the locus select offers ${st.loci}, expected 14`);
+    if (st.regions < 2) fail(scope, `the region select offers ${st.regions}, expected the whole window plus genes`);
+    if (st.navs !== 1) fail(scope, `${st.navs} region selectors on the page, expected exactly one`);
+    if (st.summary !== 14) fail(scope, `the cross-locus table has ${st.summary} rows, expected 14`);
+    if (!/IC .* vs window/.test(st.context)) {
+      fail(scope, `the region context line does not report scoped constraint: "${st.context}"`);
+    }
 
     // The two passes must give DIFFERENT numbers. If they ever agree, one of them is not being
     // read -- which is the failure this page's whole framing exists to prevent.
@@ -1608,6 +1628,99 @@ async function auditLanguageModel(browser, baseURL, scope) {
       const w1 = await page.evaluate(() => document.querySelector('[data-lm-logo]')?.dataset.window);
       if (w1 === w0) fail(scope, 'brushing the constraint track did not move the logo window');
     }
+
+    // --- the region stepper scopes as well as navigates -------------------------------------
+    const r0 = await page.evaluate(() => ({
+      ctx: document.querySelector('[data-lm-region-context]')?.textContent ?? '',
+      win: document.querySelector('[data-lm-logo]')?.dataset.window ?? '',
+    }));
+    await page.locator('[data-lm-region-next]').scrollIntoViewIfNeeded();
+    await page.locator('[data-lm-region-next]').click();
+    await page.waitForTimeout(600);
+    const r1 = await page.evaluate(() => ({
+      ctx: document.querySelector('[data-lm-region-context]')?.textContent ?? '',
+      win: document.querySelector('[data-lm-logo]')?.dataset.window ?? '',
+      cols: document.querySelectorAll('[data-lm-enrichment] thead th').length,
+    }));
+    if (r1.ctx === r0.ctx) fail(scope, 'stepping the region did not change the context line');
+    if (r1.win === r0.win) {
+      fail(scope, 'stepping the region did not move the logo window -- a selection that scopes the '
+        + 'numbers but leaves the letters shows one gene under another gene\'s heading');
+    }
+    if (r1.cols !== 6) fail(scope, `enrichment has ${r1.cols} columns with a gene selected, expected 6`);
+
+    // --- switching locus changes the numbers, and leaves no view behind -----------------------
+    // ACT1 (index 2) is chosen because its gene model HAS an intron: the default window does not,
+    // and a gene track that paints introns as exons is invisible on a window with none.
+    const m0 = await page.evaluate(() => document.querySelector('[data-lm-metrics]')?.textContent ?? '');
+    await page.selectOption('[data-lm-pick-locus]', '2');
+    await page.waitForFunction(() => document.querySelector('[data-lm]')?.dataset.lmLocus === 'YFL039C',
+      { timeout: 30_000 });
+    await page.waitForTimeout(1200);
+    const sw = await page.evaluate(() => ({
+      metrics: document.querySelector('[data-lm-metrics]')?.textContent ?? '',
+      locus: document.querySelector('[data-lm]')?.dataset.lmLocus ?? '',
+      gene: JSON.parse(document.querySelector('[data-lm-annotation]')?.dataset.lmGeneTrack ?? '{}'),
+      ctx: document.querySelector('[data-lm-region-context]')?.textContent ?? '',
+      ann: Number(document.querySelector('[data-lm-annotation]')?.dataset.lmAnnotation ?? 0),
+    }));
+    if (sw.metrics === m0) {
+      fail(scope, `switching locus did not change the metrics line ("${m0}") -- the packs are `
+        + 'per-locus and these numbers vary from 41.3% to 46.3% across the fourteen');
+    }
+    // The whole point of the shared renderer: an intron is a gap, not a painted-over exon.
+    if (!(sw.gene.introns >= 1)) {
+      fail(scope, `the ACT1 gene track drew ${sw.gene.introns} introns, expected at least 1 -- `
+        + 'a plain rectangle per gene paints over every one of them');
+    }
+    if (!(sw.gene.blocks > 0)) fail(scope, 'the gene track drew no exon blocks');
+    if (!sw.ctx.includes('YFL039C')) {
+      fail(scope, `the context line still names the previous locus's gene: "${sw.ctx}"`);
+    }
+
+    // --- the evidence tiers are three claims, and each can be shown ---------------------------
+    const a0 = sw.ann;
+    await page.check('[data-lm-tier="conserved"]');
+    await page.waitForTimeout(500);
+    const a1 = await page.evaluate(() =>
+      Number(document.querySelector('[data-lm-annotation]')?.dataset.lmAnnotation ?? 0));
+    if (!(a1 > a0)) {
+      fail(scope, `enabling the conserved-only tier drew ${a1} features against ${a0} -- the tier `
+        + 'toggle is not reaching the drawing');
+    }
+    // ...but the enrichment table must NOT follow the drawing: it measures every tier always,
+    // which is what makes the three-tier comparison visible at all.
+    const eRows = await page.evaluate(() =>
+      Number(document.querySelector('[data-lm-enrichment]')?.dataset.lmEnrichment ?? 0));
+    await page.uncheck('[data-lm-tier="conserved"]');
+    await page.uncheck('[data-lm-tier="chip"]');
+    await page.waitForTimeout(500);
+    const eRows2 = await page.evaluate(() =>
+      Number(document.querySelector('[data-lm-enrichment]')?.dataset.lmEnrichment ?? 0));
+    if (eRows2 !== eRows) {
+      fail(scope, `the enrichment table followed the drawing toggles (${eRows} -> ${eRows2}); it `
+        + 'must measure every tier whatever the canvas shows');
+    }
+    await page.check('[data-lm-tier="chip"]');
+
+    // --- 320px: the sticky bar must not set the pane scrolling sideways -----------------------
+    // The document-level overflow check cannot see this, because .vp-scroll is overflow-x:auto --
+    // a bar wider than the viewport scrolls inside it and the document stays clean.
+    await page.setViewportSize({ width: 320, height: 900 });
+    await page.waitForTimeout(700);
+    const narrow = await page.evaluate(() => {
+      const pane = document.querySelector('.vp-scroll');
+      const nav = document.querySelector('.vp-nav');
+      return pane
+        ? { over: pane.scrollWidth - pane.clientWidth, nav: nav ? nav.scrollWidth : 0, w: pane.clientWidth }
+        : null;
+    });
+    if (narrow && narrow.over > 1) {
+      fail(scope, `at 320px the scroll pane overflows by ${narrow.over}px (nav is `
+        + `${narrow.nav}px against a ${narrow.w}px pane) -- a long select option does this`);
+    }
+    await page.setViewportSize({ width: 1440, height: 1400 });
+    await page.waitForTimeout(500);
 
     // Reduced motion and a theme change must not break it.
     await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'dark' });

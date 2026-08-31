@@ -20,6 +20,7 @@ import lociJson from '../data/shorkieLoci.json';
 // by verify_pipeline so it cannot drift from the per-locus panels it summarises.
 import biology from '../data/shorkieBiologySummary.json';
 import { createFlow3d, type Flow3dController } from './shorkieFlow3d';
+import { drawGeneRows } from './geneTrack';
 import {
   createFlow,
   FLOW_STAGES,
@@ -39,9 +40,7 @@ import {
   TRACK_GROUPS,
   RNA_SEQ_GROUP,
   pearson,
-  activationInk,
   activationScale,
-  scaledInk,
   paintActivationMap,
   type Rgb,
   binToWindowOffset,
@@ -1405,9 +1404,6 @@ export function initVariantPlayground(root: ParentNode = document) {
     occl = gotOccl;
     annotations = gotAnn;
     knockoutSweep = gotKo;
-    // Open the sequence logo on the mutagenesis window. It is only ~500 bp of a 16,384 bp window,
-    // so the default centre misses it entirely and the panel would greet every reader with "pan
-    // into it" -- while the paper's own picture sits just off screen.
     // Open on the paper's own published window where the locus has one -- those six are the panels
     // Figure 4 draws, and opening elsewhere puts the reproduction off screen -- otherwise on the
     // promoter of the gene the window is named for, which is the reader's likely first question.
@@ -1467,61 +1463,25 @@ export function initVariantPlayground(root: ParentNode = document) {
     top: number,
     rowH = 11,
   ): number {
-    const orf = getComputedStyle(host).getPropertyValue('--vp-orf').trim() || '#6f62a8';
-    const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
-    const rows = geneRowsExpanded ? packGeneRows(locus.features) : locus.features.map(() => 0);
-    const nRows = Math.max(...rows, 0) + 1;
-    let blocks = 0;
-    let introns = 0;
-
-    locus.features.forEach((f, i) => {
-      const own = f.name === locus.id;
-      const mid = top + rows[i] * rowH + rowH / 2;
-      const x0 = xOfBp(f.txStart, width);
-      const x1 = xOfBp(f.txEnd, width);
-      ctx.globalAlpha = own ? 0.95 : 0.45;
-      ctx.strokeStyle = orf;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x0, mid + 0.5);
-      ctx.lineTo(x1, mid + 0.5);
-      ctx.stroke();
-
-      const fwd = f.strand === '+';
-      for (let x = x0 + 7; x < x1 - 3; x += 13) {
-        ctx.beginPath();
-        ctx.moveTo(x - (fwd ? 2 : -2), mid - 2.4);
-        ctx.lineTo(x + (fwd ? 2 : -2), mid);
-        ctx.lineTo(x - (fwd ? 2 : -2), mid + 2.4);
-        ctx.stroke();
-      }
-
-      ctx.fillStyle = orf;
-      for (const piece of geneTrackShapes(f)) {
-        if (piece.kind === 'intron') {
-          introns += 1;                              // drawn as the line + chevrons above
-          continue;
-        }
-        blocks += 1;
-        const bh = piece.kind === 'cds' ? Math.max(rowH * 0.72, 5) : Math.max(rowH * 0.38, 3);
-        const bx = xOfBp(piece.start, width);
-        ctx.fillRect(bx, mid - bh / 2, Math.max(xOfBp(piece.end, width) - bx, 1), bh);
-      }
-
-      if (own) {
-        ctx.globalAlpha = 1;
-        ctx.fillStyle = muted;
-        ctx.font = '9px system-ui, sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText(locus.gene, x1 + 4, mid + 3);
-      }
+    // The drawing itself lives in `src/scripts/geneTrack.ts`, shared with the language-model page,
+    // so the two pages cannot disagree about where an intron is. This wrapper keeps the three call
+    // sites here unchanged and still publishes the tally the audit reads.
+    const tally = drawGeneRows(ctx, {
+      features: locus.features,
+      ownId: locus.id,
+      ownLabel: locus.gene,
+      width,
+      top,
+      rowH,
+      expanded: geneRowsExpanded,
+      xOfBp,
+      colours: {
+        orf: getComputedStyle(host).getPropertyValue('--vp-orf').trim() || '#6f62a8',
+        muted: getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280',
+      },
     });
-    ctx.globalAlpha = 1;
-    ctx.canvas.dataset.vpGeneTrack = JSON.stringify({
-      features: locus.features.length, blocks, introns, rows: nRows,
-      mode: geneRowsExpanded ? 'expanded' : 'collapsed',
-    });
-    return nRows;
+    ctx.canvas.dataset.vpGeneTrack = JSON.stringify(tally);
+    return tally.rows;
   }
 
 
@@ -2064,11 +2024,15 @@ export function initVariantPlayground(root: ParentNode = document) {
     bitmap.close();
     const px = cx.getImageData(0, 0, spec.cols, spec.rows).data;
     const plane = new Float32Array(spec.rows * spec.cols);
+    const log = spec.space === 'log';
     for (let r = 0; r < spec.rows; r += 1) {
       const lo = spec.lo[r];
       const range = Math.max(spec.hi[r] - lo, 1e-12);
       for (let c = 0; c < spec.cols; c += 1) {
-        plane[r * spec.cols + c] = (px[(r * spec.cols + c) * 4] / 255) * range + lo;
+        const v = (px[(r * spec.cols + c) * 4] / 255) * range + lo;
+        // Signed log, inverted exactly as the generator wrote it. Getting this wrong would not
+        // throw -- it would draw a plausible logo of the wrong magnitudes.
+        plane[r * spec.cols + c] = log ? Math.sign(v) * 1e-4 * (10 ** Math.abs(v) - 1) : v;
       }
     }
     return { plane, start: spec.start, width: spec.cols, ref: spec.ref, tss: spec.tss };
@@ -2728,13 +2692,14 @@ export function initVariantPlayground(root: ParentNode = document) {
   function selectedMethodTrack(): MethodTrack | null {
     const tracks = methodTracks();
     if (!tracks.length) return null;
-    const want = logoSource?.value ?? 'grad';
+    const want = logoSource?.value ?? 'ism';
     const byKey: Record<string, (l: string) => boolean> = {
+      ism: (l) => l.startsWith('mutagenesis'),
       grad: (l) => l.startsWith('gradient'),
       ig: (l) => l.startsWith('integrated'),
       occl: (l) => l.startsWith('occlusion'),
     };
-    return tracks.find((tr) => (byKey[want] ?? byKey.grad)(tr.label)) ?? tracks[0];
+    return tracks.find((tr) => (byKey[want] ?? byKey.ism)(tr.label)) ?? tracks[0];
   }
 
   function renderIsmLogo(): void {
@@ -2982,12 +2947,36 @@ export function initVariantPlayground(root: ParentNode = document) {
     const out: MethodTrack[] = [];
     const locus = LOCI[locusIndex];
 
-    // Mutagenesis is deliberately NOT a track here. It covers ~500 bp of a 16,384 bp window, so
-    // it sat blank across 97% of this axis; and the full window is not affordable -- a forward pass
-    // is 104 ms and the ONNX batch axis is fixed at 1, so 16,384 x 3 substitutions is 1.4 h a locus
-    // one strand, 39.6 h for all fourteen both strands. The full window is covered here by
-    // occlusion (exact, measured) and by integrated gradients (single base). Mutagenesis lives in
-    // the logo panel, where its window is the whole point rather than a gap.
+    // Mutagenesis leads, and it is the only method here that needs no traced region: every base of
+    // the window was actually substituted and re-run, so the plane is a property of the locus
+    // rather than of a selection.
+    //
+    // It was excluded from this strip for two rounds because it covered ~500 bp of a 16,384 bp
+    // window and sat blank across 97% of the axis, and because the full window was priced at 39.6 h
+    // for all fourteen. That price was onnxruntime on the CPU through a graph whose batch axis is
+    // pinned at 1. Re-run on the GPU at batch 32 with the head sliced to the 384 T0 tracks, the
+    // measured cost is 11.9 ms a FORWARD PASS -- 23.8 ms a substitution, since both strands are
+    // run -- so 19.5 min a locus and 4.6 h for all fourteen. Neither reason survives.
+    if (ism) {
+      const plane = ism;
+      const seq = LOCI[locusIndex].sequence;
+      const sal = ismSaliency(plane.plane, plane.width, seq, plane.start);
+      let peak = 0;
+      for (const v of sal) peak = Math.max(peak, Math.abs(v));
+      out.push({
+        label: 'mutagenesis (ISM)',
+        at: (bp) => sal[Math.round(bp) - plane.start] ?? null,
+        peak,
+        // Name the gene it is scored on. Every other row in this strip is conditioned on the
+        // TRACED REGION, while this one is logSED on the window's own gene body -- so the top row
+        // peaks over a different part of the axis than the four below it, and a reader comparing
+        // rows without knowing that reads the difference as disagreement between methods.
+        note: `single base · ${(plane.width * 3).toLocaleString()} substitutions, each one measured`
+          + ` · scored on ${LOCI[locusIndex].gene}'s gene body, not on the traced region`,
+        resolutionBp: 1,
+      });
+    }
+
     if (attribution && tracedBins) {
       const ai = attribution.anchors.findIndex(
         (a) => a.binStart === tracedBins!.start && a.binEnd === tracedBins!.end,
@@ -3883,7 +3872,21 @@ export function initVariantPlayground(root: ParentNode = document) {
       ctx.textAlign = 'left';
       ctx.fillText(tr.label, GUTTER + 2, mid - half + 7);
       ctx.textAlign = 'right';
-      ctx.fillText(`±${tr.peak.toPrecision(2)} · ${tr.note}`, cssW - PLOT.right, mid - half + 7);
+      // The note is right-aligned against a left-aligned label on the same baseline, with nothing
+      // between them: at a narrow viewport the two simply overlap, and a canvas has no `overflow`
+      // to report it. Drop trailing ` · ` clauses until it fits, keeping the peak, which is the one
+      // part that makes the row's scale readable.
+      const room = (cssW - PLOT.right) - (GUTTER + 2 + ctx.measureText(tr.label).width) - 12;
+      const parts = `±${tr.peak.toPrecision(2)} · ${tr.note}`.split(' · ');
+      let note = parts.join(' · ');
+      while (parts.length > 1 && ctx.measureText(note).width > room) {
+        parts.pop();
+        note = parts.join(' · ');
+      }
+      // Even the peak alone can be too wide at 320px; drawing nothing beats drawing over the label.
+      if (ctx.measureText(note).width <= room) {
+        ctx.fillText(note, cssW - PLOT.right, mid - half + 7);
+      }
     });
 
     ctx.fillStyle = muted;

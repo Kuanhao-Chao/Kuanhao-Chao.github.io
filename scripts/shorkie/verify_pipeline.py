@@ -20,6 +20,10 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).parent))
 BASE_IDX = {"A": 0, "C": 1, "G": 2, "T": 3}
 SEQ_LEN, IN_CHANNELS, N_BINS, N_TRACKS = 16384, 170, 896, 5215
+# The packs are generated in PyTorch fp32 on MPS; this script re-derives through the shipped ONNX
+# fp16 graph on the CPU. They agree to ~5e-4 relative on coverage, which becomes ~1.4e-3 absolute
+# after differencing two log2 terms. Documented rather than tuned: it bounds a real disagreement.
+ENGINE_GAP = 1.4e-3
 GROUPS = [("chip_exo", 0, 1128), ("chip_mnase", 1128, 1148),
           ("rnaseq_tf", 1148, 4201), ("rnaseq_strain", 4201, 5215)]
 
@@ -126,6 +130,7 @@ def verify_ism(ort, Image) -> None:
     bases = "ACGT"
     idx = {b: i for i, b in enumerate(bases)}
     missing, zero_bad, worst = [], [], 0.0
+    widths_bad: list[str] = []
 
     for locus in loci["loci"]:
         meta_path = packs / f"{locus['id']}.json"
@@ -136,22 +141,30 @@ def verify_ism(ort, Image) -> None:
         a = np.asarray(Image.open(packs / f"{locus['id']}-ism.png")).astype(np.float64)
         lo = np.asarray(spec["lo"], dtype=np.float64)
         hi = np.asarray(spec["hi"], dtype=np.float64)
-        plane = lo[:, None] + (hi - lo)[:, None] * (a / 255.0)
+        plane = decode_ism(a, spec)
         start, width = spec["start"], spec["cols"]
+        if width != 16384:
+            widths_bad.append(f"{locus['id']}={width}")
         # The reference base's own cell is zero by construction -- but the pack is uint8 per row,
         # so zero decodes to within half a level of it. The tolerance is the row's OWN step, the
         # same bound the stage packs are checked against; a fixed epsilon flagged 4,343 cells that
         # were correct to the last bit the format can carry.
-        step = (hi - lo) / 255.0
+        # The tolerance is one uint8 level of THIS row measured in the decoded space, not in the
+        # packed one: a step near zero is far finer in signed-log than in linear, and using the
+        # packed step would pass a log plane that had lost the zero entirely.
+        one_level = decode_ism(np.full((4, 1), 1.0), spec) - decode_ism(np.zeros((4, 1)), spec)
+        step = np.abs(one_level[:, 0])
         for k in range(width):
             r = locus["sequence"][start + k].upper()
-            if r in idx and abs(plane[idx[r], k]) > step[idx[r]] * 0.75:
-                zero_bad.append(f"{locus['id']}@{start + k}={plane[idx[r], k]:.4f}")
+            if r in idx and abs(plane[idx[r], k]) > max(step[idx[r]] * 0.75, 1e-9):
+                zero_bad.append(f"{locus['id']}@{start + k}={plane[idx[r], k]:.4g}")
 
     check(not missing, "every locus carries a mutagenesis plane",
           f"{14 - len(missing)}/14" + (f", missing {missing[:3]}" if missing else ""))
     check(not zero_bad, "the reference base's own cell is zero to the pack's resolution",
           f"{len(zero_bad)} beyond a uint8 level" + (f": {zero_bad[:2]}" if zero_bad else ""))
+    check(not widths_bad, "every mutagenesis plane covers the whole 16,384 bp window",
+          "all 16,384" if not widths_bad else f"{widths_bad[:3]}")
 
     # Re-derive a sample against the graph, through the PAPER'S score: logSED on the 384 T0 tracks,
     # summed over the gene's own body bins, averaged over both strands. Two cells on two loci is
@@ -171,9 +184,7 @@ def verify_ism(ort, Image) -> None:
     for locus in loci["loci"][:2]:
         spec = json.loads((packs / f"{locus['id']}.json").read_text())["ism"]
         a = np.asarray(Image.open(packs / f"{locus['id']}-ism.png")).astype(np.float64)
-        lo = np.asarray(spec["lo"], dtype=np.float64)
-        hi = np.asarray(spec["hi"], dtype=np.float64)
-        plane = lo[:, None] + (hi - lo)[:, None] * (a / 255.0)
+        plane = decode_ism(a, spec)
         start, width = spec["start"], spec["cols"]
         g0, g1 = spec["geneBins"]
         r0, r1 = N_BINS - g1, N_BINS - g0
@@ -187,11 +198,18 @@ def verify_ism(ort, Image) -> None:
 
         x = encode(locus["sequence"], loci["speciesIndex"])
         ref_f, ref_r = cover(x, g0, g1), cover(rc(x), r0, r1)
-        for k in (11, width // 2):
+        # Sample the cells with SIGNAL, not fixed offsets. On the old 500 bp promoter windows any
+        # offset landed on a substantial effect; across the full 16,384 bp the median |logSED| is
+        # ~2e-4, so k=11 and k=width//2 both land in quiet sequence where a 0.02 tolerance is 100x
+        # the quantity being checked -- the check passed whatever the pack contained. Taking the
+        # strongest cell and a 99th-percentile cell puts the comparison where it can actually fail.
+        flat = np.argsort(np.abs(plane), axis=None)[::-1]
+        picks = [flat[0], flat[int(plane.size * 0.01)]]
+        for f in picks:
+            b, k = int(f // width), int(f % width)
             r = locus["sequence"][start + k].upper()
-            if r not in idx:
+            if r not in idx or b == idx[r]:
                 continue
-            b = (idx[r] + 1) % 4
             x[0, start + k, idx[r]] = 0.0
             x[0, start + k, b] = 1.0
             alt_f, alt_r = cover(x, g0, g1), cover(rc(x), r0, r1)
@@ -199,17 +217,20 @@ def verify_ism(ort, Image) -> None:
             x[0, start + k, idx[r]] = 1.0
             got = 0.5 * ((np.log2(alt_f + 1) - np.log2(ref_f + 1))
                          + (np.log2(alt_r + 1) - np.log2(ref_r + 1)))
-            worst = max(worst, abs(got - plane[b, k]))
-    # The bound is the uint8 floor: each row's range over 255.
-    check(worst < 0.02, "sampled cells re-derive as logSED from the graph",
-          f"worst {worst:.6f} over 4 real substitutions, both strands")
+            one = decode_ism(np.full((4, 1), 1.0), spec) - decode_ism(np.zeros((4, 1)), spec)
+            # Two independent floors, and both are real: the pack's own uint8 level for this row,
+            # and the engine gap -- the packs are PyTorch fp32 on MPS, this re-derivation is the
+            # shipped ONNX fp16 graph on the CPU, which agree to ~5e-4 relative on coverage and so
+            # to ~1.4e-3 absolute once two log2 terms are differenced.
+            tol = float(abs(one[b, 0])) + ENGINE_GAP
+            worst = max(worst, abs(got - plane[b, k]) / tol)
+    check(worst < 1.0, "sampled cells re-derive as logSED from the graph",
+          f"worst {worst:.2f}x the combined uint8-plus-engine floor, over 4 real substitutions")
 
     # The cross-method agreement, pinned so it cannot quietly stop being true.
     spec = json.loads((packs / "YDL219W.json").read_text())["ism"]
     a = np.asarray(Image.open(packs / "YDL219W-ism.png")).astype(np.float64)
-    lo = np.asarray(spec["lo"], dtype=np.float64)
-    hi = np.asarray(spec["hi"], dtype=np.float64)
-    plane = lo[:, None] + (hi - lo)[:, None] * (a / 255.0)
+    plane = decode_ism(a, spec)
     flat = int(np.argmin(plane))
     at = spec["start"] + flat % spec["cols"]
     dtd1 = next(f for f in next(l for l in loci["loci"] if l["id"] == "YDL219W")["features"]
@@ -227,8 +248,12 @@ def verify_ism(ort, Image) -> None:
     for k in range(spec["cols"]):
         base = dtd1_seq[spec["start"] + k].upper()
         if base in "ACGT":
-            col = plane[:, k]
-            sal[k] = (col - col.mean())["ACGT".index(base)]
+            j = "ACGT".index(base)
+            # Minus the sum of the three ALTERNATIVES over four -- identical to mean-centring when
+            # the reference cell is exactly zero, which it is on the raw plane but not on this
+            # decoded one. `ismSaliency` in shorkieModel.ts skips the reference row for that reason,
+            # and this check exists to verify what the page draws, so it must skip it too.
+            sal[k] = -(plane[:, k].sum() - plane[j, k]) / 4.0
     order = [int(spec["start"] + i) for i in np.argsort(-np.abs(sal))]
     ranks = [order.index(donor + j) + 1 for j in range(6)]
     # The six GTATGT bases must all rank near the top, and the top five must all be donor bases.
@@ -485,6 +510,22 @@ def verify_lm_packs(Image) -> None:
     check(cds_n > 0 and cds_above == cds_n,
           "coding sequence is MORE constrained at every locus, against the loss weighting",
           f"{cds_above}/{cds_n} above 1.0x -- exon_loss_scale=0.1 left no trace")
+
+
+def decode_ism(a: np.ndarray, spec: dict) -> np.ndarray:
+    """Decode a mutagenesis plane, honouring the space it was packed in.
+
+    Full-window planes span a far wider dynamic range than the old 500 bp promoter windows, so the
+    generator picks linear or signed-log per locus by whichever holds the DRAWN saliency better and
+    records the choice. Decoding a log plane linearly does not throw -- it yields a plausible plane
+    of the wrong magnitudes.
+    """
+    lo = np.asarray(spec["lo"], dtype=np.float64)[:, None]
+    hi = np.asarray(spec["hi"], dtype=np.float64)[:, None]
+    v = lo + (hi - lo) * (a / 255.0)
+    if spec.get("space") == "log":
+        return np.sign(v) * 1e-4 * (10.0 ** np.abs(v) - 1.0)
+    return v
 
 
 def verify_annotation() -> None:

@@ -372,13 +372,50 @@ test during development reported 0.016–0.087 — the full run is three times w
 is what a range measured on one locus is worth. Every region's own numbers are in the pack's
 `anchors`, and the panel prints the check beside the track.
 
-## Why mutagenesis is not a full-window track
+## Full-window mutagenesis, and why it was once refused
 
-A forward pass is **104 ms** and the ONNX batch axis is fixed at `[1, 16384, 170]`, so batching
-cannot help. 16,384 bp × 3 substitutions = 49,152 passes = **1.4 h a locus** on one strand,
-**39.6 h** for all fourteen on both. It stays on the promoter window, where its span is the point;
-the full window is covered by occlusion (256 passes, exact, measured) and by integrated gradients at
-single-base resolution.
+`make_ism.py` now covers all 16,384 bp on both strands: 98,304 forward passes a locus, 1,376,256 for
+all fourteen.
+
+An earlier round priced this at **39.6 h** and kept only the paper's ~500 bp promoter windows. That
+figure was measured through **onnxruntime on the CPU**, on a graph whose batch axis is pinned at
+`[1, 16384, 170]` — so it baked in both the slowest engine available and the impossibility of
+batching. Neither limit belongs to the model; the PyTorch port in this directory has neither.
+
+**The unit in that refusal was wrong, and the wrong unit outlived the wrong number.** The figures
+below are **per forward pass**, and every substitution costs *two* — the forward strand and the
+reverse, which is what `--rc` means. The old note read "104 ms a pass, 1.4 h a locus, 39.6 h for all
+fourteen", and those last two are not the same basis: 1.4 h is one strand
+(49,152 × 104 ms), while 39.6 h is fourteen loci × **both** strands. Fourteen times 1.4 is 19.6, not
+39.6. Both numbers were right; the pair was not.
+
+| engine | ms per **forward pass** |
+| --- | --- |
+| onnxruntime CPU (the recorded figure) | 104 |
+| PyTorch CPU, batch 1 | 127.5 |
+| PyTorch MPS, batch 1 | 23.1 |
+| PyTorch MPS, batch 32 | 13.1 |
+| PyTorch MPS, batch 32, head sliced to the 384 T0 tracks (benchmark) | 10.47 |
+| **the same, measured over the real fourteen-locus run** | **11.9** (10.1–16.0) |
+
+Measured over the run that produced the shipped packs: **23.8 ms a substitution, 19.5 min a locus,
+4.6 h for all fourteen** on both strands. The six fastest loci — those that ran with nothing else on
+the machine — average 10.7 ms a pass and 17.5 min a locus, i.e. **4.1 h**, so the 10.47 ms benchmark
+was right and the extra 0.5 h was contention from builds and Playwright audits running alongside.
+**Quote the rate you measured under the conditions you will run in, not a warm micro-benchmark.**
+
+MPS is not a precision compromise: against the CPU it agrees to **6.6e-07** relative, three orders of
+magnitude tighter than the fp16 ONNX graph the earlier packs were built from.
+
+Two things make it fast. The head is sliced to the 384 T0 columns before the run — softplus is
+elementwise and the discarded columns are never read, so the output is identical for 20% less
+arithmetic. And a mutant differs from the reference in **four floats**, so the batch tensors are
+allocated once on the device and mutated in place; rebuilding a `[32, 16384, 170]` batch would be
+356 MB of copying per batch, about as expensive as the forward pass it feeds.
+
+The run is resumable per locus, and the device is recorded in the metadata — a silent fall back to
+CPU turns a 4-hour run into a 12-hour one and the only symptom would be that it is still going in
+the morning.
 
 ## The drawn curve and the attributed quantity
 

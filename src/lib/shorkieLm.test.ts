@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   LM_SPEC, entropyBits, informationContent, constraintColumn, crossEntropyBits,
   dequantizeRow, renormalise, homopolymerFraction, beatsCompositionFloor, pca2,
+  regionConstraint,
 } from './shorkieLm';
 
 const UNIFORM = [0.25, 0.25, 0.25, 0.25];
@@ -180,5 +181,72 @@ describe('pca2', () => {
     const p = pca2(data, 30, 3);
     const mx = p.reduce((s, q) => s + q.x, 0) / p.length;
     expect(Math.abs(mx)).toBeLessThan(1e-8);
+  });
+});
+
+describe('regionConstraint — how constrained one gene is, against its window', () => {
+  /** A plane where `certain` positions are one-hot on the reference and the rest are uniform. */
+  function plane(n: number, certain: (i: number) => boolean, seq: string): Float64Array {
+    const out = new Float64Array(n * 4);
+    for (let i = 0; i < n; i += 1) {
+      const ref = 'ACGT'.indexOf(seq[i]);
+      for (let b = 0; b < 4; b += 1) {
+        out[i * 4 + b] = certain(i) ? (b === ref ? 1 : 0) : 0.25;
+      }
+    }
+    return out;
+  }
+  const seq = 'ACGT'.repeat(25);          // 100 bases
+
+  it('reads a fully determined span as 2 bits of IC and a uniform one as 0', () => {
+    const p = plane(100, (i) => i < 50, seq);
+    const hot = regionConstraint(p, seq, 0, 50);
+    const cold = regionConstraint(p, seq, 50, 100);
+    expect(hot?.meanIc).toBeCloseTo(2, 9);
+    expect(hot?.meanEntropy).toBeCloseTo(0, 9);
+    expect(cold?.meanIc).toBeCloseTo(0, 9);
+    expect(cold?.meanEntropy).toBeCloseTo(2, 9);
+  });
+
+  it('scores argmax against the reference base, not against the plane', () => {
+    // Every position one-hot on the reference: the model agrees everywhere.
+    expect(regionConstraint(plane(100, () => true, seq), seq, 0, 100)?.argmax).toBeCloseTo(1, 12);
+    // A uniform plane has a tie; argmax takes the first, which is the reference only at the A's.
+    expect(regionConstraint(plane(100, () => false, seq), seq, 0, 100)?.argmax).toBeCloseTo(0.25, 12);
+  });
+
+  it('reports the ratio against the WHOLE window, not against the span', () => {
+    // Half the window certain: window mean IC is 1, so the certain half is exactly 2x.
+    const p = plane(100, (i) => i < 50, seq);
+    const r = regionConstraint(p, seq, 0, 50);
+    expect(r?.windowMeanIc).toBeCloseTo(1, 9);
+    expect(r?.ratio).toBeCloseTo(2, 9);
+    // ...and the ratio is unchanged by which sub-span of the certain half you ask about.
+    expect(regionConstraint(p, seq, 10, 20)?.ratio).toBeCloseTo(2, 9);
+  });
+
+  it('clamps to the window and refuses an empty or inverted span', () => {
+    const p = plane(100, () => true, seq);
+    expect(regionConstraint(p, seq, -50, 20)?.bases).toBe(20);
+    expect(regionConstraint(p, seq, 90, 400)?.bases).toBe(10);
+    expect(regionConstraint(p, seq, 40, 40)).toBeNull();
+    expect(regionConstraint(p, seq, 60, 20)).toBeNull();
+    expect(regionConstraint(new Float64Array(0), '', 0, 10)).toBeNull();
+  });
+
+  it('returns 0 rather than Infinity when the window carries no constraint at all', () => {
+    // A uniform window has mean IC exactly 0, so the ratio has no denominator.
+    const r = regionConstraint(plane(100, () => false, seq), seq, 0, 10);
+    expect(r?.windowMeanIc).toBeCloseTo(0, 12);
+    expect(r?.ratio).toBe(0);
+    expect(Number.isFinite(r!.ratio)).toBe(true);
+  });
+
+  it('ignores a non-ACGT reference for argmax but still counts it for entropy', () => {
+    const s = `NN${'ACGT'.repeat(24)}NN`;             // 100 long, 4 unscoreable
+    const r = regionConstraint(plane(100, () => true, s), s, 0, 100);
+    // The N columns are all-zero, so renormalise makes them uniform: 96 certain, 4 at 0 bits.
+    expect(r?.argmax).toBeCloseTo(1, 12);             // scored only over the 96 real bases
+    expect(r?.meanIc).toBeCloseTo((96 * 2 + 4 * 0) / 100, 9);
   });
 });

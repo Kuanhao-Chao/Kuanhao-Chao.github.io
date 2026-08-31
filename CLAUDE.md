@@ -741,12 +741,19 @@ Two pages under one hub, both `bare`, both over the same fourteen windows and th
   model has never been asked to fill a 10 bp gap — the same positions under scattered masking come
   back 43% of the time. **Always report identity against the composition floor**, never against
   zero.
-- **The exon prediction fails and the repeat prediction holds.** `params.json` carries
-  `exon_loss_scale: 0.1` and `repeat_loss_scale: 0.1` against 1.0 otherwise — the model was trained
-  to care ten times less about both. Measured: coding sequence is **more** constrained in **14 of 14**
-  windows (mean 1.128×, range 1.041–1.266), while LTRs and transposons sit at **0.68–0.80×**. A loss
-  weight can discourage memorising a repeat; it cannot make a sequence constrained by the genetic
-  code look random. `verify_pipeline` §3f asserts the 14/14 rather than trusting the page.
+- **The exon prediction fails; the repeat half rests on three features and used to say otherwise.**
+  `params.json` carries `exon_loss_scale: 0.1` and `repeat_loss_scale: 0.1` against 1.0 otherwise —
+  the model was trained to care ten times less about both. Coding sequence is **more** constrained in
+  **14 of 14** windows (mean 1.128×, range 1.041–1.266); that half is solid, and
+  `verify_pipeline` §3f asserts it. The repeat half was written as "LTRs and transposons sit at
+  0.68–0.80×", which overstates it twice: the curated annotation for these fourteen windows contains
+  **no transposon features at all**, and exactly **three solo LTRs** (delta elements in the TDH3,
+  PGK1 and RPL26A windows). Three features in three windows is not a fourteen-window result, and
+  eleven windows can say nothing. All three do fall the same way, so the direction stands — the
+  *scope* was the error. A loss weight can discourage memorising a repeat; it cannot make a sequence
+  constrained by the genetic code look random. **`make_lm_summary.py` now recomputes both from the
+  packs and the cross-locus table prints `—` for a window with no LTR**, so the support is on the
+  page rather than in the sentence.
 - **The glyph is one em tall and the per-letter offsets are baked into the paths.** A first attempt
   divided by 1000 and re-applied `LOGO_OFFSETS`, which drew 581 letters at a millionth of their
   size: present in the DOM, `dataset.letters` correct, nothing on screen. Copy the transform in
@@ -759,6 +766,54 @@ Two pages under one hub, both `bare`, both over the same fourteen windows and th
   still let **12** through, because it ran on the playground route only while the hub and the LM page
   are different documents. It now walks all three. Site-wide there are **101 more on 22 older pages**
   (KaTeX `log<span>` filtered out), which are pre-existing and untouched.
+
+- **All fourteen windows are selectable, and the page shipped for a round with thirteen of them
+  unreachable.** `locusIndex` was pinned at 0 while the complete packs for every locus were already
+  on disk (`public/lm-data/`, 2.3 MB, 169 KB a locus) and `load(index)` was already parameterised —
+  only a control was missing. Meanwhile the prose stated **per-locus** numbers as page-wide facts:
+  masked argmax runs **41.3% (GAL1) to 46.3% (FUN12)** and perplexity 3.23 to 3.50, so the
+  disclosure's "43.00%" was TDH3's alone. **Check whether a number varies per locus before writing
+  it into prose that a locus switch will sit underneath.**
+
+- **The LM's annotation drew every gene as one `fillRect`, so every intron was painted as exon.**
+  Exactly the defect the expression page had fixed; the two pages were making contradictory claims
+  about the same coordinates on the seven windows that contain an intron. The renderer now lives in
+  **`src/scripts/geneTrack.ts`** and both pages import it, so they cannot diverge again. The tally is
+  still counted inside the drawing loop and published as `dataset.lmGeneTrack` / `vpGeneTrack` — a
+  canvas has no elements to inspect, so an intron painted as an exon is invisible to every other
+  check. Verified live: introns drawn are 1/1/1/1/1/1/3 on ACT1, GAL3, RPL26A, KRE33, DTD1, MMS2 and
+  HOP2, matching what the gene models contain.
+
+- **`host.dataset.lmLocus` already existed, so a `data-lm-locus` select collided with it.** The root
+  `.vp` element publishes the loaded locus under that name and the audit waits on it; adding a select
+  with the same attribute made `[data-lm-locus] option` match 28 options and `selectOption` resolve
+  to a `<div>`. The select is `data-lm-pick-locus`. **Grep the dataset writes, not just the markup,
+  before naming a new hook** — a `dataset.x = …` never appears as `data-x` in the source.
+
+- **A region on this page scopes statistics, because there is no traceback to scope.** The expression
+  page's regions drive attribution; constraint here is per-base and unconditional, so a gene
+  selection instead reports that gene's mean IC against its window's via `regionConstraint`
+  (`src/lib/shorkieLm.ts`, tested). It reads as a real result: the window's own gene runs **2.0–3.0×**
+  the window mean for the glycolytic loci (TDH3 2.76, PGK1 2.80, ADH1 2.99) but **below 1** for GAL3
+  (0.81×) and MMS2 (0.94×).
+
+- **The lane and tier toggles drive the DRAWING only — never the enrichment table.** Tying the table
+  to them hid the three-tier comparison on the expression page, and that comparison is the finding
+  rather than a display option. It was wired to both here for one commit; the audit now asserts the
+  table's row count is unchanged when a tier is toggled off.
+
+- **The cross-locus table is precomputed, and the two implementations agree because of a fact about
+  257.** `weightedEnrichment` runs 256 circular shifts per class, so fourteen loci live would mean
+  fetching every plane and running ~25,000 passes in the browser.
+  `scripts/shorkie/make_lm_summary.py` reimplements the statistic and the null in Python — and
+  JavaScript rounds halves up where Python rounds them to even. At n = 16,384 and k = 256 there are
+  **no exact halves** (257 is prime and does not divide 16,384), so the offsets are identical;
+  verified live, the two agree to ≤3e-4, which is the display rounding. **Change either constant and
+  that has to be rechecked, not assumed.**
+
+- **A canvas caption has no `overflow` to report and no element to inspect.** The IC caption ran off
+  the right edge at 320px and rendered as "… iteratively maske", which reads as a typo rather than a
+  clipped line. Four tiers chosen by `measureText`, the same fix the expression page already carries.
 
 ### The Live Variant Playground (`/shorkie-lab/shorkie/`, formerly `/variant-playground/`)
 
@@ -1082,6 +1137,79 @@ Keras checkpoint, ported and exported, producing the same numbers the paper's mo
   number.** The class figure's caption said "the dots are the individual windows" before any dots
   were drawn.
 
+#### Full-window mutagenesis (all 16,384 bp, both strands, all fourteen)
+
+- **The packs are now the whole window**, `[4 x 16,384]` per locus, rc-averaged logSED on the
+  window's own gene body, and mutagenesis is the page's PRIMARY logo with gradient x input demoted.
+  Before this, the ISM pack covered ~500 bp and the logo opened **1,100-1,600 bp away from it** on
+  TDH3 and ACT1 — it drew **zero letters** on those loci. All fourteen now draw 147-150.
+
+- **The old 500 bp window was well chosen and still missed a great deal.** It is 3.1% of the
+  sequence and holds a median **17.6%** of total |logSED| — 5.7x enriched, so the promoter really is
+  where the signal is. But **4 of 14 loci have their strongest substitution outside it**: TDH3
+  (-955 from the TSS), ACT1 (-1,212), RPL26A (+442) and HOP2, whose +1.3815 is the largest effect in
+  the whole set and sat outside its own *published* window.
+
+- **The sign of the strongest substitution is predicted by expression state in 14/14 loci, and it is
+  not a scale artefact.** The three genes repressed in the T0 (glucose, vegetative) baseline —
+  HOP2, GAL3, GAL1 — are the only three with a POSITIVE strongest substitution (+1.38, +1.12, +0.78)
+  and 20-33 of their top 40 positive; the other eleven are all negative with 0-11 of 40 positive.
+  The obvious objection is baseline: logSED is a log ratio, and those three have the lowest reference
+  coverage (77, 213, 502 against up to 48,547), where a given absolute change moves logSED **161x**
+  more than at TDH3. **The data answers it**: DTD1 (baseline 299) and MMS2 (556) sit in the same
+  range as GAL3 (213) and GAL1 (502) and are firmly NEGATIVE. Two pairs at matched baselines with
+  opposite signs — the sign tracks regulation, not scale.
+
+- **The relative and absolute orderings are inverted, and both are true.** As a fraction of its own
+  baseline the biggest lever is HOP2's **+160%**; in absolute predicted coverage HOP2's best
+  substitution is worth **+125** while PDC1's costs **-8,841**, seventy times more. logSED is
+  deliberately a ratio — that is what makes a silent promoter and a maximal one comparable — so
+  quote it as one, and never say "a stronger effect" without saying stronger *relative to what*.
+
+- **DTD1's splice donor now dominates the entire window.** Across all 16,384 positions the most
+  damaging substitution is exactly `exons[0][1]` (bp 8165), the intron opens `GTATGT`, and the
+  donor's six bases take ranks **1, 2, 3, 4, 5, 9 of 16,384**. `verify_pipeline` asserted this over
+  197 bp before; it is the same assertion over 83x the sequence.
+
+- **A packing criterion chosen on ABSOLUTE error picks linear and destroys the quiet 62% of a full
+  window.** Absolute saliency error is set by the handful of loud splice sites, which linear uint8
+  serves perfectly — while giving the MEDIAN cell **0.54 quantisation levels**. The criterion is now
+  the error relative to a **local** max over the logo's own 150 bp window, which is the scale a
+  reader actually sees, and all fourteen loci choose **log** at 2.2-3.3% local error. Validated by
+  reproducing the mistake on a synthetic heavy-tailed plane: the old criterion picks linear at 41%
+  local error, the new one picks log at 2.6%.
+
+- **Keep the raw float plane.** The first run kept only its uint8 pack, the packing space turned out
+  to be wrong, and there was no way back except a re-run. `_scratch/ism-raw/<id>-ism.npy` (gitignored)
+  plus `make_ism.py --repack` now re-quantises all fourteen in seconds with no model and no GPU —
+  which is also how the shipped metadata comes from the current code rather than from whatever
+  revision happened to generate each locus.
+
+- **Resumability has to match the interruption granularity.** Per-LOCUS resume was right until three
+  interruptions each discarded a partly finished locus at ~17 min a piece. A checkpoint every 200
+  batches (~2.2 min) written atomically makes a restart cost minutes. **`np.savez` APPENDS `.npz`
+  when the name lacks it**, so a `.npz.tmp` temp file is written as `.npz.tmp.npz` and the rename
+  fails on a path that never existed — name the temp file `*.tmp.npz`.
+
+- **`nohup`-style exit codes lie, again.** A run that died on that `np.savez` bug was reported by the
+  task notification as "completed (exit code 0)" — the shell wrapper succeeded, the work did not.
+  The log said `exit: 1`. **Confirm the verdict line, never the exit code.**
+
+- **A cost is a property of the harness until proven otherwise, but so is the unit.** The recorded
+  refusal was "104 ms a pass, 1.4 h a locus, 39.6 h for all fourteen" — and the last two are
+  different bases (1.4 h is ONE strand; 14 x 1.4 = 19.6, not 39.6). The replacement figure inherited
+  the confusion: 10.47 ms was quoted "a substitution" when it is **a forward pass**, and a
+  substitution costs two because every published run is rc-averaged. Measured end to end:
+  **11.9 ms a pass, 23.8 ms a substitution, 19.5 min a locus, 4.6 h for fourteen** (4.1 h on the six
+  loci that ran with nothing else on the machine).
+
+- **The ISM row answers a different question from the four beside it.** Mutagenesis is scored on the
+  window's own gene body; gradient x input, IG, rollout and occlusion are conditioned on the traced
+  region. On the shared strip they therefore peak over different parts of the axis, so the row's
+  label now names its scoring target. Method-strip notes also drop trailing clauses until they fit —
+  a right-aligned note and a left-aligned label on one baseline simply overlap at 320px, and a canvas
+  has no `overflow` to report it.
+
 #### The yeast annotation layer
 
 - **`make_annotations.py` refuses to write unless the window IS sacCer3 at its stated coordinates.**
@@ -1394,11 +1522,35 @@ earlier assumptions did not survive reading it.
 
 #### Conventions, costs, and what every panel collapses
 
-- **Full-window single-base mutagenesis is not affordable, and the number is worth keeping.** A
-  forward pass is **104 ms** and the ONNX batch axis is fixed at `[1, 16384, 170]`, so batching
-  cannot rescue it: 16,384 × 3 substitutions is **1.4 h a locus** one strand and **39.6 h** for all
-  fourteen both strands. Mutagenesis therefore stays on its promoter window and is not a track on
-  the full-window coverage strip, where it spanned 3 % of the axis.
+- **"Full-window mutagenesis is not affordable" was wrong by an order of magnitude, and the way it
+  was wrong is the lesson.** The recorded refusal — 104 ms a pass, **1.4 h a locus, 39.6 h for all
+  fourteen** (and those two are not the same basis: 1.4 h is ONE strand, 39.6 h is fourteen loci ×
+  BOTH; 14 × 1.4 = 19.6. Both numbers right, the pair wrong) — was measured through *onnxruntime on the CPU*, on a graph whose batch axis is pinned
+  at `[1, 16384, 170]`. It therefore baked in both the slowest engine available and the
+  impossibility of batching, and then read as a property of the model. Neither limit belongs to the
+  model: the PyTorch port in the same directory has no fixed batch axis, and the machine has a GPU.
+  Re-measured on an M1 Pro: **104 → 127.5 (torch CPU) → 23.1 (MPS b1) → 13.1 (MPS b32) → 10.47
+  ms per FORWARD PASS** with the head sliced to the 384 T0 columns — not per substitution, which
+  costs two passes because every published run is rc-averaged. The real fourteen-locus run measured
+  **11.9 ms a pass / 23.8 ms a substitution / 19.5 min a locus / 4.6 h total**; the six loci that ran
+  with nothing else on the machine averaged 10.7 ms and 17.5 min, i.e. 4.1 h, so the benchmark was
+  right and the rest was contention from concurrent builds and Playwright audits. **Quote the rate
+  measured under the conditions you will run in.**** Mutagenesis is now the page's primary logo and a full-window method track.
+  **Before quoting a cost as a reason not to do something, check whether it is a cost of the model
+  or of the harness it was measured through.**
+- **MPS is not a precision compromise here.** Against the CPU on the same input: max relative
+  **6.6e-07**, same argmax bin — three orders of magnitude tighter than the fp16 ONNX graph
+  (4.98e-04) the earlier packs were built from. Switching engines *improved* the numbers.
+- **Slicing the head to the tracks actually scored is free accuracy and 20 % speed.** The head is
+  `Linear(384 → 5,215)` but only the 384 `_T0_` columns are ever read; softplus is elementwise, so
+  the sliced output is identical. It also removes the `(tracks, bins)` indexing trap that once
+  shipped in `make_ism.py` — after slicing, every column is a T0 track and no fancy indexing is
+  needed at all.
+- **A mutant differs from the reference in four floats.** Allocate the batch on the device once and
+  mutate in place; rebuilding a `[32, 16384, 170]` batch is 356 MB of copying per batch, about as
+  expensive as the forward pass it feeds. The reverse strand is kept as its own persistent tensor
+  and edited at the mirrored position with the complemented base, which is exact and avoids
+  reverse-complementing 32 windows a batch.
 - **Every input-space method is rc-averaged; the relevance margins deliberately are not.** Borzoi
   averages both strands and every published Shorkie ISM run passes `--rc`, so gradient × input,
   integrated gradients, occlusion and mutagenesis all do. The per-stage relevance margins do not:

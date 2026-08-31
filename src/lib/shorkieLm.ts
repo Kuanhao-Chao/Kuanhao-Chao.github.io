@@ -217,3 +217,79 @@ export function pca2(data: ArrayLike<number>, n: number, d: number): { x: number
   }
   return out;
 }
+
+/** Constraint over one span, against the whole window it sits in. */
+export interface RegionConstraint {
+  /** Mean information content, 2 - H, over the span. */
+  meanIc: number;
+  /** Mean entropy in bits over the span. */
+  meanEntropy: number;
+  /** Fraction of the span where the model's most likely base IS the reference base. */
+  argmax: number;
+  bases: number;
+  /** The same mean IC over all 16,384 positions, so the two are directly comparable. */
+  windowMeanIc: number;
+  /** `meanIc / windowMeanIc`: above 1 means the span is more constrained than its window. */
+  ratio: number;
+}
+
+/**
+ * How constrained one gene is, relative to the window it sits in.
+ *
+ * The LM's constraint signal is per-base and unconditional, so unlike the expression page there is
+ * no traceback to scope -- what a region selection can do instead is ask whether THIS stretch is
+ * more determined by its context than the window at large. Reported as a ratio because the absolute
+ * mean IC is low everywhere (~0.22 bits on a 0-2 axis) and differences between windows are larger
+ * than differences within one, so a bare number invites comparing across loci when it should not be.
+ *
+ * `plane` is position-major, four probabilities per position, exactly as the packs decode.
+ * Returns null for an empty or out-of-range span rather than a zero-length average.
+ */
+export function regionConstraint(
+  plane: ArrayLike<number>,
+  sequence: string,
+  start: number,
+  end: number,
+): RegionConstraint | null {
+  const total = Math.floor(plane.length / 4);
+  const a = Math.max(0, Math.min(total, Math.floor(start)));
+  const b = Math.max(a, Math.min(total, Math.ceil(end)));
+  if (b <= a || total === 0) return null;
+
+  let icSum = 0;
+  let entSum = 0;
+  let hits = 0;
+  let scored = 0;
+  for (let p = a; p < b; p += 1) {
+    const q = renormalise([plane[p * 4], plane[p * 4 + 1], plane[p * 4 + 2], plane[p * 4 + 3]]);
+    const h = entropyBits(q);
+    entSum += h;
+    icSum += 2 - h;
+    const ref = BASES.indexOf((sequence[p]?.toUpperCase() ?? 'N') as Base);
+    if (ref >= 0) {
+      scored += 1;
+      let top = 0;
+      for (let i = 1; i < 4; i += 1) if (q[i] > q[top]) top = i;
+      if (top === ref) hits += 1;
+    }
+  }
+
+  let windowIc = 0;
+  for (let p = 0; p < total; p += 1) {
+    windowIc += 2 - entropyBits(
+      renormalise([plane[p * 4], plane[p * 4 + 1], plane[p * 4 + 2], plane[p * 4 + 3]]),
+    );
+  }
+  const n = b - a;
+  const windowMeanIc = windowIc / total;
+  const meanIc = icSum / n;
+  return {
+    meanIc,
+    meanEntropy: entSum / n,
+    argmax: scored ? hits / scored : 0,
+    bases: n,
+    windowMeanIc,
+    // A window whose mean IC is zero cannot produce a meaningful ratio; report 0 rather than Infinity.
+    ratio: windowMeanIc > 0 ? meanIc / windowMeanIc : 0,
+  };
+}

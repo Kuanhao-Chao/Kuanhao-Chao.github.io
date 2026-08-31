@@ -1121,8 +1121,13 @@ export function ismSaliency(plane: ArrayLike<number>, width: number, sequence: s
     const ref = BASES.indexOf((sequence[start + k] ?? 'N').toUpperCase() as Base);
     if (ref < 0) continue;
     let sum = 0;
-    for (let b = 0; b < 4; b += 1) sum += Number(plane[b * width + k]) || 0;
-    // The reference cell is zero by construction, so the sum IS the sum over the three alternatives.
+    // Sum the three ALTERNATIVES, skipping the reference row. The reference cell is zero by
+    // construction, so on a raw plane including it changes nothing -- but a decoded plane is uint8,
+    // and a log-packed one puts the reference cell within half a level of zero rather than on it.
+    // Including that cell adds its quantisation noise to every position for no information; the
+    // generator's own saliency() skips it the same way, so the drawn quantity and the quantity
+    // whose packing error is measured are the same function.
+    for (let b = 0; b < 4; b += 1) if (b !== ref) sum += Number(plane[b * width + k]) || 0;
     out[k] = -sum / 4;
   }
   return out;
