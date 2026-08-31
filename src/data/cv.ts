@@ -313,17 +313,20 @@ export const sideProjects: SideProject[] = [
   },
   {
     name: 'Biobaby',
-    detail: 'Unity WebGL game',
+    detail:
+      'Superhero action platformer — guide the cape-wearing molecular baby through cellular obstacle courses with finger-gun projectile blasts and tactile platforming',
     url: 'https://storage.googleapis.com/storage.khchao.com/biobaby/index.html',
   },
   {
     name: 'Flappy Penguin',
-    detail: 'Unity WebGL game',
+    detail:
+      'Arctic flight side-scroller — flap past floating glacial columns, crystalline icebergs, and turbulent blizzard drafts in a high-precision arcade obstacle run',
     url: 'https://storage.googleapis.com/storage.khchao.com/flappy_penguin/index.html',
   },
   {
     name: 'Tank Fire',
-    detail: 'Unity WebGL game',
+    detail:
+      'Tactical real-time armor combat — maneuver chunky stylised battle tanks across cratered battlefields, lead cannon shots, and destroy enemy armored divisions',
     url: 'https://storage.googleapis.com/storage.khchao.com/tanks_fire/index.html',
   },
 ];
