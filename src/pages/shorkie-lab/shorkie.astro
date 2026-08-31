@@ -158,7 +158,8 @@ const breadcrumbLd = buildBreadcrumbLd([
             <input class="vp-range" type="range" min="0" max="1000" value="500" data-vp-logo-pan
                    style="flex:1;min-width:9rem" aria-label="Position of the sequence logo window" />
             <select class="vp-select" data-vp-logo-source aria-label="Attribution source">
-              <option value="grad" selected>gradient × input</option>
+              <option value="ism" selected>mutagenesis (ISM) — the paper's</option>
+              <option value="grad">gradient × input</option>
               <option value="ig">integrated gradients</option>
               <option value="occl">occlusion</option>
             </select>
@@ -181,16 +182,54 @@ const breadcrumbLd = buildBreadcrumbLd([
             <strong>Two sources, and they are not the same method.</strong> <em>Mutagenesis</em> is the
             paper's Figure 4 quantity: every substitution actually run, then mean-centred across the
             four bases and projected on the reference, so the height reads as “how much the base that
-            is <em>there</em> matters” rather than “what this one substitution did”. It covers the
-            promoter window only — a full-window single-base mutagenesis is 1.4 h a locus and 39.6 h
-            for all fourteen, measured — so outside that window the panel says so rather than quietly
-            drawing something else. <em>Gradient × input</em> is a local linear
+            is <em>there</em> matters” rather than “what this one substitution did”. It now covers{' '}
+            <strong>every base of the window</strong> — all 49,152 substitutions per locus, on both
+            strands — so it is the primary track here and needs no caveat about where it stops.{' '}
+            <em>Gradient × input</em> is a local linear
             sensitivity — it is identically zero at the three bases not present, because the input is
             one-hot, so it draws one letter per position. <strong>The paper's published figures use no
             gradients at all</strong>; its single gradient routine is unreached scaffolding that still
             declares a 4-channel input the 170-channel model cannot accept. Gradient × input is here
             because it is instant, not because it is what the paper did.
           </p>
+          <p class="vp-notes" style="margin:0.35rem 0 0;">
+            <strong>What the whole window shows that a promoter window cannot.</strong> Running all
+            16,384 bp on both strands for every locus makes one result visible that no single window
+            does: <strong>the sign of the strongest substitution is predicted by the gene's
+            expression state in 14 of 14 windows</strong>. The three genes repressed in this
+            baseline — <em>HOP2</em> (meiosis-specific), <em>GAL3</em> and <em>GAL1</em> (galactose
+            regulon, in glucose) — are the only three whose largest substitution <em>raises</em>{' '}
+            predicted expression (+1.38, +1.12, +0.78 logSED, with 20–33 of their top 40 positive).
+            The other eleven are all negative. For a gene already being transcribed the model's
+            biggest lever is breaking what drives it; for a silent one it is breaking what holds it
+            down.
+          </p>
+                <details class="vp-how">
+            <summary>Why that is not just an artefact of the log scale</summary>
+            <div class="vp-how-body">
+              <p><strong>The objection.</strong> logSED is a log ratio, and those three genes have
+              by far the lowest baseline coverage — 77, 213 and 502 against up to 48,547. A given
+              absolute change in predicted coverage moves logSED <strong>161×</strong> more at GAL3
+              than at TDH3, so low-baseline genes should show large log effects whatever the biology.</p>
+              <p><strong>The control, from the data itself.</strong> Baseline does not separate the
+              two groups cleanly, and where it overlaps the sign still tracks regulation:{' '}
+              <em>DTD1</em> (baseline 299) and <em>MMS2</em> (556) sit between GAL3 (213) and GAL1
+              (502), and both are firmly <strong>negative</strong> (−0.45, −0.42). Two pairs at
+              matched baselines with opposite signs — so the sign is about regulation, not scale.</p>
+              <p><strong>The magnitude is a different matter, and the orderings invert.</strong> As a
+              fraction of its own baseline the largest lever on the page is HOP2's{' '}
+              <strong>+160%</strong>. In absolute predicted coverage HOP2's best substitution is
+              worth <strong>+125</strong> while PDC1's costs <strong>−8,841</strong>, seventy times
+              more. Neither reading is wrong; they answer different questions. logSED is deliberately
+              a ratio — that is what makes a silent promoter and a maximal one comparable — so
+              "a stronger effect" is meaningless here without saying stronger relative to what.</p>
+              <p><strong>What the old 500 bp window would have missed.</strong> It covers 3.1% of the
+              sequence and holds a median <strong>17.6%</strong> of the window's total |logSED| —
+              genuinely well chosen, 5.7× enriched. But the strongest substitution falls{' '}
+              <em>outside</em> it in 4 of the 14 windows, including HOP2's +1.38, the largest effect
+              in the whole set.</p>
+            </div>
+          </details>
                 <details class="vp-how">
             <summary>How the logo is drawn, and why only one letter appears per position</summary>
             <div class="vp-how-body">
@@ -338,11 +377,19 @@ const breadcrumbLd = buildBreadcrumbLd([
             3,053-track RNA-seq group mean; every attribution scores the 384 <code>_T0_</code> subset
             the paper uses. Measured, the two correlate at <code>r = 1.0000</code> and differ by 1% at
             the peak, so the distinction does not affect reading — but it is a distinction.</p>
-            <p><strong>Why there is no mutagenesis track here.</strong> Single-base mutagenesis over
-            the full window is 16,384 × 3 substitutions; a forward pass is 104 ms and the ONNX batch
-            axis is fixed at 1, so that is 1.4 h a locus one strand and <strong>39.6 h</strong> for all
-            fourteen both strands. It lives in the logo panel instead, over the promoter window, where
-            its span is the point rather than a gap.</p>
+            <p><strong>What full-window mutagenesis costs, and why it was once refused.</strong>{' '}
+            16,384 × 3 substitutions on both strands is 98,304 forward passes a locus and 1,376,256
+            for all fourteen. An earlier round priced that at <strong>39.6 h</strong> and dropped it
+            — but that was measured through <em>onnxruntime on the CPU</em>, on a graph whose batch
+            axis is pinned at 1, so it baked in both the slowest engine available and the
+            impossibility of batching. Neither limit belongs to the model. Re-measured on the same
+            machine's GPU at batch 32, with the output head sliced to the 384 tracks actually scored:{' '}
+            <strong>10.47 ms a forward pass</strong> — and a substitution costs two of them, because
+            every published Shorkie run averages both strands. Measured over the run that produced
+            the packs on this page: <strong>23.8 ms a substitution, 19.5 minutes a locus,
+            4.6 h for all fourteen</strong>. The numbers on this page are that run. The engine change is not a precision compromise either — against the
+            CPU the GPU agrees to 6.6 × 10⁻⁷ relative, three orders of magnitude tighter than the
+            fp16 graph the earlier packs were built from.</p>
           </div>
         </details>
           <p class="vp-notes" style="margin:0.4rem 0 0;">

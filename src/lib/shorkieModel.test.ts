@@ -2041,6 +2041,23 @@ describe('ismSaliency — the paper\'s transform, off the shipped plane', () => 
     expect(ismSaliency(plane(1, [[0.4, 0.4, 0.4]]), 1, 'A', 0)[0]).toBeLessThan(0);
   });
 
+  it('ignores whatever sits in the reference row, which a decoded pack does not zero exactly', () => {
+    // The raw plane has the reference cell at exactly zero, but the shipped pack is uint8 per row
+    // and a log-packed plane decodes it to within half a level of zero rather than onto it. The
+    // transform is minus the sum of the three ALTERNATIVES over four, so that residue must not
+    // reach the drawing. Folding it in would add packing noise to every position in the window.
+    const clean = new Float64Array(4);
+    const noisy = new Float64Array(4);
+    for (const p of [clean, noisy]) {
+      p['ACGT'.indexOf('C')] = -0.4;
+      p['ACGT'.indexOf('G')] = -0.3;
+      p['ACGT'.indexOf('T')] = -0.5;
+    }
+    noisy['ACGT'.indexOf('A')] = 3.7e-3;      // the reference row, off zero by a uint8 level
+    expect(ismSaliency(clean, 1, 'A', 0)[0]).toBeCloseTo(0.3, 12);
+    expect(ismSaliency(noisy, 1, 'A', 0)[0]).toBeCloseTo(0.3, 12);
+  });
+
   it('leaves a non-ACGT position at zero rather than guessing a reference', () => {
     expect(ismSaliency(new Float64Array(4).fill(1), 1, 'N', 0)[0]).toBe(0);
   });

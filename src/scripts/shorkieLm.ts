@@ -17,14 +17,31 @@ import {
   type Base, type AnnotationFeature,
 } from '../lib/shorkieModel';
 import {
-  LM_SPEC, entropyBits, informationContent, constraintColumn, crossEntropyBits,
+  LM_SPEC, entropyBits, informationContent, constraintColumn, crossEntropyBits, regionConstraint,
   dequantizeRow, renormalise, homopolymerFraction, pca2,
 } from '../lib/shorkieLm';
 import loci from '../data/shorkieLoci.json';
+import lmSummary from '../data/shorkieLmSummary.json';
+import { drawGeneRows, type GeneTrackFeature } from './geneTrack';
 
 const SEQ_LEN = LM_SPEC.seqLength;
 const PLOT = { left: 46, right: 10 };
+/** Fewest annotated bases inside a gene for a within-gene enrichment ratio to be worth printing. */
+const MIN_REGION_BASES = 30;
+/** Below this many features a cross-locus enrichment ratio is muted: it is a draw, not a measurement. */
+const LOW_N_FEATURES = 10;
 const LOCI = loci.loci as any[];
+
+/**
+ * bp -> x, the page's single horizontal coordinate.
+ *
+ * Every track on this page is stacked under every other, so a reader reads down a column expecting
+ * one bp. The expression page shipped two closures that disagreed by up to 1,024 bp; one helper is
+ * how that cannot happen here.
+ */
+function xOfBp(bp: number, width: number): number {
+  return PLOT.left + (bp / SEQ_LEN) * (width - PLOT.left - PLOT.right);
+}
 
 interface RowSpec { rows: number; cols: number; space: 'linear' | 'log'; lo: number[]; hi: number[] }
 interface MotifRow {
@@ -71,6 +88,9 @@ export function initShorkieLm(host: HTMLElement): { destroy: () => void } {
   const motifTable = $<HTMLTableElement>('[data-lm-motifs]');
   const enrichTable = $<HTMLTableElement>('[data-lm-enrichment]');
   const baseGrid = $<HTMLElement>('[data-lm-base]');
+  const locusSelect = $<HTMLSelectElement>('[data-lm-pick-locus]');
+  const regionSelect = $<HTMLSelectElement>('[data-lm-region]');
+  const regionStat = $<HTMLElement>('[data-lm-region-stat]');
 
   let meta: LmMeta | null = null;
   let masked: Float64Array | null = null;      // [16384 x 4]
@@ -80,6 +100,39 @@ export function initShorkieLm(host: HTMLElement): { destroy: () => void } {
   let locusIndex = 0;
   let logoWindow = { start: 7900, width: 150 };
   let selectedBase = -1;
+  /** The gene the region stepper is on, by systematic name; null means the whole window. */
+  let selectedGene: string | null = null;
+
+  // Same defaults as the expression page: every lane on, and of the three binding-site tiers only
+  // ChIP-supported. The conserved-only tier is ~8x larger and the PWM scan larger again -- 1.4 hits
+  // a base -- so showing all three by default buries the genes under the weakest evidence.
+  const annLanesOn: Record<string, boolean> = {
+    gene: true, rna: true, element: true, tfbs: true, regulatory: true,
+  };
+  const motifTiersOn: Record<string, boolean> = {
+    chip: true, conserved: false, pwm: false, paper: true,
+  };
+
+  /**
+   * A record with no tier is not a binding-site claim (a gene, an ARS) and is governed only by its
+   * lane. A record WITH one is governed by its tier: the three tiers are three different strengths
+   * of evidence and must not be toggled together.
+   */
+  function visibleAnnotations(): AnnotationFeature[] {
+    return annotations.filter((f) => {
+      const info = ANNOTATION_CLASSES[f.cls];
+      if (!info || !annLanesOn[info.lane]) return false;
+      const tier = motifTier(f);
+      return tier === null || motifTiersOn[tier];
+    });
+  }
+
+  /** The selected region's gene model, or null when the selection is the whole window. */
+  function selectedFeature(): GeneTrackFeature | null {
+    if (!selectedGene) return null;
+    return (LOCI[locusIndex].features as GeneTrackFeature[])
+      .find((f) => f.name === selectedGene) ?? null;
+  }
 
   const css = (name: string, fallback: string) =>
     getComputedStyle(host).getPropertyValue(name).trim() || fallback;
@@ -243,6 +296,18 @@ export function initShorkieLm(host: HTMLElement): { destroy: () => void } {
     }
     ctx.stroke();
 
+    // The selected gene, behind the curve, so the span the numbers in the bar describe is visible
+    // on the drawing. Drawn before the brush band and fainter, because the two are different
+    // things: this is the region being measured, that is the window being zoomed.
+    const selIc = selectedFeature();
+    if (selIc) {
+      ctx.fillStyle = css('--vp-orf', '#6f62a8');
+      ctx.globalAlpha = 0.08;
+      const gx = xOfBp(selIc.txStart, cssW);
+      ctx.fillRect(gx, 0, Math.max(xOfBp(selIc.txEnd, cssW) - gx, 1), cssH);
+      ctx.globalAlpha = 1;
+    }
+
     // The brushed window, painted behind nothing -- it is a marker, not data.
     ctx.fillStyle = accent;
     ctx.globalAlpha = 0.12;
@@ -267,40 +332,63 @@ export function initShorkieLm(host: HTMLElement): { destroy: () => void } {
         PLOT.left + (bp / SEQ_LEN) * inner, cssH - 12);
     }
     ctx.textAlign = 'left';
-    ctx.fillText(
-      `${meta?.gene ?? ''} · information content, 2 − H(p) · ${passEl?.value === 'unmasked'
-        ? 'unmasked pass' : `iteratively masked, K=${meta?.k ?? 7}`}`
-      + ' · band is min–max within each pixel column, line is the mean',
-      PLOT.left, cssH - 2);
+    // Tiers chosen by measureText, not a fixed string. A canvas caption has no `overflow` to report
+    // and no element to inspect, so at 320px the single long form simply ran off the right edge and
+    // rendered as "... iteratively maske" -- which reads as a typo rather than as a clipped line.
+    const pass = passEl?.value === 'unmasked'
+      ? 'unmasked pass' : `iteratively masked, K=${meta?.k ?? 7}`;
+    const gene = meta?.gene ?? '';
+    const caption = [
+      `${gene} · information content, 2 − H(p) · ${pass}`
+        + ' · band is min–max within each pixel column, line is the mean',
+      `${gene} · information content, 2 − H(p) · ${pass}`,
+      `${gene} · 2 − H(p) · ${pass}`,
+      `${gene} · 2 − H(p)`,
+    ].find((s) => PLOT.left + ctx.measureText(s).width <= cssW - PLOT.right) ?? gene;
+    ctx.fillText(caption, PLOT.left, cssH - 2);
     icCanvas.dataset.lmIc = '1';
   }
 
-  /** The curated annotation, on the same axis, so constraint can be read against biology. */
+  /**
+   * The curated annotation, on the same axis, so constraint can be read against the biology.
+   *
+   * Genes go through `drawGeneRows` -- the SAME renderer the expression page uses -- rather than
+   * being filled as one rectangle from txStart to txEnd. That is not a cosmetic difference: a
+   * plain rectangle paints a solid bar over every intron, and eight of the fourteen windows have
+   * one. The two pages would otherwise be making contradictory claims about the same coordinates.
+   */
   function renderAnnotation(): void {
     if (!annCanvas) return;
+    const locus = LOCI[locusIndex];
     const cssW = annCanvas.clientWidth || 900;
-    const lanes: { id: string; label: string; colour: string }[] = [
-      { id: 'gene', label: 'gene', colour: css('--vp-orf', '#6f62a8') },
+    const LANES: { id: string; label: string; colour: string }[] = [
       { id: 'rna', label: 'RNA', colour: css('--vp-rna', '#2f8f6f') },
       { id: 'element', label: 'elem', colour: css('--vp-element', '#a8762a') },
       { id: 'tfbs', label: 'TFBS', colour: css('--vp-tfbs', '#b4485f') },
+      { id: 'regulatory', label: 'reg', colour: css('--vp-reg', '#4a7fb5') },
     ];
-    // ChIP-supported binding sites only: the conserved-only tier is ~8x larger and would bury the
-    // genes under it at this height. The expression page carries the full tiering.
-    const visible = annotations.filter((f) => {
-      const info = ANNOTATION_CLASSES[f.cls];
-      if (!info || !lanes.some((l) => l.id === info.lane)) return false;
-      const tier = motifTier(f);
-      return tier === null || tier === 'chip';
-    });
-    const ROW = 8;
-    const heights = lanes.map((l) => {
+    const ROW = 9;
+    const GENE_ROW = 11;
+
+    const visible = visibleAnnotations();
+    // Height is measured before drawing, because the canvas must be sized once: lanes vary from
+    // window to window and a fixed height either clips the busy ones or leaves the sparse ones
+    // floating in margin.
+    const geneRows = annLanesOn.gene
+      ? Math.max(...packGeneRows(locus.features as GeneTrackFeature[]), 0) + 1
+      : 0;
+    const laneRows = LANES.map((l) => {
+      if (!annLanesOn[l.id]) return 0;
       const inLane = visible.filter((f) => ANNOTATION_CLASSES[f.cls]?.lane === l.id);
       if (!inLane.length) return 0;
-      const rows = packGeneRows(inLane.map((f) => ({ txStart: f.start, txEnd: f.end })));
-      return (Math.max(...rows, 0) + 1) * ROW + 3;
+      return Math.max(...packGeneRows(inLane.map((f) => ({ txStart: f.start, txEnd: f.end }))), 0) + 1;
     });
-    const cssH = Math.max(heights.reduce((a, b) => a + b, 0) + 6, 20);
+    const cssH = Math.max(
+      geneRows * GENE_ROW + (geneRows ? 6 : 0)
+      + laneRows.reduce((a, n) => a + (n ? n * ROW + 3 : 0), 0) + 6,
+      20,
+    );
+
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     annCanvas.width = Math.round(cssW * dpr);
     annCanvas.height = Math.round(cssH * dpr);
@@ -310,12 +398,37 @@ export function initShorkieLm(host: HTMLElement): { destroy: () => void } {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cssW, cssH);
     ctx.font = '9px system-ui, sans-serif';
+    ctx.textBaseline = 'alphabetic';
     const muted = css('--color-muted', '#6b7280');
-    const inner = cssW - PLOT.left - PLOT.right;
     let y = 2;
     let drawn = 0;
-    lanes.forEach((lane, li) => {
-      if (!heights[li]) return;
+
+    if (geneRows) {
+      ctx.fillStyle = muted;
+      ctx.textAlign = 'right';
+      ctx.fillText('genes', PLOT.left - 4, y + 9);
+      ctx.textAlign = 'left';
+      const tally = drawGeneRows(ctx, {
+        features: locus.features as GeneTrackFeature[],
+        ownId: locus.id,
+        ownLabel: locus.gene,
+        width: cssW,
+        top: y,
+        rowH: GENE_ROW,
+        expanded: true,
+        xOfBp,
+        colours: { orf: css('--vp-orf', '#6f62a8'), muted },
+        highlight: selectedGene,
+      });
+      annCanvas.dataset.lmGeneTrack = JSON.stringify(tally);
+      drawn += tally.features;
+      y += geneRows * GENE_ROW + 6;
+    } else {
+      delete annCanvas.dataset.lmGeneTrack;
+    }
+
+    LANES.forEach((lane, li) => {
+      if (!laneRows[li]) return;
       const inLane = visible.filter((f) => ANNOTATION_CLASSES[f.cls]?.lane === lane.id);
       const rows = packGeneRows(inLane.map((f) => ({ txStart: f.start, txEnd: f.end })));
       ctx.fillStyle = muted;
@@ -323,16 +436,44 @@ export function initShorkieLm(host: HTMLElement): { destroy: () => void } {
       ctx.fillText(lane.label, PLOT.left - 4, y + ROW - 2);
       ctx.textAlign = 'left';
       inLane.forEach((f, i) => {
-        const x0 = PLOT.left + (f.start / SEQ_LEN) * inner;
-        const x1 = Math.max(PLOT.left + (f.end / SEQ_LEN) * inner, x0 + 1.2);
-        ctx.fillStyle = lane.colour;
-        ctx.globalAlpha = 0.85;
-        ctx.fillRect(x0, y + rows[i] * ROW + 1, Math.max(x1 - x0, 1.2), ROW - 3);
+        const x0 = xOfBp(f.start, cssW);
+        const x1 = Math.max(xOfBp(f.end, cssW), x0 + 1.2);
+        const ry = y + rows[i] * ROW;
+        const tier = motifTier(f);
+        // Evidence is drawn, not merely recorded: ChIP-supported solid, conserved-only hollow, a
+        // PWM hit a hairline. Three tiers that looked alike would be three claims shown as one.
+        ctx.globalAlpha = tier === 'pwm' ? 0.4 : tier === 'conserved' ? 0.55 : 0.85;
+        if (tier === 'conserved' || tier === 'pwm') {
+          ctx.strokeStyle = lane.colour;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(x0 + 0.5, ry + 1.5, Math.max(x1 - x0 - 1, 0.5), ROW - 4);
+        } else {
+          ctx.fillStyle = lane.colour;
+          ctx.fillRect(x0, ry + 1, Math.max(x1 - x0, 1.2), ROW - 3);
+        }
+        // A clipped edge is not a real boundary; mark it so the window edge is never read as one.
+        if (f.truncated) {
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = muted;
+          ctx.fillRect(f.start <= 0 ? x0 : x1 - 2, ry + 1, 2, ROW - 3);
+        }
         drawn += 1;
       });
       ctx.globalAlpha = 1;
-      y += heights[li];
+      y += laneRows[li] * ROW + 3;
     });
+
+    // The selected gene, banded across every lane, so the region the numbers describe is visible
+    // on the drawing rather than only named in the bar above.
+    const sel = selectedFeature();
+    if (sel) {
+      ctx.globalAlpha = 0.1;
+      ctx.fillStyle = css('--vp-fire', '#b0455a');
+      const a = xOfBp(sel.txStart, cssW);
+      ctx.fillRect(a, 0, Math.max(xOfBp(sel.txEnd, cssW) - a, 1), cssH);
+      ctx.globalAlpha = 1;
+    }
+
     annCanvas.dataset.lmAnnotation = String(drawn);
   }
 
@@ -596,8 +737,13 @@ export function initShorkieLm(host: HTMLElement): { destroy: () => void } {
       list.push(f);
       groups.set(key, list);
     }
+    // The selected gene gets its own column: the same statistic restricted to that gene's span,
+    // which is what makes the region stepper answer a question rather than only move the view.
+    const sel = selectedFeature();
     const head = enrichTable.createTHead().insertRow();
-    for (const h of ['annotation class', 'n', 'constraint ratio', 'null', 'p']) {
+    const cols = ['annotation class', 'n', 'constraint ratio', 'null', 'p'];
+    if (sel) cols.push(`in ${sel.name}`);
+    for (const h of cols) {
       const th = document.createElement('th');
       th.textContent = h;
       head.append(th);
@@ -638,6 +784,27 @@ export function initShorkieLm(host: HTMLElement): { destroy: () => void } {
       const pv = tr.insertCell();
       pv.className = 'n';
       pv.textContent = r.p <= 1 / 257 ? '<0.004' : r.p.toFixed(3);
+
+      if (sel) {
+        const cell = tr.insertCell();
+        cell.className = 'n';
+        const a = Math.max(0, sel.txStart);
+        const b = Math.min(SEQ_LEN, sel.txEnd);
+        const sub = mask.subarray(a, b);
+        let inside = 0;
+        for (let i = 0; i < sub.length; i += 1) inside += sub[i];
+        // A gene is 1-3 kb and most classes put only a handful of bases inside it. Below a floor
+        // the circular-shift null has almost nothing to permute, so the ratio is a number the
+        // statistic cannot support -- show that it is absent rather than print it.
+        const local = inside >= MIN_REGION_BASES
+          ? weightedEnrichment(signal.subarray(a, b), sub, 256)
+          : null;
+        cell.textContent = local ? `${local.ratio.toFixed(2)}×` : '—';
+        cell.title = local
+          ? `${inside} bp of this class inside ${sel.name}, p ${local.p <= 1 / 257 ? '<0.004' : local.p.toFixed(3)}`
+          : `only ${inside} bp of this class inside ${sel.name}; below ${MIN_REGION_BASES} bp the `
+            + 'circular-shift null has too little to permute for the ratio to mean anything';
+      }
     }
     enrichTable.dataset.lmEnrichment = String(measured);
     if (stat) stat.textContent = `${measured} classes · null from 256 circular shifts`;
@@ -649,9 +816,9 @@ export function initShorkieLm(host: HTMLElement): { destroy: () => void } {
         : cds > 1.02
           ? `The prediction fails here, as it does everywhere: coding sequence scores `
             + `${cds.toFixed(3)}×, so the model is MORE certain over exons despite being trained to `
-            + `weight them at a tenth. That holds in 14 of 14 windows (mean 1.128×). Repeats go the `
-            + `other way at 0.68–0.80×, so the same down-weighting did leave a mark there — see the `
-            + `disclosure below for why the two classes behave differently.`
+            + `weight them at a tenth. That holds in 14 of 14 windows (mean 1.128×). The three solo `
+            + `LTRs in this set go the other way at 0.68–0.80×, but that is three features in three `
+            + `windows — see the disclosure below.`
           : `Coding sequence scores ${cds.toFixed(3)}× — indistinguishable from the rest of the `
             + `window. The tenfold down-weighting of exon loss left no measurable trace here.`;
     }
@@ -765,6 +932,201 @@ export function initShorkieLm(host: HTMLElement): { destroy: () => void } {
     renderMotifs();
     renderEnrichment();
     renderEmbed();
+    renderRegionList();
+    renderRegionContext();
+    renderSummary();
+  }
+
+  /**
+   * The locus list. Gene and systematic name only, with the blurb on `title`.
+   *
+   * A select sizes itself to its widest option, and on the expression page one long label made the
+   * sticky bar wider than a 320 px viewport and set the whole scroll pane moving sideways. The
+   * document-level overflow check cannot see that, because the bar sits inside `overflow-x: auto`.
+   */
+  function renderLocusList(): void {
+    if (!locusSelect) return;
+    clear(locusSelect);
+    LOCI.forEach((l, i) => {
+      const o = document.createElement('option');
+      o.value = String(i);
+      o.textContent = `${l.gene} · ${l.id}${l.figureWindow ? ' · Fig 4' : ''}`;
+      o.title = l.blurb ?? '';
+      locusSelect.append(o);
+    });
+    locusSelect.value = String(locusIndex);
+  }
+
+  /**
+   * The region list: the genes in this window.
+   *
+   * The expression page's regions are its traceback anchors, which are also genes -- so the two
+   * pages step through the same things, and a reader who has walked ACT1's neighbours on one page
+   * finds the same list here. The whole window leads, because constraint is defined everywhere and
+   * "no region" is a legitimate state rather than a missing selection.
+   */
+  function renderRegionList(): void {
+    if (!regionSelect) return;
+    const feats = LOCI[locusIndex].features as GeneTrackFeature[];
+    clear(regionSelect);
+    const all = document.createElement('option');
+    all.value = '';
+    all.textContent = 'whole window';
+    regionSelect.append(all);
+    for (const f of feats) {
+      const o = document.createElement('option');
+      o.value = f.name;
+      const kb = ((f.txEnd - f.txStart) / 1000).toFixed(1);
+      o.textContent = `${f.name === LOCI[locusIndex].id ? LOCI[locusIndex].gene : f.name} · ${kb} kb`;
+      regionSelect.append(o);
+    }
+    regionSelect.value = selectedGene ?? '';
+    if (regionStat) {
+      regionStat.textContent = `${feats.length} gene${feats.length === 1 ? '' : 's'} in this window`;
+    }
+  }
+
+  function stepRegion(delta: number): void {
+    const feats = LOCI[locusIndex].features as GeneTrackFeature[];
+    const names: (string | null)[] = [null, ...feats.map((f) => f.name)];
+    const at = names.indexOf(selectedGene);
+    const next = names[(((at < 0 ? 0 : at + delta) % names.length) + names.length) % names.length];
+    setRegion(next);
+  }
+
+  /**
+   * Select a gene, or the whole window.
+   *
+   * Moves the logo onto the gene as well as scoping the numbers: a selection that changed the
+   * statistics while leaving the letters where they were would put one gene's letters under
+   * another gene's heading.
+   */
+  function setRegion(name: string | null): void {
+    selectedGene = name;
+    if (regionSelect) regionSelect.value = name ?? '';
+    const f = selectedFeature();
+    if (f) {
+      const mid = (f.txStart + f.txEnd) / 2;
+      logoWindow = {
+        start: Math.max(0, Math.min(SEQ_LEN - logoWindow.width, Math.round(mid - logoWindow.width / 2))),
+        width: logoWindow.width,
+      };
+      if (panEl) {
+        panEl.value = String(Math.round(((logoWindow.start + logoWindow.width / 2) / SEQ_LEN) * 1000));
+      }
+    }
+    renderRegionContext();
+    renderIc();
+    renderAnnotation();
+    renderLogo();
+    renderEnrichment();
+  }
+
+  /** The read-only context line: one control owns the selection, every panel reports it. */
+  function renderRegionContext(): void {
+    const el = $<HTMLElement>('[data-lm-region-context]');
+    if (!el) return;
+    const f = selectedFeature();
+    const plane = activePlane();
+    if (!f || !plane) {
+      el.textContent = LOCI[locusIndex].features.length
+        ? 'whole window · 16,384 bp'
+        : '';
+      return;
+    }
+    const r = regionConstraint(plane, LOCI[locusIndex].sequence as string, f.txStart, f.txEnd);
+    if (!r) { el.textContent = ''; return; }
+    el.textContent =
+      `${f.name} · ${r.bases.toLocaleString()} bp · IC ${r.meanIc.toFixed(3)} vs window `
+      + `${r.windowMeanIc.toFixed(3)} bits · ${r.ratio.toFixed(2)}× · argmax `
+      + `${(r.argmax * 100).toFixed(1)}%`;
+  }
+
+  /**
+   * Constraint across all fourteen windows, from `shorkieLmSummary.json`.
+   *
+   * Precomputed rather than measured live: the enrichment statistic runs 256 circular shifts per
+   * class, so doing it for fourteen loci in the browser would mean fetching every plane. The
+   * generator uses the same statistic and the same null as `renderEnrichment` below, so the two
+   * cannot drift -- and the panel exists because the prose already makes cross-locus claims that a
+   * reader looking at one window has no way to check.
+   */
+  function renderSummary(): void {
+    const table = $<HTMLTableElement>('[data-lm-summary]');
+    if (!table) return;
+    clear(table);
+    const rows = [...(lmSummary.loci as any[])]
+      .sort((a, b) => b.metrics.maskedArgmax - a.metrics.maskedArgmax);
+    const head = table.createTHead().insertRow();
+    for (const h of ['gene', 'argmax', 'perplexity', 'mean IC', 'CDS', 'LTR', 'ChIP sites']) {
+      const th = document.createElement('th');
+      th.textContent = h;
+      head.append(th);
+    }
+    const body = table.createTBody();
+    const fire = css('--vp-fire', '#b0455a');
+    for (const r of rows) {
+      const tr = body.insertRow();
+      const here = r.id === LOCI[locusIndex].id;
+      if (here) tr.style.fontWeight = '600';
+      const g = tr.insertCell();
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'vp-chan';   // the page's existing in-table link button
+      btn.textContent = r.gene;
+      btn.addEventListener('click', () => { void setLocus(LOCI.findIndex((l) => l.id === r.id)); });
+      g.append(btn);
+      if (here) g.append(' ◀');
+      const cell = (text: string, colour?: string) => {
+        const c = tr.insertCell();
+        c.textContent = text;
+        if (colour) c.style.color = colour;
+      };
+      cell(`${(r.metrics.maskedArgmax * 100).toFixed(1)}%`);
+      cell(r.metrics.maskedPerplexity.toFixed(3));
+      cell(r.meanIc.toFixed(3));
+      // Above 1 is the direction the page's own claim is about, so it is the one that gets colour.
+      const cds = r.classes.cds?.ratio;
+      cell(cds === undefined ? '—' : `${cds.toFixed(2)}×`, cds > 1 ? fire : undefined);
+      const ltr = r.classes.ltr?.ratio;
+      cell(ltr === undefined ? '—' : `${ltr.toFixed(2)}×`);
+      const chip = r.classes['tfbs:chip'];
+      const chipCell = tr.insertCell();
+      chipCell.textContent = chip === undefined
+        ? '—' : `${chip.ratio.toFixed(2)}× (${chip.features})`;
+      // A ratio over a handful of sites is a draw, not a measurement -- MMS2's 2.32x rests on four
+      // and DTD1's 0.30x on three. The count alone does not stop a reader taking them as equivalent
+      // to a 53-site row, so the thin ones are muted and say why. Same discipline as the LTR column,
+      // which was overstated in prose for a round before anyone counted its features.
+      if (chip !== undefined && chip.features < LOW_N_FEATURES) {
+        chipCell.className = 'n';
+        chipCell.title = `only ${chip.features} ChIP-supported sites in this window — too few for `
+          + 'the circular-shift null to separate this ratio from chance';
+      }
+    }
+    table.dataset.lmSummary = String(rows.length);
+  }
+
+  /**
+   * Switch locus, resetting every piece of state that indexes into the old one.
+   *
+   * `selectedBase` and `selectedGene` are positions and names in the PREVIOUS window and mean
+   * nothing in this one; `logoWindow` is a coordinate that is legal in both and therefore the most
+   * dangerous, because keeping it silently shows the new locus's letters at the old locus's offset
+   * under a heading naming the new gene.
+   */
+  async function setLocus(index: number): Promise<void> {
+    if (index < 0 || index >= LOCI.length) return;
+    locusIndex = index;
+    selectedGene = null;
+    selectedBase = -1;
+    logoWindow = { start: 0, width: logoWindow.width };
+    if (locusSelect) locusSelect.value = String(index);
+    await load(index);
+    // Open on the window's own gene, which is the reader's likely first question -- after `load`,
+    // so the plane the context line reads is this locus's.
+    const own = (LOCI[index].features as GeneTrackFeature[]).find((f) => f.name === LOCI[index].id);
+    setRegion(own ? own.name : null);
   }
 
   function setWindow(start: number, width: number): void {
@@ -778,6 +1140,29 @@ export function initShorkieLm(host: HTMLElement): { destroy: () => void } {
   // ---------------------------------------------------------------------------------------
   // Wiring
   // ---------------------------------------------------------------------------------------
+  locusSelect?.addEventListener('change', () => { void setLocus(Number(locusSelect.value)); });
+  regionSelect?.addEventListener('change', () => { setRegion(regionSelect.value || null); });
+  host.querySelector('[data-lm-region-prev]')?.addEventListener('click', () => stepRegion(-1));
+  host.querySelector('[data-lm-region-next]')?.addEventListener('click', () => stepRegion(1));
+
+  // The lane and tier toggles. A tier is not a lane: the three tiers are three strengths of
+  // evidence for the same claim, so they are toggled separately and drawn differently.
+  // Only the drawing follows these. The enrichment table below deliberately measures EVERY tier
+  // whatever the canvas shows: tying it to the toggles would hide the three-tier comparison, which
+  // is the finding rather than a display option.
+  host.querySelectorAll<HTMLInputElement>('[data-lm-lane]').forEach((box) => {
+    box.addEventListener('change', () => {
+      annLanesOn[box.dataset.lmLane ?? ''] = box.checked;
+      renderAnnotation();
+    });
+  });
+  host.querySelectorAll<HTMLInputElement>('[data-lm-tier]').forEach((box) => {
+    box.addEventListener('change', () => {
+      motifTiersOn[box.dataset.lmTier ?? ''] = box.checked;
+      renderAnnotation();
+    });
+  });
+
   panEl?.addEventListener('input', () => {
     // Read the DOM value into a local FIRST: setWindow writes the slider back, and reading it
     // afterwards returns the value just written rather than the one dragged to.
@@ -825,7 +1210,12 @@ export function initShorkieLm(host: HTMLElement): { destroy: () => void } {
   const onResize = () => { renderIc(); renderAnnotation(); renderEmbed(); };
   window.addEventListener('resize', onResize);
 
-  void load(locusIndex);
+  renderLocusList();
+  renderSummary();
+  // Through setLocus, not load, so the first render lands in the same state a locus switch does --
+  // region selected, window opened on it. A first paint that differs from every subsequent one is
+  // how a stale-state bug hides.
+  void setLocus(locusIndex);
 
   return {
     destroy: () => {

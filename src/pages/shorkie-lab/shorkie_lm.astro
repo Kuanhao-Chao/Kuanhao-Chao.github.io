@@ -48,6 +48,26 @@ const breadcrumbLd = buildBreadcrumbLd([
     </header>
 
     <div class="vp-scroll">
+      <!-- Inside .vp-scroll, not outside it: this is a `bare` page, so html/body are pinned and the
+           inner pane is what scrolls. A sticky bar placed outside the scrolling element does not
+           stick to anything. -->
+      <nav class="vp-nav" aria-label="Locus and region">
+        <span class="vp-nav__group">
+          <label class="vp-nav__label" for="lm-locus">locus</label>
+          <select class="vp-select" id="lm-locus" data-lm-pick-locus aria-label="Preset locus"></select>
+        </span>
+        <span class="vp-nav__group">
+          <label class="vp-nav__label" for="lm-region">region</label>
+          <button type="button" class="vp-btn vp-btn--icon" data-lm-region-prev
+                  aria-label="Previous gene">‹</button>
+          <select class="vp-select" id="lm-region" data-lm-region aria-label="Gene to scope to"></select>
+          <button type="button" class="vp-btn vp-btn--icon" data-lm-region-next
+                  aria-label="Next gene">›</button>
+        </span>
+        <span class="vp-stat vp-nav__read" data-lm-region-context></span>
+        <span class="vp-spacer"></span>
+        <span class="vp-stat" data-lm-region-stat></span>
+      </nav>
       <div class="vp-wrap">
 
         <!-- ------------------------------------------------- what this model is -->
@@ -115,9 +135,12 @@ const breadcrumbLd = buildBreadcrumbLd([
               <p><strong>Why the stride and not a random 15%.</strong> A partition means each
               position is predicted exactly once, with no position predicted twice and none missed
               — so the result is a function of the model, not of a seed.</p>
-              <p><strong>The check that it is not an artefact of K.</strong> At <code>K = 10</code>{' '}
-              the same window gives 43.93% argmax and 1.7528 bits against <code>K = 7</code>'s
-              43.00% and 1.7571. The number is a property of the model.</p>
+              <p><strong>The check that it is not an artefact of K.</strong> On{' '}
+              <strong>TDH3</strong>, <code>K = 10</code> gives 43.93% argmax and 1.7528 bits against{' '}
+              <code>K = 7</code>'s 43.00% and 1.7571 — so the stride is not what sets the number.
+              Those two figures are TDH3's, not the page's: argmax runs 41.3% (GAL1) to 46.3%
+              (FUN12) across the fourteen windows, and the bar above always reports the window you
+              are looking at.</p>
               <p><strong>What it is not.</strong> Not the same as masking one base alone: the
               iterative pass also has 1/7 of the rest of the window hidden, so it is the same
               question asked slightly harder. And not a generative sample — each position is scored
@@ -133,13 +156,33 @@ const breadcrumbLd = buildBreadcrumbLd([
           <p class="vp-notes" style="margin:0 0 0.5rem;">
             Information content, <code>2 − H(p)</code>, at every base — the paper's own quantity,
             and the model's analogue of conservation computed <em>without an alignment</em>. High
-            means the model finds the base strongly determined by its surroundings. The annotation
-            beneath is the same curated layer the expression page carries.
+            means the model finds the base strongly determined by its surroundings.
           </p>
           <canvas class="vp-canvas" data-lm-ic role="img"
                   aria-label="Information content of the language model's prediction across the window"></canvas>
           <canvas class="vp-canvas" data-lm-annotation role="img"
                   aria-label="Curated annotation aligned to the constraint track"></canvas>
+          <div class="vp-controls vp-annctl">
+            <span class="vp-stat">show</span>
+            <label class="vp-check"><input type="checkbox" data-lm-lane="gene" checked /> genes</label>
+            <label class="vp-check"><input type="checkbox" data-lm-lane="rna" checked /> ncRNA</label>
+            <label class="vp-check"><input type="checkbox" data-lm-lane="element" checked /> elements</label>
+            <label class="vp-check"><input type="checkbox" data-lm-lane="regulatory" checked /> regulatory</label>
+            <span class="vp-stat">binding sites</span>
+            <label class="vp-check"><input type="checkbox" data-lm-tier="chip" checked /> ChIP-supported</label>
+            <label class="vp-check"><input type="checkbox" data-lm-tier="conserved" /> conserved only</label>
+            <label class="vp-check"><input type="checkbox" data-lm-tier="pwm" /> PWM scan</label>
+            <span class="vp-stat" data-lm-annstat></span>
+          </div>
+          <p class="vp-notes" style="margin:0.35rem 0 0;">
+            <strong>The same curated layer the expression page carries, drawn the same way.</strong>{' '}
+            Genes are real models — exons as blocks, introns as the gap the chevrons run through,
+            strand-aware — not one bar per gene, because a bar paints over every intron and eight of
+            these fourteen windows contain one. Provenance is drawn rather than merely recorded: a
+            ChIP-supported site is solid, a conserved-only call hollow, a PWM match a hairline. A
+            grey cap marks a feature clipped by the window edge, so that edge is never mistaken for
+            a real boundary.
+          </p>
           <p class="vp-notes" style="margin:0.35rem 0 0;">
             Drag to zoom the logo below. The curve is smoothed for display at this width — one pixel
             covers many bases — and the per-base values are exact in the logo.
@@ -269,9 +312,14 @@ const breadcrumbLd = buildBreadcrumbLd([
               fails and the repeat half holds.</strong> Coding sequence scores above 1.0 in{' '}
               <strong>14 of 14</strong> loci — mean <strong>1.128×</strong>, range 1.041–1.266 —
               so the model is <em>more</em> certain over exons, not less, despite their loss being
-              weighted at a tenth. Repeats go the other way: LTRs and transposable elements score{' '}
-              <strong>0.68–0.80×</strong>, genuinely less constrained. So the same tenfold
-              down-weighting left a clear mark on repeats and none on exons.</p>
+              weighted at a tenth. Repeats go the other way, but on far thinner evidence: the
+              curated annotation for these windows contains <strong>no transposon features at
+              all</strong> and just <strong>three solo LTRs</strong> — delta elements, one each in
+              the TDH3, PGK1 and RPL26A windows — scoring <strong>0.68–0.80×</strong>. All three
+              fall on the same side, which is suggestive, but three features in three windows is not
+              the fourteen-window result the CDS row is. The table in{' '}
+              <em>Constraint across all fourteen windows</em> shows a <code>—</code> for the eleven
+              windows that contain no LTR, so the support is visible rather than implied.</p>
               <p>The likely reason is that the two classes are not comparable targets. A repeat is
               only predictable because it recurs, and down-weighting it removes the incentive to
               memorise it. Coding sequence is predictable because the genetic code constrains it —
@@ -286,6 +334,49 @@ const breadcrumbLd = buildBreadcrumbLd([
               things. Repeats and homopolymers are highly predictable and carry no regulatory
               meaning; a class can be enriched here because it is compositionally simple rather than
               because it matters.</p>
+            </div>
+          </details>
+        </section>
+
+        <!-- ------------------------------------------------- across all fourteen -->
+        <section class="vp-panel">
+          <h2>Constraint across all fourteen windows</h2>
+          <p class="vp-notes" style="margin:0 0 0.5rem;">
+            Every panel above shows one window, so the claims this page makes <em>across</em>{' '}
+            windows have to be taken on trust. This is them. Click a gene to open its window.
+          </p>
+          <div class="vp-scroll-x"><table class="vp-enrich" data-lm-summary></table></div>
+          <p class="vp-notes" style="margin:0.4rem 0 0;">
+            <strong>Coding sequence is more constrained in 14 of 14 windows</strong> — mean{' '}
+            <strong>1.128×</strong>, range 1.041–1.266 — despite <code>exon_loss_scale: 0.1</code>{' '}
+            weighting it at a tenth. The three solo LTRs in this set go the other way at{' '}
+            <strong>0.68–0.80×</strong>. Those are three features in three windows, not a
+            fourteen-window result, and the table shows the <code>—</code> where a window has none.
+            The <em>ChIP sites</em> column carries its feature count for the same reason, and any
+            window with fewer than ten is greyed: a ratio over three or four sites is a draw, not a
+            measurement.
+          </p>
+          <details class="vp-how">
+            <summary>How this table is computed, and why it is precomputed</summary>
+            <div>
+              <p><strong>The statistic is the one in the panel above</strong> — mean |information
+              content| inside a class over its mean across the window, against a null of{' '}
+              <strong>256 deterministic circular shifts</strong> of the annotation mask. Rotation
+              preserves the feature count, every length and every gap, and destroys only alignment.</p>
+              <p><strong>Why precomputed.</strong> That null is 256 passes over 16,384 positions per
+              class per locus; doing it live for fourteen would mean fetching all fourteen planes
+              (2.3 MB) and running ~25,000 passes in the browser. It is computed once by{' '}
+              <code>scripts/shorkie/make_lm_summary.py</code> from the shipped packs — no model, no
+              checkpoint — into <code>src/data/shorkieLmSummary.json</code>.</p>
+              <p><strong>Why the two agree exactly.</strong> The generator reimplements{' '}
+              <code>weightedEnrichment</code> and <code>circularShiftOffsets</code> in Python, and
+              JavaScript rounds halves up where Python rounds them to even. At 16,384 positions and
+              256 shifts there are <em>no</em> exact halves — 257 is prime and does not divide
+              16,384 — so the offsets are identical. Change either constant and that has to be
+              rechecked rather than assumed.</p>
+              <p><strong>Mean IC is low everywhere</strong> (~0.19–0.27 bits on a 0–2 axis), so read
+              the ratios rather than the absolute column: differences between windows are larger
+              than differences within one.</p>
             </div>
           </details>
         </section>

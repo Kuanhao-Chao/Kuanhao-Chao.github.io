@@ -39,3 +39,6 @@ resources/
 # on demand by scripts/shorkie/, never committed. The shipped artefacts are public/models/
 # and src/data/shorkie*.json.
 scripts/shorkie/_scratch/
+
+# Raw ISM planes, kept so a packing decision can be revisited without a 5-hour re-run.
+public/vp-data/_raw/
