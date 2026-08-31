@@ -555,7 +555,10 @@ const algorithms: AlgorithmEntry[] = ALGORITHMS;
       sortMode = sortSelect.value;
       applyState();
     });
+
+    applyState();
   }
 
   document.addEventListener('astro:page-load', setupAlgoCatalog);
+  setupAlgoCatalog();
 </script>

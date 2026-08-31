@@ -694,12 +694,37 @@ export function initPhmmVisualizer(root: ParentNode = document): PhmmVisualizerC
     }
   });
 
+  function handleKeydown(e: KeyboardEvent) {
+    const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
+    if (e.code === 'Space') {
+      e.preventDefault();
+      if (isPlaying) pause();
+      else play();
+    } else if (e.code === 'ArrowRight' || e.key === 'l' || e.key === 'n') {
+      e.preventDefault();
+      pause();
+      stepForward();
+    } else if (e.code === 'ArrowLeft' || e.key === 'j' || e.key === 'p') {
+      e.preventDefault();
+      pause();
+      stepBackward();
+    } else if (e.key === 'r' || e.key === 'R') {
+      e.preventDefault();
+      reset();
+    }
+  }
+
+  window.addEventListener('keydown', handleKeydown);
+
   // Initial render
   loadPreset('tata');
 
   return {
     destroy: () => {
       pause();
+      window.removeEventListener('keydown', handleKeydown);
     },
   };
 }

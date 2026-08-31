@@ -264,6 +264,24 @@ export type SideProject = { name: string; detail: string; url: string };
 
 export const sideProjects: SideProject[] = [
   {
+    name: 'Biobaby',
+    detail:
+      'Superhero action platformer — guide the cape-wearing molecular baby through cellular obstacle courses with finger-gun projectile blasts and tactile platforming',
+    url: 'https://storage.googleapis.com/storage.khchao.com/biobaby/index.html',
+  },
+  {
+    name: 'Tank Fire',
+    detail:
+      'Tactical real-time armor combat — maneuver chunky stylised battle tanks across cratered battlefields, lead cannon shots, and destroy enemy armored divisions',
+    url: 'https://storage.googleapis.com/storage.khchao.com/tanks_fire/index.html',
+  },
+  {
+    name: 'Flappy Penguin',
+    detail:
+      'Arctic flight side-scroller — flap past floating glacial columns, crystalline icebergs, and turbulent blizzard drafts in a high-precision arcade obstacle run',
+    url: 'https://storage.googleapis.com/storage.khchao.com/flappy_penguin/index.html',
+  },
+  {
     name: 'CRISPR Commander',
     detail:
       'Molecular slicing action arcade — wield Cas9 guide RNAs to cleave invading viral DNA at PAM target motifs',
@@ -310,23 +328,5 @@ export const sideProjects: SideProject[] = [
     detail:
       'Enzyme aviator side-scroller — thrust through mutagen hazard zones with ATP-synthase jetpacks, dodge electrical zappers, and collect dNTP coins',
     url: '/games/jetpack-joyride/',
-  },
-  {
-    name: 'Biobaby',
-    detail:
-      'Superhero action platformer — guide the cape-wearing molecular baby through cellular obstacle courses with finger-gun projectile blasts and tactile platforming',
-    url: 'https://storage.googleapis.com/storage.khchao.com/biobaby/index.html',
-  },
-  {
-    name: 'Flappy Penguin',
-    detail:
-      'Arctic flight side-scroller — flap past floating glacial columns, crystalline icebergs, and turbulent blizzard drafts in a high-precision arcade obstacle run',
-    url: 'https://storage.googleapis.com/storage.khchao.com/flappy_penguin/index.html',
-  },
-  {
-    name: 'Tank Fire',
-    detail:
-      'Tactical real-time armor combat — maneuver chunky stylised battle tanks across cratered battlefields, lead cannon shots, and destroy enemy armored divisions',
-    url: 'https://storage.googleapis.com/storage.khchao.com/tanks_fire/index.html',
   },
 ];
