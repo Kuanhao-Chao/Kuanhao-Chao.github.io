@@ -29,6 +29,7 @@ const toolLinks = (t: SoftwareTool) =>
   [
     { label: 'Code', icon: 'code', href: t.code },
     { label: 'Docs', icon: 'book', href: t.docs },
+    { label: 'Lab', icon: 'sparkles', href: t.lab },
     { label: 'Paper', icon: 'link', href: t.paper },
     { label: 'Poster', icon: 'image', href: t.poster },
   ].filter((l): l is { label: string; icon: string; href: string } => Boolean(l.href));
