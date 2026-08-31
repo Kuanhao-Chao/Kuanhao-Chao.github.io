@@ -4959,7 +4959,13 @@ export function initVariantPlayground(root: ParentNode = document) {
     LOCI.forEach((l, i) => {
       const opt = document.createElement('option');
       opt.value = String(i);
-      opt.textContent = `${l.gene} — ${l.blurb}`;
+      // Gene and systematic name only. A select sizes itself to its widest option, so putting the
+      // full blurb here made the sticky bar wider than a 320 px viewport and set the whole scroll
+      // pane scrolling sideways. The blurb is in the Sequence panel, where there is room for it.
+      // Marked from `figureWindow`, the authoritative flag, rather than by matching the blurb --
+      // which is what the old label did, and what broke when the blurb came out of the option.
+      opt.textContent = `${l.gene} · ${l.id}${l.figureWindow ? ' · Fig 4' : ''}`;
+      opt.title = l.blurb;
       locusSelect.append(opt);
     });
   }
