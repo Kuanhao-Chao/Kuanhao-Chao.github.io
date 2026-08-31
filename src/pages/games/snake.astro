@@ -28,29 +28,24 @@ const gameLd = {
 >
   <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
 
-  <section class="snake" aria-label="Snake game">
-    <div class="snake-header-card">
-      <SnakeLogo size={58} />
-      <div class="snake-header-info">
-        <h2 class="snake-header-title">Genomic Nucleotide Serpent</h2>
-        <p class="snake-header-subtitle">Consume A · C · G · T bases, synthesize sequence chains, and navigate the chromatin grid.</p>
-      </div>
-    </div>
-
+  <section class="snake" data-game-root data-cell-protected aria-label="Snake game">
     <div class="snake-hud">
-      <div class="snake-stats">
-        <div class="stat">
-          <span class="stat-label">Bases</span>
-          <span class="stat-value" data-snake-score>0</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Best</span>
-          <span class="stat-value" data-snake-best>0</span>
+      <div class="snake-brand">
+        <SnakeLogo size={40} />
+        <div class="snake-stats">
+          <div class="stat">
+            <span class="stat-label">Bases</span>
+            <span class="stat-value" data-snake-score>0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Best</span>
+            <span class="stat-value" data-snake-best>0</span>
+          </div>
         </div>
       </div>
       <div class="snake-controls">
-        <button type="button" class="game-btn" data-snake-pause disabled>Pause</button>
-        <button type="button" class="game-btn" data-snake-restart>Restart</button>
+        <button type="button" class="snake-btn" data-snake-pause disabled>Pause</button>
+        <button type="button" class="snake-btn" data-snake-restart>Restart</button>
       </div>
     </div>
 
@@ -67,27 +62,13 @@ const gameLd = {
     </p>
 
     <div class="snake-strand-card" aria-label="Synthesized nucleotide sequence">
-      <span class="sequence-label">Synthesized Sequence (5'→3'):</span>
+      <span class="sequence-label">Sequence (5'→3'):</span>
       <div class="sequence-ribbon" data-snake-strand>—</div>
     </div>
 
-    <details class="snake-help">
-      <summary>How to Play & Controls</summary>
-      <div class="help-grid muted">
-        <p>
-          <strong>Steer:</strong> Use <code>Arrow keys</code> or <code>W A S D</code> on desktop; swipe in any direction on mobile.
-        </p>
-        <p>
-          <strong>Pause & Start:</strong> Press <code>Space</code> or <code>P</code> to start / pause the run.
-        </p>
-        <p>
-          <strong>Genomic Growth:</strong> Each nucleotide base (A, C, G, T) consumed extends your sequence strand and accelerates the serpent.
-        </p>
-        <p>
-          <strong>Boundaries:</strong> Avoid colliding with the grid edges or crossing your own elongated transcript body.
-        </p>
-      </div>
-    </details>
+    <p class="snake-hint muted">
+      Arrow keys / WASD on desktop · swipe on mobile · Space to pause · each base you eat extends the sequence.
+    </p>
   </section>
 </PageLayout>
 
@@ -117,38 +98,8 @@ const gameLd = {
     margin-inline: auto;
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
+    gap: var(--space-3);
     box-sizing: border-box;
-  }
-
-  .snake-header-card {
-    display: flex;
-    align-items: center;
-    gap: var(--space-4);
-    padding: var(--space-3) var(--space-4);
-    background: var(--color-surface);
-    border: 1px solid var(--color-rule);
-    border-radius: var(--radius-md, 8px);
-    box-sizing: border-box;
-  }
-
-  .snake-header-info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .snake-header-title {
-    font-size: 1.15rem;
-    font-weight: 700;
-    color: var(--color-ink);
-    margin: 0;
-  }
-
-  .snake-header-subtitle {
-    font-size: 0.8rem;
-    color: var(--color-muted);
-    margin: 0;
   }
 
   .snake-hud {
@@ -156,28 +107,35 @@ const gameLd = {
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
     background: var(--color-surface);
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-md, 8px);
     box-sizing: border-box;
   }
 
+  .snake-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
   .snake-stats {
     display: flex;
-    gap: 1.5rem;
+    gap: 1.25rem;
   }
 
   .stat {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
+    line-height: 1;
   }
 
   .stat-label,
   .sequence-label {
-    font-size: var(--fs-meta, 0.75rem);
+    font-size: var(--fs-meta, 0.72rem);
     letter-spacing: var(--tracking-meta, 0.05em);
     text-transform: uppercase;
     color: var(--color-muted);
@@ -186,7 +144,7 @@ const gameLd = {
 
   .stat-value {
     font-family: var(--font-mono, monospace);
-    font-size: 1.35rem;
+    font-size: 1.25rem;
     font-weight: 700;
     color: var(--color-ink);
     font-variant-numeric: tabular-nums;
@@ -194,12 +152,12 @@ const gameLd = {
 
   .snake-controls {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.4rem;
   }
 
-  .game-btn {
+  .snake-btn {
     min-height: 44px;
-    padding: 0.5em 1em;
+    padding: 0.4em 0.9em;
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-sm, 6px);
     background: var(--color-surface);
@@ -215,16 +173,16 @@ const gameLd = {
     box-sizing: border-box;
   }
 
-  .game-btn:hover:not(:disabled) {
+  .snake-btn:hover:not(:disabled) {
     border-color: var(--color-accent);
     color: var(--color-accent);
   }
 
-  .game-btn:active:not(:disabled) {
+  .snake-btn:active:not(:disabled) {
     transform: translateY(1px);
   }
 
-  .game-btn:disabled {
+  .snake-btn:disabled {
     opacity: 0.42;
     cursor: default;
   }
@@ -251,7 +209,7 @@ const gameLd = {
   }
 
   .snake-status {
-    min-height: 1.4em;
+    min-height: 1.3em;
     text-align: center;
     font-size: var(--fs-small, 0.85rem);
     color: var(--color-ink);
@@ -260,9 +218,9 @@ const gameLd = {
 
   .snake-strand-card {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: var(--space-3) var(--space-4);
+    align-items: center;
+    gap: 8px;
+    padding: var(--space-2) var(--space-3);
     background: var(--color-surface);
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-md, 8px);
@@ -275,9 +233,9 @@ const gameLd = {
     align-items: center;
     gap: 4px;
     font-family: var(--font-mono, monospace);
-    font-size: 0.95rem;
+    font-size: 0.88rem;
     font-weight: 700;
-    min-height: 1.6rem;
+    min-height: 1.4rem;
     color: var(--color-ink);
   }
 
@@ -285,10 +243,10 @@ const gameLd = {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     border-radius: 4px;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-weight: 800;
     color: #ffffff;
   }
@@ -298,43 +256,14 @@ const gameLd = {
   :global(.pill-g) { background: #f59e0b; }
   :global(.pill-t) { background: #a855f7; }
 
-  .snake-help {
-    margin-top: var(--space-2);
-    padding: var(--space-3) var(--space-4);
-    background: var(--color-surface);
-    border: 1px solid var(--color-rule);
-    border-radius: var(--radius-md, 8px);
-    box-sizing: border-box;
-  }
-
-  .snake-help summary {
-    color: var(--color-ink);
-    font-size: var(--fs-small, 0.88rem);
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  .help-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.7rem 1.5rem;
-    padding-top: var(--space-3);
-    font-size: var(--fs-meta, 0.8rem);
-    line-height: 1.5;
-  }
-
-  .help-grid strong {
-    color: var(--color-ink);
-  }
-
-  @media (max-width: 620px) {
-    .help-grid {
-      grid-template-columns: 1fr;
-    }
+  .snake-hint {
+    font-size: var(--fs-meta, 0.78rem);
+    text-align: center;
+    margin: 0;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .game-btn {
+    .snake-btn {
       transition: none;
     }
   }
