@@ -30,6 +30,7 @@ const publications = defineCollection({
       pdf: z.url().optional(),
       code: z.url().optional(),
       docs: z.url().optional(),
+      lab: z.url().optional(),
       slides: z.url().optional(),
       poster: z.url().optional(),
       video: z.url().optional(),

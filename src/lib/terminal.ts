@@ -2100,7 +2100,7 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       },
       { text: '' },
       { text: 'SEE ALSO', tone: 'accent' },
-      { text: '    splam(1), shorkie(1)' },
+      { text: '    splam(1), shorkie(1), shorkielab(1)' },
     ];
   }
 
@@ -2120,12 +2120,48 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: 'DESCRIPTION', tone: 'accent' },
       { text: '    Hybrid convolutional transformer predicting epigenetic profiles, chromatin' },
       { text: '    accessibility, and gene expression directly from raw DNA sequences.' },
+      { text: '    13.7M-parameter trunk: 16,384 bp in → 896 bins × 5,215 tracks out.' },
+      { text: '' },
+      { text: 'IN-BROWSER LAB', tone: 'accent' },
+      { text: '    → /shorkie-lab/ — live attributions, layer traceback, occlusion maps', tone: 'accent', href: '/shorkie-lab/' },
+      { text: '    → /shorkie-lab/shorkie/ — expression model playground', tone: 'accent', href: '/shorkie-lab/shorkie/' },
+      { text: '    → /shorkie-lab/shorkie_lm/ — masked DNA language model', tone: 'accent', href: '/shorkie-lab/shorkie_lm/' },
       { text: '' },
       { text: 'SOFTWARE & POST', tone: 'accent' },
       { text: '    → /software/ and /posts/shorkie/', tone: 'accent', href: '/posts/shorkie/' },
       { text: '' },
       { text: 'SEE ALSO', tone: 'accent' },
-      { text: '    openspliceai(1), splam(1)' },
+      { text: '    openspliceai(1), splam(1), shorkielab(1)' },
+    ];
+  }
+
+  if (t === 'shorkielab') {
+    return [
+      {
+        text: 'SHORKIELAB(1)              Interactive Tools              SHORKIELAB(1)',
+        tone: 'dim',
+      },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    shorkielab — in-browser neural interpretability for Shorkie' },
+      { text: '' },
+      { text: 'DESCRIPTION', tone: 'accent' },
+      { text: '    Run the published Shorkie and Shorkie_LM checkpoints directly in the browser.' },
+      { text: '    Expression model: 16,384 bp → 896 bins × 5,215 tracks, 14,253,567 parameters.' },
+      { text: '    Language model: masked DNA LM on 165 Saccharomycetales genomes.' },
+      { text: '' },
+      { text: 'METHODS', tone: 'accent' },
+      { text: '    Attribution: Saliency, Input × Gradient, SmoothGrad, Integrated Gradients, ISM' },
+      { text: '    Analysis:    Occlusion mapping, layer traceback, TF knockout assays' },
+      { text: '    Constraint:  Zero-shot information content & sequence constraint' },
+      { text: '' },
+      { text: 'LAUNCH', tone: 'accent' },
+      { text: '    → /shorkie-lab/', tone: 'accent', href: '/shorkie-lab/' },
+      { text: '    → /shorkie-lab/shorkie/ (expression model)', tone: 'accent', href: '/shorkie-lab/shorkie/' },
+      { text: '    → /shorkie-lab/shorkie_lm/ (language model)', tone: 'accent', href: '/shorkie-lab/shorkie_lm/' },
+      { text: '' },
+      { text: 'SEE ALSO', tone: 'accent' },
+      { text: '    shorkie(1), openspliceai(1), ism(1)' },
     ];
   }
 

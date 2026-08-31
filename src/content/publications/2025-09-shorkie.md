@@ -9,6 +9,7 @@ doi: 'https://doi.org/10.1101/2025.09.19.677475'
 relatedPosts: ['shorkie']
 code: 'https://github.com/calico/shorkie-paper'
 docs: 'https://khchao.com/shorkie/'
+lab: 'https://khchao.com/shorkie-lab/'
 data: 'https://khchao.com/shorkie/content/data_resources.html'
 slides: 'https://storage.googleapis.com/storage.khchao.com/slides/ProbGen2026_0325.pdf'
 video: 'https://youtu.be/MvpYQYQvZ0U'

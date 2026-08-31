@@ -164,6 +164,8 @@ export type SoftwareTool = {
   docs?: string;
   paper?: string;
   poster?: string;
+  /** URL to in-browser interactive lab (e.g. /shorkie-lab/). */
+  lab?: string;
   /** Slug(s) of related /posts/ deep-dives (see src/content/posts). */
   posts?: string[];
   /** Logo basename in src/assets/logos/software/<logo>.png (resolved on /software). */
@@ -186,6 +188,7 @@ export const software: SoftwareTool[] = [
     license: LICENSE.apache,
     code: 'https://github.com/calico/shorkie-paper',
     docs: 'https://khchao.com/shorkie/',
+    lab: '/shorkie-lab/',
     paper: 'https://doi.org/10.1101/2025.09.19.677475',
     posts: ['shorkie'],
   },

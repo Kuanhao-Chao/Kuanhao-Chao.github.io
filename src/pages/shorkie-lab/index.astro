@@ -117,6 +117,20 @@ const itemListLd = {
     </dl>
   </section>
 
+  <section class="sl-section">
+    <h2>Connected resources</h2>
+    <ul class="sl-resources">
+      <li><a href="/posts/shorkie/">📝 Blog post</a> — deep dive into the Shorkie architecture, evolutionary pretraining, and motif analysis</li>
+      <li><a href="/publications/2025-09-shorkie/">📄 bioRxiv preprint</a> — Chao et al. 2025</li>
+      <li><a href="/research/gene-expression/">🔬 Research overview</a> — modeling gene regulation from DNA sequence</li>
+      <li><a href="/software/">🧰 Software tools</a> — all open-source research software</li>
+      <li><a href="https://khchao.com/shorkie/">📖 Documentation site</a></li>
+      <li><a href="https://github.com/Kuanhao-Chao/shorkie">💻 GitHub repository</a></li>
+      <li><a href="https://youtu.be/MvpYQYQvZ0U">🎬 ProbGen talk</a> — conference presentation video</li>
+      <li><a href="https://storage.googleapis.com/storage.khchao.com/slides/ProbGen2026_0325.pdf">📊 Talk slides (PDF)</a></li>
+    </ul>
+  </section>
+
   <p class="sl-foot">
     Source, weights and documentation: <a href="https://github.com/Kuanhao-Chao/shorkie">the Shorkie
     repository</a> and its <a href="https://khchao.com/shorkie/">documentation site</a>. The paper is{' '}
@@ -128,6 +142,9 @@ const itemListLd = {
 
 <style>
   .sl-intro { max-width: 60ch; color: var(--color-muted); }
+  .sl-resources { list-style: none; padding: 0; }
+  .sl-resources li { padding: 0.3rem 0; }
+  .sl-resources a { font-weight: 600; }
 
   .sl-grid {
     display: grid;
