@@ -155,7 +155,7 @@ const gameLd = {
     function mount() {
       if (cleanup) return;
       const container = document.querySelector<HTMLElement>('[data-defense-game]');
-      if (container) cleanup = initPhageDefense(container);
+      if (container) cleanup = initPhageDefense(container) ?? null;
     }
 
     function unmount() {
