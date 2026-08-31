@@ -1,6 +1,7 @@
 ---
 import PageLayout from '../../layouts/PageLayout.astro';
 import Icon from '../../components/Icon.astro';
+import ProofreaderLogo from '../../components/games/ProofreaderLogo.astro';
 import { site } from '../../data/site';
 
 const gameLd = {
@@ -13,7 +14,7 @@ const gameLd = {
   author: { '@id': `${site.url}/#person` },
   applicationCategory: 'Game',
   gamePlatform: ['Web browser', 'Mobile web browser'],
-  genre: ['Shooter', 'Arcade'],
+  genre: ['Shooter', 'Arcade', 'Science Game'],
   inLanguage: 'en',
   isAccessibleForFree: true,
 };
@@ -26,12 +27,21 @@ const gameLd = {
   description="Proofreader — an original, mobile-friendly first-person shooter web game by Kuan-Hao Chao, rendered with a Canvas-2D raycaster: a chromatin maze, mutation enemies, and nucleotide pickups."
   width="narrow"
 >
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
+
   <section class="proof" aria-label="Proofreader game">
+    <div class="proof-header-card">
+      <ProofreaderLogo size={58} />
+      <div class="proof-header-info">
+        <h2 class="proof-header-title">DNA Polymerase III ε Exonuclease Engine</h2>
+        <p class="proof-header-subtitle">Sweep the chromatin maze, excise replication mismatches, and scavenge dNTP charges.</p>
+      </div>
+    </div>
+
     <div class="proof-hud">
       <div class="proof-stats" aria-label="Current run">
         <span class="stat">
-          <span class="stat-label"><Icon name="shield" size={13} class="stat-icon" />Integrity</span
-          >
+          <span class="stat-label"><Icon name="shield" size={13} class="stat-icon" />Integrity</span>
           <span class="stat-value" data-proof-health>100</span>
         </span>
         <span class="stat">
@@ -75,7 +85,7 @@ const gameLd = {
 
     <div class="proof-actions">
       <button type="button" class="action-btn action-btn--fire" data-proof-fire disabled>
-        <Icon name="target" size={18} /> Fire
+        <Icon name="target" size={18} /> Fire Exonuclease
       </button>
       <button type="button" class="action-btn" data-proof-share disabled>
         <Icon name="share" size={16} /> Share result
@@ -86,35 +96,29 @@ const gameLd = {
       Click or tap the view — or press Enter — to start
     </p>
 
-    <p class="proof-sequence" aria-label="Collected nucleotide sequence">
-      <span class="sequence-label">Sequence</span>
-      <span class="sequence-value" data-proof-sequence>—</span>
-    </p>
+    <div class="proof-sequence-card" aria-label="Collected nucleotide sequence">
+      <span class="sequence-label">Excised Sequence (5'→3'):</span>
+      <div class="sequence-ribbon" data-proof-sequence>—</div>
+    </div>
 
     <details class="proof-help">
-      <summary>How to play</summary>
+      <summary>How to Play & Proofreading Mechanics</summary>
       <div class="help-grid muted">
         <p>
-          <strong>Move</strong> with W A S D or the arrow keys. On touch, drag the left half of the view
-          like a thumbstick.
+          <strong>Move:</strong> Use <code>W A S D</code> or arrow keys. On touch, drag the left half of the view like a thumbstick.
         </p>
         <p>
-          <strong>Look</strong> by clicking the view for mouse-look (Escape releases it), turning with
-          Left / Right or Q / E, or dragging the right half on touch.
+          <strong>Look:</strong> Click the view for mouse-look (Escape releases pointer lock), turn with <code>Left / Right</code> or <code>Q / E</code>, or drag the right half on touch.
         </p>
         <p>
-          <strong>Fire</strong> the proofreading pulse with Space, a click, or the Fire button. Aim assist
-          helps on touch.
+          <strong>Fire:</strong> Press <code>Space / Click</code> or tap <strong>Fire Exonuclease</strong> to cleave and eliminate replication mutation lesions. Aim assist is active on touch devices.
         </p>
         <p>
-          <strong>Survive</strong> escalating waves of mutations. Nucleotide pickups restore charges and
-          integrity; the radar shows what is hunting you.
+          <strong>Survive & Collect:</strong> Collect floating <code>A · C · G · T</code> dNTP gems to replenish charges and repair integrity. Use the biological radar in the corner to track approaching mutation threats.
         </p>
       </div>
     </details>
   </section>
-
-  <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
 </PageLayout>
 
 <script>
@@ -144,35 +148,71 @@ const gameLd = {
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
+    box-sizing: border-box;
+  }
+
+  .proof-header-card {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-md, 8px);
+    box-sizing: border-box;
+  }
+
+  .proof-header-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .proof-header-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--color-ink);
+    margin: 0;
+  }
+
+  .proof-header-subtitle {
+    font-size: 0.8rem;
+    color: var(--color-muted);
+    margin: 0;
   }
 
   .proof-hud {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 0.8rem 1.25rem;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-md, 8px);
+    box-sizing: border-box;
   }
 
   .proof-stats {
     display: flex;
     flex-wrap: wrap;
-    gap: clamp(0.9rem, 4vw, 1.7rem);
+    gap: clamp(0.8rem, 3.5vw, 1.6rem);
   }
 
   .stat {
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
-    line-height: 1;
+    gap: 2px;
   }
 
   .stat-label,
   .sequence-label {
-    font-size: var(--fs-meta);
-    letter-spacing: var(--tracking-meta);
+    font-size: var(--fs-meta, 0.75rem);
+    letter-spacing: var(--tracking-meta, 0.05em);
     text-transform: uppercase;
     color: var(--color-muted);
+    font-weight: 600;
   }
 
   .stat-label {
@@ -187,9 +227,9 @@ const gameLd = {
   }
 
   .stat-value {
-    font-family: var(--font-display);
-    font-size: 1.45rem;
-    font-weight: var(--fw-semibold);
+    font-family: var(--font-mono, monospace);
+    font-size: 1.35rem;
+    font-weight: 700;
     color: var(--color-ink);
     font-variant-numeric: tabular-nums;
   }
@@ -203,25 +243,22 @@ const gameLd = {
 
   .game-btn,
   .action-btn {
+    min-height: 44px;
+    padding: 0.5em 1em;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-sm, 6px);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-size: var(--fs-small, 0.85rem);
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.4rem;
-    min-height: 44px;
-    padding: 0.55em 1em;
-    border: 1px solid var(--color-rule);
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--color-surface) 78%, transparent);
-    color: var(--color-ink);
-    font-size: var(--fs-small);
-    font-weight: var(--fw-medium);
-    line-height: 1;
-    cursor: pointer;
-    transition:
-      border-color var(--transition),
-      color var(--transition),
-      background var(--transition),
-      transform var(--transition);
+    transition: all 0.15s ease;
+    box-sizing: border-box;
   }
 
   .game-btn:hover:not(:disabled),
@@ -243,14 +280,15 @@ const gameLd = {
 
   .proof-board {
     position: relative;
-    width: min(94vw, 40rem, 128svh);
-    aspect-ratio: 16 / 10;
+    width: min(94vw, 44rem, 64svh);
+    aspect-ratio: 4 / 3;
     margin-inline: auto;
     border: 1px solid var(--color-rule);
-    border-radius: var(--radius-lg);
-    background: var(--color-surface);
+    border-radius: var(--radius-lg, 12px);
+    background: #000000;
     overflow: hidden;
-    box-shadow: 0 0.65rem 2rem rgba(0, 0, 0, 0.11);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    box-sizing: border-box;
   }
 
   .proof-board canvas {
@@ -259,6 +297,7 @@ const gameLd = {
     touch-action: none;
     cursor: crosshair;
     user-select: none;
+    display: block;
   }
 
   .proof-actions {
@@ -266,59 +305,82 @@ const gameLd = {
   }
 
   .action-btn {
-    min-width: 8.5rem;
+    min-width: 9rem;
   }
 
   .action-btn--fire {
     border-color: var(--color-accent);
     background: var(--color-accent);
-    color: var(--color-on-accent);
-    touch-action: none;
+    color: var(--color-on-accent, #ffffff);
   }
 
   .action-btn--fire:hover:not(:disabled) {
-    border-color: var(--color-accent-dark);
-    background: var(--color-accent-dark);
-    color: var(--color-on-accent);
-  }
-
-  .proof-status,
-  .proof-sequence {
-    min-height: 1.4em;
-    text-align: center;
-    font-size: var(--fs-small);
+    background: var(--color-accent-dark, #245546);
+    border-color: var(--color-accent-dark, #245546);
+    color: var(--color-on-accent, #ffffff);
   }
 
   .proof-status {
+    min-height: 1.4em;
+    text-align: center;
+    font-size: var(--fs-small, 0.85rem);
+    color: var(--color-ink);
+    margin: 0;
+  }
+
+  .proof-sequence-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-md, 8px);
+    box-sizing: border-box;
+  }
+
+  .sequence-ribbon {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.95rem;
+    font-weight: 700;
+    min-height: 1.6rem;
     color: var(--color-ink);
   }
 
-  .proof-sequence {
-    color: var(--color-muted);
+  :global(.nucleotide-pill) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: #ffffff;
   }
 
-  .sequence-label {
-    margin-right: 0.5rem;
-  }
-
-  .sequence-value {
-    color: var(--color-accent);
-    font-weight: var(--fw-semibold);
-    letter-spacing: 0.22em;
-    overflow-wrap: anywhere;
-  }
+  :global(.pill-a) { background: #10b981; }
+  :global(.pill-c) { background: #0284c7; }
+  :global(.pill-g) { background: #f59e0b; }
+  :global(.pill-t) { background: #a855f7; }
 
   .proof-help {
     margin-top: var(--space-2);
-    border-top: 1px solid var(--color-rule);
-    border-bottom: 1px solid var(--color-rule);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-md, 8px);
+    box-sizing: border-box;
   }
 
   .proof-help summary {
-    padding-block: 0.8rem;
     color: var(--color-ink);
-    font-size: var(--fs-small);
-    font-weight: var(--fw-medium);
+    font-size: var(--fs-small, 0.88rem);
+    font-weight: 700;
     cursor: pointer;
   }
 
@@ -326,8 +388,8 @@ const gameLd = {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.7rem 1.5rem;
-    padding-bottom: var(--space-4);
-    font-size: var(--fs-meta);
+    padding-top: var(--space-3);
+    font-size: var(--fs-meta, 0.8rem);
     line-height: 1.5;
   }
 
@@ -335,22 +397,10 @@ const gameLd = {
     color: var(--color-ink);
   }
 
-  /* On touch devices, make the primary Fire control a big, thumb-friendly target. */
-  @media (pointer: coarse) {
-    .action-btn--fire {
-      min-height: 3.25rem;
-      min-width: 10rem;
-      font-size: var(--fs-body);
-    }
-  }
-
   @media (max-width: 620px) {
-    .proof-hud {
-      align-items: center;
-    }
-
-    .stat-value {
-      font-size: 1.25rem;
+    .proof-stats {
+      width: 100%;
+      justify-content: space-between;
     }
 
     .proof-controls {
@@ -362,7 +412,7 @@ const gameLd = {
     }
 
     .action-btn {
-      min-width: 7.8rem;
+      min-width: 8rem;
     }
 
     .help-grid {

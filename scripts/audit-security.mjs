@@ -75,10 +75,13 @@ const SAFE_SET_HTML_FILES = new Set([
   'src/pages/logo-options.astro',
   'src/pages/lab.astro',
   'src/pages/games/crispr-commander.astro',
+  'src/pages/games/dino-run.astro',
   'src/pages/games/genome-jumper.astro',
   'src/pages/games/jetpack-joyride.astro',
   'src/pages/games/phage-defense.astro',
   'src/pages/games/proofreader.astro',
+  'src/pages/games/snake.astro',
+  'src/pages/games/tetris.astro',
   'src/pages/posts/[...slug].astro',
   'src/pages/projects.astro',
   // JSON-LD only, built from static page constants -- no visitor input reaches it.

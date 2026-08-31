@@ -1,14 +1,42 @@
 ---
 import PageLayout from '../../layouts/PageLayout.astro';
+import TetrisLogo from '../../components/games/TetrisLogo.astro';
+import { site } from '../../data/site';
+
+const gameLd = {
+  '@context': 'https://schema.org',
+  '@type': 'VideoGame',
+  name: 'Tetris',
+  description:
+    'A modern browser Tetris engineered with SRS rotation, wall kicks, 7-bag randomizer, hold, ghost piece, and genomic base matrix aesthetics.',
+  url: `${site.url}/games/tetris/`,
+  author: { '@id': `${site.url}/#person` },
+  applicationCategory: 'Game',
+  gamePlatform: ['Web browser', 'Mobile web browser'],
+  genre: ['Puzzle', 'Arcade', 'Science Game'],
+  inLanguage: 'en',
+  isAccessibleForFree: true,
+};
 ---
+
 <PageLayout
   title="Tetris"
   eyebrow="Side project"
-  lead="A modern browser Tetris, built in the site's own style — SRS rotation with wall kicks, a 7-bag randomizer, hold, ghost piece, and level-based speed. Play with the arrow keys, WASD, on-screen buttons, or swipe."
+  lead="A modern browser Tetris built in this site's style: Super Rotation System (SRS) with wall kicks, a 7-bag randomizer, hold piece, ghost piece projection, and level-based gravity. Play with arrow keys, WASD, on-screen controls, or gestures."
   description="Tetris — a modern, mobile-friendly browser game by Kuan-Hao Chao: SRS rotation, 7-bag, hold, ghost piece, in a minimalist on-brand palette."
   width="narrow"
 >
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
+
   <section class="tetris" aria-label="Tetris game">
+    <div class="tetris-header-card">
+      <TetrisLogo size={58} />
+      <div class="tetris-header-info">
+        <h2 class="tetris-header-title">Molecular Tetromino Matrix</h2>
+        <p class="tetris-header-subtitle">Super Rotation System (SRS), 7-bag randomizer, hold slot, and ghost piece projection.</p>
+      </div>
+    </div>
+
     <div class="tetris-stage">
       <div class="tetris-board">
         <canvas
@@ -49,14 +77,27 @@ import PageLayout from '../../layouts/PageLayout.astro';
     </p>
 
     <div class="tetris-actions">
-      <button class="tetris-btn2" type="button" data-tetris-pause disabled>Pause</button>
-      <button class="tetris-btn2" type="button" data-tetris-restart>Restart</button>
+      <button class="game-btn" type="button" data-tetris-pause disabled>Pause</button>
+      <button class="game-btn" type="button" data-tetris-restart>Restart</button>
     </div>
 
-    <p class="tetris-hint muted">
-      Arrows / WASD move · ↑ or X rotate · Space hard-drop · Shift / C hold · P pause. On mobile: the
-      buttons above, or swipe to move, tap to rotate, flick down to drop.
-    </p>
+    <details class="tetris-help">
+      <summary>How to Play & SRS Controls</summary>
+      <div class="help-grid muted">
+        <p>
+          <strong>Move:</strong> Use <code>Left / Right</code> or <code>A / D</code>.
+        </p>
+        <p>
+          <strong>Rotate:</strong> Press <code>↑</code>, <code>X</code>, or <code>W</code> (clockwise) / <code>Z</code> (counter-clockwise).
+        </p>
+        <p>
+          <strong>Drop:</strong> Press <code>Space</code> for Hard Drop / <code>↓</code> or <code>S</code> for Soft Drop.
+        </p>
+        <p>
+          <strong>Hold:</strong> Press <code>Shift</code> or <code>C</code> to swap the active piece into the Hold queue.
+        </p>
+      </div>
+    </details>
   </section>
 </PageLayout>
 
@@ -74,7 +115,7 @@ import PageLayout from '../../layouts/PageLayout.astro';
   }
   document.addEventListener('astro:page-load', mount);
   document.addEventListener('astro:before-swap', unmount);
-  mount(); // also now: a module can load after astro:page-load on the first VT visit
+  mount();
 </script>
 
 <style>
@@ -85,7 +126,40 @@ import PageLayout from '../../layouts/PageLayout.astro';
     flex-direction: column;
     align-items: center;
     gap: var(--space-4);
+    box-sizing: border-box;
   }
+
+  .tetris-header-card {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-md, 8px);
+    box-sizing: border-box;
+  }
+
+  .tetris-header-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .tetris-header-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--color-ink);
+    margin: 0;
+  }
+
+  .tetris-header-subtitle {
+    font-size: 0.8rem;
+    color: var(--color-muted);
+    margin: 0;
+  }
+
   .tetris-stage {
     display: flex;
     gap: clamp(0.6rem, 2vw, 1.1rem);
@@ -93,168 +167,199 @@ import PageLayout from '../../layouts/PageLayout.astro';
     justify-content: center;
     width: 100%;
   }
+
   .tetris-board {
     flex: none;
-    height: min(70svh, 34rem);
+    height: min(64svh, 30rem);
     aspect-ratio: 1 / 2;
     border: 1px solid var(--color-rule);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
+    border-radius: var(--radius-lg, 12px);
     background: var(--color-surface);
-    box-shadow: 0 0.5rem 1.6rem rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   }
+
   .tetris-board canvas {
-    display: block;
     width: 100%;
     height: 100%;
-    touch-action: none;
+    display: block;
   }
+
   .tetris-panel {
     display: flex;
     flex-direction: column;
-    gap: var(--space-4);
-    min-width: 6rem;
+    gap: 0.6rem;
+    min-width: 6.5rem;
   }
+
   .panel-box {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.3rem;
-    padding: 0.45rem 0.5rem 0.55rem;
+    gap: 0.25rem;
+    padding: 0.45rem 0.55rem;
     border: 1px solid var(--color-rule);
-    border-radius: var(--radius);
+    border-radius: var(--radius-md, 8px);
     background: var(--color-surface);
   }
+
   .panel-label {
-    font-size: var(--fs-meta);
-    letter-spacing: var(--tracking-meta);
+    font-size: var(--fs-meta, 0.72rem);
+    letter-spacing: var(--tracking-meta, 0.05em);
     text-transform: uppercase;
     color: var(--color-muted);
+    font-weight: 600;
   }
+
   .mini {
-    width: 100%;
+    width: 4rem;
+    height: 4rem;
     display: block;
   }
-  .mini--hold {
-    height: 3rem;
-  }
-  .mini--next {
-    height: 8.5rem;
-  }
+
   .tetris-stats {
-    margin: 0;
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
+    padding: 0.45rem 0.55rem;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-md, 8px);
+    background: var(--color-surface);
+    margin: 0;
   }
-  .tetris-stats > div {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 0.6rem;
-  }
+
   .tetris-stats dt {
-    font-size: var(--fs-meta);
-    letter-spacing: var(--tracking-meta);
+    font-size: var(--fs-meta, 0.72rem);
+    letter-spacing: var(--tracking-meta, 0.05em);
     text-transform: uppercase;
     color: var(--color-muted);
+    font-weight: 600;
   }
+
   .tetris-stats dd {
     margin: 0;
-    font-family: var(--font-display);
-    font-weight: var(--fw-semibold);
+    font-family: var(--font-mono, monospace);
+    font-size: 1.1rem;
+    font-weight: 700;
     color: var(--color-ink);
     font-variant-numeric: tabular-nums;
   }
 
-  /* On-screen controls: touch devices only (desktop uses the keyboard). */
   .tetris-controls {
-    display: none;
+    display: flex;
+    gap: 0.4rem;
+    width: 100%;
+    max-width: 22rem;
+    justify-content: center;
   }
-  @media (pointer: coarse) {
-    .tetris-controls {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 0.5rem;
-      width: min(100%, 22rem);
-    }
-  }
+
   .tctl {
-    min-height: 3rem;
-    font-size: 1.25rem;
-    line-height: 1;
+    flex: 1;
+    min-height: 44px;
+    padding: 0.4rem;
     border: 1px solid var(--color-rule);
-    border-radius: var(--radius);
+    border-radius: var(--radius-sm, 6px);
     background: var(--color-surface);
     color: var(--color-ink);
+    font-size: 1.05rem;
+    font-weight: 700;
+    line-height: 1;
     cursor: pointer;
-    touch-action: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
     user-select: none;
+    box-sizing: border-box;
   }
-  .tctl:active {
-    background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+
+  .tctl:hover:not(:disabled),
+  .game-btn:hover:not(:disabled) {
     border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+
+  .tctl:active:not(:disabled),
+  .game-btn:active:not(:disabled) {
+    transform: translateY(1px);
   }
 
   .tetris-status {
-    text-align: center;
-    font-size: var(--fs-small);
-    color: var(--color-ink);
     min-height: 1.4em;
+    text-align: center;
+    font-size: var(--fs-small, 0.85rem);
+    color: var(--color-ink);
+    margin: 0;
   }
+
   .tetris-actions {
     display: flex;
     gap: 0.5rem;
   }
-  .tetris-btn2 {
-    font-size: var(--fs-small);
-    font-weight: var(--fw-medium);
-    padding: 0.45em 1em;
+
+  .game-btn {
+    min-height: 44px;
+    padding: 0.5em 1.2em;
     border: 1px solid var(--color-rule);
-    border-radius: 999px;
-    background: transparent;
+    border-radius: var(--radius-sm, 6px);
+    background: var(--color-surface);
     color: var(--color-ink);
+    font-size: var(--fs-small, 0.85rem);
+    font-weight: 600;
+    line-height: 1;
     cursor: pointer;
-    transition: all var(--transition);
-  }
-  .tetris-btn2:hover:not(:disabled) {
-    border-color: var(--color-accent);
-    color: var(--color-accent);
-  }
-  .tetris-btn2:disabled {
-    opacity: 0.45;
-    cursor: default;
-  }
-  .tetris-hint {
-    text-align: center;
-    font-size: var(--fs-meta);
-    max-width: 34rem;
-    margin-inline: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    box-sizing: border-box;
   }
 
-  /* Compact the whole game so the board + controls fit a phone viewport. */
-  @media (max-width: 640px) {
-    .tetris-board {
-      height: min(52svh, 22rem);
+  .game-btn:disabled {
+    opacity: 0.42;
+    cursor: default;
+  }
+
+  .tetris-help {
+    width: 100%;
+    margin-top: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-md, 8px);
+    box-sizing: border-box;
+  }
+
+  .tetris-help summary {
+    color: var(--color-ink);
+    font-size: var(--fs-small, 0.88rem);
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .help-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.7rem 1.5rem;
+    padding-top: var(--space-3);
+    font-size: var(--fs-meta, 0.8rem);
+    line-height: 1.5;
+  }
+
+  .help-grid strong {
+    color: var(--color-ink);
+  }
+
+  @media (max-width: 620px) {
+    .help-grid {
+      grid-template-columns: 1fr;
     }
-    .tetris-panel {
-      min-width: 4.6rem;
-      gap: var(--space-2);
-    }
-    .panel-box {
-      padding: 0.35rem 0.4rem 0.45rem;
-    }
-    .mini--hold {
-      height: 2.4rem;
-    }
-    .mini--next {
-      height: 6rem;
-    }
-    .tetris-stats {
-      gap: 0.25rem;
-    }
-    .tetris-stats dd {
-      font-size: 0.95rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tctl,
+    .game-btn {
+      transition: none;
     }
   }
 </style>

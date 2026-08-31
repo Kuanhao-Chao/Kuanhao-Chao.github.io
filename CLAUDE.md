@@ -1210,6 +1210,81 @@ Keras checkpoint, ported and exported, producing the same numbers the paper's mo
   a right-aligned note and a left-aligned label on one baseline simply overlap at 320px, and a canvas
   has no `overflow` to report it.
 
+#### Motif framing, and what the paper actually does
+
+- **Every derived splice/codon box was drawn as `[at − 3, at + 3)`** — one fixed 6 bp window
+  regardless of the motif. On DTD1 that framed **AAGGTA** where the donor motif is **GTATGT** three
+  bases to the right; it put a 6 bp box on a 2 bp acceptor and a 6 bp box on a 3 bp start codon.
+  `spliceAnnotations` now returns a **span** per landmark — donor 6, acceptor 2, codons 3, branch
+  point 7 — mirrored on the minus strand, because the motif runs the other way from its anchor
+  there. A test decodes the shipped sequence inside every drawn span across all windows and both
+  strands; that is the check that would have caught the shift, and a coordinate check would not.
+
+- **`norm()` collapsed "5′ splice site" and "3′ splice site" to the same key**
+  (`replace(/[^a-z]/g,'')` ate the digit), so a locus with a scanned 5′ site silently *lost* its 3′
+  box — RPL26A lost one and HOP2, with two introns, lost the second intron's pair. Keep the digit,
+  and de-duplicate on label **and position**, since two introns legitimately produce two donors.
+
+- **The curated TFBS boxes were never shifted, and that took measuring to establish.** Across the
+  shipped windows only **22.8% of 670** curated calls contain their factor's canonical consensus —
+  but where the consensus *is* present it sits at offset **0** (ABF1 16/16, REB1 8/10, UME6 4/6).
+  MacIsaac/Harbison calls are PWM-plus-conservation calls, not consensus matches, so a box labelled
+  `REB1✓` is exactly where the database says and usually over letters that do not spell Reb1. That
+  is a labelling problem, not a coordinate one. **Boxes are now drawn on the MATCH** (solid, with
+  the paper's reference-DB readout beneath) or on the **call** (hollow, labelled a region) — 17
+  solid and 66 hollow across the fourteen, with **0 solid boxes failing to contain their consensus**.
+
+- **`src/data/shorkieMotifs.json` is the paper's own dictionary** (Figure 4H plus S19/S20): Rap1,
+  Fhl1, Sfp1.1, TATA, Reb1, Abf1, Tbf1.1, Cbf1, Ume6.2, Dot6p, PAC, RRPE and the landmarks. It
+  exists because a consensus read off a figure is a claim that must be checkable — and the first
+  thing it caught was that **the site carried Fhl1 as `GTAAACA`, which is not the paper's Fhl1
+  motif**: the real one (`ATGTACGGAT`) sits at 8080 in the RPL26A window, 27 bp from the box the
+  site was drawing, and Figure S19B puts its FHL1 box at the former.
+
+- **`motifMatch` needs a strand mode, and the default is the dangerous one.** A TF site is
+  strand-agnostic — Rap1 reads on the reverse strand at exactly the base where Sfp1.1 reads forward,
+  in the promoter S19B boxes — but a codon or splice site is read in the gene's own frame.
+  `TTTATA` contains a reverse TATA box and `CCCTAACCC` a reverse `TAG`: both real, both the wrong
+  answer for a codon. Three of the first draft's test failures were this, and in every case the
+  assertion was wrong and the code right.
+
+- **A clipped box must still report the motif's true span.** The drawn rectangle is clipped to the
+  visible window, and reporting the clipped coordinates described a 13 bp Abf1 site as 9 bp purely
+  because the pan cut it off. `data-vp-motif-span` carries the unclipped span; the reference-DB
+  readout is suppressed when clipped rather than showing a partial motif.
+
+- **Figure 4's ISM is a SINGLE fold, `f0c0`** (`fig4_common.py:221` reads
+  `.../f0c0/part{N}/scores.h5`), which is what this site runs. The **8-fold ensemble**
+  (`load_ensemble(num_folds=8)`, `ensemble_predict`) belongs to **Figure 7's eQTL analysis**, not to
+  the logos this page reproduces — running it here would deviate from the figure, not match it.
+
+- **The paper's Figure 4 logSED and this site's are different formulas that agree.** Figure 4 uses
+  `logSED[idx,:,:,T0].mean(axis=-1)` — the mean of *per-track* logSED — while the site computes
+  logSED of the *track-averaged* coverage (`ensemble.py:97`). Mean of logs ≠ log of mean, so it was
+  measured rather than assumed: on 240 real substitutions in TDH3's promoter they agree to
+  **r = 0.999987**, max |diff| **0.00033**, same argmax, scale ratio 1.005 — far below the packs'
+  own quantisation. No re-run. The T0 tracks are highly correlated, which is why Jensen's gap is
+  negligible here; it would not be for a heterogeneous track set.
+
+- **The paper's own ISM arrays cannot be diffed against on this machine** — `results.ism_scores`
+  resolves to `/home/kchao10/...`, absent — so fidelity rests on the recipe and the published
+  figure, not on a numeric comparison. Say that rather than implying a stronger check was made.
+
+- **`add_loci.py` derives a locus rather than trusting typed coordinates.** Only the gene name and
+  the figure's `chrN:start-end` are input; sequence, gene models and bin ranges come from sacCer3
+  and the SGD GFF. Three rules were **derived from the fourteen shipped windows and reproduce all
+  fourteen exactly**: the published window sits centred (`seqStart = (16384 − L) // 2`, with L the
+  inclusive length — this holds for DTD1's 197 and HOP2's 777, not just 501); `txStart`/`txEnd` are
+  the **CDS extent**, not the SGD gene record, which includes UTRs; and a gene is kept when its CDS
+  overlaps the model's **cropped interior** `[1024, 15360)`, which is why a gene with a negative
+  txStart is kept while one whose coding span sits wholly in the flank is not.
+
+- **SGD parents a CDS to every isoform, comma-separated** — `Parent=YDL082W_id002,YDL082W_id001`.
+  Stripping a suffix off the whole string leaves `YDL082W_id002,YDL082W`, which matches no gene, so
+  **no CDS attached to anything and every gene became a single exon with no introns**. The window
+  and sequence checks all passed while this was true; only comparing gene models caught it. Split on
+  the comma first, and make the control compare models rather than coordinates.
+
 #### The yeast annotation layer
 
 - **`make_annotations.py` refuses to write unless the window IS sacCer3 at its stated coordinates.**

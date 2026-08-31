@@ -221,7 +221,19 @@ export function initSnake(root: ParentNode = document): SnakeController | null {
   function updateHud() {
     if (scoreEl) scoreEl.textContent = String(state.score);
     if (bestEl) bestEl.textContent = String(best);
-    if (strandEl) strandEl.textContent = strand.slice(-14).join('');
+    if (strandEl) {
+      if (strand.length === 0) {
+        strandEl.textContent = '—';
+      } else {
+        strandEl.textContent = '';
+        strand.slice(-14).forEach((b) => {
+          const pill = document.createElement('span');
+          pill.className = `nucleotide-pill ${b === 'A' ? 'pill-a' : b === 'C' ? 'pill-c' : b === 'G' ? 'pill-g' : 'pill-t'}`;
+          pill.textContent = b;
+          strandEl.appendChild(pill);
+        });
+      }
+    }
     if (statusEl) statusEl.textContent = statusMessage();
     if (pauseBtn) {
       pauseBtn.textContent = paused ? 'Resume' : 'Pause';

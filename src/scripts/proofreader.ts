@@ -1142,7 +1142,19 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
     if (waveEl) waveEl.textContent = String(state.wave);
     if (scoreEl) scoreEl.textContent = state.score.toLocaleString('en-US');
     if (bestEl) bestEl.textContent = best.toLocaleString('en-US');
-    if (sequenceEl) sequenceEl.textContent = state.sequence.join('') || '—';
+    if (sequenceEl) {
+      if (state.sequence.length === 0) {
+        sequenceEl.textContent = '—';
+      } else {
+        sequenceEl.textContent = '';
+        state.sequence.forEach((b) => {
+          const pill = document.createElement('span');
+          pill.className = `nucleotide-pill ${b === 'A' ? 'pill-a' : b === 'C' ? 'pill-c' : b === 'G' ? 'pill-g' : 'pill-t'}`;
+          pill.textContent = b;
+          sequenceEl.appendChild(pill);
+        });
+      }
+    }
     if (statusEl) statusEl.textContent = statusMessage();
     if (pauseBtn) {
       pauseBtn.disabled = state.status === 'ready' || state.status === 'over';
