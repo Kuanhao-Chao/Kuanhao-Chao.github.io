@@ -452,7 +452,11 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
   /* Opaque: panels scroll underneath it, and a translucent bar over a dense raster is unreadable. */
   backdrop-filter: none;
 }
-.vp-nav__group { display: inline-flex; align-items: center; gap: 0.3rem; }
+/* `min-width: 0` on the group and a cap on the select: without both, a flex item refuses to
+   shrink below its content and one long option makes the whole pane scroll sideways. */
+.vp-nav__group { display: inline-flex; align-items: center; gap: 0.3rem; min-width: 0; }
+.vp-nav__group .vp-select { max-width: 100%; min-width: 0; }
+.vp-nav { max-width: 100%; }
 .vp-nav__label {
   font-size: var(--fs-meta);
   color: var(--color-muted);
