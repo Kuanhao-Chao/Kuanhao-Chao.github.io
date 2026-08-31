@@ -184,9 +184,10 @@ async function auditGame(page, scope, profile, game) {
   }
 
   // Exercise ClientRouter teardown/remount, the common source of duplicate loops.
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.getByRole('link', { name: 'Software', exact: true }).first().click();
   await page.waitForURL('**/software/');
-  await page.getByRole('link', { name: game.linkName, exact: true }).click();
+  await page.getByRole('link', { name: game.linkName, exact: true }).first().click();
   await page.waitForURL(`**/games/${game.slug}/`);
   await page.waitForFunction((name) => Boolean(window[name]), game.global);
   await expect(
@@ -602,8 +603,10 @@ async function drivePhageDefense(page, scope, profile) {
   await ecoRiCard.click();
   const box = await canvas.boundingBox();
   if (box) {
-    // Click safe cytoplasm area (200, 380)
-    await page.mouse.click(box.x + 200, box.y + 380);
+    // Click safe cytoplasm area (virtual 240, 350)
+    const clickX = box.x + box.width * 0.3;
+    const clickY = box.y + box.height * 0.7;
+    await page.mouse.click(clickX, clickY);
     await expect(
       scope,
       () => page.evaluate(() => (window.__phageDefense?.state().towers.length ?? 0) >= 1),
@@ -611,9 +614,23 @@ async function drivePhageDefense(page, scope, profile) {
     );
 
     // Inspect placed tower
-    await page.mouse.click(box.x + 200, box.y + 380);
+    await page.mouse.click(clickX, clickY);
     const panel = page.locator('[data-selected-tower-panel]');
     await expect(scope, () => panel.isVisible(), 'Tower inspection panel did not open');
+  }
+
+  // Trigger CRISPRi Stasis emergency ability
+  const crispriBtn = page.locator('[data-emergency-ability="crispri"]');
+  if (await crispriBtn.count()) {
+    await crispriBtn.click();
+    await expect(
+      scope,
+      () =>
+        page.evaluate(
+          () => window.__phageDefense?.state().activeEmergencies.some((e) => e.type === 'crispri')
+        ),
+      'CRISPRi emergency ability was not activated'
+    );
   }
 
   // Pause / resume

@@ -85,7 +85,7 @@ const gameLd = {
             <span class="defense-tower-name">EcoRI Cleaver</span>
             <span class="defense-tower-cost">100 ATP</span>
           </div>
-          <span class="defense-tower-desc">Rapid melee endonuclease that cleaves palindromic viral DNA motifs.</span>
+          <span class="defense-tower-desc">Rapid restriction endonuclease firing palindromic cleavage bolts.</span>
         </button>
 
         <button type="button" class="defense-tower-card" data-tower-type="crispr_cas9">
@@ -93,7 +93,7 @@ const gameLd = {
             <span class="defense-tower-name">CRISPR-Cas9</span>
             <span class="defense-tower-cost">175 ATP</span>
           </div>
-          <span class="defense-tower-desc">Long-range sniper delivering high-damage sequence-guided double-strand breaks.</span>
+          <span class="defense-tower-desc">Long-range sniper delivering devastating double-strand break beams.</span>
         </button>
 
         <button type="button" class="defense-tower-card" data-tower-type="rnase_interceptor">
@@ -101,7 +101,7 @@ const gameLd = {
             <span class="defense-tower-name">RNase Jammer</span>
             <span class="defense-tower-cost">125 ATP</span>
           </div>
-          <span class="defense-tower-desc">Area-of-effect suppression that degrades viral mRNA and slows phages by 45%.</span>
+          <span class="defense-tower-desc">Area-of-effect suppression degrading viral mRNA and slowing phages by 50%.</span>
         </button>
 
         <button type="button" class="defense-tower-card" data-tower-type="ligase_drone">
@@ -109,15 +109,30 @@ const gameLd = {
             <span class="defense-tower-name">DNA Ligase</span>
             <span class="defense-tower-cost">150 ATP</span>
           </div>
-          <span class="defense-tower-desc">Support beacon that repairs membrane damage and boosts turnover rates.</span>
+          <span class="defense-tower-desc">Support beacon repairing cell health and granting +35% turnover aura.</span>
         </button>
+      </div>
+
+      <div class="defense-emergency-deck" aria-label="Tactical Emergency Protocols">
+        <span class="defense-emergency-label">Tactical Emergency Protocols:</span>
+        <div class="defense-emergency-grid">
+          <button type="button" class="defense-emergency-btn" data-emergency-ability="autophagy">
+            Autophagy Purge (150 ATP)
+          </button>
+          <button type="button" class="defense-emergency-btn" data-emergency-ability="crispri">
+            CRISPRi Stasis (80 ATP)
+          </button>
+          <button type="button" class="defense-emergency-btn" data-emergency-ability="overcharge">
+            Plasmid Overcharge (100 ATP)
+          </button>
+        </div>
       </div>
 
       <div class="defense-selected-panel" data-selected-tower-panel>
         <div class="defense-selected-content">
           <div>
             <strong data-tower-info-name>EcoRI Cleaver</strong> · <span data-tower-info-lvl>Level 1</span>
-            <div class="muted" style="font-size: 0.78rem; margin-top: 2px;" data-tower-info-dps>Damage: 28</div>
+            <div class="muted" style="font-size: 0.78rem; margin-top: 2px;" data-tower-info-dps>Damage: 32</div>
           </div>
 
           <div class="defense-priority-group" aria-label="Targeting Priority Selection">
@@ -140,9 +155,9 @@ const gameLd = {
       <h3>How to Play & Strategic Tactics</h3>
       <ul>
         <li><strong>Select & Deploy:</strong> Click a defense tower card above, then click anywhere on the cytosolic canvas (outside the path) to construct the molecular unit.</li>
-        <li><strong>Upgrade Defenses:</strong> Click an existing tower on the battlefield to inspect its range and upgrade its catalytic turnover rate (k<sub>cat</sub>) and damage.</li>
-        <li><strong>Recycle / Sell:</strong> Sell outdated towers to recover 70% of invested ATP and reposition defenses as phage swarms evolve.</li>
-        <li><strong>Combating Phage Swarms:</strong> Place <em>RNase Jammers</em> at bends to slow incoming phages, followed by <em>EcoRI Cleavers</em> and <em>CRISPR-Cas9</em> snipers to eliminate heavy armored phages before they reach the nucleoid.</li>
+        <li><strong>Upgrade & Recycle:</strong> Click an existing tower on the battlefield to inspect its range, switch targeting priorities, upgrade its catalytic turnover rate (k<sub>cat</sub>), or recycle it for 70% ATP refund.</li>
+        <li><strong>Emergency Protocols:</strong> When overwhelmed, trigger <em>Autophagy Purge</em> to dissolve standard phages, <em>CRISPRi Stasis</em> to freeze swarms in place, or <em>Plasmid Overcharge</em> for 2x tower fire rate.</li>
+        <li><strong>Combating Boss Megaphages:</strong> Boss phages possess Anti-CRISPR shields that absorb direct damage. Position RNase jammers at bends to slow them while focused CRISPR-Cas9 snipers break through their defenses.</li>
       </ul>
     </article>
   </section>
