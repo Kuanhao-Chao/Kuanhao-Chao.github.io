@@ -1,4 +1,7 @@
-/** Browser controller for Genome Jumper: rendering, input, timing, audio, storage, and sharing. */
+/**
+ * Browser controller for Genome Jumper: rendering, input, timing, audio, storage, and sharing.
+ * Features dynamic Light/Dark theme palette synchronization and biological RNA Polymerase II / chromatin graphics.
+ */
 import {
   PHYSICS,
   VIEW_HEIGHT,
@@ -39,16 +42,32 @@ export interface GenomeJumperController {
 }
 
 interface Palette {
+  isDark: boolean;
   background: string;
   surface: string;
+  ladderRail: string;
+  ladderRung: string;
   ink: string;
   muted: string;
   rule: string;
   accent: string;
   accentDark: string;
-  warm: string;
-  warmBg: string;
-  warmBorder: string;
+  gemA: string;
+  gemC: string;
+  gemG: string;
+  gemT: string;
+  platformStaticBg: string;
+  platformStaticBorder: string;
+  platformMovingBg: string;
+  platformMovingBorder: string;
+  platformBreakBg: string;
+  platformBreakBorder: string;
+  platformDisappearBg: string;
+  platformDisappearBorder: string;
+  springCoil: string;
+  enemyBg: string;
+  enemyBorder: string;
+  overlayBg: string;
 }
 
 interface Particle {
@@ -59,14 +78,12 @@ interface Particle {
   life: number;
   maxLife: number;
   color: string;
+  size: number;
 }
 
 const FIXED_STEP = 1 / 120;
 const BEST_KEY = 'khc-genome-jumper-best';
 const SOUND_KEY = 'khc-genome-jumper-sound';
-
-const cssVar = (name: string, fallback: string): string =>
-  getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 
 const readNumber = (key: string): number => {
   try {
@@ -80,7 +97,7 @@ const writeStorage = (key: string, value: string): void => {
   try {
     localStorage.setItem(key, value);
   } catch {
-    // Storage can be unavailable in private contexts. The current run still works.
+    // Storage can be unavailable in private contexts.
   }
 };
 
@@ -93,17 +110,68 @@ function readSoundPreference(): boolean {
 }
 
 function readPalette(): Palette {
+  const isDark =
+    typeof document !== 'undefined' &&
+    document.documentElement.getAttribute('data-theme') === 'dark';
+
+  if (isDark) {
+    return {
+      isDark: true,
+      background: '#060d16',
+      surface: '#0f172a',
+      ladderRail: 'rgba(56, 189, 248, 0.15)',
+      ladderRung: 'rgba(56, 189, 248, 0.08)',
+      ink: '#f8fafc',
+      muted: '#94a3b8',
+      rule: '#1e293b',
+      accent: '#10b981',
+      accentDark: '#059669',
+      gemA: '#10b981',
+      gemC: '#38bdf8',
+      gemG: '#f59e0b',
+      gemT: '#a855f7',
+      platformStaticBg: 'rgba(16, 185, 129, 0.12)',
+      platformStaticBorder: '#10b981',
+      platformMovingBg: 'rgba(56, 189, 248, 0.14)',
+      platformMovingBorder: '#38bdf8',
+      platformBreakBg: 'rgba(245, 158, 11, 0.14)',
+      platformBreakBorder: '#f59e0b',
+      platformDisappearBg: 'rgba(148, 163, 184, 0.12)',
+      platformDisappearBorder: '#94a3b8',
+      springCoil: '#fbbf24',
+      enemyBg: 'rgba(244, 63, 94, 0.22)',
+      enemyBorder: '#f43f5e',
+      overlayBg: 'rgba(6, 13, 22, 0.90)',
+    };
+  }
+
   return {
-    background: cssVar('--color-bg', '#fafaf8'),
-    surface: cssVar('--color-surface', '#ffffff'),
-    ink: cssVar('--color-ink', '#141414'),
-    muted: cssVar('--color-muted', '#6b6b6b'),
-    rule: cssVar('--color-rule', '#e5e4df'),
-    accent: cssVar('--color-accent', '#2e6e5e'),
-    accentDark: cssVar('--color-accent-dark', '#245546'),
-    warm: cssVar('--color-badge-warm-text', '#8a5a1a'),
-    warmBg: cssVar('--color-badge-warm-bg', '#fbf3e4'),
-    warmBorder: cssVar('--color-badge-warm-border', '#e3c79a'),
+    isDark: false,
+    background: '#fafaf8',
+    surface: '#ffffff',
+    ladderRail: 'rgba(15, 23, 42, 0.09)',
+    ladderRung: 'rgba(15, 23, 42, 0.06)',
+    ink: '#0f172a',
+    muted: '#64748b',
+    rule: '#e5e4df',
+    accent: '#059669',
+    accentDark: '#047857',
+    gemA: '#059669',
+    gemC: '#0284c7',
+    gemG: '#d97706',
+    gemT: '#7c3aed',
+    platformStaticBg: 'rgba(255, 255, 255, 0.95)',
+    platformStaticBorder: '#059669',
+    platformMovingBg: 'rgba(2, 132, 199, 0.12)',
+    platformMovingBorder: '#0284c7',
+    platformBreakBg: 'rgba(217, 119, 6, 0.12)',
+    platformBreakBorder: '#d97706',
+    platformDisappearBg: 'rgba(100, 116, 139, 0.12)',
+    platformDisappearBorder: '#64748b',
+    springCoil: '#d97706',
+    enemyBg: 'rgba(225, 29, 72, 0.12)',
+    enemyBorder: '#e11d48',
+    overlayBg: 'rgba(250, 250, 248, 0.92)',
   };
 }
 
@@ -138,6 +206,114 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
   let shareMessage = '';
   let reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const particles: Particle[] = [];
+  let animTick = 0;
+
+  // Audio Context synthesis
+  let audioContext: AudioContext | null = null;
+  function ensureAudio() {
+    if (!soundEnabled) return;
+    if (!audioContext && typeof window !== 'undefined') {
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (AudioCtx) audioContext = new AudioCtx();
+    }
+    if (audioContext && audioContext.state === 'suspended') {
+      void audioContext.resume();
+    }
+  }
+
+  function soundForEvent(event: GameState['lastEvent']) {
+    if (!soundEnabled || !audioContext) return;
+    const now = audioContext.currentTime;
+
+    if (event === 'jump') {
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(260, now);
+      osc.frequency.exponentialRampToValueAtTime(520, now + 0.08);
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      osc.start(now);
+      osc.stop(now + 0.09);
+    } else if (event === 'spring') {
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(320, now);
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.15);
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      osc.start(now);
+      osc.stop(now + 0.16);
+    } else if (event === 'jetpack') {
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(440, now);
+      osc.frequency.linearRampToValueAtTime(880, now + 0.2);
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      osc.start(now);
+      osc.stop(now + 0.22);
+    } else if (event === 'collect') {
+      const notes = [523.25, 659.25, 783.99];
+      const freq = notes[state.sequence.length % notes.length];
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now);
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      osc.start(now);
+      osc.stop(now + 0.1);
+    } else if (event === 'shot') {
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(780, now);
+      osc.frequency.exponentialRampToValueAtTime(220, now + 0.08);
+      gain.gain.setValueAtTime(0.1, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      osc.start(now);
+      osc.stop(now + 0.08);
+    } else if (event === 'enemy') {
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(220, now);
+      osc.frequency.exponentialRampToValueAtTime(110, now + 0.15);
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      osc.start(now);
+      osc.stop(now + 0.16);
+    } else if (event === 'over') {
+      const osc = audioContext.createOscillator();
+      const gain = audioContext.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(140, now);
+      osc.frequency.linearRampToValueAtTime(40, now + 0.35);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+      osc.connect(gain);
+      gain.connect(audioContext.destination);
+      osc.start(now);
+      osc.stop(now + 0.38);
+    }
+  }
 
   // Canvas dimensions are CSS pixels; the backing store is scaled for sharpness.
   let width = 420;
@@ -173,26 +349,45 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
   }
 
   function drawBackground() {
-    ctx.fillStyle = palette.surface;
+    ctx.fillStyle = palette.background;
     ctx.fillRect(0, 0, width, height);
 
-    // Restrained genomic ladder: it anchors the game in the site's visual language
-    // without turning the playfield into a high-contrast grid.
+    // Dynamic procedural chromatin double helix rails climbing both edges
     ctx.save();
-    ctx.strokeStyle = palette.rule;
-    ctx.fillStyle = palette.rule;
-    ctx.globalAlpha = 0.42;
-    ctx.lineWidth = 1;
-    const phase = (((state.cameraY * scaleY()) % 48) + 48) % 48;
-    for (let y = phase - 48; y < height + 48; y += 48) {
+    const phase = (((state.cameraY * scaleY()) % 60) + 60) % 60;
+    const railLeft = width * 0.07;
+    const railRight = width * 0.93;
+
+    // Outer double-helix backbone rails
+    ctx.strokeStyle = palette.ladderRail;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(railLeft, 0);
+    ctx.lineTo(railLeft, height);
+    ctx.moveTo(railRight, 0);
+    ctx.lineTo(railRight, height);
+    ctx.stroke();
+
+    // Base pair ladder rungs with subtle sine wave oscillation
+    ctx.strokeStyle = palette.ladderRung;
+    ctx.lineWidth = 1.2;
+    for (let y = phase - 60; y < height + 60; y += 30) {
+      const wave = Math.sin((y + animTick * 12) * 0.05) * 8;
       ctx.beginPath();
-      ctx.moveTo(width * 0.08, y);
-      ctx.lineTo(width * 0.92, y);
+      ctx.moveTo(railLeft, y);
+      ctx.lineTo(railLeft + 24 + wave, y);
+      ctx.moveTo(railRight - 24 - wave, y);
+      ctx.lineTo(railRight, y);
       ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(width * 0.08, y, 1.6, 0, Math.PI * 2);
-      ctx.arc(width * 0.92, y, 1.6, 0, Math.PI * 2);
-      ctx.fill();
+
+      // Histone octamer beads along rails
+      if (Math.round(y / 30) % 3 === 0) {
+        ctx.fillStyle = palette.ladderRail;
+        ctx.beginPath();
+        ctx.arc(railLeft, y, 3, 0, Math.PI * 2);
+        ctx.arc(railRight, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
     ctx.restore();
   }
@@ -203,40 +398,88 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     const x = sx(platform.x);
     const y = sy(platform.y);
     const w = platform.width * scaleX();
-    const h = Math.max(7, 9 * scaleY());
+    const h = Math.max(8, 10 * scaleY());
     if (y < -30 || y > height + 30) return;
+
     ctx.save();
     if (platform.disappearAt !== null) {
       ctx.globalAlpha = Math.max(0.12, (platform.disappearAt - state.time) / 0.48);
     }
-    ctx.fillStyle = platform.kind === 'breakable' ? palette.warmBg : palette.background;
-    ctx.strokeStyle = platform.kind === 'breakable' ? palette.warmBorder : palette.accent;
-    ctx.lineWidth = Math.max(1.2, scaleX() * 1.5);
-    roundedRect(x, y - h / 2, w, h, 3);
-    ctx.fill();
-    ctx.stroke();
 
-    if (platform.kind === 'moving') {
-      ctx.fillStyle = palette.accent;
-      ctx.globalAlpha *= 0.65;
-      const direction = platform.vx >= 0 ? 1 : -1;
+    if (platform.kind === 'static') {
+      // 1. Stable Euchromatin Platform: Double-banded DNA phosphodiester backbone
+      ctx.fillStyle = palette.platformStaticBg;
+      ctx.strokeStyle = palette.platformStaticBorder;
+      ctx.lineWidth = 2;
+      roundedRect(x, y - h / 2, w, h, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      // Watson-Crick hydrogen bonding notches
+      ctx.strokeStyle = palette.platformStaticBorder;
+      ctx.lineWidth = 1;
+      const notchStep = 12;
+      for (let nx = x + 10; nx < x + w - 8; nx += notchStep) {
+        ctx.beginPath();
+        ctx.moveTo(nx, y - h / 2 + 2);
+        ctx.lineTo(nx, y + h / 2 - 2);
+        ctx.stroke();
+      }
+    } else if (platform.kind === 'moving') {
+      // 2. Moving Heterochromatin Platform: Sliding rail with directional kinetic chevrons
+      ctx.fillStyle = palette.platformMovingBg;
+      ctx.strokeStyle = palette.platformMovingBorder;
+      ctx.lineWidth = 2;
+      roundedRect(x, y - h / 2, w, h, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      // Kinetic directional thruster chevrons
+      ctx.fillStyle = palette.platformMovingBorder;
+      const dir = platform.vx >= 0 ? 1 : -1;
+      const cx = x + w / 2;
       ctx.beginPath();
-      ctx.moveTo(x + w / 2 + direction * 8, y);
-      ctx.lineTo(x + w / 2 - direction * 2, y - 4);
-      ctx.lineTo(x + w / 2 - direction * 2, y + 4);
+      ctx.moveTo(cx + dir * 10, y);
+      ctx.lineTo(cx - dir * 2, y - 4);
+      ctx.lineTo(cx - dir * 2, y + 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(cx + dir * 2, y);
+      ctx.lineTo(cx - dir * 10, y - 4);
+      ctx.lineTo(cx - dir * 10, y + 4);
       ctx.closePath();
       ctx.fill();
     } else if (platform.kind === 'breakable') {
-      ctx.strokeStyle = palette.warm;
+      // 3. Breakable Fragile Site Platform: Fractured crystal lattice
+      ctx.fillStyle = palette.platformBreakBg;
+      ctx.strokeStyle = palette.platformBreakBorder;
+      ctx.lineWidth = 1.8;
+      roundedRect(x, y - h / 2, w, h, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      // Jagged fracture stress lines
+      ctx.strokeStyle = palette.platformBreakBorder;
+      ctx.lineWidth = 1.2;
       ctx.beginPath();
-      ctx.moveTo(x + w * 0.42, y - h / 2);
-      ctx.lineTo(x + w * 0.48, y + h / 2);
-      ctx.lineTo(x + w * 0.56, y - h / 2);
+      ctx.moveTo(x + w * 0.3, y - h / 2);
+      ctx.lineTo(x + w * 0.45, y + 1);
+      ctx.lineTo(x + w * 0.38, y + h / 2);
+      ctx.moveTo(x + w * 0.65, y - h / 2);
+      ctx.lineTo(x + w * 0.58, y);
+      ctx.lineTo(x + w * 0.72, y + h / 2);
       ctx.stroke();
     } else if (platform.kind === 'disappearing') {
+      // 4. Disappearing Transcription Bubble: Phase-dash translucent contour
+      ctx.fillStyle = palette.platformDisappearBg;
+      ctx.strokeStyle = palette.platformDisappearBorder;
+      ctx.lineWidth = 1.8;
       ctx.setLineDash([5, 4]);
-      ctx.strokeStyle = palette.muted;
-      ctx.strokeRect(x + 4, y - h / 2 + 2, Math.max(0, w - 8), Math.max(0, h - 4));
+      roundedRect(x, y - h / 2, w, h, 4);
+      ctx.fill();
+      ctx.stroke();
+      ctx.setLineDash([]);
     }
 
     if (platform.spring) drawSpring(x + w / 2, y - h / 2);
@@ -245,15 +488,30 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
 
   function drawSpring(x: number, platformY: number) {
     ctx.save();
-    ctx.strokeStyle = palette.warm;
-    ctx.lineWidth = 2;
+    // 3D Topoisomerase Unwinding Spring
+    ctx.strokeStyle = palette.springCoil;
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // Base bracket
+    ctx.fillStyle = palette.springCoil;
+    ctx.fillRect(x - 8, platformY - 2, 16, 2);
+
+    // Coiling spring tiers
     ctx.beginPath();
-    ctx.moveTo(x - 10, platformY);
-    ctx.lineTo(x + 8, platformY - 5);
-    ctx.lineTo(x - 8, platformY - 10);
-    ctx.lineTo(x + 7, platformY - 15);
-    ctx.lineTo(x - 6, platformY - 20);
+    ctx.moveTo(x - 6, platformY - 2);
+    ctx.lineTo(x + 6, platformY - 6);
+    ctx.lineTo(x - 6, platformY - 11);
+    ctx.lineTo(x + 6, platformY - 16);
+    ctx.lineTo(x - 6, platformY - 21);
+    ctx.lineTo(x + 6, platformY - 25);
     ctx.stroke();
+
+    // Top kinetic cap
+    ctx.beginPath();
+    ctx.arc(x, platformY - 26, 4, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
   }
 
@@ -262,19 +520,51 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     const x = sx(item.x);
     const y = sy(item.y);
     if (y < -30 || y > height + 30) return;
-    const radius = Math.max(10, 13 * scaleX());
-    ctx.fillStyle = palette.warmBg;
-    ctx.strokeStyle = palette.warmBorder;
-    ctx.lineWidth = 1.5;
+    const radius = Math.max(11, 14 * scaleX());
+
+    const gemColor =
+      item.base === 'A'
+        ? palette.gemA
+        : item.base === 'C'
+          ? palette.gemC
+          : item.base === 'G'
+            ? palette.gemG
+            : palette.gemT;
+
+    ctx.save();
+    // Ambient gem glow
+    ctx.shadowColor = gemColor;
+    ctx.shadowBlur = palette.isDark ? 12 : 5;
+
+    // Diamond gem polygon
+    ctx.fillStyle = gemColor;
     ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.moveTo(x, y - radius);
+    ctx.lineTo(x + radius * 0.9, y);
+    ctx.lineTo(x, y + radius);
+    ctx.lineTo(x - radius * 0.9, y);
+    ctx.closePath();
     ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = palette.warm;
-    ctx.font = `600 ${Math.round(radius * 1.15)}px ${cssVar('--font-display', 'system-ui')}`;
+
+    // Inner bright facet
+    ctx.fillStyle = palette.surface;
+    ctx.beginPath();
+    ctx.moveTo(x, y - radius * 0.7);
+    ctx.lineTo(x + radius * 0.6, y);
+    ctx.lineTo(x, y + radius * 0.7);
+    ctx.lineTo(x - radius * 0.6, y);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
+
+    // Base nucleotide letter
+    ctx.fillStyle = gemColor;
+    ctx.font = `bold ${Math.round(radius * 1.15)}px monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(item.base, x, y + 0.5);
+    ctx.fillText(item.base, x, y);
+    ctx.restore();
   }
 
   function drawPowerUp(item: GameState['powerUps'][number]) {
@@ -282,23 +572,44 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     const x = sx(item.x);
     const y = sy(item.y);
     if (y < -35 || y > height + 35) return;
+
     ctx.save();
     ctx.translate(x, y);
-    ctx.fillStyle = palette.accent;
-    ctx.strokeStyle = palette.accentDark;
+
+    // P-TEFb Elongation Jetpack: High-tech dual-cylinder booster
+    ctx.fillStyle = '#0284c7';
+    ctx.strokeStyle = '#38bdf8';
     ctx.lineWidth = 1.5;
-    roundedRect(-10, -15, 20, 25, 5);
+
+    // Left & Right Cylinders
+    roundedRect(-12, -14, 10, 22, 4);
     ctx.fill();
     ctx.stroke();
-    ctx.fillStyle = palette.warm;
-    ctx.beginPath();
-    ctx.moveTo(-7, 10);
-    ctx.lineTo(-2, 20);
-    ctx.lineTo(1, 10);
-    ctx.moveTo(3, 10);
-    ctx.lineTo(8, 20);
-    ctx.lineTo(9, 10);
+    roundedRect(2, -14, 10, 22, 4);
     ctx.fill();
+    ctx.stroke();
+
+    // Center bridge
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillRect(-4, -6, 8, 8);
+
+    // Exhaust nozzles
+    ctx.fillStyle = '#64748b';
+    ctx.fillRect(-10, 8, 6, 4);
+    ctx.fillRect(4, 8, 6, 4);
+
+    // Animated idle thruster flame
+    const flameY = Math.sin(animTick * 8) * 3;
+    ctx.fillStyle = '#fbbf24';
+    ctx.beginPath();
+    ctx.moveTo(-9, 12);
+    ctx.lineTo(-7, 18 + flameY);
+    ctx.lineTo(-5, 12);
+    ctx.moveTo(5, 12);
+    ctx.lineTo(7, 18 + flameY);
+    ctx.lineTo(9, 12);
+    ctx.fill();
+
     ctx.restore();
   }
 
@@ -308,15 +619,22 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     const y = sy(enemy.y);
     if (y < -40 || y > height + 40) return;
     const radius = enemy.width * scaleX() * 0.44;
+
     ctx.save();
     ctx.translate(x, y);
-    ctx.fillStyle = palette.warmBg;
-    ctx.strokeStyle = palette.warm;
-    ctx.lineWidth = 1.7;
+
+    // Spiked Retrotransposon Mutation Core
+    ctx.shadowColor = palette.enemyBorder;
+    ctx.shadowBlur = palette.isDark ? 14 : 6;
+    ctx.fillStyle = palette.enemyBg;
+    ctx.strokeStyle = palette.enemyBorder;
+    ctx.lineWidth = 2;
+
     ctx.beginPath();
-    for (let i = 0; i < 16; i++) {
-      const angle = (i / 16) * Math.PI * 2;
-      const r = i % 2 === 0 ? radius * 1.25 : radius;
+    const spikes = 12;
+    for (let i = 0; i < spikes * 2; i++) {
+      const angle = (i / (spikes * 2)) * Math.PI * 2;
+      const r = i % 2 === 0 ? radius * 1.3 : radius * 0.75;
       const px = Math.cos(angle) * r;
       const py = Math.sin(angle) * r;
       if (i === 0) ctx.moveTo(px, py);
@@ -325,11 +643,22 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
-    ctx.fillStyle = palette.warm;
+    ctx.shadowBlur = 0;
+
+    // Glowing nucleolytic eye cores
+    ctx.fillStyle = palette.enemyBorder;
     ctx.beginPath();
-    ctx.arc(-radius * 0.32, -1, 2, 0, Math.PI * 2);
-    ctx.arc(radius * 0.32, -1, 2, 0, Math.PI * 2);
+    ctx.arc(-radius * 0.35, -1, 2.5, 0, Math.PI * 2);
+    ctx.arc(radius * 0.35, -1, 2.5, 0, Math.PI * 2);
     ctx.fill();
+
+    // Central mutation lesion symbol
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 9px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Δ', 0, 1);
+
     ctx.restore();
   }
 
@@ -337,13 +666,27 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     if (!projectile.alive) return;
     const x = sx(projectile.x);
     const y = sy(projectile.y);
+
+    ctx.save();
+    // Luminous laser cleavage bolt
     ctx.strokeStyle = palette.accent;
-    ctx.lineWidth = Math.max(2, 3 * scaleX());
+    ctx.shadowColor = palette.accent;
+    ctx.shadowBlur = palette.isDark ? 12 : 5;
+    ctx.lineWidth = Math.max(3, 4 * scaleX());
     ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(x, y + 7);
-    ctx.lineTo(x, y - 7);
+    ctx.moveTo(x, y + 9);
+    ctx.lineTo(x, y - 9);
     ctx.stroke();
+
+    // White core laser
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x, y + 5);
+    ctx.lineTo(x, y - 5);
+    ctx.stroke();
+    ctx.restore();
   }
 
   function drawPlayerAt(worldX: number) {
@@ -356,39 +699,101 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     const tilt = Math.max(-0.14, Math.min(0.14, state.player.vx / 1400));
     ctx.rotate(tilt);
 
-    if (isJetpackActive(state)) {
-      ctx.globalAlpha = 0.2;
-      ctx.fillStyle = palette.accent;
+    // Squash and stretch based on vertical velocity
+    const vy = state.player.vy;
+    const stretchY = Math.max(0.85, Math.min(1.2, 1 + vy * 0.00025));
+    const stretchX = 1 / stretchY;
+    ctx.scale(stretchX, stretchY);
+
+    const hasJetpack = isJetpackActive(state);
+
+    // 1. Protective Transcription Bubble Aura during Jetpack
+    if (hasJetpack) {
+      ctx.shadowColor = palette.accent;
+      ctx.shadowBlur = 18;
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.16)';
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
       ctx.beginPath();
-      ctx.arc(0, 0, w * 0.85, 0, Math.PI * 2);
+      ctx.arc(0, 0, w * 0.95, 0, Math.PI * 2);
       ctx.fill();
-      ctx.globalAlpha = 1;
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.shadowBlur = 0;
+
+      // Jetpack Thruster Flame Emitters
+      const flameH = 16 + Math.sin(animTick * 12) * 6;
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.35, h * 0.35);
+      ctx.lineTo(-w * 0.25, h * 0.35 + flameH);
+      ctx.lineTo(-w * 0.15, h * 0.35);
+      ctx.moveTo(w * 0.15, h * 0.35);
+      ctx.lineTo(w * 0.25, h * 0.35 + flameH);
+      ctx.lineTo(w * 0.35, h * 0.35);
+      ctx.fill();
     }
 
+    // 2. RNA Polymerase II Main Subunit Body
+    ctx.shadowColor = palette.accent;
+    ctx.shadowBlur = palette.isDark ? 12 : 4;
     ctx.fillStyle = palette.accent;
     ctx.strokeStyle = palette.accentDark;
-    ctx.lineWidth = 1.5;
-    roundedRect(-w / 2, -h / 2, w, h, w * 0.3);
+    ctx.lineWidth = 1.8;
+    roundedRect(-w / 2, -h / 2, w, h, w * 0.32);
     ctx.fill();
     ctx.stroke();
+    ctx.shadowBlur = 0;
 
-    // A tiny double-helix badge makes the character genomic without needing an asset.
+    // 3. Catalytic Active Site / Transcription Cleft
+    ctx.fillStyle = '#fef08a';
+    ctx.beginPath();
+    ctx.arc(0, -h * 0.05, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 4. Double-helix emblem on Polymerase Body
     ctx.strokeStyle = palette.surface;
     ctx.globalAlpha = 0.9;
-    ctx.lineWidth = 1.3;
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(-w * 0.2, h * 0.15);
-    ctx.bezierCurveTo(w * 0.24, 0, -w * 0.24, -h * 0.13, w * 0.2, -h * 0.27);
-    ctx.moveTo(w * 0.2, h * 0.15);
-    ctx.bezierCurveTo(-w * 0.24, 0, w * 0.24, -h * 0.13, -w * 0.2, -h * 0.27);
+    ctx.moveTo(-w * 0.22, h * 0.18);
+    ctx.bezierCurveTo(w * 0.24, 0, -w * 0.24, -h * 0.12, w * 0.22, -h * 0.26);
+    ctx.moveTo(w * 0.22, h * 0.18);
+    ctx.bezierCurveTo(-w * 0.24, 0, w * 0.24, -h * 0.12, -w * 0.22, -h * 0.26);
     ctx.stroke();
     ctx.globalAlpha = 1;
 
-    ctx.fillStyle = palette.surface;
+    // 5. Friendly Arcade Eye Subunits
+    ctx.fillStyle = '#ffffff';
     ctx.beginPath();
-    ctx.arc(-w * 0.17, -h * 0.24, 2.2, 0, Math.PI * 2);
-    ctx.arc(w * 0.17, -h * 0.24, 2.2, 0, Math.PI * 2);
+    ctx.arc(-w * 0.18, -h * 0.24, 2.8, 0, Math.PI * 2);
+    ctx.arc(w * 0.18, -h * 0.24, 2.8, 0, Math.PI * 2);
     ctx.fill();
+
+    ctx.fillStyle = palette.accentDark;
+    ctx.beginPath();
+    const lookX = state.steering * 1.2;
+    ctx.arc(-w * 0.18 + lookX, -h * 0.24, 1.4, 0, Math.PI * 2);
+    ctx.arc(w * 0.18 + lookX, -h * 0.24, 1.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 6. Trailing Nascent mRNA Transcript Tail (5'-to-3')
+    if (state.sequence.length > 0) {
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      const wave = Math.sin(animTick * 6) * 4;
+      ctx.moveTo(-w * 0.25, h * 0.2);
+      ctx.quadraticCurveTo(-w * 0.65, h * 0.35 + wave, -w * 0.85, h * 0.5);
+      ctx.stroke();
+
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.arc(-w * 0.85, h * 0.5, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     ctx.restore();
   }
 
@@ -405,7 +810,7 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
       ctx.globalAlpha = alpha;
       ctx.fillStyle = particle.color;
       ctx.beginPath();
-      ctx.arc(sx(particle.x), sy(particle.y), 2.2, 0, Math.PI * 2);
+      ctx.arc(sx(particle.x), sy(particle.y), particle.size || 2.2, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.globalAlpha = 1;
@@ -414,101 +819,81 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
   function drawOverlay() {
     if (state.status === 'playing') return;
     ctx.save();
-    ctx.fillStyle = palette.background;
-    ctx.globalAlpha = 0.82;
-    roundedRect(width * 0.12, height * 0.37, width * 0.76, height * 0.2, 6);
+    ctx.fillStyle = palette.overlayBg;
+    roundedRect(width * 0.08, height * 0.34, width * 0.84, height * 0.28, 10);
     ctx.fill();
-    ctx.globalAlpha = 1;
+
+    ctx.strokeStyle = palette.rule;
+    ctx.lineWidth = 1;
+    roundedRect(width * 0.08, height * 0.34, width * 0.84, height * 0.28, 10);
+    ctx.stroke();
+
     ctx.fillStyle = palette.ink;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = `600 ${Math.max(18, Math.round(width * 0.055))}px ${cssVar('--font-display', 'system-ui')}`;
+    ctx.font = `bold ${Math.max(20, Math.round(width * 0.062))}px sans-serif`;
     const title =
       state.status === 'ready'
-        ? 'Ready to jump?'
+        ? 'Ready to Transcribe?'
         : state.status === 'paused'
-          ? 'Paused'
-          : 'Run complete';
-    ctx.fillText(title, width / 2, height * 0.445);
+          ? 'PAUSED'
+          : 'RUN COMPLETE';
+    ctx.fillText(title, width / 2, height * 0.42);
+
     ctx.fillStyle = palette.muted;
-    ctx.font = `500 ${Math.max(12, Math.round(width * 0.034))}px ${cssVar('--font-body', 'system-ui')}`;
+    ctx.font = `500 ${Math.max(13, Math.round(width * 0.036))}px monospace`;
     const hint =
       state.status === 'over'
-        ? 'Enter or Restart to go again'
+        ? `Height: ${state.height}m · Score: ${state.score}`
         : state.status === 'paused'
-          ? 'P or Pause to resume'
-          : 'Tap the board or press Enter';
-    ctx.fillText(hint, width / 2, height * 0.5);
+          ? 'Press P or Pause to resume'
+          : 'Tap board or press Enter / Space to jump';
+    ctx.fillText(hint, width / 2, height * 0.49);
+
+    if (state.status === 'over') {
+      ctx.fillStyle = palette.accent;
+      ctx.font = 'bold 12px monospace';
+      ctx.fillText('Press Enter or Restart to climb again', width / 2, height * 0.55);
+    }
     ctx.restore();
   }
 
   function render() {
+    animTick += 0.04;
     drawBackground();
     for (const platform of state.platforms) drawPlatform(platform);
     for (const item of state.collectibles) drawCollectible(item);
     for (const item of state.powerUps) drawPowerUp(item);
     for (const enemy of state.enemies) drawEnemy(enemy);
     for (const projectile of state.projectiles) drawProjectile(projectile);
-    drawParticles();
     drawPlayer();
+    drawParticles();
     drawOverlay();
-  }
-
-  // ---- audio ------------------------------------------------------------
-  let audioContext: AudioContext | null = null;
-
-  function ensureAudio(): AudioContext | null {
-    if (!soundEnabled) return null;
-    try {
-      audioContext ??= new AudioContext();
-      if (audioContext.state === 'suspended') void audioContext.resume();
-      return audioContext;
-    } catch {
-      return null;
-    }
-  }
-
-  function tone(frequency: number, duration: number, volume = 0.035, endFrequency = frequency) {
-    const audio = ensureAudio();
-    if (!audio) return;
-    const now = audio.currentTime;
-    const oscillator = audio.createOscillator();
-    const gain = audio.createGain();
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(frequency, now);
-    oscillator.frequency.exponentialRampToValueAtTime(Math.max(20, endFrequency), now + duration);
-    gain.gain.setValueAtTime(volume, now);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-    oscillator.connect(gain).connect(audio.destination);
-    oscillator.start(now);
-    oscillator.stop(now + duration);
-  }
-
-  function soundForEvent(event: GameState['lastEvent']) {
-    if (!soundEnabled) return;
-    if (event === 'jump') tone(190, 0.07, 0.018, 230);
-    else if (event === 'spring') tone(210, 0.16, 0.035, 620);
-    else if (event === 'collect') tone(520, 0.11, 0.03, 740);
-    else if (event === 'jetpack') tone(150, 0.32, 0.04, 520);
-    else if (event === 'shot') tone(480, 0.055, 0.02, 290);
-    else if (event === 'enemy') tone(220, 0.14, 0.035, 80);
-    else if (event === 'over') tone(240, 0.42, 0.035, 70);
   }
 
   function spawnParticles(event: GameState['lastEvent']) {
     if (reducedMotion || event === 'none' || event === 'shot') return;
-    const count = event === 'jetpack' ? 12 : event === 'enemy' ? 10 : event === 'collect' ? 7 : 4;
-    const color = event === 'collect' || event === 'enemy' ? palette.warm : palette.accent;
+    const count = event === 'jetpack' ? 16 : event === 'enemy' ? 14 : event === 'collect' ? 9 : 6;
+    const color =
+      event === 'collect'
+        ? palette.gemG
+        : event === 'enemy'
+          ? palette.enemyBorder
+          : event === 'spring'
+            ? palette.springCoil
+            : palette.accent;
+
     for (let i = 0; i < count; i++) {
-      const life = 0.25 + Math.random() * 0.28;
+      const life = 0.3 + Math.random() * 0.35;
       particles.push({
         x: state.player.x,
         y: state.player.y + state.player.height * 0.25,
-        vx: (Math.random() * 2 - 1) * 65,
-        vy: (Math.random() * 2 - 0.4) * 90,
+        vx: (Math.random() * 2 - 1) * 85,
+        vy: (Math.random() * 2 - 0.4) * 110,
         life,
         maxLife: life,
         color,
+        size: 1.8 + Math.random() * 2.4,
       });
     }
   }
@@ -531,19 +916,31 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     if (state.status === 'ready') return 'Tap the board or press Enter to start';
     if (state.status === 'paused') return 'Paused — press P, Escape, or Pause to resume';
     if (state.status === 'over') return `Run complete — ${state.height} m, ${state.score} points`;
-    if (isJetpackActive(state)) return 'Jetpack active — mutation contact is safe';
-    return 'Climbing — steer, collect bases, and clear mutations';
+    if (isJetpackActive(state)) return 'P-TEFb Jetpack active — mutation contact is safe';
+    return 'Climbing chromatin — steer, synthesize mRNA sequence, clear mutations';
   }
 
   function updateHud() {
     if (scoreEl) scoreEl.textContent = state.score.toLocaleString('en-US');
     if (heightEl) heightEl.textContent = `${state.height} m`;
     if (bestEl) bestEl.textContent = best.toLocaleString('en-US');
-    if (sequenceEl) sequenceEl.textContent = state.sequence.join('') || '—';
+    if (sequenceEl) {
+      if (state.sequence.length === 0) {
+        sequenceEl.textContent = '—';
+      } else {
+        sequenceEl.textContent = '';
+        state.sequence.forEach((b) => {
+          const pill = document.createElement('span');
+          pill.className = `nucleotide-pill ${b === 'A' ? 'pill-a' : b === 'C' ? 'pill-c' : b === 'G' ? 'pill-g' : 'pill-t'}`;
+          pill.textContent = b;
+          sequenceEl.appendChild(pill);
+        });
+      }
+    }
     if (statusEl) statusEl.textContent = statusMessage();
     if (boostEl) {
       boostEl.textContent = isJetpackActive(state)
-        ? `Jetpack ${Math.max(0, state.jetpackUntil - state.time).toFixed(1)} s`
+        ? `P-TEFb Boost ${Math.max(0, state.jetpackUntil - state.time).toFixed(1)} s`
         : '';
     }
     if (pauseBtn) {
@@ -713,8 +1110,7 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     try {
       canvas.setPointerCapture(event.pointerId);
     } catch {
-      // Synthetic events and a few embedded browsers do not expose an active
-      // pointer to setPointerCapture; window-level gameplay remains unaffected.
+      // Synthetic events guard
     }
     if (state.status === 'ready') begin();
     else if (state.status === 'over') restart();
@@ -732,12 +1128,10 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     try {
       if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
     } catch {
-      // See the pointerdown guard above.
+      // Guard
     }
     activePointer = null;
     setSteering(state, 0);
-    // A stationary tap is intentionally only start/resume; combat remains on the
-    // dedicated Fire control so steering gestures never fire accidentally.
   }
 
   const onPause = () => togglePause();
@@ -754,6 +1148,7 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
   const onTheme = () => {
     palette = readPalette();
     render();
+    updateHud();
   };
   const onVisibility = () => {
     if (document.hidden && state.status === 'playing') {
@@ -817,10 +1212,17 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     },
     resume: begin,
     endRun: () => {
+      state.jetpackUntil = 0;
       state.cameraY = Math.max(500, state.cameraY);
       state.player.y = state.cameraY - state.player.height - 40;
       state.player.vy = PHYSICS.terminalVelocity;
       simulationTick();
+      if (state.status !== 'over') {
+        state.status = 'over';
+        state.steering = 0;
+        state.lastEvent = 'over';
+      }
+      recordBest();
       updateHud();
       render();
     },
