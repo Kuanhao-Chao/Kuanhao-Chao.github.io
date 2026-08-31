@@ -284,27 +284,31 @@ export const sideProjects: SideProject[] = [
   {
     name: 'Proofreader',
     detail:
-      'First-person browser shooter — a Canvas-2D raycast maze, mutation enemies, and nucleotide pickups',
+      'Genomics raycaster FPS — command the 3′→5′ exonuclease proofreading domain of DNA Polymerase III to sweep chromatin mazes and excise mutations',
     url: '/games/proofreader/',
   },
   {
     name: 'Dino Run',
-    detail: 'Browser runner - jump / duck / tap / swipe, with a genomic riff',
+    detail:
+      'Genomic sequence track runner — guide a velociraptor along gene structures, leaping variant blocks and ducking splice junction arches',
     url: '/games/dino-run/',
   },
   {
     name: 'Snake',
-    detail: 'Browser game — arrow keys / WASD / swipe, with a genomic twist',
+    detail:
+      'Nucleotide sequence serpent — steer across the chromatin grid, consuming A · C · G · T bases to elongate nascent transcript chains',
     url: '/games/snake/',
   },
   {
     name: 'Tetris',
-    detail: 'Browser game — keyboard / touch, modern SRS with hold & ghost',
+    detail:
+      'Molecular tetromino puzzle — Super Rotation System (SRS) with hold queue, ghost piece projection, and hydrogen-bonding matrix clearing',
     url: '/games/tetris/',
   },
   {
     name: 'Jetpack Joyride',
-    detail: 'Browser side-scroller — hold to fly, dodge mutagens, collect A/C/G/T bases',
+    detail:
+      'Enzyme aviator side-scroller — thrust through mutagen hazard zones with ATP-synthase jetpacks, dodge electrical zappers, and collect dNTP coins',
     url: '/games/jetpack-joyride/',
   },
   {

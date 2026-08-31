@@ -1,28 +1,56 @@
 ---
 import PageLayout from '../../layouts/PageLayout.astro';
+import SnakeLogo from '../../components/games/SnakeLogo.astro';
+import { site } from '../../data/site';
+
+const gameLd = {
+  '@context': 'https://schema.org',
+  '@type': 'VideoGame',
+  name: 'Snake',
+  description:
+    'A classic browser snake game with a genomics twist: guide a nucleotide serpent to consume A · C · G · T bases and grow a sequence strand.',
+  url: `${site.url}/games/snake/`,
+  author: { '@id': `${site.url}/#person` },
+  applicationCategory: 'Game',
+  gamePlatform: ['Web browser', 'Mobile web browser'],
+  genre: ['Arcade', 'Snake', 'Science Game'],
+  inLanguage: 'en',
+  isAccessibleForFree: true,
+};
 ---
+
 <PageLayout
   title="Snake"
   eyebrow="Side project"
-  lead="A tiny browser game, built in the site's own style — play with the arrow keys, WASD, or a swipe. A small nod to the day job: the food is nucleotide bases (A · C · G · T), and the snake grows into a sequence."
+  lead="A classic browser game with a genomics twist: play with arrow keys, WASD, or swipe. The food items are nucleotide bases (A · C · G · T), and the serpent grows into a living sequence strand."
   description="Snake — a small, mobile-friendly browser game by Kuan-Hao Chao, with a genomic twist: the food is A/C/G/T bases and the snake grows into a sequence."
   width="narrow"
 >
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
+
   <section class="snake" aria-label="Snake game">
+    <div class="snake-header-card">
+      <SnakeLogo size={58} />
+      <div class="snake-header-info">
+        <h2 class="snake-header-title">Genomic Nucleotide Serpent</h2>
+        <p class="snake-header-subtitle">Consume A · C · G · T bases, synthesize sequence chains, and navigate the chromatin grid.</p>
+      </div>
+    </div>
+
     <div class="snake-hud">
       <div class="snake-stats">
-        <span class="stat">
+        <div class="stat">
           <span class="stat-label">Bases</span>
           <span class="stat-value" data-snake-score>0</span>
-        </span>
-        <span class="stat">
+        </div>
+        <div class="stat">
           <span class="stat-label">Best</span>
           <span class="stat-value" data-snake-best>0</span>
-        </span>
+        </div>
       </div>
       <div class="snake-controls">
-        <button type="button" class="snake-btn" data-snake-pause disabled>Pause</button>
-        <button type="button" class="snake-btn" data-snake-restart>Restart</button>
+        <button type="button" class="game-btn" data-snake-pause disabled>Pause</button>
+        <button type="button" class="game-btn" data-snake-restart>Restart</button>
       </div>
     </div>
 
@@ -38,15 +66,28 @@ import PageLayout from '../../layouts/PageLayout.astro';
       Press an arrow, Space, or tap to start
     </p>
 
-    <p class="snake-strand" aria-hidden="true">
-      <span class="snake-strand-label">sequence</span>
-      <span class="snake-strand-seq" data-snake-strand></span>
-    </p>
+    <div class="snake-strand-card" aria-label="Synthesized nucleotide sequence">
+      <span class="sequence-label">Synthesized Sequence (5'→3'):</span>
+      <div class="sequence-ribbon" data-snake-strand>—</div>
+    </div>
 
-    <p class="snake-hint muted">
-      Arrow keys / WASD on desktop, swipe on mobile · Space to start &amp; pause · each base you eat
-      grows the sequence.
-    </p>
+    <details class="snake-help">
+      <summary>How to Play & Controls</summary>
+      <div class="help-grid muted">
+        <p>
+          <strong>Steer:</strong> Use <code>Arrow keys</code> or <code>W A S D</code> on desktop; swipe in any direction on mobile.
+        </p>
+        <p>
+          <strong>Pause & Start:</strong> Press <code>Space</code> or <code>P</code> to start / pause the run.
+        </p>
+        <p>
+          <strong>Genomic Growth:</strong> Each nucleotide base (A, C, G, T) consumed extends your sequence strand and accelerates the serpent.
+        </p>
+        <p>
+          <strong>Boundaries:</strong> Avoid colliding with the grid edges or crossing your own elongated transcript body.
+        </p>
+      </div>
+    </details>
   </section>
 </PageLayout>
 
@@ -55,22 +96,18 @@ import PageLayout from '../../layouts/PageLayout.astro';
 
   let controller: SnakeController | null = null;
 
-  // Idempotent mount: initSnake also guards per-canvas, so double calls are safe.
   function mount() {
     if (controller) return;
     controller = initSnake(document);
   }
+
   function unmount() {
     controller?.destroy();
     controller = null;
   }
 
-  // Re-init on every view-transition arrival; tear down before leaving so the
-  // rAF loop and input listeners never leak a second copy.
   document.addEventListener('astro:page-load', mount);
   document.addEventListener('astro:before-swap', unmount);
-  // Also mount now: a bundled module can finish loading *after* astro:page-load
-  // has already fired on the first view-transition visit (the filter-island race).
   mount();
 </script>
 
@@ -81,122 +118,224 @@ import PageLayout from '../../layouts/PageLayout.astro';
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
+    box-sizing: border-box;
   }
+
+  .snake-header-card {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-md, 8px);
+    box-sizing: border-box;
+  }
+
+  .snake-header-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .snake-header-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--color-ink);
+    margin: 0;
+  }
+
+  .snake-header-subtitle {
+    font-size: 0.8rem;
+    color: var(--color-muted);
+    margin: 0;
+  }
+
   .snake-hud {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 0.75rem 1rem;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-md, 8px);
+    box-sizing: border-box;
   }
+
   .snake-stats {
     display: flex;
     gap: 1.5rem;
   }
+
   .stat {
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
-    line-height: 1;
+    gap: 2px;
   }
-  .stat-label {
-    font-size: var(--fs-meta);
-    letter-spacing: var(--tracking-meta);
+
+  .stat-label,
+  .sequence-label {
+    font-size: var(--fs-meta, 0.75rem);
+    letter-spacing: var(--tracking-meta, 0.05em);
     text-transform: uppercase;
     color: var(--color-muted);
+    font-weight: 600;
   }
+
   .stat-value {
-    font-family: var(--font-display);
-    font-size: 1.7rem;
-    font-weight: var(--fw-semibold);
+    font-family: var(--font-mono, monospace);
+    font-size: 1.35rem;
+    font-weight: 700;
     color: var(--color-ink);
     font-variant-numeric: tabular-nums;
   }
+
   .snake-controls {
     display: flex;
     gap: 0.5rem;
   }
-  .snake-btn {
-    font-size: var(--fs-small);
-    font-weight: var(--fw-medium);
-    padding: 0.45em 1em;
+
+  .game-btn {
+    min-height: 44px;
+    padding: 0.5em 1em;
     border: 1px solid var(--color-rule);
-    border-radius: 999px;
-    background: transparent;
+    border-radius: var(--radius-sm, 6px);
+    background: var(--color-surface);
     color: var(--color-ink);
+    font-size: var(--fs-small, 0.85rem);
+    font-weight: 600;
+    line-height: 1;
     cursor: pointer;
-    transition: all var(--transition);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    box-sizing: border-box;
   }
-  .snake-btn:hover:not(:disabled) {
+
+  .game-btn:hover:not(:disabled) {
     border-color: var(--color-accent);
     color: var(--color-accent);
   }
-  .snake-btn:disabled {
-    opacity: 0.45;
+
+  .game-btn:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  .game-btn:disabled {
+    opacity: 0.42;
     cursor: default;
   }
 
   .snake-board {
-    width: min(92vw, 30rem, 68svh);
+    position: relative;
+    width: 100%;
     aspect-ratio: 1 / 1;
     margin-inline: auto;
     border: 1px solid var(--color-rule);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-lg, 12px);
     background: var(--color-surface);
     overflow: hidden;
-    /* Fixed dark shadow so it never becomes a light halo in dark mode. */
-    box-shadow: 0 0.5rem 1.6rem rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    box-sizing: border-box;
   }
+
   .snake-board canvas {
-    display: block;
     width: 100%;
     height: 100%;
-    touch-action: none; /* swipe steers the snake instead of scrolling the page */
+    touch-action: none;
+    user-select: none;
+    display: block;
   }
 
   .snake-status {
+    min-height: 1.4em;
     text-align: center;
-    font-size: var(--fs-small);
+    font-size: var(--fs-small, 0.85rem);
     color: var(--color-ink);
-    min-height: 1.4em;
-  }
-  .snake-strand {
-    text-align: center;
-    font-size: var(--fs-small);
-    color: var(--color-muted);
-    min-height: 1.4em;
-    letter-spacing: 0.02em;
-  }
-  .snake-strand-label {
-    font-size: var(--fs-meta);
-    letter-spacing: var(--tracking-meta);
-    text-transform: uppercase;
-    margin-right: 0.4rem;
-  }
-  .snake-strand-seq {
-    font-family: var(--font-body);
-    letter-spacing: 0.22em;
-    color: var(--color-accent);
-    font-weight: var(--fw-semibold);
-  }
-  .snake-hint {
-    text-align: center;
-    font-size: var(--fs-meta);
-    max-width: 30rem;
-    margin-inline: auto;
+    margin: 0;
   }
 
-  @media (pointer: coarse) {
-    .snake-btn {
-      padding-block: 0.6em;
+  .snake-strand-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-md, 8px);
+    box-sizing: border-box;
+  }
+
+  .sequence-ribbon {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.95rem;
+    font-weight: 700;
+    min-height: 1.6rem;
+    color: var(--color-ink);
+  }
+
+  :global(.nucleotide-pill) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: #ffffff;
+  }
+
+  :global(.pill-a) { background: #10b981; }
+  :global(.pill-c) { background: #0284c7; }
+  :global(.pill-g) { background: #f59e0b; }
+  :global(.pill-t) { background: #a855f7; }
+
+  .snake-help {
+    margin-top: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-md, 8px);
+    box-sizing: border-box;
+  }
+
+  .snake-help summary {
+    color: var(--color-ink);
+    font-size: var(--fs-small, 0.88rem);
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .help-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.7rem 1.5rem;
+    padding-top: var(--space-3);
+    font-size: var(--fs-meta, 0.8rem);
+    line-height: 1.5;
+  }
+
+  .help-grid strong {
+    color: var(--color-ink);
+  }
+
+  @media (max-width: 620px) {
+    .help-grid {
+      grid-template-columns: 1fr;
     }
   }
-  @media (max-width: 620px) {
-    .stat-value {
-      font-size: 1.45rem;
-    }
-    .snake-hud {
-      align-items: center;
+
+  @media (prefers-reduced-motion: reduce) {
+    .game-btn {
+      transition: none;
     }
   }
 </style>

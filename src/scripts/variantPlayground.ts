@@ -21,6 +21,7 @@ import lociJson from '../data/shorkieLoci.json';
 import biology from '../data/shorkieBiologySummary.json';
 import { createFlow3d, type Flow3dController } from './shorkieFlow3d';
 import { drawGeneRows } from './geneTrack';
+import motifDict from '../data/shorkieMotifs.json';
 import {
   createFlow,
   FLOW_STAGES,
@@ -74,6 +75,8 @@ import {
   logoRange,
   ismSaliency,
   spliceAnnotations,
+  motifMatch,
+  revComp,
   stageRasterHeight,
   PX_PER_CHANNEL,
   binsToBottleneck,
@@ -1456,6 +1459,49 @@ export function initVariantPlayground(root: ParentNode = document) {
    * intron is. The tally is counted inside the loop that fills the rectangles, so the gate reads
    * what was drawn rather than what the decomposition returned.
    */
+  /**
+   * The paper's motif dictionary, looked up by whatever name a database used.
+   *
+   * Figure 4H names twelve motifs and Supplemental S19/S20 add a few more; the databases spell the
+   * same factors half a dozen ways (REB1, Reb1, Reb1.1, REB1_YPD). Matching on a normalised name
+   * plus the declared aliases is what lets a curated call be checked against the consensus the
+   * paper actually draws.
+   */
+  const MOTIF_BY_ALIAS = (() => {
+    const m = new Map<string, { id: string; name: string; consensus: string }>();
+    const key = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+    for (const entry of (motifDict as { motifs: { id: string; name: string; consensus: string; aliases: string[] }[] }).motifs) {
+      m.set(key(entry.id), entry);
+      m.set(key(entry.name), entry);
+      for (const a of entry.aliases) m.set(key(a), entry);
+    }
+    return m;
+  })();
+
+  function motifFor(name: string): { id: string; name: string; consensus: string } | undefined {
+    const key = String(name).toLowerCase().replace(/[^a-z0-9]/g, '');
+    const direct = MOTIF_BY_ALIAS.get(key);
+    if (direct) return direct;
+    // A database name like `SFP1.2` or `REB1.1` is the factor plus a variant number. Drop a
+    // trailing number and retry -- but never below three characters, or a two-letter stem would
+    // start matching unrelated entries.
+    const stem = key.replace(/[0-9]+$/, '');
+    return stem.length >= 3 ? MOTIF_BY_ALIAS.get(stem) : undefined;
+  }
+
+  /**
+   * A clamped slice of the window sequence, with the ORIGIN it really starts at.
+   *
+   * Returning the origin matters: near a window edge the requested start is clamped to 0, and a
+   * caller that assumed its own unclamped start would report every match shifted by the amount
+   * that was cut off.
+   */
+  function seqWindow(a: number, b: number): { seq: string; origin: number } {
+    const seq = LOCI[locusIndex].sequence;
+    const origin = Math.max(0, Math.round(a));
+    return { seq: seq.slice(origin, Math.min(seq.length, Math.round(b))).toUpperCase(), origin };
+  }
+
   function drawGeneRowsCanvas(
     ctx: CanvasRenderingContext2D,
     locus: Locus,
@@ -2741,10 +2787,41 @@ export function initVariantPlayground(root: ParentNode = document) {
     // view. The paper's set is six motifs across six loci; the databases cover all fourteen, which
     // is what makes this panel answer "is that peak a real site" rather than only "does it match
     // the figure".
-    const boxes: { label: string; a: number; b: number }[] = [];
+    type Box = {
+      label: string; a: number; b: number;
+      /** IUPAC consensus this box claims to contain, `|`-separated alternatives; '' when unknown. */
+      consensus?: string;
+      strand?: '+' | '-';
+      /** `landmark` and `motif` assert a motif is here; `region` is only a database call. */
+      kind: 'landmark' | 'motif' | 'region';
+      /** The motif's true span, before clipping to the visible window. */
+      trueA: number;
+      trueB: number;
+    };
+    const boxes: Box[] = [];
+    // The paper's own scanned consensuses. These already carry the matched span, so they are
+    // motif claims by construction -- but re-derive the extent from the dictionary where one
+    // exists, because the shipped list carried a WRONG consensus for Fhl1 (GTAAACA, which is not
+    // the paper's Fhl1 motif) and boxed a position 27 bp from where Figure S19B puts it.
     for (const m of locus.motifs ?? []) {
       if (m.end <= lo || m.start >= hi) continue;
-      boxes.push({ label: m.name, a: Math.max(m.start, lo), b: Math.min(m.end, hi) });
+      const dict = motifFor(m.name);
+      const w = seqWindow(m.start - 20, m.end + 20);
+      const hit = dict
+        ? motifMatch(w.seq, dict.consensus, w.origin, m.start - w.origin)
+        : null;
+      const a = hit ? hit.start : m.start;
+      const b = hit ? hit.end : m.end;
+      boxes.push({
+        label: m.name,
+        a: Math.max(a, lo),
+        b: Math.min(b, hi),
+        trueA: a,
+        trueB: b,
+        consensus: dict?.consensus ?? m.consensus,
+        strand: hit?.strand ?? (m.strand === '-' ? '-' : '+'),
+        kind: 'motif',
+      });
     }
     for (const f of visibleAnnotations()) {
       // Only the point-like classes: a gene spanning the whole zoom would box the entire panel.
@@ -2753,11 +2830,30 @@ export function initVariantPlayground(root: ParentNode = document) {
       if (f.end <= lo || f.start >= hi) continue;
       if (f.end - f.start > span * 0.6) continue;
       const tier = motifTier(f);
-      boxes.push({
-        label: tier === 'chip' ? `${f.name}✓` : tier === 'pwm' ? `${f.name}·pwm` : f.name,
-        a: Math.max(f.start, lo),
-        b: Math.min(f.end, hi),
-      });
+      // Box the MATCH, not the call. A curated regulatory-code call is a PWM-plus-conservation
+      // call: measured across these windows only ~23% contain their factor's canonical consensus,
+      // and those that do sit at offset 0 of the call. So where the consensus is visible the box
+      // is drawn on it and asserts a motif; where it is not, the box is the database's region and
+      // says so, because the two are different claims and must not look alike.
+      const dict = motifFor(f.name);
+      const w = seqWindow(f.start - 6, f.end + 6);
+      const hit = dict
+        ? motifMatch(w.seq, dict.consensus, w.origin, f.start - w.origin)
+        : null;
+      const suffix = tier === 'chip' ? '✓' : tier === 'pwm' ? '·pwm' : '';
+      boxes.push(hit
+        ? {
+          label: `${f.name}${suffix}`,
+          a: Math.max(hit.start, lo), b: Math.min(hit.end, hi),
+          trueA: hit.start, trueB: hit.end,
+          consensus: dict!.consensus, strand: hit.strand, kind: 'motif',
+        }
+        : {
+          label: `${f.name}${suffix}`,
+          a: Math.max(f.start, lo), b: Math.min(f.end, hi),
+          trueA: f.start, trueB: f.end,
+          kind: 'region',
+        });
     }
     // Cap the labels: at 1,000 bp a promoter can carry dozens of overlapping calls, and a wall of
     // text over the letters is the annotation burying the data it exists to explain.
@@ -2770,13 +2866,31 @@ export function initVariantPlayground(root: ParentNode = document) {
     // where it exists and derive only what is missing -- otherwise the panel labels each landmark
     // twice, once from each source.
     const own = locus.features.find((f) => f.name === locus.id);
-    const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
-    const already = new Set(boxes.map((b) => norm(b.label)));
+    // Keep the DIGIT: stripping non-letters made "5′ splice site" and "3′ splice site" the same
+    // key, so a locus carrying a scanned 5′ site silently lost its 3′ box -- RPL26A lost one and
+    // HOP2, with two introns, lost the second intron's pair entirely.
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
     if (own) {
       for (const a of spliceAnnotations(own)) {
-        if (a.at < lo || a.at > hi) continue;
-        if (already.has(norm(a.label))) continue;
-        boxes.push({ label: a.label, a: a.at - 3, b: a.at + 3 });
+        if (a.end <= lo || a.start >= hi) continue;
+        // Suppress the derived landmark only where a SCANNED box of the same kind already covers
+        // this junction. Position, not label alone: two introns produce two donors, and the
+        // scanned branch point sits a few bases from the paper's fixed-offset estimate (DTD1's is
+        // a real TACTAAC at 8,210 against the heuristic's 8,206), so exact equality would draw
+        // both and bare label equality would drop the second intron's.
+        const dup = boxes.some((b) => norm(b.label) === norm(a.label)
+          && b.a < a.end + 12 && b.b > a.start - 12);
+        if (dup) continue;
+        boxes.push({
+          label: a.label,
+          a: Math.max(a.start, lo),
+          b: Math.min(a.end, hi),
+          trueA: a.start,
+          trueB: a.end,
+          consensus: a.consensus,
+          strand: a.strand,
+          kind: 'landmark',
+        });
       }
     }
     boxes.sort((x, y) => x.a - y.a);
@@ -2789,13 +2903,45 @@ export function initVariantPlayground(root: ParentNode = document) {
       const x0 = px(box.a);
       const x1 = px(box.b);
       const r = el('rect');
+      // A verified motif and an unverified database region are different claims, so they are drawn
+      // differently: the motif solid-dashed at full strength, the region faint and wider-dashed.
+      // Drawing them alike is what made a box labelled with a factor name, over letters that do
+      // not spell its motif, look like an error in the model rather than in the annotation.
+      const isMotif = box.kind !== 'region';
       attr(r, {
         x: x0, y: logoTop - 4, width: Math.max(x1 - x0, 2), height: logoH + 8,
-        fill: 'none', stroke: '#d1495b', 'stroke-width': 1, 'stroke-dasharray': '3 2',
-        'stroke-opacity': 0.85,
+        fill: 'none', stroke: '#d1495b', 'stroke-width': isMotif ? 1 : 0.8,
+        'stroke-dasharray': isMotif ? '3 2' : '1 3',
+        'stroke-opacity': isMotif ? 0.85 : 0.4,
       });
       ismLogoSvg.append(r);
       r.dataset.motif = box.label;
+      r.dataset.motifKind = box.kind;
+      if (box.consensus) r.dataset.motifConsensus = box.consensus;
+      if (box.strand) r.dataset.motifStrand = box.strand;
+      r.setAttribute('role', 'img');
+      // The TRUE span, not the drawn one: a box clipped by the view edge is still a statement
+      // about where the motif is, and reporting the clipped coordinates would describe a 13 bp
+      // Abf1 site as a 9 bp one purely because the pan cut it off.
+      const clipped = box.trueA < box.a - 0.5 || box.trueB > box.b + 0.5;
+      r.dataset.motifSpan = `${Math.round(box.trueA)}-${Math.round(box.trueB)}`;
+      if (clipped) r.dataset.motifClipped = 'true';
+      r.setAttribute('aria-label', (isMotif
+        ? `${box.label}: ${box.consensus ?? 'motif'} at ${Math.round(box.trueA)}-${Math.round(box.trueB)}`
+        : `${box.label}: database region ${Math.round(box.trueA)}-${Math.round(box.trueB)}, `
+          + 'no consensus match in it') + (clipped ? ' (cut off by the view edge)' : ''));
+      // The paper's Reference-DB convention (Figure 4F, S19, S20): under each boxed motif, the
+      // sequence the box actually contains, read on the strand the motif is on. That is the paper's
+      // own answer to "does this box hold the motif it names", and it needs no extra data.
+      if (isMotif && box.consensus && x1 - x0 > 8 && !clipped) {
+        const raw = seqWindow(box.trueA, box.trueB).seq;
+        const shown = box.strand === '-' ? revComp(raw) : raw;
+        const tip = text((x0 + x1) / 2, logoTop + logoH + 16,
+          `${shown}${box.strand === '-' ? ' ↺' : ''}`, 'vp-ax');
+        attr(tip, { 'font-family': 'ui-monospace, SFMono-Regular, Menlo, monospace' });
+        tip.setAttribute('fill', '#d1495b');
+        ismLogoSvg.append(tip);
+      }
       const row = lastAt[0] <= lastAt[1] ? 0 : 1;
       if (x0 - lastAt[row] > 52) {
         const lbl = text((x0 + x1) / 2, labelRowY[row], box.label, 'vp-ax');

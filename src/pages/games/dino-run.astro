@@ -1,71 +1,114 @@
 ---
 import PageLayout from '../../layouts/PageLayout.astro';
 import Icon from '../../components/Icon.astro';
+import DinoRunLogo from '../../components/games/DinoRunLogo.astro';
+import { site } from '../../data/site';
+
+const gameLd = {
+  '@context': 'https://schema.org',
+  '@type': 'VideoGame',
+  name: 'Dino Run',
+  description:
+    'A fast browser runner where you guide a velociraptor along a genomic track: jump over variant blocks, duck under splice arches, and maintain speed.',
+  url: `${site.url}/games/dino-run/`,
+  author: { '@id': `${site.url}/#person` },
+  applicationCategory: 'Game',
+  gamePlatform: ['Web browser', 'Mobile web browser'],
+  genre: ['Runner', 'Arcade', 'Science Game'],
+  inLanguage: 'en',
+  isAccessibleForFree: true,
+};
 ---
 
 <PageLayout
   title="Dino Run"
   eyebrow="Side project"
-  lead="A fast little browser runner built in this site's style: jump low variant blocks, duck splice arches, and keep the genome track moving."
+  lead="A fast browser runner built in this site's style: sprint along a genomic sequence track, jump over mutation variant blocks, duck under splice arches, and keep the reading frame moving."
   description="Dino Run — a mobile-friendly browser runner by Kuan-Hao Chao, with a subtle genomics riff and responsive canvas gameplay."
+  width="narrow"
 >
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
+
   <section class="dino" aria-label="Dino Run game">
+    <div class="dino-header-card">
+      <DinoRunLogo size={58} />
+      <div class="dino-header-info">
+        <h2 class="dino-header-title">Genomic Track Velociraptor Runner</h2>
+        <p class="dino-header-subtitle">Jump mutation variants, duck splice-junction arches, and extend your sequence distance.</p>
+      </div>
+    </div>
+
     <div class="dino-hud">
       <div class="dino-stats">
-        <span class="stat">
+        <div class="stat">
           <span class="stat-label">Distance</span>
           <span class="stat-value"
             ><span data-dino-score>0</span><span class="stat-unit">bp</span></span
           >
-        </span>
-        <span class="stat">
+        </div>
+        <div class="stat">
           <span class="stat-label">Best</span>
           <span class="stat-value"
             ><span data-dino-best>0</span><span class="stat-unit">bp</span></span
           >
-        </span>
-        <span class="stat">
+        </div>
+        <div class="stat">
           <span class="stat-label">Speed</span>
           <span class="stat-value"
             ><span data-dino-speed>310</span><span class="stat-unit">u/s</span></span
           >
-        </span>
+        </div>
       </div>
-      <p class="dino-status" data-dino-status role="status" aria-live="polite">
-        Ready - tap, Space, or Jump to start
-      </p>
+
+      <div class="dino-controls" aria-label="Dino Run controls">
+        <button type="button" class="game-btn game-btn--jump" data-dino-jump>
+          <Icon name="arrow-up" size={16} />
+          <span>Jump</span>
+        </button>
+        <button type="button" class="game-btn game-btn--duck" data-dino-duck>
+          <Icon name="arrow-down" size={16} />
+          <span>Duck</span>
+        </button>
+        <button type="button" class="game-btn" data-dino-pause disabled aria-label="Pause">
+          <Icon name="pause" size={16} />
+          <span data-button-label>Pause</span>
+        </button>
+        <button type="button" class="game-btn" data-dino-restart>
+          <Icon name="rotate-ccw" size={16} />
+          <span>Restart</span>
+        </button>
+      </div>
     </div>
 
     <div class="dino-board">
       <canvas
         data-dino-canvas
         role="img"
-        aria-label="Dino Run game board. Jump over low blocks and duck under high arches."></canvas>
+        aria-label="Dino Run game board. Jump over low blocks and duck under high arches."
+      ></canvas>
     </div>
 
-    <div class="dino-controls" aria-label="Dino Run controls">
-      <button type="button" class="dino-btn dino-btn--primary" data-dino-jump>
-        <Icon name="arrow-up" size={16} />
-        <span>Jump</span>
-      </button>
-      <button type="button" class="dino-btn dino-btn--primary" data-dino-duck>
-        <Icon name="arrow-down" size={16} />
-        <span>Duck</span>
-      </button>
-      <button type="button" class="dino-btn" data-dino-pause disabled aria-label="Pause">
-        <Icon name="pause" size={16} />
-        <span data-button-label>Pause</span>
-      </button>
-      <button type="button" class="dino-btn" data-dino-restart>
-        <Icon name="rotate-ccw" size={16} />
-        <span>Restart</span>
-      </button>
-    </div>
-
-    <p class="dino-hint muted">
-      Desktop: Space or ↑ to jump, ↓ to duck. Mobile: tap or swipe up to jump, swipe down or hold
-      Duck.
+    <p class="dino-status" data-dino-status role="status" aria-live="polite">
+      Ready — tap, Space, or Jump to start
     </p>
+
+    <details class="dino-help">
+      <summary>How to Play & Controls</summary>
+      <div class="help-grid muted">
+        <p>
+          <strong>Jump:</strong> Press <code>Space</code>, <code>↑</code>, or <code>W</code>. On mobile touch screens, tap or swipe up.
+        </p>
+        <p>
+          <strong>Duck:</strong> Press <code>↓</code> or <code>S</code>. On mobile, swipe down or hold the Duck button.
+        </p>
+        <p>
+          <strong>Obstacles:</strong> Leap over low variant blocks and tandem repeats; duck underneath high splice-site junction arches.
+        </p>
+        <p>
+          <strong>Pause & Restart:</strong> Press <code>P</code> or <code>Enter</code> to toggle pause; click Restart at any time.
+        </p>
+      </div>
+    </details>
   </section>
 </PageLayout>
 
@@ -91,171 +134,226 @@ import Icon from '../../components/Icon.astro';
 
 <style>
   .dino {
-    max-width: 56rem;
+    max-width: 44rem;
     margin-inline: auto;
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
+    box-sizing: border-box;
   }
+
+  .dino-header-card {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-md, 8px);
+    box-sizing: border-box;
+  }
+
+  .dino-header-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .dino-header-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--color-ink);
+    margin: 0;
+  }
+
+  .dino-header-subtitle {
+    font-size: 0.8rem;
+    color: var(--color-muted);
+    margin: 0;
+  }
+
   .dino-hud {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: space-between;
-    gap: 0.9rem 1.25rem;
     flex-wrap: wrap;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-md, 8px);
+    box-sizing: border-box;
   }
+
   .dino-stats {
     display: flex;
-    flex-wrap: wrap;
-    gap: 1rem 1.6rem;
+    gap: clamp(1rem, 4vw, 2rem);
   }
+
   .stat {
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
-    line-height: 1;
+    gap: 2px;
   }
+
   .stat-label {
-    font-size: var(--fs-meta);
-    letter-spacing: var(--tracking-meta);
+    font-size: var(--fs-meta, 0.75rem);
+    letter-spacing: var(--tracking-meta, 0.05em);
     text-transform: uppercase;
     color: var(--color-muted);
+    font-weight: 600;
   }
+
   .stat-value {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.28rem;
-    font-family: var(--font-display);
-    font-size: 1.7rem;
-    font-weight: var(--fw-semibold);
+    font-family: var(--font-mono, monospace);
+    font-size: 1.35rem;
+    font-weight: 700;
     color: var(--color-ink);
     font-variant-numeric: tabular-nums;
-    white-space: nowrap;
   }
+
   .stat-unit {
-    font-size: 0.72rem;
-    letter-spacing: 0;
+    font-size: 0.75em;
+    font-weight: 500;
     color: var(--color-muted);
+    margin-left: 2px;
   }
-  .dino-status {
-    min-height: 1.4em;
-    font-size: var(--fs-small);
-    color: var(--color-ink);
-    text-align: right;
-  }
-  .dino-board {
-    width: min(100%, 54rem, calc(70svh * 16 / 7));
-    aspect-ratio: 16 / 7;
-    margin-inline: auto;
-    border: 1px solid var(--color-rule);
-    border-radius: var(--radius-lg);
-    background: var(--color-surface);
-    overflow: hidden;
-    box-shadow: 0 0.55rem 1.5rem rgba(0, 0, 0, 0.11);
-  }
-  .dino-board canvas {
-    width: 100%;
-    height: 100%;
-    touch-action: none;
-  }
+
   .dino-controls {
     display: flex;
-    justify-content: center;
     flex-wrap: wrap;
-    gap: 0.55rem;
+    gap: 0.5rem;
   }
-  .dino-btn {
-    min-height: 2.35rem;
+
+  .game-btn {
+    min-height: 44px;
+    padding: 0.5em 1em;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-sm, 6px);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-size: var(--fs-small, 0.85rem);
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.4rem;
-    padding: 0.52em 0.95em;
-    border: 1px solid var(--color-rule);
-    border-radius: 999px;
-    background: transparent;
-    color: var(--color-ink);
-    font-size: var(--fs-small);
-    font-weight: var(--fw-medium);
-    cursor: pointer;
-    transition:
-      border-color var(--transition),
-      color var(--transition),
-      background-color var(--transition);
-  }
-  .dino-btn:hover:not(:disabled) {
-    border-color: var(--color-accent);
-    color: var(--color-accent);
-  }
-  .dino-btn:disabled {
-    opacity: 0.45;
-    cursor: default;
-  }
-  .dino-btn--primary {
-    border-color: color-mix(in srgb, var(--color-accent) 68%, var(--color-rule));
-    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
-    color: var(--color-accent-dark);
-  }
-  :global(html[data-theme='dark']) .dino-btn--primary {
-    color: var(--color-accent);
-  }
-  .dino-btn[data-active='true'] {
-    border-color: var(--color-accent);
-    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
-    color: var(--color-accent);
-  }
-  .dino-hint {
-    max-width: 38rem;
-    margin-inline: auto;
-    text-align: center;
-    font-size: var(--fs-meta);
+    transition: all 0.15s ease;
+    box-sizing: border-box;
   }
 
-  @media (pointer: coarse) {
-    .dino-btn {
-      min-height: 2.75rem;
-      padding-inline: 1.05em;
-    }
+  .game-btn:hover:not(:disabled) {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
   }
-  @media (max-width: 700px) {
+
+  .game-btn:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  .game-btn:disabled {
+    opacity: 0.42;
+    cursor: default;
+  }
+
+  .game-btn--jump {
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+    color: var(--color-on-accent, #ffffff);
+  }
+
+  .game-btn--jump:hover:not(:disabled) {
+    background: var(--color-accent-dark, #245546);
+    border-color: var(--color-accent-dark, #245546);
+    color: var(--color-on-accent, #ffffff);
+  }
+
+  .dino-board {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    margin-inline: auto;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-lg, 12px);
+    background: var(--color-surface);
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    box-sizing: border-box;
+  }
+
+  .dino-board canvas {
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    user-select: none;
+    display: block;
+  }
+
+  .dino-status {
+    min-height: 1.4em;
+    text-align: center;
+    font-size: var(--fs-small, 0.85rem);
+    color: var(--color-ink);
+    margin: 0;
+  }
+
+  .dino-help {
+    margin-top: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-md, 8px);
+    box-sizing: border-box;
+  }
+
+  .dino-help summary {
+    color: var(--color-ink);
+    font-size: var(--fs-small, 0.88rem);
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .help-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.7rem 1.5rem;
+    padding-top: var(--space-3);
+    font-size: var(--fs-meta, 0.8rem);
+    line-height: 1.5;
+  }
+
+  .help-grid strong {
+    color: var(--color-ink);
+  }
+
+  @media (max-width: 620px) {
     .dino-hud {
-      align-items: flex-start;
+      flex-direction: column;
+      align-items: stretch;
     }
-    .dino-status {
+
+    .dino-stats {
+      justify-content: space-between;
+    }
+
+    .dino-controls {
       width: 100%;
-      text-align: left;
     }
-    .stat-value {
-      font-size: 1.42rem;
+
+    .game-btn {
+      flex: 1;
     }
-    .dino-board {
-      width: 100%;
-      aspect-ratio: 16 / 8;
+
+    .help-grid {
+      grid-template-columns: 1fr;
     }
   }
-  @media (max-width: 430px) {
-    .dino-stats {
-      display: grid;
-      width: 100%;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 0.75rem;
-    }
-    .stat-value {
-      font-size: 1.15rem;
-    }
-    .stat-unit {
-      font-size: 0.64rem;
-    }
-    .dino-controls {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .dino-btn {
-      width: 100%;
-      padding-inline: 0.7em;
-    }
-    .dino-hint {
-      font-size: 0.76rem;
+
+  @media (prefers-reduced-motion: reduce) {
+    .game-btn {
+      transition: none;
     }
   }
 </style>

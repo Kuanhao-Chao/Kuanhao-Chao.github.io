@@ -86,6 +86,40 @@ const games = [
     controls: '[data-phage-next-wave], [data-phage-pause], [data-phage-restart], [data-phage-sound]',
     drive: drivePhageDefense,
   },
+  {
+    slug: 'dino-run',
+    title: 'Dino Run',
+    linkName: 'Dino Run',
+    query: '?seed=2026',
+    global: '__dinoRun',
+    instances: '__dinoRunInstances',
+    canvas: '[data-dino-canvas]',
+    controls: '[data-dino-jump], [data-dino-duck], [data-dino-pause], [data-dino-restart]',
+    drive: driveDinoRun,
+  },
+  {
+    slug: 'snake',
+    title: 'Snake',
+    linkName: 'Snake',
+    query: '',
+    global: '__snake',
+    instances: '__snakeInstances',
+    canvas: '[data-snake-canvas]',
+    controls: '[data-snake-pause], [data-snake-restart]',
+    drive: driveSnake,
+  },
+  {
+    slug: 'tetris',
+    title: 'Tetris',
+    linkName: 'Tetris',
+    query: '',
+    global: '__tetris',
+    instances: '__tetrisInstances',
+    canvas: '[data-tetris-canvas]',
+    controls:
+      '[data-tetris-pause], [data-tetris-restart], [data-tetris-btn="left"], [data-tetris-btn="cw"], [data-tetris-btn="right"], [data-tetris-btn="soft"], [data-tetris-btn="hard"], [data-tetris-btn="hold"]',
+    drive: driveTetris,
+  },
 ];
 
 function selectedGames() {
@@ -646,6 +680,119 @@ async function drivePhageDefense(page, scope, profile) {
     scope,
     () => page.evaluate(() => window.__phageDefense?.state().isPaused === false),
     'Pause control did not resume Phage Defense'
+  );
+}
+
+async function driveDinoRun(page, scope, profile) {
+  const canvas = page.locator('[data-dino-canvas]');
+  await expect(scope, () => canvas.isVisible(), 'Dino canvas is not visible');
+
+  // Jump
+  await page.locator('[data-dino-jump]').click();
+  await expect(
+    scope,
+    () => page.evaluate(() => window.__dinoRun?.state().status === 'playing'),
+    'Jump did not start the game'
+  );
+
+  // Tick physics
+  await page.evaluate(() => window.__dinoRun?.tick(10));
+  await expect(
+    scope,
+    () => page.evaluate(() => (window.__dinoRun?.score() ?? 0) > 0),
+    'Distance score did not increase'
+  );
+
+  // Pause / resume
+  const pauseBtn = page.locator('[data-dino-pause]');
+  await pauseBtn.click();
+  await expect(
+    scope,
+    () => page.evaluate(() => window.__dinoRun?.isRunning() === false),
+    'Pause did not pause Dino Run'
+  );
+  await pauseBtn.click();
+  await expect(
+    scope,
+    () => page.evaluate(() => window.__dinoRun?.isRunning() === true),
+    'Resume did not resume Dino Run'
+  );
+}
+
+async function driveSnake(page, scope, profile) {
+  const canvas = page.locator('[data-snake-canvas]');
+  await expect(scope, () => canvas.isVisible(), 'Snake canvas is not visible');
+
+  // Start
+  await page.evaluate(() => window.__snake?.start());
+  await expect(
+    scope,
+    () => page.evaluate(() => window.__snake?.state().status === 'playing'),
+    'Snake did not enter playing state'
+  );
+
+  // Turn
+  await page.evaluate(() => window.__snake?.turn('up'));
+  await page.evaluate(() => window.__snake?.tick());
+  await expect(
+    scope,
+    () => page.evaluate(() => window.__snake?.state().dir === 'up'),
+    'Snake turn failed'
+  );
+
+  // Pause / resume
+  const pauseBtn = page.locator('[data-snake-pause]');
+  await pauseBtn.click();
+  await expect(
+    scope,
+    () => page.evaluate(() => window.__snake?.isRunning() === false),
+    'Pause control did not pause Snake'
+  );
+  await pauseBtn.click();
+  await expect(
+    scope,
+    () => page.evaluate(() => window.__snake?.isRunning() === true),
+    'Pause control did not resume Snake'
+  );
+}
+
+async function driveTetris(page, scope, profile) {
+  const canvas = page.locator('[data-tetris-canvas]');
+  await expect(scope, () => canvas.isVisible(), 'Tetris canvas is not visible');
+
+  // Start
+  await page.evaluate(() => window.__tetris?.start());
+  await expect(
+    scope,
+    () => page.evaluate(() => window.__tetris?.state().status === 'playing'),
+    'Tetris did not enter playing state'
+  );
+
+  // Move and rotate
+  await page.locator('[data-tetris-btn="left"]').click();
+  await page.locator('[data-tetris-btn="cw"]').click();
+
+  // Hard drop
+  await page.locator('[data-tetris-btn="hard"]').click();
+  await expect(
+    scope,
+    () => page.evaluate(() => (window.__tetris?.score() ?? 0) > 0),
+    'Hard drop did not award score'
+  );
+
+  // Pause / resume
+  const pauseBtn = page.locator('[data-tetris-pause]');
+  await pauseBtn.click();
+  await expect(
+    scope,
+    () => page.evaluate(() => window.__tetris?.isRunning() === false),
+    'Pause did not pause Tetris'
+  );
+  await pauseBtn.click();
+  await expect(
+    scope,
+    () => page.evaluate(() => window.__tetris?.isRunning() === true),
+    'Resume did not resume Tetris'
   );
 }
 

@@ -1,6 +1,7 @@
 ---
 import PageLayout from '../../layouts/PageLayout.astro';
 import Icon from '../../components/Icon.astro';
+import JetpackJoyrideLogo from '../../components/games/JetpackJoyrideLogo.astro';
 import { site } from '../../data/site';
 
 const gameLd = {
@@ -13,7 +14,7 @@ const gameLd = {
   author: { '@id': `${site.url}/#person` },
   applicationCategory: 'Game',
   gamePlatform: ['Web browser', 'Mobile web browser'],
-  genre: ['Arcade', 'Endless runner'],
+  genre: ['Arcade', 'Endless runner', 'Science Game'],
   inLanguage: 'en',
   isAccessibleForFree: true,
 };
@@ -24,58 +25,82 @@ const gameLd = {
   eyebrow="Side project"
   lead="A modern browser side-scroller in this site's style: hold to fire your jetpack and lift off, release to fall, and thread an enzyme through mutagen zappers, telegraphed lasers, and incoming missiles while collecting A · C · G · T bases and shields. Hold Space, click, tap, or the Thrust button to fly."
   description="Jetpack Joyride — a mobile-friendly browser side-scroller by Kuan-Hao Chao: hold-to-fly physics, mutagen hazards, nucleotide coins, and shields, in a minimalist genomics style."
+  width="narrow"
 >
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
+
   <section class="jet" aria-label="Jetpack Joyride game">
+    <div class="jet-header-card">
+      <JetpackJoyrideLogo size={58} />
+      <div class="jet-header-info">
+        <h2 class="jet-header-title">ATP-Synthase Enzyme Aviator</h2>
+        <p class="jet-header-subtitle">Thrust through mutagen hazards, dodge electrical zappers & missiles, and collect dNTP coins.</p>
+      </div>
+    </div>
+
     <div class="jet-hud">
       <div class="jet-stats">
-        <span class="stat">
+        <div class="stat">
           <span class="stat-label">Bases</span>
           <span class="stat-value"><span data-jetpack-bases>0</span><span class="stat-unit">bp</span></span>
-        </span>
-        <span class="stat">
+        </div>
+        <div class="stat">
           <span class="stat-label">Coins</span>
           <span class="stat-value"><span data-jetpack-coins>0</span></span>
-        </span>
-        <span class="stat">
+        </div>
+        <div class="stat">
           <span class="stat-label">Best</span>
           <span class="stat-value"><span data-jetpack-best>0</span></span>
-        </span>
+        </div>
       </div>
-      <p class="jet-status" data-jetpack-status role="status" aria-live="polite">
-        Hold Space, click, or tap to fly
-      </p>
+
+      <div class="jet-controls" aria-label="Jetpack Joyride controls">
+        <button type="button" class="game-btn game-btn--thrust" data-jetpack-thrust aria-label="Thrust — hold to fly">
+          <Icon name="arrow-up" size={16} />
+          <span>Thrust</span>
+        </button>
+        <button type="button" class="game-btn" data-jetpack-pause disabled aria-label="Pause">
+          <Icon name="pause" size={16} />
+          <span data-button-label>Pause</span>
+        </button>
+        <button type="button" class="game-btn" data-jetpack-restart>
+          <Icon name="rotate-ccw" size={16} />
+          <span>Restart</span>
+        </button>
+      </div>
     </div>
 
     <div class="jet-board">
       <canvas
         data-jetpack-canvas
         role="img"
-        aria-label="Jetpack Joyride game board. Hold Space, click, tap, or the Thrust button to fly up; release to fall. Dodge hazards and collect bases."></canvas>
+        aria-label="Jetpack Joyride game board. Hold Space, click, tap, or the Thrust button to fly up; release to fall. Dodge hazards and collect bases."
+      ></canvas>
     </div>
 
-    <div class="jet-controls" aria-label="Jetpack Joyride controls">
-      <button type="button" class="jet-btn jet-btn--primary" data-jetpack-thrust aria-label="Thrust — hold to fly">
-        <Icon name="arrow-up" size={16} />
-        <span>Thrust</span>
-      </button>
-      <button type="button" class="jet-btn" data-jetpack-pause disabled aria-label="Pause">
-        <Icon name="pause" size={16} />
-        <span data-button-label>Pause</span>
-      </button>
-      <button type="button" class="jet-btn" data-jetpack-restart>
-        <Icon name="rotate-ccw" size={16} />
-        <span>Restart</span>
-      </button>
-    </div>
-
-    <p class="jet-hint muted">
-      Desktop: hold Space / ↑ / W (or click the board) to fly, P to pause. Mobile: hold anywhere on
-      the board, or hold the Thrust button. Release to fall.
+    <p class="jet-status" data-jetpack-status role="status" aria-live="polite">
+      Hold Space, click, or tap to fly
     </p>
+
+    <details class="jet-help">
+      <summary>How to Play & Flight Mechanics</summary>
+      <div class="help-grid muted">
+        <p>
+          <strong>Fly & Thrust:</strong> Hold <code>Space</code>, <code>↑</code>, <code>W</code>, or click / tap the board to activate jetpack propulsion. Release to fall under gravity.
+        </p>
+        <p>
+          <strong>Mutagen Hazards:</strong> Dodge high-voltage electrical zappers, warning laser beams, and incoming homing missiles.
+        </p>
+        <p>
+          <strong>Pickups:</strong> Collect floating <code>A · C · G · T</code> nucleotide coins for points, and grab green shield bubbles for single-hit collision protection.
+        </p>
+        <p>
+          <strong>Pause:</strong> Press <code>P</code> or the Pause button at any time.
+        </p>
+      </div>
+    </details>
   </section>
 </PageLayout>
-
-<script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
 
 <script>
   import { initJetpackJoyride, type JetpackJoyrideController } from '../../scripts/jetpackJoyride';
@@ -99,175 +124,227 @@ const gameLd = {
 
 <style>
   .jet {
-    max-width: 58rem;
+    max-width: 44rem;
     margin-inline: auto;
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
+    box-sizing: border-box;
   }
+
+  .jet-header-card {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-md, 8px);
+    box-sizing: border-box;
+  }
+
+  .jet-header-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .jet-header-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--color-ink);
+    margin: 0;
+  }
+
+  .jet-header-subtitle {
+    font-size: 0.8rem;
+    color: var(--color-muted);
+    margin: 0;
+  }
+
   .jet-hud {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: space-between;
-    gap: 0.9rem 1.25rem;
     flex-wrap: wrap;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-md, 8px);
+    box-sizing: border-box;
   }
+
   .jet-stats {
     display: flex;
-    flex-wrap: wrap;
-    gap: 1rem 1.6rem;
+    gap: clamp(1rem, 4vw, 2rem);
   }
+
   .stat {
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
-    line-height: 1;
+    gap: 2px;
   }
+
   .stat-label {
-    font-size: var(--fs-meta);
-    letter-spacing: var(--tracking-meta);
+    font-size: var(--fs-meta, 0.75rem);
+    letter-spacing: var(--tracking-meta, 0.05em);
     text-transform: uppercase;
     color: var(--color-muted);
+    font-weight: 600;
   }
+
   .stat-value {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.28rem;
-    font-family: var(--font-display);
-    font-size: 1.7rem;
-    font-weight: var(--fw-semibold);
+    font-family: var(--font-mono, monospace);
+    font-size: 1.35rem;
+    font-weight: 700;
     color: var(--color-ink);
     font-variant-numeric: tabular-nums;
-    white-space: nowrap;
   }
+
   .stat-unit {
-    font-size: 0.72rem;
-    letter-spacing: 0;
+    font-size: 0.75em;
+    font-weight: 500;
     color: var(--color-muted);
+    margin-left: 2px;
   }
-  .jet-status {
-    min-height: 1.4em;
-    font-size: var(--fs-small);
-    color: var(--color-ink);
-    text-align: right;
-  }
-  .jet-board {
-    width: min(100%, 56rem, calc(72svh * 16 / 9));
-    aspect-ratio: 16 / 9;
-    margin-inline: auto;
-    border: 1px solid var(--color-rule);
-    border-radius: var(--radius-lg);
-    background: var(--color-surface);
-    overflow: hidden;
-    box-shadow: 0 0.55rem 1.5rem rgba(0, 0, 0, 0.11);
-  }
-  .jet-board canvas {
-    width: 100%;
-    height: 100%;
-    touch-action: none;
-    cursor: pointer;
-  }
+
   .jet-controls {
     display: flex;
-    justify-content: center;
     flex-wrap: wrap;
-    gap: 0.55rem;
+    gap: 0.5rem;
   }
-  .jet-btn {
-    min-height: 2.9rem;
+
+  .game-btn {
+    min-height: 44px;
+    padding: 0.5em 1em;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-sm, 6px);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-size: var(--fs-small, 0.85rem);
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.4rem;
-    padding: 0.55em 1.05em;
-    border: 1px solid var(--color-rule);
-    border-radius: 999px;
-    background: transparent;
-    color: var(--color-ink);
-    font-size: var(--fs-small);
-    font-weight: var(--fw-medium);
-    cursor: pointer;
-    touch-action: none;
+    transition: all 0.15s ease;
     user-select: none;
-    transition:
-      border-color var(--transition),
-      color var(--transition),
-      background-color var(--transition);
-  }
-  .jet-btn:hover:not(:disabled) {
-    border-color: var(--color-accent);
-    color: var(--color-accent);
-  }
-  .jet-btn:disabled {
-    opacity: 0.45;
-    cursor: default;
-  }
-  .jet-btn--primary {
-    min-width: 8rem;
-    border-color: color-mix(in srgb, var(--color-accent) 68%, var(--color-rule));
-    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
-    color: var(--color-accent-dark);
-  }
-  :global(html[data-theme='dark']) .jet-btn--primary {
-    color: var(--color-accent);
-  }
-  .jet-btn--primary:active {
-    background: color-mix(in srgb, var(--color-accent) 20%, transparent);
-    border-color: var(--color-accent);
-  }
-  .jet-btn[data-active='true'] {
-    border-color: var(--color-accent);
-    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
-    color: var(--color-accent);
-  }
-  .jet-hint {
-    max-width: 40rem;
-    margin-inline: auto;
-    text-align: center;
-    font-size: var(--fs-meta);
+    box-sizing: border-box;
   }
 
-  @media (pointer: coarse) {
-    .jet-btn {
-      min-height: 3rem;
-      padding-inline: 1.15em;
-    }
+  .game-btn:hover:not(:disabled) {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
   }
-  @media (max-width: 700px) {
+
+  .game-btn:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  .game-btn:disabled {
+    opacity: 0.42;
+    cursor: default;
+  }
+
+  .game-btn--thrust {
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+    color: var(--color-on-accent, #ffffff);
+  }
+
+  .game-btn--thrust:hover:not(:disabled) {
+    background: var(--color-accent-dark, #245546);
+    border-color: var(--color-accent-dark, #245546);
+    color: var(--color-on-accent, #ffffff);
+  }
+
+  .jet-board {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    margin-inline: auto;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-lg, 12px);
+    background: var(--color-surface);
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    box-sizing: border-box;
+  }
+
+  .jet-board canvas {
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    user-select: none;
+    display: block;
+  }
+
+  .jet-status {
+    min-height: 1.4em;
+    text-align: center;
+    font-size: var(--fs-small, 0.85rem);
+    color: var(--color-ink);
+    margin: 0;
+  }
+
+  .jet-help {
+    margin-top: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-md, 8px);
+    box-sizing: border-box;
+  }
+
+  .jet-help summary {
+    color: var(--color-ink);
+    font-size: var(--fs-small, 0.88rem);
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .help-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.7rem 1.5rem;
+    padding-top: var(--space-3);
+    font-size: var(--fs-meta, 0.8rem);
+    line-height: 1.5;
+  }
+
+  .help-grid strong {
+    color: var(--color-ink);
+  }
+
+  @media (max-width: 620px) {
     .jet-hud {
-      align-items: flex-start;
+      flex-direction: column;
+      align-items: stretch;
     }
-    .jet-status {
+
+    .jet-stats {
+      justify-content: space-between;
+    }
+
+    .jet-controls {
       width: 100%;
-      text-align: left;
     }
-    .stat-value {
-      font-size: 1.42rem;
+
+    .game-btn {
+      flex: 1;
     }
-    .jet-board {
-      width: 100%;
-      aspect-ratio: 4 / 3;
+
+    .help-grid {
+      grid-template-columns: 1fr;
     }
   }
-  @media (max-width: 430px) {
-    .jet-stats {
-      display: grid;
-      width: 100%;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 0.75rem;
-    }
-    .stat-value {
-      font-size: 1.2rem;
-    }
-    .jet-controls {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-    }
-    .jet-btn--primary {
-      grid-column: 1 / -1;
-    }
-    .jet-hint {
-      font-size: 0.76rem;
+
+  @media (prefers-reduced-motion: reduce) {
+    .game-btn {
+      transition: none;
     }
   }
 </style>
