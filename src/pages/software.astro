@@ -18,6 +18,7 @@ import BiobabyLogo from '../components/games/BiobabyLogo.astro';
 import FlappyPenguinLogo from '../components/games/FlappyPenguinLogo.astro';
 import TankFireLogo from '../components/games/TankFireLogo.astro';
 import ChineseChessLogo from '../components/games/ChineseChessLogo.astro';
+import BayRouteLogo from '../components/games/BayRouteLogo.astro';
 
 // Resolve each tool's logo (src/assets/logos/software/<logo>.png) to an optimized asset.
 const logoFiles = import.meta.glob<{ default: ImageMetadata }>('../assets/logos/software/*.png', {
@@ -214,6 +215,11 @@ const toolBlog = await Promise.all(tools.map((t) => resolveRelatedPosts(t.posts 
             {p.name === 'Chinese Chess' && (
               <span class="tool-logo-frame" aria-hidden="true">
                 <ChineseChessLogo size={70} />
+              </span>
+            )}
+            {p.name === 'BayRoute' && (
+              <span class="tool-logo-frame" aria-hidden="true">
+                <BayRouteLogo size={70} />
               </span>
             )}
           </li>

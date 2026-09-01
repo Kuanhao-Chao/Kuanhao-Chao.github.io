@@ -1,0 +1,180 @@
+---
+interface Props {
+  size?: number;
+  class?: string;
+}
+
+const { size = 64, class: className = '' } = Astro.props;
+---
+
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 100 100"
+  width={size}
+  height={size}
+  class:list={['bay-route-logo', className]}
+  aria-hidden="true"
+  focusable="false"
+>
+  <defs>
+    <!-- Background GIS Satellite / Topographic Glow -->
+    <radialGradient id="br-bg-grad" cx="50%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="65%" stop-color="#090d16" />
+      <stop offset="100%" stop-color="#020617" />
+    </radialGradient>
+
+    <!-- Golden Gate International Orange Gradient -->
+    <linearGradient id="br-bridge-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fb923c" />
+      <stop offset="50%" stop-color="#ea580c" />
+      <stop offset="100%" stop-color="#9a3412" />
+    </linearGradient>
+
+    <!-- Laser Route Path Gradient (Gold -> Emerald) -->
+    <linearGradient id="br-path-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f43f5e" />
+      <stop offset="40%" stop-color="#fbbf24" />
+      <stop offset="80%" stop-color="#34d399" />
+      <stop offset="100%" stop-color="#38bdf8" />
+    </linearGradient>
+
+    <!-- Glowing Frontier Ring Gradient -->
+    <radialGradient id="br-frontier-grad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.4" />
+      <stop offset="70%" stop-color="#38bdf8" stop-opacity="0.1" />
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Drop Shadows & Glow Filters -->
+    <filter id="br-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="2.5" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <filter id="br-laser-glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="0" stdDeviation="2" flood-color="#38bdf8" flood-opacity="0.8" />
+    </filter>
+  </defs>
+
+  <!-- 1. GIS Base Disc -->
+  <circle
+    cx="50"
+    cy="50"
+    r="47"
+    fill="url(#br-bg-grad)"
+    stroke="#1e293b"
+    stroke-width="2"
+  />
+
+  <!-- Subtle Outer Radar / Bearing Ring -->
+  <circle
+    cx="50"
+    cy="50"
+    r="44"
+    fill="none"
+    stroke="#334155"
+    stroke-width="0.75"
+    stroke-dasharray="3, 3"
+    opacity="0.6"
+  />
+
+  <!-- 2. Stylized San Francisco Bay Water Polygon -->
+  <path
+    d="M 38 18 Q 48 30 45 42 Q 55 48 65 62 Q 72 75 60 86 Q 48 78 42 65 Q 38 52 32 38 Q 30 25 38 18 Z"
+    fill="#0369a1"
+    fill-opacity="0.35"
+  />
+
+  <!-- 3. Graph Network Road Edges (Background Mesh) -->
+  <g stroke="#475569" stroke-width="1" opacity="0.45">
+    <line x1="28" y1="68" x2="35" y2="48" />
+    <line x1="35" y1="48" x2="32" y2="30" />
+    <line x1="32" y1="30" x2="48" y2="22" />
+    <line x1="48" y1="22" x2="72" y2="32" />
+    <line x1="72" y1="32" x2="76" y2="52" />
+    <line x1="76" y1="52" x2="68" y2="74" />
+    <line x1="68" y1="74" x2="52" y2="82" />
+    <line x1="52" y1="82" x2="28" y2="68" />
+    <!-- Cross Bay Bridges -->
+    <line x1="35" y1="48" x2="72" y2="32" stroke-dasharray="2, 2" />
+    <line x1="42" y1="62" x2="68" y2="55" stroke-dasharray="2, 2" />
+  </g>
+
+  <!-- 4. Golden Gate Suspension Tower Silhouette -->
+  <g fill="url(#br-bridge-grad)">
+    <!-- Left Tower Leg -->
+    <rect x="29" y="16" width="2.4" height="28" rx="0.5" />
+    <!-- Right Tower Leg -->
+    <rect x="35" y="16" width="2.4" height="28" rx="0.5" />
+    <!-- Struts & Cross Beams -->
+    <rect x="29" y="21" width="8.4" height="1.6" />
+    <rect x="29" y="28" width="8.4" height="1.6" />
+    <rect x="29" y="37" width="8.4" height="2.2" />
+    <!-- Suspension Cable Sweep -->
+    <path
+      d="M 20 28 Q 32 40 44 42"
+      fill="none"
+      stroke="#ea580c"
+      stroke-width="1.2"
+      opacity="0.9"
+    />
+  </g>
+
+  <!-- 5. Search Frontier Wavefront Glowing Circles -->
+  <circle cx="28" cy="68" r="16" fill="url(#br-frontier-grad)" />
+  <circle cx="28" cy="68" r="28" fill="none" stroke="#38bdf8" stroke-width="0.8" stroke-dasharray="2, 4" opacity="0.4" />
+
+  <!-- 6. Active Explored Path Laser Trace (Start -> Goal) -->
+  <path
+    d="M 28 68 L 35 48 L 52 38 L 72 32"
+    fill="none"
+    stroke="url(#br-path-grad)"
+    stroke-width="3"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    filter="url(#br-laser-glow)"
+  />
+
+  <!-- 7. Graph Vertices (Explored & Frontier Nodes) -->
+  <!-- Visited Nodes (Cyan glow) -->
+  <circle cx="35" cy="48" r="2.8" fill="#38bdf8" filter="url(#br-glow)" />
+  <circle cx="52" cy="38" r="2.8" fill="#34d399" filter="url(#br-glow)" />
+  <circle cx="42" cy="62" r="2.2" fill="#64748b" />
+  <circle cx="68" cy="55" r="2.2" fill="#64748b" />
+  <circle cx="76" cy="52" r="2.2" fill="#64748b" />
+
+  <!-- Start Pin (Red / Coral 🚩) -->
+  <g transform="translate(28, 68)">
+    <circle cx="0" cy="0" r="5" fill="#f43f5e" filter="url(#br-glow)" />
+    <circle cx="0" cy="0" r="2" fill="#ffffff" />
+  </g>
+
+  <!-- Destination Beacon (Emerald / Cyan Radar 🏁) -->
+  <g transform="translate(72, 32)">
+    <circle cx="0" cy="0" r="8" fill="none" stroke="#34d399" stroke-width="1" opacity="0.6">
+      <animate attributeName="r" values="4;9;4" dur="2s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0.8;0.2;0.8" dur="2s" repeatCount="indefinite" />
+    </circle>
+    <circle cx="0" cy="0" r="5.5" fill="#10b981" filter="url(#br-glow)" />
+    <circle cx="0" cy="0" r="2.2" fill="#ffffff" />
+  </g>
+</svg>
+
+<style>
+  .bay-route-logo {
+    display: inline-block;
+    vertical-align: middle;
+    border-radius: 50%;
+    box-shadow: 0 4px 12px rgba(2, 6, 23, 0.35);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .bay-route-logo:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 18px rgba(56, 189, 248, 0.3);
+  }
+</style>

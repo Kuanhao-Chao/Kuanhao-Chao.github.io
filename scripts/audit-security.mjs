@@ -74,6 +74,7 @@ const SAFE_SET_HTML_FILES = new Set([
   'src/pages/chromatin.astro',
   'src/pages/logo-options.astro',
   'src/pages/lab.astro',
+  'src/pages/games/bay-route.astro',
   'src/pages/games/crispr-commander.astro',
   'src/pages/games/chinese-chess.astro',
   'src/pages/games/dino-run.astro',
