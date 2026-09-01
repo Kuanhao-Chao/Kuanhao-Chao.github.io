@@ -1,0 +1,300 @@
+---
+import { readFileSync } from 'node:fs';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import '../../styles/variantPlayground.css';
+import { site } from '../../data/site';
+import { buildBreadcrumbLd } from '../../lib/breadcrumbs';
+import lociData from '../../data/shorkieLoci.json';
+
+// Every number on this page is read from the shipped tiles at build time rather than typed, so the
+// prose cannot drift from the data the way a hand-copied count does.
+const index = JSON.parse(readFileSync('public/genome-data/index.json', 'utf8')) as {
+  genome: string;
+  score: string;
+  icMax: number;
+  levels: { level: number; binBp: number; rows: number }[];
+  tileBins: number;
+  window: { seqLen: number; flank: number; core: number; k: number; phase: number; note: string };
+  chroms: {
+    name: string; length: number; genes: number; meanIc: number;
+    minIc: number; maxIc: number; shortFlankBases: number;
+    levels: { level: number; bins: number; tiles: number }[];
+  }[];
+};
+
+const totalBp = index.chroms.reduce((s, c) => s + c.length, 0);
+const totalGenes = index.chroms.reduce((s, c) => s + c.genes, 0);
+const totalTiles = index.chroms.reduce((s, c) => s + c.levels.reduce((t, l) => t + l.tiles, 0), 0);
+const shortFlank = index.chroms.reduce((s, c) => s + c.shortFlankBases, 0);
+const windows = Math.ceil(totalBp / index.window.core) + index.chroms.length;
+const nuclear = index.chroms.filter((c) => c.name !== 'chrM');
+const meanIc = nuclear.reduce((s, c) => s + c.meanIc * c.length, 0)
+  / nuclear.reduce((s, c) => s + c.length, 0);
+const mito = index.chroms.find((c) => c.name === 'chrM');
+
+const levelRows = index.levels.map((l) => ({
+  ...l,
+  bins: index.chroms.reduce(
+    (s, c) => s + (c.levels.find((x) => x.level === l.level)?.bins ?? 0), 0,
+  ),
+}));
+
+// Primary regions deep-link by coordinate, derived from the gene model each locus already ships --
+// so a region's link and the region itself cannot disagree.
+type Feat = { name: string; txStart: number; txEnd: number };
+const regions = (lociData.loci as { id: string; gene: string; chrom: string; start: number; features: Feat[] }[])
+  .map((l) => {
+    const f = l.features.find((x) => x.name === l.id);
+    const a = l.start + (f ? f.txStart : 6144);
+    const b = l.start + (f ? f.txEnd : 10240);
+    return { label: `${l.gene} · ${l.id}`, chrom: l.chrom, gene: l.gene,
+             locus: `${l.chrom}:${a - 799}-${b + 800}` };
+  })
+  .sort((a, b) => a.label.localeCompare(b.label));
+
+const title = 'The yeast genome under Shorkie_LM';
+const description =
+  'A genome browser over Shorkie_LM constraint: per-base information content for all 12,157,105 '
+  + 'bases of the S. cerevisiae R64 reference, precomputed with overlapping windows and browsable '
+  + 'from whole chromosomes down to individual letters.';
+
+const webAppLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: 'Shorkie_LM genome browser',
+  applicationCategory: 'ScienceApplication',
+  operatingSystem: 'Web Browser',
+  description,
+  url: `${site.url}/shorkie-lab/genome/`,
+  author: { '@id': `${site.url}/#person` },
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+};
+
+const breadcrumbLd = buildBreadcrumbLd([
+  { name: 'Shorkie Lab', path: '/shorkie-lab/' },
+  { name: 'Genome browser', path: '/shorkie-lab/genome/' },
+]);
+---
+
+<BaseLayout title={title} description={description} bare={true}>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(webAppLd)} />
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} />
+
+  <div class="vp" data-genome-browser data-gb-default="chrVII:882,012-884,610">
+    <header class="vp-top">
+      <h1 class="vp-title">Genome browser</h1>
+      <span class="vp-sub">
+        Shorkie_LM constraint · sacCer3 / R64 · {totalBp.toLocaleString()} bp ·
+        {index.chroms.length} sequences
+      </span>
+      <span class="vp-spacer"></span>
+      <a class="vp-sub" href="/shorkie-lab/shorkie_lm/">← Language model</a>
+      <a class="vp-sub" href="/shorkie-lab/shorkie/">Expression model</a>
+      <a class="vp-sub" href="/shorkie-lab/">Lab</a>
+      <a class="vp-sub" href="https://doi.org/10.1101/2025.09.19.677475">Paper</a>
+    </header>
+
+    <div class="vp-scroll">
+      <!-- Sticky bars belong INSIDE .vp-scroll: this is a `bare` page, so html/body are pinned and
+           the inner pane is what scrolls. Outside it, `position: sticky` has nothing to stick to. -->
+      <nav class="vp-nav" aria-label="Genome navigation">
+        <span class="vp-nav__group">
+          <label class="vp-nav__label" for="gb-chrom">chromosome</label>
+          <select class="vp-select" id="gb-chrom" data-gb-chrom aria-label="Chromosome"></select>
+        </span>
+        <span class="vp-nav__group">
+          <label class="vp-nav__label" for="gb-locus">locus</label>
+          <input class="vp-input gb-locus" id="gb-locus" data-gb-locus spellcheck="false"
+                 placeholder="chrIV:65,235-65,431" aria-label="Locus" />
+          <button type="button" class="vp-btn" data-gb-go>Go</button>
+        </span>
+        <span class="vp-nav__group">
+          <label class="vp-nav__label" for="gb-region">primary regions</label>
+          <select class="vp-select" id="gb-region" data-gb-region aria-label="Jump to a primary region">
+            <option value="">jump to…</option>
+            {regions.map((r) => <option value={r.locus}>{r.label}</option>)}
+          </select>
+        </span>
+        <span class="vp-spacer"></span>
+        <span class="vp-nav__group" role="group" aria-label="Pan and zoom">
+          <button type="button" class="vp-btn vp-btn--icon" data-gb-pan="-1" aria-label="Pan left">‹</button>
+          <button type="button" class="vp-btn vp-btn--icon" data-gb-pan="1" aria-label="Pan right">›</button>
+          <button type="button" class="vp-btn vp-btn--icon" data-gb-zoom="0.5" aria-label="Zoom in">+</button>
+          <button type="button" class="vp-btn vp-btn--icon" data-gb-zoom="2" aria-label="Zoom out">−</button>
+          <button type="button" class="vp-btn" data-gb-whole>whole chr</button>
+        </span>
+      </nav>
+
+      <section class="vp-panel">
+        <div class="gb-head">
+          <strong class="gb-readout" data-gb-readout>—</strong>
+          <span class="vp-stat" data-gb-level-out></span>
+          <span class="vp-spacer"></span>
+          <span class="vp-stat gb-hover" data-gb-hover></span>
+        </div>
+
+        <canvas class="vp-canvas gb-mini" data-gb-mini
+                aria-label="Whole-chromosome overview with the current viewport marked"></canvas>
+        <canvas class="vp-canvas gb-track" tabindex="0" data-gb-track
+                aria-label="Shorkie_LM information content, ruler, sequence and gene models"></canvas>
+
+        <p class="vp-notes gb-caption">
+          Per-base information content, <em>2 − H(p)</em>, from Shorkie_LM's seven-pass iterative
+          masked prediction — how sharply the model knows which base belongs at a position, in bits,
+          on a fixed 0–2 axis at every zoom — it never rescales, so any two positions in the genome
+          are read against the same ruler. Above base resolution each pixel column is a summary
+          bin: the filled bar is its <strong>mean</strong>, the pale mark above sits at its{' '}
+          <strong>maximum</strong> and the dark tick at its <strong>minimum</strong>, so a single
+          determined base inside a wide bin stays visible instead of being averaged away. At the
+          deepest zoom the bars become a logo — one letter a base, height set by that base's
+          information content. Drag to pan, scroll to zoom, click the overview strip to jump.
+          The nuclear genome averages{' '}
+          {meanIc.toFixed(3)} bits{mito ? ` and chrM ${mito.meanIc.toFixed(3)}` : ''}, so most of
+          the track is genuinely low and the tall columns are the exception.
+        </p>
+
+        <p class="vp-stat gb-status" data-gb-status></p>
+      </section>
+
+      <section class="vp-panel">
+        <h2>How the whole genome was scored</h2>
+        <p class="vp-notes vp-lede">
+          The model reads a {index.window.seqLen.toLocaleString()} bp window, so a genome-wide track
+          has to be assembled from overlapping windows — and a base near a window edge has less
+          context than one in the middle, which makes its score a different measurement. Only the
+          central {index.window.core.toLocaleString()} bp of each window is kept, with
+          {' '}{index.window.flank.toLocaleString()} bp of flank discarded on each side:
+          {' '}{windows.toLocaleString()} windows over {index.chroms.length} sequences.
+        </p>
+
+        <details class="vp-how">
+          <summary>Why the flank is {index.window.flank.toLocaleString()} bp, and how the first
+            answer was wrong</summary>
+          <div class="vp-how-body">
+            <p>
+              How much flank is needed is measurable: score the same 8,192 bases twice, once centred
+              in a window and once against its edge, and compare information content per base.{' '}
+              <strong>The answer depends entirely on which region you measure.</strong>
+            </p>
+            <div class="vp-scroll-x"><table class="vp-collapse-table">
+              <thead>
+                <tr><th>distance from edge</th><th>quiet chrIV:400k</th><th>promoter chrI:76k</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>0–64 bp</td><td>0.0321</td><td>0.1049</td></tr>
+                <tr><td>512–1,024</td><td>0.0112</td><td>0.0245</td></tr>
+                <tr><td>1,024–2,048</td><td>0.0063</td><td>0.0224</td></tr>
+                <tr><td>2,048–3,072</td><td>~0.007</td><td>0.0186</td></tr>
+                <tr><td>3,072–4,096</td><td>~0.007</td><td>0.0109</td></tr>
+                <tr><td>4,096–6,144</td><td>~0.007</td><td>0.0060</td></tr>
+              </tbody>
+            </table></div>
+            <p>
+              On a quiet stretch the effect looks finished inside 1 kb, and a 2,048 bp flank looks
+              like a 2× margin — which is what this track first shipped with. On a gene promoter,
+              where the model is actually resolving motifs and where anyone will look, it is still
+              0.022 bits at 2 kb and only settles around 4 kb. Measure the error on the case that
+              matters, not on the first one to hand.
+            </p>
+          </div>
+        </details>
+
+        <details class="vp-how">
+          <summary>The pooling-grid phase matters {Math.round(0.0395 / 0.0020)}× more than the
+            flank does</summary>
+          <div class="vp-how-body">
+            <p>
+              The encoder pools to {index.window.phase} bp, so a window's start position{' '}
+              <em>modulo {index.window.phase}</em> decides which bases share a pooled cell. Scoring
+              the same bases from windows at different phases changes information content by{' '}
+              <strong>0.0395 bits</strong> on average; from windows at the same phase, by{' '}
+              <strong>0.0020</strong>. That is an order of magnitude larger than the edge effect the
+              flank was chosen for.
+            </p>
+            <p>
+              Every window in this track therefore starts on a multiple of {index.window.phase},
+              so every base in the genome is scored on one grid and any two positions are
+              comparable. The 23 primary regions on the
+              {' '}<a href="/shorkie-lab/shorkie_lm/">language-model page</a> start at their own
+              coordinates and sit on whatever phase that gives, which is why the two agree in shape
+              (r = 0.95–0.99) rather than to the last decimal. Neither is more correct; they are two
+              phases of the same model.
+            </p>
+            <p>
+              {shortFlank.toLocaleString()} bases — {(shortFlank / totalBp * 100).toFixed(2)}% of the
+              genome, all of them within {index.window.flank.toLocaleString()} bp of a chromosome end
+              — could not be given a full flank and were scored with the largest one available.
+            </p>
+          </div>
+        </details>
+
+        <details class="vp-how">
+          <summary>What the pyramid stores, and why a summary bin keeps its minimum and maximum</summary>
+          <div class="vp-how-body">
+            <p>
+              A summary bin that reports only its average hides exactly what a constraint track
+              exists to show: one strongly determined base inside a
+              {' '}{index.levels[index.levels.length - 1].binBp.toLocaleString()} bp bin disappears
+              into the surrounding noise. Every level above base resolution stores three rows, so the
+              drawing can show the envelope and a spike stays visible at genome zoom. A pyramid that
+              smooths is a pyramid that lies.
+            </p>
+            <div class="vp-scroll-x"><table class="vp-collapse-table">
+              <thead>
+                <tr><th>level</th><th>bp / bin</th><th>bins</th><th>rows</th><th>used at</th></tr>
+              </thead>
+              <tbody>
+                {levelRows.map((l) => (
+                  <tr>
+                    <td>L{l.level}</td>
+                    <td>{l.binBp.toLocaleString()}</td>
+                    <td>{l.bins.toLocaleString()}</td>
+                    <td>{l.rows === 1 ? 'value' : 'min / max / mean'}</td>
+                    <td>{l.binBp === 1 ? 'under 8 bp a pixel' : `${l.binBp.toLocaleString()} bp a pixel and coarser`}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table></div>
+            <p>
+              {totalTiles.toLocaleString()} tiles of {index.tileBins.toLocaleString()} bins, as
+              greyscale PNG — the same encoding every other pack in this lab uses, because{' '}
+              <code>createImageBitmap</code> decodes it natively and no JavaScript inflate has to
+              ship. A viewport fetches only the handful of tiles it covers, at only the resolution it
+              can draw, and the cache is bounded so a long pan cannot grow memory without limit.
+              Alongside them: the reference sequence one byte a base for the letter view, and
+              {' '}{totalGenes.toLocaleString()} gene models from the SGD annotation.
+            </p>
+          </div>
+        </details>
+
+        <details class="vp-how">
+          <summary>What this track is not</summary>
+          <div class="vp-how-body">
+            <p>
+              It is one number a base — how concentrated the model's four-way distribution is — and
+              not <em>which</em> base the model expects. The full constraint logo, the
+              composition-floor comparison and the region statistics need all four probabilities at
+              every position, which is {(index.chroms.length && totalBp * 4 / 1e6).toFixed(0)} M
+              values genome-wide; those stay on the 23 primary regions, which ship complete packs.
+              Use the jump menu above to move between the two.
+            </p>
+            <p>
+              High information content means the model is confident, not that a base is functionally
+              important — the two correlate but are not the same claim, and the model was trained on
+              165 <em>Saccharomycetales</em> genomes, so a confidently predicted base is one that is
+              predictable <em>from that comparative context</em>. Coding sequence comes out more
+              constrained than the genome average in 14 of 14 tested windows; LTRs and transposons
+              come out less. chrM is far more predictable than any nuclear chromosome because it is
+              AT-rich and repetitive, which is a property of the sequence rather than of its
+              function.
+            </p>
+          </div>
+        </details>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    import '../../scripts/genomeBrowser';
+  </script>
+</BaseLayout>

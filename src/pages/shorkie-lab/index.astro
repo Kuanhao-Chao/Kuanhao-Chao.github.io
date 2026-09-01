@@ -1,6 +1,17 @@
 ---
+import { readFileSync } from 'node:fs';
 import PageLayout from '../../layouts/PageLayout.astro';
 import { site } from '../../data/site';
+import lociData from '../../data/shorkieLoci.json';
+
+// Derived, not typed. This paragraph said "fourteen windows" for several rounds after the set grew
+// to 23 -- a count in prose is a copy of a fact that has somewhere else to live.
+const nLoci = lociData.loci.length;
+const genomeIndex = JSON.parse(readFileSync('public/genome-data/index.json', 'utf8')) as {
+  chroms: { length: number; genes: number }[];
+};
+const genomeBp = genomeIndex.chroms.reduce((s, c) => s + c.length, 0);
+const genomeGenes = genomeIndex.chroms.reduce((s, c) => s + c.genes, 0);
 
 const description =
   'Interactive interpretability for Shorkie and Shorkie_LM — the fungal expression model and the '
@@ -37,8 +48,10 @@ const itemListLd = {
     <p>
       Both pages run the <strong>real published models</strong> — the checkpoints from
       Chao et al. 2025, converted and executed in your browser, not re-creations or
-      heuristics. Both work over the same fourteen <em>S. cerevisiae</em> windows with the
-      same curated annotation, so a result on one page can be read directly against the other.
+      heuristics. Both work over the same {nLoci} <em>S. cerevisiae</em> windows with the
+      same curated annotation, so a result on one page can be read directly against the other —
+      and the language model's constraint score is precomputed for the
+      {' '}<em>whole</em> genome, so the third page can go anywhere those {nLoci} do not.
     </p>
   </div>
 
@@ -67,6 +80,21 @@ const itemListLd = {
         information content, and test it against what the annotation says is really there.
       </p>
       <span class="sl-card__go">Open the language-model playground →</span>
+    </a>
+
+    <a class="sl-card" href="/shorkie-lab/genome/">
+      <span class="sl-card__tag">genome browser</span>
+      <h2>The whole genome</h2>
+      <p class="sl-card__q">“Where in yeast is the model most certain?”</p>
+      <p>
+        The same constraint score as the language-model page, precomputed for all
+        {' '}{genomeBp.toLocaleString()} bases of the R64 reference and served as a tile pyramid:
+        whole chromosomes down to individual letters, with {genomeGenes.toLocaleString()} gene
+        models alongside. Assembled from overlapping windows, keeping only each window's
+        uncontaminated core — and every window on one pooling-grid phase, so any two positions in
+        the genome are comparable.
+      </p>
+      <span class="sl-card__go">Open the genome browser →</span>
     </a>
   </div>
 
@@ -107,7 +135,16 @@ const itemListLd = {
       <dd>Shorkie. Attribution is a statement about a prediction, and only the expression model makes one.</dd>
 
       <dt>“Is this stretch of sequence under constraint?”</dt>
-      <dd>Shorkie_LM. Low entropy in the predicted distribution means the model finds the base highly determined by its context — the model's own analogue of conservation, computed without an alignment.</dd>
+      <dd>Shorkie_LM, if it is one of the {nLoci} primary regions — that page has the full four-way
+      distribution at every position. Low entropy in it means the model finds the base highly
+      determined by its context: the model's own analogue of conservation, computed without an
+      alignment.</dd>
+
+      <dt>“…and if it is somewhere else in the genome?”</dt>
+      <dd>The genome browser. It carries the same score for every base of R64, but only the score —
+      one number a position, not which base the model expected. That is the trade: the four-way
+      distribution genome-wide would be {(genomeBp * 4 / 1e6).toFixed(0)} M values, so it stays on
+      the {nLoci} regions and the browser covers everywhere else.</dd>
 
       <dt>“Is that peak a real binding site?”</dt>
       <dd>Either — both pages carry the same curated annotation layer from SGD, the Harbison/MacIsaac regulatory code, ORegAnno and JASPAR, drawn with its evidence tier.</dd>

@@ -1022,8 +1022,31 @@ export function initShorkieLm(host: HTMLElement): { destroy: () => void } {
     renderEnrichment();
   }
 
+  /**
+   * Point the genome-browser link at whatever is selected here.
+   *
+   * The coordinates are DERIVED -- the locus start plus the feature's window-relative span, both
+   * of which the page already holds -- so the link and the panel below it cannot disagree about
+   * where the region is. With no region selected it frames the whole 16,384 bp window.
+   */
+  function renderGenomeLink(): void {
+    const a = $<HTMLAnchorElement>('[data-lm-genome-link]');
+    if (!a) return;
+    const l = LOCI[locusIndex];
+    const f = selectedFeature();
+    // 1-based inclusive, the convention the browser's locus box prints and parses back.
+    const from = l.start + (f ? f.txStart : 0) + 1;
+    const to = l.start + (f ? f.txEnd : 16384);
+    const pad = f ? 800 : 0;
+    a.href = `/shorkie-lab/genome/#${l.chrom}:${Math.max(1, from - pad)}-${to + pad}`;
+    a.title = f
+      ? `Open ${f.name} in the genome browser`
+      : `Open this ${(16384).toLocaleString()} bp window in the genome browser`;
+  }
+
   /** The read-only context line: one control owns the selection, every panel reports it. */
   function renderRegionContext(): void {
+    renderGenomeLink();
     const el = $<HTMLElement>('[data-lm-region-context]');
     if (!el) return;
     const f = selectedFeature();
@@ -1043,10 +1066,10 @@ export function initShorkieLm(host: HTMLElement): { destroy: () => void } {
   }
 
   /**
-   * Constraint across all fourteen windows, from `shorkieLmSummary.json`.
+   * Constraint across every shipped window, from `shorkieLmSummary.json`.
    *
    * Precomputed rather than measured live: the enrichment statistic runs 256 circular shifts per
-   * class, so doing it for fourteen loci in the browser would mean fetching every plane. The
+   * class, so doing it for every locus in the browser would mean fetching every plane. The
    * generator uses the same statistic and the same null as `renderEnrichment` below, so the two
    * cannot drift -- and the panel exists because the prose already makes cross-locus claims that a
    * reader looking at one window has no way to check.

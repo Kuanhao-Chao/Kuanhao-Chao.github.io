@@ -1,5 +1,6 @@
 /**
- * The rendering gate for /shorkie-lab/shorkie/.
+ * The rendering gate for /shorkie-lab/shorkie/, and for the rest of the lab alongside it --
+ * /shorkie-lab/, /shorkie-lab/shorkie_lm/ and /shorkie-lab/genome/.
  *
  * This page had no browser gate at all, which is how it shipped unable to scroll: `bare` pins
  * html/body to `position:fixed; overflow:hidden`, so everything past the fold was clipped and
@@ -1487,7 +1488,8 @@ const N_FIGURE_WINDOWS = JSON.parse(
   readFileSync(new URL('../src/data/shorkieLoci.json', import.meta.url), 'utf8'),
 ).loci.filter((l) => l.figureWindow).length;
 const LM_ROUTE = '/shorkie-lab/shorkie_lm/';
-const LAB_ROUTES = ['/shorkie-lab/', '/shorkie-lab/shorkie/', LM_ROUTE];
+const GENOME_ROUTE = '/shorkie-lab/genome/';
+const LAB_ROUTES = ['/shorkie-lab/', '/shorkie-lab/shorkie/', LM_ROUTE, GENOME_ROUTE];
 
 /**
  * A newline between prose and an inline tag is DELETED by JSX, not collapsed to a space, so
@@ -1532,6 +1534,159 @@ async function auditSwallowedSpaces(browser, baseURL, scope) {
       });
       for (const j of joins) fail(scope, `${route}: swallowed space "…${j}…"`);
     }
+  } finally {
+    await context.close();
+  }
+}
+
+/**
+ * The genome browser.
+ *
+ * What is worth asserting here is not "did it draw" -- a browser that draws the wrong tile at the
+ * wrong zoom draws just as much ink. It is the four things that are invisible when wrong:
+ *
+ *   1. **The level ladder.** A bin wider than a pixel is blur the data does not have; a bin far
+ *      narrower is a fetch the screen cannot show. The first implementation had the comparison
+ *      backwards and chose 4,096 bp bins at chrIV's 1,094 bp/pixel -- 3.7 px each, and nothing on
+ *      screen said so.
+ *   2. **The cache bound.** Panning the genome touches hundreds of tiles. Asserted by browsing
+ *      three chromosomes at base resolution -- 58 distinct tiles against a cap of 48, so eviction
+ *      must actually run. A short pan at a coarse level touches one tile and proves nothing.
+ *   3. **The axis.** One user unit must be one CSS pixel at every width, or the ruler, the track
+ *      and the gene models silently sit on three different horizontal axes. 1043 is in the width
+ *      list deliberately: on the expression page that is where the same bug was invisible.
+ *   4. **A deep link lands on the coordinates it names**, since the language-model page's 23
+ *      primary regions reach the browser through exactly that path.
+ */
+async function auditGenomeBrowser(browser, baseURL, scope) {
+  const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 950 } });
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  const bad = [];
+  page.on('response', (r) => {
+    if (r.url().includes('/genome-data/') && !r.ok()) bad.push(`${r.status()} ${r.url()}`);
+  });
+  const ds = () => page.$eval('[data-gb-track]', (c) => ({ ...c.dataset }));
+  const go = async (locus) => {
+    await page.fill('[data-gb-locus]', locus);
+    await page.click('[data-gb-go]');
+    await page.waitForTimeout(500);
+  };
+
+  try {
+    await page.goto(GENOME_ROUTE, { waitUntil: 'networkidle' });
+    await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 20000 });
+    await page.waitForTimeout(1200);
+
+    // `document.querySelectorAll` rather than a Playwright selector: the selector engine pierces
+    // open shadow roots and would also count the dev toolbar's four headings.
+    const h1 = await page.evaluate(() => document.querySelectorAll('h1').length);
+    if (h1 !== 1) fail(scope, `expected exactly one <h1>, saw ${h1}`);
+
+    let d = await ds();
+    if (!(Number(d.gbDrawn) > 500)) fail(scope, `track drew only ${d.gbDrawn} columns on load`);
+    const tally = JSON.parse(d.gbGeneTrack || '{}');
+    if (!(tally.features > 0)) fail(scope, 'gene track drew no features on load');
+
+    // 1. the level ladder
+    const ladder = [];
+    for (const [locus, want] of [
+      ['chrIV:1-1531933', 512], ['chrIV:1-200000', 64],
+      ['chrIV:1-20000', 8], ['chrIV:1-2000', 1], ['chrIV:1000-1120', 1],
+    ]) {
+      await go(locus);
+      const dd = await ds();
+      ladder.push(`${locus}=${dd.gbLevel}`);
+      if (Number(dd.gbLevel) !== want) {
+        fail(scope, `${locus} drew ${dd.gbLevel} bp bins, expected ${want}`);
+      }
+      if (!(Number(dd.gbDrawn) > 0)) fail(scope, `${locus} drew nothing`);
+    }
+    const deepest = await ds();
+    if (deepest.gbMode !== 'letters') fail(scope, `deepest zoom drew "${deepest.gbMode}", not letters`);
+
+    // 2. the cache bound, exercised hard enough that eviction has to happen
+    let peak = 0;
+    for (const [chrom, len] of [['chrIV', 1531933], ['chrXV', 1091291], ['chrVII', 1090940]]) {
+      for (let i = 0; i < 24; i += 1) {
+        const s = Math.floor((i / 24) * len) + 1;
+        await page.fill('[data-gb-locus]', `${chrom}:${s}-${s + 3000}`);
+        await page.click('[data-gb-go]');
+        await page.waitForTimeout(90);
+        peak = Math.max(peak, Number((await ds()).gbTiles));
+      }
+    }
+    await page.waitForTimeout(1000);
+    if (peak > 48) fail(scope, `tile cache grew to ${peak}, above its bound of 48`);
+    const status = await page.$eval('[data-gb-status]', (e) => e.textContent ?? '');
+    const evicted = Number(status.match(/(\d+) evicted/)?.[1] ?? 0);
+    if (!(evicted > 0)) {
+      fail(scope, `no eviction over 72 base-resolution jumps (status "${status}") — the bound was never tested`);
+    }
+
+    // 3. the axis, at the widths where a scale error is largest and where it vanishes
+    for (const w of [320, 390, 760, 1043, 1440]) {
+      await page.setViewportSize({ width: w, height: 900 });
+      await page.waitForTimeout(400);
+      const gap = await page.evaluate(() => {
+        const c = document.querySelector('[data-gb-track]');
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        return Math.abs(c.width / dpr - Math.round(c.clientWidth));
+      });
+      if (gap > 0.51) fail(scope, `at ${w}px the backing store is ${gap.toFixed(2)} px off its box`);
+      const over = await page.evaluate(
+        () => Math.max(0, document.documentElement.scrollWidth - window.innerWidth),
+      );
+      if (over > 1) fail(scope, `document overflows by ${over}px at ${w}px`);
+    }
+    await page.setViewportSize({ width: 1440, height: 950 });
+
+    // 4. a deep link lands where it says, and the primary regions are all reachable
+    const opts = await page.$$eval('[data-gb-region] option', (o) => o.map((x) => x.value).filter(Boolean));
+    if (opts.length !== N_LOCI) fail(scope, `${opts.length} primary regions listed, expected ${N_LOCI}`);
+    for (const locus of [opts[0], opts[Math.floor(opts.length / 2)], opts[opts.length - 1]]) {
+      await page.goto(`${GENOME_ROUTE}#${locus}`, { waitUntil: 'networkidle' });
+      await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 15000 });
+      await page.waitForTimeout(600);
+      const landed = await page.$eval('[data-genome-browser]', (h) => h.dataset.gbView ?? '');
+      if (landed.replace(/,/g, '') !== locus) {
+        fail(scope, `deep link #${locus} landed on ${landed}`);
+      }
+    }
+
+    // A repaint on theme change: the canvas reads CSS custom properties, so one that ignores the
+    // event keeps the old palette. Compare COLOURS, not ink -- the geometry is identical either way.
+    const palette = () => page.evaluate(() => {
+      const c = document.querySelector('[data-gb-track]');
+      const x = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      const seen = new Set();
+      let ink = 0;
+      for (let i = 0; i < x.length; i += 4) {
+        if (x[i + 3] < 8) continue;
+        ink += 1;
+        seen.add((x[i] >> 4) * 256 + (x[i + 1] >> 4) * 16 + (x[i + 2] >> 4));
+      }
+      return { ink, colours: [...seen].sort((a, b) => a - b).join(',') };
+    });
+    const before = await palette();
+    await page.evaluate(() => {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      document.dispatchEvent(new CustomEvent('khc:theme-change'));
+    });
+    await page.waitForTimeout(600);
+    const after = await palette();
+    if (!(before.ink > 1000 && after.ink > 1000)) {
+      fail(scope, `canvas nearly empty (${before.ink} / ${after.ink} opaque px)`);
+    }
+    if (before.colours === after.colours) {
+      fail(scope, 'the canvas did not repaint on khc:theme-change — it keeps the old palette');
+    }
+
+    if (bad.length) fail(scope, `genome-data requests failed: ${bad.slice(0, 3).join(', ')}`);
+    if (errors.length) fail(scope, `console/page errors: ${errors.slice(0, 2).join(' | ')}`);
+    progress(`  genome: levels ${ladder.join(' ')}, cache peak ${peak}, ${evicted} evicted`);
   } finally {
     await context.close();
   }
@@ -1865,9 +2020,11 @@ async function main() {
           await captureFailure('chromium/explanations', () => auditExplanations(browser, baseURL, 'chromium/explanations'));
           progress('chromium/language-model');
           await captureFailure('chromium/language-model', () => auditLanguageModel(browser, baseURL, 'chromium/language-model'));
+          progress('chromium/genome (level ladder, cache bound, axis, deep links)');
+          await captureFailure('chromium/genome', () => auditGenomeBrowser(browser, baseURL, 'chromium/genome'));
           progress('chromium/axis-alignment (5 widths)');
           await captureFailure('chromium/axis-alignment', () => auditAxisAlignment(browser, baseURL, 'chromium/axis-alignment'));
-          progress('chromium/lab-prose (all three routes)');
+          progress(`chromium/lab-prose (all ${LAB_ROUTES.length} routes)`);
           await captureFailure('chromium/lab-prose', () => auditSwallowedSpaces(browser, baseURL, 'chromium/lab-prose'));
           progress('chromium/region-views');
           await captureFailure('chromium/region-views', () => auditRegionViews(browser, baseURL, 'chromium/region-views'));
