@@ -338,4 +338,10 @@ export const sideProjects: SideProject[] = [
       'Authentic Chinese Chess (Xiangqi / 象棋) — command traditional lacquer pieces across the Chu River and Han Border with legal move validation and intelligent Minimax AI',
     url: '/games/chinese-chess/',
   },
+  {
+    name: 'BayRoute',
+    detail:
+      'Bay Area Pathfinding & Route Search Visualizer — dynamic step-by-step route planning across the SF Bay Area comparing Dijkstra, A*, Bidirectional A*, Greedy, and BFS in real time',
+    url: '/games/bay-route/',
+  },
 ];
