@@ -1,0 +1,529 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import { site } from '../../data/site';
+
+const description =
+  'Interactive biophysical toys, acoustic genomic soundscapes, and multi-scale physical simulations in the browser — from Chromatin 3D compaction across five orders of magnitude to real-time DNA audio synthesis.';
+
+const itemListLd = {
+  '@context': 'https://schema.org',
+  '@type': 'ItemList',
+  name: 'Lab for Fun — Interactive Genomic Playgrounds',
+  description,
+  itemListElement: [
+    {
+      '@type': 'ListItem',
+      position: 1,
+      name: 'Chromatin 3D Compaction Visualizer',
+      description:
+        'Continuous multi-scale 3D WebGL model of human chromosome packaging across five orders of magnitude (B-form DNA to metaphase chromatid).',
+      url: `${site.url}/chromatin/`,
+    },
+    {
+      '@type': 'ListItem',
+      position: 2,
+      name: 'Sonic Genome DNA Audio Synthesizer',
+      description:
+        'Real-time Web Audio synthesizer transforming DNA sequences, codons, GC-content sweeps, and regulatory motifs into ambient harmonic music.',
+      url: `${site.url}/sonic-genome/`,
+    },
+  ],
+};
+---
+
+<PageLayout
+  title="Lab for Fun"
+  eyebrow="Interactive Biophysics & Genomic Soundscapes"
+  lead="Playful, tactile explorations of genome biology in the browser — scrub continuously through 8,500-fold 3D physical folding of human chromosomes, or translate raw nucleotides into polyphonic ambient music."
+  description={description}
+>
+  <div class="fun-intro">
+    <p>
+      These interactive web applications translate complex biophysical principles into tactile,
+      real-time visual and acoustic experiences. Built with pure WebGL and the Web Audio API,
+      they run entirely client-side with zero dependencies or server roundtrips.
+    </p>
+  </div>
+
+  <!-- Primary Featured Playgrounds Grid -->
+  <div class="fun-grid">
+    <!-- Card 1: Chromatin 3D Compaction -->
+    <article class="fun-card fun-card--chromatin">
+      <div class="fun-card__header">
+        <div class="fun-card__badge-row">
+          <span class="fun-card__tag fun-card__tag--3d">3D WebGL · Physical Modeling</span>
+          <span class="fun-card__pill">60 FPS</span>
+        </div>
+        <div class="fun-card__icon" aria-hidden="true">🧬</div>
+      </div>
+
+      <div class="fun-card__body">
+        <h2>Chromatin 3D Compaction</h2>
+        <p class="fun-card__subtitle">From the DNA Duplex to a Metaphase Chromosome</p>
+        <p class="fun-card__desc">
+          A continuous, multi-scale 3D physical model visualizing how 84.6 mm of human chromosome 1
+          is systematically packaged into a compact 10 µm mitotic chromatid — an 8,500-fold linear
+          compaction spanning five distinct structural regimes across five orders of magnitude.
+        </p>
+
+        <ul class="fun-card__features">
+          <li><strong>2 nm B-form DNA:</strong> Double helix duplex with major/minor grooves</li>
+          <li><strong>11 nm Nucleosome:</strong> 147 bp wrapped 1.65 turns on histone octamers</li>
+          <li><strong>10 nm Fibre:</strong> Flexible beads-on-a-string zigzag chain with linker histone H1</li>
+          <li><strong>Loop Domains:</strong> Loop extrusion by cohesin halted at convergent CTCF motifs</li>
+          <li><strong>Mitotic Array:</strong> Helical ~400 kb loop array organized around condensin scaffolds</li>
+        </ul>
+      </div>
+
+      <div class="fun-card__footer">
+        <a href="/chromatin/" data-astro-reload class="fun-card__btn fun-card__btn--chromatin">
+          <span>Launch Chromatin 3D Model</span>
+          <span aria-hidden="true">→</span>
+        </a>
+      </div>
+    </article>
+
+    <!-- Card 2: Sonic Genome Synthesizer -->
+    <article class="fun-card fun-card--sonic">
+      <div class="fun-card__header">
+        <div class="fun-card__badge-row">
+          <span class="fun-card__tag fun-card__tag--audio">Web Audio API · Real-Time Synth</span>
+          <span class="fun-card__pill">Harmonic Audio</span>
+        </div>
+        <div class="fun-card__icon" aria-hidden="true">🎵</div>
+      </div>
+
+      <div class="fun-card__body">
+        <h2>Sonic Genome</h2>
+        <p class="fun-card__subtitle">Real-Time DNA Audio Synthesizer & Acoustic Soundscape</p>
+        <p class="fun-card__desc">
+          An interactive biological music synthesizer that sonifies DNA sequences into rich polyphonic
+          soundscapes. Nucleotides modulate melodic pitch, codons dictate synth timbres, GC-content sweeps
+          steer dynamic low-pass resonance filters, and transcription factor motifs trigger percussion.
+        </p>
+
+        <ul class="fun-card__features">
+          <li><strong>Nucleotide Mapping:</strong> A, C, G, T mapped across 6 harmonic musical scales</li>
+          <li><strong>Amino Acid Timbres:</strong> 20 translated amino acids drive polyphonic oscillator voicings</li>
+          <li><strong>Dynamic Filter Sweeps:</strong> Sliding-window GC% dynamically modulates cutoff frequency</li>
+          <li><strong>Motif Percussion:</strong> TATA box, E-box, and Kozak consensus hits trigger acoustic beats</li>
+          <li><strong>Interactive Controls:</strong> Real-time BPM slider, reverb acoustics, and custom DNA loader</li>
+        </ul>
+      </div>
+
+      <div class="fun-card__footer">
+        <a href="/sonic-genome/" data-astro-reload class="fun-card__btn fun-card__btn--sonic">
+          <span>Launch Sonic Genome Synth</span>
+          <span aria-hidden="true">→</span>
+        </a>
+      </div>
+    </article>
+  </div>
+
+  <!-- Deep Dive Comparison & Principles Section -->
+  <section class="fun-section">
+    <h2>Biophysics Meets Playful Computation</h2>
+    <p>
+      Both playgrounds highlight different fundamental facets of genome structure and information theory.
+      Explore how their underlying computational architectures translate biological data:
+    </p>
+
+    <div class="fun-scroll">
+      <table class="fun-table">
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th>Chromatin 3D Compaction</th>
+            <th>Sonic Genome</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Core Medium</strong></td>
+            <td>3D WebGL procedural mesh rendering</td>
+            <td>Web Audio API multi-oscillator polyphonic synthesis</td>
+          </tr>
+          <tr>
+            <td><strong>Biological Dimension</strong></td>
+            <td>Spatial physical packaging & polymer folding</td>
+            <td>Sequence information density & nucleotide harmonics</td>
+          </tr>
+          <tr>
+            <td><strong>Dynamic Scale</strong></td>
+            <td>Five orders of magnitude (2 nm → 10 µm)</td>
+            <td>Sub-bass to high-frequency audio spectrum (55 Hz → 2,093 Hz)</td>
+          </tr>
+          <tr>
+            <td><strong>Interactive Input</strong></td>
+            <td>Continuous scale scrubber, 3D orbit, regime milestones</td>
+            <td>Audio playback transport, scale selector, custom FASTA parser</td>
+          </tr>
+          <tr>
+            <td><strong>Biological Anchor</strong></td>
+            <td>PDB 1AOI nucleosome crystal geometry & loop extrusion physics</td>
+            <td>Universal standard genetic code, IUPAC motifs & GC resonance</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Connected Labs Ecosystem Section -->
+  <section class="fun-section">
+    <h2>Explore Other Interactive Labs</h2>
+    <div class="fun-ecosystem-grid">
+      <a class="fun-ecosystem-card" href="/lab" data-astro-reload>
+        <span class="fun-ecosystem-icon" aria-hidden="true">🔬</span>
+        <div>
+          <h3>Cell Lab</h3>
+          <p>In silico living cellular automata microcosm with homeostasis, proliferation, laser tweezers, and fluorescence.</p>
+          <span class="fun-ecosystem-link">Open Cell Lab →</span>
+        </div>
+      </a>
+
+      <a class="fun-ecosystem-card" href="/shorkie-lab/" data-astro-reload>
+        <span class="fun-ecosystem-icon" aria-hidden="true">🧬</span>
+        <div>
+          <h3>Shorkie Lab</h3>
+          <p>Browser-native deep learning models: Shorkie expression attribution and Shorkie_LM masked DNA language model.</p>
+          <span class="fun-ecosystem-link">Open Shorkie Lab →</span>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(itemListLd)} />
+</PageLayout>
+
+<style>
+  .fun-intro {
+    max-width: 68ch;
+    color: var(--color-muted);
+    font-size: var(--fs-body, 1rem);
+    line-height: 1.6;
+  }
+
+  .fun-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
+    gap: 1.5rem;
+    margin: 2rem 0 3rem;
+  }
+
+  .fun-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 1.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg, 12px);
+    background: var(--color-surface);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .fun-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--color-accent);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  }
+
+  .fun-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+  }
+
+  .fun-card__badge-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .fun-card__tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .fun-card__tag--3d {
+    background: color-mix(in srgb, #0284c7 15%, transparent);
+    color: #0284c7;
+  }
+
+  :global([data-theme='dark']) .fun-card__tag--3d,
+  :global([data-theme='nord']) .fun-card__tag--3d,
+  :global([data-theme='monokai']) .fun-card__tag--3d,
+  :global([data-theme='cyberdeck']) .fun-card__tag--3d {
+    color: #38bdf8;
+    background: color-mix(in srgb, #38bdf8 20%, transparent);
+  }
+
+  .fun-card__tag--audio {
+    background: color-mix(in srgb, #7e22ce 15%, transparent);
+    color: #7e22ce;
+  }
+
+  :global([data-theme='dark']) .fun-card__tag--audio,
+  :global([data-theme='nord']) .fun-card__tag--audio,
+  :global([data-theme='monokai']) .fun-card__tag--audio,
+  :global([data-theme='cyberdeck']) .fun-card__tag--audio {
+    color: #c084fc;
+    background: color-mix(in srgb, #a855f7 20%, transparent);
+  }
+
+  .fun-card__pill {
+    padding: 0.18rem 0.5rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-ink) 6%, transparent);
+    color: var(--color-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  .fun-card__icon {
+    font-size: 2rem;
+    line-height: 1;
+  }
+
+  .fun-card__body h2 {
+    margin: 0 0 0.25rem;
+    font-size: 1.5rem;
+    letter-spacing: var(--tracking-tight);
+    color: var(--color-ink);
+  }
+
+  .fun-card__subtitle {
+    margin: 0 0 0.85rem;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--color-accent);
+  }
+
+  .fun-card__desc {
+    margin: 0 0 1.25rem;
+    color: var(--color-muted);
+    font-size: 0.94rem;
+    line-height: 1.55;
+  }
+
+  .fun-card__features {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    font-size: 0.86rem;
+    color: var(--color-muted);
+  }
+
+  .fun-card__features li {
+    position: relative;
+    padding-left: 1.15rem;
+    line-height: 1.45;
+  }
+
+  .fun-card__features li::before {
+    content: '•';
+    position: absolute;
+    left: 0;
+    color: var(--color-accent);
+    font-weight: bold;
+  }
+
+  .fun-card__features strong {
+    color: var(--color-ink);
+  }
+
+  .fun-card__footer {
+    margin-top: auto;
+    padding-top: 1rem;
+    border-top: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+  }
+
+  .fun-card__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-height: 44px;
+    padding: 0.65rem 1.25rem;
+    border-radius: var(--radius-md, 8px);
+    font-size: 0.92rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.15s ease;
+    box-sizing: border-box;
+  }
+
+  .fun-card__btn--chromatin {
+    background: color-mix(in srgb, #0284c7 12%, var(--color-surface));
+    border: 1px solid color-mix(in srgb, #0284c7 40%, transparent);
+    color: #0284c7;
+  }
+
+  .fun-card__btn--chromatin:hover {
+    background: #0284c7;
+    color: #ffffff;
+    border-color: #0284c7;
+  }
+
+  .fun-card__btn--sonic {
+    background: color-mix(in srgb, #9333ea 12%, var(--color-surface));
+    border: 1px solid color-mix(in srgb, #9333ea 40%, transparent);
+    color: #9333ea;
+  }
+
+  .fun-card__btn--sonic:hover {
+    background: #9333ea;
+    color: #ffffff;
+    border-color: #9333ea;
+  }
+
+  :global([data-theme='dark']) .fun-card__btn--chromatin,
+  :global([data-theme='nord']) .fun-card__btn--chromatin,
+  :global([data-theme='monokai']) .fun-card__btn--chromatin,
+  :global([data-theme='cyberdeck']) .fun-card__btn--chromatin {
+    background: color-mix(in srgb, #38bdf8 15%, var(--color-surface));
+    border-color: rgba(56, 189, 248, 0.4);
+    color: #38bdf8;
+  }
+
+  :global([data-theme='dark']) .fun-card__btn--chromatin:hover,
+  :global([data-theme='nord']) .fun-card__btn--chromatin:hover,
+  :global([data-theme='monokai']) .fun-card__btn--chromatin:hover,
+  :global([data-theme='cyberdeck']) .fun-card__btn--chromatin:hover {
+    background: #0284c7;
+    color: #ffffff;
+  }
+
+  :global([data-theme='dark']) .fun-card__btn--sonic,
+  :global([data-theme='nord']) .fun-card__btn--sonic,
+  :global([data-theme='monokai']) .fun-card__btn--sonic,
+  :global([data-theme='cyberdeck']) .fun-card__btn--sonic {
+    background: color-mix(in srgb, #c084fc 15%, var(--color-surface));
+    border-color: rgba(192, 132, 252, 0.4);
+    color: #c084fc;
+  }
+
+  :global([data-theme='dark']) .fun-card__btn--sonic:hover,
+  :global([data-theme='nord']) .fun-card__btn--sonic:hover,
+  :global([data-theme='monokai']) .fun-card__btn--sonic:hover,
+  :global([data-theme='cyberdeck']) .fun-card__btn--sonic:hover {
+    background: #9333ea;
+    color: #ffffff;
+  }
+
+  .fun-section {
+    margin: 3.5rem 0 2rem;
+  }
+
+  .fun-section > h2 {
+    margin-bottom: 0.5rem;
+    font-size: 1.45rem;
+  }
+
+  .fun-section > p {
+    max-width: 68ch;
+    color: var(--color-muted);
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+
+  .fun-scroll {
+    overflow-x: auto;
+    margin: 1.5rem 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md, 8px);
+    background: var(--color-surface);
+  }
+
+  .fun-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--fs-meta, 0.85rem);
+    min-width: 36rem;
+  }
+
+  .fun-table th,
+  .fun-table td {
+    padding: 0.65rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: top;
+  }
+
+  .fun-table thead th {
+    background: color-mix(in srgb, var(--color-ink) 3%, var(--color-surface));
+    color: var(--color-ink);
+    font-weight: 700;
+  }
+
+  .fun-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .fun-table td strong {
+    color: var(--color-ink);
+  }
+
+  .fun-ecosystem-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+    gap: 1rem;
+    margin-top: 1.25rem;
+  }
+
+  .fun-ecosystem-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding: 1.15rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md, 8px);
+    background: var(--color-surface);
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.15s ease;
+  }
+
+  .fun-ecosystem-card:hover {
+    border-color: var(--color-accent);
+    transform: translateY(-2px);
+  }
+
+  .fun-ecosystem-icon {
+    font-size: 1.75rem;
+    line-height: 1;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+  }
+
+  .fun-ecosystem-card h3 {
+    margin: 0 0 0.25rem;
+    font-size: 1.05rem;
+    color: var(--color-ink);
+  }
+
+  .fun-ecosystem-card p {
+    margin: 0 0 0.5rem;
+    font-size: 0.82rem;
+    color: var(--color-muted);
+    line-height: 1.4;
+  }
+
+  .fun-ecosystem-link {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-accent);
+  }
+</style>

@@ -38,7 +38,7 @@ export default defineConfig({
         if (item.url === 'https://khchao.com/') {
           item.priority = 1.0;
         } else if (
-          /\/(research|publications|software|posts|chromatin|shorkie-lab)\/$/.test(item.url)
+          /\/(research|publications|software|posts|chromatin|shorkie-lab|fun-lab)\/$/.test(item.url)
         ) {
           item.priority = 0.9;
         } else if (
@@ -56,6 +56,7 @@ export default defineConfig({
     }),
   ],
   redirects: {
+    '/lab-for-fun': '/fun-lab/',
     // The playground moved under the Shorkie Lab hub when the language-model page joined it.
     // Renaming a route kills its URL and `audit:links` cannot see a path that simply stopped
     // existing, so the old one is redirected here rather than allow-listed anywhere.
