@@ -1,0 +1,102 @@
+{
+  "source": "Chao et al. 2025, Figure 4H (Database Motifs row) and Supplemental Figures S19/S20",
+  "note": "The motif dictionary the paper boxes and names on its ISM logos. Consensuses are IUPAC; '|' separates alternatives where no single degenerate string covers the set. Every entry records where it was read from, because a mis-transcribed consensus would silently move a box: the site previously carried Fhl1 as GTAAACA, which is not the paper's Fhl1 motif, and boxed a position 27 bp from where Figure S19B puts it.",
+  "iupac": {
+    "A": "A", "C": "C", "G": "G", "T": "T",
+    "R": "AG", "Y": "CT", "S": "GC", "W": "AT", "K": "GT", "M": "AC",
+    "B": "CGT", "D": "AGT", "H": "ACT", "V": "ACG", "N": "ACGT"
+  },
+  "motifs": [
+    {
+      "id": "rap1", "name": "Rap1", "consensus": "MACCCANNCAY",
+      "source": "Figure 4H", "aliases": ["RAP1", "Rap1"]
+    },
+    {
+      "id": "fhl1", "name": "Fhl1", "consensus": "ATGTACGGAT",
+      "source": "Figure 4H",
+      "aliases": ["FHL1", "Fhl1"],
+      "supersedes": "GTAAACA — the value the site carried before this dictionary; it is not the paper's Fhl1 motif and boxed the wrong position in the RPL26A window."
+    },
+    {
+      "id": "sfp1", "name": "Sfp1.1", "consensus": "ATGTATGGGT",
+      "source": "Figure 4H", "aliases": ["SFP1", "Sfp1", "SFP1.1", "Sfp1.1", "SFP1.2", "Sfp1.2"]
+    },
+    {
+      "id": "tata", "name": "TATA box", "consensus": "TATAAA",
+      "source": "Figure 4H", "aliases": ["TBP", "TATA", "TATA box", "TATA Box", "TATA_box"]
+    },
+    {
+      "id": "reb1", "name": "Reb1", "consensus": "CGGGTAA",
+      "source": "Figure 4H", "aliases": ["REB1", "Reb1", "REB1.1", "Reb1.1"]
+    },
+    {
+      "id": "abf1", "name": "Abf1", "consensus": "RTCRYNNNNNACG",
+      "source": "Figure 4H", "aliases": ["ABF1", "Abf1"]
+    },
+    {
+      "id": "tbf1", "name": "Tbf1.1", "consensus": "AACCCTA",
+      "source": "Figure 4H", "aliases": ["TBF1", "Tbf1", "TBF1.1", "Tbf1.1"]
+    },
+    {
+      "id": "cbf1", "name": "Cbf1", "consensus": "GTCACGTG",
+      "source": "Figure 4H", "aliases": ["CBF1", "Cbf1"]
+    },
+    {
+      "id": "ume6", "name": "Ume6.2", "consensus": "TAGCCGCC",
+      "source": "Figure 4H", "aliases": ["UME6", "Ume6", "UME6.2", "Ume6.2"]
+    },
+    {
+      "id": "dot6", "name": "Dot6p", "consensus": "CTCATCG",
+      "source": "Figure 4H", "aliases": ["DOT6", "Dot6", "Dot6p", "TOD6", "Tod6"]
+    },
+    {
+      "id": "pac", "name": "PAC motif (Dot6)", "consensus": "GMGATGAGMTGA",
+      "source": "Figure 4H, printed as G(C/A)GATGAG(A/C)TGA",
+      "aliases": ["PAC", "PAC motif", "RRB regulon motif"]
+    },
+    {
+      "id": "rrpe", "name": "RRPE motif (Stb3)", "consensus": "TGAAAAATTTT",
+      "source": "Figure 4H, printed as TGAAAAATTTT",
+      "aliases": ["RRPE", "STB3", "Stb3", "RRPE (Stb3)"]
+    },
+    {
+      "id": "polyda", "name": "Poly(dA:dT)", "consensus": "AAAAAAAAAA",
+      "source": "Figure S19A, labelled Poly(dA:dt)",
+      "aliases": ["POLYDA", "Poly(dA:dT)", "Poly(dA:dt)", "polyA"]
+    },
+    {
+      "id": "tye7", "name": "Tye7p", "consensus": "CACGTG",
+      "source": "Figure S20D, labelled TYE7P; Tye7 is a bHLH factor reading the E-box",
+      "aliases": ["TYE7", "Tye7", "TYE7P", "Tye7p"]
+    },
+    {
+      "id": "phd1", "name": "Phd1", "consensus": "TGCACGTG",
+      "source": "Figure S20A, labelled PHD1",
+      "aliases": ["PHD1", "Phd1"]
+    },
+    {
+      "id": "donor", "name": "5′ splice site", "consensus": "GTATGT",
+      "source": "Figure 4E/F, Database Motifs row",
+      "aliases": ["5' splice site", "5′ splice site", "donor", "donor site"]
+    },
+    {
+      "id": "branch", "name": "Branch point", "consensus": "TACTAAC",
+      "source": "Figure 4E/F, Database Motifs row",
+      "aliases": ["branch point", "Branch point"]
+    },
+    {
+      "id": "acceptor", "name": "3′ splice site", "consensus": "AG",
+      "source": "Figure 4E/G",
+      "aliases": ["3' splice site", "3′ splice site", "acceptor", "acceptor site"]
+    },
+    {
+      "id": "start", "name": "Start codon", "consensus": "ATG",
+      "source": "Figure 4E/F/G", "aliases": ["Start codon", "Start Codon", "start codon"]
+    },
+    {
+      "id": "stop", "name": "Stop codon", "consensus": "TAA|TAG|TGA",
+      "source": "Figure 4G, labelled Stop Codon (TGA)",
+      "aliases": ["Stop codon", "Stop Codon", "stop codon"]
+    }
+  ]
+}

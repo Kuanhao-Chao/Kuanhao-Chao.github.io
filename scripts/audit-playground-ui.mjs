@@ -207,8 +207,12 @@ async function auditPage(page, scope, want) {
   if (s.flowPainted < 1000) fail(scope, `flow canvas painted only ${s.flowPainted} px`);
   if (!s.subLayers) fail(scope, 'layer detail shows no sub-layer breakdown');
   if (!s.stageTitle) fail(scope, 'layer detail has no stage title');
-  if (s.loci !== 14) fail(scope, `expected 14 preset loci, saw ${s.loci}`);
-  if (s.figure4 !== 6) fail(scope, `expected the 6 Figure 4 windows, saw ${s.figure4}`);
+  if (s.loci !== N_LOCI) fail(scope, `expected ${N_LOCI} preset loci, saw ${s.loci}`);
+  // Derived, like N_LOCI: this was 6 (main-text Figure 4) and became 11 when the five Supplemental
+  // S19 panels landed. A hardcoded count turns every future panel into a spurious audit failure.
+  if (s.figure4 !== N_FIGURE_WINDOWS) {
+    fail(scope, `expected the ${N_FIGURE_WINDOWS} published figure windows, saw ${s.figure4}`);
+  }
 
   // Every stage must select and produce a non-empty detail.
   const box = await page.locator('[data-vp-flow]').boundingBox();
@@ -1472,6 +1476,16 @@ async function auditAnnotation(browser, baseURL, scope) {
   }
 }
 
+// The locus count is DERIVED, not typed: it went 14 -> 23 when Supplemental Figures S19 and S20
+// were added, and it was asserted in three places that had to be found by grep.
+const N_LOCI = JSON.parse(
+  readFileSync(new URL('../src/data/shorkieLoci.json', import.meta.url), 'utf8'),
+).loci.length;
+// Loci that carry a `figureWindow`: the six main-text Figure 4 panels plus the Supplemental
+// S19/S20 panels that have shipped.
+const N_FIGURE_WINDOWS = JSON.parse(
+  readFileSync(new URL('../src/data/shorkieLoci.json', import.meta.url), 'utf8'),
+).loci.filter((l) => l.figureWindow).length;
 const LM_ROUTE = '/shorkie-lab/shorkie_lm/';
 const LAB_ROUTES = ['/shorkie-lab/', '/shorkie-lab/shorkie/', LM_ROUTE];
 
@@ -1575,10 +1589,10 @@ async function auditLanguageModel(browser, baseURL, scope) {
     if (!/perplexity/.test(st.metrics)) fail(scope, `metrics line missing perplexity: "${st.metrics}"`);
     // All fourteen windows reachable. The page shipped for a while with locusIndex pinned at 0 and
     // thirteen of them unreachable, while the prose made claims about all fourteen.
-    if (st.loci !== 14) fail(scope, `the locus select offers ${st.loci}, expected 14`);
+    if (st.loci !== N_LOCI) fail(scope, `the locus select offers ${st.loci}, expected ${N_LOCI}`);
     if (st.regions < 2) fail(scope, `the region select offers ${st.regions}, expected the whole window plus genes`);
     if (st.navs !== 1) fail(scope, `${st.navs} region selectors on the page, expected exactly one`);
-    if (st.summary !== 14) fail(scope, `the cross-locus table has ${st.summary} rows, expected 14`);
+    if (st.summary !== N_LOCI) fail(scope, `the cross-locus table has ${st.summary} rows, expected ${N_LOCI}`);
     if (!/IC .* vs window/.test(st.context)) {
       fail(scope, `the region context line does not report scoped constraint: "${st.context}"`);
     }
@@ -1845,7 +1859,7 @@ async function main() {
           await captureFailure('chromium/coordinates', () => auditCoordinates(browser, baseURL, 'chromium/coordinates'));
           progress('chromium/traceback');
           await captureFailure('chromium/traceback', () => auditTraceback(browser, baseURL, 'chromium/traceback'));
-          progress('chromium/annotation (14 loci)');
+          progress(`chromium/annotation (${N_LOCI} loci)`);
           await captureFailure('chromium/annotation', () => auditAnnotation(browser, baseURL, 'chromium/annotation'));
           progress('chromium/explanations');
           await captureFailure('chromium/explanations', () => auditExplanations(browser, baseURL, 'chromium/explanations'));
@@ -1871,7 +1885,7 @@ async function main() {
           await captureFailure('chromium/full-model', () => auditFullModel(browser, baseURL, 'chromium/full-model'));
           progress('chromium/stale-state (two inferences, ~40 s)');
           await captureFailure('chromium/stale-state', () => auditStaleState(browser, baseURL, 'chromium/stale-state'));
-          progress('chromium/no-model (14 loci, model blocked)');
+          progress(`chromium/no-model (${N_LOCI} loci, model blocked)`);
           await captureFailure('chromium/no-model', () => auditNoModel(browser, baseURL, 'chromium/no-model'));
           progress('chromium/ink-distribution (one inference, ~20 s)');
           await captureFailure('chromium/ink-distribution', () => auditInkDistribution(browser, baseURL, 'chromium/ink-distribution'));

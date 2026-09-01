@@ -1306,8 +1306,20 @@ export function stageRasterHeight(channels: number, named: boolean): {
 /** A landmark the paper annotates on its ISM logos. */
 export interface SpliceAnnotation {
   label: string;
-  /** Window offset in bp. */
+  /** The landmark's anchor: the splice junction, or the codon's first coding base. */
   at: number;
+  /** Start of the MOTIF this landmark names, in window bp. Half-open with `end`. */
+  start: number;
+  /** End of the motif, exclusive. */
+  end: number;
+  /** The strand the motif reads on -- on '-' the consensus is the reverse complement. */
+  strand: '+' | '-';
+  /**
+   * The consensus this span is expected to contain, IUPAC, for the reference-DB logo and the
+   * tests. `|` separates alternatives where no single degenerate string covers the set -- the
+   * three stop codons are TAA, TAG and TGA, which is T followed by AA, AG or GA.
+   */
+  consensus: string;
 }
 
 /**
@@ -1327,20 +1339,46 @@ export function spliceAnnotations(feature: {
   exons: number[][];
 }): SpliceAnnotation[] {
   const plus = feature.strand === '+';
+  const st: '+' | '-' = plus ? '+' : '-';
   const out: SpliceAnnotation[] = [];
+  // Each landmark carries the SPAN of the motif it names, not just its anchor. The panel used to
+  // box every one of them as `[at - 3, at + 3)` -- a fixed 6 bp window regardless of the motif --
+  // which drew DTD1's donor over AAGGTA when the motif is GTATGT three bases to the right, and put
+  // a 6 bp box on a 2 bp acceptor. On the minus strand the motif runs the other way from its
+  // anchor, so every span is mirrored rather than shifted.
+  const span = (label: string, at: number, len: number, consensus: string,
+                forward: boolean): SpliceAnnotation => ({
+    label,
+    at,
+    start: forward ? at : at - len,
+    end: forward ? at + len : at,
+    strand: st,
+    consensus,
+  });
+
   if (feature.cdsEnd > feature.cdsStart) {
-    out.push({ label: 'Start codon', at: plus ? feature.cdsStart : feature.cdsEnd });
-    out.push({ label: 'Stop codon', at: plus ? feature.cdsEnd : feature.cdsStart });
+    // ATG occupies the first three CODING bases, which on the minus strand are the three before
+    // cdsEnd; the stop codon is the last three, mirrored the same way.
+    out.push(plus
+      ? span('Start codon', feature.cdsStart, 3, 'ATG', true)
+      : span('Start codon', feature.cdsEnd, 3, 'ATG', false));
+    out.push(plus
+      ? span('Stop codon', feature.cdsEnd, 3, 'TAA|TAG|TGA', false)
+      : span('Stop codon', feature.cdsStart, 3, 'TAA|TAG|TGA', true));
   }
   const exons = [...feature.exons].sort((a, b) => a[0] - b[0]);
   for (let i = 0; i + 1 < exons.length; i += 1) {
-    const s = exons[i][1];
-    const e = exons[i + 1][0];
+    const s = exons[i][1];              // first base of the intron, in window coordinates
+    const e = exons[i + 1][0];          // first base of the next exon
     const donor = plus ? s : e;
     const acceptor = plus ? e : s;
-    out.push({ label: "5′ splice site", at: donor });
-    out.push({ label: 'Branch point', at: plus ? acceptor - 30 : acceptor + 30 });
-    out.push({ label: "3′ splice site", at: acceptor });
+    // The donor is the intron's first six bases READ ON THE GENE'S STRAND: GTATGT in yeast, of
+    // which only the GT is invariant. The acceptor is the intron's last two, AG.
+    out.push(span("5′ splice site", donor, 6, 'GTATGT', plus));
+    // The branch point is not in the annotation -- it is placed at the paper's fixed 30 bp from the
+    // acceptor, and spans the seven bases of TACTAAC.
+    out.push(span('Branch point', plus ? acceptor - 30 : acceptor + 30, 7, 'TACTAAC', plus));
+    out.push(span("3′ splice site", acceptor, 2, 'AG', !plus));
   }
   return out;
 }
@@ -1821,4 +1859,104 @@ export function weightedEnrichment(
     signedInside: obs.signed / wSum,
     shifts: k,
   };
+}
+
+/** One IUPAC-consensus hit inside a searched span. */
+export interface MotifHit {
+  /** Window bp of the match start, half-open with `end`. */
+  start: number;
+  end: number;
+  /** '+' when the consensus reads on the given sequence, '-' when on its reverse complement. */
+  strand: '+' | '-';
+  /** The alternative that matched, for a `|`-separated consensus. */
+  consensus: string;
+}
+
+const IUPAC_SET: Record<string, string> = {
+  A: 'A', C: 'C', G: 'G', T: 'T',
+  R: 'AG', Y: 'CT', S: 'GC', W: 'AT', K: 'GT', M: 'AC',
+  B: 'CGT', D: 'AGT', H: 'ACT', V: 'ACG', N: 'ACGT',
+};
+
+const COMPLEMENT: Record<string, string> = { A: 'T', C: 'G', G: 'C', T: 'A' };
+
+/** Reverse complement, leaving anything that is not ACGT as N. */
+export function revComp(seq: string): string {
+  let out = '';
+  for (let i = seq.length - 1; i >= 0; i -= 1) out += COMPLEMENT[seq[i].toUpperCase()] ?? 'N';
+  return out;
+}
+
+/** Does `seq` satisfy the IUPAC `consensus` at `offset`? */
+function consensusAt(seq: string, consensus: string, offset: number): boolean {
+  if (offset < 0 || offset + consensus.length > seq.length) return false;
+  for (let i = 0; i < consensus.length; i += 1) {
+    const allowed = IUPAC_SET[consensus[i]];
+    if (!allowed || !allowed.includes(seq[offset + i])) return false;
+    }
+  return true;
+}
+
+/**
+ * Find where an IUPAC consensus actually sits inside a searched window, on either strand.
+ *
+ * This is what lets a box mean "the motif is here" rather than "a database called something here".
+ * The curated regulatory-code calls are PWM-plus-conservation calls: measured across the shipped
+ * windows, only ~23% of them contain their transcription factor's canonical consensus, while those
+ * that do sit at offset **0** of the call. So the call's coordinates are right and its span is
+ * motif-sized -- what varies is whether the consensus is visible in it at all. A box drawn on the
+ * match is a claim the drawing supports; a box drawn on a call that contains no match is a
+ * different and weaker claim, and the two must not look alike.
+ *
+ * `preferOffset` breaks ties toward the position the caller expected (the call's own start), so a
+ * consensus occurring twice inside a padded window does not jump to the wrong copy. Omit it and the
+ * earliest match wins, forward strand preferred at equal position.
+ *
+ * **`strands` is not a convenience.** A transcription-factor site is strand-agnostic and must be
+ * searched both ways -- Rap1 reads on the reverse strand at exactly the base where Sfp1.1 reads
+ * forward, in the RPL26A promoter the paper boxes. A codon or a splice site is NOT: it is read in
+ * the gene's own frame, and searching both strands finds nonsense. `TTTATA` contains a reverse
+ * TATA box and `CCCTAACCC` a reverse `TAG`, both real and both wrong if the caller wanted a
+ * forward-frame answer.
+ *
+ * Returns null when no alternative matches anywhere in `seq`.
+ */
+export function motifMatch(
+  seq: string,
+  consensus: string,
+  origin = 0,
+  preferOffset?: number,
+  strands: 'both' | 'forward' = 'both',
+): MotifHit | null {
+  const s = seq.toUpperCase();
+  const rcSeq = revComp(s);
+  let best: MotifHit | null = null;
+  let bestScore = Infinity;
+  for (const alt of consensus.split('|')) {
+    if (!alt) continue;
+    for (let i = 0; i + alt.length <= s.length; i += 1) {
+      if (consensusAt(s, alt, i)) {
+        const score = preferOffset === undefined ? i : Math.abs(i - preferOffset);
+        if (score < bestScore) {
+          bestScore = score;
+          best = { start: origin + i, end: origin + i + alt.length, strand: '+', consensus: alt };
+        }
+      }
+      // The same window read on the other strand: a hit at j in the reverse complement covers
+      // [len - j - alt.length, len - j) in forward coordinates.
+      if (strands === 'both' && consensusAt(rcSeq, alt, i)) {
+        const fwdStart = s.length - i - alt.length;
+        const base = preferOffset === undefined ? fwdStart : Math.abs(fwdStart - preferOffset);
+        const score = base + 0.5;                       // ties prefer the forward strand
+        if (score < bestScore) {
+          bestScore = score;
+          best = {
+            start: origin + fwdStart, end: origin + fwdStart + alt.length,
+            strand: '-', consensus: alt,
+          };
+        }
+      }
+    }
+  }
+  return best;
 }
