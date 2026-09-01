@@ -754,7 +754,7 @@ export function initChineseChess() {
 
     // 3. Move notation history list
     if (historyListEl) {
-      historyListEl.innerHTML = '';
+      historyListEl.replaceChildren();
       const pairs: { round: number; red?: string; black?: string }[] = [];
       for (let i = 0; i < game.history.length; i++) {
         const round = Math.floor(i / 2) + 1;
@@ -769,11 +769,20 @@ export function initChineseChess() {
       pairs.forEach((p) => {
         const li = document.createElement('li');
         li.className = 'notation-row';
-        li.innerHTML = `
-          <span class="notation-round">${p.round}.</span>
-          <span class="notation-red">${p.red || ''}</span>
-          <span class="notation-black">${p.black || ''}</span>
-        `;
+
+        const roundSpan = document.createElement('span');
+        roundSpan.className = 'notation-round';
+        roundSpan.textContent = `${p.round}.`;
+
+        const redSpan = document.createElement('span');
+        redSpan.className = 'notation-red';
+        redSpan.textContent = p.red || '';
+
+        const blackSpan = document.createElement('span');
+        blackSpan.className = 'notation-black';
+        blackSpan.textContent = p.black || '';
+
+        li.append(roundSpan, redSpan, blackSpan);
         historyListEl.appendChild(li);
       });
       historyListEl.scrollTop = historyListEl.scrollHeight;
@@ -781,7 +790,7 @@ export function initChineseChess() {
 
     // 4. Captured Graveyard Racks
     if (capturedRedEl) {
-      capturedRedEl.innerHTML = '';
+      capturedRedEl.replaceChildren();
       game.capturedRed.forEach((p) => {
         const span = document.createElement('span');
         span.className = 'captured-piece captured-piece--red';
@@ -791,7 +800,7 @@ export function initChineseChess() {
     }
 
     if (capturedBlackEl) {
-      capturedBlackEl.innerHTML = '';
+      capturedBlackEl.replaceChildren();
       game.capturedBlack.forEach((p) => {
         const span = document.createElement('span');
         span.className = 'captured-piece captured-piece--black';
