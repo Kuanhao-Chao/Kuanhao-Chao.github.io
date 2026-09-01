@@ -49,6 +49,10 @@ NEW_LOCI = [
     ("RPL13A", "chrIV",   307974, 308474, "Fig S19D", "Ribosomal protein promoter — two Rap1 sites and a 5' splice site"),
     ("RPL40A", "chrIX",   68258,  68758,  "Fig S19E", "Ribosomal protein promoter — Rap1 and Fhl1"),
     ("RPS16A", "chrXIII", 551478, 551978, "Fig S19F", "Ribosomal protein promoter — Rap1, Fhl1 and Reb1.1"),
+    ("PIS1",   "chrXVI",  751807, 752307, "Fig S20A", "PAC motif (GCGATGAGATGAG), Sfp1, a TATA box and two start codons"),
+    ("PWP1",   "chrXII",  543518, 544018, "Fig S20B", "Reb1 beside both RRB regulon motifs — RRPE and PAC"),
+    ("POP4",   "chrII",   728435, 728935, "Fig S20C", "A single dominant Reb1 site"),
+    ("GLK1",   "chrIII",  50388,  50888,  "Fig S20D", "Reb1, two Tye7p sites and a TATA box"),
 ]
 
 # DEFERRED: the four Figure S20 panels. Their windows are derived and verified the same way as the
@@ -56,10 +60,6 @@ NEW_LOCI = [
 # their full-window ISM (~19 min a locus) has not been computed, and a locus without an ISM pack
 # breaks the page and verify_pipeline. Move an entry into NEW_LOCI once its ISM exists.
 DEFERRED_LOCI = [
-    ("PIS1",   "chrXVI",  751807, 752307, "Fig S20A", "PAC motif (GCGATGAGATGAG), Sfp1, a TATA box and two start codons"),
-    ("PWP1",   "chrXII",  543518, 544018, "Fig S20B", "Reb1 beside both RRB regulon motifs — RRPE and PAC"),
-    ("POP4",   "chrII",   728435, 728935, "Fig S20C", "A single dominant Reb1 site"),
-    ("GLK1",   "chrIII",  50388,  50888,  "Fig S20D", "Reb1, two Tye7p sites and a TATA box"),
 ]
 
 CONTROL = ("RPL26A", "chrXII", 818862, 819362)     # already shipped; must be reproduced exactly

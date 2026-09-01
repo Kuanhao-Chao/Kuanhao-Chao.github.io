@@ -291,8 +291,8 @@ describe('mutation', () => {
 
 describe('preset loci', () => {
   it('ships fourteen full-length windows with annotation', () => {
-    // Eight chosen to span the interpretive range, plus the six of Figure 4.
-    expect(loci.loci.length).toBe(19);
+    // Eight chosen to span the interpretive range, plus the six of Figure 4 and supplemental.
+    expect(loci.loci.length).toBe(23);
     expect(loci.speciesIndex).toBe(SPECIES_S_CEREVISIAE);
     expect(loci.bins).toBe(N_BINS);
     loci.loci.forEach((l) => {
@@ -323,12 +323,16 @@ describe('preset loci', () => {
       'DTD1',
       'MMS2',
       'HOP2',
-          'RPL4A',
+      'RPL4A',
       'RPS2',
       'RPL13A',
       'RPL40A',
       'RPS16A',
-];
+      'PIS1',
+      'PWP1',
+      'POP4',
+      'GLK1',
+    ];
     expect(loci.loci.map((l) => l.gene)).toEqual(wanted);
   });
 });
@@ -798,11 +802,12 @@ describe('Figure 4 loci', () => {
   const fig4 = loci.loci.filter((l) => 'figurePanel' in l);
 
   it('ships all six panels of Figure 4 alongside the original eight loci', () => {
-    expect(loci.loci).toHaveLength(19);
+    expect(loci.loci).toHaveLength(23);
     // The six main-text panels plus the nine from Supplemental Figures S19 and S20.
     expect(fig4.map((l) => (l as { figurePanel: string }).figurePanel).sort()).toEqual([
       'Fig 4A', 'Fig 4B', 'Fig 4C', 'Fig 4E', 'Fig 4F', 'Fig 4G',
       'Fig S19A', 'Fig S19C', 'Fig S19D', 'Fig S19E', 'Fig S19F',
+      'Fig S20A', 'Fig S20B', 'Fig S20C', 'Fig S20D',
     ]);
     // DTD1 is YDL219W. YDL100C is a different gene; the figure's coordinates are what settle it.
     expect(fig4.find((l) => l.gene === 'DTD1')!.id).toBe('YDL219W');
@@ -1427,7 +1432,7 @@ describe('transcript models, JBrowse-style', () => {
       expect(f.exons.length).toBeGreaterThan(0);
     }
     const multi = all.filter(({ f }) => f.exons.length > 1);
-    expect(multi.length).toBe(14);   // nine S19/S20 windows added
+    expect(multi.length).toBe(17);   // multi-exon genes across 23 loci
   });
 
   it('holds the invariants a transcript model must', () => {
@@ -1462,7 +1467,7 @@ describe('transcript models, JBrowse-style', () => {
     // 9, not 8: HOP2's shipped model was one intron short until the SGD cross-check in
     // make_annotations.py caught it -- its second intron was being drawn as coding. The restored
     // boundary reads GT..AG here, which is what says the corrected coordinates are right.
-    expect(checked).toBe(15);   // one intron boundary per multi-exon gene
+    expect(checked).toBe(18);   // one intron boundary per multi-exon gene
   });
 
   it('keeps bin coordinates in step with the bp ones for the coverage plot', () => {
@@ -1517,7 +1522,7 @@ describe('geneTrackShapes', () => {
         introns += n;
       }
     }
-    expect(introns).toBe(15);   // see the GT..AG test: HOP2 regained a second intron
+    expect(introns).toBe(18);   // see the GT..AG test: HOP2 regained a second intron
   });
 });
 
@@ -1758,7 +1763,7 @@ describe('packGeneRows', () => {
     // is cheap enough to be the interesting mode rather than a a rarely-used escape hatch.
     const used = windows.map((w) => Math.max(...packGeneRows(w.features)) + 1);
     expect(Math.max(...used)).toBe(2);
-    expect(used.filter((n) => n > 1).length).toBe(11);   // windows needing two gene rows
+    expect(used.filter((n) => n > 1).length).toBe(13);   // windows needing two gene rows
   });
 
   it('assigns a row to every feature and leaves no row empty', () => {
@@ -2207,7 +2212,7 @@ describe('spliceAnnotations — the landmarks Figure 4 marks', () => {
         expect(a.filter((x) => x.label === "5′ splice site").length).toBe(f.exons.length - 1);
       }
     }
-    expect(genes).toBe(14);    // multi-exon features across the twenty-three windows
+    expect(genes).toBe(17);    // multi-exon features across the twenty-three windows
   });
 });
 

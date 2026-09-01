@@ -332,4 +332,10 @@ export const sideProjects: SideProject[] = [
       'Enzyme aviator side-scroller — thrust through mutagen hazard zones with ATP-synthase jetpacks, dodge electrical zappers, and collect dNTP coins',
     url: '/games/jetpack-joyride/',
   },
+  {
+    name: 'Chinese Chess',
+    detail:
+      'Authentic Chinese Chess (Xiangqi / 象棋) — command traditional lacquer pieces across the Chu River and Han Border with legal move validation and intelligent Minimax AI',
+    url: '/games/chinese-chess/',
+  },
 ];

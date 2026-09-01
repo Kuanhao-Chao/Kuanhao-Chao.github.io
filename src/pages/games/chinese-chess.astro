@@ -1,0 +1,515 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import ChineseChessLogo from '../../components/games/ChineseChessLogo.astro';
+import { site } from '../../data/site';
+
+const gameLd = {
+  '@context': 'https://schema.org',
+  '@type': 'VideoGame',
+  name: 'Chinese Chess (Xiangqi / 象棋)',
+  description:
+    'Authentic Chinese Chess (Xiangqi / 象棋) featuring Player vs Player and intelligent Player vs Computer (AI) modes, traditional Chinese calligraphy piece art, wooden board aesthetics, legal move validation, check/checkmate detection, and traditional notation logging.',
+  url: `${site.url}/games/chinese-chess/`,
+  author: { '@id': `${site.url}/#person` },
+  applicationCategory: 'Game',
+  gamePlatform: ['Web browser', 'Mobile web browser'],
+  genre: ['Strategy', 'Board Game', 'Traditional Game'],
+  inLanguage: 'en',
+  isAccessibleForFree: true,
+};
+---
+
+<PageLayout
+  title="Chinese Chess (Xiangqi / 象棋)"
+  eyebrow="Side project"
+  lead="Authentic Chinese Chess (象棋) built with full legal move generation, traditional calligraphy pieces, woodgrain board rendering, and intelligent Minimax AI."
+  description="Play Chinese Chess (Xiangqi / 象棋) online: Player vs Player or Player vs Computer (AI). Features traditional calligraphy pieces, horse leg blocking, cannon screen capture, and move notation."
+  width="narrow"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
+
+  <section class="cc-container" data-game-root data-cc-root aria-label="Chinese Chess game">
+    <!-- Header Card -->
+    <div class="cc-header-card">
+      <ChineseChessLogo size={62} />
+      <div class="cc-header-info">
+        <h2 class="cc-header-title">Chinese Chess · 象棋 (Xiangqi)</h2>
+        <p class="cc-header-subtitle">
+          Command traditional lacquer pieces across the Chu River and Han Border (楚河·漢界).
+        </p>
+      </div>
+    </div>
+
+    <!-- Controls Toolbar -->
+    <div class="cc-toolbar">
+      <div class="cc-toolbar-group">
+        <label class="cc-label" for="cc-mode-select">Mode:</label>
+        <select id="cc-mode-select" class="cc-select" data-cc-mode>
+          <option value="pve" selected>Player vs AI (人機對戰)</option>
+          <option value="pvp">Player vs Player (雙人對弈)</option>
+        </select>
+      </div>
+
+      <div class="cc-toolbar-group">
+        <label class="cc-label" for="cc-diff-select">AI Level:</label>
+        <select id="cc-diff-select" class="cc-select" data-cc-difficulty>
+          <option value="novice">Novice (初學)</option>
+          <option value="intermediate" selected>Intermediate (進階)</option>
+          <option value="master">Master (大師)</option>
+        </select>
+      </div>
+
+      <div class="cc-toolbar-group">
+        <label class="cc-label" for="cc-side-select">Play as:</label>
+        <select id="cc-side-select" class="cc-select" data-cc-side>
+          <option value="red" selected>Red (紅方 - 先手)</option>
+          <option value="black">Black (黑方 - 後手)</option>
+        </select>
+      </div>
+
+      <div class="cc-toolbar-actions">
+        <button type="button" class="cc-btn" data-cc-undo disabled>Undo (悔棋)</button>
+        <button type="button" class="cc-btn" data-cc-hint>Hint (提示)</button>
+        <button type="button" class="cc-btn" data-cc-flip>Flip (翻轉棋盤)</button>
+        <button type="button" class="cc-btn cc-btn--primary" data-cc-restart>Restart (重新開局)</button>
+        <button type="button" class="cc-btn" data-cc-sound aria-pressed="true">Sound: On</button>
+      </div>
+    </div>
+
+    <!-- Main Stage: Canvas Board + Side Panel -->
+    <div class="cc-stage">
+      <!-- Board Canvas Container -->
+      <div class="cc-board-wrapper">
+        <canvas
+          data-cc-canvas
+          class="cc-canvas"
+          role="img"
+          aria-label="Chinese Chess Board — click pieces to select and view legal moves."
+        ></canvas>
+      </div>
+
+      <!-- Side Information Panel -->
+      <aside class="cc-side-panel">
+        <!-- Turn & Status Indicator -->
+        <div class="cc-panel-box cc-status-box">
+          <div class="cc-turn-indicator">
+            <span class="cc-turn-label">Current Turn:</span>
+            <span class="cc-turn-badge" data-cc-turn data-turn="red">紅方 (Red)</span>
+          </div>
+          <p class="cc-status-text" data-cc-status role="status" aria-live="polite">
+            Red to move (紅方走棋)
+          </p>
+        </div>
+
+        <!-- Captured Pieces Racks -->
+        <div class="cc-panel-box">
+          <span class="cc-panel-label">Captured Red (紅方被吃棋子)</span>
+          <div class="cc-graveyard" data-cc-captured-red>
+            <span class="cc-graveyard-empty">—</span>
+          </div>
+        </div>
+
+        <div class="cc-panel-box">
+          <span class="cc-panel-label">Captured Black (黑方被吃棋子)</span>
+          <div class="cc-graveyard" data-cc-captured-black>
+            <span class="cc-graveyard-empty">—</span>
+          </div>
+        </div>
+
+        <!-- Move History List -->
+        <div class="cc-panel-box cc-history-box">
+          <span class="cc-panel-label">Move Notation History (對弈記譜)</span>
+          <ul class="cc-history-list" data-cc-history-list></ul>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Comprehensive Rules & Tactics Guide -->
+    <details class="cc-guide-details">
+      <summary>Rules, Piece Movements & Tactics Guide (象棋規則與走法)</summary>
+      <div class="cc-guide-content">
+        <div class="cc-guide-grid">
+          <div class="cc-guide-card">
+            <h4>帥 / 將 (General / King)</h4>
+            <p>Moves 1 step orthogonally (up/down/left/right) strictly within the 3×3 Palace (九宮). <strong>Flying General (飛將) Rule:</strong> The two Generals may never face each other directly on an open file with no intervening pieces.</p>
+          </div>
+          <div class="cc-guide-card">
+            <h4>仕 / 士 (Advisor / Guard)</h4>
+            <p>Moves 1 step diagonally strictly within the 5 designated points of the Palace to protect the General.</p>
+          </div>
+          <div class="cc-guide-card">
+            <h4>相 / 象 (Elephant / Minister)</h4>
+            <p>Moves exactly 2 steps diagonally. Cannot cross the Chu River (楚河). <strong>Obstruction (塞象眼):</strong> If a piece occupies the center of the 2×2 jump, the move is blocked.</p>
+          </div>
+          <div class="cc-guide-card">
+            <h4>傌 / 馬 (Horse / Knight)</h4>
+            <p>Moves in an "L" shape (1 step orthogonal, then 1 step diagonal outward). <strong>Leg Block (拐馬腳):</strong> If a piece is immediately adjacent in the orthogonal direction of movement, the horse cannot jump.</p>
+          </div>
+          <div class="cc-guide-card">
+            <h4>俥 / 車 (Chariot / Rook)</h4>
+            <p>Moves any number of unoccupied points orthogonally along straight ranks and files. Captures by replacing enemy pieces.</p>
+          </div>
+          <div class="cc-guide-card">
+            <h4>炮 / 砲 (Cannon)</h4>
+            <p>Moves like a Chariot when not capturing. <strong>Screen Capture (炮架):</strong> Must jump over exactly ONE intervening piece (friend or foe) along a straight line to capture an enemy piece.</p>
+          </div>
+          <div class="cc-guide-card">
+            <h4>兵 / 卒 (Soldier / Pawn)</h4>
+            <p>Before crossing the river: Moves 1 step forward only. After crossing the river: Gains lateral movement (moves 1 step forward, left, or right). Cannot move backward.</p>
+          </div>
+          <div class="cc-guide-card">
+            <h4>Stalemate (困斃)</h4>
+            <p>In authentic Chinese Chess tournament rules, if a player has no legal moves on their turn, they are stalemated and <strong>lose the game</strong>.</p>
+          </div>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <script>
+    import { initChineseChess } from '../../scripts/chineseChess';
+
+    let cleanup: (() => void) | null = null;
+
+    function mount() {
+      if (cleanup) return;
+      const root = document.querySelector<HTMLElement>('[data-cc-root]');
+      if (root) cleanup = initChineseChess() ?? null;
+    }
+
+    function unmount() {
+      cleanup?.();
+      cleanup = null;
+    }
+
+    document.addEventListener('astro:page-load', mount);
+    document.addEventListener('astro:before-swap', unmount);
+    mount();
+  </script>
+</PageLayout>
+
+<style>
+  .cc-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 8px;
+  }
+
+  .cc-header-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    background: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+
+  .cc-header-title {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-ink, #1f2937);
+  }
+
+  .cc-header-subtitle {
+    margin: 4px 0 0 0;
+    font-size: 0.88rem;
+    color: var(--color-muted, #64748b);
+  }
+
+  /* Toolbar */
+  .cc-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 10px;
+  }
+
+  .cc-toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .cc-label {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--color-ink, #1f2937);
+  }
+
+  .cc-select {
+    padding: 5px 10px;
+    font-size: 0.84rem;
+    color: var(--color-ink, #1f2937);
+    background: var(--color-board, #faf9f5);
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 6px;
+    cursor: pointer;
+  }
+
+  .cc-toolbar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .cc-btn {
+    padding: 6px 12px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-ink, #1f2937);
+    background: var(--color-board, #faf9f5);
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+  }
+
+  .cc-btn:hover:not(:disabled) {
+    background: var(--color-rule, #e5e4df);
+    transform: translateY(-1px);
+  }
+
+  .cc-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .cc-btn--primary {
+    color: #ffffff;
+    background: #b91c1c;
+    border-color: #991b1b;
+  }
+
+  .cc-btn--primary:hover:not(:disabled) {
+    background: #dc2626;
+  }
+
+  /* Stage Layout */
+  .cc-stage {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(260px, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+
+  @media (max-width: 768px) {
+    .cc-stage {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .cc-board-wrapper {
+    position: relative;
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  }
+
+  .cc-canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    cursor: pointer;
+    touch-action: none;
+  }
+
+  /* Side Panel */
+  .cc-side-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .cc-panel-box {
+    padding: 12px 14px;
+    background: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 8px;
+  }
+
+  .cc-panel-label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-muted, #64748b);
+    margin-bottom: 6px;
+  }
+
+  .cc-turn-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+
+  .cc-turn-label {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--color-ink, #1f2937);
+  }
+
+  .cc-turn-badge {
+    padding: 2px 8px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    border-radius: 4px;
+  }
+
+  .cc-turn-badge[data-turn='red'] {
+    color: #991b1b;
+    background: #fee2e2;
+    border: 1px solid #fca5a5;
+  }
+
+  .cc-turn-badge[data-turn='black'] {
+    color: #0f172a;
+    background: #e2e8f0;
+    border: 1px solid #cbd5e1;
+  }
+
+  .cc-status-text {
+    margin: 0;
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: var(--color-accent, #2e6e5e);
+  }
+
+  /* Graveyards */
+  .cc-graveyard {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    min-height: 28px;
+    align-items: center;
+  }
+
+  .cc-graveyard-empty {
+    color: var(--color-muted, #94a3b8);
+    font-size: 0.82rem;
+  }
+
+  :global(.captured-piece) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    font-size: 0.84rem;
+    font-weight: 900;
+    border-radius: 50%;
+    font-family: 'Kaiti', 'STKaiti', serif;
+  }
+
+  :global(.captured-piece--red) {
+    color: #b91c1c;
+    background: #fee2e2;
+    border: 1px solid #f87171;
+  }
+
+  :global(.captured-piece--black) {
+    color: #0f172a;
+    background: #e2e8f0;
+    border: 1px solid #94a3b8;
+  }
+
+  /* History list */
+  .cc-history-box {
+    flex: 1;
+  }
+
+  .cc-history-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 180px;
+    overflow-y: auto;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.84rem;
+  }
+
+  :global(.notation-row) {
+    display: grid;
+    grid-template-columns: 32px 1fr 1fr;
+    padding: 3px 6px;
+    border-radius: 4px;
+  }
+
+  :global(.notation-row:nth-child(even)) {
+    background: rgba(0, 0, 0, 0.025);
+  }
+
+  :global(.notation-round) {
+    color: var(--color-muted, #94a3b8);
+    font-size: 0.78rem;
+  }
+
+  :global(.notation-red) {
+    color: #b91c1c;
+    font-weight: 600;
+  }
+
+  :global(.notation-black) {
+    color: var(--color-ink, #1f2937);
+    font-weight: 600;
+  }
+
+  /* Guide Accordion */
+  .cc-guide-details {
+    padding: 12px 16px;
+    background: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 10px;
+    cursor: pointer;
+  }
+
+  .cc-guide-details summary {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--color-ink, #1f2937);
+  }
+
+  .cc-guide-content {
+    margin-top: 14px;
+    cursor: default;
+  }
+
+  .cc-guide-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+  }
+
+  .cc-guide-card {
+    padding: 10px 12px;
+    background: var(--color-board, #faf9f5);
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 6px;
+  }
+
+  .cc-guide-card h4 {
+    margin: 0 0 4px 0;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #b91c1c;
+  }
+
+  .cc-guide-card p {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: var(--color-muted, #475569);
+  }
+</style>
