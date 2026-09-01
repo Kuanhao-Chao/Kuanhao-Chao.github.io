@@ -19,15 +19,23 @@ const { size = 64, class: className = '' } = Astro.props;
   <defs>
     <!-- Background Aura -->
     <radialGradient id="dr-aura" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="var(--color-accent, #2e6e5e)" stop-opacity="0.25" />
-      <stop offset="100%" stop-color="var(--color-accent, #2e6e5e)" stop-opacity="0" />
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.28" />
+      <stop offset="60%" stop-color="#059669" stop-opacity="0.10" />
+      <stop offset="100%" stop-color="#047857" stop-opacity="0" />
     </radialGradient>
 
     <!-- Dino Body Gradient -->
     <linearGradient id="dr-dino-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#10b981" />
-      <stop offset="50%" stop-color="#059669" />
+      <stop offset="0%" stop-color="#34d399" />
+      <stop offset="40%" stop-color="#10b981" />
       <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+
+    <!-- Cyber Visor / Dorsal Plate Gold Gradient -->
+    <linearGradient id="dr-gold-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="50%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#d97706" />
     </linearGradient>
 
     <!-- Track Double Helix Gradient -->
@@ -38,8 +46,8 @@ const { size = 64, class: className = '' } = Astro.props;
     </linearGradient>
 
     <!-- Glow Filter -->
-    <filter id="dr-glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="2" result="blur" />
+    <filter id="dr-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.8" result="blur" />
       <feComposite in="SourceGraphic" in2="blur" operator="over" />
     </filter>
   </defs>
@@ -54,55 +62,63 @@ const { size = 64, class: className = '' } = Astro.props;
     stroke="var(--color-rule, #e5e4df)"
     stroke-width="1.2"
     stroke-dasharray="4 3"
-    opacity="0.6"
+    opacity="0.65"
   />
 
   <!-- 2. Genomic Double-Helix Running Track -->
   <g class="dr-track" filter="url(#dr-glow)">
-    <!-- Base Rail -->
-    <line x1="12" y1="78" x2="88" y2="78" stroke="url(#dr-track-grad)" stroke-width="2.6" stroke-linecap="round" />
-    <!-- Secondary Rail -->
-    <line x1="12" y1="84" x2="88" y2="84" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.6" opacity="0.75" />
+    <!-- Base Rail (Upper Strand) -->
+    <line x1="10" y1="78" x2="90" y2="78" stroke="url(#dr-track-grad)" stroke-width="2.6" stroke-linecap="round" />
+    <!-- Secondary Rail (Lower Strand) -->
+    <line x1="10" y1="85" x2="90" y2="85" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.6" opacity="0.8" />
 
     <!-- Base-pair rungs along track -->
-    <line x1="20" y1="78" x2="20" y2="84" stroke="#38bdf8" stroke-width="1.2" />
-    <line x1="32" y1="78" x2="32" y2="84" stroke="#818cf8" stroke-width="1.2" />
-    <line x1="44" y1="78" x2="44" y2="84" stroke="#38bdf8" stroke-width="1.2" />
-    <line x1="56" y1="78" x2="56" y2="84" stroke="#818cf8" stroke-width="1.2" />
-    <line x1="68" y1="78" x2="68" y2="84" stroke="#38bdf8" stroke-width="1.2" />
-    <line x1="80" y1="78" x2="80" y2="84" stroke="#818cf8" stroke-width="1.2" />
+    <line x1="18" y1="78" x2="18" y2="85" stroke="#38bdf8" stroke-width="1.3" />
+    <line x1="30" y1="78" x2="30" y2="85" stroke="#818cf8" stroke-width="1.3" />
+    <line x1="42" y1="78" x2="42" y2="85" stroke="#38bdf8" stroke-width="1.3" />
+    <line x1="54" y1="78" x2="54" y2="85" stroke="#818cf8" stroke-width="1.3" />
+    <line x1="66" y1="78" x2="66" y2="85" stroke="#38bdf8" stroke-width="1.3" />
+    <line x1="78" y1="78" x2="78" y2="85" stroke="#818cf8" stroke-width="1.3" />
   </g>
 
-  <!-- 3. Splice Site Junction Arch & Variant Hurdles -->
-  <g class="dr-obstacles">
-    <!-- Splice Arch (GT-AG Intron Arch) -->
+  <!-- 3. Splice Site Junction Arch & Intron Energy Portal -->
+  <g class="dr-obstacles" filter="url(#dr-glow)">
+    <!-- Glowing Splice Arch (GT-AG Intron Gateway) -->
     <path
-      d="M 66 78 L 66 58 C 66 54, 76 54, 76 58 L 76 78"
-      fill="none"
-      stroke="#f59e0b"
-      stroke-width="2"
+      d="M 68 78 L 68 56 C 68 50, 78 50, 78 56 L 78 78"
+      fill="rgba(245, 158, 11, 0.12)"
+      stroke="url(#dr-gold-grad)"
+      stroke-width="2.2"
       stroke-linecap="round"
     />
-    <rect x="64" y="75" width="4" height="3" fill="#f59e0b" />
-    <rect x="74" y="75" width="4" height="3" fill="#f59e0b" />
+    <!-- 5' Donor (GT) and 3' Acceptor (AG) Base Nodes -->
+    <rect x="66" y="74" width="4" height="4" rx="1" fill="#f59e0b" stroke="#ffffff" stroke-width="0.6" />
+    <rect x="76" y="74" width="4" height="4" rx="1" fill="#f59e0b" stroke="#ffffff" stroke-width="0.6" />
+    <!-- Intron energy zap in arch -->
+    <path d="M 70 60 L 76 64 L 70 68" fill="none" stroke="#fef08a" stroke-width="1" stroke-linecap="round" />
   </g>
 
-  <!-- 4. Velociraptor Genomic Runner in Mid-Stride Leap -->
-  <g class="dr-runner" transform="translate(4, -4)">
+  <!-- 4. Cybernetic Velociraptor Runner in Mid-Stride Leap -->
+  <g class="dr-runner" transform="translate(4, -4)" filter="url(#dr-glow)">
     <!-- Speed Velocity Arcs -->
-    <path d="M 16 46 C 10 48, 8 52, 14 54" fill="none" stroke="#38bdf8" stroke-width="1.4" opacity="0.6" />
-    <path d="M 12 56 C 6 58, 4 62, 10 64" fill="none" stroke="#38bdf8" stroke-width="1.2" opacity="0.5" />
+    <path d="M 16 46 C 10 48, 8 52, 14 54" fill="none" stroke="#38bdf8" stroke-width="1.4" stroke-linecap="round" opacity="0.75" />
+    <path d="M 12 56 C 6 58, 4 62, 10 64" fill="none" stroke="#38bdf8" stroke-width="1.2" stroke-linecap="round" opacity="0.6" />
 
-    <!-- Trailing Tail -->
+    <!-- Trailing Counter-Balancing Tail -->
     <path
-      d="M 22 56 C 28 54, 34 50, 42 48"
+      d="M 20 57 C 26 55, 32 50, 42 48"
       fill="none"
       stroke="url(#dr-dino-grad)"
       stroke-width="5.5"
       stroke-linecap="round"
     />
 
-    <!-- Main Torso Body -->
+    <!-- Dorsal Neural Spine Plates -->
+    <polygon points="34,42 37,37 40,43" fill="url(#dr-gold-grad)" stroke="#047857" stroke-width="0.6" />
+    <polygon points="42,39 45,34 48,40" fill="url(#dr-gold-grad)" stroke="#047857" stroke-width="0.6" />
+    <polygon points="50,38 53,33 56,39" fill="url(#dr-gold-grad)" stroke="#047857" stroke-width="0.6" />
+
+    <!-- Main Aerodynamic Torso Body -->
     <ellipse cx="44" cy="46" rx="14" ry="11" fill="url(#dr-dino-grad)" stroke="var(--color-surface, #ffffff)" stroke-width="1.4" />
 
     <!-- Neck and Head -->
@@ -113,43 +129,43 @@ const { size = 64, class: className = '' } = Astro.props;
       stroke-width="1.4"
     />
 
+    <!-- Cybernetic Visor Eye -->
+    <path d="M 64 30 L 73 31 L 70 34 L 63 33 Z" fill="url(#dr-gold-grad)" stroke="#ffffff" stroke-width="0.6" />
+    <circle cx="68" cy="32" r="1.1" fill="#ffffff" />
+
     <!-- Snout / Jaws -->
-    <path d="M 68 34 L 75 35 L 68 37" fill="none" stroke="var(--color-surface, #ffffff)" stroke-width="1" />
+    <path d="M 68 35 L 75 36 L 68 38" fill="none" stroke="var(--color-surface, #ffffff)" stroke-width="1" />
 
-    <!-- Eye (Alert arcade look) -->
-    <circle cx="67" cy="31" r="2.2" fill="#ffffff" />
-    <circle cx="68" cy="31" r="1.1" fill="#047857" />
-
-    <!-- Forward Arm -->
-    <path d="M 54 46 L 59 48 L 57 52" fill="none" stroke="var(--color-surface, #ffffff)" stroke-width="1.6" stroke-linecap="round" />
+    <!-- Forward Cyber Raptor Arm / Claws -->
+    <path d="M 54 46 L 60 48 L 58 53" fill="none" stroke="var(--color-surface, #ffffff)" stroke-width="1.8" stroke-linecap="round" />
 
     <!-- Back Leg (Extended leaping back) -->
     <path
       d="M 36 50 L 30 60 L 22 66"
       fill="none"
       stroke="url(#dr-dino-grad)"
-      stroke-width="3.2"
+      stroke-width="3.4"
       stroke-linecap="round"
       stroke-linejoin="round"
     />
     <!-- Back Foot Claws -->
-    <path d="M 22 66 L 18 67 M 22 66 L 19 69" stroke="var(--color-surface, #ffffff)" stroke-width="1.2" stroke-linecap="round" />
+    <path d="M 22 66 L 17 67 M 22 66 L 18 70" stroke="var(--color-surface, #ffffff)" stroke-width="1.3" stroke-linecap="round" />
 
     <!-- Front Leg (Bent leaping forward) -->
     <path
       d="M 46 52 L 52 62 L 58 72"
       fill="none"
       stroke="url(#dr-dino-grad)"
-      stroke-width="3.4"
+      stroke-width="3.6"
       stroke-linecap="round"
       stroke-linejoin="round"
     />
     <!-- Front Foot Claws -->
-    <path d="M 58 72 L 62 72 M 58 72 L 61 75" stroke="var(--color-surface, #ffffff)" stroke-width="1.2" stroke-linecap="round" />
+    <path d="M 58 72 L 63 72 M 58 72 L 61 76" stroke="var(--color-surface, #ffffff)" stroke-width="1.3" stroke-linecap="round" />
   </g>
 
   <!-- 5. Floating Nucleotide Spurt Gems ($A, C, G, T$) -->
-  <g class="dr-gems">
+  <g class="dr-gems" filter="url(#dr-glow)">
     <polygon points="26,22 29,19 32,22 29,25" fill="#10b981" stroke="#ffffff" stroke-width="0.7" />
     <text x="29" y="23.2" font-family="monospace" font-size="4" font-weight="bold" fill="#ffffff" text-anchor="middle">A</text>
 
@@ -171,6 +187,6 @@ const { size = 64, class: className = '' } = Astro.props;
   }
 
   .dino-run-logo:hover {
-    transform: scale(1.06) translateY(-2px);
+    transform: scale(1.08) translateY(-2px);
   }
 </style>

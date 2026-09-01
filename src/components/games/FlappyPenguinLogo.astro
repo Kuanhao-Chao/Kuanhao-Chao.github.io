@@ -19,15 +19,22 @@ const { size = 64, class: className = '' } = Astro.props;
   <defs>
     <!-- Arctic sky aura radial gradient -->
     <radialGradient id="fp-aura" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.28" />
-      <stop offset="60%" stop-color="#0284c7" stop-opacity="0.10" />
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.3" />
+      <stop offset="60%" stop-color="#0284c7" stop-opacity="0.12" />
       <stop offset="100%" stop-color="#0369a1" stop-opacity="0" />
     </radialGradient>
 
+    <!-- Aurora Borealis ribbon gradient -->
+    <linearGradient id="fp-aurora" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.45" />
+      <stop offset="50%" stop-color="#06b6d4" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0" />
+    </linearGradient>
+
     <!-- Penguin body plumage gradient -->
     <linearGradient id="fp-body" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#1e293b" />
-      <stop offset="60%" stop-color="#0f172a" />
+      <stop offset="0%" stop-color="#334155" />
+      <stop offset="50%" stop-color="#0f172a" />
       <stop offset="100%" stop-color="#020617" />
     </linearGradient>
 
@@ -40,21 +47,22 @@ const { size = 64, class: className = '' } = Astro.props;
 
     <!-- Beak and feet orange gradient -->
     <linearGradient id="fp-orange" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#fbbf24" />
-      <stop offset="60%" stop-color="#f59e0b" />
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="40%" stop-color="#fbbf24" />
       <stop offset="100%" stop-color="#d97706" />
     </linearGradient>
 
     <!-- Scarf red gradient -->
     <linearGradient id="fp-scarf" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#f43f5e" />
-      <stop offset="100%" stop-color="#e11d48" />
+      <stop offset="0%" stop-color="#fb7185" />
+      <stop offset="50%" stop-color="#f43f5e" />
+      <stop offset="100%" stop-color="#be123c" />
     </linearGradient>
 
     <!-- Glacier ice crystal gradient -->
     <linearGradient id="fp-ice" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#e0f2fe" />
-      <stop offset="50%" stop-color="#7dd3fc" />
+      <stop offset="0%" stop-color="#f0f9ff" />
+      <stop offset="40%" stop-color="#7dd3fc" />
       <stop offset="100%" stop-color="#0284c7" />
     </linearGradient>
 
@@ -65,14 +73,18 @@ const { size = 64, class: className = '' } = Astro.props;
     </linearGradient>
 
     <!-- Glow filter -->
-    <filter id="fp-glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="1.5" result="blur" />
+    <filter id="fp-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.6" result="blur" />
       <feComposite in="SourceGraphic" in2="blur" operator="over" />
     </filter>
   </defs>
 
-  <!-- 1. Ambient Arctic Bio-Aura -->
+  <!-- 1. Ambient Arctic Bio-Aura & Aurora Ribbon -->
   <circle cx="50" cy="50" r="46" fill="url(#fp-aura)" />
+  <path
+    d="M 10 32 C 30 18, 70 16, 90 28 C 76 38, 36 40, 10 32 Z"
+    fill="url(#fp-aurora)"
+  />
   <circle
     cx="50"
     cy="50"
@@ -85,7 +97,7 @@ const { size = 64, class: className = '' } = Astro.props;
   />
 
   <!-- 2. Glacial Ice Pillar Obstacles (Top & Bottom Flappy Pillars) -->
-  <g class="fp-glaciers">
+  <g class="fp-glaciers" filter="url(#fp-glow)">
     <!-- Top Ice Pillar Spire -->
     <path
       d="M 16 6 L 30 6 L 28 26 L 22 34 L 18 24 Z"
@@ -94,8 +106,9 @@ const { size = 64, class: className = '' } = Astro.props;
       stroke-width="1.2"
     />
     <!-- Top Ice Highlight Cap -->
-    <polygon points="16,6 30,6 28,14 18,14" fill="url(#fp-ice-cap)" opacity="0.9" />
-    <line x1="22" y1="6" x2="22" y2="34" stroke="#ffffff" stroke-width="0.8" opacity="0.75" />
+    <polygon points="16,6 30,6 28,14 18,14" fill="url(#fp-ice-cap)" opacity="0.95" />
+    <line x1="22" y1="6" x2="22" y2="34" stroke="#ffffff" stroke-width="0.8" opacity="0.8" />
+    <polygon points="22,14 28,14 26,24 22,26" fill="#ffffff" opacity="0.4" />
 
     <!-- Bottom Ice Pillar Spire -->
     <path
@@ -106,11 +119,12 @@ const { size = 64, class: className = '' } = Astro.props;
     />
     <!-- Bottom Ice Cap -->
     <polygon points="76,72 80,58 86,68 83,76" fill="url(#fp-ice-cap)" opacity="0.95" />
-    <line x1="80" y1="58" x2="80" y2="94" stroke="#ffffff" stroke-width="0.8" opacity="0.75" />
+    <line x1="80" y1="58" x2="80" y2="94" stroke="#ffffff" stroke-width="0.8" opacity="0.8" />
+    <polygon points="80,68 86,68 85,82 80,86" fill="#ffffff" opacity="0.4" />
   </g>
 
   <!-- 3. Aerodynamic Wing Flap Motion Wind Arcs -->
-  <g class="fp-wind-trails" opacity="0.75">
+  <g class="fp-wind-trails" opacity="0.8">
     <path
       d="M 28 54 C 20 52, 16 46, 12 48"
       fill="none"
@@ -136,21 +150,30 @@ const { size = 64, class: className = '' } = Astro.props;
     />
   </g>
 
-  <!-- 4. Fluttering Aviator Scarf -->
+  <!-- 4. Fluttering Aviator Scarf with Gold Fringe -->
   <g class="fp-scarf">
-    <!-- Trailing scarf ribbon -->
+    <!-- Trailing scarf ribbon 1 -->
     <path
       d="M 44 48 C 36 46, 26 50, 20 46 C 18 45, 16 47, 18 49 C 24 54, 34 52, 42 52 Z"
       fill="url(#fp-scarf)"
       stroke="#be123c"
       stroke-width="1"
     />
+    <!-- Gold fringe tips -->
+    <line x1="18" y1="47" x2="16" y2="48" stroke="#fbbf24" stroke-width="1.2" />
+    <line x1="19" y1="48" x2="17" y2="49" stroke="#fbbf24" stroke-width="1.2" />
+
+    <!-- Trailing scarf ribbon 2 -->
     <path
       d="M 40 49 C 32 52, 24 58, 16 57 C 14 56, 13 58, 15 60 C 22 64, 30 58, 38 54 Z"
       fill="url(#fp-scarf)"
       stroke="#be123c"
       stroke-width="1"
     />
+    <!-- Gold fringe tips 2 -->
+    <line x1="14" y1="58" x2="12" y2="59" stroke="#fbbf24" stroke-width="1.2" />
+    <line x1="15" y1="59" x2="13" y2="60" stroke="#fbbf24" stroke-width="1.2" />
+
     <!-- Scarf neck knot wrap -->
     <ellipse cx="46" cy="48" rx="4.5" ry="3.5" fill="url(#fp-scarf)" stroke="#be123c" stroke-width="1" />
   </g>
@@ -271,6 +294,6 @@ const { size = 64, class: className = '' } = Astro.props;
   }
 
   .flappy-penguin-logo:hover {
-    transform: scale(1.06) translateY(-2px);
+    transform: scale(1.08) translateY(-2px);
   }
 </style>

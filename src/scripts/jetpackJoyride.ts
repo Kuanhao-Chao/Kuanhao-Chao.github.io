@@ -260,61 +260,123 @@ export function initJetpackJoyride(root: ParentNode = document): JetpackJoyrideC
     ctx.save();
     if (blink) ctx.globalAlpha = 0.45;
 
-    // Jetpack flame while thrusting.
+    // 1. Dual-Stage Jetpack Plasma Flame Exhaust
     if (state.flyer.thrusting && state.status === 'playing') {
-      const flick = reduced ? 12 : 9 + (state.ticks % 3) * 4;
+      const flick = reduced ? 14 : 11 + (state.ticks % 3) * 5;
+
+      // Outer Orange Fire Plume
       ctx.fillStyle = flameColor;
-      ctx.globalAlpha = blink ? 0.4 : 0.9;
+      ctx.globalAlpha = blink ? 0.4 : 0.95;
       ctx.beginPath();
-      ctx.moveTo(x - 15, y - 7);
-      ctx.lineTo(x - 15, y + 7);
-      ctx.lineTo(x - 15 - flick, y);
+      ctx.moveTo(x - 16, y - 8);
+      ctx.lineTo(x - 16, y + 8);
+      ctx.lineTo(x - 16 - flick, y);
       ctx.closePath();
       ctx.fill();
+
+      // White-Hot Inner Core Flame
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(x - 16, y - 4);
+      ctx.lineTo(x - 16, y + 4);
+      ctx.lineTo(x - 16 - flick * 0.55, y);
+      ctx.closePath();
+      ctx.fill();
+
+      // Exhaust Spark Particles
+      ctx.fillStyle = '#fef08a';
+      ctx.fillRect(x - 18 - flick * 0.8, y - 5, 2.5, 2.5);
+      ctx.fillStyle = '#f43f5e';
+      ctx.fillRect(x - 16 - flick * 0.9, y + 4, 2, 2);
+
       ctx.globalAlpha = blink ? 0.45 : 1;
     }
 
-    // Enzyme body.
+    // 2. Jetpack Thruster Assembly Backpack
+    ctx.fillStyle = '#0284c7';
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1.4;
+    roundRect(x - 18, y - 11, 8, 22, 3);
+    ctx.fill();
+    ctx.stroke();
+    // Thruster Nozzle
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(x - 18, y + 9, 6, 4);
+
+    // 3. Enzyme Aviator Body Complex
     ctx.fillStyle = colors.accent;
     ctx.strokeStyle = colors.accentDark;
     ctx.lineWidth = 2;
-    roundRect(x - 16, y - 15, 33, 30, 11);
+    roundRect(x - 14, y - 15, 31, 30, 11);
     ctx.fill();
     ctx.stroke();
-    // Active-site notch.
+
+    // Catalytic Active-Site Notch
     ctx.fillStyle = colors.accentDark;
     ctx.beginPath();
-    ctx.arc(x + 15, y, 5.5, -Math.PI / 2, Math.PI / 2);
-    ctx.fill();
-    // Eye.
-    ctx.fillStyle = colors.onAccent;
-    ctx.beginPath();
-    ctx.arc(x + 6, y - 4, 2.6, 0, Math.PI * 2);
+    ctx.arc(x + 16, y, 5.5, -Math.PI / 2, Math.PI / 2);
     ctx.fill();
 
-    // Shield bubble.
+    // Aviator Pilot Goggles
+    ctx.fillStyle = '#38bdf8';
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.2;
+    roundRect(x + 2, y - 7, 10, 8, 3);
+    ctx.fill();
+    ctx.stroke();
+    // Goggle reflection gleam
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(x + 8, y - 4, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 4. Hexagonal Holographic Shield Bubble
     if (state.flyer.shielded) {
       ctx.strokeStyle = colors.accent;
-      ctx.globalAlpha = 0.7;
+      ctx.globalAlpha = 0.85;
       ctx.lineWidth = 2.5;
       ctx.beginPath();
-      ctx.arc(x, y, 24, 0, Math.PI * 2);
+      ctx.arc(x, y, 25, 0, Math.PI * 2);
       ctx.stroke();
+
+      // Inner Rotating Hex Ring
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.2;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.arc(x, y, 22, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
     }
     ctx.restore();
   }
 
   function drawCoin(coin: Coin) {
     ctx.save();
-    ctx.fillStyle = baseHues[coin.base];
+    const radius = coin.radius;
+    const hue = baseHues[coin.base];
+
+    // 1. 3D Outer Coin Bevel
+    ctx.fillStyle = hue;
     ctx.strokeStyle = colors.board;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(coin.x, coin.y, coin.radius, 0, Math.PI * 2);
+    ctx.arc(coin.x, coin.y, radius, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
+
+    // 2. Inner Ring Inset
+    ctx.strokeStyle = '#ffffff';
+    ctx.globalAlpha = 0.6;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(coin.x, coin.y, radius * 0.72, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // 3. Nucleotide Letter Center
     ctx.fillStyle = colors.onAccent;
-    ctx.font = `700 14px ${cssVar('--font-display', 'system-ui')}`;
+    ctx.font = `bold 13px ${cssVar('--font-mono', 'monospace')}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(coin.base, coin.x, coin.y + 0.5);
@@ -323,6 +385,7 @@ export function initJetpackJoyride(root: ParentNode = document): JetpackJoyrideC
 
   function drawShieldPickup(power: PowerUp) {
     ctx.save();
+    // Outer Energy Pulsing Aura
     ctx.strokeStyle = colors.accent;
     ctx.fillStyle = colors.board;
     ctx.lineWidth = 2.5;
@@ -330,7 +393,8 @@ export function initJetpackJoyride(root: ParentNode = document): JetpackJoyrideC
     ctx.arc(power.x, power.y, power.radius, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
-    // Shield glyph.
+
+    // Inner Radiant Shield Crest
     ctx.fillStyle = colors.accent;
     ctx.beginPath();
     ctx.moveTo(power.x, power.y - 8);
@@ -340,30 +404,51 @@ export function initJetpackJoyride(root: ParentNode = document): JetpackJoyrideC
     ctx.lineTo(power.x - 7, power.y - 4);
     ctx.closePath();
     ctx.fill();
+
+    // Shield Emblem Core Sparkle
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(power.x, power.y - 1, 2, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
   }
 
   function drawZapper(z: Zapper) {
     const { x1, y1, x2, y2 } = zapperEndpoints(z);
     ctx.save();
-    // Bolt: a slightly jagged line between the two nodes.
+
+    // 1. High-Voltage Plasma Lightning Bolt
     ctx.strokeStyle = hazard.bolt;
-    ctx.lineWidth = z.thickness;
+    ctx.lineWidth = z.thickness + 0.5;
     ctx.lineCap = 'round';
     ctx.globalAlpha = 0.95;
     const nx = -(y2 - y1);
     const ny = x2 - x1;
     const nlen = Math.hypot(nx, ny) || 1;
-    const jitter = reduced ? 0 : 5;
+    const jitter = reduced ? 0 : 6;
+
     ctx.beginPath();
     ctx.moveTo(x1, y1);
-    for (let s = 0.25; s < 1; s += 0.25) {
-      const zz = ((Math.floor(z.cx + s * 8) % 2) * 2 - 1) * jitter;
+    for (let s = 0.2; s < 1; s += 0.2) {
+      const zz = ((Math.floor(z.cx + s * 9) % 2) * 2 - 1) * jitter;
       ctx.lineTo(x1 + (x2 - x1) * s + (nx / nlen) * zz, y1 + (y2 - y1) * s + (ny / nlen) * zz);
     }
     ctx.lineTo(x2, y2);
     ctx.stroke();
-    // Emitter nodes.
+
+    // White-Hot Plasma Core Bolt
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    for (let s = 0.2; s < 1; s += 0.2) {
+      const zz = ((Math.floor(z.cx + s * 9) % 2) * 2 - 1) * jitter;
+      ctx.lineTo(x1 + (x2 - x1) * s + (nx / nlen) * zz, y1 + (y2 - y1) * s + (ny / nlen) * zz);
+    }
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+
+    // 2. Metallic Insulator Emitter Nodes
     ctx.globalAlpha = 1;
     ctx.fillStyle = hazard.node;
     for (const [nxp, nyp] of [
@@ -371,8 +456,13 @@ export function initJetpackJoyride(root: ParentNode = document): JetpackJoyrideC
       [x2, y2],
     ]) {
       ctx.beginPath();
-      ctx.arc(nxp, nyp, z.thickness * 0.7, 0, Math.PI * 2);
+      ctx.arc(nxp, nyp, z.thickness * 0.75, 0, Math.PI * 2);
       ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(nxp, nyp, z.thickness * 0.35, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = hazard.node;
     }
     ctx.restore();
   }
@@ -380,6 +470,7 @@ export function initJetpackJoyride(root: ParentNode = document): JetpackJoyrideC
   function drawLaser(l: Laser) {
     ctx.save();
     if (l.phase === 'warn') {
+      // Warning Stage: Red-Dashed Pre-Ionization Target Line
       ctx.strokeStyle = hazard.beam;
       ctx.globalAlpha = reduced ? 0.5 : 0.35 + (Math.floor(state.ticks / 4) % 2) * 0.35;
       ctx.lineWidth = 2;
@@ -389,24 +480,34 @@ export function initJetpackJoyride(root: ParentNode = document): JetpackJoyrideC
       ctx.lineTo(state.width, l.y);
       ctx.stroke();
     } else if (l.phase === 'active') {
+      // Active Stage: High-Intensity Synchrotron Laser Core & Bloom
+      // Outer Heat Bloom
       ctx.fillStyle = hazard.beam;
-      ctx.globalAlpha = 0.85;
-      ctx.fillRect(0, l.y - l.thickness / 2, state.width, l.thickness);
       ctx.globalAlpha = 0.35;
-      ctx.fillRect(0, l.y - l.thickness / 2 - 3, state.width, l.thickness + 6);
+      ctx.fillRect(0, l.y - l.thickness / 2 - 4, state.width, l.thickness + 8);
+      // Main Plasma Beam
+      ctx.globalAlpha = 0.9;
+      ctx.fillRect(0, l.y - l.thickness / 2, state.width, l.thickness);
+      // White Core Beam
+      ctx.fillStyle = '#ffffff';
+      ctx.globalAlpha = 0.8;
+      ctx.fillRect(0, l.y - 1.5, state.width, 3);
     }
-    // Emitter nubs on both walls.
+
+    // Emitter Housing Nubs on Both Walls
     ctx.globalAlpha = 1;
     ctx.fillStyle = hazard.node;
-    ctx.fillRect(0, l.y - 7, 8, 14);
-    ctx.fillRect(state.width - 8, l.y - 7, 8, 14);
+    roundRect(0, l.y - 8, 9, 16, 2);
+    ctx.fill();
+    roundRect(state.width - 9, l.y - 8, 9, 16, 2);
+    ctx.fill();
     ctx.restore();
   }
 
   function drawMissile(m: Missile) {
     ctx.save();
     if (m.phase === 'warn') {
-      // Blinking warning arrow pinned at the right edge.
+      // Blinking Warning Reticle on Right Screen Edge
       const on = reduced ? true : Math.floor(state.ticks / 5) % 2 === 0;
       ctx.globalAlpha = on ? 0.95 : 0.4;
       ctx.fillStyle = hazard.missile;
@@ -416,23 +517,48 @@ export function initJetpackJoyride(root: ParentNode = document): JetpackJoyrideC
       ctx.lineTo(state.width - 22, m.y + 10);
       ctx.closePath();
       ctx.fill();
+
+      // Warning exclamation mark
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 11px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('!', state.width - 15, m.y);
     } else {
-      // Missile body + exhaust tail.
+      // Missile Body, Stabilizer Fins & Rocket Exhaust Tail
+      // Rocket Body
       ctx.fillStyle = hazard.missile;
-      roundRect(m.x - 12, m.y - 6, 20, 12, 5);
+      roundRect(m.x - 14, m.y - 6, 22, 12, 5);
       ctx.fill();
+
+      // Aerodynamic Warhead Nosecone
+      ctx.fillStyle = '#ef4444';
       ctx.beginPath();
       ctx.moveTo(m.x + 8, m.y - 6);
-      ctx.lineTo(m.x + 18, m.y);
+      ctx.lineTo(m.x + 19, m.y);
       ctx.lineTo(m.x + 8, m.y + 6);
       ctx.closePath();
       ctx.fill();
-      ctx.globalAlpha = reduced ? 0.5 : 0.4 + (state.ticks % 2) * 0.25;
+
+      // Rear Stabilizer Fins
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(m.x - 13, m.y - 9, 4, 18);
+
+      // Multi-stage Thruster Flame
+      ctx.globalAlpha = reduced ? 0.6 : 0.5 + (state.ticks % 2) * 0.35;
       ctx.fillStyle = flameColor;
       ctx.beginPath();
-      ctx.moveTo(m.x - 12, m.y - 4);
-      ctx.lineTo(m.x - 12, m.y + 4);
-      ctx.lineTo(m.x - 22, m.y);
+      ctx.moveTo(m.x - 14, m.y - 4);
+      ctx.lineTo(m.x - 14, m.y + 4);
+      ctx.lineTo(m.x - 26, m.y);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(m.x - 14, m.y - 2);
+      ctx.lineTo(m.x - 14, m.y + 2);
+      ctx.lineTo(m.x - 20, m.y);
       ctx.closePath();
       ctx.fill();
     }

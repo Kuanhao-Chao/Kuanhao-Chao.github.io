@@ -19,53 +19,62 @@ const { size = 64, class: className = '' } = Astro.props;
   <defs>
     <!-- Background aura radial gradient -->
     <radialGradient id="bb-aura" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.25" />
-      <stop offset="70%" stop-color="#0284c7" stop-opacity="0.08" />
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.3" />
+      <stop offset="65%" stop-color="#0284c7" stop-opacity="0.12" />
       <stop offset="100%" stop-color="#0284c7" stop-opacity="0" />
     </radialGradient>
 
-    <!-- Baby skin gradient -->
+    <!-- Baby skin gradient with warm subsurface highlight -->
     <linearGradient id="bb-skin" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#fff1e6" />
-      <stop offset="50%" stop-color="#fed7aa" />
-      <stop offset="100%" stop-color="#fdba74" />
+      <stop offset="0%" stop-color="#fff5ed" />
+      <stop offset="45%" stop-color="#fed7aa" />
+      <stop offset="100%" stop-color="#fba868" />
     </linearGradient>
 
-    <!-- Baby hair gradient -->
+    <!-- Baby hair tuft gradient -->
     <linearGradient id="bb-hair" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#94a3b8" />
-      <stop offset="100%" stop-color="#64748b" />
+      <stop offset="0%" stop-color="#cbd5e1" />
+      <stop offset="60%" stop-color="#64748b" />
+      <stop offset="100%" stop-color="#334155" />
     </linearGradient>
 
-    <!-- Shorts / Diaper gradient -->
+    <!-- Superhero Diaper / Shorts gradient -->
     <linearGradient id="bb-shorts" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#38bdf8" />
-      <stop offset="60%" stop-color="#0284c7" />
+      <stop offset="50%" stop-color="#0284c7" />
       <stop offset="100%" stop-color="#0369a1" />
     </linearGradient>
 
-    <!-- Cape gradient -->
+    <!-- Flowing Superhero Cape gradient -->
     <linearGradient id="bb-cape" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#475569" />
-      <stop offset="50%" stop-color="#334155" />
-      <stop offset="100%" stop-color="#1e293b" />
+      <stop offset="0%" stop-color="#f43f5e" />
+      <stop offset="50%" stop-color="#be123c" />
+      <stop offset="100%" stop-color="#881337" />
     </linearGradient>
 
-    <!-- Energy blast laser gradient -->
-    <linearGradient id="bb-laser" x1="0%" y1="0%" x2="100%" y2="0%">
+    <!-- Cape Gold Trim gradient -->
+    <linearGradient id="bb-gold" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#fef08a" />
-      <stop offset="50%" stop-color="#fbbf24" />
+      <stop offset="50%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+
+    <!-- Finger-gun laser energy blast gradient -->
+    <linearGradient id="bb-laser" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="25%" stop-color="#fef08a" />
+      <stop offset="60%" stop-color="#fbbf24" />
       <stop offset="100%" stop-color="#f43f5e" />
     </linearGradient>
 
     <!-- Glow filter -->
-    <filter id="bb-glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="1.5" result="blur" />
+    <filter id="bb-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.8" result="blur" />
       <feComposite in="SourceGraphic" in2="blur" operator="over" />
     </filter>
   </defs>
 
-  <!-- 1. Ambient Superhero Bio-Aura -->
+  <!-- 1. Ambient Superhero Bio-Aura & Atomic Orbitals -->
   <circle cx="50" cy="50" r="46" fill="url(#bb-aura)" />
   <circle
     cx="50"
@@ -78,21 +87,33 @@ const { size = 64, class: className = '' } = Astro.props;
     opacity="0.65"
   />
 
-  <!-- 2. Trailing Superhero Cape -->
+  <!-- Atomic orbital ellipses -->
+  <ellipse cx="50" cy="50" rx="42" ry="18" fill="none" stroke="#38bdf8" stroke-width="0.8" opacity="0.3" transform="rotate(-25 50 50)" />
+  <ellipse cx="50" cy="50" rx="42" ry="18" fill="none" stroke="#fbbf24" stroke-width="0.8" opacity="0.3" transform="rotate(35 50 50)" />
+
+  <!-- 2. Trailing Superhero Cape with Billowing Folds -->
   <g class="bb-cape" filter="url(#bb-glow)">
-    <!-- Main billowing cape body -->
+    <!-- Main billowing crimson cape -->
     <path
-      d="M 46 56 C 42 66, 36 76, 24 86 C 20 89, 14 91, 16 93 C 24 90, 32 86, 42 78 C 48 72, 50 64, 48 58 Z"
+      d="M 46 54 C 40 64, 32 76, 18 86 C 14 89, 10 91, 13 93 C 22 91, 30 86, 40 78 C 47 72, 50 63, 48 56 Z"
       fill="url(#bb-cape)"
-      stroke="#0f172a"
+      stroke="#4c0519"
       stroke-width="1.4"
       stroke-linejoin="round"
     />
+    <!-- Cape golden lining trim -->
+    <path
+      d="M 13 93 C 22 91, 30 86, 40 78"
+      fill="none"
+      stroke="url(#bb-gold)"
+      stroke-width="1.5"
+      stroke-linecap="round"
+    />
     <!-- Cape inner fold shadow -->
     <path
-      d="M 44 60 C 38 70, 30 80, 18 89 C 24 87, 34 82, 42 74 Z"
-      fill="#0f172a"
-      opacity="0.35"
+      d="M 43 58 C 36 68, 28 78, 16 88 C 22 86, 32 81, 40 74 Z"
+      fill="#4c0519"
+      opacity="0.4"
     />
   </g>
 
@@ -100,7 +121,7 @@ const { size = 64, class: className = '' } = Astro.props;
   <g class="bb-legs">
     <!-- Left Leg -->
     <path
-      d="M 52 74 L 53 88 C 53 90, 54 90, 55 88 L 57 74 Z"
+      d="M 52 74 L 53 88 C 53 90, 55 90, 56 88 L 58 74 Z"
       fill="url(#bb-skin)"
       stroke="#0f172a"
       stroke-width="1.3"
@@ -108,15 +129,18 @@ const { size = 64, class: className = '' } = Astro.props;
     />
     <!-- Right Leg -->
     <path
-      d="M 58 74 L 60 86 C 60 88, 61 88, 62 86 L 63 74 Z"
+      d="M 58 74 L 60 86 C 60 88, 62 88, 63 86 L 64 74 Z"
       fill="url(#bb-skin)"
       stroke="#0f172a"
       stroke-width="1.3"
       stroke-linejoin="round"
     />
+    <!-- Tiny superhero golden ankle cuffs -->
+    <rect x="52.5" y="85" width="3.5" height="1.8" rx="0.9" fill="url(#bb-gold)" stroke="#0f172a" stroke-width="0.6" />
+    <rect x="59.5" y="83" width="3.5" height="1.8" rx="0.9" fill="url(#bb-gold)" stroke="#0f172a" stroke-width="0.6" />
   </g>
 
-  <!-- 4. Superhero Blue Shorts / Diaper -->
+  <!-- 4. Superhero Blue Shorts / Diaper with Utility Belt -->
   <g class="bb-shorts">
     <!-- Main diaper body -->
     <path
@@ -126,21 +150,16 @@ const { size = 64, class: className = '' } = Astro.props;
       stroke-width="1.5"
       stroke-linejoin="round"
     />
-    <!-- Waistband ribbed border -->
+    <!-- Gold utility belt -->
     <path
       d="M 42 58 C 50 56, 58 56, 66 58"
       fill="none"
-      stroke="#0f172a"
-      stroke-width="1.4"
+      stroke="url(#bb-gold)"
+      stroke-width="2.2"
     />
-    <path
-      d="M 42 61 C 50 59, 58 59, 66 61"
-      fill="none"
-      stroke="#0f172a"
-      stroke-width="1.1"
-      stroke-dasharray="2 1.5"
-    />
-    <!-- Leg hem cuffs -->
+    <!-- Belt buckle emblem -->
+    <circle cx="54" cy="57" r="2" fill="url(#bb-gold)" stroke="#0f172a" stroke-width="0.8" />
+    <!-- Leg cuffs -->
     <line x1="48" y1="74" x2="56" y2="74" stroke="#0f172a" stroke-width="1.3" />
     <line x1="57" y1="74" x2="64" y2="74" stroke="#0f172a" stroke-width="1.3" />
   </g>
@@ -155,6 +174,14 @@ const { size = 64, class: className = '' } = Astro.props;
       stroke-width="1.4"
     />
 
+    <!-- Chest DNA Double-Helix Emblem -->
+    <path
+      d="M 52 48 C 54 50, 56 50, 58 48 C 56 46, 54 46, 52 48 Z"
+      fill="url(#bb-gold)"
+      stroke="#0f172a"
+      stroke-width="0.6"
+    />
+
     <!-- Left hand resting on cape back -->
     <path
       d="M 48 48 C 47 54, 46 62, 45 68 C 46 70, 48 70, 49 66 L 51 52 Z"
@@ -164,7 +191,7 @@ const { size = 64, class: className = '' } = Astro.props;
       stroke-linejoin="round"
     />
 
-    <!-- Right Arm pointing finger-gun (👉) -->
+    <!-- Right Arm pointing finger-gun (👉) with bio-power wristband -->
     <g class="bb-arm">
       <!-- Arm extending forward -->
       <path
@@ -173,6 +200,8 @@ const { size = 64, class: className = '' } = Astro.props;
         stroke="#0f172a"
         stroke-width="1.3"
       />
+      <!-- Gold Wristband -->
+      <rect x="68" y="46" width="3" height="4" rx="1" fill="url(#bb-gold)" stroke="#0f172a" stroke-width="0.7" transform="rotate(-5 69 48)" />
       <!-- Hand & Thumb pointing up -->
       <path
         d="M 72 46 L 73 43 C 73 42, 74 42, 74 44 L 74 46"
@@ -198,7 +227,7 @@ const { size = 64, class: className = '' } = Astro.props;
     </g>
   </g>
 
-  <!-- 6. Baby Head & Face -->
+  <!-- 6. Baby Head, Mask & Pacifier -->
   <g class="bb-head">
     <!-- Big cute round head -->
     <path
@@ -209,7 +238,7 @@ const { size = 64, class: className = '' } = Astro.props;
       stroke-linejoin="round"
     />
 
-    <!-- Cute hair tuft / curl at forehead -->
+    <!-- Cute hair tuft at forehead -->
     <path
       d="M 56 10 C 58 14, 62 16, 70 17 C 66 18, 60 17, 57 14 C 55 12, 54 11, 56 10 Z"
       fill="url(#bb-hair)"
@@ -231,25 +260,32 @@ const { size = 64, class: className = '' } = Astro.props;
       stroke-width="1.3"
     />
 
+    <!-- Hero Mask / Domino Mask around eye -->
+    <path
+      d="M 62 23 C 65 21, 72 21, 75 25 C 73 28, 66 29, 62 26 Z"
+      fill="#0284c7"
+      stroke="#0f172a"
+      stroke-width="1"
+      opacity="0.85"
+    />
+
     <!-- Determined round baby eye with highlight -->
     <circle cx="68" cy="25" r="2.8" fill="#0f172a" />
-    <circle cx="67" cy="24" r="0.9" fill="#ffffff" />
+    <circle cx="67" cy="24" r="1" fill="#ffffff" />
 
     <!-- Cute eyebrow arch -->
     <path
-      d="M 65 20 C 67 19, 70 20, 72 22"
+      d="M 65 19 C 67 18, 70 19, 72 21"
       fill="none"
       stroke="#0f172a"
-      stroke-width="1.1"
+      stroke-width="1.2"
       stroke-linecap="round"
     />
 
     <!-- Rosy Cheek Blush -->
-    <ellipse cx="64" cy="31" rx="4.5" ry="3" fill="#f43f5e" opacity="0.65" />
-    <line x1="62" y1="30" x2="63" y2="32" stroke="#e11d48" stroke-width="0.8" opacity="0.8" />
-    <line x1="65" y1="30" x2="66" y2="32" stroke="#e11d48" stroke-width="0.8" opacity="0.8" />
+    <ellipse cx="64" cy="32" rx="4.5" ry="2.8" fill="#f43f5e" opacity="0.65" />
 
-    <!-- Cute nose protrusion -->
+    <!-- Cute nose -->
     <path
       d="M 76 31 C 78 32, 78 34, 76 35"
       fill="none"
@@ -258,10 +294,12 @@ const { size = 64, class: className = '' } = Astro.props;
       stroke-linecap="round"
     />
 
-    <!-- Pacifier in mouth -->
-    <g class="bb-pacifier">
-      <!-- Pacifier shield/base -->
-      <ellipse cx="75" cy="37" rx="2.5" ry="3.5" fill="#38bdf8" stroke="#0f172a" stroke-width="1.2" />
+    <!-- Glowing Bio-Energy Pacifier in mouth -->
+    <g class="bb-pacifier" filter="url(#bb-glow)">
+      <!-- Pacifier shield/base with cyan glow -->
+      <ellipse cx="75" cy="37" rx="2.8" ry="3.8" fill="#38bdf8" stroke="#0284c7" stroke-width="1.2" />
+      <!-- Glowing core -->
+      <circle cx="75" cy="37" r="1.5" fill="#ffffff" />
       <!-- Pacifier bulb/nipple base -->
       <path
         d="M 77 35 C 80 34, 82 36, 81 38 C 80 40, 77 39, 76 38"
@@ -269,35 +307,45 @@ const { size = 64, class: className = '' } = Astro.props;
         stroke="#0f172a"
         stroke-width="1.2"
       />
-      <!-- Pacifier ring handle -->
-      <circle cx="79" cy="37" r="2.2" fill="none" stroke="#ffffff" stroke-width="1.2" />
+      <!-- Golden Pacifier ring handle -->
+      <circle cx="79" cy="37" r="2.2" fill="none" stroke="url(#bb-gold)" stroke-width="1.3" />
     </g>
   </g>
 
-  <!-- 7. Finger-Gun Laser Blast & Molecular Energy Sparks -->
+  <!-- 7. Finger-Gun Laser Blast, Concentric Shockwaves & Sparks -->
   <g class="bb-effects" filter="url(#bb-glow)">
-    <!-- Aim trajectory dashed arc -->
+    <!-- Shockwave ring 1 -->
     <path
-      d="M 81 47 C 84 45, 87 41, 88 36"
+      d="M 83 41 C 85 44, 85 50, 83 53"
       fill="none"
-      stroke="#0284c7"
+      stroke="#38bdf8"
+      stroke-width="1.4"
+      stroke-linecap="round"
+      opacity="0.9"
+    />
+    <!-- Shockwave ring 2 -->
+    <path
+      d="M 87 38 C 90 42, 90 52, 87 56"
+      fill="none"
+      stroke="#fbbf24"
       stroke-width="1.2"
-      stroke-dasharray="1.5 2"
-      opacity="0.85"
+      stroke-linecap="round"
+      opacity="0.75"
     />
 
-    <!-- Spark blast starburst at fingertip -->
+    <!-- Starburst plasma blast at fingertip -->
     <path
-      d="M 86 46 L 89 44 L 88 47 L 91 48 L 88 49 L 89 52 L 86 50 L 83 52 L 84 49 L 81 48 L 84 47 L 83 44 Z"
+      d="M 86 46 L 90 43 L 88 47 L 93 48 L 88 49 L 90 53 L 86 50 L 82 53 L 84 49 L 79 48 L 84 47 L 82 43 Z"
       fill="url(#bb-laser)"
       stroke="#ffffff"
-      stroke-width="0.6"
+      stroke-width="0.7"
     />
 
-    <!-- Floating bio-energy sparks -->
-    <circle cx="89" cy="40" r="1.4" fill="#fbbf24" stroke="#ffffff" stroke-width="0.5" />
-    <circle cx="93" cy="46" r="1" fill="#f43f5e" />
-    <circle cx="85" cy="54" r="0.8" fill="#38bdf8" />
+    <!-- Floating molecular energy spark particles -->
+    <circle cx="91" cy="38" r="1.5" fill="#fbbf24" stroke="#ffffff" stroke-width="0.5" />
+    <circle cx="95" cy="46" r="1.2" fill="#f43f5e" />
+    <circle cx="88" cy="56" r="1" fill="#38bdf8" />
+    <circle cx="94" cy="52" r="0.7" fill="#ffffff" />
   </g>
 </svg>
 
@@ -311,6 +359,6 @@ const { size = 64, class: className = '' } = Astro.props;
   }
 
   .biobaby-logo:hover {
-    transform: scale(1.06) translateY(-2px);
+    transform: scale(1.08) translateY(-2px);
   }
 </style>
