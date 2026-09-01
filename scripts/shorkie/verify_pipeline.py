@@ -160,7 +160,8 @@ def verify_ism(ort, Image) -> None:
                 zero_bad.append(f"{locus['id']}@{start + k}={plane[idx[r], k]:.4g}")
 
     check(not missing, "every locus carries a mutagenesis plane",
-          f"{14 - len(missing)}/14" + (f", missing {missing[:3]}" if missing else ""))
+          f"{len(loci['loci']) - len(missing)}/{len(loci['loci'])}"
+          + (f", missing {missing[:3]}" if missing else ""))
     check(not zero_bad, "the reference base's own cell is zero to the pack's resolution",
           f"{len(zero_bad)} beyond a uint8 level" + (f": {zero_bad[:2]}" if zero_bad else ""))
     check(not widths_bad, "every mutagenesis plane covers the whole 16,384 bp window",

@@ -41,8 +41,6 @@ const breadcrumbLd = buildBreadcrumbLd([
       <a class="vp-sub" href="/shorkie-lab/shorkie_lm/">Language model →</a>
       <a class="vp-sub" href="/shorkie-lab/">Lab</a>
       <a class="vp-sub" href="/posts/shorkie/">Post</a>
-      <a class="vp-sub" href="https://doi.org/10.1101/2025.09.19.677475">Paper</a>
-      <a class="vp-sub" href="https://khchao.com/shorkie/">Docs</a>
     </header>
 
     <div class="vp-scroll">
@@ -198,7 +196,7 @@ const breadcrumbLd = buildBreadcrumbLd([
             <strong>What the whole window shows that a promoter window cannot.</strong> Running all
             16,384 bp on both strands for every locus makes one result visible that no single window
             does: <strong>the sign of the strongest substitution is predicted by the gene's
-            expression state in 14 of 14 windows</strong>. The three genes repressed in this
+            expression state in 19 of 19 windows</strong>. The three genes repressed in this
             baseline — <em>HOP2</em> (meiosis-specific), <em>GAL3</em> and <em>GAL1</em> (galactose
             regulon, in glucose) — are the only three whose largest substitution <em>raises</em>{' '}
             predicted expression (+1.38, +1.12, +0.78 logSED, with 20–33 of their top 40 positive).
@@ -230,6 +228,56 @@ const breadcrumbLd = buildBreadcrumbLd([
               genuinely well chosen, 5.7× enriched. But the strongest substitution falls{' '}
               <em>outside</em> it in 4 of the 14 windows, including HOP2's +1.38, the largest effect
               in the whole set.</p>
+            </div>
+          </details>
+                <details class="vp-how">
+            <summary>Which model this is, and how close the score is to the paper's</summary>
+            <div class="vp-how-body">
+              <p><strong>One fold, and that is the paper's choice.</strong> Figure 4's ISM reads{' '}
+              <code>.../f0c0/part&lt;N&gt;/scores.h5</code> — a single model, fold 0 of the
+              cross-validation, which is the checkpoint this page runs. The repository does ship an
+              8-fold ensemble loader, but it belongs to <strong>Figure 7's eQTL analysis</strong>,
+              not to these logos. Averaging eight folds here would move this page <em>away</em> from
+              the figure it reproduces, so it does not.</p>
+              <p><strong>The score is a different formula from the paper's, and they agree.</strong>{' '}
+              Figure 4 averages <em>per-track</em> logSED across the 384 <code>_T0_</code> tracks;
+              this page computes logSED of the <em>track-averaged</em> coverage. Those are not the
+              same quantity — a mean of logarithms is not the logarithm of a mean — so it was
+              measured rather than assumed. Over 240 real substitutions in TDH3's promoter the two
+              agree to <strong>r = 0.999987</strong>, with a largest difference of{' '}
+              <strong>0.00033</strong>, the same strongest substitution, and a scale ratio of 1.005.
+              That is far below what the shipped uint8 packs can even represent. The reason is that
+              the T0 tracks are strongly correlated; for a heterogeneous track set the two would
+              genuinely diverge.</p>
+              <p><strong>What is not checked.</strong> The paper's own ISM arrays live on the
+              authors' cluster and are not in the public repository, so nothing here is a numeric
+              comparison against published values. The claim is that the <em>recipe</em> matches —
+              the fold, the track subset, the gene-body slice, the rc-averaging, the mean-centring
+              and the one-hot projection — and that the drawing reproduces the published figure.</p>
+            </div>
+          </details>
+                <details class="vp-how">
+            <summary>How a motif box is placed, and why some are hollow</summary>
+            <div class="vp-how-body">
+              <p><strong>A solid box is a motif; a hollow box is a database region.</strong> Curated
+              binding-site calls come from a PWM scan under a conservation filter, not from matching
+              a consensus string — so most of them do not contain their factor's canonical motif.
+              Measured across these windows, only <strong>22.8% of 670</strong> curated calls do.
+              Crucially their <em>coordinates</em> are not wrong: where the consensus is present it
+              sits at offset 0 of the call. So a box is drawn on the <strong>match</strong> where one
+              exists, tight to the motif and with the matched bases printed beneath it — the
+              reference-DB convention of the paper's own Figure 4F — and on the database's region
+              otherwise, hollow and labelled as such. Two different claims, drawn differently.</p>
+              <p><strong>Splice and codon landmarks are spans, not a fixed window.</strong> They used
+              to be boxed as six bases centred on the junction, which framed{' '}
+              <code>AAGGTA</code> where DTD1's donor motif is <code>GTATGT</code>. Each landmark now
+              carries the span of the motif it names — donor 6 bases, acceptor 2, codons 3, branch
+              point 7 — mirrored on the minus strand, and a test decodes the sequence inside every
+              drawn box to confirm it.</p>
+              <p>The consensuses come from <strong>Figure 4H</strong>, the paper's motif dictionary.
+              Recording them explicitly caught one already: this page had Fhl1 as{' '}
+              <code>GTAAACA</code>, which is not the paper's Fhl1 motif, and was boxing a position
+              27 bp from where Figure S19B puts it.</p>
             </div>
           </details>
                 <details class="vp-how">
@@ -389,7 +437,7 @@ const breadcrumbLd = buildBreadcrumbLd([
             <strong>10.47 ms a forward pass</strong> — and a substitution costs two of them, because
             every published Shorkie run averages both strands. Measured over the run that produced
             the packs on this page: <strong>23.8 ms a substitution, 19.5 minutes a locus,
-            4.6 h for all fourteen</strong>. The numbers on this page are that run. The engine change is not a precision compromise either — against the
+            4.6 h for the fourteen loci that run covered</strong>. The numbers on this page are that run. The engine change is not a precision compromise either — against the
             CPU the GPU agrees to 6.6 × 10⁻⁷ relative, three orders of magnitude tighter than the
             fp16 graph the earlier packs were built from.</p>
           </div>
@@ -751,10 +799,10 @@ const breadcrumbLd = buildBreadcrumbLd([
         <p class="vp-act__sub">The tests that can come out negative. Every curated binding site knocked out and measured, and the attribution scored against annotation the model never saw.</p>
 
         <section class="vp-panel">
-          <h2>What all fourteen windows say <span class="vp-stat" data-vp-summary-stat></span></h2>
+          <h2>What all nineteen windows say <span class="vp-stat" data-vp-summary-stat></span></h2>
           <p class="vp-notes" style="margin:0 0 0.6rem;">
             Every other panel in this act shows one window at a time. This one is the pattern across
-            all fourteen, computed once from the same packs and the same null those panels use — so
+            all nineteen, computed once from the same packs and the same null those panels use — so
             it cannot drift from them.
           </p>
           <div class="vp-findings" data-vp-findings></div>
@@ -788,7 +836,7 @@ const breadcrumbLd = buildBreadcrumbLd([
               highly expressed gene does not dominate. The band is the spread <em>across genes</em>,
               not a confidence interval on the mean — these genes differ by orders of magnitude in
               expression and the spread is the honest statement of that.</p>
-              <p><strong>What it cannot tell you.</strong> 113 genes from fourteen windows is a
+              <p><strong>What it cannot tell you.</strong> 158 genes from nineteen windows is a
               small, non-random sample: they were chosen as classic high expressers, the galactose
               regulon and the paper's own figure panels. A metaprofile from them describes those
               genes, not the yeast genome.</p>

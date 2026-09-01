@@ -229,6 +229,36 @@ def repack(out_dir: Path) -> int:
         rel, err, space, q, lows, highs = best
         meta = json.loads(meta_p.read_text())
         was = meta.get("ism", {}).get("space")
+        if "ism" not in meta:
+            # A locus whose plane exists but whose sidecar block does not. That happens when the
+            # sidecar is rewritten by another generator, or when a plane is recovered from its raw
+            # array after the metadata was lost -- both of which have happened here. Everything but
+            # the reference coverage is derivable from the locus; `ref` needs one forward pass,
+            # taken from the shipped ONNX graph so this stays a no-GPU operation.
+            import onnxruntime as ort
+            lo_bin, hi_bin = gene_body_bins(locus["features"], locus["id"])
+            rc_lo, rc_hi = N_BINS - hi_bin, N_BINS - lo_bin
+            names = json.loads((ROOT / "src" / "data" / "shorkieTrackNames.json").read_text())["identifiers"]
+            T0 = np.array([i for i, n in enumerate(names) if "_T0_" in n and 1148 <= i < 4201])
+            sess = ort.InferenceSession(str(ROOT / "public" / "models" / "shorkie-fp16.onnx"),
+                                        providers=["CPUExecutionProvider"])
+            species = json.loads((ROOT / "src" / "data" / "shorkieLoci.json").read_text())["speciesIndex"]
+            x = encode(seq, species)
+
+            def cover(inp, a, b):
+                y = sess.run(["all_tracks"], {"sequence": inp})[0]
+                return float(y[0][a:b][:, T0].mean(axis=-1).sum())
+
+            ref_val = 0.5 * (cover(x[None].astype(np.float32), lo_bin, hi_bin)
+                             + cover(rc_encoded(x)[None].astype(np.float32), rc_lo, rc_hi))
+            meta["ism"] = {
+                "rows": 4, "cols": SEQ_LEN, "space": "log", "lo": [], "hi": [],
+                "start": 0, "tss": int(tss_of(locus["features"], locus["id"])),
+                "ref": ref_val, "geneBins": [lo_bin, hi_bin], "score": "logSED",
+                "tracks": int(T0.size), "window": "full", "strands": "rc-averaged",
+                "engine": "pytorch/mps",
+            }
+            print(f"  {locus['id']:10s} rebuilt a missing sidecar block (ref {ref_val:.2f})")
         Image.fromarray(q, mode="L").save(out_dir / f"{locus['id']}-ism.png")
         meta["ism"].update({"space": space, "lo": lows, "hi": highs,
                             "saliencyDecodeError": round(err, 8),

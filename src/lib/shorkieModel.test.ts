@@ -12,6 +12,8 @@ import {
   ismSaliency,
   logSED,
   spliceAnnotations,
+  motifMatch,
+  revComp,
   stageRelevanceProfile,
   exactStageProfiles,
   relevanceMap,
@@ -290,7 +292,7 @@ describe('mutation', () => {
 describe('preset loci', () => {
   it('ships fourteen full-length windows with annotation', () => {
     // Eight chosen to span the interpretive range, plus the six of Figure 4.
-    expect(loci.loci.length).toBe(14);
+    expect(loci.loci.length).toBe(19);
     expect(loci.speciesIndex).toBe(SPECIES_S_CEREVISIAE);
     expect(loci.bins).toBe(N_BINS);
     loci.loci.forEach((l) => {
@@ -321,7 +323,12 @@ describe('preset loci', () => {
       'DTD1',
       'MMS2',
       'HOP2',
-    ];
+          'RPL4A',
+      'RPS2',
+      'RPL13A',
+      'RPL40A',
+      'RPS16A',
+];
     expect(loci.loci.map((l) => l.gene)).toEqual(wanted);
   });
 });
@@ -791,9 +798,11 @@ describe('Figure 4 loci', () => {
   const fig4 = loci.loci.filter((l) => 'figurePanel' in l);
 
   it('ships all six panels of Figure 4 alongside the original eight loci', () => {
-    expect(loci.loci).toHaveLength(14);
+    expect(loci.loci).toHaveLength(19);
+    // The six main-text panels plus the nine from Supplemental Figures S19 and S20.
     expect(fig4.map((l) => (l as { figurePanel: string }).figurePanel).sort()).toEqual([
       'Fig 4A', 'Fig 4B', 'Fig 4C', 'Fig 4E', 'Fig 4F', 'Fig 4G',
+      'Fig S19A', 'Fig S19C', 'Fig S19D', 'Fig S19E', 'Fig S19F',
     ]);
     // DTD1 is YDL219W. YDL100C is a different gene; the figure's coordinates are what settle it.
     expect(fig4.find((l) => l.gene === 'DTD1')!.id).toBe('YDL219W');
@@ -1418,7 +1427,7 @@ describe('transcript models, JBrowse-style', () => {
       expect(f.exons.length).toBeGreaterThan(0);
     }
     const multi = all.filter(({ f }) => f.exons.length > 1);
-    expect(multi.length).toBe(8);
+    expect(multi.length).toBe(14);   // nine S19/S20 windows added
   });
 
   it('holds the invariants a transcript model must', () => {
@@ -1453,7 +1462,7 @@ describe('transcript models, JBrowse-style', () => {
     // 9, not 8: HOP2's shipped model was one intron short until the SGD cross-check in
     // make_annotations.py caught it -- its second intron was being drawn as coding. The restored
     // boundary reads GT..AG here, which is what says the corrected coordinates are right.
-    expect(checked).toBe(9);
+    expect(checked).toBe(15);   // one intron boundary per multi-exon gene
   });
 
   it('keeps bin coordinates in step with the bp ones for the coverage plot', () => {
@@ -1508,7 +1517,7 @@ describe('geneTrackShapes', () => {
         introns += n;
       }
     }
-    expect(introns).toBe(9);   // see the GT..AG test: HOP2 regained a second intron
+    expect(introns).toBe(15);   // see the GT..AG test: HOP2 regained a second intron
   });
 });
 
@@ -1749,7 +1758,7 @@ describe('packGeneRows', () => {
     // is cheap enough to be the interesting mode rather than a a rarely-used escape hatch.
     const used = windows.map((w) => Math.max(...packGeneRows(w.features)) + 1);
     expect(Math.max(...used)).toBe(2);
-    expect(used.filter((n) => n > 1).length).toBe(8);
+    expect(used.filter((n) => n > 1).length).toBe(11);   // windows needing two gene rows
   });
 
   it('assigns a row to every feature and leaves no row empty', () => {
@@ -2097,7 +2106,7 @@ describe('logSED', () => {
 
 describe('spliceAnnotations — the landmarks Figure 4 marks', () => {
   type Feat = { name: string; strand: string; cdsStart: number; cdsEnd: number; exons: number[][] };
-  const windows = (loci as unknown as { loci: { id: string; features: Feat[] }[] }).loci;
+  const windows = (loci as unknown as { loci: { id: string; sequence?: string; features: Feat[] }[] }).loci;
   const dtd1 = windows.find((l) => l.id === 'YDL219W')!.features.find((f) => f.name === 'YDL219W')!;
 
   it('puts the donor on the real GT of DTD1\'s intron', () => {
@@ -2131,6 +2140,61 @@ describe('spliceAnnotations — the landmarks Figure 4 marks', () => {
     expect(spliceAnnotations(one)).toHaveLength(2);   // just the two codons
   });
 
+  /**
+   * The check that would have caught the box bug: decode the SEQUENCE inside each landmark's span
+   * and compare it with the consensus that landmark names. The panel used to draw every landmark
+   * as `[at - 3, at + 3)`, which framed AAGGTA where DTD1's donor motif is GTATGT.
+   */
+  it('spans the real motif, verified against the shipped sequence on both strands', () => {
+    const IUPAC: Record<string, string> = {
+      A: 'A', C: 'C', G: 'G', T: 'T', R: 'AG', Y: 'CT', W: 'AT', S: 'GC', N: 'ACGT',
+    };
+    const rc = (s: string) => [...s].reverse()
+      .map((c) => ({ A: 'T', C: 'G', G: 'C', T: 'A' } as Record<string, string>)[c] ?? 'N').join('');
+    const matches = (seq: string, cons: string) =>
+      seq.length === cons.length
+      && [...cons].every((c, i) => (IUPAC[c] ?? 'ACGT').includes(seq[i]));
+
+    let checked = 0;
+    const failures: string[] = [];
+    for (const l of (loci as unknown as { loci: { id: string; sequence: string; features: Feat[] }[] }).loci) {
+      for (const f of l.features) {
+        for (const a of spliceAnnotations(f)) {
+          if (a.start < 0 || a.end > l.sequence.length) continue;
+          const raw = l.sequence.slice(a.start, a.end).toUpperCase();
+          const read = a.strand === '+' ? raw : rc(raw);
+          checked += 1;
+          // The invariant halves only: a donor's GT and an acceptor's AG are guaranteed by the
+          // annotation, the rest of GTATGT is the yeast consensus and genuinely varies. The branch
+          // point is at a FIXED 30 bp offset and is not expected to hit TACTAAC every time.
+          if (a.label === "5′ splice site" && !read.startsWith('GT')) {
+            failures.push(`${l.id}/${f.name} donor [${a.start},${a.end}) reads ${read}, expected GT…`);
+          }
+          if (a.label === "3′ splice site" && read !== 'AG') {
+            failures.push(`${l.id}/${f.name} acceptor [${a.start},${a.end}) reads ${read}, expected AG`);
+          }
+          if (a.label === 'Start codon' && read !== 'ATG') {
+            failures.push(`${l.id}/${f.name} start [${a.start},${a.end}) reads ${read}, expected ATG`);
+          }
+          if (a.label === 'Stop codon' && !a.consensus.split('|').some((c) => matches(read, c))) {
+            failures.push(`${l.id}/${f.name} stop [${a.start},${a.end}) reads ${read}, expected one of ${a.consensus}`);
+          }
+        }
+      }
+    }
+    expect(failures).toEqual([]);
+    expect(checked).toBeGreaterThan(60);
+  });
+
+  it('spans DTD1\'s donor exactly on GTATGT, not three bases upstream of it', () => {
+    const seq = windows.find((l) => l.id === 'YDL219W')!.sequence!;
+    const d = spliceAnnotations(dtd1).find((a) => a.label === "5′ splice site")!;
+    expect([d.start, d.end]).toEqual([8165, 8171]);
+    expect(seq.slice(d.start, d.end).toUpperCase()).toBe('GTATGT');
+    // The old box: [at-3, at+3). Pinned so a revert fails rather than silently redrawing it.
+    expect(seq.slice(d.at - 3, d.at + 3).toUpperCase()).toBe('AAGGTA');
+  });
+
   it('finds landmarks for every multi-exon gene in the shipped windows', () => {
     // Counts GENES, not introns -- HOP2 has two introns but is one gene, which is why this stays
     // at 8 while the intron counts moved to 9.
@@ -2143,7 +2207,7 @@ describe('spliceAnnotations — the landmarks Figure 4 marks', () => {
         expect(a.filter((x) => x.label === "5′ splice site").length).toBe(f.exons.length - 1);
       }
     }
-    expect(genes).toBe(8);     // the eight multi-exon features across the fourteen windows
+    expect(genes).toBe(14);    // multi-exon features across the twenty-three windows
   });
 });
 
@@ -2493,5 +2557,82 @@ describe('ANNOTATION_CLASSES', () => {
     }
     expect(seen.size).toBeGreaterThan(0);
     for (const cls of seen) expect(ANNOTATION_CLASSES[cls], `class ${cls}`).toBeDefined();
+  });
+});
+
+describe('motifMatch — where the motif actually is, on either strand', () => {
+  it('finds a forward match and returns its exact span', () => {
+    //                     0123456789
+    const hit = motifMatch('AAGTATGTCC', 'GTATGT');
+    expect(hit).toEqual({ start: 2, end: 8, strand: '+', consensus: 'GTATGT' });
+  });
+
+  it('finds a reverse-complement match and reports forward coordinates', () => {
+    // ACATAC is the reverse complement of GTATGT.
+    const hit = motifMatch('AAACATACCC', 'GTATGT');
+    expect(hit!.strand).toBe('-');
+    expect([hit!.start, hit!.end]).toEqual([2, 8]);
+    expect(revComp('ACATAC')).toBe('GTATGT');
+  });
+
+  it('applies `origin` so the caller gets window coordinates, not span-local ones', () => {
+    const hit = motifMatch('AAGTATGTCC', 'GTATGT', 8000);
+    expect([hit!.start, hit!.end]).toEqual([8002, 8008]);
+  });
+
+  it('resolves IUPAC degeneracy', () => {
+    // TTTATA is itself a reverse-strand TATA box at 0, which beats the forward copy at 2 --
+    // correct, and the reason a codon search must pass strands: 'forward'.
+    expect(motifMatch('TTTATAAATT', 'TATAAA')).toMatchObject({ start: 0, strand: '-' });
+    expect(motifMatch('TTTATAAATT', 'TATAAA', 0, undefined, 'forward'))
+      .toMatchObject({ start: 2, strand: '+' });
+    // Abf1's RTCRYNNNNNACG on a REAL site: FUN12 carries one at 8258 on the reverse strand,
+    // ATCACAAGCGACG. An invented string is no test of a degenerate consensus -- the first draft of
+    // this assertion used one that did not contain the motif at all.
+    const fun12 = (loci as unknown as { loci: { id: string; sequence: string }[] }).loci
+      .find((x) => x.id === 'YAL035W')!;
+    const abf1 = motifMatch(fun12.sequence.slice(8240, 8290).toUpperCase(), 'RTCRYNNNNNACG', 8240);
+    expect(abf1).not.toBeNull();
+    expect(abf1!.end - abf1!.start).toBe(13);
+    expect([abf1!.start, abf1!.strand]).toEqual([8258, '-']);
+  });
+
+  it('handles a `|` alternation, which the three stop codons need', () => {
+    // Forward only: a stop codon is read in the gene's frame, and both of these strings contain
+    // a DIFFERENT stop on the reverse strand, which is a real match and the wrong answer here.
+    const fwd = (s: string) => motifMatch(s, 'TAA|TAG|TGA', 0, undefined, 'forward')?.consensus;
+    expect(fwd('CCCTAGCCC')).toBe('TAG');
+    expect(fwd('CCCTAACCC')).toBe('TAA');
+    expect(fwd('CCCTGACCC')).toBe('TGA');
+    expect(motifMatch('CCCCCCCCC', 'TAA|TAG|TGA', 0, undefined, 'forward')).toBeNull();
+  });
+
+  it('breaks ties toward the offset the caller expected', () => {
+    // TATAAA occurs at 0 and at 20. A call that said "around 20" must not jump to the first copy.
+    const seq = `TATAAA${'C'.repeat(14)}TATAAA`;
+    expect(motifMatch(seq, 'TATAAA', 0, 0)!.start).toBe(0);
+    expect(motifMatch(seq, 'TATAAA', 0, 20)!.start).toBe(20);
+  });
+
+  it('returns null rather than a wrong span when the consensus is absent', () => {
+    expect(motifMatch('AAAAAAAAAA', 'GTATGT')).toBeNull();
+    expect(motifMatch('', 'GTATGT')).toBeNull();
+  });
+
+  it('reproduces the paper-labelled motifs in the shipped RPL26A window', () => {
+    // Figure S19B boxes FHL1 and RAP1 in this promoter. The dictionary consensus from Figure 4H
+    // must land on the same bases the paper draws -- this is the check that caught the site
+    // carrying GTAAACA for Fhl1, which put its box 27 bp from where S19B has it.
+    const l = (loci as unknown as { loci: { id: string; sequence: string }[] }).loci
+      .find((x) => x.id === 'YLR344W')!;
+    const promoter = l.sequence.slice(8000, 8200).toUpperCase();
+    const fhl1 = motifMatch(promoter, 'ATGTACGGAT', 8000);
+    const sfp1 = motifMatch(promoter, 'ATGTATGGGT', 8000);
+    expect(fhl1!.start).toBe(8080);
+    expect(sfp1!.start).toBe(8120);
+    // Rap1 reads on the reverse strand at the same place Sfp1.1 reads forward.
+    const rap1 = motifMatch(promoter, 'MACCCANNCAY', 8000);
+    expect(rap1!.strand).toBe('-');
+    expect(rap1!.start).toBe(8120);
   });
 });
