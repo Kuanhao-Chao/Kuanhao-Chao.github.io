@@ -407,7 +407,7 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     }
 
     if (platform.kind === 'static') {
-      // 1. Stable Euchromatin Platform: Double-banded DNA phosphodiester backbone
+      // 1. Stable Euchromatin Platform: Double-banded DNA phosphodiester backbone with histone core
       ctx.fillStyle = palette.platformStaticBg;
       ctx.strokeStyle = palette.platformStaticBorder;
       ctx.lineWidth = 2;
@@ -417,14 +417,20 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
 
       // Watson-Crick hydrogen bonding notches
       ctx.strokeStyle = palette.platformStaticBorder;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.2;
       const notchStep = 12;
-      for (let nx = x + 10; nx < x + w - 8; nx += notchStep) {
+      for (let nx = x + 8; nx < x + w - 6; nx += notchStep) {
         ctx.beginPath();
         ctx.moveTo(nx, y - h / 2 + 2);
         ctx.lineTo(nx, y + h / 2 - 2);
         ctx.stroke();
       }
+
+      // Histone octamer bead accent in center
+      ctx.fillStyle = palette.platformStaticBorder;
+      ctx.beginPath();
+      ctx.arc(x + w / 2, y, 2.5, 0, Math.PI * 2);
+      ctx.fill();
     } else if (platform.kind === 'moving') {
       // 2. Moving Heterochromatin Platform: Sliding rail with directional kinetic chevrons
       ctx.fillStyle = palette.platformMovingBg;
@@ -439,15 +445,15 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
       const dir = platform.vx >= 0 ? 1 : -1;
       const cx = x + w / 2;
       ctx.beginPath();
-      ctx.moveTo(cx + dir * 10, y);
-      ctx.lineTo(cx - dir * 2, y - 4);
-      ctx.lineTo(cx - dir * 2, y + 4);
+      ctx.moveTo(cx + dir * 12, y);
+      ctx.lineTo(cx - dir * 2, y - 4.5);
+      ctx.lineTo(cx - dir * 2, y + 4.5);
       ctx.closePath();
       ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(cx + dir * 2, y);
-      ctx.lineTo(cx - dir * 10, y - 4);
-      ctx.lineTo(cx - dir * 10, y + 4);
+      ctx.moveTo(cx + dir * 3, y);
+      ctx.lineTo(cx - dir * 11, y - 4.5);
+      ctx.lineTo(cx - dir * 11, y + 4.5);
       ctx.closePath();
       ctx.fill();
     } else if (platform.kind === 'breakable') {
@@ -461,14 +467,14 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
 
       // Jagged fracture stress lines
       ctx.strokeStyle = palette.platformBreakBorder;
-      ctx.lineWidth = 1.2;
+      ctx.lineWidth = 1.4;
       ctx.beginPath();
-      ctx.moveTo(x + w * 0.3, y - h / 2);
-      ctx.lineTo(x + w * 0.45, y + 1);
-      ctx.lineTo(x + w * 0.38, y + h / 2);
-      ctx.moveTo(x + w * 0.65, y - h / 2);
-      ctx.lineTo(x + w * 0.58, y);
-      ctx.lineTo(x + w * 0.72, y + h / 2);
+      ctx.moveTo(x + w * 0.28, y - h / 2);
+      ctx.lineTo(x + w * 0.42, y + 1);
+      ctx.lineTo(x + w * 0.36, y + h / 2);
+      ctx.moveTo(x + w * 0.68, y - h / 2);
+      ctx.lineTo(x + w * 0.56, y);
+      ctx.lineTo(x + w * 0.74, y + h / 2);
       ctx.stroke();
     } else if (platform.kind === 'disappearing') {
       // 4. Disappearing Transcription Bubble: Phase-dash translucent contour
@@ -480,6 +486,12 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
       ctx.fill();
       ctx.stroke();
       ctx.setLineDash([]);
+
+      // Pulsing energy node center
+      ctx.fillStyle = palette.platformDisappearBorder;
+      ctx.beginPath();
+      ctx.arc(x + w / 2, y, 2.2, 0, Math.PI * 2);
+      ctx.fill();
     }
 
     if (platform.spring) drawSpring(x + w / 2, y - h / 2);
@@ -490,27 +502,31 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     ctx.save();
     // 3D Topoisomerase Unwinding Spring
     ctx.strokeStyle = palette.springCoil;
-    ctx.lineWidth = 2.4;
+    ctx.lineWidth = 2.6;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
     // Base bracket
     ctx.fillStyle = palette.springCoil;
-    ctx.fillRect(x - 8, platformY - 2, 16, 2);
+    ctx.fillRect(x - 9, platformY - 2.5, 18, 2.5);
 
     // Coiling spring tiers
     ctx.beginPath();
-    ctx.moveTo(x - 6, platformY - 2);
-    ctx.lineTo(x + 6, platformY - 6);
-    ctx.lineTo(x - 6, platformY - 11);
-    ctx.lineTo(x + 6, platformY - 16);
-    ctx.lineTo(x - 6, platformY - 21);
-    ctx.lineTo(x + 6, platformY - 25);
+    ctx.moveTo(x - 7, platformY - 2);
+    ctx.lineTo(x + 7, platformY - 6);
+    ctx.lineTo(x - 7, platformY - 11);
+    ctx.lineTo(x + 7, platformY - 16);
+    ctx.lineTo(x - 7, platformY - 21);
+    ctx.lineTo(x + 7, platformY - 25);
     ctx.stroke();
 
-    // Top kinetic cap
+    // Top kinetic cap with highlight
     ctx.beginPath();
-    ctx.arc(x, platformY - 26, 4, 0, Math.PI * 2);
+    ctx.arc(x, platformY - 26, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(x - 1.2, platformY - 27.2, 1.4, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
@@ -520,7 +536,7 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     const x = sx(item.x);
     const y = sy(item.y);
     if (y < -30 || y > height + 30) return;
-    const radius = Math.max(11, 14 * scaleX());
+    const radius = Math.max(12, 15 * scaleX());
 
     const gemColor =
       item.base === 'A'
@@ -534,36 +550,47 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     ctx.save();
     // Ambient gem glow
     ctx.shadowColor = gemColor;
-    ctx.shadowBlur = palette.isDark ? 12 : 5;
+    ctx.shadowBlur = palette.isDark ? 14 : 6;
 
-    // Diamond gem polygon
+    // Diamond gem outer polygon
     ctx.fillStyle = gemColor;
     ctx.beginPath();
     ctx.moveTo(x, y - radius);
-    ctx.lineTo(x + radius * 0.9, y);
+    ctx.lineTo(x + radius * 0.92, y);
     ctx.lineTo(x, y + radius);
-    ctx.lineTo(x - radius * 0.9, y);
+    ctx.lineTo(x - radius * 0.92, y);
     ctx.closePath();
     ctx.fill();
 
-    // Inner bright facet
+    // Inner bright facet reflection
     ctx.fillStyle = palette.surface;
     ctx.beginPath();
-    ctx.moveTo(x, y - radius * 0.7);
-    ctx.lineTo(x + radius * 0.6, y);
-    ctx.lineTo(x, y + radius * 0.7);
-    ctx.lineTo(x - radius * 0.6, y);
+    ctx.moveTo(x, y - radius * 0.72);
+    ctx.lineTo(x + radius * 0.65, y);
+    ctx.lineTo(x, y + radius * 0.72);
+    ctx.lineTo(x - radius * 0.65, y);
     ctx.closePath();
     ctx.fill();
+
+    // Top specular shine
+    ctx.fillStyle = '#ffffff';
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(x, y - radius * 0.7);
+    ctx.lineTo(x + radius * 0.4, y - radius * 0.2);
+    ctx.lineTo(x - radius * 0.4, y - radius * 0.2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
 
     ctx.shadowBlur = 0;
 
     // Base nucleotide letter
     ctx.fillStyle = gemColor;
-    ctx.font = `bold ${Math.round(radius * 1.15)}px monospace`;
+    ctx.font = `bold ${Math.round(radius * 1.18)}px monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(item.base, x, y);
+    ctx.fillText(item.base, x, y + 0.5);
     ctx.restore();
   }
 
@@ -579,34 +606,48 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     // P-TEFb Elongation Jetpack: High-tech dual-cylinder booster
     ctx.fillStyle = '#0284c7';
     ctx.strokeStyle = '#38bdf8';
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.6;
 
     // Left & Right Cylinders
-    roundedRect(-12, -14, 10, 22, 4);
+    roundedRect(-13, -15, 11, 23, 4);
     ctx.fill();
     ctx.stroke();
-    roundedRect(2, -14, 10, 22, 4);
+    roundedRect(2, -15, 11, 23, 4);
     ctx.fill();
     ctx.stroke();
 
-    // Center bridge
+    // Center bridge with power core
     ctx.fillStyle = '#f59e0b';
-    ctx.fillRect(-4, -6, 8, 8);
+    ctx.fillRect(-4, -7, 8, 9);
+    ctx.fillStyle = '#fef08a';
+    ctx.beginPath();
+    ctx.arc(0, -2.5, 2, 0, Math.PI * 2);
+    ctx.fill();
 
     // Exhaust nozzles
-    ctx.fillStyle = '#64748b';
-    ctx.fillRect(-10, 8, 6, 4);
-    ctx.fillRect(4, 8, 6, 4);
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(-11, 8, 7, 4);
+    ctx.fillRect(4, 8, 7, 4);
 
-    // Animated idle thruster flame
-    const flameY = Math.sin(animTick * 8) * 3;
-    ctx.fillStyle = '#fbbf24';
+    // Animated multi-stage thruster flame
+    const flameY = Math.sin(animTick * 10) * 4;
+    ctx.fillStyle = '#f59e0b';
     ctx.beginPath();
-    ctx.moveTo(-9, 12);
-    ctx.lineTo(-7, 18 + flameY);
+    ctx.moveTo(-10, 12);
+    ctx.lineTo(-7.5, 20 + flameY);
     ctx.lineTo(-5, 12);
     ctx.moveTo(5, 12);
-    ctx.lineTo(7, 18 + flameY);
+    ctx.lineTo(7.5, 20 + flameY);
+    ctx.lineTo(10, 12);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(-9, 12);
+    ctx.lineTo(-7.5, 16 + flameY * 0.5);
+    ctx.lineTo(-6, 12);
+    ctx.moveTo(6, 12);
+    ctx.lineTo(7.5, 16 + flameY * 0.5);
     ctx.lineTo(9, 12);
     ctx.fill();
 
@@ -648,13 +689,19 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     // Glowing nucleolytic eye cores
     ctx.fillStyle = palette.enemyBorder;
     ctx.beginPath();
-    ctx.arc(-radius * 0.35, -1, 2.5, 0, Math.PI * 2);
-    ctx.arc(radius * 0.35, -1, 2.5, 0, Math.PI * 2);
+    ctx.arc(-radius * 0.35, -1, 2.8, 0, Math.PI * 2);
+    ctx.arc(radius * 0.35, -1, 2.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(-radius * 0.35, -1.8, 1, 0, Math.PI * 2);
+    ctx.arc(radius * 0.35, -1.8, 1, 0, Math.PI * 2);
     ctx.fill();
 
     // Central mutation lesion symbol
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 9px monospace';
+    ctx.font = 'bold 10px monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('Δ', 0, 1);
@@ -671,20 +718,20 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     // Luminous laser cleavage bolt
     ctx.strokeStyle = palette.accent;
     ctx.shadowColor = palette.accent;
-    ctx.shadowBlur = palette.isDark ? 12 : 5;
-    ctx.lineWidth = Math.max(3, 4 * scaleX());
+    ctx.shadowBlur = palette.isDark ? 14 : 6;
+    ctx.lineWidth = Math.max(3.5, 4.5 * scaleX());
     ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(x, y + 9);
-    ctx.lineTo(x, y - 9);
+    ctx.moveTo(x, y + 10);
+    ctx.lineTo(x, y - 10);
     ctx.stroke();
 
     // White core laser
     ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.8;
     ctx.beginPath();
-    ctx.moveTo(x, y + 5);
-    ctx.lineTo(x, y - 5);
+    ctx.moveTo(x, y + 6);
+    ctx.lineTo(x, y - 6);
     ctx.stroke();
     ctx.restore();
   }
@@ -722,9 +769,9 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
       ctx.setLineDash([]);
       ctx.shadowBlur = 0;
 
-      // Jetpack Thruster Flame Emitters
-      const flameH = 16 + Math.sin(animTick * 12) * 6;
-      ctx.fillStyle = '#fbbf24';
+      // Jetpack Thruster Flame Emitters with White-Hot Core
+      const flameH = 18 + Math.sin(animTick * 12) * 6;
+      ctx.fillStyle = '#f59e0b';
       ctx.beginPath();
       ctx.moveTo(-w * 0.35, h * 0.35);
       ctx.lineTo(-w * 0.25, h * 0.35 + flameH);
@@ -732,6 +779,16 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
       ctx.moveTo(w * 0.15, h * 0.35);
       ctx.lineTo(w * 0.25, h * 0.35 + flameH);
       ctx.lineTo(w * 0.35, h * 0.35);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.30, h * 0.35);
+      ctx.lineTo(-w * 0.25, h * 0.35 + flameH * 0.55);
+      ctx.lineTo(-w * 0.20, h * 0.35);
+      ctx.moveTo(w * 0.20, h * 0.35);
+      ctx.lineTo(w * 0.25, h * 0.35 + flameH * 0.55);
+      ctx.lineTo(w * 0.30, h * 0.35);
       ctx.fill();
     }
 
@@ -746,10 +803,14 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // 3. Catalytic Active Site / Transcription Cleft
+    // 3. Catalytic Active Site / Magnesium Ion Sparkle
     ctx.fillStyle = '#fef08a';
     ctx.beginPath();
-    ctx.arc(0, -h * 0.05, 3.5, 0, Math.PI * 2);
+    ctx.arc(0, -h * 0.05, 3.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(-1, -h * 0.05 - 1, 1.4, 0, Math.PI * 2);
     ctx.fill();
 
     // 4. Double-helix emblem on Polymerase Body
@@ -778,20 +839,28 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     ctx.arc(w * 0.18 + lookX, -h * 0.24, 1.4, 0, Math.PI * 2);
     ctx.fill();
 
-    // 6. Trailing Nascent mRNA Transcript Tail (5'-to-3')
+    // 6. Trailing Nascent mRNA Transcript Tail (5'-to-3') with Nucleotide Nodes
     if (state.sequence.length > 0) {
       ctx.strokeStyle = '#f59e0b';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.2;
       ctx.beginPath();
       const wave = Math.sin(animTick * 6) * 4;
       ctx.moveTo(-w * 0.25, h * 0.2);
       ctx.quadraticCurveTo(-w * 0.65, h * 0.35 + wave, -w * 0.85, h * 0.5);
       ctx.stroke();
 
-      ctx.fillStyle = '#f59e0b';
-      ctx.beginPath();
-      ctx.arc(-w * 0.85, h * 0.5, 2.2, 0, Math.PI * 2);
-      ctx.fill();
+      // Draw last 3 collected base nodes
+      const lastBases = state.sequence.slice(-3);
+      for (let bi = 0; bi < lastBases.length; bi++) {
+        const t = (bi + 1) / (lastBases.length + 1);
+        const bx = -w * (0.25 + t * 0.6);
+        const by = h * (0.2 + t * 0.3) + Math.sin(animTick * 6 + bi) * 2;
+        const b = lastBases[bi];
+        ctx.fillStyle = b === 'A' ? '#10b981' : b === 'C' ? '#38bdf8' : b === 'G' ? '#f59e0b' : '#a855f7';
+        ctx.beginPath();
+        ctx.arc(bx, by, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
     ctx.restore();

@@ -157,41 +157,68 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
   function drawBackground() {
     const ground = state.groundY;
     ctx.save();
-    ctx.strokeStyle = colors.rule;
-    ctx.lineWidth = 1.5;
-    ctx.globalAlpha = 0.85;
+
+    // 1. High-Tech Genomic Double-Helix Track
+    // Upper Rail (Phosphodiester Backbone)
+    ctx.strokeStyle = colors.accent;
+    ctx.lineWidth = 2.5;
+    ctx.globalAlpha = 0.9;
     ctx.beginPath();
     ctx.moveTo(0, ground + 0.5);
     ctx.lineTo(state.width, ground + 0.5);
     ctx.stroke();
 
-    const tickSpacing = 74;
-    const offset = -((state.distance * 0.72) % tickSpacing);
-    ctx.font = `600 13px ${cssVar('--font-display', 'system-ui')}`;
+    // Lower Rail
+    ctx.strokeStyle = colors.rule;
+    ctx.lineWidth = 1.6;
+    ctx.globalAlpha = 0.75;
+    ctx.beginPath();
+    ctx.moveTo(0, ground + 16.5);
+    ctx.lineTo(state.width, ground + 16.5);
+    ctx.stroke();
+
+    // Scrolling Watson-Crick Base Pair Rungs & Letters
+    const tickSpacing = 72;
+    const offset = -((state.distance * 0.75) % tickSpacing);
+    ctx.font = `bold 12px ${cssVar('--font-mono', 'monospace')}`;
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
+    ctx.textBaseline = 'middle';
     const bases = ['A', 'C', 'G', 'T'];
+    const baseColors = ['#10b981', '#38bdf8', '#f59e0b', '#a855f7'];
+
     for (let x = offset; x < state.width + tickSpacing; x += tickSpacing) {
-      ctx.globalAlpha = 0.55;
-      ctx.strokeStyle = colors.rule;
+      const idx = Math.abs(Math.floor((x + state.distance) / tickSpacing)) % 4;
+      const bColor = baseColors[idx];
+
+      // Vertical hydrogen bond rung
+      ctx.globalAlpha = 0.7;
+      ctx.strokeStyle = bColor;
+      ctx.lineWidth = 1.4;
       ctx.beginPath();
-      ctx.moveTo(x, ground + 8);
-      ctx.lineTo(x, ground + 21);
+      ctx.moveTo(x, ground + 2);
+      ctx.lineTo(x, ground + 15);
       ctx.stroke();
-      ctx.fillStyle = colors.muted;
-      ctx.fillText(
-        bases[Math.abs(Math.floor((x + state.distance) / tickSpacing)) % 4],
-        x,
-        ground + 29
-      );
+
+      // Nucleotide marker node
+      ctx.fillStyle = bColor;
+      ctx.beginPath();
+      ctx.arc(x, ground + 8.5, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Base letter below rail
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = bColor;
+      ctx.fillText(bases[idx], x, ground + 28);
     }
 
-    ctx.globalAlpha = 0.18;
+    // 2. Parallax Gene Expression Wave in Deep Background
+    ctx.globalAlpha = 0.15;
     ctx.strokeStyle = colors.accent;
+    ctx.lineWidth = 1.8;
     ctx.beginPath();
-    const waveOffset = (state.distance * 0.035) % 48;
+    const waveOffset = (state.distance * 0.04) % 48;
     for (let x = -48; x <= state.width + 48; x += 12) {
-      const y = 74 + Math.sin((x + waveOffset) / 24) * 10;
+      const y = 68 + Math.sin((x + waveOffset) / 28) * 12;
       if (x === -48) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
@@ -201,6 +228,7 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
 
   function drawRunner() {
     const ducking = state.runner.ducking && state.runner.grounded;
+    const airborne = !state.runner.grounded;
     const x = state.runner.x;
     const bottom = state.runner.y;
 
@@ -209,44 +237,128 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
     ctx.strokeStyle = colors.accentDark;
     ctx.lineWidth = 2;
 
+    // Running animation phase
+    const runPhase = (state.distance * 0.12) % (Math.PI * 2);
+    const legSwing = Math.sin(runPhase) * 7;
+
     if (ducking) {
-      roundRect(x + 5, bottom - 36, 58, 29, 9);
+      // 1. Ducking Low-Profile Slide
+      // Streamlined elongated body
+      roundRect(x + 4, bottom - 32, 60, 24, 8);
       ctx.fill();
       ctx.stroke();
-      roundRect(x + 48, bottom - 50, 28, 25, 8);
+
+      // Low-profile elongated head & jaws
+      roundRect(x + 48, bottom - 42, 30, 20, 7);
       ctx.fill();
       ctx.stroke();
-      ctx.fillStyle = colors.onAccent;
-      ctx.beginPath();
-      ctx.arc(x + 67, bottom - 39, 2.6, 0, Math.PI * 2);
-      ctx.fill();
+
+      // Cybernetic gold visor eye
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect(x + 64, bottom - 36, 9, 4);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(x + 69, bottom - 35, 3, 2);
+
+      // Low tucked limbs & ground friction sparks
       ctx.fillStyle = colors.accentDark;
-      ctx.fillRect(x + 15, bottom - 7, 10, 7);
-      ctx.fillRect(x + 43, bottom - 7, 10, 7);
+      ctx.fillRect(x + 16, bottom - 8, 14, 6);
+      ctx.fillRect(x + 44, bottom - 8, 14, 6);
+
+      // Slide friction sparks
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillRect(x + 8, bottom - 4, 3, 2);
+      ctx.fillRect(x + 24, bottom - 3, 2, 2);
+      ctx.fillRect(x + 40, bottom - 5, 3, 2);
     } else {
-      roundRect(x + 8, bottom - 51, 34, 42, 10);
-      ctx.fill();
-      ctx.stroke();
-      roundRect(x + 34, bottom - 66, 27, 27, 8);
-      ctx.fill();
-      ctx.stroke();
+      // 2. Upright Running & Leaping Cybernetic Velociraptor
+      // Counter-balancing tail with flexible curve
+      const tailTilt = airborne ? -4 : Math.sin(runPhase) * 3;
       ctx.beginPath();
-      ctx.moveTo(x + 9, bottom - 41);
-      ctx.lineTo(x - 9, bottom - 31);
-      ctx.lineTo(x + 11, bottom - 28);
+      ctx.moveTo(x + 10, bottom - 38);
+      ctx.quadraticCurveTo(x - 6, bottom - 42 + tailTilt, x - 18, bottom - 36 + tailTilt * 1.5);
+      ctx.lineTo(x - 16, bottom - 30 + tailTilt * 1.5);
+      ctx.quadraticCurveTo(x - 4, bottom - 34 + tailTilt, x + 10, bottom - 26);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
-      ctx.fillStyle = colors.onAccent;
-      ctx.beginPath();
-      ctx.arc(x + 53, bottom - 56, 2.5, 0, Math.PI * 2);
+
+      // Main Torso Body
+      roundRect(x + 8, bottom - 48, 36, 38, 10);
       ctx.fill();
-      ctx.fillStyle = colors.accentDark;
-      ctx.fillRect(x + 17, bottom - 9, 9, 9);
-      ctx.fillRect(x + 35, bottom - 9, 9, 9);
+      ctx.stroke();
+
+      // Dorsal neural spine plates along back
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.moveTo(x + 14, bottom - 48);
+      ctx.lineTo(x + 18, bottom - 55);
+      ctx.lineTo(x + 22, bottom - 48);
+      ctx.moveTo(x + 24, bottom - 48);
+      ctx.lineTo(x + 28, bottom - 56);
+      ctx.lineTo(x + 32, bottom - 48);
+      ctx.fill();
+
+      // Aerodynamic Neck & Raptor Head
+      ctx.fillStyle = colors.accent;
+      roundRect(x + 34, bottom - 66, 30, 26, 8);
+      ctx.fill();
+      ctx.stroke();
+
+      // Snout jawline
+      ctx.beginPath();
+      ctx.moveTo(x + 52, bottom - 50);
+      ctx.lineTo(x + 64, bottom - 50);
+      ctx.stroke();
+
+      // Cybernetic Visor Eye (Glowing arcade gold)
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect(x + 50, bottom - 58, 8, 4);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(x + 54, bottom - 57, 3, 2);
+
+      // Forward articulated arm / claw
+      ctx.strokeStyle = colors.accentDark;
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(x + 30, bottom - 36);
+      ctx.lineTo(x + 38, bottom - 30);
+      ctx.lineTo(x + 36, bottom - 24);
+      ctx.stroke();
+
+      // Articulated Running Legs (2-Phase Cycle or Jump Tuck)
+      ctx.lineWidth = 3;
+      if (airborne) {
+        // Back leg extended leaping
+        ctx.beginPath();
+        ctx.moveTo(x + 16, bottom - 22);
+        ctx.lineTo(x + 8, bottom - 12);
+        ctx.lineTo(x + 2, bottom - 6);
+        ctx.stroke();
+        // Front leg bent forward
+        ctx.beginPath();
+        ctx.moveTo(x + 32, bottom - 22);
+        ctx.lineTo(x + 40, bottom - 14);
+        ctx.lineTo(x + 46, bottom - 4);
+        ctx.stroke();
+      } else {
+        // Leg 1
+        ctx.beginPath();
+        ctx.moveTo(x + 18, bottom - 22);
+        ctx.lineTo(x + 16 + legSwing, bottom - 12);
+        ctx.lineTo(x + 18 + legSwing * 1.5, bottom - 2);
+        ctx.stroke();
+        // Leg 2
+        ctx.beginPath();
+        ctx.moveTo(x + 32, bottom - 22);
+        ctx.lineTo(x + 34 - legSwing, bottom - 12);
+        ctx.lineTo(x + 32 - legSwing * 1.5, bottom - 2);
+        ctx.stroke();
+      }
+
+      // Speed velocity trail accent lines
       ctx.fillStyle = colors.onAccent;
-      ctx.globalAlpha = 0.55;
-      ctx.fillRect(x + 17, bottom - 37, 19, 3);
+      ctx.globalAlpha = 0.6;
+      ctx.fillRect(x + 18, bottom - 36, 18, 2.5);
       ctx.globalAlpha = 1;
     }
     ctx.restore();
@@ -254,38 +366,69 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
 
   function drawObstacle(obstacle: Obstacle) {
     if (obstacle.kind === 'splice-arch') {
+      // 1. Holographic GT-AG Splice-Junction Gateway Obstacle
       ctx.save();
       ctx.fillStyle = colors.ink;
-      ctx.globalAlpha = 0.85;
+      ctx.globalAlpha = 0.88;
       roundRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height, 8);
       ctx.fill();
-      ctx.fillRect(obstacle.x + 8, obstacle.y + obstacle.height - 2, 6, 34);
-      ctx.fillRect(obstacle.x + obstacle.width - 14, obstacle.y + obstacle.height - 2, 6, 34);
-      ctx.fillStyle = colors.board;
-      ctx.globalAlpha = 0.65;
-      ctx.fillRect(obstacle.x + 14, obstacle.y + 9, obstacle.width - 28, 3);
+
+      // Splice gate pillar posts
+      ctx.fillStyle = colors.accentDark;
+      ctx.fillRect(obstacle.x + 6, obstacle.y + obstacle.height - 2, 7, 34);
+      ctx.fillRect(obstacle.x + obstacle.width - 13, obstacle.y + obstacle.height - 2, 7, 34);
+
+      // Glowing Intron Portal Bar (Amber-Gold)
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect(obstacle.x + 10, obstacle.y + 7, obstacle.width - 20, 4);
+
+      // Consensus base labels: 5' GT and 3' AG
+      ctx.font = `bold 9px ${cssVar('--font-mono', 'monospace')}`;
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('GT', obstacle.x + 14, obstacle.y + 20);
+      ctx.fillText('AG', obstacle.x + obstacle.width - 14, obstacle.y + 20);
       ctx.restore();
       return;
     }
 
     ctx.save();
-    ctx.fillStyle = obstacle.kind === 'repeat-stack' ? colors.warmBg : colors.accentDark;
-    ctx.strokeStyle = obstacle.kind === 'repeat-stack' ? colors.warmBorder : colors.accentDark;
-    ctx.lineWidth = 2;
-    roundRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height, 6);
-    ctx.fill();
-    ctx.stroke();
-
     if (obstacle.kind === 'repeat-stack') {
+      // 2. Tandem Repeat Microsatellite Monolith Obstacle
+      ctx.fillStyle = colors.warmBg;
+      ctx.strokeStyle = colors.warmBorder;
+      ctx.lineWidth = 2;
+      roundRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height, 6);
+      ctx.fill();
+      ctx.stroke();
+
+      // Horizontal STR base-pair bands
       ctx.fillStyle = colors.warmText;
-      for (let y = obstacle.y + 9; y < obstacle.y + obstacle.height - 6; y += 13) {
-        ctx.fillRect(obstacle.x + 8, y, obstacle.width - 16, 3);
+      for (let y = obstacle.y + 8; y < obstacle.y + obstacle.height - 6; y += 12) {
+        ctx.fillRect(obstacle.x + 6, y, obstacle.width - 12, 3.5);
       }
     } else {
+      // 3. Genomic Variant Mutagen Block Obstacle
+      ctx.fillStyle = colors.accentDark;
+      ctx.strokeStyle = colors.accent;
+      ctx.lineWidth = 2;
+      roundRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height, 6);
+      ctx.fill();
+      ctx.stroke();
+
+      // Warning hazard stripes & core
       ctx.fillStyle = colors.onAccent;
-      ctx.globalAlpha = 0.72;
-      ctx.fillRect(obstacle.x + 8, obstacle.y + 10, obstacle.width - 16, 3);
-      ctx.fillRect(obstacle.x + 8, obstacle.y + obstacle.height - 13, obstacle.width - 16, 3);
+      ctx.globalAlpha = 0.75;
+      ctx.fillRect(obstacle.x + 6, obstacle.y + 8, obstacle.width - 12, 3.5);
+      ctx.fillRect(obstacle.x + 6, obstacle.y + obstacle.height - 12, obstacle.width - 12, 3.5);
+
+      // Central variant delta symbol
+      ctx.font = `bold 10px ${cssVar('--font-mono', 'monospace')}`;
+      ctx.fillStyle = '#fef08a';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('VAR', obstacle.x + obstacle.width / 2, obstacle.y + obstacle.height / 2);
     }
     ctx.restore();
   }

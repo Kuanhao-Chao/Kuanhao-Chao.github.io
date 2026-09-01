@@ -19,22 +19,30 @@ const { size = 64, class: className = '' } = Astro.props;
   <defs>
     <!-- Background aura gradient -->
     <radialGradient id="gj-aura" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="var(--color-accent, #2e6e5e)" stop-opacity="0.25" />
-      <stop offset="100%" stop-color="var(--color-accent, #2e6e5e)" stop-opacity="0.0" />
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.3" />
+      <stop offset="60%" stop-color="#059669" stop-opacity="0.10" />
+      <stop offset="100%" stop-color="#047857" stop-opacity="0" />
     </radialGradient>
 
     <!-- Polymerase Core Gradient -->
     <linearGradient id="gj-pol-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#10b981" />
-      <stop offset="50%" stop-color="#059669" />
+      <stop offset="0%" stop-color="#34d399" />
+      <stop offset="45%" stop-color="#10b981" />
       <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+
+    <!-- Gold Clamp Domain Gradient -->
+    <linearGradient id="gj-clamp-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="50%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#b45309" />
     </linearGradient>
 
     <!-- DNA Helix Spring Gradient -->
     <linearGradient id="gj-helix-grad" x1="0%" y1="100%" x2="0%" y2="0%">
       <stop offset="0%" stop-color="#38bdf8" />
       <stop offset="50%" stop-color="#818cf8" />
-      <stop offset="100%" stop-color="#a855f7" />
+      <stop offset="100%" stop-color="#c084fc" />
     </linearGradient>
 
     <!-- mRNA Transcript Ribbon Gradient -->
@@ -45,14 +53,15 @@ const { size = 64, class: className = '' } = Astro.props;
 
     <!-- Jetpack Flame Gradient -->
     <linearGradient id="gj-flame-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#fef08a" />
-      <stop offset="40%" stop-color="#f59e0b" />
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="30%" stop-color="#fef08a" />
+      <stop offset="60%" stop-color="#f59e0b" />
       <stop offset="100%" stop-color="#f43f5e" stop-opacity="0" />
     </linearGradient>
 
     <!-- Glow Filter -->
-    <filter id="gj-glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="2" result="blur" />
+    <filter id="gj-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.8" result="blur" />
       <feComposite in="SourceGraphic" in2="blur" operator="over" />
     </filter>
   </defs>
@@ -67,62 +76,62 @@ const { size = 64, class: className = '' } = Astro.props;
     stroke="var(--color-rule, #e5e4df)"
     stroke-width="1.2"
     stroke-dasharray="4 3"
-    opacity="0.6"
+    opacity="0.65"
   />
 
   <!-- 2. Euchromatin Platform Foundation Base -->
   <g class="gj-platform">
     <rect
-      x="22"
+      x="20"
       y="84"
-      width="56"
-      height="6"
-      rx="3"
+      width="60"
+      height="7"
+      rx="3.5"
       fill="var(--color-surface, #ffffff)"
       stroke="var(--color-accent, #2e6e5e)"
       stroke-width="1.8"
     />
     <!-- Watson-Crick hydrogen bonding notches -->
-    <line x1="32" y1="84" x2="32" y2="90" stroke="var(--color-accent, #2e6e5e)" stroke-width="1" />
-    <line x1="42" y1="84" x2="42" y2="90" stroke="var(--color-accent, #2e6e5e)" stroke-width="1" />
-    <line x1="50" y1="84" x2="50" y2="90" stroke="var(--color-accent, #2e6e5e)" stroke-width="1.4" />
-    <line x1="58" y1="84" x2="58" y2="90" stroke="var(--color-accent, #2e6e5e)" stroke-width="1" />
-    <line x1="68" y1="84" x2="68" y2="90" stroke="var(--color-accent, #2e6e5e)" stroke-width="1" />
+    <line x1="30" y1="84" x2="30" y2="91" stroke="#38bdf8" stroke-width="1.2" />
+    <line x1="40" y1="84" x2="40" y2="91" stroke="#818cf8" stroke-width="1.2" />
+    <line x1="50" y1="84" x2="50" y2="91" stroke="#10b981" stroke-width="1.5" />
+    <line x1="60" y1="84" x2="60" y2="91" stroke="#fbbf24" stroke-width="1.2" />
+    <line x1="70" y1="84" x2="70" y2="91" stroke="#f43f5e" stroke-width="1.2" />
   </g>
 
   <!-- 3. Ascending Double-Helix Coiled Spring -->
   <g class="gj-spring" filter="url(#gj-glow)">
     <!-- Helix Strand 1 -->
     <path
-      d="M 36 84 C 26 78, 26 70, 48 66 C 70 62, 72 54, 46 48 C 28 44, 30 38, 48 34"
+      d="M 36 84 C 24 78, 24 68, 48 64 C 72 60, 72 52, 46 46 C 26 42, 28 36, 48 32"
       fill="none"
       stroke="url(#gj-helix-grad)"
-      stroke-width="2.6"
+      stroke-width="2.8"
       stroke-linecap="round"
     />
     <!-- Helix Strand 2 -->
     <path
-      d="M 64 84 C 74 78, 74 70, 52 66 C 30 62, 28 54, 54 48 C 72 44, 70 38, 52 34"
+      d="M 64 84 C 76 78, 76 68, 52 64 C 28 60, 28 52, 54 46 C 74 42, 72 36, 52 32"
       fill="none"
       stroke="#38bdf8"
-      stroke-width="2"
+      stroke-width="2.2"
       stroke-linecap="round"
       opacity="0.85"
     />
     <!-- Base pair rungs between spring coils -->
-    <line x1="33" y1="76" x2="67" y2="76" stroke="#38bdf8" stroke-width="1.2" opacity="0.65" />
-    <line x1="40" y1="65" x2="60" y2="65" stroke="#818cf8" stroke-width="1.2" opacity="0.75" />
-    <line x1="34" y1="53" x2="66" y2="53" stroke="#a855f7" stroke-width="1.2" opacity="0.75" />
-    <line x1="42" y1="41" x2="58" y2="41" stroke="#38bdf8" stroke-width="1.2" opacity="0.65" />
+    <line x1="32" y1="75" x2="68" y2="75" stroke="#38bdf8" stroke-width="1.3" opacity="0.75" />
+    <line x1="39" y1="63" x2="61" y2="63" stroke="#818cf8" stroke-width="1.3" opacity="0.8" />
+    <line x1="33" y1="51" x2="67" y2="51" stroke="#c084fc" stroke-width="1.3" opacity="0.8" />
+    <line x1="41" y1="39" x2="59" y2="39" stroke="#38bdf8" stroke-width="1.3" opacity="0.75" />
   </g>
 
   <!-- 4. Propulsion Flame & Particle Sparks -->
-  <g class="gj-propulsion">
-    <polygon points="46,34 54,34 50,44" fill="url(#gj-flame-grad)" />
+  <g class="gj-propulsion" filter="url(#gj-glow)">
+    <polygon points="45,32 55,32 50,46" fill="url(#gj-flame-grad)" />
     <!-- Sparks -->
-    <circle cx="43" cy="40" r="1.2" fill="#fbbf24" />
-    <circle cx="57" cy="38" r="1" fill="#f43f5e" />
-    <circle cx="48" cy="46" r="0.8" fill="#38bdf8" />
+    <circle cx="43" cy="40" r="1.4" fill="#fbbf24" stroke="#ffffff" stroke-width="0.4" />
+    <circle cx="57" cy="38" r="1.2" fill="#f43f5e" />
+    <circle cx="48" cy="48" r="0.9" fill="#38bdf8" />
   </g>
 
   <!-- 5. RNA Polymerase II Jumping Complex -->
@@ -138,7 +147,15 @@ const { size = 64, class: className = '' } = Astro.props;
       stroke-width="1.5"
     />
 
-    <!-- Active Catalytic Transcription Cleft -->
+    <!-- Pol II Clamp Domain -->
+    <path
+      d="M 58 15 C 64 18, 66 24, 62 28 C 60 26, 60 20, 58 15 Z"
+      fill="url(#gj-clamp-grad)"
+      stroke="var(--color-surface, #ffffff)"
+      stroke-width="0.8"
+    />
+
+    <!-- Active Catalytic Transcription Cleft with Magnesium Ion Sparkle -->
     <path
       d="M 52 17 C 56 19, 58 24, 55 28 C 53 29, 49 28, 48 26"
       fill="none"
@@ -146,6 +163,7 @@ const { size = 64, class: className = '' } = Astro.props;
       stroke-width="1.8"
       stroke-linecap="round"
     />
+    <circle cx="52" cy="23" r="1.5" fill="#ffffff" stroke="#f59e0b" stroke-width="0.6" />
 
     <!-- Pol II Eye Subunits (Friendly Arcade Expression) -->
     <circle cx="47" cy="18" r="2.2" fill="#ffffff" />
@@ -169,7 +187,7 @@ const { size = 64, class: className = '' } = Astro.props;
   </g>
 
   <!-- 6. Floating Ascending Nucleotide Gems (A · C · G · T) -->
-  <g class="gj-gems">
+  <g class="gj-gems" filter="url(#gj-glow)">
     <!-- Gem A (Emerald) -->
     <polygon points="76,20 80,16 84,20 80,24" fill="#10b981" stroke="#ffffff" stroke-width="0.8" />
     <text x="80" y="21.5" font-family="monospace" font-size="5" font-weight="bold" fill="#ffffff" text-anchor="middle">A</text>
@@ -198,6 +216,6 @@ const { size = 64, class: className = '' } = Astro.props;
   }
 
   .genome-jumper-logo:hover {
-    transform: scale(1.06) translateY(-2px);
+    transform: scale(1.08) translateY(-2px);
   }
 </style>

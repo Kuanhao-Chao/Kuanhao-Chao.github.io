@@ -19,22 +19,22 @@ const { size = 64, class: className = '' } = Astro.props;
   <defs>
     <!-- Battlefield heat aura radial gradient -->
     <radialGradient id="tf-aura" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.22" />
-      <stop offset="65%" stop-color="#3b82f6" stop-opacity="0.08" />
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.25" />
+      <stop offset="60%" stop-color="#3b82f6" stop-opacity="0.10" />
       <stop offset="100%" stop-color="#1d4ed8" stop-opacity="0" />
     </radialGradient>
 
     <!-- Tactical Selection Ring Gradient -->
     <radialGradient id="tf-ring" cx="50%" cy="50%" r="50%">
       <stop offset="70%" stop-color="#10b981" stop-opacity="0" />
-      <stop offset="90%" stop-color="#10b981" stop-opacity="0.75" />
+      <stop offset="90%" stop-color="#10b981" stop-opacity="0.85" />
       <stop offset="100%" stop-color="#059669" stop-opacity="0.95" />
     </radialGradient>
 
     <!-- Blue Tank Armor Primary Gradient -->
     <linearGradient id="tf-armor-main" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#60a5fa" />
-      <stop offset="45%" stop-color="#3b82f6" />
+      <stop offset="0%" stop-color="#93c5fd" />
+      <stop offset="35%" stop-color="#3b82f6" />
       <stop offset="100%" stop-color="#1d4ed8" />
     </linearGradient>
 
@@ -47,14 +47,14 @@ const { size = 64, class: className = '' } = Astro.props;
 
     <!-- Tank Turret Dome Highlight Gradient -->
     <linearGradient id="tf-turret" x1="20%" y1="0%" x2="80%" y2="100%">
-      <stop offset="0%" stop-color="#93c5fd" />
+      <stop offset="0%" stop-color="#bfdbfe" />
       <stop offset="40%" stop-color="#3b82f6" />
       <stop offset="100%" stop-color="#1e3a8a" />
     </linearGradient>
 
     <!-- Cannon Barrel Metallic Gradient -->
     <linearGradient id="tf-barrel" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#bfdbfe" />
+      <stop offset="0%" stop-color="#dbeafe" />
       <stop offset="50%" stop-color="#3b82f6" />
       <stop offset="100%" stop-color="#1d4ed8" />
     </linearGradient>
@@ -68,8 +68,8 @@ const { size = 64, class: className = '' } = Astro.props;
     </radialGradient>
 
     <!-- Shockwave Glow Filter -->
-    <filter id="tf-glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="1.6" result="blur" />
+    <filter id="tf-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.8" result="blur" />
       <feComposite in="SourceGraphic" in2="blur" operator="over" />
     </filter>
   </defs>
@@ -87,22 +87,21 @@ const { size = 64, class: className = '' } = Astro.props;
     opacity="0.65"
   />
 
-  <!-- 2. Cracked Battlefield Ground Terrain & Target Lines -->
-  <g class="tf-terrain" opacity="0.45">
+  <!-- 2. Tactical Battlefield Ground Grid & Tread Tracks -->
+  <g class="tf-terrain" opacity="0.4">
+    <!-- Tread impression lines in ground -->
+    <path d="M 16 64 L 28 72" stroke="#64748b" stroke-width="1.5" stroke-linecap="round" />
+    <path d="M 22 68 L 34 76" stroke="#64748b" stroke-width="1.5" stroke-linecap="round" />
+    <path d="M 28 72 L 40 80" stroke="#64748b" stroke-width="1.5" stroke-linecap="round" />
+    <!-- Tactical terrain lines -->
     <path
-      d="M 12 40 L 26 50 L 18 64 L 10 74"
+      d="M 12 40 L 26 50 L 18 64"
       fill="none"
       stroke="var(--color-rule, #e5e4df)"
       stroke-width="1"
     />
     <path
       d="M 78 28 L 86 38 L 92 56"
-      fill="none"
-      stroke="var(--color-rule, #e5e4df)"
-      stroke-width="1"
-    />
-    <path
-      d="M 38 84 L 54 88 L 70 82"
       fill="none"
       stroke="var(--color-rule, #e5e4df)"
       stroke-width="1"
@@ -119,7 +118,7 @@ const { size = 64, class: className = '' } = Astro.props;
       ry="22"
       fill="none"
       stroke="#10b981"
-      stroke-width="5"
+      stroke-width="4.5"
       opacity="0.85"
     />
     <ellipse
@@ -129,7 +128,7 @@ const { size = 64, class: className = '' } = Astro.props;
       ry="22"
       fill="none"
       stroke="#a7f3d0"
-      stroke-width="1.5"
+      stroke-width="1.4"
       opacity="0.95"
     />
     <!-- Targeting Crosshair Ticks -->
@@ -137,9 +136,12 @@ const { size = 64, class: className = '' } = Astro.props;
     <line x1="88" y1="60" x2="94" y2="60" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" />
     <line x1="50" y1="38" x2="50" y2="34" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" />
     <line x1="50" y1="82" x2="50" y2="86" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" />
+    <!-- Tactical status coordinates text -->
+    <circle cx="20" cy="50" r="1.5" fill="#10b981" />
+    <circle cx="80" cy="70" r="1.5" fill="#10b981" />
   </g>
 
-  <!-- 4. Tank Shadow -->
+  <!-- 4. Tank Ground Shadow -->
   <ellipse cx="48" cy="64" rx="28" ry="14" fill="#0f172a" opacity="0.35" />
 
   <!-- 5. Isometric Tank Assembly -->
@@ -183,9 +185,13 @@ const { size = 64, class: className = '' } = Astro.props;
       <path
         d="M 48 36 L 76 46 L 66 54 L 42 46 Z"
         fill="#93c5fd"
-        opacity="0.4"
+        opacity="0.45"
       />
-      <!-- Front Viewport / Headlight -->
+      <!-- Armored Rivets -->
+      <circle cx="46" cy="42" r="0.8" fill="#ffffff" />
+      <circle cx="56" cy="46" r="0.8" fill="#ffffff" />
+      <circle cx="66" cy="50" r="0.8" fill="#ffffff" />
+      <!-- Front Headlight with glow -->
       <circle cx="64" cy="50" r="3.2" fill="#fef08a" stroke="#0f172a" stroke-width="1.2" />
       <circle cx="64" cy="50" r="1.2" fill="#ffffff" />
     </g>
@@ -202,9 +208,11 @@ const { size = 64, class: className = '' } = Astro.props;
       <!-- Front Large Road Wheel -->
       <circle cx="46" cy="72" r="7.5" fill="url(#tf-armor-main)" stroke="#0f172a" stroke-width="1.3" />
       <circle cx="46" cy="72" r="3.5" fill="#1e3a8a" />
+      <circle cx="46" cy="72" r="1.5" fill="#93c5fd" />
       <!-- Rear Road Wheel -->
       <circle cx="64" cy="68" r="7" fill="url(#tf-armor-main)" stroke="#0f172a" stroke-width="1.3" />
       <circle cx="64" cy="68" r="3" fill="#1e3a8a" />
+      <circle cx="64" cy="68" r="1.5" fill="#93c5fd" />
       <!-- Center idler gear -->
       <circle cx="55" cy="70" r="4.5" fill="url(#tf-armor-main)" stroke="#0f172a" stroke-width="1" />
       <!-- Track tread notches -->
@@ -213,7 +221,7 @@ const { size = 64, class: className = '' } = Astro.props;
       <line x1="64" y1="78" x2="66" y2="80" stroke="#0f172a" stroke-width="1.2" />
     </g>
 
-    <!-- Rounded Dome Turret -->
+    <!-- Rounded Dome Turret with Reactive Armor Plate -->
     <g class="tf-turret-assembly">
       <!-- Turret Dome Body -->
       <path
@@ -234,11 +242,11 @@ const { size = 64, class: className = '' } = Astro.props;
         stroke="#ffffff"
         stroke-width="1.3"
         stroke-linecap="round"
-        opacity="0.8"
+        opacity="0.85"
       />
     </g>
 
-    <!-- Heavy Cannon Barrel & Muzzle Shroud -->
+    <!-- Heavy Cannon Barrel, Recoil Shroud & Laser Sight -->
     <g class="tf-cannon">
       <!-- Conical Cannon Mantlet / Collar -->
       <path
@@ -256,6 +264,9 @@ const { size = 64, class: className = '' } = Astro.props;
       />
       <!-- Barrel Muzzle Ring Lip -->
       <ellipse cx="83" cy="26" rx="2.5" ry="4" fill="#0f172a" stroke="#93c5fd" stroke-width="1" />
+
+      <!-- Green Laser Sightline -->
+      <line x1="83" y1="26" x2="98" y2="21" stroke="#10b981" stroke-width="0.8" stroke-dasharray="1.5 1.5" opacity="0.8" />
     </g>
   </g>
 
@@ -283,18 +294,18 @@ const { size = 64, class: className = '' } = Astro.props;
     />
 
     <!-- White-hot Core Blast Center -->
-    <circle cx="87" cy="26" r="3.2" fill="#ffffff" />
+    <circle cx="87" cy="26" r="3.4" fill="#ffffff" />
     <circle cx="87" cy="26" r="1.8" fill="#fef08a" />
 
     <!-- Trailing Ballistic Sparks & Smoke Plumes -->
-    <circle cx="94" cy="14" r="1.3" fill="#f59e0b" />
-    <circle cx="97" cy="22" r="1.6" fill="#ef4444" />
-    <circle cx="96" cy="34" r="1.1" fill="#fbbf24" />
-    <circle cx="91" cy="42" r="0.8" fill="#f97316" />
+    <circle cx="94" cy="14" r="1.4" fill="#f59e0b" />
+    <circle cx="98" cy="22" r="1.6" fill="#ef4444" />
+    <circle cx="96" cy="34" r="1.2" fill="#fbbf24" />
+    <circle cx="91" cy="42" r="0.9" fill="#f97316" />
 
     <!-- Recoil Smoke Puffs -->
-    <circle cx="76" cy="20" r="2.5" fill="#e2e8f0" opacity="0.5" />
-    <circle cx="72" cy="16" r="2" fill="#cbd5e1" opacity="0.4" />
+    <circle cx="76" cy="20" r="2.8" fill="#e2e8f0" opacity="0.5" />
+    <circle cx="72" cy="16" r="2.2" fill="#cbd5e1" opacity="0.4" />
   </g>
 </svg>
 
@@ -308,6 +319,6 @@ const { size = 64, class: className = '' } = Astro.props;
   }
 
   .tank-fire-logo:hover {
-    transform: scale(1.06) translateY(-2px);
+    transform: scale(1.08) translateY(-2px);
   }
 </style>

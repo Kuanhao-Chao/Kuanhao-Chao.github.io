@@ -19,40 +19,44 @@ const { size = 64, class: className = '' } = Astro.props;
   <defs>
     <!-- Background Aura -->
     <radialGradient id="jj-aura" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="var(--color-accent, #2e6e5e)" stop-opacity="0.25" />
-      <stop offset="100%" stop-color="var(--color-accent, #2e6e5e)" stop-opacity="0" />
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.28" />
+      <stop offset="60%" stop-color="#059669" stop-opacity="0.10" />
+      <stop offset="100%" stop-color="#047857" stop-opacity="0" />
     </radialGradient>
 
     <!-- Aviator Enzyme Gradient -->
     <linearGradient id="jj-enzyme-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#10b981" />
-      <stop offset="50%" stop-color="#059669" />
+      <stop offset="0%" stop-color="#34d399" />
+      <stop offset="45%" stop-color="#10b981" />
       <stop offset="100%" stop-color="#047857" />
     </linearGradient>
 
     <!-- Jetpack Thruster Gradient -->
     <linearGradient id="jj-pack-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="0%" stop-color="#7dd3fc" />
+      <stop offset="50%" stop-color="#38bdf8" />
       <stop offset="100%" stop-color="#0284c7" />
     </linearGradient>
 
     <!-- Plasma Flame Gradient -->
     <linearGradient id="jj-flame-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#fef08a" />
-      <stop offset="40%" stop-color="#f59e0b" />
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="25%" stop-color="#fef08a" />
+      <stop offset="60%" stop-color="#f59e0b" />
       <stop offset="100%" stop-color="#f43f5e" stop-opacity="0" />
     </linearGradient>
 
     <!-- Zapper Bolt Gradient -->
     <linearGradient id="jj-zap-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#f43f5e" />
-      <stop offset="50%" stop-color="#fb7185" />
-      <stop offset="100%" stop-color="#f43f5e" />
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="20%" stop-color="#fef08a" />
+      <stop offset="60%" stop-color="#f43f5e" />
+      <stop offset="100%" stop-color="#be123c" />
     </linearGradient>
 
     <!-- Glow Filter -->
-    <filter id="jj-glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="2" result="blur" />
+    <filter id="jj-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.8" result="blur" />
       <feComposite in="SourceGraphic" in2="blur" operator="over" />
     </filter>
   </defs>
@@ -67,49 +71,68 @@ const { size = 64, class: className = '' } = Astro.props;
     stroke="var(--color-rule, #e5e4df)"
     stroke-width="1.2"
     stroke-dasharray="4 3"
-    opacity="0.6"
+    opacity="0.65"
   />
 
-  <!-- 2. Mutagen Electrical Zapper Hazard -->
-  <g class="jj-zapper" transform="translate(68, 14)">
-    <!-- Top & Bottom Electrode Nodes -->
-    <circle cx="10" cy="0" r="4" fill="#64748b" stroke="#ffffff" stroke-width="0.8" />
-    <circle cx="10" cy="34" r="4" fill="#64748b" stroke="#ffffff" stroke-width="0.8" />
+  <!-- 2. Mutagen Electrical Zapper Hazard with Plasma Bolts -->
+  <g class="jj-zapper" transform="translate(68, 12)" filter="url(#jj-glow)">
+    <!-- Top & Bottom Metallic Electrode Nodes -->
+    <circle cx="10" cy="2" r="4.5" fill="#475569" stroke="#ffffff" stroke-width="1" />
+    <circle cx="10" cy="2" r="2" fill="#ef4444" />
+    <circle cx="10" cy="36" r="4.5" fill="#475569" stroke="#ffffff" stroke-width="1" />
+    <circle cx="10" cy="36" r="2" fill="#ef4444" />
+
     <!-- Crackling Plasma Arc -->
     <path
-      d="M 10 2 L 6 9 L 14 17 L 7 24 L 12 30 L 10 34"
+      d="M 10 4 L 5 11 L 15 19 L 6 26 L 13 32 L 10 36"
       fill="none"
       stroke="url(#jj-zap-grad)"
-      stroke-width="2.2"
+      stroke-width="2.6"
       stroke-linecap="round"
       stroke-linejoin="round"
     />
+    <!-- Inner High-Voltage Plasma Core -->
+    <path
+      d="M 10 4 L 5 11 L 15 19 L 6 26 L 13 32 L 10 36"
+      fill="none"
+      stroke="#ffffff"
+      stroke-width="1"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <!-- Spark Embers -->
+    <circle cx="3" cy="18" r="0.9" fill="#fef08a" />
+    <circle cx="17" cy="24" r="1.1" fill="#f43f5e" />
   </g>
 
   <!-- 3. High-Velocity Enzyme Aviator with ATP-Synthase Jetpack -->
   <g class="jj-flyer" transform="translate(18, 30)" filter="url(#jj-glow)">
-    <!-- Plasma Exhaust Thruster Flames -->
+    <!-- Multi-Stage Plasma Exhaust Thruster Flames -->
     <g class="jj-flames">
-      <polygon points="12,32 18,32 15,50" fill="url(#jj-flame-grad)" />
-      <polygon points="19,32 25,32 22,50" fill="url(#jj-flame-grad)" />
+      <polygon points="11,32 17,32 14,52" fill="url(#jj-flame-grad)" />
+      <polygon points="18,32 24,32 21,52" fill="url(#jj-flame-grad)" />
+      <!-- High-Heat Inner Core Flame -->
+      <polygon points="12.5,32 15.5,32 14,44" fill="#ffffff" opacity="0.9" />
+      <polygon points="19.5,32 22.5,32 21,44" fill="#ffffff" opacity="0.9" />
       <!-- Sparks -->
-      <circle cx="15" cy="46" r="1.2" fill="#fbbf24" />
-      <circle cx="23" cy="44" r="1" fill="#f43f5e" />
+      <circle cx="14" cy="48" r="1.4" fill="#fbbf24" stroke="#ffffff" stroke-width="0.4" />
+      <circle cx="23" cy="46" r="1.2" fill="#f43f5e" />
+      <circle cx="17" cy="54" r="0.9" fill="#38bdf8" />
     </g>
 
     <!-- Dual-Chamber Jetpack Thrusters -->
     <rect x="10" y="16" width="7" height="16" rx="2.5" fill="url(#jj-pack-grad)" stroke="#ffffff" stroke-width="1" />
     <rect x="18" y="16" width="7" height="16" rx="2.5" fill="url(#jj-pack-grad)" stroke="#ffffff" stroke-width="1" />
     <!-- Exhaust Nozzles -->
-    <rect x="11" y="30" width="5" height="3" fill="#334155" />
-    <rect x="19" y="30" width="5" height="3" fill="#334155" />
+    <rect x="11" y="30" width="5" height="3" fill="#1e293b" />
+    <rect x="19" y="30" width="5" height="3" fill="#1e293b" />
 
     <!-- Enzyme Aviator Body (Forward Incline) -->
     <path
       d="M 22 10 C 28 6, 38 6, 42 12 C 46 16, 44 26, 38 30 C 32 34, 24 32, 20 26 C 18 20, 18 14, 22 10 Z"
       fill="url(#jj-enzyme-grad)"
       stroke="var(--color-surface, #ffffff)"
-      stroke-width="1.4"
+      stroke-width="1.5"
     />
 
     <!-- Aviator Visor / Goggles -->
@@ -117,26 +140,31 @@ const { size = 64, class: className = '' } = Astro.props;
       d="M 32 12 C 38 12, 42 15, 41 19 C 40 21, 35 22, 30 20 Z"
       fill="#38bdf8"
       stroke="#ffffff"
-      stroke-width="1.1"
+      stroke-width="1.2"
     />
+    <circle cx="37" cy="16" r="1.5" fill="#ffffff" opacity="0.8" />
 
-    <!-- Trailing Energy Ribbon -->
+    <!-- Trailing Speed Glow Ribbons -->
     <path d="M 20 22 C 14 24, 8 20, 2 22" fill="none" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round" />
+    <path d="M 22 26 C 16 28, 10 26, 4 28" fill="none" stroke="#38bdf8" stroke-width="1.2" stroke-linecap="round" opacity="0.8" />
   </g>
 
-  <!-- 4. Floating Nucleotide Coins (A · C · G) -->
-  <g class="jj-coins">
+  <!-- 4. Floating 3D Nucleotide Coins (A · C · G) -->
+  <g class="jj-coins" filter="url(#jj-glow)">
     <!-- Coin A (Emerald) -->
-    <circle cx="22" cy="22" r="6" fill="#10b981" stroke="#ffffff" stroke-width="1" />
-    <text x="22" y="24" font-family="monospace" font-size="6" font-weight="bold" fill="#ffffff" text-anchor="middle">A</text>
+    <circle cx="22" cy="22" r="6.5" fill="#10b981" stroke="#ffffff" stroke-width="1.2" />
+    <circle cx="22" cy="22" r="4.8" fill="none" stroke="#6ee7b7" stroke-width="0.8" />
+    <text x="22" y="24.2" font-family="monospace" font-size="6" font-weight="bold" fill="#ffffff" text-anchor="middle">A</text>
 
     <!-- Coin C (Cyan) -->
-    <circle cx="36" cy="15" r="5.5" fill="#38bdf8" stroke="#ffffff" stroke-width="1" />
-    <text x="36" y="17" font-family="monospace" font-size="5.5" font-weight="bold" fill="#ffffff" text-anchor="middle">C</text>
+    <circle cx="36" cy="15" r="6" fill="#38bdf8" stroke="#ffffff" stroke-width="1.2" />
+    <circle cx="36" cy="15" r="4.4" fill="none" stroke="#bae6fd" stroke-width="0.8" />
+    <text x="36" y="17.2" font-family="monospace" font-size="5.5" font-weight="bold" fill="#ffffff" text-anchor="middle">C</text>
 
     <!-- Coin G (Amber) -->
-    <circle cx="50" cy="18" r="6" fill="#f59e0b" stroke="#ffffff" stroke-width="1" />
-    <text x="50" y="20" font-family="monospace" font-size="6" font-weight="bold" fill="#ffffff" text-anchor="middle">G</text>
+    <circle cx="50" cy="18" r="6.5" fill="#f59e0b" stroke="#ffffff" stroke-width="1.2" />
+    <circle cx="50" cy="18" r="4.8" fill="none" stroke="#fef08a" stroke-width="0.8" />
+    <text x="50" y="20.2" font-family="monospace" font-size="6" font-weight="bold" fill="#ffffff" text-anchor="middle">G</text>
   </g>
 
   <!-- 5. Protective Shield Bubble Arc -->
@@ -144,9 +172,9 @@ const { size = 64, class: className = '' } = Astro.props;
     d="M 28 84 C 40 88, 62 88, 74 84"
     fill="none"
     stroke="#38bdf8"
-    stroke-width="1.5"
+    stroke-width="1.8"
     stroke-dasharray="3 3"
-    opacity="0.75"
+    opacity="0.8"
   />
 </svg>
 
@@ -160,6 +188,6 @@ const { size = 64, class: className = '' } = Astro.props;
   }
 
   .jetpack-joyride-logo:hover {
-    transform: scale(1.06) translateY(-2px);
+    transform: scale(1.08) translateY(-2px);
   }
 </style>
