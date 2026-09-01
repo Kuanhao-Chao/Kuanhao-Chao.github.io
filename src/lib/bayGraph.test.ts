@@ -6,6 +6,7 @@ import {
   createBayGraph,
   haversineDistanceMiles,
   heuristicTravelTimeMinutes,
+  spliceCustomEndpoints,
 } from './bayGraph';
 
 describe('bayGraph topology and data integrity', () => {
@@ -102,5 +103,35 @@ describe('bayGraph topology and data integrity', () => {
     const heuristicTime = heuristicTravelTimeMinutes(sfFerry, berkeley, 65);
     expect(heuristicTime).toBeGreaterThan(5);
     expect(heuristicTime).toBeLessThan(15);
+  });
+
+  it('splices custom arbitrary endpoints into the base road network graph', () => {
+    const base = createBayGraph();
+    const customStart = {
+      id: 'custom_apple_hq',
+      name: '1 Infinite Loop, Cupertino',
+      lat: 37.3318,
+      lng: -122.0312,
+      city: 'Cupertino',
+    };
+    const customGoal = {
+      id: 'custom_coit_tower',
+      name: 'Coit Tower, SF',
+      lat: 37.8024,
+      lng: -122.4058,
+      city: 'San Francisco',
+    };
+
+    const { graph, startId, goalId } = spliceCustomEndpoints(base, customStart, customGoal, 3);
+    expect(startId).toBe('custom_apple_hq');
+    expect(goalId).toBe('custom_coit_tower');
+    expect(graph.nodes.has('custom_apple_hq')).toBe(true);
+    expect(graph.nodes.has('custom_coit_tower')).toBe(true);
+
+    const startNeighbors = graph.adjacency.get('custom_apple_hq') || [];
+    expect(startNeighbors.length).toBe(3);
+
+    const goalNeighbors = graph.adjacency.get('custom_coit_tower') || [];
+    expect(goalNeighbors.length).toBe(3);
   });
 });

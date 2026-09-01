@@ -1,11 +1,14 @@
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import {
   type BayGraph,
   type BayNode,
   BAY_NODES,
   BAY_EDGES,
-  BAY_WATER_POLYGONS,
   PRESET_TRIPS,
   createBayGraph,
+  spliceCustomEndpoints,
+  type CustomEndpoint,
 } from '../lib/bayGraph';
 import {
   type AlgorithmId,
@@ -14,85 +17,198 @@ import {
   ALGORITHMS,
   runPathfinding,
 } from '../lib/pathfinding';
+import {
+  searchBayAreaPlaces,
+  reverseGeocodeLocal,
+  type GeocodedPlace,
+  LOCAL_BAY_GAZETTEER,
+} from '../lib/geocoding';
 
-export interface BayRouteAppOptions {
-  canvas: HTMLCanvasElement;
-  container: HTMLElement;
-}
+export type MapTileStyle = 'dark' | 'light' | 'streets' | 'satellite';
 
 export class BayRouteVisualizer {
-  private canvas: HTMLCanvasElement;
+  private mapEl: HTMLElement;
+  private canvasEl: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private container: HTMLElement;
-  private graph: BayGraph;
 
-  // App State
+  // Leaflet Map & Layer Instances
+  private map: L.Map | null = null;
+  private tileLayer: L.TileLayer | null = null;
+  private currentTileStyle: MapTileStyle = 'dark';
+  private startMarker: L.Marker | null = null;
+  private goalMarker: L.Marker | null = null;
+
+  // Graph & Endpoints
+  private baseGraph: BayGraph;
+  private activeGraph: BayGraph;
+  public currentStartEndpoint: CustomEndpoint;
+  public currentGoalEndpoint: CustomEndpoint;
+  private startId: string = 'sf_ferry_bldg';
+  private goalId: string = 'berkeley_campanile';
+
+  // App & Algorithm State
   public currentAlgorithm: AlgorithmId = 'dijkstra';
-  public currentStartId: string = 'sf_ferry_bldg';
-  public currentGoalId: string = 'berkeley_campanile';
   public isRaceMode: boolean = false;
-
-  // Search Results & Animation Playback
   private currentResult: PathfindingResult | null = null;
   private raceResults: Map<AlgorithmId, PathfindingResult> = new Map();
   private currentStepIndex: number = 0;
   private isPlaying: boolean = false;
-  private animationSpeed: number = 1; // 1x default
+  private animationSpeed: number = 1;
   private animFrameId: number | null = null;
   private lastFrameTimestamp: number = 0;
   private stepsAccumulator: number = 0;
 
-  // Hover & Interaction
+  // Hover & Theme
   private hoveredNodeId: string | null = null;
-  private selectingTarget: 'start' | 'goal' | 'auto' = 'auto';
+  private isDarkTheme: boolean = true;
 
-  // Theme support
-  private isDark: boolean = true;
-
-  constructor(canvas: HTMLCanvasElement, container: HTMLElement) {
-    this.canvas = canvas;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Failed to obtain Canvas 2D context');
+  constructor(mapEl: HTMLElement, canvasEl: HTMLCanvasElement, container: HTMLElement) {
+    this.mapEl = mapEl;
+    this.canvasEl = canvasEl;
+    const ctx = canvasEl.getContext('2d');
+    if (!ctx) throw new Error('Failed to get 2D canvas context');
     this.ctx = ctx;
     this.container = container;
-    this.graph = createBayGraph();
+
+    this.baseGraph = createBayGraph();
+    this.activeGraph = this.baseGraph;
+
+    // Default start & goal
+    const defaultStart = LOCAL_BAY_GAZETTEER[0]; // SF Ferry Bldg
+    const defaultGoal = LOCAL_BAY_GAZETTEER.find((p) => p.id === 'geo_uc_berkeley')!; // UC Berkeley
+
+    this.currentStartEndpoint = {
+      id: 'sf_ferry_bldg',
+      name: defaultStart.name,
+      lat: defaultStart.lat,
+      lng: defaultStart.lng,
+      city: defaultStart.city,
+      region: defaultStart.region,
+    };
+
+    this.currentGoalEndpoint = {
+      id: 'berkeley_campanile',
+      name: defaultGoal.name,
+      lat: defaultGoal.lat,
+      lng: defaultGoal.lng,
+      city: defaultGoal.city,
+      region: defaultGoal.region,
+    };
 
     this.detectTheme();
-    this.initCanvasSize();
-    this.bindEvents();
-    this.loadTrip('trip-bay-bridge');
+    this.initMap();
+    this.initCanvasOverlay();
+    this.bindDOMEvents();
+    this.recalculate();
   }
 
   private detectTheme(): void {
     const theme = document.documentElement.getAttribute('data-theme') || 'dark';
-    this.isDark = theme !== 'light' && theme !== 'parchment';
+    this.isDarkTheme = theme !== 'light' && theme !== 'parchment';
+    this.currentTileStyle = this.isDarkTheme ? 'dark' : 'light';
   }
 
-  private initCanvasSize(): void {
-    const rect = this.canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    const width = rect.width || 800;
-    const height = rect.height || 640;
+  private initMap(): void {
+    // Center of the Bay Area (SF Bay waters between SF and Oakland)
+    const bayCenter: L.LatLngExpression = [37.76, -122.28];
 
-    this.canvas.width = width * dpr;
-    this.canvas.height = height * dpr;
-    this.ctx.resetTransform();
-    this.ctx.scale((width * dpr) / 1000, (height * dpr) / 1000);
-  }
+    this.map = L.map(this.mapEl, {
+      center: bayCenter,
+      zoom: 10,
+      minZoom: 8,
+      maxZoom: 18,
+      zoomControl: false,
+      attributionControl: false,
+    });
 
-  private bindEvents(): void {
-    window.addEventListener('resize', () => {
-      this.initCanvasSize();
+    // Custom Zoom Controls top-right
+    L.control.zoom({ position: 'topright' }).addTo(this.map);
+
+    this.updateTileLayer();
+
+    // Map Events to sync Canvas overlay
+    this.map.on('move zoom viewreset resize', () => {
+      this.syncCanvasDimensions();
       this.render();
     });
 
+    // Map Click to drop custom Start / Goal pins
+    this.map.on('click', (e: L.LeafletMouseEvent) => {
+      this.handleMapClick(e.latlng.lat, e.latlng.lng);
+    });
+  }
+
+  private updateTileLayer(): void {
+    if (!this.map) return;
+    if (this.tileLayer) {
+      this.map.removeLayer(this.tileLayer);
+    }
+
+    let url = '';
+    const subdomains = ['a', 'b', 'c', 'd'];
+
+    switch (this.currentTileStyle) {
+      case 'dark':
+        url = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+        break;
+      case 'light':
+        url = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+        break;
+      case 'streets':
+        url = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+        break;
+      case 'satellite':
+        url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+        break;
+    }
+
+    this.tileLayer = L.tileLayer(url, {
+      subdomains,
+      maxZoom: 19,
+    }).addTo(this.map);
+  }
+
+  public setTileStyle(style: MapTileStyle): void {
+    this.currentTileStyle = style;
+    this.updateTileLayer();
+    this.render();
+  }
+
+  private initCanvasOverlay(): void {
+    this.syncCanvasDimensions();
+  }
+
+  private syncCanvasDimensions(): void {
+    if (!this.map) return;
+    const size = this.map.getSize();
+    const dpr = window.devicePixelRatio || 1;
+
+    this.canvasEl.width = size.x * dpr;
+    this.canvasEl.height = size.y * dpr;
+    this.canvasEl.style.width = `${size.x}px`;
+    this.canvasEl.style.height = `${size.y}px`;
+
+    this.ctx.resetTransform();
+    this.ctx.scale(dpr, dpr);
+  }
+
+  private latLngToPoint(lat: number, lng: number): { x: number; y: number } {
+    if (!this.map) return { x: 0, y: 0 };
+    const p = this.map.latLngToContainerPoint([lat, lng]);
+    return { x: p.x, y: p.y };
+  }
+
+  private bindDOMEvents(): void {
     document.addEventListener('khc:theme-change', () => {
       this.detectTheme();
+      this.updateTileLayer();
       this.render();
     });
 
     const observer = new MutationObserver(() => {
       this.detectTheme();
+      this.updateTileLayer();
       this.render();
     });
     observer.observe(document.documentElement, {
@@ -100,118 +216,176 @@ export class BayRouteVisualizer {
       attributeFilter: ['data-theme'],
     });
 
-    // Mouse Hover & Click Interaction
-    this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
-    this.canvas.addEventListener('mouseleave', () => {
-      this.hoveredNodeId = null;
-      this.render();
+    this.setupAutocomplete('start');
+    this.setupAutocomplete('goal');
+  }
+
+  private setupAutocomplete(type: 'start' | 'goal'): void {
+    const input = this.container.querySelector<HTMLInputElement>(`[data-br-input="${type}"]`);
+    const resultsContainer = this.container.querySelector<HTMLElement>(`[data-br-results="${type}"]`);
+    if (!input || !resultsContainer) return;
+
+    let debounceTimer: ReturnType<typeof setTimeout>;
+
+    input.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      const query = input.value.trim();
+
+      if (query.length < 2) {
+        resultsContainer.hidden = true;
+        resultsContainer.replaceChildren();
+        return;
+      }
+
+      debounceTimer = setTimeout(async () => {
+        const places = await searchBayAreaPlaces(query, 5);
+        resultsContainer.replaceChildren();
+
+        if (places.length === 0) {
+          resultsContainer.hidden = true;
+          return;
+        }
+
+        resultsContainer.hidden = false;
+        for (const place of places) {
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = 'br-autocomplete-item';
+
+          const title = document.createElement('strong');
+          title.textContent = place.name;
+          item.appendChild(title);
+
+          const sub = document.createElement('span');
+          sub.textContent = place.address || `${place.city} · ${place.region.toUpperCase()}`;
+          item.appendChild(sub);
+
+          item.addEventListener('click', () => {
+            input.value = place.name;
+            resultsContainer.hidden = true;
+
+            const endpoint: CustomEndpoint = {
+              id: place.id,
+              name: place.name,
+              lat: place.lat,
+              lng: place.lng,
+              city: place.city,
+              region: place.region,
+            };
+
+            if (type === 'start') {
+              this.currentStartEndpoint = endpoint;
+            } else {
+              this.currentGoalEndpoint = endpoint;
+            }
+
+            this.recalculate();
+            this.fitRouteBounds();
+          });
+
+          resultsContainer.appendChild(item);
+        }
+      }, 250);
     });
-    this.canvas.addEventListener('click', (e) => this.handleClick(e));
-  }
 
-  private getCanvasCoords(e: MouseEvent): { x: number; y: number } {
-    const rect = this.canvas.getBoundingClientRect();
-    const clientX = e.clientX - rect.left;
-    const clientY = e.clientY - rect.top;
-    const x = (clientX / rect.width) * 1000;
-    const y = (clientY / rect.height) * 1000;
-    return { x, y };
-  }
-
-  private findNearestNode(x: number, y: number, maxRadius = 35): BayNode | null {
-    let nearest: BayNode | null = null;
-    let minDist = maxRadius;
-
-    for (const node of this.graph.nodes.values()) {
-      const dist = Math.hypot(node.x - x, node.y - y);
-      if (dist < minDist) {
-        minDist = dist;
-        nearest = node;
+    // Close dropdown on outside click
+    document.addEventListener('click', (e) => {
+      if (!input.contains(e.target as Node) && !resultsContainer.contains(e.target as Node)) {
+        resultsContainer.hidden = true;
       }
-    }
-    return nearest;
+    });
   }
 
-  private handleMouseMove(e: MouseEvent): void {
-    const { x, y } = this.getCanvasCoords(e);
-    const nearest = this.findNearestNode(x, y, 30);
-    const newHover = nearest ? nearest.id : null;
+  private handleMapClick(lat: number, lng: number): void {
+    const geo = reverseGeocodeLocal(lat, lng);
 
-    if (newHover !== this.hoveredNodeId) {
-      this.hoveredNodeId = newHover;
-      this.canvas.style.cursor = nearest ? 'pointer' : 'default';
-      this.render();
-      this.updateTooltip(nearest, e.clientX, e.clientY);
+    // If start is set, update goal; or toggle between them
+    const goalInput = this.container.querySelector<HTMLInputElement>('[data-br-input="goal"]');
+    if (goalInput) goalInput.value = geo.name;
+
+    this.currentGoalEndpoint = {
+      id: geo.id,
+      name: geo.name,
+      lat,
+      lng,
+      city: geo.city,
+      region: geo.region,
+    };
+
+    this.recalculate();
+  }
+
+  public setCustomStart(place: GeocodedPlace): void {
+    this.currentStartEndpoint = {
+      id: place.id,
+      name: place.name,
+      lat: place.lat,
+      lng: place.lng,
+      city: place.city,
+      region: place.region,
+    };
+    const input = this.container.querySelector<HTMLInputElement>('[data-br-input="start"]');
+    if (input) input.value = place.name;
+    this.recalculate();
+  }
+
+  public setCustomGoal(place: GeocodedPlace): void {
+    this.currentGoalEndpoint = {
+      id: place.id,
+      name: place.name,
+      lat: place.lat,
+      lng: place.lng,
+      city: place.city,
+      region: place.region,
+    };
+    const input = this.container.querySelector<HTMLInputElement>('[data-br-input="goal"]');
+    if (input) input.value = place.name;
+    this.recalculate();
+  }
+
+  public loadTrip(tripId: string): void {
+    const trip = PRESET_TRIPS.find((t) => t.id === tripId);
+    if (!trip) return;
+
+    const startNode = this.baseGraph.nodes.get(trip.startId);
+    const goalNode = this.baseGraph.nodes.get(trip.goalId);
+
+    if (startNode && goalNode) {
+      this.currentStartEndpoint = {
+        id: startNode.id,
+        name: startNode.name,
+        lat: startNode.lat,
+        lng: startNode.lng,
+        city: startNode.city,
+        region: startNode.region,
+      };
+
+      this.currentGoalEndpoint = {
+        id: goalNode.id,
+        name: goalNode.name,
+        lat: goalNode.lat,
+        lng: goalNode.lng,
+        city: goalNode.city,
+        region: goalNode.region,
+      };
+
+      const startInput = this.container.querySelector<HTMLInputElement>('[data-br-input="start"]');
+      const goalInput = this.container.querySelector<HTMLInputElement>('[data-br-input="goal"]');
+      if (startInput) startInput.value = startNode.name;
+      if (goalInput) goalInput.value = goalNode.name;
+
+      this.recalculate();
+      this.fitRouteBounds();
     }
   }
 
-  private updateTooltip(node: BayNode | null, clientX: number, clientY: number): void {
-    const tooltip = this.container.querySelector<HTMLElement>('[data-br-tooltip]');
-    if (!tooltip) return;
-
-    if (!node) {
-      tooltip.hidden = true;
-      return;
-    }
-
-    tooltip.hidden = false;
-    tooltip.replaceChildren();
-
-    const titleEl = document.createElement('strong');
-    titleEl.textContent = node.name;
-    tooltip.appendChild(titleEl);
-
-    const subEl = document.createElement('span');
-    subEl.style.display = 'block';
-    subEl.style.fontSize = '0.75rem';
-    subEl.style.opacity = '0.8';
-    subEl.textContent = `${node.city} · ${node.region.toUpperCase()}`;
-    tooltip.appendChild(subEl);
-
-    if (node.description) {
-      const descEl = document.createElement('span');
-      descEl.style.display = 'block';
-      descEl.style.fontSize = '0.7rem';
-      descEl.style.marginTop = '2px';
-      descEl.style.color = 'var(--color-muted)';
-      descEl.textContent = node.description;
-      tooltip.appendChild(descEl);
-    }
-
-    const containerRect = this.container.getBoundingClientRect();
-    tooltip.style.left = `${clientX - containerRect.left + 12}px`;
-    tooltip.style.top = `${clientY - containerRect.top + 12}px`;
-  }
-
-  private handleClick(e: MouseEvent): void {
-    const { x, y } = this.getCanvasCoords(e);
-    const nearest = this.findNearestNode(x, y, 40);
-    if (!nearest) return;
-
-    if (this.selectingTarget === 'start') {
-      if (nearest.id !== this.currentGoalId) {
-        this.currentStartId = nearest.id;
-        this.selectingTarget = 'auto';
-        this.recalculate();
-      }
-    } else if (this.selectingTarget === 'goal') {
-      if (nearest.id !== this.currentStartId) {
-        this.currentGoalId = nearest.id;
-        this.selectingTarget = 'auto';
-        this.recalculate();
-      }
-    } else {
-      // Auto mode: toggle start or goal
-      if (nearest.id === this.currentStartId) {
-        this.selectingTarget = 'goal';
-      } else if (nearest.id === this.currentGoalId) {
-        this.selectingTarget = 'start';
-      } else {
-        // By default, set goal if start is already set
-        this.currentGoalId = nearest.id;
-        this.recalculate();
-      }
-    }
+  public fitRouteBounds(): void {
+    if (!this.map) return;
+    const bounds = L.latLngBounds(
+      [this.currentStartEndpoint.lat, this.currentStartEndpoint.lng],
+      [this.currentGoalEndpoint.lat, this.currentGoalEndpoint.lng]
+    );
+    this.map.fitBounds(bounds, { padding: [60, 60], maxZoom: 14 });
   }
 
   public setAlgorithm(alg: AlgorithmId): void {
@@ -224,31 +398,20 @@ export class BayRouteVisualizer {
     this.recalculate();
   }
 
-  public loadTrip(tripId: string): void {
-    const trip = PRESET_TRIPS.find((t) => t.id === tripId);
-    if (!trip) return;
-
-    this.currentStartId = trip.startId;
-    this.currentGoalId = trip.goalId;
-    this.recalculate();
-  }
-
-  public setStartNode(id: string): void {
-    if (this.graph.nodes.has(id) && id !== this.currentGoalId) {
-      this.currentStartId = id;
-      this.recalculate();
-    }
-  }
-
-  public setGoalNode(id: string): void {
-    if (this.graph.nodes.has(id) && id !== this.currentStartId) {
-      this.currentGoalId = id;
-      this.recalculate();
-    }
-  }
-
   public recalculate(): void {
     this.pause();
+
+    // Splice custom start and goal coordinates into road network graph
+    const { graph, startId, goalId } = spliceCustomEndpoints(
+      this.baseGraph,
+      this.currentStartEndpoint,
+      this.currentGoalEndpoint,
+      3
+    );
+
+    this.activeGraph = graph;
+    this.startId = startId;
+    this.goalId = goalId;
 
     if (this.isRaceMode) {
       this.raceResults.clear();
@@ -260,27 +423,80 @@ export class BayRouteVisualizer {
         'bfs',
       ];
       for (const alg of algos) {
-        const res = runPathfinding(alg, this.graph, this.currentStartId, this.currentGoalId);
+        const res = runPathfinding(alg, this.activeGraph, this.startId, this.goalId);
         this.raceResults.set(alg, res);
       }
       this.currentResult = this.raceResults.get(this.currentAlgorithm) || null;
     } else {
       this.currentResult = runPathfinding(
         this.currentAlgorithm,
-        this.graph,
-        this.currentStartId,
-        this.currentGoalId
+        this.activeGraph,
+        this.startId,
+        this.goalId
       );
     }
 
     this.currentStepIndex = 0;
+    this.updateMapMarkers();
     this.updateTelemetry();
     this.render();
-
-    // Auto-play on route change
     this.play();
   }
 
+  private updateMapMarkers(): void {
+    if (!this.map) return;
+
+    if (this.startMarker) this.map.removeLayer(this.startMarker);
+    if (this.goalMarker) this.map.removeLayer(this.goalMarker);
+
+    const startIcon = L.divIcon({
+      className: 'br-leaflet-marker br-leaflet-marker--start',
+      html: `<div class="br-marker-pin br-marker-pin--start">🚩</div>`,
+      iconSize: [28, 28],
+      iconAnchor: [14, 28],
+    });
+
+    const goalIcon = L.divIcon({
+      className: 'br-leaflet-marker br-leaflet-marker--goal',
+      html: `<div class="br-marker-pin br-marker-pin--goal">🏁</div>`,
+      iconSize: [28, 28],
+      iconAnchor: [14, 28],
+    });
+
+    this.startMarker = L.marker([this.currentStartEndpoint.lat, this.currentStartEndpoint.lng], {
+      icon: startIcon,
+      draggable: true,
+    }).addTo(this.map);
+
+    this.goalMarker = L.marker([this.currentGoalEndpoint.lat, this.currentGoalEndpoint.lng], {
+      icon: goalIcon,
+      draggable: true,
+    }).addTo(this.map);
+
+    this.startMarker.on('dragend', (e) => {
+      const pos = (e.target as L.Marker).getLatLng();
+      this.currentStartEndpoint.lat = pos.lat;
+      this.currentStartEndpoint.lng = pos.lng;
+      const geo = reverseGeocodeLocal(pos.lat, pos.lng);
+      this.currentStartEndpoint.name = geo.name;
+      const input = this.container.querySelector<HTMLInputElement>('[data-br-input="start"]');
+      if (input) input.value = geo.name;
+      this.recalculate();
+    });
+
+    this.goalMarker.on('dragend', (e) => {
+      const pos = (e.target as L.Marker).getLatLng();
+      this.currentGoalEndpoint.lat = pos.lat;
+      this.currentGoalEndpoint.lng = pos.lng;
+      const geo = reverseGeocodeLocal(pos.lat, pos.lng);
+      this.currentGoalEndpoint.name = geo.name;
+      const input = this.container.querySelector<HTMLInputElement>('[data-br-input="goal"]');
+      if (input) input.value = geo.name;
+      this.recalculate();
+    });
+  }
+
+  // --- PLAYBACK CONTROLS ---
   public play(): void {
     if (this.isPlaying) return;
     this.isPlaying = true;
@@ -301,8 +517,8 @@ export class BayRouteVisualizer {
 
   public stepForward(): void {
     this.pause();
-    const maxSteps = this.getMaxSteps();
-    if (this.currentStepIndex < maxSteps) {
+    const max = this.getMaxSteps();
+    if (this.currentStepIndex < max) {
       this.currentStepIndex++;
       this.updateTelemetry();
       this.render();
@@ -318,13 +534,10 @@ export class BayRouteVisualizer {
     }
   }
 
-  public scrubTo(progressFraction: number): void {
+  public scrubTo(fraction: number): void {
     this.pause();
-    const maxSteps = this.getMaxSteps();
-    this.currentStepIndex = Math.min(
-      maxSteps,
-      Math.max(0, Math.round(progressFraction * maxSteps))
-    );
+    const max = this.getMaxSteps();
+    this.currentStepIndex = Math.min(max, Math.max(0, Math.round(fraction * max)));
     this.updateTelemetry();
     this.render();
   }
@@ -352,7 +565,7 @@ export class BayRouteVisualizer {
     this.lastFrameTimestamp = now;
 
     if (this.animationSpeed >= 999) {
-      // Instant mode
+      // Instant
       this.currentStepIndex = this.getMaxSteps();
       this.pause();
       this.updateTelemetry();
@@ -360,7 +573,6 @@ export class BayRouteVisualizer {
       return;
     }
 
-    // Base rate: 30 steps/second * speed multiplier
     const stepsPerSecond = 35 * this.animationSpeed;
     this.stepsAccumulator += (deltaMs / 1000) * stepsPerSecond;
 
@@ -387,7 +599,6 @@ export class BayRouteVisualizer {
     const playBtn = this.container.querySelector<HTMLButtonElement>('[data-br-play]');
     if (playBtn) {
       playBtn.textContent = this.isPlaying ? '⏸ Pause' : '▶ Play';
-      playBtn.setAttribute('aria-label', this.isPlaying ? 'Pause search animation' : 'Play search animation');
     }
   }
 
@@ -395,19 +606,14 @@ export class BayRouteVisualizer {
     const maxSteps = this.getMaxSteps();
     const progress = maxSteps > 0 ? this.currentStepIndex / maxSteps : 0;
 
-    // Scrubber
     const scrubber = this.container.querySelector<HTMLInputElement>('[data-br-scrubber]');
-    if (scrubber) {
-      scrubber.value = String(Math.round(progress * 100));
-    }
+    if (scrubber) scrubber.value = String(Math.round(progress * 100));
 
     if (!this.currentResult) return;
 
-    // Get current step event
     const safeIdx = Math.min(this.currentStepIndex, this.currentResult.steps.length - 1);
     const currStep = this.currentResult.steps[safeIdx] || this.currentResult.steps[0];
 
-    // Dom updates
     const elExplored = this.container.querySelector('[data-metric-explored]');
     const elFrontier = this.container.querySelector('[data-metric-frontier]');
     const elDistance = this.container.querySelector('[data-metric-distance]');
@@ -432,11 +638,12 @@ export class BayRouteVisualizer {
     }
     if (elOptimality) {
       elOptimality.textContent = isComplete
-        ? (ALGORITHMS[this.currentAlgorithm].isOptimal ? '100% (Optimal)' : 'Suboptimal')
+        ? ALGORITHMS[this.currentAlgorithm].isOptimal
+          ? '100% (Optimal)'
+          : 'Suboptimal'
         : 'Evaluating...';
     }
 
-    // Race Mode Leaderboard
     if (this.isRaceMode) {
       this.updateRaceLeaderboard();
     }
@@ -458,11 +665,9 @@ export class BayRouteVisualizer {
         reachedGoal,
         distance: res.totalDistanceMiles,
         time: res.totalTimeMinutes,
-        computeMs: res.executionTimeMs,
       };
     });
 
-    // Sort by arrival status, then explored count
     entries.sort((a, b) => {
       if (a.reachedGoal && !b.reachedGoal) return -1;
       if (!a.reachedGoal && b.reachedGoal) return 1;
@@ -476,46 +681,38 @@ export class BayRouteVisualizer {
       const tr = document.createElement('tr');
       if (e.reachedGoal) tr.className = 'race-row--finished';
 
-      // Rank TD
       const tdRank = document.createElement('td');
       const strongRank = document.createElement('strong');
       strongRank.textContent = `#${rank + 1}`;
       tdRank.appendChild(strongRank);
       tr.appendChild(tdRank);
 
-      // Alg TD
       const tdAlg = document.createElement('td');
       const dot = document.createElement('span');
       dot.className = 'race-color-dot';
       dot.style.background = e.meta.color;
       tdAlg.appendChild(dot);
-
       const strongAlg = document.createElement('strong');
       strongAlg.textContent = e.meta.name;
       tdAlg.appendChild(strongAlg);
       tr.appendChild(tdAlg);
 
-      // Explored TD
       const tdExplored = document.createElement('td');
       tdExplored.textContent = String(e.explored);
       tr.appendChild(tdExplored);
 
-      // Frontier TD
       const tdFrontier = document.createElement('td');
       tdFrontier.textContent = String(e.frontier);
       tr.appendChild(tdFrontier);
 
-      // Distance TD
       const tdDistance = document.createElement('td');
       tdDistance.textContent = e.reachedGoal ? `${e.distance} mi` : '—';
       tr.appendChild(tdDistance);
 
-      // Time TD
       const tdTime = document.createElement('td');
       tdTime.textContent = e.reachedGoal ? `${Math.round(e.time)} min` : '—';
       tr.appendChild(tdTime);
 
-      // Status TD
       const tdStatus = document.createElement('td');
       const badge = document.createElement('span');
       badge.className = `race-badge ${e.reachedGoal ? 'race-badge--arrived' : 'race-badge--searching'}`;
@@ -527,81 +724,60 @@ export class BayRouteVisualizer {
     }
   }
 
-  // --- RENDERING ENGINE ---
+  // --- CANVAS RENDERING SYNCHRONIZED WITH LEAFLET GPS ---
   public render(): void {
+    if (!this.map) return;
     const ctx = this.ctx;
-    ctx.clearRect(0, 0, 1000, 1000);
+    const size = this.map.getSize();
+    ctx.clearRect(0, 0, size.x, size.y);
 
-    // 1. Map Background Landmass
-    ctx.fillStyle = this.isDark ? '#0b1120' : '#f8fafc';
-    ctx.fillRect(0, 0, 1000, 1000);
-
-    // 2. Water Polygons (Pacific Ocean & Bay Area Water)
-    ctx.fillStyle = this.isDark ? '#082f49' : '#e0f2fe';
-    for (const poly of BAY_WATER_POLYGONS) {
-      ctx.beginPath();
-      ctx.moveTo(poly.points[0][0], poly.points[0][1]);
-      for (let i = 1; i < poly.points.length; i++) {
-        ctx.lineTo(poly.points[i][0], poly.points[i][1]);
-      }
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    // Coastline Shading Stroke
-    ctx.strokeStyle = this.isDark ? '#0284c7' : '#38bdf8';
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
-
-    // 3. Static Road Network Edges
+    // 1. Render Base Road Network on Real Map
     this.renderRoadNetwork();
 
-    // 4. Algorithm Explored Frontier / Settled Trails
+    // 2. Render Search Frontier Animation
     if (this.isRaceMode) {
-      this.renderRaceExploration();
+      for (const res of this.raceResults.values()) {
+        this.renderSingleExploration(res);
+      }
     } else if (this.currentResult) {
       this.renderSingleExploration(this.currentResult);
     }
 
-    // 5. Final Path Overlay (if search complete)
+    // 3. Render Final Path Glow
     this.renderFinalPath();
 
-    // 6. Graph Nodes & Landmark Pins
+    // 4. Render Graph Intersections
     this.renderNodes();
-
-    // 7. Start & Destination Pins
-    this.renderWaypoints();
   }
 
   private renderRoadNetwork(): void {
     const ctx = this.ctx;
 
-    for (const edge of this.graph.edges) {
-      const u = this.graph.nodes.get(edge.u);
-      const v = this.graph.nodes.get(edge.v);
+    for (const edge of this.activeGraph.edges) {
+      const u = this.activeGraph.nodes.get(edge.u);
+      const v = this.activeGraph.nodes.get(edge.v);
       if (!u || !v) continue;
 
+      const p1 = this.latLngToPoint(u.lat, u.lng);
+      const p2 = this.latLngToPoint(v.lat, v.lng);
+
       ctx.beginPath();
-      ctx.moveTo(u.x, u.y);
-      ctx.lineTo(v.x, v.y);
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p2.x, p2.y);
 
       if (edge.roadType === 'bridge') {
-        ctx.strokeStyle = this.isDark ? '#f97316' : '#ea580c'; // International Orange
+        ctx.strokeStyle = '#f97316'; // International Orange
         ctx.lineWidth = 3.5;
         ctx.setLineDash([4, 2]);
         ctx.stroke();
         ctx.setLineDash([]);
       } else if (edge.roadType === 'interstate') {
-        ctx.strokeStyle = this.isDark ? '#334155' : '#cbd5e1';
+        ctx.strokeStyle = this.isDarkTheme ? 'rgba(148, 163, 184, 0.4)' : 'rgba(71, 85, 105, 0.5)';
         ctx.lineWidth = 2.5;
         ctx.stroke();
-      } else if (edge.roadType === 'highway') {
-        ctx.strokeStyle = this.isDark ? '#1e293b' : '#e2e8f0';
-        ctx.lineWidth = 2.0;
-        ctx.stroke();
       } else {
-        ctx.strokeStyle = this.isDark ? '#1e293b' : '#f1f5f9';
-        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = this.isDarkTheme ? 'rgba(71, 85, 105, 0.3)' : 'rgba(148, 163, 184, 0.4)';
+        ctx.lineWidth = 1.5;
         ctx.stroke();
       }
     }
@@ -612,7 +788,6 @@ export class BayRouteVisualizer {
     const stepLimit = Math.min(this.currentStepIndex, res.steps.length - 1);
     const color = ALGORITHMS[res.algorithm].color;
 
-    // Settled nodes set and active frontier set
     const settledNodes = new Set<string>();
     const settledEdges: { u: string; v: string }[] = [];
     const frontierNodes = new Set<string>();
@@ -629,52 +804,50 @@ export class BayRouteVisualizer {
       }
     }
 
-    // Draw settled exploration edges with glow
+    // Settled Edges Glow
     ctx.strokeStyle = color;
-    ctx.lineWidth = 2.8;
+    ctx.lineWidth = 3.2;
     ctx.shadowColor = color;
-    ctx.shadowBlur = this.isDark ? 8 : 2;
+    ctx.shadowBlur = 8;
 
     for (const { u: uId, v: vId } of settledEdges) {
-      const u = this.graph.nodes.get(uId);
-      const v = this.graph.nodes.get(vId);
+      const u = this.activeGraph.nodes.get(uId);
+      const v = this.activeGraph.nodes.get(vId);
       if (u && v) {
+        const p1 = this.latLngToPoint(u.lat, u.lng);
+        const p2 = this.latLngToPoint(v.lat, v.lng);
         ctx.beginPath();
-        ctx.moveTo(u.x, u.y);
-        ctx.lineTo(v.x, v.y);
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
         ctx.stroke();
       }
     }
     ctx.shadowBlur = 0;
 
-    // Draw settled node discs
+    // Settled Node Discs
     ctx.fillStyle = color;
     for (const nId of settledNodes) {
-      const node = this.graph.nodes.get(nId);
+      const node = this.activeGraph.nodes.get(nId);
       if (node) {
+        const p = this.latLngToPoint(node.lat, node.lng);
         ctx.beginPath();
-        ctx.arc(node.x, node.y, 4, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
         ctx.fill();
       }
     }
 
-    // Draw active frontier pulse rings
+    // Active Frontier Pulse Rings
     for (const nId of frontierNodes) {
       if (settledNodes.has(nId)) continue;
-      const node = this.graph.nodes.get(nId);
+      const node = this.activeGraph.nodes.get(nId);
       if (node) {
+        const p = this.latLngToPoint(node.lat, node.lng);
         ctx.strokeStyle = color;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 1.8;
         ctx.beginPath();
-        ctx.arc(node.x, node.y, 7, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
         ctx.stroke();
       }
-    }
-  }
-
-  private renderRaceExploration(): void {
-    for (const res of this.raceResults.values()) {
-      this.renderSingleExploration(res);
     }
   }
 
@@ -682,121 +855,63 @@ export class BayRouteVisualizer {
     if (!this.currentResult || !this.currentResult.found) return;
 
     const maxSteps = this.getMaxSteps();
-    if (this.currentStepIndex < maxSteps) return; // Only reveal upon completion
+    if (this.currentStepIndex < maxSteps) return;
 
     const ctx = this.ctx;
     const path = this.currentResult.path;
     if (path.length < 2) return;
 
-    // Laser Beam Glowing Gold Route
+    // Glowing Laser Polyline
     ctx.strokeStyle = '#fbbf24';
-    ctx.lineWidth = 5.5;
+    ctx.lineWidth = 6.0;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.shadowColor = '#fbbf24';
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = 14;
 
     ctx.beginPath();
-    const startNode = this.graph.nodes.get(path[0])!;
-    ctx.moveTo(startNode.x, startNode.y);
+    const startNode = this.activeGraph.nodes.get(path[0])!;
+    const pStart = this.latLngToPoint(startNode.lat, startNode.lng);
+    ctx.moveTo(pStart.x, pStart.y);
 
     for (let i = 1; i < path.length; i++) {
-      const node = this.graph.nodes.get(path[i])!;
-      ctx.lineTo(node.x, node.y);
+      const node = this.activeGraph.nodes.get(path[i])!;
+      const p = this.latLngToPoint(node.lat, node.lng);
+      ctx.lineTo(p.x, p.y);
     }
     ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // Inner bright core
+    // Inner bright beam
     ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2.0;
+    ctx.lineWidth = 2.2;
     ctx.stroke();
   }
 
   private renderNodes(): void {
     const ctx = this.ctx;
+    const zoom = this.map?.getZoom() || 10;
 
-    for (const node of this.graph.nodes.values()) {
-      const isHovered = node.id === this.hoveredNodeId;
+    for (const node of this.activeGraph.nodes.values()) {
       const isKey = node.type === 'city' || node.type === 'airport' || node.type === 'landmark';
+      if (!isKey && zoom < 12) continue; // declutter minor intersections when zoomed out
 
+      const p = this.latLngToPoint(node.lat, node.lng);
       ctx.beginPath();
-      ctx.arc(node.x, node.y, isHovered ? 6 : isKey ? 3.5 : 2.2, 0, Math.PI * 2);
-      ctx.fillStyle = isHovered
-        ? '#38bdf8'
-        : isKey
-          ? this.isDark
-            ? '#94a3b8'
-            : '#64748b'
-          : this.isDark
-            ? '#475569'
-            : '#cbd5e1';
+      ctx.arc(p.x, p.y, isKey ? 3.5 : 2.0, 0, Math.PI * 2);
+      ctx.fillStyle = isKey
+        ? this.isDarkTheme
+          ? '#94a3b8'
+          : '#475569'
+        : 'rgba(148, 163, 184, 0.5)';
       ctx.fill();
 
-      // Text labels for major landmarks / hovered node
-      if (isHovered || isKey) {
-        ctx.font = isHovered
-          ? 'bold 11px system-ui, sans-serif'
-          : '9px system-ui, sans-serif';
-        ctx.fillStyle = isHovered
-          ? '#ffffff'
-          : this.isDark
-            ? '#cbd5e1'
-            : '#334155';
-        ctx.fillText(node.name, node.x + 8, node.y + 3);
+      // Show landmark labels when zoomed in or for primary cities
+      if (isKey && zoom >= 11) {
+        ctx.font = 'bold 10px system-ui, sans-serif';
+        ctx.fillStyle = this.isDarkTheme ? '#e2e8f0' : '#1e293b';
+        ctx.fillText(node.name, p.x + 6, p.y + 3);
       }
-    }
-  }
-
-  private renderWaypoints(): void {
-    const ctx = this.ctx;
-    const startNode = this.graph.nodes.get(this.currentStartId);
-    const goalNode = this.graph.nodes.get(this.currentGoalId);
-
-    // Start Waypoint (Coral Red 🚩)
-    if (startNode) {
-      ctx.shadowColor = '#f43f5e';
-      ctx.shadowBlur = 10;
-      ctx.fillStyle = '#f43f5e';
-      ctx.beginPath();
-      ctx.arc(startNode.x, startNode.y, 8, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(startNode.x, startNode.y, 3, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-
-      ctx.font = 'bold 12px system-ui, sans-serif';
-      ctx.fillStyle = '#f43f5e';
-      ctx.fillText(`🚩 START: ${startNode.name}`, startNode.x + 12, startNode.y - 4);
-    }
-
-    // Destination Waypoint (Emerald Radar 🏁)
-    if (goalNode) {
-      ctx.shadowColor = '#10b981';
-      ctx.shadowBlur = 12;
-      ctx.strokeStyle = '#10b981';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(goalNode.x, goalNode.y, 11, 0, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.fillStyle = '#10b981';
-      ctx.beginPath();
-      ctx.arc(goalNode.x, goalNode.y, 7, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(goalNode.x, goalNode.y, 2.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-
-      ctx.font = 'bold 12px system-ui, sans-serif';
-      ctx.fillStyle = '#10b981';
-      ctx.fillText(`🏁 GOAL: ${goalNode.name}`, goalNode.x + 14, goalNode.y - 4);
     }
   }
 }
@@ -804,9 +919,14 @@ export class BayRouteVisualizer {
 /**
  * Initializes the visualizer on page mount.
  */
-export function initBayRoute(canvasSelector: string, containerSelector: string): BayRouteVisualizer | null {
-  const canvas = document.querySelector<HTMLCanvasElement>(canvasSelector);
+export function initBayRoute(
+  mapSelector: string,
+  canvasSelector: string,
+  containerSelector: string
+): BayRouteVisualizer | null {
+  const mapEl = document.querySelector<HTMLElement>(mapSelector);
+  const canvasEl = document.querySelector<HTMLCanvasElement>(canvasSelector);
   const container = document.querySelector<HTMLElement>(containerSelector);
-  if (!canvas || !container) return null;
-  return new BayRouteVisualizer(canvas, container);
+  if (!mapEl || !canvasEl || !container) return null;
+  return new BayRouteVisualizer(mapEl, canvasEl, container);
 }

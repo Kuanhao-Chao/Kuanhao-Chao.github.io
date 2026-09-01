@@ -1715,3 +1715,109 @@ export function heuristicTravelTimeMinutes(
   const distanceMiles = haversineDistanceMiles(nodeA.lat, nodeA.lng, nodeB.lat, nodeB.lng);
   return (distanceMiles / maxSpeedMph) * 60;
 }
+
+export interface CustomEndpoint {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  city?: string;
+  region?: Region;
+}
+
+/**
+ * Dynamically splices custom arbitrary start and goal coordinates into the Bay Area road network graph.
+ * Connects the custom endpoints to the nearest K road nodes with realistic street-level speeds (25-35 mph).
+ */
+export function spliceCustomEndpoints(
+  baseGraph: BayGraph,
+  start: CustomEndpoint,
+  goal: CustomEndpoint,
+  kNearest = 3
+): {
+  graph: BayGraph;
+  startId: string;
+  goalId: string;
+} {
+  const nodes = new Map<string, BayNode>(baseGraph.nodes);
+  const adjacency = new Map<string, { target: string; edge: BayEdge; weight: number }[]>();
+
+  // Deep copy adjacency list
+  for (const [key, val] of baseGraph.adjacency.entries()) {
+    adjacency.set(key, [...val]);
+  }
+
+  const customEdges: BayEdge[] = [...baseGraph.edges];
+
+  const processEndpoint = (ep: CustomEndpoint, isStart: boolean) => {
+    // If endpoint is an existing node ID, reuse it
+    if (nodes.has(ep.id)) {
+      return ep.id;
+    }
+
+    const customId = ep.id || (isStart ? 'custom_start_node' : 'custom_goal_node');
+
+    // Determine normalized (x,y) from (lat, lng) relative to bounding box
+    const normX = Math.round(300 + ((ep.lng - -122.58) / (-121.8 - -122.58)) * 450);
+    const normY = Math.round(850 - ((ep.lat - 37.2) / (38.15 - 37.2)) * 790);
+
+    const customNode: BayNode = {
+      id: customId,
+      name: ep.name,
+      city: ep.city || 'Bay Area',
+      region: ep.region || 'peninsula',
+      type: 'landmark',
+      x: Math.max(0, Math.min(1000, normX)),
+      y: Math.max(0, Math.min(1000, normY)),
+      lat: ep.lat,
+      lng: ep.lng,
+      description: 'Custom Address Waypoint',
+    };
+
+    nodes.set(customId, customNode);
+    adjacency.set(customId, []);
+
+    // Find nearest K nodes in base graph
+    const candidates: { node: BayNode; distMiles: number }[] = [];
+    for (const baseNode of baseGraph.nodes.values()) {
+      const dist = haversineDistanceMiles(ep.lat, ep.lng, baseNode.lat, baseNode.lng);
+      candidates.push({ node: baseNode, distMiles: dist });
+    }
+
+    candidates.sort((a, b) => a.distMiles - b.distMiles);
+    const nearest = candidates.slice(0, Math.max(1, kNearest));
+
+    for (const { node: targetNode, distMiles } of nearest) {
+      const streetSpeed = 25; // 25 mph local connector
+      const edge: BayEdge = {
+        u: customId,
+        v: targetNode.id,
+        distance: Math.max(0.1, Math.round(distMiles * 10) / 10),
+        speedLimit: streetSpeed,
+        roadType: 'arterial',
+        name: `Local Connector to ${targetNode.name}`,
+      };
+
+      const weightMinutes = (edge.distance / streetSpeed) * 60;
+
+      customEdges.push(edge);
+      adjacency.get(customId)!.push({ target: targetNode.id, edge, weight: weightMinutes });
+      adjacency.get(targetNode.id)!.push({ target: customId, edge, weight: weightMinutes });
+    }
+
+    return customId;
+  };
+
+  const startId = processEndpoint(start, true);
+  const goalId = processEndpoint(goal, false);
+
+  return {
+    graph: {
+      nodes,
+      adjacency,
+      edges: customEdges,
+    },
+    startId,
+    goalId,
+  };
+}

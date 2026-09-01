@@ -2,15 +2,15 @@
 import PageLayout from '../../layouts/PageLayout.astro';
 import BayRouteLogo from '../../components/games/BayRouteLogo.astro';
 import { site } from '../../data/site';
-import { PRESET_TRIPS, BAY_NODES } from '../../lib/bayGraph';
+import { PRESET_TRIPS } from '../../lib/bayGraph';
 import { ALGORITHMS } from '../../lib/pathfinding';
 
 const appLd = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
-  name: 'BayRoute — Bay Area Pathfinding & Route Search Visualizer',
+  name: 'BayRoute — Real-World Bay Area Pathfinding & Route Search Visualizer',
   description:
-    'Interactive educational pathfinding visualizer demonstrating Dijkstra, A*, Bidirectional A*, Greedy Best-First, and BFS algorithms on an authentic San Francisco Bay Area road network graph with step-by-step glowing frontier animations and multi-algorithm race mode.',
+    'Full-scale real-world route planning and pathfinding visualizer across the San Francisco Bay Area. Type any address or click on the map to explore Dijkstra, A*, Bidirectional A*, Greedy, and BFS algorithms with step-by-step glowing frontier animations on real street tiles.',
   url: `${site.url}/games/bay-route/`,
   author: { '@id': `${site.url}/#person` },
   applicationCategory: 'EducationalApplication',
@@ -21,30 +21,78 @@ const appLd = {
 ---
 
 <PageLayout
-  title="BayRoute — Bay Area Pathfinding Visualizer"
+  title="BayRoute — Real-World Bay Area Pathfinding Visualizer"
   eyebrow="Interactive Simulation & Algorithm Demo"
-  lead="Step-by-step dynamic route planning & graph search visualizer on the San Francisco Bay Area road network — compare Dijkstra, A*, Bidirectional A*, Greedy, and BFS in real time."
-  description="Explore how GPS pathfinding algorithms find optimal trips across the San Francisco Bay Area. Watch glowing search frontiers expand across bridges and highways with interactive playback, telemetry, and 5-algorithm race mode."
+  lead="Real-world route planning and graph search visualizer on the San Francisco Bay Area map — type any address or click anywhere to watch Dijkstra, A*, Bidirectional A*, Greedy, and BFS explore real highways and streets in real time."
+  description="Explore how GPS algorithms find optimal routes across the San Francisco Bay Area on real street tiles. Features address autocomplete, step-by-step search frontier animations, live telemetry, and 5-algorithm race mode."
   width="wide"
 >
   <script type="application/ld+json" is:inline set:html={JSON.stringify(appLd)} />
 
-  <section class="br-container" data-br-root aria-label="BayRoute Visualizer">
+  <section class="br-container" data-br-root aria-label="BayRoute Real-World Visualizer">
     <!-- Header Card -->
     <div class="br-header-card">
       <BayRouteLogo size={70} />
       <div class="br-header-info">
-        <h2 class="br-header-title">BayRoute · Bay Area Pathfinding Visualizer</h2>
+        <h2 class="br-header-title">BayRoute · Real-World Bay Area Pathfinding Visualizer</h2>
         <p class="br-header-subtitle">
-          5 algorithms. One destination. Explore how graph search frontiers navigate bay bridges,
-          peninsula freeways, and coastal mountain passes in real time.
+          Enter any address in the Bay Area or click the map. Watch search frontiers navigate
+          bridges, highways, and city streets step by step with real-time algorithm comparisons.
         </p>
       </div>
     </div>
 
-    <!-- Presets & Route Selection Bar -->
+    <!-- Smart Address Search & Route Bar -->
+    <div class="br-address-bar">
+      <!-- Start Address Input -->
+      <div class="br-address-group">
+        <label class="br-address-label" for="br-start-input">
+          <span class="br-pin-icon" aria-hidden="true">🚩</span>
+          <span>Start Address:</span>
+        </label>
+        <div class="br-input-wrapper">
+          <input
+            id="br-start-input"
+            type="text"
+            class="br-input"
+            placeholder="Type start address or landmark (e.g. SF Ferry Building)..."
+            value="San Francisco Ferry Building"
+            data-br-input="start"
+            autocomplete="off"
+          />
+          <div class="br-autocomplete-dropdown" data-br-results="start" hidden></div>
+        </div>
+      </div>
+
+      <!-- Swap Button -->
+      <button type="button" class="br-swap-btn" data-br-swap title="Swap Start and Destination">
+        ⇄
+      </button>
+
+      <!-- Destination Address Input -->
+      <div class="br-address-group">
+        <label class="br-address-label" for="br-goal-input">
+          <span class="br-pin-icon" aria-hidden="true">🏁</span>
+          <span>Destination Address:</span>
+        </label>
+        <div class="br-input-wrapper">
+          <input
+            id="br-goal-input"
+            type="text"
+            class="br-input"
+            placeholder="Type destination address (e.g. UC Berkeley Campanile)..."
+            value="UC Berkeley (Sather Tower / Campanile)"
+            data-br-input="goal"
+            autocomplete="off"
+          />
+          <div class="br-autocomplete-dropdown" data-br-results="goal" hidden></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Presets Bar -->
     <div class="br-presets-bar">
-      <span class="br-bar-label">Curated Trips:</span>
+      <span class="br-bar-label">Quick Trips:</span>
       <div class="br-presets-list" role="radiogroup" aria-label="Curated Bay Area Trips">
         {
           PRESET_TRIPS.map((trip, idx) => (
@@ -70,7 +118,7 @@ const appLd = {
           <label class="br-label" for="br-algo-select">Algorithm:</label>
           <select id="br-algo-select" class="br-select" data-br-algo>
             <option value="dijkstra" selected>Dijkstra (Uniform Cost Search)</option>
-            <option value="a_star">A* Search (Haversine Heuristic)</option>
+            <option value="a_star">A* Search (Haversine Distance Heuristic)</option>
             <option value="bidirectional_a_star">Bidirectional A* (Dual-End Meeting)</option>
             <option value="greedy">Greedy Best-First (Heuristic Only)</option>
             <option value="bfs">BFS (Unweighted Hop Count)</option>
@@ -87,31 +135,14 @@ const appLd = {
           </div>
         </div>
 
-        <!-- Start / Destination Pickers -->
+        <!-- Map Layer Switcher -->
         <div class="br-control-group">
-          <label class="br-label" for="br-start-select">Start 🚩:</label>
-          <select id="br-start-select" class="br-select" data-br-start>
-            {
-              BAY_NODES.map((n) => (
-                <option value={n.id} selected={n.id === 'sf_ferry_bldg'}>
-                  {n.city}: {n.name}
-                </option>
-              ))
-            }
-          </select>
-        </div>
-
-        <div class="br-control-group">
-          <label class="br-label" for="br-goal-select">Goal 🏁:</label>
-          <select id="br-goal-select" class="br-select" data-br-goal>
-            {
-              BAY_NODES.map((n) => (
-                <option value={n.id} selected={n.id === 'berkeley_campanile'}>
-                  {n.city}: {n.name}
-                </option>
-              ))
-            }
-          </select>
+          <label class="br-label">Map Style:</label>
+          <div class="br-toggle-group">
+            <button type="button" class="br-toggle-btn is-active" data-map-style="dark">Dark GIS</button>
+            <button type="button" class="br-toggle-btn" data-map-style="streets">Streets</button>
+            <button type="button" class="br-toggle-btn" data-map-style="satellite">Satellite</button>
+          </div>
         </div>
       </div>
 
@@ -129,6 +160,9 @@ const appLd = {
           </button>
           <button type="button" class="br-btn br-btn--reset" data-br-reset title="Restart search animation">
             🔄 Reset
+          </button>
+          <button type="button" class="br-btn" data-br-fit-bounds title="Fit map view to route">
+            🔍 Zoom Route
           </button>
         </div>
 
@@ -157,17 +191,15 @@ const appLd = {
       </div>
     </div>
 
-    <!-- Interactive Canvas Viewport -->
-    <div class="br-canvas-wrapper">
-      <canvas id="bay-route-canvas" class="br-canvas"></canvas>
+    <!-- Real-World Map & Canvas Container -->
+    <div class="br-map-viewport">
+      <div id="bay-route-map" class="br-leaflet-map"></div>
+      <canvas id="bay-route-canvas" class="br-canvas-layer"></canvas>
 
       <!-- Floating Map Hint Overlay -->
       <div class="br-map-hint">
-        <span>💡 Click any intersection or landmark on the map to set Start 🚩 or Goal 🏁</span>
+        <span>💡 Click anywhere on the map to drop custom Start 🚩 or Goal 🏁 pins</span>
       </div>
-
-      <!-- Hover Tooltip -->
-      <div class="br-tooltip" data-br-tooltip hidden></div>
     </div>
 
     <!-- Live Telemetry Dashboard -->
@@ -187,7 +219,7 @@ const appLd = {
       <div class="br-telemetry-card">
         <span class="br-metric-label">Trip Distance</span>
         <strong class="br-metric-value br-metric-value--green" data-metric-distance>—</strong>
-        <span class="br-metric-sub">Physical Highway Miles</span>
+        <span class="br-metric-sub">Actual Highway Miles</span>
       </div>
 
       <div class="br-telemetry-card">
@@ -207,7 +239,7 @@ const appLd = {
     <div class="br-race-section" data-br-race-section hidden>
       <div class="br-race-header">
         <h3>🏁 5-Algorithm Race Leaderboard</h3>
-        <span class="br-race-subtitle">Live comparison of exploration efficiency and arrival order</span>
+        <span class="br-race-subtitle">Live comparison of exploration efficiency and arrival order on this trip</span>
       </div>
       <div class="br-scroll">
         <table class="br-race-table">
@@ -231,10 +263,10 @@ const appLd = {
 
     <!-- Educational Deep Dive & Theory Section -->
     <section class="br-theory-section">
-      <h2>How Pathfinding Algorithms Work in Real Road Networks</h2>
+      <h2>How Graph Search Algorithms Power Real GPS Routing</h2>
       <p>
         The San Francisco Bay Area provides a classic benchmark for graph search: water bodies act as
-        natural topological barriers, forcing paths through narrow chokepoints (the Bay Bridge, Golden Gate Bridge,
+        natural topological barriers, forcing paths through narrow bridge chokepoints (the Bay Bridge, Golden Gate Bridge,
         San Mateo Bridge, and Dumbarton Bridge). Explore how each algorithm navigates these spatial constraints:
       </p>
 
@@ -279,7 +311,7 @@ const appLd = {
   import { initBayRoute } from '../../scripts/bayRoute';
 
   function setup() {
-    const viz = initBayRoute('#bay-route-canvas', '[data-br-root]');
+    const viz = initBayRoute('#bay-route-map', '#bay-route-canvas', '[data-br-root]');
     if (!viz) return;
 
     // Presets Click
@@ -290,35 +322,32 @@ const appLd = {
         btn.classList.add('is-active');
         const tripId = btn.dataset.tripId;
         if (tripId) viz.loadTrip(tripId);
-
-        // Sync dropdowns
-        const startSel = document.querySelector<HTMLSelectElement>('[data-br-start]');
-        const goalSel = document.querySelector<HTMLSelectElement>('[data-br-goal]');
-        if (startSel) startSel.value = viz.currentStartId;
-        if (goalSel) goalSel.value = viz.currentGoalId;
       });
     });
+
+    // Swap Start & Goal
+    const swapBtn = document.querySelector<HTMLButtonElement>('[data-br-swap]');
+    if (swapBtn) {
+      swapBtn.addEventListener('click', () => {
+        const temp = { ...viz.currentStartEndpoint };
+        viz.currentStartEndpoint = { ...viz.currentGoalEndpoint };
+        viz.currentGoalEndpoint = temp;
+
+        const startInput = document.querySelector<HTMLInputElement>('[data-br-input="start"]');
+        const goalInput = document.querySelector<HTMLInputElement>('[data-br-input="goal"]');
+        if (startInput) startInput.value = viz.currentStartEndpoint.name;
+        if (goalInput) goalInput.value = viz.currentGoalEndpoint.name;
+
+        viz.recalculate();
+        viz.fitRouteBounds();
+      });
+    }
 
     // Algorithm Change
     const algoSel = document.querySelector<HTMLSelectElement>('[data-br-algo]');
     if (algoSel) {
       algoSel.addEventListener('change', () => {
         viz.setAlgorithm(algoSel.value as any);
-      });
-    }
-
-    // Start / Goal Dropdowns
-    const startSel = document.querySelector<HTMLSelectElement>('[data-br-start]');
-    if (startSel) {
-      startSel.addEventListener('change', () => {
-        viz.setStartNode(startSel.value);
-      });
-    }
-
-    const goalSel = document.querySelector<HTMLSelectElement>('[data-br-goal]');
-    if (goalSel) {
-      goalSel.addEventListener('change', () => {
-        viz.setGoalNode(goalSel.value);
       });
     }
 
@@ -333,6 +362,17 @@ const appLd = {
         const isRace = btn.dataset.mode === 'race';
         viz.setRaceMode(isRace);
         if (raceSection) raceSection.hidden = !isRace;
+      });
+    });
+
+    // Map Style Toggle
+    const mapStyleButtons = document.querySelectorAll<HTMLButtonElement>('[data-map-style]');
+    mapStyleButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        mapStyleButtons.forEach((b) => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        const style = btn.dataset.mapStyle as any;
+        if (style) viz.setTileStyle(style);
       });
     });
 
@@ -361,6 +401,11 @@ const appLd = {
     const resetBtn = document.querySelector<HTMLButtonElement>('[data-br-reset]');
     if (resetBtn) {
       resetBtn.addEventListener('click', () => viz.recalculate());
+    }
+
+    const fitBtn = document.querySelector<HTMLButtonElement>('[data-br-fit-bounds]');
+    if (fitBtn) {
+      fitBtn.addEventListener('click', () => viz.fitRouteBounds());
     }
 
     // Scrubber
@@ -419,6 +464,137 @@ const appLd = {
     font-size: 0.92rem;
     color: var(--color-muted);
     line-height: 1.5;
+  }
+
+  /* Address Bar */
+  .br-address-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.75rem;
+    padding: 1.25rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md, 8px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+  }
+
+  .br-address-group {
+    flex: 1;
+    min-width: min(100%, 18rem);
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .br-address-label {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--color-ink);
+  }
+
+  .br-pin-icon {
+    font-size: 1rem;
+    line-height: 1;
+  }
+
+  .br-input-wrapper {
+    position: relative;
+    width: 100%;
+  }
+
+  .br-input {
+    width: 100%;
+    padding: 0.65rem 0.85rem;
+    border-radius: var(--radius-sm, 6px);
+    border: 1px solid var(--color-border);
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-size: 0.9rem;
+    font-family: inherit;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .br-input:focus {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 15%, transparent);
+  }
+
+  .br-autocomplete-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm, 6px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    max-height: 240px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .br-autocomplete-dropdown :global(.br-autocomplete-item) {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0.55rem 0.85rem;
+    border: none;
+    background: transparent;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent);
+    color: var(--color-ink);
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    font-family: inherit;
+    transition: background 0.12s ease;
+  }
+
+  .br-autocomplete-dropdown :global(.br-autocomplete-item:last-child) {
+    border-bottom: none;
+  }
+
+  .br-autocomplete-dropdown :global(.br-autocomplete-item:hover) {
+    background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+  }
+
+  .br-autocomplete-dropdown :global(.br-autocomplete-item strong) {
+    font-size: 0.85rem;
+    color: var(--color-ink);
+  }
+
+  .br-autocomplete-dropdown :global(.br-autocomplete-item span) {
+    font-size: 0.72rem;
+    color: var(--color-muted);
+    margin-top: 2px;
+  }
+
+  .br-swap-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: var(--radius-sm, 6px);
+    border: 1px solid var(--color-border);
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-size: 1.25rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    margin-bottom: 1px;
+  }
+
+  .br-swap-btn:hover {
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
   }
 
   /* Presets Bar */
@@ -559,6 +735,7 @@ const appLd = {
 
   .br-play-buttons {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.4rem;
   }
 
@@ -637,23 +814,31 @@ const appLd = {
     font-weight: 700;
   }
 
-  /* Canvas Viewport */
-  .br-canvas-wrapper {
+  /* Map Viewport */
+  .br-map-viewport {
     position: relative;
     width: 100%;
-    aspect-ratio: 16 / 10;
-    max-height: 700px;
+    height: 560px;
     border-radius: var(--radius-lg, 12px);
     overflow: hidden;
     border: 1px solid var(--color-border);
-    background: #020617;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
   }
 
-  .br-canvas {
+  .br-leaflet-map {
     width: 100%;
     height: 100%;
-    display: block;
+    z-index: 1;
+  }
+
+  .br-canvas-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    pointer-events: none;
   }
 
   .br-map-hint {
@@ -669,21 +854,18 @@ const appLd = {
     pointer-events: none;
     border: 1px solid rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(8px);
+    z-index: 10;
   }
 
-  .br-tooltip {
-    position: absolute;
-    z-index: 10;
-    pointer-events: none;
-    background: rgba(15, 23, 42, 0.95);
-    color: #ffffff;
-    padding: 0.45rem 0.75rem;
-    border-radius: 6px;
-    font-size: 0.8125rem;
-    line-height: 1.35;
-    border: 1px solid var(--color-accent);
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(6px);
+  /* Custom Leaflet Marker Pins */
+  :global(.br-marker-pin) {
+    font-size: 1.45rem;
+    line-height: 1;
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
+    transition: transform 0.15s ease;
+  }
+  :global(.br-marker-pin:hover) {
+    transform: scale(1.25);
   }
 
   /* Telemetry Grid */
@@ -787,7 +969,7 @@ const appLd = {
     font-weight: 700;
   }
 
-  .race-color-dot {
+  :global(.race-color-dot) {
     display: inline-block;
     width: 8px;
     height: 8px;
@@ -796,7 +978,7 @@ const appLd = {
     vertical-align: middle;
   }
 
-  .race-badge {
+  :global(.race-badge) {
     display: inline-block;
     padding: 0.15rem 0.5rem;
     border-radius: 999px;
@@ -804,12 +986,12 @@ const appLd = {
     font-weight: 700;
   }
 
-  .race-badge--arrived {
+  :global(.race-badge--arrived) {
     background: rgba(16, 185, 129, 0.15);
     color: #10b981;
   }
 
-  .race-badge--searching {
+  :global(.race-badge--searching) {
     background: rgba(56, 189, 248, 0.15);
     color: #0284c7;
   }
