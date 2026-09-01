@@ -98,7 +98,7 @@
   border: 1px solid var(--color-rule);
 }
 
-:root[data-theme='dark'] .defense-viability-bar {
+:root:not([data-theme='light']):not([data-theme='parchment']) .defense-viability-bar {
   background: rgba(0, 0, 0, 0.4);
 }
 
@@ -144,7 +144,7 @@
   border-color: #e11d48;
 }
 
-:root[data-theme='dark'] .defense-btn--danger {
+:root:not([data-theme='light']):not([data-theme='parchment']) .defense-btn--danger {
   background: rgba(244, 63, 94, 0.2);
   color: #f43f5e;
   border-color: #f43f5e;
@@ -217,7 +217,7 @@
   box-shadow: 0 0 10px rgba(46, 110, 94, 0.2);
 }
 
-:root[data-theme='dark'] .defense-tower-card.selected {
+:root:not([data-theme='light']):not([data-theme='parchment']) .defense-tower-card.selected {
   background: rgba(117, 199, 175, 0.18);
   box-shadow: 0 0 12px rgba(117, 199, 175, 0.25);
 }
@@ -250,7 +250,7 @@
   color: #d97706;
 }
 
-:root[data-theme='dark'] .defense-tower-cost {
+:root:not([data-theme='light']):not([data-theme='parchment']) .defense-tower-cost {
   color: #f59e0b;
 }
 
@@ -306,7 +306,7 @@
   font-weight: 700;
 }
 
-:root[data-theme='dark'] .defense-priority-btn.active {
+:root:not([data-theme='light']):not([data-theme='parchment']) .defense-priority-btn.active {
   background: rgba(117, 199, 175, 0.2);
   color: #f8fafc;
 }
@@ -365,7 +365,7 @@
   box-shadow: 0 0 10px rgba(46, 110, 94, 0.25);
 }
 
-:root[data-theme='dark'] .defense-emergency-btn.active {
+:root:not([data-theme='light']):not([data-theme='parchment']) .defense-emergency-btn.active {
   background: rgba(117, 199, 175, 0.25);
   box-shadow: 0 0 12px rgba(117, 199, 175, 0.35);
 }

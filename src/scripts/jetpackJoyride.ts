@@ -19,6 +19,7 @@ import {
   type Coin,
   type PowerUp,
 } from '../lib/jetpackJoyride';
+import { isDarkTheme } from '../lib/theme';
 
 interface JetpackTestApi {
   state: () => GameState;
@@ -94,7 +95,7 @@ const HAZARD_DARK = { bolt: '#ef938a', node: '#f0aaa0', beam: '#ef938a', missile
 const FLAME_LIGHT = '#e79a3a';
 const FLAME_DARK = '#f0c069';
 
-const isDark = (): boolean => document.documentElement.dataset.theme === 'dark';
+const isDark = (): boolean => isDarkTheme();
 
 export function initJetpackJoyride(root: ParentNode = document): JetpackJoyrideController | null {
   const canvasEl = root.querySelector<HTMLCanvasElement>('[data-jetpack-canvas]');

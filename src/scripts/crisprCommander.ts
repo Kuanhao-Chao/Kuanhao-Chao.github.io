@@ -13,6 +13,7 @@ import {
   type PowerUpType,
   type CasType,
 } from '../lib/crisprCommander';
+import { isDarkTheme } from '../lib/theme';
 
 interface Particle {
   x: number;
@@ -53,9 +54,7 @@ interface ThemePalette {
 }
 
 function getThemePalette(): ThemePalette {
-  const isDark =
-    typeof document !== 'undefined' &&
-    document.documentElement.getAttribute('data-theme') === 'dark';
+  const isDark = isDarkTheme();
 
   if (isDark) {
     return {

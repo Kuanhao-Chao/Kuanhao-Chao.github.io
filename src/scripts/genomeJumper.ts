@@ -16,6 +16,7 @@ import {
   step as engineStep,
   type GameState,
 } from '../lib/genomeJumper';
+import { isDarkTheme } from '../lib/theme';
 
 interface GenomeJumperTestApi {
   state: () => GameState;
@@ -127,9 +128,7 @@ function readSoundPreference(): boolean {
 }
 
 function readPalette(): Palette {
-  const isDark =
-    typeof document !== 'undefined' &&
-    document.documentElement.getAttribute('data-theme') === 'dark';
+  const isDark = isDarkTheme();
 
   if (isDark) {
     return {

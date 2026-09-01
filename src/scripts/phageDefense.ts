@@ -23,6 +23,7 @@ import {
   type TargetPriority,
   type EmergencyAbilityType,
 } from '../lib/phageDefense';
+import { isDarkTheme } from '../lib/theme';
 
 interface Particle {
   x: number;
@@ -75,9 +76,7 @@ interface DefenseThemePalette {
 }
 
 function getDefenseThemePalette(): DefenseThemePalette {
-  const isDark =
-    typeof document !== 'undefined' &&
-    document.documentElement.getAttribute('data-theme') === 'dark';
+  const isDark = isDarkTheme();
 
   if (isDark) {
     return {
