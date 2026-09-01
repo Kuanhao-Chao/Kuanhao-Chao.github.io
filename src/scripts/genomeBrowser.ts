@@ -796,25 +796,41 @@ export function initGenomeBrowser(host: HTMLElement): void {
   // -------------------------------------------------------------------------------------------
   // Repaints that are not navigation
   // -------------------------------------------------------------------------------------------
+  /**
+   * Document- and window-level listeners, removed once this controller's host leaves the DOM.
+   *
+   * This page is `bare`, so the host is destroyed on every navigation away and rebuilt on the way
+   * back -- which means `mount` runs again and `initGenomeBrowser` installs a SECOND set of these.
+   * The `dataset` guard only stops a double-bind on the *same* element; it cannot see the previous
+   * controller, whose listeners keep firing into a closure holding a detached canvas. Checking
+   * `isConnected` at fire time is self-cleaning and needs no lifecycle hook -- there is nothing to
+   * unregister from `astro:page-load`, which is the trap the persisted-element scripts document.
+   */
+  const selfRemoving = (target: EventTarget, type: string, fn: () => void) => {
+    const wrapped = () => {
+      if (!host.isConnected) { target.removeEventListener(type, wrapped); return; }
+      fn();
+    };
+    target.addEventListener(type, wrapped);
+  };
+
   // Reading CSS custom properties means the canvas keeps the old palette across a theme change;
   // every other canvas on this site listens for exactly this.
-  const onTheme = () => schedule();
-  document.addEventListener('khc:theme-change', onTheme);
+  selfRemoving(document, 'khc:theme-change', () => schedule());
 
   // Guarded on width: a height change cannot move the horizontal axis, and resizing on every
   // scroll-driven viewport-height change on mobile is a repaint for nothing.
   let lastW = 0;
   let resizeTimer = 0;
-  const onResize = () => {
+  selfRemoving(window, 'resize', () => {
     const w = trackCanvas.clientWidth;
     if (w === lastW) return;
     lastW = w;
     window.clearTimeout(resizeTimer);
     resizeTimer = window.setTimeout(schedule, 90);
-  };
-  window.addEventListener('resize', onResize);
+  });
 
-  window.addEventListener('hashchange', () => {
+  selfRemoving(window, 'hashchange', () => {
     const v = parseLocus(decodeURIComponent(window.location.hash.slice(1)), index?.chroms ?? []);
     if (v) setView(v, false);
   });
