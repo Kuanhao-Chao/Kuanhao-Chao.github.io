@@ -152,59 +152,261 @@ export function initSnake(root: ParentNode = document): SnakeController | null {
     ctx!.closePath();
   }
 
+  interface SnakeParticle {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    color: string;
+    size: number;
+    life: number;
+    maxLife: number;
+  }
+
+  interface SnakePopup {
+    x: number;
+    y: number;
+    text: string;
+    color: string;
+    life: number;
+    maxLife: number;
+  }
+
+  const particles: SnakeParticle[] = [];
+  const popups: SnakePopup[] = [];
+  let animTick = 0;
+
+  function baseColor(base: string): string {
+    switch (base) {
+      case 'A':
+        return '#10b981';
+      case 'C':
+        return '#0284c7';
+      case 'G':
+        return '#f59e0b';
+      case 'T':
+      case 'U':
+        return '#a855f7';
+      default:
+        return '#059669';
+    }
+  }
+
   function render() {
+    animTick += 0.05;
     const W = COLS * cell;
     const H = ROWS * cell;
     ctx!.clearRect(0, 0, W, H);
     ctx!.fillStyle = colors.board;
     ctx!.fillRect(0, 0, W, H);
 
-    // faint grid
-    ctx!.strokeStyle = colors.grid;
-    ctx!.globalAlpha = 0.5;
-    ctx!.lineWidth = 1;
-    ctx!.beginPath();
-    for (let i = 1; i < COLS; i++) {
-      ctx!.moveTo(Math.round(i * cell) + 0.5, 0);
-      ctx!.lineTo(Math.round(i * cell) + 0.5, H);
+    // 1. High-tech dotted grid
+    ctx!.fillStyle = colors.grid;
+    ctx!.globalAlpha = 0.55;
+    for (let i = 0; i <= COLS; i++) {
+      for (let j = 0; j <= ROWS; j++) {
+        ctx!.beginPath();
+        ctx!.arc(i * cell, j * cell, 1.2, 0, Math.PI * 2);
+        ctx!.fill();
+      }
     }
-    for (let j = 1; j < ROWS; j++) {
-      ctx!.moveTo(0, Math.round(j * cell) + 0.5);
-      ctx!.lineTo(W, Math.round(j * cell) + 0.5);
-    }
-    ctx!.stroke();
     ctx!.globalAlpha = 1;
 
+    // 2. Phosphodiester backbone spine line
+    if (state.snake.length > 1) {
+      ctx!.save();
+      ctx!.strokeStyle = colors.snake;
+      ctx!.lineWidth = Math.max(2, cell * 0.25);
+      ctx!.lineCap = 'round';
+      ctx!.lineJoin = 'round';
+      ctx!.globalAlpha = 0.45;
+      ctx!.beginPath();
+      ctx!.moveTo(state.snake[0].x * cell + cell / 2, state.snake[0].y * cell + cell / 2);
+      for (let i = 1; i < state.snake.length; i++) {
+        ctx!.lineTo(state.snake[i].x * cell + cell / 2, state.snake[i].y * cell + cell / 2);
+      }
+      ctx!.stroke();
+      ctx!.restore();
+    }
+
+    // 3. Draw Target Food
     drawFood();
 
-    const pad = Math.max(1, cell * 0.11);
-    const r = Math.max(2, cell * 0.22);
-    for (let i = 0; i < state.snake.length; i++) {
+    // 4. Draw Segmented Nucleotide Serpent
+    const pad = Math.max(1, cell * 0.08);
+    const s = cell - 2 * pad;
+    const r = Math.max(3, cell * 0.28);
+
+    for (let i = state.snake.length - 1; i >= 0; i--) {
       const p = state.snake[i];
-      ctx!.fillStyle = i === 0 ? colors.head : colors.snake;
-      ctx!.globalAlpha = i === 0 ? 1 : Math.max(0.55, 1 - i * 0.018);
-      roundRect(p.x * cell + pad, p.y * cell + pad, cell - 2 * pad, cell - 2 * pad, r);
+      const cx = p.x * cell + pad;
+      const cy = p.y * cell + pad;
+
+      if (i === 0) {
+        // Head Segment
+        ctx!.save();
+        ctx!.fillStyle = colors.head;
+        ctx!.strokeStyle = colors.snake;
+        ctx!.lineWidth = 1.5;
+        roundRect(cx, cy, s, s, r);
+        ctx!.fill();
+        ctx!.stroke();
+
+        // Golden Neural Crest Ridge
+        ctx!.fillStyle = '#fbbf24';
+        ctx!.beginPath();
+        ctx!.arc(cx + s / 2, cy + s / 2, s * 0.22, 0, Math.PI * 2);
+        ctx!.fill();
+
+        // Directional Cybernetic Eyes
+        let eye1X = cx + s * 0.3;
+        let eye1Y = cy + s * 0.3;
+        let eye2X = cx + s * 0.7;
+        let eye2Y = cy + s * 0.3;
+        let lookOffsetX = 0;
+        let lookOffsetY = 0;
+
+        if (state.dir === 'down') {
+          eye1X = cx + s * 0.3;
+          eye1Y = cy + s * 0.7;
+          eye2X = cx + s * 0.7;
+          eye2Y = cy + s * 0.7;
+          lookOffsetY = 1;
+        } else if (state.dir === 'left') {
+          eye1X = cx + s * 0.3;
+          eye1Y = cy + s * 0.3;
+          eye2X = cx + s * 0.3;
+          eye2Y = cy + s * 0.7;
+          lookOffsetX = -1;
+        } else if (state.dir === 'right') {
+          eye1X = cx + s * 0.7;
+          eye1Y = cy + s * 0.3;
+          eye2X = cx + s * 0.7;
+          eye2Y = cy + s * 0.7;
+          lookOffsetX = 1;
+        } else {
+          lookOffsetY = -1;
+        }
+
+        const eyeRadius = Math.max(1.8, cell * 0.12);
+        ctx!.fillStyle = '#ffffff';
+        ctx!.beginPath();
+        ctx!.arc(eye1X, eye1Y, eyeRadius, 0, Math.PI * 2);
+        ctx!.arc(eye2X, eye2Y, eyeRadius, 0, Math.PI * 2);
+        ctx!.fill();
+
+        ctx!.fillStyle = '#047857';
+        ctx!.beginPath();
+        ctx!.arc(eye1X + lookOffsetX, eye1Y + lookOffsetY, eyeRadius * 0.6, 0, Math.PI * 2);
+        ctx!.arc(eye2X + lookOffsetX, eye2Y + lookOffsetY, eyeRadius * 0.6, 0, Math.PI * 2);
+        ctx!.fill();
+        ctx!.restore();
+      } else {
+        // Body Nucleotide Segment with Letter
+        const base = strand[strand.length - i] || (i % 4 === 1 ? 'A' : i % 4 === 2 ? 'C' : i % 4 === 3 ? 'G' : 'T');
+        const bCol = baseColor(base);
+
+        ctx!.save();
+        ctx!.fillStyle = bCol;
+        ctx!.strokeStyle = colors.board;
+        ctx!.lineWidth = 1.5;
+        ctx!.globalAlpha = Math.max(0.7, 1 - i * 0.012);
+        roundRect(cx, cy, s, s, r);
+        ctx!.fill();
+        ctx!.stroke();
+
+        // Top specular gleam
+        ctx!.fillStyle = '#ffffff';
+        ctx!.globalAlpha = 0.55;
+        ctx!.beginPath();
+        ctx!.arc(cx + s * 0.3, cy + s * 0.3, s * 0.15, 0, Math.PI * 2);
+        ctx!.fill();
+
+        // Chemical Nucleotide Base Letter
+        ctx!.globalAlpha = 1;
+        ctx!.fillStyle = '#ffffff';
+        ctx!.font = `bold ${Math.round(cell * 0.52)}px ${cssVar('--font-mono', 'monospace')}`;
+        ctx!.textAlign = 'center';
+        ctx!.textBaseline = 'middle';
+        ctx!.fillText(base, cx + s / 2, cy + s / 2 + cell * 0.02);
+        ctx!.restore();
+      }
+    }
+
+    // 5. Draw Particles and Popups
+    drawParticles();
+    drawPopups();
+  }
+
+  function drawFood() {
+    const pad = Math.max(1, cell * 0.08);
+    const s = cell - 2 * pad;
+    const x = state.food.x * cell + pad;
+    const y = state.food.y * cell + pad;
+    const bCol = baseColor(state.food.base);
+
+    ctx!.save();
+    // Ambient pulsing beacon ring
+    const pulse = Math.sin(animTick * 4) * (cell * 0.15);
+    ctx!.strokeStyle = bCol;
+    ctx!.globalAlpha = 0.45;
+    ctx!.lineWidth = 1.5;
+    ctx!.setLineDash([3, 2]);
+    ctx!.beginPath();
+    ctx!.arc(x + s / 2, y + s / 2, s * 0.65 + pulse, 0, Math.PI * 2);
+    ctx!.stroke();
+    ctx!.setLineDash([]);
+    ctx!.globalAlpha = 1;
+
+    // 3D-beveled food pill
+    ctx!.fillStyle = bCol;
+    ctx!.strokeStyle = '#ffffff';
+    ctx!.lineWidth = 1.8;
+    roundRect(x, y, s, s, Math.max(3, cell * 0.32));
+    ctx!.fill();
+    ctx!.stroke();
+
+    // Specular highlight
+    ctx!.fillStyle = '#ffffff';
+    ctx!.globalAlpha = 0.65;
+    ctx!.beginPath();
+    ctx!.arc(x + s * 0.32, y + s * 0.32, s * 0.18, 0, Math.PI * 2);
+    ctx!.fill();
+
+    // Chemical Base Nucleotide Letter
+    ctx!.globalAlpha = 1;
+    ctx!.fillStyle = '#ffffff';
+    ctx!.font = `bold ${Math.round(cell * 0.58)}px ${cssVar('--font-mono', 'monospace')}`;
+    ctx!.textAlign = 'center';
+    ctx!.textBaseline = 'middle';
+    ctx!.fillText(state.food.base, x + s / 2, y + s / 2 + cell * 0.02);
+    ctx!.restore();
+  }
+
+  function drawParticles() {
+    for (const p of particles) {
+      const alpha = Math.max(0, p.life / p.maxLife);
+      ctx!.globalAlpha = alpha;
+      ctx!.fillStyle = p.color;
+      ctx!.beginPath();
+      ctx!.arc(p.x, p.y, p.size, 0, Math.PI * 2);
       ctx!.fill();
     }
     ctx!.globalAlpha = 1;
   }
 
-  function drawFood() {
-    const pad = Math.max(1, cell * 0.11);
-    const s = cell - 2 * pad;
-    const x = state.food.x * cell + pad;
-    const y = state.food.y * cell + pad;
-    ctx!.fillStyle = colors.foodBg;
-    ctx!.strokeStyle = colors.foodBorder;
-    ctx!.lineWidth = Math.max(1, cell * 0.06);
-    roundRect(x, y, s, s, Math.max(2, cell * 0.28));
-    ctx!.fill();
-    ctx!.stroke();
-    ctx!.fillStyle = colors.food;
-    ctx!.font = `700 ${Math.round(cell * 0.56)}px ${cssVar('--font-display', 'system-ui')}`;
-    ctx!.textAlign = 'center';
-    ctx!.textBaseline = 'middle';
-    ctx!.fillText(state.food.base, x + s / 2, y + s / 2 + cell * 0.02);
+  function drawPopups() {
+    ctx!.save();
+    for (const p of popups) {
+      const alpha = Math.max(0, p.life / p.maxLife);
+      ctx!.globalAlpha = alpha;
+      ctx!.fillStyle = p.color;
+      ctx!.font = `bold 12px ${cssVar('--font-mono', 'monospace')}`;
+      ctx!.textAlign = 'center';
+      ctx!.textBaseline = 'middle';
+      ctx!.fillText(p.text, p.x, p.y);
+    }
+    ctx!.restore();
   }
 
   // ---- HUD ---------------------------------------------------------------
@@ -252,8 +454,38 @@ export function initSnake(root: ParentNode = document): SnakeController | null {
   function doTick() {
     const eaten = state.food.base;
     const prev = state.score;
+    const prevFoodX = state.food.x;
+    const prevFoodY = state.food.y;
     engineStep(state, rng);
-    if (state.score > prev) strand.push(eaten);
+    if (state.score > prev) {
+      strand.push(eaten);
+      // Spawn eat particle explosion
+      const cx = prevFoodX * cell + cell / 2;
+      const cy = prevFoodY * cell + cell / 2;
+      const pCol = baseColor(eaten);
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2;
+        const sp = 25 + Math.random() * 50;
+        particles.push({
+          x: cx,
+          y: cy,
+          vx: Math.cos(a) * sp,
+          vy: Math.sin(a) * sp,
+          color: pCol,
+          size: 1.5 + Math.random() * 1.6,
+          life: 0.45,
+          maxLife: 0.45,
+        });
+      }
+      popups.push({
+        x: cx,
+        y: cy - cell * 0.5,
+        text: `+1 ${eaten}`,
+        color: pCol,
+        life: 0.75,
+        maxLife: 0.75,
+      });
+    }
     if (state.score > best) {
       best = state.score;
       writeBest(best);
@@ -265,22 +497,40 @@ export function initSnake(root: ParentNode = document): SnakeController | null {
     raf = requestAnimationFrame(frame);
     if (state.status !== 'playing' || paused) {
       last = ts;
+      render();
+      updateHud();
       return;
     }
     if (!last) last = ts;
-    acc += ts - last;
+    const deltaMs = ts - last;
+    acc += deltaMs;
+    const dt = Math.min(0.1, deltaMs / 1000);
     last = ts;
-    let changed = false;
+
+    // Update particle physics
+    for (const p of particles) {
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.life -= dt;
+    }
+    for (let i = particles.length - 1; i >= 0; i--) {
+      if (particles[i].life <= 0) particles.splice(i, 1);
+    }
+    for (const p of popups) {
+      p.y -= 22 * dt;
+      p.life -= dt;
+    }
+    for (let i = popups.length - 1; i >= 0; i--) {
+      if (popups[i].life <= 0) popups.splice(i, 1);
+    }
+
     let guard = 0;
     while (acc >= interval() && state.status === 'playing' && guard++ < 10) {
       acc -= interval();
       doTick();
-      changed = true;
     }
-    if (changed) {
-      render();
-      updateHud();
-    }
+    render();
+    updateHud();
   }
 
   // ---- state transitions -------------------------------------------------
@@ -301,6 +551,8 @@ export function initSnake(root: ParentNode = document): SnakeController | null {
     rng = mulberry32(freshSeed());
     reset(state, rng);
     strand.length = 0;
+    particles.length = 0;
+    popups.length = 0;
     beginPlay();
     render();
   }

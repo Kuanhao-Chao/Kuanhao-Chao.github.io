@@ -19,26 +19,29 @@ const { size = 64, class: className = '' } = Astro.props;
   <defs>
     <!-- Background Aura -->
     <radialGradient id="snk-aura" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="var(--color-accent, #2e6e5e)" stop-opacity="0.25" />
-      <stop offset="100%" stop-color="var(--color-accent, #2e6e5e)" stop-opacity="0" />
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.3" />
+      <stop offset="60%" stop-color="#059669" stop-opacity="0.1" />
+      <stop offset="100%" stop-color="#047857" stop-opacity="0" />
     </radialGradient>
 
     <!-- Serpent Head Gradient -->
     <linearGradient id="snk-head-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#10b981" />
-      <stop offset="50%" stop-color="#059669" />
+      <stop offset="0%" stop-color="#34d399" />
+      <stop offset="40%" stop-color="#10b981" />
+      <stop offset="85%" stop-color="#059669" />
       <stop offset="100%" stop-color="#047857" />
     </linearGradient>
 
     <!-- Target Fruit Gradient -->
-    <radialGradient id="snk-fruit-grad" cx="40%" cy="40%" r="60%">
-      <stop offset="0%" stop-color="#fef08a" />
-      <stop offset="50%" stop-color="#f59e0b" />
+    <radialGradient id="snk-fruit-grad" cx="35%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="25%" stop-color="#fef08a" />
+      <stop offset="65%" stop-color="#f59e0b" />
       <stop offset="100%" stop-color="#d97706" />
     </radialGradient>
 
     <!-- Glow Filter -->
-    <filter id="snk-glow" x="-20%" y="-20%" width="140%" height="140%">
+    <filter id="snk-glow" x="-30%" y="-30%" width="160%" height="160%">
       <feGaussianBlur stdDeviation="2" result="blur" />
       <feComposite in="SourceGraphic" in2="blur" operator="over" />
     </filter>
@@ -54,85 +57,109 @@ const { size = 64, class: className = '' } = Astro.props;
     stroke="var(--color-rule, #e5e4df)"
     stroke-width="1.2"
     stroke-dasharray="4 3"
-    opacity="0.6"
+    opacity="0.65"
   />
 
-  <!-- 2. Phosphodiester Backbone Connecting Line -->
+  <!-- 2. Phosphodiester Backbone Spine Connection -->
   <path
-    d="M 22 76 C 18 64, 22 48, 36 48 C 50 48, 54 68, 68 68 C 76 68, 80 56, 76 42"
+    d="M 20 78 C 16 62, 22 46, 36 46 C 50 46, 54 68, 68 68 C 76 68, 82 56, 78 40"
     fill="none"
-    stroke="var(--color-rule, #e5e4df)"
-    stroke-width="3"
+    stroke="#10b981"
+    stroke-width="3.5"
+    stroke-linecap="round"
+    opacity="0.4"
+  />
+  <path
+    d="M 20 78 C 16 62, 22 46, 36 46 C 50 46, 54 68, 68 68 C 76 68, 82 56, 78 40"
+    fill="none"
+    stroke="var(--color-surface, #ffffff)"
+    stroke-width="1.4"
     stroke-linecap="round"
   />
 
   <!-- 3. Segmented Nucleotide Body Badges -->
   <g class="snk-body-segments" filter="url(#snk-glow)">
     <!-- Segment 1: Base T (Purple) -->
-    <g transform="translate(22, 76)">
-      <circle cx="0" cy="0" r="7.5" fill="#a855f7" stroke="var(--color-surface, #ffffff)" stroke-width="1.4" />
-      <text x="0" y="2.2" font-family="monospace" font-size="7.5" font-weight="bold" fill="#ffffff" text-anchor="middle">T</text>
+    <g transform="translate(20, 78)">
+      <circle cx="0" cy="0" r="8" fill="#a855f7" stroke="var(--color-surface, #ffffff)" stroke-width="1.5" />
+      <circle cx="-2.2" cy="-2.2" r="1.8" fill="#ffffff" opacity="0.6" />
+      <text x="0" y="2.5" font-family="monospace" font-size="8" font-weight="bold" fill="#ffffff" text-anchor="middle">T</text>
     </g>
 
     <!-- Segment 2: Base G (Amber) -->
     <g transform="translate(22, 54)">
-      <circle cx="0" cy="0" r="7.5" fill="#f59e0b" stroke="var(--color-surface, #ffffff)" stroke-width="1.4" />
-      <text x="0" y="2.2" font-family="monospace" font-size="7.5" font-weight="bold" fill="#ffffff" text-anchor="middle">G</text>
+      <circle cx="0" cy="0" r="8" fill="#f59e0b" stroke="var(--color-surface, #ffffff)" stroke-width="1.5" />
+      <circle cx="-2.2" cy="-2.2" r="1.8" fill="#ffffff" opacity="0.6" />
+      <text x="0" y="2.5" font-family="monospace" font-size="8" font-weight="bold" fill="#ffffff" text-anchor="middle">G</text>
     </g>
 
     <!-- Segment 3: Base C (Cyan) -->
-    <g transform="translate(38, 48)">
-      <circle cx="0" cy="0" r="8" fill="#0284c7" stroke="var(--color-surface, #ffffff)" stroke-width="1.4" />
-      <text x="0" y="2.4" font-family="monospace" font-size="8" font-weight="bold" fill="#ffffff" text-anchor="middle">C</text>
+    <g transform="translate(38, 46)">
+      <circle cx="0" cy="0" r="8.5" fill="#0284c7" stroke="var(--color-surface, #ffffff)" stroke-width="1.5" />
+      <circle cx="-2.4" cy="-2.4" r="2" fill="#ffffff" opacity="0.6" />
+      <text x="0" y="2.6" font-family="monospace" font-size="8.5" font-weight="bold" fill="#ffffff" text-anchor="middle">C</text>
     </g>
 
     <!-- Segment 4: Base A (Emerald) -->
     <g transform="translate(54, 62)">
-      <circle cx="0" cy="0" r="8.5" fill="#059669" stroke="var(--color-surface, #ffffff)" stroke-width="1.4" />
-      <text x="0" y="2.5" font-family="monospace" font-size="8.5" font-weight="bold" fill="#ffffff" text-anchor="middle">A</text>
+      <circle cx="0" cy="0" r="9" fill="#059669" stroke="var(--color-surface, #ffffff)" stroke-width="1.5" />
+      <circle cx="-2.6" cy="-2.6" r="2.2" fill="#ffffff" opacity="0.6" />
+      <text x="0" y="2.8" font-family="monospace" font-size="9" font-weight="bold" fill="#ffffff" text-anchor="middle">A</text>
     </g>
 
     <!-- Segment 5: Base U (Purple) -->
     <g transform="translate(70, 66)">
-      <circle cx="0" cy="0" r="9" fill="#7c3aed" stroke="var(--color-surface, #ffffff)" stroke-width="1.4" />
-      <text x="0" y="2.6" font-family="monospace" font-size="9" font-weight="bold" fill="#ffffff" text-anchor="middle">U</text>
+      <circle cx="0" cy="0" r="9.5" fill="#7c3aed" stroke="var(--color-surface, #ffffff)" stroke-width="1.5" />
+      <circle cx="-2.8" cy="-2.8" r="2.4" fill="#ffffff" opacity="0.6" />
+      <text x="0" y="2.9" font-family="monospace" font-size="9.5" font-weight="bold" fill="#ffffff" text-anchor="middle">U</text>
     </g>
 
     <!-- Segment 6: Base G (Amber) -->
-    <g transform="translate(77, 48)">
-      <circle cx="0" cy="0" r="9.5" fill="#f59e0b" stroke="var(--color-surface, #ffffff)" stroke-width="1.4" />
-      <text x="0" y="2.8" font-family="monospace" font-size="9.5" font-weight="bold" fill="#ffffff" text-anchor="middle">G</text>
+    <g transform="translate(78, 46)">
+      <circle cx="0" cy="0" r="10" fill="#f59e0b" stroke="var(--color-surface, #ffffff)" stroke-width="1.5" />
+      <circle cx="-3" cy="-3" r="2.5" fill="#ffffff" opacity="0.6" />
+      <text x="0" y="3" font-family="monospace" font-size="10" font-weight="bold" fill="#ffffff" text-anchor="middle">G</text>
     </g>
   </g>
 
-  <!-- 4. Genomic Serpent Head -->
-  <g class="snk-head" transform="translate(68, 28)">
+  <!-- 4. Genomic Cyber-Serpent Head -->
+  <g class="snk-head" transform="translate(70, 26)" filter="url(#snk-glow)">
     <!-- Head Outline -->
     <path
-      d="M -6 10 C -12 2, -6 -10, 8 -8 C 18 -6, 20 4, 12 12 C 4 18, -2 16, -6 10 Z"
+      d="M -8 12 C -14 3, -8 -10, 8 -8 C 18 -6, 22 4, 14 14 C 6 20, -3 18, -8 12 Z"
       fill="url(#snk-head-grad)"
       stroke="var(--color-surface, #ffffff)"
-      stroke-width="1.6"
+      stroke-width="1.8"
     />
 
-    <!-- Bio-crest Ridge -->
-    <path d="M 0 -7 C 5 -12, 12 -10, 14 -5" fill="none" stroke="#fef08a" stroke-width="1.4" stroke-linecap="round" />
+    <!-- Bio-crest Ridge (Golden Crown) -->
+    <path d="M 0 -8 C 6 -14, 14 -12, 16 -6" fill="none" stroke="#fef08a" stroke-width="1.8" stroke-linecap="round" />
 
-    <!-- Eye -->
-    <circle cx="6" cy="-1" r="3" fill="#ffffff" />
-    <circle cx="7" cy="-1" r="1.5" fill="#047857" />
+    <!-- Eye Subunit -->
+    <circle cx="7" cy="-2" r="3.2" fill="#ffffff" stroke="#047857" stroke-width="0.8" />
+    <circle cx="8" cy="-2" r="1.6" fill="#047857" />
+    <circle cx="7.2" cy="-2.8" r="0.6" fill="#ffffff" />
 
     <!-- Cute Flicking Tongue targeting the fruit -->
-    <path d="M 16 8 L 24 10 L 28 8 M 24 10 L 28 13" fill="none" stroke="#f43f5e" stroke-width="1.2" stroke-linecap="round" />
+    <path d="M 16 10 L 25 12 L 30 9 M 25 12 L 30 15" fill="none" stroke="#f43f5e" stroke-width="1.5" stroke-linecap="round" />
   </g>
 
   <!-- 5. Glowing Double-Helix Target Fruit (Adenine Target) -->
-  <g class="snk-fruit" transform="translate(42, 22)">
-    <circle cx="0" cy="0" r="10" fill="url(#snk-fruit-grad)" stroke="#ffffff" stroke-width="1.5" />
-    <!-- Leaf / Double-Helix Flag -->
-    <path d="M 0 -9 C -4 -16, 2 -18, 5 -14 C 6 -11, 2 -10, 0 -9 Z" fill="#10b981" />
+  <g class="snk-fruit" transform="translate(40, 20)" filter="url(#snk-glow)">
+    <!-- Ambient Pulse Ring -->
+    <circle cx="0" cy="0" r="14" fill="none" stroke="#fbbf24" stroke-width="1" stroke-dasharray="3 2" opacity="0.75" />
+
+    <!-- 3D Radiant Sphere -->
+    <circle cx="0" cy="0" r="10.5" fill="url(#snk-fruit-grad)" stroke="#ffffff" stroke-width="1.6" />
+
+    <!-- Chloroplast Leaf Crown / Helix Flag -->
+    <path d="M 0 -10 C -5 -18, 2 -20, 6 -15 C 7 -12, 2 -11, 0 -10 Z" fill="#10b981" stroke="#ffffff" stroke-width="0.6" />
+
+    <!-- Specular Highlight -->
+    <circle cx="-3" cy="-3.5" r="2.2" fill="#ffffff" opacity="0.7" />
+
     <!-- Inner Base Marker -->
-    <text x="0" y="3.2" font-family="monospace" font-size="9.5" font-weight="bold" fill="#ffffff" text-anchor="middle">A</text>
+    <text x="0" y="3.5" font-family="monospace" font-size="10" font-weight="bold" fill="#ffffff" text-anchor="middle">A</text>
   </g>
 </svg>
 
@@ -146,6 +173,6 @@ const { size = 64, class: className = '' } = Astro.props;
   }
 
   .snake-logo:hover {
-    transform: scale(1.06) translateY(-2px);
+    transform: scale(1.08) translateY(-2px);
   }
 </style>
