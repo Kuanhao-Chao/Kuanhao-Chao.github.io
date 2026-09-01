@@ -129,6 +129,9 @@ export const nav: NavItem[] = [
   { label: 'Algorithms', href: '/algorithms/', footerOnly: true },
   { label: 'Deep Dives', href: '/deep_dives/', footerOnly: true },
   { label: 'Papers', href: '/papers/', footerOnly: true },
+  { label: 'Cell Lab', href: '/lab', footerOnly: true },
+  { label: 'Shorkie Lab', href: '/shorkie-lab/', footerOnly: true },
+  { label: 'Fun Lab', href: '/fun-lab/', footerOnly: true },
   { label: 'Terminal', href: '/terminal/', footerOnly: true },
 ];
 

@@ -85,7 +85,8 @@ const SAFE_SET_HTML_FILES = new Set([
   'src/pages/games/tetris.astro',
   'src/pages/posts/[...slug].astro',
   'src/pages/projects.astro',
-  // JSON-LD only, built from static page constants -- no visitor input reaches it.
+  'src/pages/fun-lab/index.astro',
+  'src/pages/shorkie-lab/genome.astro',
   'src/pages/shorkie-lab/index.astro',
   'src/pages/shorkie-lab/shorkie_lm.astro',
   'src/pages/publications/[...slug].astro',
