@@ -118,7 +118,7 @@
   border: 1px solid var(--color-rule);
 }
 
-:root[data-theme='dark'] .crispr-integrity-bar {
+:root:not([data-theme='light']):not([data-theme='parchment']) .crispr-integrity-bar {
   background: rgba(0, 0, 0, 0.4);
 }
 
@@ -223,7 +223,7 @@
   color: var(--color-accent);
 }
 
-:root[data-theme='dark'] .crispr-enzyme-btn.active {
+:root:not([data-theme='light']):not([data-theme='parchment']) .crispr-enzyme-btn.active {
   background: rgba(117, 199, 175, 0.18);
   color: #75c7af;
 }

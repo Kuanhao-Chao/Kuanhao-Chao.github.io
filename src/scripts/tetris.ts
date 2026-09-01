@@ -27,6 +27,7 @@ import {
   gravityMs,
   type GameState,
 } from '../lib/tetris';
+import { isDarkTheme } from '../lib/theme';
 
 interface TetrisTestApi {
   state: () => GameState;
@@ -137,7 +138,7 @@ export function initTetris(root: ParentNode = document): TetrisController | null
 
   let palette = readPalette();
   function readPalette(): string[] {
-    return document.documentElement.dataset.theme === 'dark' ? PALETTE_DARK : PALETTE_LIGHT;
+    return isDarkTheme() ? PALETTE_DARK : PALETTE_LIGHT;
   }
   const boardBg = () => cssVar('--color-surface', '#ffffff');
   const gridColor = () => cssVar('--color-rule', '#e5e4df');

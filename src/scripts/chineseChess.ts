@@ -14,6 +14,7 @@ import {
   type Side,
   type AIDifficulty,
 } from '../lib/chineseChess';
+import { isDarkTheme } from '../lib/theme';
 
 export type GameMode = 'pvp' | 'pve';
 
@@ -143,10 +144,12 @@ export function initChineseChess() {
   const root = document.querySelector<HTMLElement>('[data-cc-root]');
   if (!root) return () => {};
 
-  const canvas = root.querySelector<HTMLCanvasElement>('[data-cc-canvas]');
-  if (!canvas) return () => {};
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return () => {};
+  const canvasEl = root.querySelector<HTMLCanvasElement>('[data-cc-canvas]');
+  if (!canvasEl) return () => {};
+  const canvas: HTMLCanvasElement = canvasEl;
+  const maybeCtx = canvas.getContext('2d');
+  if (!maybeCtx) return () => {};
+  const ctx: CanvasRenderingContext2D = maybeCtx;
 
   // HUD Elements
   const statusEl = root.querySelector<HTMLElement>('[data-cc-status]');
@@ -243,25 +246,25 @@ export function initChineseChess() {
   function drawBoard() {
     const W = canvas!.width / (window.devicePixelRatio || 1);
     const H = canvas!.height / (window.devicePixelRatio || 1);
+    const isDark = isDarkTheme();
 
     // 1. Rich Woodgrain Board Canvas Background
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    const bgGrad = ctx!.createRadialGradient(W / 2, H / 2, 20, W / 2, H / 2, Math.max(W, H) * 0.7);
+    const bgGrad = ctx!.createRadialGradient(W / 2, H / 2, 20, W / 2, H / 2, Math.max(W, H) * 0.75);
     if (isDark) {
-      bgGrad.addColorStop(0, '#2d2116');
-      bgGrad.addColorStop(0.7, '#20160e');
-      bgGrad.addColorStop(1, '#150d08');
+      bgGrad.addColorStop(0, '#261a13'); // Warm dark rosewood core
+      bgGrad.addColorStop(0.55, '#1b120c'); // Rich mahogany
+      bgGrad.addColorStop(1, '#0e0906'); // Deep dark lacquer border
     } else {
-      bgGrad.addColorStop(0, '#fef6e9');
-      bgGrad.addColorStop(0.7, '#f4e4cc');
-      bgGrad.addColorStop(1, '#e3cbab');
+      bgGrad.addColorStop(0, '#fdf7ec'); // Warm honey beechwood
+      bgGrad.addColorStop(0.65, '#f4e4cc'); // Natural warm maple
+      bgGrad.addColorStop(1, '#dfc39a'); // Vintage chamfered edge
     }
     ctx!.fillStyle = bgGrad;
     ctx!.fillRect(0, 0, W, H);
 
     // Outer Board Wood Border & Chamfer
     ctx!.save();
-    ctx!.strokeStyle = isDark ? '#5c4028' : '#a27b50';
+    ctx!.strokeStyle = isDark ? '#4a3422' : '#9e754a';
     ctx!.lineWidth = 3;
     const bx = originX - cellW * 0.45;
     const by = originY - cellH * 0.45;
@@ -269,14 +272,15 @@ export function initChineseChess() {
     const bh = cellH * 9 + cellH * 0.9;
     ctx!.strokeRect(bx, by, bw, bh);
 
-    ctx!.lineWidth = 1;
+    ctx!.strokeStyle = isDark ? 'rgba(212, 175, 55, 0.5)' : 'rgba(184, 149, 110, 0.75)';
+    ctx!.lineWidth = 1.2;
     ctx!.strokeRect(bx + 4, by + 4, bw - 8, bh - 8);
     ctx!.restore();
 
     // 2. Grid Lines
     ctx!.save();
-    ctx!.strokeStyle = isDark ? '#7a5a3a' : '#8c6b45';
-    ctx!.lineWidth = 1.4;
+    ctx!.strokeStyle = isDark ? 'rgba(212, 175, 55, 0.88)' : 'rgba(133, 91, 53, 0.9)';
+    ctx!.lineWidth = isDark ? 1.35 : 1.4;
 
     // Horizontal Ranks (10 lines)
     for (let j = 0; j <= 9; j++) {
@@ -355,15 +359,23 @@ export function initChineseChess() {
     ];
 
     for (const [sx, sy] of starPoints) {
-      drawStarTick(sx, sy);
+      drawStarTick(sx, sy, isDark);
     }
 
     // 5. River Calligraphy (楚 河 · 漢 界)
-    const riverY = flipped ? originY + 4.5 * cellH : originY + 4.5 * cellH;
+    const riverY = originY + 4.5 * cellH;
     const riverLeftX = originX + 2 * cellW;
     const riverRightX = originX + 6 * cellW;
 
-    ctx!.fillStyle = isDark ? '#b48a60' : '#73502d';
+    ctx!.save();
+    if (isDark) {
+      ctx!.fillStyle = '#f1c40f'; // Polished imperial gold leaf
+      ctx!.shadowColor = 'rgba(241, 196, 15, 0.35)';
+      ctx!.shadowBlur = 4;
+    } else {
+      ctx!.fillStyle = '#664322'; // Deep traditional umber
+      ctx!.shadowColor = 'transparent';
+    }
     ctx!.font = `bold ${Math.round(cellH * 0.44)}px 'Kaiti', 'STKaiti', 'KaiTi_GB2312', 'Songti SC', 'SimSun', serif`;
     ctx!.textAlign = 'center';
     ctx!.textBaseline = 'middle';
@@ -373,11 +385,12 @@ export function initChineseChess() {
 
     ctx!.fillText(textLeft, riverLeftX, riverY);
     ctx!.fillText(textRight, riverRightX, riverY);
+    ctx!.restore();
 
     ctx!.restore();
   }
 
-  function drawStarTick(x: number, y: number) {
+  function drawStarTick(x: number, y: number, isDark: boolean) {
     const { cx, cy } = boardToCanvas(x, y);
     const d = cellW * 0.12;
     const len = cellW * 0.22;
@@ -385,7 +398,8 @@ export function initChineseChess() {
     const hasRight = x < 8;
 
     ctx!.save();
-    ctx!.lineWidth = 1.2;
+    ctx!.strokeStyle = isDark ? 'rgba(212, 175, 55, 0.92)' : 'rgba(133, 91, 53, 0.92)';
+    ctx!.lineWidth = 1.25;
 
     if (hasLeft) {
       // Top-Left
@@ -422,7 +436,7 @@ export function initChineseChess() {
     const { cx, cy } = boardToCanvas(piece.x, piece.y);
     const r = pieceRadius;
     const isRed = piece.side === 'red';
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const isDark = isDarkTheme();
     const isSelected = selectedPiece?.id === piece.id;
 
     ctx!.save();
@@ -430,7 +444,7 @@ export function initChineseChess() {
     // 1. Drop Shadow
     ctx!.beginPath();
     ctx!.arc(cx + 2, cy + 3.5, r, 0, Math.PI * 2);
-    ctx!.fillStyle = 'rgba(0, 0, 0, 0.32)';
+    ctx!.fillStyle = isDark ? 'rgba(0, 0, 0, 0.65)' : 'rgba(0, 0, 0, 0.28)';
     ctx!.fill();
 
     // 2. 3D Cylindrical Wooden Bevel Ring
@@ -438,11 +452,11 @@ export function initChineseChess() {
     if (isRed) {
       rimGrad.addColorStop(0, '#fca5a5');
       rimGrad.addColorStop(0.45, '#dc2626');
-      rimGrad.addColorStop(1, '#7f1d1d');
+      rimGrad.addColorStop(1, isDark ? '#4a0707' : '#7f1d1d');
     } else {
-      rimGrad.addColorStop(0, '#64748b');
-      rimGrad.addColorStop(0.45, '#1e293b');
-      rimGrad.addColorStop(1, '#020617');
+      rimGrad.addColorStop(0, isDark ? '#94a3b8' : '#64748b');
+      rimGrad.addColorStop(0.45, isDark ? '#334155' : '#1e293b');
+      rimGrad.addColorStop(1, isDark ? '#05070a' : '#020617');
     }
     ctx!.fillStyle = rimGrad;
     ctx!.beginPath();
@@ -452,11 +466,21 @@ export function initChineseChess() {
     // 3. Inner Lacquer Inset Disc
     const innerGrad = ctx!.createRadialGradient(cx - r * 0.3, cy - r * 0.35, r * 0.1, cx, cy, r * 0.9);
     if (isDark) {
-      innerGrad.addColorStop(0, isRed ? '#2d1515' : '#171d29');
-      innerGrad.addColorStop(1, isRed ? '#180a0a' : '#090d14');
+      if (isRed) {
+        innerGrad.addColorStop(0, '#35161a');
+        innerGrad.addColorStop(1, '#1b0709');
+      } else {
+        innerGrad.addColorStop(0, '#243042');
+        innerGrad.addColorStop(1, '#0f172a');
+      }
     } else {
-      innerGrad.addColorStop(0, isRed ? '#fef2f2' : '#f8fafc');
-      innerGrad.addColorStop(1, isRed ? '#fee2e2' : '#e2e8f0');
+      if (isRed) {
+        innerGrad.addColorStop(0, '#fff5f5');
+        innerGrad.addColorStop(1, '#fee2e2');
+      } else {
+        innerGrad.addColorStop(0, '#f8fafc');
+        innerGrad.addColorStop(1, '#e2e8f0');
+      }
     }
     ctx!.fillStyle = innerGrad;
     ctx!.beginPath();
@@ -464,8 +488,10 @@ export function initChineseChess() {
     ctx!.fill();
 
     // 4. Fine Engraved Inner Border Ring
-    ctx!.strokeStyle = isRed ? '#ef4444' : '#475569';
-    ctx!.lineWidth = 1;
+    ctx!.strokeStyle = isRed
+      ? (isDark ? 'rgba(248, 113, 113, 0.75)' : '#ef4444')
+      : (isDark ? 'rgba(148, 163, 184, 0.75)' : '#64748b');
+    ctx!.lineWidth = 1.1;
     ctx!.beginPath();
     ctx!.arc(cx, cy, r * 0.72, 0, Math.PI * 2);
     ctx!.stroke();
@@ -474,40 +500,62 @@ export function initChineseChess() {
     ctx!.save();
     ctx!.beginPath();
     ctx!.arc(cx, cy, r * 0.78, Math.PI * 1.1, Math.PI * 1.7);
-    ctx!.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+    ctx!.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.45)' : 'rgba(255, 255, 255, 0.65)';
     ctx!.lineWidth = 1.4;
     ctx!.stroke();
     ctx!.restore();
 
     // 6. Chinese Calligraphy Character
     const char = CHINESE_PIECE_CHARS[piece.side][piece.kind];
-    ctx!.fillStyle = isRed ? '#dc2626' : (isDark ? '#f1f5f9' : '#0f172a');
-    ctx!.font = `bold ${Math.round(r * 1.1)}px 'Kaiti', 'STKaiti', 'KaiTi_GB2312', 'Songti SC', 'SimSun', serif`;
+    ctx!.save();
+    if (isRed) {
+      ctx!.fillStyle = isDark ? '#f87171' : '#dc2626';
+      if (isDark) {
+        ctx!.shadowColor = 'rgba(239, 68, 68, 0.4)';
+        ctx!.shadowBlur = 4;
+      }
+    } else {
+      ctx!.fillStyle = isDark ? '#f8fafc' : '#0f172a';
+      if (isDark) {
+        ctx!.shadowColor = 'rgba(0, 0, 0, 0.6)';
+        ctx!.shadowBlur = 4;
+      }
+    }
+    ctx!.font = `bold ${Math.round(r * 1.12)}px 'Kaiti', 'STKaiti', 'KaiTi_GB2312', 'Songti SC', 'SimSun', serif`;
     ctx!.textAlign = 'center';
     ctx!.textBaseline = 'middle';
     ctx!.fillText(char, cx, cy + 1);
+    ctx!.restore();
 
     // 7. Selection Ring
     if (isSelected) {
-      ctx!.strokeStyle = '#10b981';
-      ctx!.lineWidth = 2.5;
+      ctx!.save();
+      ctx!.strokeStyle = isDark ? '#34d399' : '#10b981';
+      ctx!.lineWidth = 2.8;
+      if (isDark) {
+        ctx!.shadowColor = 'rgba(52, 211, 153, 0.6)';
+        ctx!.shadowBlur = 8;
+      }
       ctx!.beginPath();
       ctx!.arc(cx, cy, r + 4, 0, Math.PI * 2);
       ctx!.stroke();
+      ctx!.restore();
     }
 
     ctx!.restore();
   }
 
   function drawOverlays() {
+    const isDark = isDarkTheme();
+
     // 1. Last Move Trajectory Highlight
     if (game.lastMove) {
       const fromP = boardToCanvas(game.lastMove.fromX, game.lastMove.fromY);
       const toP = boardToCanvas(game.lastMove.toX, game.lastMove.toY);
 
       ctx!.save();
-      ctx!.strokeStyle = 'rgba(56, 189, 248, 0.75)';
-      ctx!.lineWidth = 2;
+      ctx!.strokeStyle = isDark ? 'rgba(56, 189, 248, 0.85)' : 'rgba(2, 132, 199, 0.8)';
+      ctx!.lineWidth = 2.2;
       ctx!.setLineDash([4, 3]);
       ctx!.beginPath();
       ctx!.moveTo(fromP.cx, fromP.cy);
@@ -520,7 +568,7 @@ export function initChineseChess() {
       ctx!.stroke();
 
       // To ring
-      ctx!.fillStyle = 'rgba(56, 189, 248, 0.2)';
+      ctx!.fillStyle = isDark ? 'rgba(56, 189, 248, 0.25)' : 'rgba(2, 132, 199, 0.15)';
       ctx!.beginPath();
       ctx!.arc(toP.cx, toP.cy, pieceRadius * 1.05, 0, Math.PI * 2);
       ctx!.fill();
@@ -535,14 +583,22 @@ export function initChineseChess() {
         const { cx, cy } = boardToCanvas(m.toX, m.toY);
         if (m.captured) {
           // Capture target: red glowing ring
-          ctx!.strokeStyle = '#ef4444';
-          ctx!.lineWidth = 2.5;
+          ctx!.strokeStyle = isDark ? '#fb7185' : '#ef4444';
+          ctx!.lineWidth = 2.6;
+          if (isDark) {
+            ctx!.shadowColor = 'rgba(251, 113, 133, 0.6)';
+            ctx!.shadowBlur = 6;
+          }
           ctx!.beginPath();
           ctx!.arc(cx, cy, pieceRadius + 3, 0, Math.PI * 2);
           ctx!.stroke();
         } else {
           // Empty destination: emerald dot
-          ctx!.fillStyle = '#10b981';
+          ctx!.fillStyle = isDark ? 'rgba(52, 211, 153, 0.95)' : '#10b981';
+          if (isDark) {
+            ctx!.shadowColor = 'rgba(52, 211, 153, 0.5)';
+            ctx!.shadowBlur = 5;
+          }
           ctx!.beginPath();
           ctx!.arc(cx, cy, cellW * 0.14, 0, Math.PI * 2);
           ctx!.fill();
@@ -557,13 +613,17 @@ export function initChineseChess() {
       const toP = boardToCanvas(suggestedHint.toX, suggestedHint.toY);
 
       ctx!.save();
-      ctx!.strokeStyle = '#f59e0b';
+      ctx!.strokeStyle = isDark ? '#fbbf24' : '#d97706';
       ctx!.lineWidth = 3;
+      if (isDark) {
+        ctx!.shadowColor = 'rgba(251, 191, 36, 0.6)';
+        ctx!.shadowBlur = 8;
+      }
       ctx!.beginPath();
       ctx!.arc(fromP.cx, fromP.cy, pieceRadius + 5, 0, Math.PI * 2);
       ctx!.stroke();
 
-      ctx!.fillStyle = '#f59e0b';
+      ctx!.fillStyle = isDark ? '#fbbf24' : '#d97706';
       ctx!.beginPath();
       ctx!.arc(toP.cx, toP.cy, cellW * 0.18, 0, Math.PI * 2);
       ctx!.fill();
@@ -581,6 +641,8 @@ export function initChineseChess() {
             ctx!.strokeStyle = '#f43f5e';
             ctx!.lineWidth = 3.5;
             ctx!.setLineDash([5, 3]);
+            ctx!.shadowColor = 'rgba(244, 63, 94, 0.8)';
+            ctx!.shadowBlur = 10;
             ctx!.beginPath();
             ctx!.arc(cx, cy, pieceRadius + 6, 0, Math.PI * 2);
             ctx!.stroke();
@@ -890,6 +952,25 @@ export function initChineseChess() {
     }
   };
 
+  const onThemeChange = () => {
+    updateHud();
+    render();
+  };
+
+  document.addEventListener('khc:theme-change', onThemeChange);
+
+  let themeObserver: MutationObserver | null = null;
+  if (typeof MutationObserver !== 'undefined') {
+    themeObserver = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.type === 'attributes' && m.attributeName === 'data-theme') {
+          onThemeChange();
+        }
+      }
+    });
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  }
+
   modeSelect?.addEventListener('change', onModeChange);
   diffSelect?.addEventListener('change', onDiffChange);
   sideSelect?.addEventListener('change', onSideChange);
@@ -905,6 +986,8 @@ export function initChineseChess() {
 
   return () => {
     ro.disconnect();
+    document.removeEventListener('khc:theme-change', onThemeChange);
+    themeObserver?.disconnect();
     canvas.removeEventListener('pointerdown', onPointerDown);
     modeSelect?.removeEventListener('change', onModeChange);
     diffSelect?.removeEventListener('change', onDiffChange);
