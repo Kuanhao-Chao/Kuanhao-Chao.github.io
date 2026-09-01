@@ -195,27 +195,40 @@ const breadcrumbLd = buildBreadcrumbLd([
           <p class="vp-notes" style="margin:0.35rem 0 0;">
             <strong>What the whole window shows that a promoter window cannot.</strong> Running all
             16,384 bp on both strands for every locus makes one result visible that no single window
-            does: <strong>the sign of the strongest substitution is predicted by the gene's
-            expression state in 19 of 19 windows</strong>. The three genes repressed in this
-            baseline — <em>HOP2</em> (meiosis-specific), <em>GAL3</em> and <em>GAL1</em> (galactose
-            regulon, in glucose) — are the only three whose largest substitution <em>raises</em>{' '}
-            predicted expression (+1.38, +1.12, +0.78 logSED, with 20–33 of their top 40 positive).
-            The other eleven are all negative. For a gene already being transcribed the model's
+            does: <strong>the sign of the strongest substitution follows the gene's expression state
+            in 22 of 23 windows</strong>. The three genes repressed in this baseline —{' '}
+            <em>HOP2</em> (meiosis-specific), <em>GAL3</em> and <em>GAL1</em> (galactose regulon, in
+            glucose) — all have a largest substitution that <em>raises</em> predicted expression
+            (+1.38, +1.12, +0.78 logSED, with 20–33 of their top 40 positive), and nineteen of the
+            twenty expressed genes are negative. For a gene already being transcribed the model's
             biggest lever is breaking what drives it; for a silent one it is breaking what holds it
             down.
+          </p>
+          <p class="vp-notes" style="margin:0.35rem 0 0;">
+            <strong>The exception is worth more than the rule.</strong> <em>PWP1</em> is expressed
+            here and its largest substitution is nonetheless <strong>+0.223</strong>. It is a
+            ribosome-biogenesis gene of the RRB regulon, and Supplemental Figure S20B labels this
+            very window with <em>both</em> of that regulon's repressor motifs — the PAC motif and
+            RRPE. A positive lever on a gene carrying two repressor elements is mechanistically
+            reasonable, but it was classified as expressed before the number was computed, so it
+            stands as an exception to the rule as stated rather than as a confirmation of it.
           </p>
                 <details class="vp-how">
             <summary>Why that is not just an artefact of the log scale</summary>
             <div class="vp-how-body">
-              <p><strong>The objection.</strong> logSED is a log ratio, and those three genes have
-              by far the lowest baseline coverage — 77, 213 and 502 against up to 48,547. A given
-              absolute change in predicted coverage moves logSED <strong>161×</strong> more at GAL3
-              than at TDH3, so low-baseline genes should show large log effects whatever the biology.</p>
-              <p><strong>The control, from the data itself.</strong> Baseline does not separate the
-              two groups cleanly, and where it overlaps the sign still tracks regulation:{' '}
-              <em>DTD1</em> (baseline 299) and <em>MMS2</em> (556) sit between GAL3 (213) and GAL1
-              (502), and both are firmly <strong>negative</strong> (−0.45, −0.42). Two pairs at
-              matched baselines with opposite signs — so the sign is about regulation, not scale.</p>
+              <p><strong>The objection.</strong> logSED is a log ratio, and the repressed genes have
+              the lowest baseline coverage — 77, 213 and 502 against up to 48,547. A given absolute
+              change in predicted coverage moves logSED <strong>161×</strong> more at GAL3 than at
+              TDH3, so low-baseline genes should show large log effects whatever the biology.</p>
+              <p><strong>The control, from the data itself.</strong> Baseline does not order the
+              signs. The cleanest case is <em>POP4</em>: it has the <em>second-lowest</em> baseline
+              of all twenty-three windows (166, below GAL3's 213 and GAL1's 502) and its largest
+              substitution is <strong>−0.65</strong>, the most negative on the page — while{' '}
+              <em>PWP1</em>, at nearly six times that baseline (958), comes out{' '}
+              <strong>positive</strong>. <em>DTD1</em> (299) and <em>MMS2</em> (556) are likewise
+              firmly negative between the two GAL genes. If the sign were a property of the log
+              scale, the lowest baselines would carry the positives; they carry the largest negative
+              instead.</p>
               <p><strong>The magnitude is a different matter, and the orderings invert.</strong> As a
               fraction of its own baseline the largest lever on the page is HOP2's{' '}
               <strong>+160%</strong>. In absolute predicted coverage HOP2's best substitution is
@@ -799,10 +812,10 @@ const breadcrumbLd = buildBreadcrumbLd([
         <p class="vp-act__sub">The tests that can come out negative. Every curated binding site knocked out and measured, and the attribution scored against annotation the model never saw.</p>
 
         <section class="vp-panel">
-          <h2>What all nineteen windows say <span class="vp-stat" data-vp-summary-stat></span></h2>
+          <h2>What all twenty-three windows say <span class="vp-stat" data-vp-summary-stat></span></h2>
           <p class="vp-notes" style="margin:0 0 0.6rem;">
             Every other panel in this act shows one window at a time. This one is the pattern across
-            all nineteen, computed once from the same packs and the same null those panels use — so
+            all twenty-three, computed once from the same packs and the same null those panels use — so
             it cannot drift from them.
           </p>
           <div class="vp-findings" data-vp-findings></div>
@@ -836,7 +849,7 @@ const breadcrumbLd = buildBreadcrumbLd([
               highly expressed gene does not dominate. The band is the spread <em>across genes</em>,
               not a confidence interval on the mean — these genes differ by orders of magnitude in
               expression and the spread is the honest statement of that.</p>
-              <p><strong>What it cannot tell you.</strong> 158 genes from nineteen windows is a
+              <p><strong>What it cannot tell you.</strong> 198 genes from twenty-three windows is a
               small, non-random sample: they were chosen as classic high expressers, the galactose
               regulon and the paper's own figure panels. A metaprofile from them describes those
               genes, not the yeast genome.</p>

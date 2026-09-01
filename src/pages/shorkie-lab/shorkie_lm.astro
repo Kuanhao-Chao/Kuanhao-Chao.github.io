@@ -141,7 +141,7 @@ const breadcrumbLd = buildBreadcrumbLd([
               <strong>TDH3</strong>, <code>K = 10</code> gives 43.93% argmax and 1.7528 bits against{' '}
               <code>K = 7</code>'s 43.00% and 1.7571 — so the stride is not what sets the number.
               Those two figures are TDH3's, not the page's: argmax runs 41.3% (GAL1) to 46.3%
-              (FUN12) across the nineteen windows, and the bar above always reports the window you
+              (FUN12) across the twenty-three windows, and the bar above always reports the window you
               are looking at.</p>
               <p><strong>What it is not.</strong> Not the same as masking one base alone: the
               iterative pass also has 1/7 of the rest of the window hidden, so it is the same
@@ -180,7 +180,7 @@ const breadcrumbLd = buildBreadcrumbLd([
             <strong>The same curated layer the expression page carries, drawn the same way.</strong>{' '}
             Genes are real models — exons as blocks, introns as the gap the chevrons run through,
             strand-aware — not one bar per gene, because a bar paints over every intron and eight of
-            these nineteen windows contain one. Provenance is drawn rather than merely recorded: a
+            these twenty-three windows contain one. Provenance is drawn rather than merely recorded: a
             ChIP-supported site is solid, a conserved-only call hollow, a PWM match a hairline. A
             grey cap marks a feature clipped by the window edge, so that edge is never mistaken for
             a real boundary.
@@ -238,7 +238,7 @@ const breadcrumbLd = buildBreadcrumbLd([
               <p><strong>Quantisation.</strong> Probabilities ship as uint8 in <em>log</em> space,
               not linear: the displayed quantity is the entropy and <code>−p log₂ p</code> is
               steepest where <code>p</code> is smallest, which is where a linear grid is coarsest.
-              Measured across all nineteen loci the worst entropy error is under 0.02 bits on a 2-bit
+              Measured across all twenty-three loci the worst entropy error is under 0.02 bits on a 2-bit
               axis.</p>
             </div>
           </details>
@@ -310,9 +310,9 @@ const breadcrumbLd = buildBreadcrumbLd([
               meant to, the LM should be measurably <em>less</em> constrained over coding sequence
               than over the intergenic sequence around it. The CDS row in the table above is that
               test.</p>
-              <p><strong>Measured across all nineteen windows, the exon half of the prediction
+              <p><strong>Measured across all twenty-three windows, the exon half of the prediction
               fails and the repeat half holds.</strong> Coding sequence scores above 1.0 in{' '}
-              <strong>19 of 19</strong> loci — mean <strong>1.120×</strong>, range 1.041–1.266 —
+              <strong>23 of 23</strong> loci — mean <strong>1.108×</strong>, range 1.004–1.266 —
               so the model is <em>more</em> certain over exons, not less, despite their loss being
               weighted at a tenth. Repeats go the other way, but on far thinner evidence: the
               curated annotation for these windows contains <strong>no transposon features at
@@ -320,7 +320,7 @@ const breadcrumbLd = buildBreadcrumbLd([
               the TDH3, PGK1 and RPL26A windows — scoring <strong>0.68–0.80×</strong>. All three
               fall on the same side, which is suggestive, but three features in three windows is not
               the fourteen-window result the CDS row is. The table in{' '}
-              <em>Constraint across all nineteen windows</em> shows a <code>—</code> for the sixteen
+              <em>Constraint across all twenty-three windows</em> shows a <code>—</code> for the twenty
               windows that contain no LTR, so the support is visible rather than implied.</p>
               <p>The likely reason is that the two classes are not comparable targets. A repeat is
               only predictable because it recurs, and down-weighting it removes the incentive to
@@ -340,17 +340,17 @@ const breadcrumbLd = buildBreadcrumbLd([
           </details>
         </section>
 
-        <!-- ------------------------------------------------- across all nineteen -->
+        <!-- ------------------------------------------------- across all twenty-three -->
         <section class="vp-panel">
-          <h2>Constraint across all nineteen windows</h2>
+          <h2>Constraint across all twenty-three windows</h2>
           <p class="vp-notes" style="margin:0 0 0.5rem;">
             Every panel above shows one window, so the claims this page makes <em>across</em>{' '}
             windows have to be taken on trust. This is them. Click a gene to open its window.
           </p>
           <div class="vp-scroll-x"><table class="vp-enrich" data-lm-summary></table></div>
           <p class="vp-notes" style="margin:0.4rem 0 0;">
-            <strong>Coding sequence is more constrained in 19 of 19 windows</strong> — mean{' '}
-            <strong>1.120×</strong>, range 1.041–1.266 — despite <code>exon_loss_scale: 0.1</code>{' '}
+            <strong>Coding sequence is more constrained in 23 of 23 windows</strong> — mean{' '}
+            <strong>1.108×</strong>, range 1.004–1.266 — despite <code>exon_loss_scale: 0.1</code>{' '}
             weighting it at a tenth. The three solo LTRs in this set go the other way at{' '}
             <strong>0.68–0.80×</strong>. Those are three features in three windows, not a
             fourteen-window result, and the table shows the <code>—</code> where a window has none.
@@ -366,7 +366,7 @@ const breadcrumbLd = buildBreadcrumbLd([
               <strong>256 deterministic circular shifts</strong> of the annotation mask. Rotation
               preserves the feature count, every length and every gap, and destroys only alignment.</p>
               <p><strong>Why precomputed.</strong> That null is 256 passes over 16,384 positions per
-              class per locus; doing it live for nineteen would mean fetching all nineteen planes
+              class per locus; doing it live for twenty-three would mean fetching all twenty-three planes
               (2.3 MB) and running ~25,000 passes in the browser. It is computed once by{' '}
               <code>scripts/shorkie/make_lm_summary.py</code> from the shipped packs — no model, no
               checkpoint — into <code>src/data/shorkieLmSummary.json</code>.</p>

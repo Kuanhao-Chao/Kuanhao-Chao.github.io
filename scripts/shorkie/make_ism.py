@@ -263,7 +263,7 @@ def repack(out_dir: Path) -> int:
         meta["ism"].update({"space": space, "lo": lows, "hi": highs,
                             "saliencyDecodeError": round(err, 8),
                             "saliencyRelativeError": round(rel, 6)})
-        meta_p.write_text(json.dumps(meta))
+        meta_p.write_text(json.dumps(meta, separators=(",", ":")))
         print(f"  {locus['id']:10s} {locus['gene']:8s} {space:6s} pack"
               f"{'' if was == space else f' (was {was})'}"
               f"  err {err:.2e} abs / {rel * 100:.1f}% local")
@@ -470,7 +470,7 @@ def main() -> int:
             "engine": f"pytorch/{device}", "saliencyDecodeError": round(err, 8),
             "saliencyRelativeError": round(rel, 6),
         }
-        (out_dir / f"{locus['id']}.json").write_text(json.dumps(meta))
+        (out_dir / f"{locus['id']}.json").write_text(json.dumps(meta, separators=(",", ":")))
 
         flat = int(np.argmax(np.abs(plane)))
         b, k = flat // SEQ_LEN, flat % SEQ_LEN

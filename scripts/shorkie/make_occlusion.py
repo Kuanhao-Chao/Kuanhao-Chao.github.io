@@ -148,7 +148,7 @@ def main() -> int:
             "win": win, "score": "logSED per bin", "ablation": "DNA channels zeroed",
             "strands": "rc-averaged",
         }
-        meta_path.write_text(json.dumps(meta))
+        meta_path.write_text(json.dumps(meta, separators=(",", ":")))
 
         # The interesting numbers, printed rather than assumed: the single most damaging window,
         # and how much of its damage lands OUTSIDE its own footprint -- which is the whole point of
