@@ -4,6 +4,13 @@ import '../../styles/variantPlayground.css';
 import { SPEC_NOTES } from '../../lib/shorkieModel';
 import { site } from '../../data/site';
 import { buildBreadcrumbLd } from '../../lib/breadcrumbs';
+import lociData from '../../data/shorkieLoci.json';
+
+// Derived, not typed. Four passages here described the enrichment figure and the knockout sweep as
+// covering fourteen windows after the set had grown to 23 -- and `shorkieBiologySummary.json`, which
+// is what both are computed from, carries 23. The two "fourteen" figures further up are deliberately
+// NOT this constant: they describe a timed benchmark run that really did cover fourteen loci.
+const nLoci = lociData.loci.length;
 
 // A `bare` page, so it carries its own header and needs its own <h1> -- audit:indexing asserts a
 // visible heading on every sitemap URL. The page is NOT at /shorkie/: that path already serves the
@@ -820,11 +827,11 @@ const breadcrumbLd = buildBreadcrumbLd([
           </p>
           <div class="vp-findings" data-vp-findings></div>
           <div class="vp-scroll-x"><canvas class="vp-canvas" data-vp-class-figure role="img"
-                  aria-label="Attribution enrichment per annotation class, median across fourteen windows"></canvas></div>
+                  aria-label={`Attribution enrichment per annotation class, median across ${nLoci} windows`}></canvas></div>
           <p class="vp-notes" style="margin:0.4rem 0 0;">
             Each row is one annotation class; the bar is the <em>median</em> across the windows that
             contain it, and the dots are the individual windows. A class present in two windows and
-            a class present in fourteen are drawn the same width, so the count beside each row is
+            a class present in {nLoci} are drawn the same width, so the count beside each row is
             what says how much to trust it.
           </p>
           <canvas class="vp-canvas" data-vp-tss role="img"
@@ -897,7 +904,7 @@ const breadcrumbLd = buildBreadcrumbLd([
           those bases matters — a different question from the occlusion map, which zeroes a stretch
           and asks whether it carries information at all. The two can disagree.{' '}
           <strong>A low-complexity site cannot be shuffled at all</strong> — one site across the
-          fourteen windows is five Cs and an A, which has almost no distinct permutations — so those
+          {nLoci} windows is five Cs and an A, which has almost no distinct permutations — so those
           are labelled rather than reported as a null result. “Unshuffleable” and “the model ignores
           it” are different findings that produce the same number.
         </p>
@@ -908,7 +915,7 @@ const breadcrumbLd = buildBreadcrumbLd([
             model, and record <code>log2(Σ coverage + 1)</code> over the gene body minus the same
             quantity on the unedited sequence. Repeat with <code>k = 5</code> independent
             permutations and report mean ± sd. Cost is one forward pass per shuffle — 104 ms — so
-            the whole ChIP-supported tier across all fourteen windows is a few thousand passes.</p>
+            the whole ChIP-supported tier across all {nLoci} windows is a few thousand passes.</p>
             <p><strong>Why not one shuffle.</strong> A single permutation is one draw from the
             distribution of "sequences with this composition". Two shuffles of the same site can
             differ by more than the effect being reported, so the single number the page used to

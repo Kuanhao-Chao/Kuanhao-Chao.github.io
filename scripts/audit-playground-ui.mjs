@@ -478,14 +478,29 @@ async function auditReducedMotion(browser, baseURL, scope) {
   }
 }
 
-/** A client-side navigation round trip must leave exactly one live canvas. */
+/**
+ * A client-side navigation round trip must leave exactly one live canvas.
+ *
+ * The navigation has to be a CLICK. `page.goto` is a full page load: it tears down the whole JS
+ * context, so nothing can survive it and this check passed for a long time against code that could
+ * not have survived a real ClientRouter navigation. The `load` counter is what keeps it honest --
+ * if a route ever gains `data-astro-reload` this check will say so rather than quietly going back
+ * to testing nothing.
+ */
 async function auditNavigation(browser, baseURL, scope) {
   const context = await browser.newContext({ baseURL });
   const page = await context.newPage();
+  let hardLoads = 0;
+  page.on('load', () => { hardLoads += 1; });
   try {
-    await page.goto('/', { waitUntil: 'networkidle' });
-    await page.goto(ROUTE, { waitUntil: 'networkidle' });
-    await page.waitForTimeout(500);
+    await page.goto('/shorkie-lab/', { waitUntil: 'networkidle' });
+    hardLoads = 0;
+    await page.click(`a.sl-card[href="${ROUTE}"]`);
+    await page.waitForSelector('[data-vp-flow]', { timeout: 20000 });
+    await page.waitForTimeout(900);
+    if (hardLoads !== 0) {
+      fail(scope, `navigating to ${ROUTE} was a full page load — this check tests nothing`);
+    }
     const state = await page.evaluate(() => {
       const cs = document.querySelectorAll('[data-vp-flow]');
       const c = cs[0];
@@ -1684,9 +1699,45 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
       fail(scope, 'the canvas did not repaint on khc:theme-change — it keeps the old palette');
     }
 
+    // 5. Four CLIENT-SIDE round trips must leave exactly one controller listening.
+    //
+    // This page is `bare`, so its host is destroyed and rebuilt on every navigation and the mount
+    // guard cannot see the previous controller. Measured by counting how many canvases respond to
+    // one theme-change: one live controller repaints two, and a leak gives two more per stale
+    // controller -- 10 after four round trips, which is what this found before the listeners were
+    // made self-removing. Clicks, never `location.href`, which is a full load and proves nothing.
+    await page.goto(GENOME_ROUTE, { waitUntil: 'networkidle' });
+    await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 20000 });
+    let hardLoads = 0;
+    page.on('load', () => { hardLoads += 1; });
+    for (let i = 0; i < 4; i += 1) {
+      await page.click('a.vp-sub[href="/shorkie-lab/"]');
+      await page.waitForSelector('.sl-grid', { timeout: 15000 });
+      await page.click(`a.sl-card[href="${GENOME_ROUTE}"]`);
+      await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 15000 });
+      await page.waitForTimeout(500);
+    }
+    if (hardLoads !== 0) fail(scope, `${hardLoads} full page loads — the round trip tests nothing`);
+    const live = await page.evaluate(async () => {
+      let n = 0;
+      const real = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (...a) { n += 1; return real.apply(this, a); };
+      document.dispatchEvent(new CustomEvent('khc:theme-change'));
+      await new Promise((r) => setTimeout(r, 600));
+      HTMLCanvasElement.prototype.getContext = real;
+      return n;
+    });
+    if (live > 3) {
+      fail(scope, `${live} canvases repaint on one theme-change after 4 round trips — `
+        + `${Math.round(live / 2)} controllers are still listening`);
+    }
+    const canvasCount = await page.evaluate(() => document.querySelectorAll('canvas').length);
+    if (canvasCount !== 2) fail(scope, `${canvasCount} canvases after 4 round trips, expected 2`);
+
     if (bad.length) fail(scope, `genome-data requests failed: ${bad.slice(0, 3).join(', ')}`);
     if (errors.length) fail(scope, `console/page errors: ${errors.slice(0, 2).join(' | ')}`);
-    progress(`  genome: levels ${ladder.join(' ')}, cache peak ${peak}, ${evicted} evicted`);
+    progress(`  genome: levels ${ladder.join(' ')}, cache peak ${peak}, ${evicted} evicted, `
+      + `${live / 2} controller(s) live after 4 round trips`);
   } finally {
     await context.close();
   }
