@@ -599,11 +599,13 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
     ctx.restore();
   }
 
-  // Substitution — a base-swap: a diamond split into two tones with a divider.
+  // Substitution — a base-swap: a diamond split into two tones with a divider and mismatch delta.
   function drawEnemySubstitution(r: number, wob: number, body: string, line: string) {
     ctx.save();
     ctx.rotate(wob * 0.12);
-    const d = r * 1.15;
+    const d = r * 1.2;
+
+    // Diamond polygon body
     ctx.fillStyle = body;
     ctx.beginPath();
     ctx.moveTo(0, -d);
@@ -612,18 +614,22 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
     ctx.lineTo(-d, 0);
     ctx.closePath();
     ctx.fill();
-    ctx.save(); // darken the right half to read as a swap
+
+    // Darker tone on right facet
+    ctx.save();
     ctx.beginPath();
     ctx.moveTo(0, -d);
     ctx.lineTo(d, 0);
     ctx.lineTo(0, d);
     ctx.closePath();
     ctx.clip();
-    ctx.fillStyle = rgbStr(mix(hexToRgb(body), hexToRgb(palette.ink), 0.32));
+    ctx.fillStyle = rgbStr(mix(hexToRgb(body), hexToRgb(palette.ink), 0.35));
     ctx.fillRect(-d, -d, 2 * d, 2 * d);
     ctx.restore();
+
+    // Dividing cleavage seam
     ctx.strokeStyle = line;
-    ctx.lineWidth = Math.max(1, r * 0.08);
+    ctx.lineWidth = Math.max(1.2, r * 0.08);
     ctx.beginPath();
     ctx.moveTo(0, -d);
     ctx.lineTo(d, 0);
@@ -633,6 +639,13 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
     ctx.moveTo(0, -d);
     ctx.lineTo(0, d);
     ctx.stroke();
+
+    // Mismatch Delta symbol
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold ${Math.round(r * 0.48)}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Δ', 0, r * 0.1);
     ctx.restore();
   }
 
@@ -641,22 +654,35 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
     ctx.save();
     ctx.fillStyle = body;
     ctx.strokeStyle = line;
-    ctx.lineWidth = Math.max(1, r * 0.08);
-    const w = r * 1.05;
-    const h = r * 1.55;
+    ctx.lineWidth = Math.max(1.2, r * 0.08);
+    const w = r * 1.1;
+    const h = r * 1.6;
     roundedRect(-w / 2, -h / 2, w, h, r * 0.5);
     ctx.fill();
     ctx.stroke();
-    const bulge = r * (0.42 + 0.08 * wob);
+
+    // Pulsing insertion bulge
+    const bulge = r * (0.44 + 0.09 * wob);
     ctx.beginPath();
     ctx.arc(w / 2, 0, bulge, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
-    ctx.beginPath(); // caret above
-    ctx.moveTo(-r * 0.35, -h / 2 - r * 0.12);
-    ctx.lineTo(0, -h / 2 - r * 0.52);
-    ctx.lineTo(r * 0.35, -h / 2 - r * 0.12);
+
+    // Insertion Caret Symbol above
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = Math.max(1.5, r * 0.1);
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.4, -h / 2 - r * 0.15);
+    ctx.lineTo(0, -h / 2 - r * 0.6);
+    ctx.lineTo(r * 0.4, -h / 2 - r * 0.15);
     ctx.stroke();
+
+    // Plus mutation badge
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold ${Math.round(r * 0.45)}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('+', 0, r * 0.05);
     ctx.restore();
   }
 
@@ -665,16 +691,30 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
     ctx.save();
     ctx.fillStyle = body;
     ctx.strokeStyle = line;
-    ctx.lineWidth = Math.max(1, r * 0.1);
-    const gap = 0.62;
+    ctx.lineWidth = Math.max(1.2, r * 0.1);
+    const gap = 0.65;
     const start = -Math.PI / 2 + gap / 2 + wob * 0.05;
     const end = -Math.PI / 2 - gap / 2 + Math.PI * 2;
     ctx.beginPath();
-    ctx.arc(0, 0, r * 1.15, start, end);
-    ctx.arc(0, 0, r * 0.55, end, start, true);
+    ctx.arc(0, 0, r * 1.18, start, end);
+    ctx.arc(0, 0, r * 0.52, end, start, true);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
+
+    // Dangling hydrogen bond terminals
+    ctx.fillStyle = '#f43f5e';
+    ctx.beginPath();
+    ctx.arc(Math.cos(start) * r * 0.85, Math.sin(start) * r * 0.85, 2.5, 0, Math.PI * 2);
+    ctx.arc(Math.cos(end) * r * 0.85, Math.sin(end) * r * 0.85, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Deletion Minus symbol
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold ${Math.round(r * 0.5)}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('−', 0, r * 0.4);
     ctx.restore();
   }
 
@@ -726,13 +766,13 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
       drawSpriteShadow(size);
       if (enemy.kind === 'substitution') {
         drawEnemySubstitution(r, wob, body, line);
-        drawEnemyEyes(r);
+        drawEnemyEyes(r, -r * 0.1);
       } else if (enemy.kind === 'insertion') {
         drawEnemyInsertion(r, wob, body, line);
-        drawEnemyEyes(r);
+        drawEnemyEyes(r, -r * 0.1);
       } else {
         drawEnemyDeletion(r, wob, body, line);
-        drawEnemyEyes(r, r * 0.82); // eyes on the lower ring (centre is a gap)
+        drawEnemyEyes(r, r * 0.75); // eyes on the lower ring (centre is a gap)
       }
       if (dmg > 0) drawEnemyCracks(r, dmg, enemy.id);
       if (ready) drawEnemyTell(r, wob);
@@ -740,27 +780,53 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
     } else if (item.pickup) {
       const pickup = item.pickup;
       drawSpriteShadow(size);
-      ctx.lineWidth = Math.max(1, size * 0.035);
+      ctx.lineWidth = Math.max(1.2, size * 0.035);
       if (pickup.kind === 'health') {
+        // Bio-membrane Repair Health Pack
         ctx.fillStyle = palette.warmBg;
         ctx.strokeStyle = palette.accent;
         ctx.beginPath();
         ctx.arc(0, 0, r, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
+
+        // Pulsing Repair Cross
         ctx.fillStyle = palette.accent;
+        const cw = r * 0.28;
+        const ch = r * 0.75;
+        ctx.fillRect(-cw / 2, -ch / 2, cw, ch);
+        ctx.fillRect(-ch / 2, -cw / 2, ch, cw);
       } else {
-        ctx.fillStyle = palette.warmBg;
-        ctx.strokeStyle = palette.warmBorder;
-        roundedRect(-r * 0.72, -r, r * 1.44, r * 2, r * 0.72); // nucleotide capsule
+        // 3D Nucleotide Crystal Capsule (A, C, G, T)
+        const baseColor =
+          pickup.base === 'A'
+            ? '#10b981'
+            : pickup.base === 'C'
+              ? '#0284c7'
+              : pickup.base === 'G'
+                ? '#f59e0b'
+                : '#a855f7';
+
+        ctx.fillStyle = palette.surface;
+        ctx.strokeStyle = baseColor;
+        ctx.lineWidth = Math.max(1.5, size * 0.04);
+        roundedRect(-r * 0.72, -r, r * 1.44, r * 2, r * 0.72);
         ctx.fill();
         ctx.stroke();
-        ctx.fillStyle = palette.warm;
+
+        // Top specular highlight
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(0, -r * 0.4, r * 0.28, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Chemical Base Nucleotide Letter
+        ctx.fillStyle = baseColor;
+        ctx.font = `bold ${Math.round(r * 1.05)}px ${cssVar('--font-mono', 'monospace')}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(pickup.base, 0, r * 0.15);
       }
-      ctx.font = `600 ${Math.round(r)}px ${cssVar('--font-display', 'system-ui')}`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(pickup.base, 0, 1);
     }
     ctx.restore();
   }

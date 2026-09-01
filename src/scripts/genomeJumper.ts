@@ -75,15 +75,32 @@ interface Particle {
   y: number;
   vx: number;
   vy: number;
+  rot?: number;
+  vrot?: number;
   life: number;
   maxLife: number;
   color: string;
   size: number;
 }
 
+interface FloatingPopup {
+  x: number;
+  y: number;
+  vy: number;
+  text: string;
+  color: string;
+  life: number;
+  maxLife: number;
+}
+
 const FIXED_STEP = 1 / 120;
 const BEST_KEY = 'khc-genome-jumper-best';
 const SOUND_KEY = 'khc-genome-jumper-sound';
+
+const cssVar = (name: string, fallback: string): string =>
+  (typeof document !== 'undefined'
+    ? getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+    : '') || fallback;
 
 const readNumber = (key: string): number => {
   try {
@@ -206,6 +223,7 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
   let shareMessage = '';
   let reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const particles: Particle[] = [];
+  const popups: FloatingPopup[] = [];
   let animTick = 0;
 
   // Audio Context synthesis
@@ -885,6 +903,22 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     ctx.globalAlpha = 1;
   }
 
+  function drawPopups() {
+    ctx.save();
+    for (const popup of popups) {
+      const alpha = Math.max(0, popup.life / popup.maxLife);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = popup.color;
+      ctx.shadowColor = popup.color;
+      ctx.shadowBlur = palette.isDark ? 8 : 4;
+      ctx.font = `bold 13px ${cssVar('--font-mono', 'monospace')}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(popup.text, sx(popup.x), sy(popup.y));
+    }
+    ctx.restore();
+  }
+
   function drawOverlay() {
     if (state.status === 'playing') return;
     ctx.save();
@@ -937,12 +971,13 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     for (const projectile of state.projectiles) drawProjectile(projectile);
     drawPlayer();
     drawParticles();
+    drawPopups();
     drawOverlay();
   }
 
   function spawnParticles(event: GameState['lastEvent']) {
     if (reducedMotion || event === 'none' || event === 'shot') return;
-    const count = event === 'jetpack' ? 16 : event === 'enemy' ? 14 : event === 'collect' ? 9 : 6;
+    const count = event === 'jetpack' ? 18 : event === 'enemy' ? 16 : event === 'collect' ? 10 : 8;
     const color =
       event === 'collect'
         ? palette.gemG
@@ -952,17 +987,62 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
             ? palette.springCoil
             : palette.accent;
 
+    // Spawn floating score popup
+    if (event === 'collect') {
+      const lastBase = state.sequence[state.sequence.length - 1] || 'NTP';
+      const pColor = lastBase === 'A' ? palette.gemA : lastBase === 'C' ? palette.gemC : lastBase === 'G' ? palette.gemG : palette.gemT;
+      popups.push({
+        x: state.player.x,
+        y: state.player.y + state.player.height * 0.8,
+        vy: 42,
+        text: `+10 ${lastBase}`,
+        color: pColor,
+        life: 0.65,
+        maxLife: 0.65,
+      });
+    } else if (event === 'spring') {
+      popups.push({
+        x: state.player.x,
+        y: state.player.y + state.player.height * 0.8,
+        vy: 48,
+        text: 'SPRING JUMP!',
+        color: palette.springCoil,
+        life: 0.75,
+        maxLife: 0.75,
+      });
+    } else if (event === 'jetpack') {
+      popups.push({
+        x: state.player.x,
+        y: state.player.y + state.player.height * 0.8,
+        vy: 54,
+        text: 'P-TEFb ELONGATION!',
+        color: '#38bdf8',
+        life: 0.85,
+        maxLife: 0.85,
+      });
+    } else if (event === 'enemy') {
+      popups.push({
+        x: state.player.x,
+        y: state.player.y + state.player.height * 0.8,
+        vy: 45,
+        text: '+100 MUTATION CLEARED',
+        color: '#f43f5e',
+        life: 0.75,
+        maxLife: 0.75,
+      });
+    }
+
     for (let i = 0; i < count; i++) {
       const life = 0.3 + Math.random() * 0.35;
       particles.push({
         x: state.player.x,
         y: state.player.y + state.player.height * 0.25,
-        vx: (Math.random() * 2 - 1) * 85,
-        vy: (Math.random() * 2 - 0.4) * 110,
+        vx: (Math.random() * 2 - 1) * 95,
+        vy: (Math.random() * 2 - 0.4) * 120,
         life,
         maxLife: life,
         color,
-        size: 1.8 + Math.random() * 2.4,
+        size: 1.8 + Math.random() * 2.6,
       });
     }
   }
@@ -976,6 +1056,14 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     }
     for (let i = particles.length - 1; i >= 0; i--) {
       if (particles[i].life <= 0) particles.splice(i, 1);
+    }
+
+    for (const popup of popups) {
+      popup.y += popup.vy * dt;
+      popup.life -= dt;
+    }
+    for (let i = popups.length - 1; i >= 0; i--) {
+      if (popups[i].life <= 0) popups.splice(i, 1);
     }
   }
 
@@ -1044,6 +1132,7 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
   function restart() {
     shareMessage = '';
     particles.length = 0;
+    popups.length = 0;
     reset(state, freshSeed());
     begin();
   }

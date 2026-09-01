@@ -145,6 +145,30 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
     ctx.closePath();
   }
 
+  interface DinoParticle {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    color: string;
+    size: number;
+    life: number;
+    maxLife: number;
+  }
+
+  interface DinoPopup {
+    x: number;
+    y: number;
+    text: string;
+    color: string;
+    life: number;
+    maxLife: number;
+  }
+
+  const particles: DinoParticle[] = [];
+  const popups: DinoPopup[] = [];
+  let lastMilestone = 0;
+
   function render() {
     ctx.clearRect(0, 0, state.width, state.height);
     ctx.fillStyle = colors.board;
@@ -152,6 +176,34 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
     drawBackground();
     for (const obstacle of state.obstacles) drawObstacle(obstacle);
     drawRunner();
+    drawParticles();
+    drawPopups();
+  }
+
+  function drawParticles() {
+    for (const p of particles) {
+      const alpha = Math.max(0, p.life / p.maxLife);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawPopups() {
+    ctx.save();
+    for (const p of popups) {
+      const alpha = Math.max(0, p.life / p.maxLife);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = p.color;
+      ctx.font = `bold 14px ${cssVar('--font-mono', 'monospace')}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(p.text, p.x, p.y);
+    }
+    ctx.restore();
   }
 
   function drawBackground() {
@@ -462,11 +514,76 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
       writeBest(best);
     }
     if (state.status !== 'playing') paused = false;
+
+    const dt = STEP_MS / 1000;
+    // Ground slide friction sparks while ducking
+    if (state.status === 'playing' && state.runner.grounded && state.runner.ducking) {
+      if (Math.random() < 0.45) {
+        particles.push({
+          x: state.runner.x + 25 + Math.random() * 25,
+          y: state.runner.y - 2,
+          vx: -(state.speed * 0.35 + Math.random() * 40),
+          vy: -(Math.random() * 30 + 10),
+          color: Math.random() < 0.5 ? '#fbbf24' : '#f59e0b',
+          size: 1.5 + Math.random() * 1.5,
+          life: 0.25,
+          maxLife: 0.25,
+        });
+      }
+    }
+
+    // Milestone celebration every 100 bp
+    const milestone = Math.floor(state.score / 100);
+    if (milestone > lastMilestone && state.status === 'playing') {
+      lastMilestone = milestone;
+      popups.push({
+        x: state.runner.x + 35,
+        y: state.runner.y - 80,
+        text: `${milestone * 100} BP MILESTONE!`,
+        color: '#f59e0b',
+        life: 1.2,
+        maxLife: 1.2,
+      });
+      // Starburst particles
+      const milestoneColors = ['#10b981', '#38bdf8', '#f59e0b', '#a855f7', '#fbbf24'];
+      for (let i = 0; i < 18; i++) {
+        const a = (i / 18) * Math.PI * 2;
+        const sp = 40 + Math.random() * 80;
+        particles.push({
+          x: state.runner.x + 30,
+          y: state.runner.y - 40,
+          vx: Math.cos(a) * sp,
+          vy: Math.sin(a) * sp - 30,
+          color: milestoneColors[i % milestoneColors.length],
+          size: 2 + Math.random() * 2,
+          life: 0.6,
+          maxLife: 0.6,
+        });
+      }
+    }
+
+    // Update particles and popups
+    for (const p of particles) {
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 200 * dt;
+      p.life -= dt;
+    }
+    for (let i = particles.length - 1; i >= 0; i--) {
+      if (particles[i].life <= 0) particles.splice(i, 1);
+    }
+    for (const p of popups) {
+      p.y -= 25 * dt;
+      p.life -= dt;
+    }
+    for (let i = popups.length - 1; i >= 0; i--) {
+      if (popups[i].life <= 0) popups.splice(i, 1);
+    }
   }
 
   function frame(ts: number) {
     raf = requestAnimationFrame(frame);
-    if (state.status !== 'playing' || paused) {
+    if (paused) {
       last = ts;
       render();
       updateHud();
@@ -487,6 +604,9 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
   function restart(startNow = true) {
     window.clearTimeout(duckReleaseTimer);
     duckReleaseTimer = 0;
+    particles.length = 0;
+    popups.length = 0;
+    lastMilestone = 0;
     rng = mulberry32(freshSeed());
     reset(state, rng);
     paused = false;
