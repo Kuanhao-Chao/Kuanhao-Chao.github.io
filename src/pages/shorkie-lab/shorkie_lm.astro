@@ -4,6 +4,12 @@ import '../../styles/variantPlayground.css';
 import { LM_SPEC } from '../../lib/shorkieLm';
 import { site } from '../../data/site';
 import { buildBreadcrumbLd } from '../../lib/breadcrumbs';
+import lociData from '../../data/shorkieLoci.json';
+
+// Derived rather than typed. Three passages on this page still said "fourteen windows" after the
+// set grew to 23 -- two of them within a screen of a table headed "all twenty-three windows" and a
+// row reading "23 of 23". A count written into prose is a copy of a fact with a home elsewhere.
+const nLoci = lociData.loci.length;
 
 // A `bare` page, so it carries its own header and needs its own <h1> -- audit:indexing asserts a
 // visible heading on every sitemap URL. Not at /shorkie/: that path serves the project docs.
@@ -43,6 +49,7 @@ const breadcrumbLd = buildBreadcrumbLd([
       </span>
       <span class="vp-spacer"></span>
       <a class="vp-sub" href="/shorkie-lab/shorkie/">← Expression model</a>
+      <a class="vp-sub" href="/shorkie-lab/genome/">Genome browser</a>
       <a class="vp-sub" href="/shorkie-lab/">Lab</a>
       <a class="vp-sub" href="/posts/shorkie/">Post</a>
       <a class="vp-sub" href="https://doi.org/10.1101/2025.09.19.677475">Paper</a>
@@ -69,6 +76,10 @@ const breadcrumbLd = buildBreadcrumbLd([
         <span class="vp-stat vp-nav__read" data-lm-region-context></span>
         <span class="vp-spacer"></span>
         <span class="vp-stat" data-lm-region-stat></span>
+        <!-- Deep-links to whatever is selected here, not to the browser's front door: the href is
+             rewritten from the locus and the region every time either changes. -->
+        <a class="vp-btn" data-lm-genome-link href="/shorkie-lab/genome/"
+           title="Open this region in the genome browser">in the genome →</a>
       </nav>
       <div class="vp-wrap">
 
@@ -98,9 +109,11 @@ const breadcrumbLd = buildBreadcrumbLd([
           </div>
           <p class="vp-notes" style="margin:0.5rem 0 0;">
             Everything on this page is <strong>precomputed and shipped</strong> — there is no model
-            to download and nothing to wait for. Fourteen <em>S. cerevisiae</em> windows, the same
+            to download and nothing to wait for. {nLoci} <em>S. cerevisiae</em> windows, the same
             ones the expression playground uses, with the same curated annotation, so a result here
-            can be read directly against one there.
+            can be read directly against one there — and for anywhere else in the genome, the
+            {' '}<a href="/shorkie-lab/genome/">genome browser</a> carries the same score for every
+            base of R64.
           </p>
         </section>
 
@@ -319,7 +332,7 @@ const breadcrumbLd = buildBreadcrumbLd([
               all</strong> and just <strong>three solo LTRs</strong> — delta elements, one each in
               the TDH3, PGK1 and RPL26A windows — scoring <strong>0.68–0.80×</strong>. All three
               fall on the same side, which is suggestive, but three features in three windows is not
-              the fourteen-window result the CDS row is. The table in{' '}
+              the {nLoci}-window result the CDS row is. The table in{' '}
               <em>Constraint across all twenty-three windows</em> shows a <code>—</code> for the twenty
               windows that contain no LTR, so the support is visible rather than implied.</p>
               <p>The likely reason is that the two classes are not comparable targets. A repeat is
@@ -353,7 +366,7 @@ const breadcrumbLd = buildBreadcrumbLd([
             <strong>1.108×</strong>, range 1.004–1.266 — despite <code>exon_loss_scale: 0.1</code>{' '}
             weighting it at a tenth. The three solo LTRs in this set go the other way at{' '}
             <strong>0.68–0.80×</strong>. Those are three features in three windows, not a
-            fourteen-window result, and the table shows the <code>—</code> where a window has none.
+            {nLoci}-window result, and the table shows the <code>—</code> where a window has none.
             The <em>ChIP sites</em> column carries its feature count for the same reason, and any
             window with fewer than ten is greyed: a ratio over three or four sites is a draw, not a
             measurement.

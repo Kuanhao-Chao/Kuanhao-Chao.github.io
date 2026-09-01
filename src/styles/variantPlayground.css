@@ -542,3 +542,46 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
 }
 /* The lens connector. `color` drives the band's currentColor, matching the band on the tracks. */
 .vp-lens { color: var(--vp-accent); display: block; margin: 0; height: 22px; }
+
+/* ------------------------------------------------------------------------------------------- */
+/* Genome browser (/shorkie-lab/genome/)                                                        */
+/*                                                                                              */
+/* Both canvases are full-width and sized in JS from `clientWidth`, so one user unit is one CSS  */
+/* pixel and the ruler, the constraint track and the gene models cannot end up on different      */
+/* horizontal axes -- the failure the expression page shipped for a whole round.                 */
+/* ------------------------------------------------------------------------------------------- */
+.vp-input {
+  font: inherit;
+  font-size: var(--fs-small);
+  max-width: 100%;
+  min-width: 0;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius, 6px);
+  background: var(--color-bg);
+  color: var(--color-ink);
+}
+.vp-input[aria-invalid='true'] { border-color: #c0392b; }
+.gb-locus { width: 15.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+.gb-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.9rem;
+  margin-bottom: 0.4rem;
+}
+.gb-readout { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--fs-small); }
+.gb-hover { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; min-width: 12ch; text-align: right; }
+
+.gb-mini { width: 100%; display: block; cursor: pointer; }
+/* `grab` rather than `default`: the track is the pan surface, and nothing else says so. */
+.gb-track { width: 100%; display: block; cursor: grab; touch-action: none; }
+.gb-track:focus-visible { outline: 2px solid var(--color-accent, #3d6ea8); outline-offset: 2px; }
+.gb-caption { margin: 0.5rem 0 0; }
+.gb-status { margin: 0.35rem 0 0; }
+
+@media (max-width: 640px) {
+  .gb-locus { width: 100%; }
+  .gb-hover { min-width: 0; }
+}
