@@ -1826,6 +1826,38 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
       fail(scope, `track set did not survive the link: ${marked.gbLanes} -> ${restored.gbLanes}`);
     }
 
+    // 4g. Hovering must not fetch data the view is not drawing.
+    //
+    // The tooltip reports a score under the cursor. Reading the per-base level unconditionally is
+    // exact and pulls a 65,536-base tile for every hover position: measured, sweeping the cursor
+    // once across a whole chromosome fetched 23 L0 tiles -- about 1.5 MB of data the view cannot
+    // show, evicting the coarse tiles it is drawing from. The readout follows the drawn level.
+    await page.goto(`${GENOME_ROUTE}#chrIV:1-1531933;t=lm-masked,phastcons,genes`,
+                    { waitUntil: 'networkidle' });
+    await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 20000 });
+    await page.waitForTimeout(2200);
+    const fetchedTiles = [];
+    const onTile = (r) => {
+      if (r.url().includes('/genome-data/') && r.url().endsWith('.png')) {
+        fetchedTiles.push(r.url().split('genome-data/')[1]);
+      }
+    };
+    page.on('response', onTile);
+    const hoverGeom = await page.$eval('[data-gb-track]', (c) => {
+      const r = c.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width };
+    });
+    for (let i = 0; i < 40; i += 1) {
+      await page.mouse.move(hoverGeom.x + 80 + (i / 40) * (hoverGeom.w - 120), hoverGeom.y + 120);
+      await page.waitForTimeout(30);
+    }
+    await page.waitForTimeout(1200);
+    page.off('response', onTile);
+    const strayL0 = fetchedTiles.filter((u) => u.includes('/L0/'));
+    if (strayL0.length) {
+      fail(scope, `hovering at 512 bp bins fetched ${strayL0.length} per-base tiles it cannot draw`);
+    }
+
     // 5. Four CLIENT-SIDE round trips must leave exactly one controller listening.
     //
     // This page is `bare`, so its host is destroyed and rebuilt on every navigation and the mount

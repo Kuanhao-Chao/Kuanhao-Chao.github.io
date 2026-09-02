@@ -1042,21 +1042,35 @@ export function initGenomeBrowser(host: HTMLElement): void {
     }).join(' · ');
   }
 
-  /** The exact per-base value of one score track, read from its L0 tile. */
+  /**
+   * One score track's value under the cursor, read from the level the view is ALREADY drawing.
+   *
+   * Reading L0 unconditionally would be exact, and would also fetch a 65,536-base tile for every
+   * hover position -- at chromosome zoom that is two dozen tiles of data the view does not need,
+   * evicting the coarse tiles it is drawing from. So the readout follows the drawing: exact per
+   * base at L0, and the bin's mean above it, labelled with the bin size so it is never mistaken
+   * for a per-base number.
+   */
   function scoreAt(bp: number, trackId: string): string | null {
     if (!index) return null;
     const spec = index.tracks.find((t) => t.id === trackId);
     if (!spec) return null;
-    const b = Math.floor(bp);
-    const ti = Math.floor(b / index.tileBins);
-    const t = tile(`${view.chrom}/${trackId}/L0/${ti}`);
+    const w = Math.max(1, Math.round(trackCanvas!.clientWidth));
+    const inner = Math.max(1, w - padLeft(w) - PAD_RIGHT);
+    const lvl = levelForBpPerPixel((view.end - view.start) / inner, index.levels);
+    const bin = Math.floor(Math.floor(bp) / lvl.binBp);
+    const ti = Math.floor(bin / index.tileBins);
+    const t = tile(`${view.chrom}/${trackId}/L${lvl.level}/${ti}`);
     if (!t) return null;
-    const c = b - ti * index.tileBins;
+    const c = bin - ti * index.tileBins;
     if (c < 0 || c >= t.cols) return null;
-    const byte = t.data[c];
     // Byte 0 is no data, and saying so is the point of reserving it.
+    const byte = t.rows === 1 ? t.data[c] : t.data[2 * t.cols + c];
     if (byte === 0) return `${spec.short}: no data (not aligned)`;
-    return `${spec.short} ${dequant(byte, spec.axis[0], spec.axis[1]).toFixed(3)} ${spec.units}`;
+    const v = dequant(byte, spec.axis[0], spec.axis[1]).toFixed(3);
+    return lvl.binBp === 1
+      ? `${spec.short} ${v} ${spec.units}`
+      : `${spec.short} ${v} ${spec.units} (mean of ${lvl.binBp.toLocaleString()} bp)`;
   }
 
   // -------------------------------------------------------------------------------------------

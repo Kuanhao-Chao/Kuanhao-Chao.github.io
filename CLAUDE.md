@@ -914,6 +914,13 @@ base), it has no flat file, and it is the weakest tier.
 - **`prediction: false` is not the same claim for every track.** Appending "not a prediction" to
   phastCons reads as a failed prediction; it is not a prediction of anything. Each track carries its
   own short `laneTag` — `""`, `not a prediction`, `alignment-based`.
+- **A hover readout must read the level the view is ALREADY drawing.** The tooltip reports the
+  score under the cursor, and reading the per-base level unconditionally is exact and pulls a
+  65,536-base tile for every hover position: measured, one cursor sweep across chrIV at 512 bp bins
+  fetched **23 L0 tiles (~1.5 MB)** of data the view cannot show, evicting the coarse tiles it was
+  drawing from. Follow the drawn level, and label the value with the bin size so a bin mean is
+  never mistaken for a per-base number. `audit:playground` asserts zero stray L0 fetches during a
+  sweep, verified by reintroducing the bug.
 - **`MAX_TILES` is derived, not constant.** 16 + 16 per enabled score track. A bound tuned for one
   pyramid thrashes with three: measured, the gate drives it to 64/64 with 117 evictions.
 - **A hash with no `t=` deliberately leaves the track set alone**, so an old `#chrIV:1000-2000`
