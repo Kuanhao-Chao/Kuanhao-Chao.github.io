@@ -3,7 +3,10 @@ import { readFileSync, existsSync } from 'node:fs';
 import {
   levelForBpPerPixel, binOf, tilesCovering, tileStartBp, clampView, zoomAbout,
   xOfBp, bpOfX, parseLocus, formatLocus, formatSpan, rulerTicks, MIN_VIEW_BP,
-  type Level, type ChromInfo,
+  laneLayout, laneAt, brushRegion, featureDensity, searchLocus, searchSuggest,
+  emptyHistory, historyPush, historyBack, historyForward, canGoBack, canGoForward,
+  encodeViewState, decodeViewState,
+  type Level, type ChromInfo, type LaneSpec, type SearchGene, type View,
 } from './genomeBrowser';
 
 const LEVELS: Level[] = [
@@ -273,16 +276,57 @@ describe('against the shipped index.json', () => {
     expect(idx.icMax).toBe(2);
   });
 
-  it('every level a viewport would choose has tiles for every chromosome', () => {
+  it('every level a viewport would choose has tiles for every chromosome AND every track', () => {
     for (const c of idx.chroms) {
-      for (const span of [1e3, 1e5, c.length]) {
-        const lvl = levelForBpPerPixel(Math.min(span, c.length) / 1400, idx.levels);
-        const meta = c.levels.find((l: { level: number }) => l.level === lvl.level);
-        expect(meta, `${c.name} level ${lvl.level}`).toBeTruthy();
-        const need = tilesCovering(0, Math.min(span, c.length), lvl.binBp, idx.tileBins);
-        expect(meta.tiles).toBeGreaterThanOrEqual(need.length);
+      for (const track of idx.tracks) {
+        const levels = c.levels[track.id];
+        expect(levels, `${c.name} has no levels for ${track.id}`).toBeTruthy();
+        for (const span of [1e3, 1e5, c.length]) {
+          const lvl = levelForBpPerPixel(Math.min(span, c.length) / 1400, idx.levels);
+          const meta = levels.find((l: { level: number }) => l.level === lvl.level);
+          expect(meta, `${c.name}/${track.id} level ${lvl.level}`).toBeTruthy();
+          const need = tilesCovering(0, Math.min(span, c.length), lvl.binBp, idx.tileBins);
+          expect(meta.tiles).toBeGreaterThanOrEqual(need.length);
+        }
       }
     }
+  });
+
+  it('declares three score tracks, and phastCons on its own axis', () => {
+    // The two model passes share the 0-2 bits axis and are directly comparable. phastCons is a
+    // 0-1 posterior: a shared axis would invite reading a 0.9 posterior as 0.9 bits.
+    const byId = Object.fromEntries(idx.tracks.map((t: { id: string }) => [t.id, t]));
+    expect(Object.keys(byId).sort()).toEqual(['lm-masked', 'lm-unmasked', 'phastcons']);
+    expect(byId['lm-masked'].axis).toEqual([0, 2]);
+    expect(byId['lm-unmasked'].axis).toEqual([0, 2]);
+    expect(byId['phastcons'].axis).toEqual([0, 1]);
+    expect(byId['lm-masked'].units).toBe(byId['lm-unmasked'].units);
+    expect(byId['phastcons'].units).not.toBe(byId['lm-masked'].units);
+    // Exactly one of them is a prediction, and the index is where that is written down.
+    expect(idx.tracks.filter((t: { prediction: boolean }) => t.prediction)).toHaveLength(1);
+    expect(byId['lm-masked'].prediction).toBe(true);
+  });
+
+  it('reserves byte 0 for no data, which phastCons actually needs', () => {
+    expect(idx.noDataByte).toBe(0);
+    // phastCons has no value where the alignment has none; the model passes cover every base.
+    const cons = idx.chroms.reduce((s: number, c: any) => s + c.tracks['phastcons'].scored, 0);
+    const total = idx.chroms.reduce((s: number, c: any) => s + c.length, 0);
+    expect(cons).toBeLessThan(total);
+    expect(cons / total).toBeGreaterThan(0.98);
+    for (const c of idx.chroms) expect(c.tracks['lm-masked'].scored).toBe(c.length);
+  });
+
+  it('carries the model-vs-conservation comparison the page states', () => {
+    // A number in prose that has no home in the data is a number that goes stale. This is its home.
+    expect(idx.comparison).toBeTruthy();
+    expect(idx.comparison.bases).toBeGreaterThan(12_000_000);
+    expect(Math.abs(idx.comparison.pearson)).toBeLessThan(1);
+    expect(Object.keys(idx.comparison.byClass).sort()).toEqual(['cds', 'intergenic']);
+    // The headline is driven by the CDS/intergenic contrast, not by within-class agreement, and
+    // the within-CDS number must stay well below the overall one or that story is wrong.
+    expect(idx.comparison.byClass.cds.pearson).toBeLessThan(idx.comparison.pearson);
+    expect(idx.comparison.byClass.cds.phastConsSaturated).toBeGreaterThan(0.3);
   });
 
   it('records the pooling phase the track was computed on', () => {
@@ -291,5 +335,222 @@ describe('against the shipped index.json', () => {
     expect(idx.window.phase).toBe(128);
     expect(idx.window.flank % 128).toBe(0);
     expect(idx.window.core % 128).toBe(0);
+  });
+});
+
+describe('laneLayout', () => {
+  const specs: LaneSpec[] = [
+    { id: 'ruler', kind: 'ruler', label: 'ruler', height: 22 },
+    { id: 'lm-masked', kind: 'score', label: 'masked', height: 120 },
+    { id: 'genes', kind: 'genes', label: 'genes', height: 24 },
+  ];
+
+  it('stacks lanes without gaps or overlaps', () => {
+    const { lanes, total } = laneLayout(specs, 8);
+    expect(lanes.map((l) => l.boxTop)).toEqual([0, 30, 158]);
+    // 22+8 + 120+8 + 24+8. The trailing gap is part of the total: it is the breathing room under
+    // the last lane, and a canvas sized without it clips whatever that lane's baseline sits on.
+    expect(total).toBe(190);
+    for (let i = 1; i < lanes.length; i += 1) {
+      expect(lanes[i].boxTop).toBe(lanes[i - 1].boxTop + lanes[i - 1].boxHeight);
+    }
+  });
+
+  it('content sits inside its own box', () => {
+    for (const l of laneLayout(specs, 8).lanes) {
+      expect(l.top).toBeGreaterThanOrEqual(l.boxTop);
+      expect(l.top + l.height).toBeLessThanOrEqual(l.boxTop + l.boxHeight);
+    }
+  });
+
+  it('the total is exactly what a canvas must be sized to', () => {
+    // The failure this prevents: a canvas sized from one sum while lanes are drawn from another,
+    // so the last lane is clipped by however much the two disagree.
+    const { lanes, total } = laneLayout(specs, 8);
+    const last = lanes[lanes.length - 1];
+    expect(last.boxTop + last.boxHeight).toBe(total);
+  });
+
+  it('hit-tests back to the lane that was drawn', () => {
+    const { lanes, total } = laneLayout(specs, 8);
+    for (const l of lanes) {
+      expect(laneAt(lanes, l.boxTop)?.id).toBe(l.id);
+      expect(laneAt(lanes, l.boxTop + l.boxHeight - 1)?.id).toBe(l.id);
+      expect(laneAt(lanes, l.top + 1)?.id).toBe(l.id);
+    }
+    expect(laneAt(lanes, -1)).toBeNull();
+    expect(laneAt(lanes, total)).toBeNull();
+  });
+
+  it('an empty stack is not a crash', () => {
+    expect(laneLayout([], 8)).toEqual({ lanes: [], total: 0 });
+  });
+});
+
+describe('brushRegion', () => {
+  it('normalises a right-to-left drag', () => {
+    expect(brushRegion(2000, 1000, 10)).toEqual({ start: 1000, end: 2000 });
+    expect(brushRegion(1000, 2000, 10)).toEqual({ start: 1000, end: 2000 });
+  });
+
+  it('treats a short drag as a click, not a zero-width selection', () => {
+    // Zooming to a 3 bp region because a pointer wobbled is worse than doing nothing.
+    expect(brushRegion(1000, 1003, 20)).toBeNull();
+    expect(brushRegion(1000, 1021, 20)).toEqual({ start: 1000, end: 1021 });
+  });
+
+  it('never returns an empty range even at a zero threshold', () => {
+    expect(brushRegion(1000, 1000, 0)).toBeNull();
+  });
+});
+
+describe('featureDensity', () => {
+  it('measures coverage, not count', () => {
+    // One 800 bp region and one 6 bp motif must not read the same. A count would say they do.
+    const wide = featureDensity([0], [800], 0, 1000, 10);
+    const narrow = featureDensity([0], [6], 0, 1000, 10);
+    expect(wide[0]).toBeCloseTo(1, 6);
+    expect(narrow[0]).toBeCloseTo(6 / 100, 6);
+  });
+
+  it('clamps overlapping features at fully covered', () => {
+    const d = featureDensity([0, 0, 0], [1000, 1000, 1000], 0, 1000, 4);
+    for (const v of d) expect(v).toBeCloseTo(1, 6);
+  });
+
+  it('ignores features outside the view', () => {
+    const d = featureDensity([5000, 6000], [100, 100], 0, 1000, 8);
+    expect(Array.from(d).every((v) => v === 0)).toBe(true);
+  });
+
+  it('puts a feature in the column it actually falls in', () => {
+    const d = featureDensity([500], [100], 0, 1000, 10);
+    expect(d[5]).toBeCloseTo(1, 6);
+    expect(d[4]).toBe(0);
+    expect(d[6]).toBe(0);
+  });
+
+  it('splits a feature straddling a column boundary', () => {
+    const d = featureDensity([450], [100], 0, 1000, 10);
+    expect(d[4]).toBeCloseTo(0.5, 6);
+    expect(d[5]).toBeCloseTo(0.5, 6);
+  });
+});
+
+describe('searchLocus', () => {
+  const index = {
+    genes: [
+      ['YGR192C', 'chrIV', 100000, 101000, -1, ['TDH3']],
+      ['YOL086C', 'chrIV', 200000, 201000, -1, ['ADH1']],
+      ['YFL039C', 'chrI', 5000, 6000, -1, ['ACT1', 'ABY1']],
+    ] as SearchGene[],
+  };
+
+  it('finds a gene by its common name and by its systematic id', () => {
+    expect(searchLocus('TDH3', index, CHROMS, 500))
+      .toEqual({ chrom: 'chrIV', start: 99500, end: 101500 });
+    expect(searchLocus('YGR192C', index, CHROMS, 500))
+      .toEqual({ chrom: 'chrIV', start: 99500, end: 101500 });
+  });
+
+  it('is case-insensitive and finds secondary aliases', () => {
+    expect(searchLocus('act1', index, CHROMS, 0)?.chrom).toBe('chrI');
+    expect(searchLocus('ABY1', index, CHROMS, 0)?.chrom).toBe('chrI');
+  });
+
+  it('matches exactly, so a prefix does not jump to a different gene', () => {
+    // RPL4 and RPL4A are different genes. A prefix match here is a wrong answer, not a convenience.
+    expect(searchLocus('TDH', index, CHROMS)).toBeNull();
+    expect(searchLocus('YGR192', index, CHROMS)).toBeNull();
+  });
+
+  it('still takes a locus string, and a bare chromosome', () => {
+    expect(searchLocus('chrIV:65,235-65,431', index, CHROMS))
+      .toEqual({ chrom: 'chrIV', start: 65234, end: 65431 });
+    expect(searchLocus('chrM', index, CHROMS)).toEqual({ chrom: 'chrM', start: 0, end: 85779 });
+  });
+
+  it('returns null rather than guessing', () => {
+    expect(searchLocus('NOTAGENE', index, CHROMS)).toBeNull();
+    expect(searchLocus('', index, CHROMS)).toBeNull();
+    expect(searchLocus('TDH3', null, CHROMS)).toBeNull();
+  });
+
+  it('suggests by prefix, which is a different job from resolving', () => {
+    expect(searchSuggest('TDH', index).map((g) => g[0])).toEqual(['YGR192C']);
+    expect(searchSuggest('A', index).map((g) => g[0])).toEqual(['YOL086C', 'YFL039C']);
+    expect(searchSuggest('', index)).toEqual([]);
+  });
+});
+
+describe('history', () => {
+  const v = (start: number): View => ({ chrom: 'chrI', start, end: start + 1000 });
+
+  it('goes back and forward over what was visited', () => {
+    let h = emptyHistory();
+    for (const s of [0, 1000, 2000]) h = historyPush(h, v(s));
+    expect(canGoForward(h)).toBe(false);
+    const b1 = historyBack(h)!;
+    expect(b1.view.start).toBe(1000);
+    const b2 = historyBack(b1.history)!;
+    expect(b2.view.start).toBe(0);
+    expect(historyBack(b2.history)).toBeNull();
+    expect(historyForward(b2.history)!.view.start).toBe(1000);
+  });
+
+  it('drops the forward branch when you navigate after going back', () => {
+    let h = emptyHistory();
+    for (const s of [0, 1000, 2000]) h = historyPush(h, v(s));
+    const back = historyBack(h)!.history;
+    const next = historyPush(back, v(9000));
+    expect(canGoForward(next)).toBe(false);
+    expect(next.entries.map((e) => e.start)).toEqual([0, 1000, 9000]);
+  });
+
+  it('does not record a view identical to the current one', () => {
+    // Holding a pan key must not fill the history with entries that all look the same.
+    let h = historyPush(emptyHistory(), v(0));
+    h = historyPush(h, v(0));
+    h = historyPush(h, v(0));
+    expect(h.entries).toHaveLength(1);
+  });
+
+  it('is bounded, and the cursor survives the trim', () => {
+    let h = emptyHistory();
+    for (let i = 0; i < 100; i += 1) h = historyPush(h, v(i * 1000), 10);
+    expect(h.entries).toHaveLength(10);
+    expect(h.at).toBe(9);
+    expect(h.entries[h.at].start).toBe(99000);
+    expect(historyBack(h)!.view.start).toBe(98000);
+  });
+});
+
+describe('view state in the hash', () => {
+  it('round-trips locus, tracks and ROI', () => {
+    const s = {
+      view: { chrom: 'chrIV', start: 999, end: 2000 },
+      tracks: ['lm-masked', 'phastcons'],
+      roi: { start: 1200, end: 1400 },
+    };
+    const back = decodeViewState(encodeViewState(s), CHROMS);
+    expect(back.view).toEqual(s.view);
+    expect(back.tracks).toEqual(s.tracks);
+    expect(back.roi).toEqual(s.roi);
+  });
+
+  it('still reads a plain locus link written before tracks existed', () => {
+    const back = decodeViewState('#chrIV:1000-2000', CHROMS);
+    expect(back.view).toEqual({ chrom: 'chrIV', start: 999, end: 2000 });
+    expect(back.tracks).toBeUndefined();
+  });
+
+  it('omits what is not set, so a simple view keeps a simple link', () => {
+    const s = { view: { chrom: 'chrI', start: 0, end: 1000 }, tracks: [], roi: null };
+    expect(encodeViewState(s)).toBe('chrI:1-1000');
+  });
+
+  it('survives junk rather than throwing', () => {
+    expect(decodeViewState('#nonsense', CHROMS).view).toBeNull();
+    expect(decodeViewState('#chrI:1-1000;t=;roi=zz', CHROMS).roi).toBeUndefined();
   });
 });

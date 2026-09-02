@@ -134,6 +134,10 @@ def load_genes(gff: Path) -> dict[str, list[dict]]:
                             aliases.add(al)
                     genes[gid] = {"chrom": chrom, "start": a, "end": b, "strand": strand,
                                   "kind": kind, "name": kv.get("Name", gid),
+                                  # SGD's `gene=` is the PRIMARY common name; Alias= carries the
+                                  # synonyms. Keeping only the merged set loses which is which,
+                                  # and picking alphabetically then labels TDH3 as "GAPDH".
+                                  "common": kv.get("gene", ""),
                                   "aliases": aliases}
             elif kind == "CDS":
                 # SGD parents a CDS to EVERY transcript isoform that uses it, comma-separated:
