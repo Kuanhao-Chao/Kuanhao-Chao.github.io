@@ -52,7 +52,7 @@ const pubs = allPublications
 const latestNews = (await getCollection('news'))
   .filter((n) => !n.data.draft)
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime())
-  .slice(0, 6);
+  .slice(0, 4);
 const news = await Promise.all(
   latestNews.map(async (entry) => ({ entry, Content: (await render(entry)).Content }))
 );
@@ -261,12 +261,8 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
   /* ------------------------------------------------------------------------------------- */
   @media (max-width: 639px) {
     /* `> li` works for publications because the <li> is written in this file and carries this
-       file's scope hash. The news cards are NewsEntry component roots, so they carry NEWSENTRY's
-       hash and Astro's scoped `*[data-astro-cid-...]` never matches them -- the rule compiled
-       fine and silently did nothing. :global is how the rest of this file reaches component
-       roots too (see .home-research :global(.rcard--home)). */
-    .home-pubs > li:nth-child(n + 4),
-    .home-news > :global(*:nth-child(n + 4)) {
+       file's scope hash. Desktop keeps the full publications list; mobile displays the top 3. */
+    .home-pubs > li:nth-child(n + 4) {
       display: none;
     }
   }
@@ -419,7 +415,7 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
   }
   .home-news {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: clamp(1rem, 2vw, 1.5rem);
   }
   .cta {
@@ -468,12 +464,15 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
     .home-research :global(.rcard--home:nth-child(n + 4)) {
       grid-column: span 3;
     }
+    .home-news {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
   @media (max-width: 860px) {
     .home-news,
     .home-tools,
     .home-algos {
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
   @media (max-width: 639px) {
@@ -496,14 +495,30 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
     .cta {
       padding-block: clamp(1.5rem, 5vw, 2rem);
     }
-    /* Two per row, NOT one. A single column of 350px cards is what made these sections 1.4
-       screens each on a phone -- and the column was a fixed 350px rather than a fraction, so it
-       was also wider than the content box at 390px. */
-    .home-news,
+    /* Two per row on mobile.
+       .home-news uses separate card containers with padding/gap.
+       .home-tools and .home-algos keep gap: 1px so the background rule color
+       forms the exact same crisp 1px boundary line between cards as on desktop. */
+    .home-news {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: clamp(0.6rem, 2.5vw, 1rem);
+    }
     .home-tools,
     .home-algos {
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: var(--space-4);
+      gap: 1px;
+    }
+    .home-tool,
+    .home-algo {
+      padding: clamp(0.75rem, 3vw, 1.25rem);
+      gap: 0.5rem;
+    }
+    .home-algo-header {
+      flex-wrap: wrap;
+    }
+    .home-tool-name,
+    .home-algo-title {
+      font-size: 0.95rem;
     }
     .home-research {
       gap: 1px;
