@@ -1,25 +1,24 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
-  STORAGE_KEY_GMAP_API_KEY,
-  getSavedGoogleMapsApiKey,
-  setSavedGoogleMapsApiKey,
+  getSecureStoredApiKey,
+  setSecureStoredApiKey,
   testGoogleMapsApiKey,
   GOOGLE_MAPS_DARK_STYLE,
 } from './googleMaps';
 
 describe('Google Maps API manager & diagnostics', () => {
-  beforeEach(() => {
-    setSavedGoogleMapsApiKey(null);
+  beforeEach(async () => {
+    await setSecureStoredApiKey(null);
   });
 
-  it('manages API key storage in localStorage safely', () => {
-    expect(getSavedGoogleMapsApiKey()).toBeNull();
+  it('manages API key storage safely', async () => {
+    expect(await getSecureStoredApiKey()).toBeNull();
 
-    setSavedGoogleMapsApiKey('AIzaSyDUMMY_KEY_12345');
-    expect(getSavedGoogleMapsApiKey()).toBe('AIzaSyDUMMY_KEY_12345');
+    await setSecureStoredApiKey('AIzaSyDUMMY_KEY_12345');
+    expect(await getSecureStoredApiKey()).toBe('AIzaSyDUMMY_KEY_12345');
 
-    setSavedGoogleMapsApiKey(null);
-    expect(getSavedGoogleMapsApiKey()).toBeNull();
+    await setSecureStoredApiKey(null);
+    expect(await getSecureStoredApiKey()).toBeNull();
   });
 
   it('validates key format and flags empty or malformed keys with recommendations', async () => {

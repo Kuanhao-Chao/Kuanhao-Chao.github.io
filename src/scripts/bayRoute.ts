@@ -19,8 +19,9 @@ import {
   LOCAL_BAY_GAZETTEER,
 } from '../lib/geocoding';
 import {
-  getSavedGoogleMapsApiKey,
+  getSecureStoredApiKey,
   loadGoogleMapsSDK,
+  onGoogleMapsAuthFailure,
   GOOGLE_MAPS_DARK_STYLE,
 } from '../lib/googleMaps';
 
@@ -66,6 +67,7 @@ export class BayRouteVisualizer {
   private stepsAccumulator: number = 0;
 
   private isDarkTheme: boolean = true;
+  private isMapReady: boolean = false;
 
   constructor(mapEl: HTMLElement, canvasEl: HTMLCanvasElement, container: HTMLElement) {
     this.mapEl = mapEl;
@@ -75,7 +77,7 @@ export class BayRouteVisualizer {
     this.ctx = ctx;
     this.container = container;
 
-    // Use high-density real-world road graph
+    // Build dense road graph
     this.baseGraph = buildDenseBayAreaGraph();
     this.activeGraph = this.baseGraph;
 
@@ -101,9 +103,13 @@ export class BayRouteVisualizer {
     };
 
     this.detectTheme();
+
+    onGoogleMapsAuthFailure(() => {
+      this.switchToLeafletFallback();
+    });
+
     this.initMapEngine();
     this.bindDOMEvents();
-    this.recalculate();
   }
 
   private detectTheme(): void {
@@ -113,7 +119,7 @@ export class BayRouteVisualizer {
   }
 
   private async initMapEngine(): Promise<void> {
-    const savedApiKey = getSavedGoogleMapsApiKey();
+    const savedApiKey = await getSecureStoredApiKey();
 
     if (savedApiKey) {
       try {
@@ -133,6 +139,13 @@ export class BayRouteVisualizer {
     this.initLeafletMap();
     this.isGoogleMapsActive = false;
     this.updateApiKeyStatusUI(false);
+  }
+
+  public switchToLeafletFallback(): void {
+    this.isGoogleMapsActive = false;
+    this.updateApiKeyStatusUI(false);
+    this.initLeafletMap();
+    this.recalculate();
   }
 
   // --- GOOGLE MAPS ENGINE INITIALIZATION ---
@@ -158,7 +171,13 @@ export class BayRouteVisualizer {
       mapTypeId: this.currentTileStyle === 'satellite' ? 'hybrid' : 'roadmap',
     });
 
-    // Sync Canvas on Pan & Zoom
+    window.google.maps.event.addListenerOnce(this.gmap, 'idle', () => {
+      this.isMapReady = true;
+      this.syncCanvasDimensions();
+      this.recalculate();
+      this.render();
+    });
+
     this.gmap.addListener('bounds_changed', () => {
       this.syncCanvasDimensions();
       this.render();
@@ -170,7 +189,66 @@ export class BayRouteVisualizer {
       }
     });
 
+    this.setupGooglePlacesAutocomplete();
     this.syncCanvasDimensions();
+  }
+
+  private setupGooglePlacesAutocomplete(): void {
+    if (!window.google || !window.google.maps || !window.google.maps.places) return;
+
+    const startInput = this.container.querySelector<HTMLInputElement>('[data-br-input="start"]');
+    const goalInput = this.container.querySelector<HTMLInputElement>('[data-br-input="goal"]');
+
+    const bayBounds = new window.google.maps.LatLngBounds(
+      { lat: 37.0, lng: -123.0 },
+      { lat: 38.3, lng: -121.6 }
+    );
+
+    if (startInput) {
+      try {
+        const startAuto = new window.google.maps.places.Autocomplete(startInput, {
+          bounds: bayBounds,
+          componentRestrictions: { country: 'us' },
+        });
+        startAuto.addListener('place_changed', () => {
+          const place = startAuto.getPlace();
+          if (place.geometry && place.geometry.location) {
+            this.currentStartEndpoint = {
+              id: `gplace_${place.place_id || Math.random()}`,
+              name: place.name || startInput.value,
+              lat: place.geometry.location.lat(),
+              lng: place.geometry.location.lng(),
+              city: 'Bay Area',
+            };
+            this.recalculate();
+            this.fitRouteBounds();
+          }
+        });
+      } catch (_e) {}
+    }
+
+    if (goalInput) {
+      try {
+        const goalAuto = new window.google.maps.places.Autocomplete(goalInput, {
+          bounds: bayBounds,
+          componentRestrictions: { country: 'us' },
+        });
+        goalAuto.addListener('place_changed', () => {
+          const place = goalAuto.getPlace();
+          if (place.geometry && place.geometry.location) {
+            this.currentGoalEndpoint = {
+              id: `gplace_${place.place_id || Math.random()}`,
+              name: place.name || goalInput.value,
+              lat: place.geometry.location.lat(),
+              lng: place.geometry.location.lng(),
+              city: 'Bay Area',
+            };
+            this.recalculate();
+            this.fitRouteBounds();
+          }
+        });
+      } catch (_e) {}
+    }
   }
 
   // --- LEAFLET MAP ENGINE INITIALIZATION (FALLBACK) ---
@@ -202,7 +280,9 @@ export class BayRouteVisualizer {
       this.handleMapClick(e.latlng.lat, e.latlng.lng);
     });
 
+    this.isMapReady = true;
     this.syncCanvasDimensions();
+    this.recalculate();
   }
 
   private updateLeafletTileLayer(): void {
@@ -266,15 +346,22 @@ export class BayRouteVisualizer {
   }
 
   private latLngToPoint(lat: number, lng: number): { x: number; y: number } {
-    if (this.gmap) {
+    if (this.gmap && window.google && window.google.maps) {
       const bounds = this.gmap.getBounds();
-      if (!bounds) return { x: 0, y: 0 };
-      const ne = bounds.getNorthEast();
-      const sw = bounds.getSouthWest();
-      const rect = this.mapEl.getBoundingClientRect();
+      const projection = this.gmap.getProjection();
+      if (!bounds || !projection) {
+        return { x: 0, y: 0 };
+      }
 
-      const x = ((lng - sw.lng()) / (ne.lng() - sw.lng())) * rect.width;
-      const y = ((ne.lat() - lat) / (ne.lat() - sw.lat())) * rect.height;
+      const topRight = projection.fromLatLngToPoint(bounds.getNorthEast());
+      const bottomLeft = projection.fromLatLngToPoint(bounds.getSouthWest());
+      const point = projection.fromLatLngToPoint(new window.google.maps.LatLng(lat, lng));
+      if (!topRight || !bottomLeft || !point) return { x: 0, y: 0 };
+
+      const rect = this.mapEl.getBoundingClientRect();
+      const scale = rect.width / (topRight.x - bottomLeft.x);
+      const x = (point.x - bottomLeft.x) * scale;
+      const y = (point.y - topRight.y) * scale;
       return { x, y };
     }
 
@@ -842,6 +929,7 @@ export class BayRouteVisualizer {
 
   // --- CANVAS RENDERING SYNCHRONIZED WITH GPS MAP ---
   public render(): void {
+    if (!this.isMapReady) return;
     const ctx = this.ctx;
     const rect = this.mapEl.getBoundingClientRect();
     ctx.clearRect(0, 0, rect.width, rect.height);

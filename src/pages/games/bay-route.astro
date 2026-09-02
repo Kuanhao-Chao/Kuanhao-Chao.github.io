@@ -412,12 +412,12 @@ const appLd = {
 <script>
   import { initBayRoute } from '../../scripts/bayRoute';
   import {
-    getSavedGoogleMapsApiKey,
-    setSavedGoogleMapsApiKey,
+    getSecureStoredApiKey,
+    setSecureStoredApiKey,
     testGoogleMapsApiKey,
   } from '../../lib/googleMaps';
 
-  function setup() {
+  async function setup() {
     const viz = initBayRoute('#bay-route-map', '#bay-route-canvas', '[data-br-root]');
     if (!viz) return;
 
@@ -545,7 +545,7 @@ const appLd = {
     const diagBox = document.querySelector<HTMLElement>('[data-br-diagnostics]');
     const diagMsg = document.querySelector<HTMLElement>('[data-br-diag-msg]');
 
-    const savedKey = getSavedGoogleMapsApiKey();
+    const savedKey = await getSecureStoredApiKey();
     if (keyInput && savedKey) {
       keyInput.value = savedKey;
     }
@@ -588,7 +588,7 @@ const appLd = {
           if (res.valid) {
             diagMsg.className = 'br-diagnostics-message br-diagnostics-message--success';
             diagMsg.textContent = '✅ API Key connected and verified! Reloading with Google Maps SDK...';
-            setSavedGoogleMapsApiKey(key);
+            await setSecureStoredApiKey(key);
             setTimeout(() => {
               window.location.reload();
             }, 1200);
@@ -601,8 +601,8 @@ const appLd = {
     }
 
     if (clearKeyBtn) {
-      clearKeyBtn.addEventListener('click', () => {
-        setSavedGoogleMapsApiKey(null);
+      clearKeyBtn.addEventListener('click', async () => {
+        await setSecureStoredApiKey(null);
         if (keyInput) keyInput.value = '';
         if (diagBox) diagBox.hidden = true;
         alert('API Key cleared. Switching to OpenStreetMap fallback.');
