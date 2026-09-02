@@ -51,6 +51,8 @@ from make_annotations import SGD_CLASSES                          # noqa: E402  
 SCRATCH = Path(__file__).resolve().parent / "_scratch"
 OUT = ROOT / "public" / "genome-data"
 UCSC = "https://hgdownload.soe.ucsc.edu/goldenPath/sacCer3/database"
+UCSC_API = "https://api.genome.ucsc.edu/getData/track"
+CACHE = SCRATCH_CACHE = Path(__file__).resolve().parent / "_scratch" / "ucsc-cache"
 GFF_ALIAS = {"chrM": "chrmt"}
 REV_ALIAS = {v: k for k, v in GFF_ALIAS.items()}
 
@@ -68,6 +70,45 @@ def fetch(url: str, tries: int = 3) -> bytes:
         except Exception as ex:                                   # noqa: BLE001  retried below
             last = ex
     raise SystemExit(f"could not fetch {url}: {last}")
+
+
+def ucsc_api(track: str, chrom: str, start: int, end: int) -> list[dict]:
+    """One track over one chromosome, through the REST API, cached on disk.
+
+    bigBed tracks -- which is what the variant set is -- have no `database/*.txt.gz` flat file, so
+    they can only come through the API, one chromosome at a time. Seventeen calls is slow and
+    rate-limited, so each response is cached: a re-run after a bug in the parsing costs nothing,
+    which is the difference between fixing a classification rule once and being reluctant to.
+    """
+    CACHE.mkdir(parents=True, exist_ok=True)
+    cached = CACHE / f"{track}.{chrom}.json"
+    if cached.exists():
+        return json.loads(cached.read_text())
+    url = f"{UCSC_API}?genome=sacCer3;track={track};chrom={chrom};start={start};end={end}"
+    d = json.loads(fetch(url).decode())
+    rows = d.get(track, d)
+    if isinstance(rows, dict):
+        rows = rows.get(chrom, [])
+    rows = rows or []
+    cached.write_text(json.dumps(rows, separators=(",", ":")))
+    return rows
+
+
+def variant_class(ucsc_class: str) -> str:
+    """A variant's functional class, from UCSC's comma-joined consequence list.
+
+    The list carries every consequence the variant has against every overlapping transcript, so a
+    single SNP is routinely "downstream_gene_variant,missense_variant,upstream_gene_variant". The
+    ORDER here is a precedence, not a preference: a variant that is missense against ANY transcript
+    is a missense variant, and calling it non-coding because "upstream" came first in the string
+    would put the most informative class in the least informative lane.
+    """
+    s = ucsc_class or ""
+    if "missense" in s or "stop_" in s or "start_" in s or "frameshift" in s:
+        return "variant_missense"
+    if "synonymous" in s:
+        return "variant_synonymous"
+    return "variant_noncoding"
 
 
 def ucsc_table(name: str) -> list[list[str]]:
@@ -158,6 +199,23 @@ def main() -> int:
         add(f[1], {"cls": "conserved_element", "start": int(f[2]), "end": int(f[3]),
                    "strand": ".", "name": f[4], "source": "phastCons7way",
                    "score": int(f[5])})
+
+    print("evaSnp8 (European Variant Archive release 8, via the REST API)")
+    vcount: dict[str, int] = {}
+    for chrom, n in lengths.items():
+        for r in ucsc_api("evaSnp8", chrom, 0, n):
+            cls = variant_class(r.get("ucscClass", ""))
+            vcount[cls] = vcount.get(cls, 0) + 1
+            # rsID, the substitution, and the protein consequence where there is one: the rsID is
+            # the handle a researcher looks the variant up by, and without ref>alt the box says
+            # only that SOMETHING varies here.
+            aa = r.get("aaChange") or ""
+            label = f"{r.get('name','')} {r.get('ref','')}>{r.get('alt','')}".strip()
+            add(chrom, {"cls": cls, "start": int(r["chromStart"]),
+                        "end": max(int(r["chromEnd"]), int(r["chromStart"]) + 1),
+                        "strand": ".", "name": f"{label} {aa}".strip(), "source": "evaSnp8"})
+        print(f"    {chrom:8s} cumulative {sum(vcount.values()):>7,}", flush=True)
+    print(f"    classes: {vcount}")
 
     print("simpleRepeat (tandem repeats)")
     for f in ucsc_table("simpleRepeat"):
