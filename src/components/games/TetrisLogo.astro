@@ -14,133 +14,243 @@ const { size = 64, class: className = '' } = Astro.props;
   height={size}
   class:list={['tetris-logo', className]}
   role="img"
-  aria-label="Tetris Logo — Molecular genomic tetrominoes docking into base-pairing matrix grid"
+  aria-label="Tetris Logo — 3D vitreous gemstone genomic tetrominoes docking into a base-pairing matrix grid with line-clear laser"
 >
   <defs>
-    <!-- Background Aura -->
-    <radialGradient id="tet-aura" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="var(--color-accent, #2e6e5e)" stop-opacity="0.25" />
-      <stop offset="100%" stop-color="var(--color-accent, #2e6e5e)" stop-opacity="0" />
+    <!-- Background Arcade Aura -->
+    <radialGradient id="tet-bg-aura" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0.32" />
+      <stop offset="60%" stop-color="#1e1b4b" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#020617" stop-opacity="0" />
     </radialGradient>
 
-    <!-- T-Piece (Purple) -->
-    <linearGradient id="tet-t-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#c084fc" />
-      <stop offset="100%" stop-color="#9333ea" />
+    <!-- Outer Medallion Border Gradient -->
+    <linearGradient id="tet-border-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a855f7" />
+      <stop offset="50%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#10b981" />
     </linearGradient>
 
-    <!-- I-Piece (Cyan) -->
-    <linearGradient id="tet-i-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#38bdf8" />
-      <stop offset="100%" stop-color="#0284c7" />
+    <!-- 3D Beveled Mino Gemstone Gradients -->
+    <!-- T-Piece (Amethyst Violet) -->
+    <linearGradient id="tet-t-face" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e9d5ff" />
+      <stop offset="35%" stop-color="#c084fc" />
+      <stop offset="85%" stop-color="#9333ea" />
+      <stop offset="100%" stop-color="#6b21a8" />
     </linearGradient>
 
-    <!-- S-Piece (Emerald) -->
-    <linearGradient id="tet-s-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#34d399" />
-      <stop offset="100%" stop-color="#059669" />
+    <!-- S-Piece (Emerald Green) -->
+    <linearGradient id="tet-s-face" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a7f3d0" />
+      <stop offset="35%" stop-color="#34d399" />
+      <stop offset="85%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#064e3b" />
     </linearGradient>
 
-    <!-- O-Piece (Amber) -->
-    <linearGradient id="tet-o-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#fbbf24" />
-      <stop offset="100%" stop-color="#d97706" />
+    <!-- O-Piece (Topaz Amber) -->
+    <linearGradient id="tet-o-face" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="35%" stop-color="#fbbf24" />
+      <stop offset="85%" stop-color="#d97706" />
+      <stop offset="100%" stop-color="#92400e" />
     </linearGradient>
 
-    <!-- Glow Filter -->
-    <filter id="tet-glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="2" result="blur" />
-      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    <!-- I-Piece (Sapphire Cyan) -->
+    <linearGradient id="tet-i-face" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e0f2fe" />
+      <stop offset="35%" stop-color="#38bdf8" />
+      <stop offset="85%" stop-color="#0284c7" />
+      <stop offset="100%" stop-color="#075985" />
+    </linearGradient>
+
+    <!-- Z-Piece (Ruby Crimson) -->
+    <linearGradient id="tet-z-face" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fecdd3" />
+      <stop offset="35%" stop-color="#f43f5e" />
+      <stop offset="85%" stop-color="#e11d48" />
+      <stop offset="100%" stop-color="#881337" />
+    </linearGradient>
+
+    <!-- Line-Clear Laser Flare -->
+    <linearGradient id="tet-laser-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0" />
+      <stop offset="25%" stop-color="#38bdf8" />
+      <stop offset="50%" stop-color="#ffffff" />
+      <stop offset="75%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- Glow & 3D Shadow Filters -->
+    <filter id="tet-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="2.2" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <filter id="tet-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="1.5" dy="2.5" stdDeviation="2" flood-color="#000000" flood-opacity="0.45" />
     </filter>
   </defs>
 
-  <!-- 1. Ambient Backdrop Aura -->
-  <circle cx="50" cy="50" r="46" fill="url(#tet-aura)" />
+  <!-- 1. Ambient Arcade Matrix Aura -->
+  <circle cx="50" cy="50" r="47" fill="url(#tet-bg-aura)" />
+
+  <!-- 2. Circular Outer Medallion Frame -->
   <circle
     cx="50"
     cy="50"
-    r="44"
-    fill="none"
-    stroke="var(--color-rule, #e5e4df)"
-    stroke-width="1.2"
-    stroke-dasharray="4 3"
-    opacity="0.6"
+    r="46"
+    fill="#0b0f19"
+    stroke="url(#tet-border-grad)"
+    stroke-width="2.2"
   />
 
-  <!-- 2. Matrix Grid Base & Hydrogen Bonding Rails -->
-  <g class="tet-grid">
-    <rect
-      x="16"
-      y="76"
-      width="68"
-      height="12"
-      rx="2"
-      fill="var(--color-surface, #ffffff)"
-      stroke="var(--color-rule, #e5e4df)"
-      stroke-width="1.2"
-    />
-    <!-- Grid Column Lines -->
-    <line x1="28" y1="76" x2="28" y2="88" stroke="var(--color-rule, #e5e4df)" stroke-width="1" />
-    <line x1="40" y1="76" x2="40" y2="88" stroke="var(--color-rule, #e5e4df)" stroke-width="1" />
-    <line x1="52" y1="76" x2="52" y2="88" stroke="var(--color-rule, #e5e4df)" stroke-width="1" />
-    <line x1="64" y1="76" x2="64" y2="88" stroke="var(--color-rule, #e5e4df)" stroke-width="1" />
-    <line x1="76" y1="76" x2="76" y2="88" stroke="var(--color-rule, #e5e4df)" stroke-width="1" />
+  <!-- Subtle Matrix Circuit Grid -->
+  <g stroke="#1e293b" stroke-width="0.75" opacity="0.65">
+    <line x1="22" y1="14" x2="22" y2="86" stroke-dasharray="2, 4" />
+    <line x1="36" y1="14" x2="36" y2="86" stroke-dasharray="2, 4" />
+    <line x1="50" y1="14" x2="50" y2="86" stroke-dasharray="2, 4" />
+    <line x1="64" y1="14" x2="64" y2="86" stroke-dasharray="2, 4" />
+    <line x1="78" y1="14" x2="78" y2="86" stroke-dasharray="2, 4" />
+    <line x1="14" y1="78" x2="86" y2="78" stroke-dasharray="2, 4" />
   </g>
 
-  <!-- 3. Settled Foundation Minos -->
-  <g class="tet-settled">
-    <!-- Block 1 -->
-    <rect x="18" y="78" width="8" height="8" rx="1.5" fill="#38bdf8" stroke="#ffffff" stroke-width="0.8" />
-    <!-- Block 2 -->
-    <rect x="30" y="78" width="8" height="8" rx="1.5" fill="#34d399" stroke="#ffffff" stroke-width="0.8" />
-    <!-- Block 3 -->
-    <rect x="42" y="78" width="8" height="8" rx="1.5" fill="#fbbf24" stroke="#ffffff" stroke-width="0.8" />
-    <!-- Block 4 -->
-    <rect x="54" y="78" width="8" height="8" rx="1.5" fill="#c084fc" stroke="#ffffff" stroke-width="0.8" />
-    <!-- Block 5 -->
-    <rect x="66" y="78" width="8" height="8" rx="1.5" fill="#f43f5e" stroke="#ffffff" stroke-width="0.8" />
-  </g>
-
-  <!-- 4. Cascading Molecular Tetrominoes -->
-  <g class="tet-tetrominoes" filter="url(#tet-glow)">
-    <!-- T-Piece (Center Dropping) -->
-    <g transform="translate(38, 38)">
-      <rect x="0" y="0" width="11" height="11" rx="2" fill="url(#tet-t-grad)" stroke="#ffffff" stroke-width="1" />
-      <rect x="12" y="0" width="11" height="11" rx="2" fill="url(#tet-t-grad)" stroke="#ffffff" stroke-width="1" />
-      <rect x="24" y="0" width="11" height="11" rx="2" fill="url(#tet-t-grad)" stroke="#ffffff" stroke-width="1" />
-      <rect x="12" y="12" width="11" height="11" rx="2" fill="url(#tet-t-grad)" stroke="#ffffff" stroke-width="1" />
-      <!-- Base Markers -->
-      <text x="5.5" y="7.5" font-family="monospace" font-size="6.5" font-weight="bold" fill="#ffffff" text-anchor="middle">A</text>
-      <text x="17.5" y="7.5" font-family="monospace" font-size="6.5" font-weight="bold" fill="#ffffff" text-anchor="middle">U</text>
-      <text x="29.5" y="7.5" font-family="monospace" font-size="6.5" font-weight="bold" fill="#ffffff" text-anchor="middle">G</text>
-      <text x="17.5" y="19.5" font-family="monospace" font-size="6.5" font-weight="bold" fill="#ffffff" text-anchor="middle">C</text>
+  <!-- 3. Settled Foundation Blocks (Bottom Row) -->
+  <g class="tet-settled" filter="url(#tet-shadow)">
+    <!-- Column 1: Cyan Mino -->
+    <g transform="translate(16, 74)">
+      <rect x="0" y="0" width="13" height="12" rx="2" fill="url(#tet-i-face)" stroke="#ffffff" stroke-width="0.8" />
+      <path d="M 1 1 L 12 1 L 1 11 Z" fill="#ffffff" opacity="0.35" />
     </g>
-
-    <!-- S-Piece (Left Angled) -->
-    <g transform="translate(18, 20)">
-      <rect x="11" y="0" width="10" height="10" rx="2" fill="url(#tet-s-grad)" stroke="#ffffff" stroke-width="0.9" />
-      <rect x="22" y="0" width="10" height="10" rx="2" fill="url(#tet-s-grad)" stroke="#ffffff" stroke-width="0.9" />
-      <rect x="0" y="11" width="10" height="10" rx="2" fill="url(#tet-s-grad)" stroke="#ffffff" stroke-width="0.9" />
-      <rect x="11" y="11" width="10" height="10" rx="2" fill="url(#tet-s-grad)" stroke="#ffffff" stroke-width="0.9" />
+    <!-- Column 2: Emerald Mino -->
+    <g transform="translate(30, 74)">
+      <rect x="0" y="0" width="13" height="12" rx="2" fill="url(#tet-s-face)" stroke="#ffffff" stroke-width="0.8" />
+      <path d="M 1 1 L 12 1 L 1 11 Z" fill="#ffffff" opacity="0.35" />
     </g>
-
-    <!-- O-Piece (Top Right) -->
-    <g transform="translate(56, 14)">
-      <rect x="0" y="0" width="10" height="10" rx="2" fill="url(#tet-o-grad)" stroke="#ffffff" stroke-width="0.9" />
-      <rect x="11" y="0" width="10" height="10" rx="2" fill="url(#tet-o-grad)" stroke="#ffffff" stroke-width="0.9" />
-      <rect x="0" y="11" width="10" height="10" rx="2" fill="url(#tet-o-grad)" stroke="#ffffff" stroke-width="0.9" />
-      <rect x="11" y="11" width="10" height="10" rx="2" fill="url(#tet-o-grad)" stroke="#ffffff" stroke-width="0.9" />
+    <!-- Column 4: Topaz Mino -->
+    <g transform="translate(58, 74)">
+      <rect x="0" y="0" width="13" height="12" rx="2" fill="url(#tet-o-face)" stroke="#ffffff" stroke-width="0.8" />
+      <path d="M 1 1 L 12 1 L 1 11 Z" fill="#ffffff" opacity="0.35" />
+    </g>
+    <!-- Column 5: Ruby Mino -->
+    <g transform="translate(72, 74)">
+      <rect x="0" y="0" width="13" height="12" rx="2" fill="url(#tet-z-face)" stroke="#ffffff" stroke-width="0.8" />
+      <path d="M 1 1 L 12 1 L 1 11 Z" fill="#ffffff" opacity="0.35" />
     </g>
   </g>
 
-  <!-- 5. Laser Projection & Clear Particle Sparks -->
-  <g class="tet-fx">
-    <!-- Laser Alignment Guideline -->
-    <line x1="50" y1="52" x2="50" y2="76" stroke="#38bdf8" stroke-width="1.2" stroke-dasharray="2 2" opacity="0.75" />
-    <!-- Sparks -->
-    <circle cx="34" cy="74" r="1.2" fill="#fbbf24" />
-    <circle cx="68" cy="73" r="1.4" fill="#38bdf8" />
-    <circle cx="50" cy="75" r="1.5" fill="#f43f5e" />
+  <!-- 4. Line-Clear Elimination Laser Wavefront -->
+  <line x1="8" y1="74" x2="92" y2="74" stroke="url(#tet-laser-grad)" stroke-width="3.5" filter="url(#tet-glow)" />
+  <line x1="18" y1="74" x2="82" y2="74" stroke="#ffffff" stroke-width="1.2" />
+
+  <!-- Line-Clear Elimination Plasma Sparks -->
+  <g class="tet-sparks" filter="url(#tet-glow)">
+    <circle cx="44" cy="74" r="2.2" fill="#ffffff" />
+    <circle cx="28" cy="72" r="1.4" fill="#38bdf8" />
+    <circle cx="70" cy="72" r="1.4" fill="#fbbf24" />
+    <circle cx="56" cy="76" r="1.2" fill="#a855f7" />
+    <circle cx="84" cy="73" r="1.1" fill="#34d399" />
+  </g>
+
+  <!-- 5. Active Falling Genomic Tetrominoes in Flight -->
+  <!-- Top-Right: S-Piece (Emerald) -->
+  <g class="tet-s-piece" transform="translate(60, 16)" filter="url(#tet-shadow)">
+    <!-- Mino 1 -->
+    <g transform="translate(13, 0)">
+      <rect x="0" y="0" width="12" height="12" rx="2" fill="url(#tet-s-face)" stroke="#ffffff" stroke-width="0.8" />
+      <path d="M 1 1 L 11 1 L 1 11 Z" fill="#ffffff" opacity="0.35" />
+      <text x="6" y="8.2" font-family="monospace" font-size="6" font-weight="900" fill="#ffffff" text-anchor="middle">G</text>
+    </g>
+    <!-- Mino 2 -->
+    <g transform="translate(26, 0)">
+      <rect x="0" y="0" width="12" height="12" rx="2" fill="url(#tet-s-face)" stroke="#ffffff" stroke-width="0.8" />
+      <path d="M 1 1 L 11 1 L 1 11 Z" fill="#ffffff" opacity="0.35" />
+      <text x="6" y="8.2" font-family="monospace" font-size="6" font-weight="900" fill="#ffffff" text-anchor="middle">C</text>
+    </g>
+    <!-- Mino 3 -->
+    <g transform="translate(0, 13)">
+      <rect x="0" y="0" width="12" height="12" rx="2" fill="url(#tet-s-face)" stroke="#ffffff" stroke-width="0.8" />
+      <path d="M 1 1 L 11 1 L 1 11 Z" fill="#ffffff" opacity="0.35" />
+      <text x="6" y="8.2" font-family="monospace" font-size="6" font-weight="900" fill="#ffffff" text-anchor="middle">G</text>
+    </g>
+    <!-- Mino 4 -->
+    <g transform="translate(13, 13)">
+      <rect x="0" y="0" width="12" height="12" rx="2" fill="url(#tet-s-face)" stroke="#ffffff" stroke-width="0.8" />
+      <path d="M 1 1 L 11 1 L 1 11 Z" fill="#ffffff" opacity="0.35" />
+      <text x="6" y="8.2" font-family="monospace" font-size="6" font-weight="900" fill="#ffffff" text-anchor="middle">C</text>
+    </g>
+  </g>
+
+  <!-- Top-Left: O-Piece (Topaz 2x2) -->
+  <g class="tet-o-piece" transform="translate(15, 20)" filter="url(#tet-shadow)">
+    <g transform="translate(0, 0)">
+      <rect x="0" y="0" width="11" height="11" rx="2" fill="url(#tet-o-face)" stroke="#ffffff" stroke-width="0.8" />
+      <path d="M 1 1 L 10 1 L 1 10 Z" fill="#ffffff" opacity="0.35" />
+    </g>
+    <g transform="translate(12, 0)">
+      <rect x="0" y="0" width="11" height="11" rx="2" fill="url(#tet-o-face)" stroke="#ffffff" stroke-width="0.8" />
+      <path d="M 1 1 L 10 1 L 1 10 Z" fill="#ffffff" opacity="0.35" />
+    </g>
+    <g transform="translate(0, 12)">
+      <rect x="0" y="0" width="11" height="11" rx="2" fill="url(#tet-o-face)" stroke="#ffffff" stroke-width="0.8" />
+      <path d="M 1 1 L 10 1 L 1 10 Z" fill="#ffffff" opacity="0.35" />
+    </g>
+    <g transform="translate(12, 12)">
+      <rect x="0" y="0" width="11" height="11" rx="2" fill="url(#tet-o-face)" stroke="#ffffff" stroke-width="0.8" />
+      <path d="M 1 1 L 10 1 L 1 10 Z" fill="#ffffff" opacity="0.35" />
+    </g>
+  </g>
+
+  <!-- Center Hero: T-Piece Dropping with Motion Trail into Docking Slot -->
+  <!-- Motion Blur Ghost Trail -->
+  <g opacity="0.25">
+    <rect x="36" y="32" width="14" height="14" rx="2" fill="#c084fc" />
+    <rect x="51" y="32" width="14" height="14" rx="2" fill="#c084fc" />
+    <rect x="66" y="32" width="14" height="14" rx="2" fill="#c084fc" />
+    <rect x="51" y="47" width="14" height="14" rx="2" fill="#c084fc" />
+  </g>
+
+  <!-- Ghost Projection Alignment Guideline -->
+  <line x1="58" y1="58" x2="58" y2="74" stroke="#38bdf8" stroke-width="1.2" stroke-dasharray="2, 2" opacity="0.8" />
+
+  <!-- Hero 3D T-Piece with Nucleotide Badges -->
+  <g class="tet-hero-t" transform="translate(30, 42)" filter="url(#tet-glow)">
+    <!-- Top-Left Mino (A) -->
+    <g transform="translate(0, 0)">
+      <rect x="0" y="0" width="14" height="14" rx="2.5" fill="url(#tet-t-face)" stroke="#ffffff" stroke-width="1.1" />
+      <path d="M 1.5 1.5 L 12.5 1.5 L 1.5 12.5 Z" fill="#ffffff" opacity="0.4" />
+      <!-- Lock-and-key notch -->
+      <circle cx="7" cy="14" r="1.8" fill="#6b21a8" />
+      <text x="7" y="9.5" font-family="monospace" font-size="7.5" font-weight="900" fill="#ffffff" text-anchor="middle">A</text>
+    </g>
+
+    <!-- Top-Center Mino (U) -->
+    <g transform="translate(15, 0)">
+      <rect x="0" y="0" width="14" height="14" rx="2.5" fill="url(#tet-t-face)" stroke="#ffffff" stroke-width="1.1" />
+      <path d="M 1.5 1.5 L 12.5 1.5 L 1.5 12.5 Z" fill="#ffffff" opacity="0.4" />
+      <text x="7" y="9.5" font-family="monospace" font-size="7.5" font-weight="900" fill="#ffffff" text-anchor="middle">U</text>
+    </g>
+
+    <!-- Top-Right Mino (G) -->
+    <g transform="translate(30, 0)">
+      <rect x="0" y="0" width="14" height="14" rx="2.5" fill="url(#tet-t-face)" stroke="#ffffff" stroke-width="1.1" />
+      <path d="M 1.5 1.5 L 12.5 1.5 L 1.5 12.5 Z" fill="#ffffff" opacity="0.4" />
+      <!-- Lock-and-key notch -->
+      <circle cx="7" cy="14" r="1.8" fill="#6b21a8" />
+      <text x="7" y="9.5" font-family="monospace" font-size="7.5" font-weight="900" fill="#ffffff" text-anchor="middle">G</text>
+    </g>
+
+    <!-- Center-Stem Mino (C) -->
+    <g transform="translate(15, 15)">
+      <rect x="0" y="0" width="14" height="14" rx="2.5" fill="url(#tet-t-face)" stroke="#ffffff" stroke-width="1.1" />
+      <path d="M 1.5 1.5 L 12.5 1.5 L 1.5 12.5 Z" fill="#ffffff" opacity="0.4" />
+      <!-- Lock-and-key teeth -->
+      <circle cx="7" cy="14" r="1.8" fill="#ffffff" />
+      <text x="7" y="9.5" font-family="monospace" font-size="7.5" font-weight="900" fill="#ffffff" text-anchor="middle">C</text>
+    </g>
   </g>
 </svg>
 
@@ -149,11 +259,13 @@ const { size = 64, class: className = '' } = Astro.props;
     display: inline-block;
     flex-shrink: 0;
     vertical-align: middle;
-    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.12));
-    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    filter: drop-shadow(0 4px 12px rgba(147, 51, 234, 0.25));
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.25s ease;
   }
 
+  :global(.tool:hover) .tetris-logo,
   .tetris-logo:hover {
-    transform: scale(1.06) translateY(-2px);
+    transform: translateY(-2px) scale(1.06);
+    filter: drop-shadow(0 6px 20px rgba(192, 132, 252, 0.45));
   }
 </style>
