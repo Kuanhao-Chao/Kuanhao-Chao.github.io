@@ -1,6 +1,7 @@
-/**
- * Google Maps JavaScript API Loader, Key Manager & Live Diagnostics Engine.
- */
+import {
+  getSecureStoredApiKey,
+  setSecureStoredApiKey,
+} from './cryptoStorage';
 
 export const STORAGE_KEY_GMAP_API_KEY = 'bayroute_google_maps_api_key';
 
@@ -17,48 +18,21 @@ export interface ApiDiagnosticsResult {
 let gmapScriptPromise: Promise<void> | null = null;
 let currentLoadedKey: string | null = null;
 
-let memoryStoreApiKey: string | null = null;
+export { getSecureStoredApiKey, setSecureStoredApiKey };
 
-/**
- * Retrieves the currently saved Google Maps API key from localStorage or env.
- */
-export function getSavedGoogleMapsApiKey(): string | null {
-  if (typeof window !== 'undefined' && window.localStorage) {
-    try {
-      const fromStorage = localStorage.getItem(STORAGE_KEY_GMAP_API_KEY);
-      if (fromStorage && fromStorage.trim().length > 0) {
-        return fromStorage.trim();
-      }
-    } catch (_e) {}
-  }
-  if (memoryStoreApiKey) return memoryStoreApiKey;
+let authFailureCallback: (() => void) | null = null;
 
-  // Optional window global or build env fallback
-  if (typeof window !== 'undefined') {
-    const fromGlobal = (window as unknown as { BAYROUTE_GMAP_KEY?: string }).BAYROUTE_GMAP_KEY;
-    if (fromGlobal && fromGlobal.trim().length > 0) {
-      return fromGlobal.trim();
-    }
-  }
-  return null;
+export function onGoogleMapsAuthFailure(cb: () => void): void {
+  authFailureCallback = cb;
 }
 
-/**
- * Saves or clears the Google Maps API key in localStorage.
- */
-export function setSavedGoogleMapsApiKey(keyString: string | null): void {
-  const clean = keyString && keyString.trim().length > 0 ? keyString.trim() : null;
-  memoryStoreApiKey = clean;
-
-  if (typeof window !== 'undefined' && window.localStorage) {
-    try {
-      if (!clean) {
-        localStorage.removeItem(STORAGE_KEY_GMAP_API_KEY);
-      } else {
-        localStorage.setItem(STORAGE_KEY_GMAP_API_KEY, clean);
-      }
-    } catch (_e) {}
-  }
+if (typeof window !== 'undefined') {
+  (window as unknown as { gm_authFailure?: () => void }).gm_authFailure = () => {
+    console.warn('[BayRoute] Google Maps authentication failed. Switching to OpenStreetMap fallback.');
+    if (authFailureCallback) {
+      authFailureCallback();
+    }
+  };
 }
 
 /**
