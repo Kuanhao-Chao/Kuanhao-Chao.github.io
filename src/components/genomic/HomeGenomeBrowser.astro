@@ -1,35 +1,23 @@
 ---
 /**
- * Minimal Embedded Shorkie_LM Genome Browser for the Homepage.
+ * Minimal Embedded Shorkie_LM Genome Browser Showcase for the Homepage.
  * Displays the 6 core tracks:
- * 1. Shorkie_LM · masked
- * 2. phastCons · 7 yeasts
- * 3. Genes
- * 4. sequence letter
- * 5. TFBS · ChIP-supported
- * 6. TFBS · motif only
+ * 1. Shorkie_LM · masked (Information content 0-2 bits)
+ * 2. phastCons · 7 yeasts (Evolutionary conservation 0-1)
+ * 3. Genes (SGD transcripts & CDS structures)
+ * 4. sequence letter (Reference nucleotides & logo)
+ * 5. TFBS · ChIP-supported (Experimentally validated binding sites)
+ * 6. TFBS · motif only (JASPAR position-weight matrix matches)
  */
 import Icon from '../Icon.astro';
 
-const LOCI_ROWS = [
-  {
-    category: 'Promoters & Regulation',
-    chips: [
-      { name: 'TDH3', locus: 'chrVII:882,012-884,610', desc: 'High-expression glycolytic promoter' },
-      { name: 'GAL1', locus: 'chrII:278,000-281,500', desc: 'Galactose-inducible regulatory locus' },
-      { name: 'HXT1', locus: 'chrVIII:64,500-68,000', desc: 'Glucose transporter with repressor sites' },
-      { name: 'PHO5', locus: 'chrII:429,000-432,500', desc: 'Phosphate-regulated chromatin locus' },
-    ],
-  },
-  {
-    category: 'Conserved & Essential',
-    chips: [
-      { name: 'ACT1', locus: 'chrVI:53,000-56,200', desc: 'Highly conserved structural actin' },
-      { name: 'CDC28', locus: 'chrII:180,000-183,500', desc: 'Essential cell-cycle CDK' },
-      { name: 'ADH1', locus: 'chrXV:157,500-161,200', desc: 'Alcohol dehydrogenase I' },
-      { name: 'TEF1', locus: 'chrXVI:73,000-76,500', desc: 'Translation elongation factor 1-alpha' },
-    ],
-  },
+const PRESET_LOCI = [
+  { name: 'TDH3', locus: 'chrVII:882,012-884,610', tag: 'Glycolysis', desc: 'High-expression glycolytic promoter' },
+  { name: 'GAL1', locus: 'chrII:278,000-281,500', tag: 'Switch', desc: 'Galactose-inducible regulatory locus' },
+  { name: 'ACT1', locus: 'chrVI:53,000-56,200', tag: 'Structural', desc: 'Highly conserved structural actin' },
+  { name: 'HXT1', locus: 'chrVIII:64,500-68,000', tag: 'Transporter', desc: 'Glucose transporter with repressor sites' },
+  { name: 'CDC28', locus: 'chrII:180,000-183,500', tag: 'Cell Cycle', desc: 'Essential cell-cycle CDK' },
+  { name: 'ADH1', locus: 'chrXV:157,500-161,200', tag: 'Metabolic', desc: 'Alcohol dehydrogenase I' },
 ];
 ---
 
@@ -41,86 +29,41 @@ const LOCI_ROWS = [
   data-gb-tracks="lm-masked,phastcons,genes,sequence,tfbs_chip,tfbs_pwm"
   data-gb-default="chrVII:882,012-884,610"
 >
-  <!-- Explore Loci Panel: Single Cohesive Horizontal Line -->
-  <div class="home-gb-loci-panel">
-    <div class="home-gb-loci-group">
-      <span class="home-gb-loci-label">Promoters & Regulation:</span>
-      <div class="home-gb-chips">
+  <!-- Single Unified Control Header: Preset Loci Tabs + Live Coordinates + Micro Nav -->
+  <div class="home-gb-header">
+    <div class="home-gb-tabs-group">
+      <span class="home-gb-tabs-label">Benchmark Loci:</span>
+      <div class="home-gb-tabs" role="tablist">
         {
-          LOCI_ROWS[0].chips.map((chip, idx) => (
+          PRESET_LOCI.map((chip, idx) => (
             <button
               type="button"
-              class={`home-gb-chip ${idx === 0 ? 'is-active' : ''}`}
+              class={`home-gb-tab ${idx === 0 ? 'is-active' : ''}`}
               data-gb-chip={chip.locus}
-              title={`${chip.name} · ${chip.desc}`}
+              title={`${chip.name} (${chip.tag}) · ${chip.desc}`}
             >
-              <strong>{chip.name}</strong>
+              <span class="home-gb-tab-name">{chip.name}</span>
             </button>
           ))
         }
       </div>
     </div>
 
-    <span class="home-gb-loci-divider" aria-hidden="true">·</span>
-
-    <div class="home-gb-loci-group">
-      <span class="home-gb-loci-label">Conserved & Essential:</span>
-      <div class="home-gb-chips">
-        {
-          LOCI_ROWS[1].chips.map((chip) => (
-            <button
-              type="button"
-              class="home-gb-chip"
-              data-gb-chip={chip.locus}
-              title={`${chip.name} · ${chip.desc}`}
-            >
-              <strong>{chip.name}</strong>
-            </button>
-          ))
-        }
+    <!-- Live Coordinate Pill & Micro Pan/Zoom Controls -->
+    <div class="home-gb-controls">
+      <div class="home-gb-readout-pill">
+        <span class="home-gb-readout-dot"></span>
+        <strong data-gb-readout>chrVII:882,012–884,610</strong>
+        <span class="home-gb-readout-sub" data-gb-level-out></span>
       </div>
-    </div>
-  </div>
 
-  <!-- Dedicated Status & Live Hover Telemetry Bar (Locked Height, Zero Wrap) -->
-  <div class="home-gb-status-bar">
-    <div class="home-gb-readout">
-      <span class="home-gb-readout-prefix">Active:</span>
-      <strong data-gb-readout>chrVII:882,012–884,610</strong>
-      <span class="home-gb-readout-sub" data-gb-level-out></span>
-      <span class="home-gb-roi" data-gb-roi></span>
-    </div>
-    <div class="home-gb-hover-slot">
-      <span class="home-gb-hover" data-gb-hover></span>
-    </div>
-  </div>
-
-  <!-- Navigation Toolbar -->
-  <div class="home-gb-nav">
-    <div class="home-gb-nav-group">
-      <label class="home-gb-nav-label" for="home-gb-chrom">Chr:</label>
-      <select class="home-gb-select" id="home-gb-chrom" data-gb-chrom aria-label="Chromosome"></select>
-    </div>
-
-    <div class="home-gb-nav-group home-gb-search-group">
-      <label class="home-gb-nav-label" for="home-gb-locus">Search:</label>
-      <input
-        class="home-gb-input"
-        id="home-gb-locus"
-        data-gb-locus
-        spellcheck="false"
-        placeholder="Gene (TDH3, GAL1) or locus..."
-        aria-label="Search gene or coordinate"
-      />
-      <button type="button" class="home-gb-btn home-gb-btn--primary" data-gb-go>Go</button>
-    </div>
-
-    <div class="home-gb-nav-group home-gb-nav-tools">
-      <button type="button" class="home-gb-btn" data-gb-pan="-1" title="Pan left (‹)">‹</button>
-      <button type="button" class="home-gb-btn" data-gb-pan="1" title="Pan right (›)">›</button>
-      <button type="button" class="home-gb-btn" data-gb-zoom="0.5" title="Zoom in (+)">+</button>
-      <button type="button" class="home-gb-btn" data-gb-zoom="2" title="Zoom out (−)">−</button>
-      <button type="button" class="home-gb-btn" data-gb-whole title="View whole chromosome">Whole Chr</button>
+      <div class="home-gb-nav-btns" role="group" aria-label="Micro Navigation">
+        <button type="button" class="home-gb-btn" data-gb-pan="-1" title="Pan left (‹)">‹</button>
+        <button type="button" class="home-gb-btn" data-gb-pan="1" title="Pan right (›)">›</button>
+        <button type="button" class="home-gb-btn" data-gb-zoom="0.5" title="Zoom in (+)">+</button>
+        <button type="button" class="home-gb-btn" data-gb-zoom="2" title="Zoom out (−)">−</button>
+        <button type="button" class="home-gb-btn home-gb-btn--reset" data-gb-reset title="Reset to default locus">Reset</button>
+      </div>
     </div>
   </div>
 
@@ -141,12 +84,12 @@ const LOCI_ROWS = [
     <aside class="gb-motif" data-gb-motif hidden aria-label="JASPAR Motif"></aside>
   </div>
 
-  <!-- Status & Legend Bar -->
+  <!-- Launchpad Footer: Legend & Direct Deep-Link to Full Browser -->
   <div class="home-gb-footer">
     <div class="home-gb-legend">
       <span class="legend-item">
         <span class="legend-dot" style="background: #2563eb;"></span>
-        <span>Shorkie_LM (0–2 bits)</span>
+        <span>Shorkie_LM (0–2b)</span>
       </span>
       <span class="legend-item">
         <span class="legend-dot" style="background: #10b981;"></span>
@@ -154,16 +97,21 @@ const LOCI_ROWS = [
       </span>
       <span class="legend-item">
         <span class="legend-dot" style="background: #e11d48;"></span>
-        <span>SGD Genes</span>
+        <span>Genes</span>
       </span>
       <span class="legend-item">
         <span class="legend-dot" style="background: #8b5cf6;"></span>
-        <span>TFBS (ChIP / Motif)</span>
+        <span>TFBS</span>
       </span>
     </div>
 
-    <a href="/shorkie-lab/genome/" class="home-gb-full-link">
-      <span>Open Full Genome Browser with all 14 tracks</span>
+    <a
+      href="/shorkie-lab/genome/#chrVII:882,012-884,610"
+      class="home-gb-cta-btn"
+      data-gb-full-link
+      title="Open full browser with all 14 tracks, full chromosome navigation, and GFF export"
+    >
+      <span>Explore Full Genome Browser (14 Tracks & Deep Search)</span>
       <Icon name="arrow-right" size={15} />
     </a>
   </div>
@@ -180,202 +128,122 @@ const LOCI_ROWS = [
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg, 12px);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
     overflow: hidden;
     margin: 1.5rem 0 2rem;
   }
 
-  /* Explore Loci Panel: Single Cohesive Horizontal Line */
-  .home-gb-loci-panel {
+  /* Single Unified Control Header */
+  .home-gb-header {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 0.85rem;
-    padding: 0.75rem 1.25rem;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.65rem 1rem;
     border-bottom: 1px solid var(--color-border);
-    background: color-mix(in srgb, var(--color-ink) 2.5%, var(--color-surface));
-    overflow-x: auto;
-    scrollbar-width: thin;
-    white-space: nowrap;
+    background: color-mix(in srgb, var(--color-ink) 2%, var(--color-surface));
   }
 
-  .home-gb-loci-group {
+  .home-gb-tabs-group {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    flex-shrink: 0;
+    flex-wrap: wrap;
   }
 
-  .home-gb-loci-label {
-    font-size: 0.75rem;
+  .home-gb-tabs-label {
+    font-size: 0.72rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
     color: var(--color-muted);
     flex-shrink: 0;
   }
 
-  .home-gb-loci-divider {
-    color: var(--color-border);
-    font-weight: bold;
-    flex-shrink: 0;
-  }
-
-  .home-gb-chips {
+  .home-gb-tabs {
     display: flex;
     align-items: center;
-    gap: 0.35rem;
-    flex-shrink: 0;
+    gap: 0.3rem;
+    flex-wrap: wrap;
   }
 
-  .home-gb-chip {
-    padding: 0.22rem 0.65rem;
+  .home-gb-tab {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.22rem 0.6rem;
     border-radius: 999px;
     border: 1px solid var(--color-border);
     background: var(--color-surface);
     color: var(--color-ink);
     font-size: 0.75rem;
     font-family: inherit;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.15s ease;
   }
 
-  .home-gb-chip:hover {
+  .home-gb-tab:hover {
     border-color: var(--color-accent);
     background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
   }
 
-  .home-gb-chip:active,
-  .home-gb-chip.is-active {
+  .home-gb-tab.is-active {
     border-color: var(--color-accent);
-    background: color-mix(in srgb, var(--color-accent) 18%, var(--color-surface));
-    color: var(--color-accent);
+    background: var(--color-accent);
+    color: #ffffff;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
   }
 
-  /* Dedicated Status & Live Hover Bar */
-  .home-gb-status-bar {
+  .home-gb-controls {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 0.55rem 1.25rem;
-    background: color-mix(in srgb, var(--color-ink) 1%, var(--color-surface));
-    border-bottom: 1px solid var(--color-border);
-    min-height: 2.25rem;
+    gap: 0.6rem;
+    margin-left: auto;
   }
 
-  .home-gb-readout {
-    display: flex;
-    align-items: baseline;
-    gap: 0.45rem;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-
-  .home-gb-readout-prefix {
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--color-muted);
-  }
-
-  .home-gb-readout strong {
+  .home-gb-readout-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.22rem 0.65rem;
+    border-radius: 999px;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 0.875rem;
+    font-size: 0.78125rem;
     color: var(--color-ink);
+    white-space: nowrap;
+  }
+
+  .home-gb-readout-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #10b981;
   }
 
   .home-gb-readout-sub {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--color-muted);
   }
 
-  .home-gb-roi {
-    font-size: 0.75rem;
-    color: #e11d48;
-  }
-
-  .home-gb-hover-slot {
-    flex: 1;
-    display: flex;
-    justify-content: flex-end;
-    min-width: 0;
-    overflow: hidden;
-  }
-
-  .home-gb-hover {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 0.78125rem;
-    color: var(--color-accent);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    text-align: right;
-    display: block;
-    max-width: 100%;
-  }
-
-  /* Navigation Toolbar */
-  .home-gb-nav {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.65rem 1.25rem;
-    border-bottom: 1px solid var(--color-border);
-    background: var(--color-surface);
-  }
-
-  .home-gb-nav-group {
+  .home-gb-nav-btns {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
-  }
-
-  .home-gb-nav-label {
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--color-muted);
-  }
-
-  .home-gb-select,
-  .home-gb-input {
-    padding: 0.35rem 0.65rem;
-    border-radius: var(--radius-sm, 6px);
-    border: 1px solid var(--color-border);
-    background: var(--color-bg);
-    color: var(--color-ink);
-    font-size: 0.8125rem;
-    font-family: inherit;
-    outline: none;
-    transition: border-color 0.15s ease;
-  }
-
-  .home-gb-select:focus,
-  .home-gb-input:focus {
-    border-color: var(--color-accent);
-  }
-
-  .home-gb-search-group {
-    flex: 1;
-    min-width: min(100%, 14rem);
-  }
-
-  .home-gb-input {
-    flex: 1;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    gap: 0.25rem;
   }
 
   .home-gb-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0.35rem 0.65rem;
+    padding: 0.22rem 0.55rem;
     border-radius: var(--radius-sm, 6px);
     border: 1px solid var(--color-border);
     background: var(--color-surface);
     color: var(--color-ink);
-    font-size: 0.78125rem;
+    font-size: 0.75rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -386,15 +254,9 @@ const LOCI_ROWS = [
     background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
   }
 
-  .home-gb-btn--primary {
-    background: var(--color-accent);
-    color: #ffffff;
-    border-color: var(--color-accent);
-  }
-
-  .home-gb-nav-tools {
-    display: flex;
-    gap: 0.3rem;
+  .home-gb-btn--reset {
+    font-size: 0.7rem;
+    padding: 0.22rem 0.45rem;
   }
 
   /* Stage Canvas Layer */
@@ -406,7 +268,7 @@ const LOCI_ROWS = [
 
   .home-gb-mini {
     width: 100%;
-    height: 30px;
+    height: 28px;
     display: block;
     cursor: pointer;
     border-bottom: 1px solid var(--color-border);
@@ -428,14 +290,14 @@ const LOCI_ROWS = [
     outline-offset: -2px;
   }
 
-  /* Footer & Legend */
+  /* Launchpad Footer & Legend */
   .home-gb-footer {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    padding: 0.75rem 1.25rem;
+    padding: 0.65rem 1rem;
     border-top: 1px solid var(--color-border);
     background: color-mix(in srgb, var(--color-ink) 2%, var(--color-surface));
   }
@@ -444,52 +306,56 @@ const LOCI_ROWS = [
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.85rem;
-    font-size: 0.75rem;
+    gap: 0.75rem;
+    font-size: 0.72rem;
     color: var(--color-muted);
   }
 
   .legend-item {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.3rem;
   }
 
   .legend-dot {
-    width: 8px;
-    height: 8px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
   }
 
-  .home-gb-full-link {
+  .home-gb-cta-btn {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    font-size: 0.8125rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    background: var(--color-accent);
+    color: #ffffff !important;
+    font-size: 0.78125rem;
     font-weight: 650;
-    color: var(--color-accent);
     text-decoration: none;
-    transition: transform 0.15s ease;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+    transition: all 0.15s ease;
   }
 
-  .home-gb-full-link:hover {
-    text-decoration: underline;
+  .home-gb-cta-btn:hover {
     transform: translateX(2px);
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
   }
 
   /* Tooltip & Motif styles */
   :global(.gb-tooltip) {
     position: absolute;
     pointer-events: none;
-    background: rgba(15, 23, 42, 0.9);
+    background: rgba(15, 23, 42, 0.92);
     color: #f8fafc;
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 6px;
     padding: 0.4rem 0.65rem;
     font-size: 0.75rem;
     line-height: 1.4;
     z-index: 100;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
     backdrop-filter: blur(6px);
   }
 

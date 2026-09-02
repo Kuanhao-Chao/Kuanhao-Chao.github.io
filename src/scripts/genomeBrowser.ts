@@ -413,7 +413,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
   const panelBox = $('[data-gb-panel]');
   const tooltip = $('[data-gb-tooltip]');
   const roiBox = $('[data-gb-roi]');
-  if (!trackCanvas || !miniCanvas || !chromSel || !locusInput) return;
+  if (!trackCanvas || !miniCanvas) return;
 
   let index: IndexFile | null = null;
   let searchIndex: SearchIndex | null = null;
@@ -1568,6 +1568,12 @@ export function initGenomeBrowser(host: HTMLElement): void {
     if (locusInput && document.activeElement !== locusInput) locusInput.value = formatLocus(view);
     host.dataset.gbView = formatLocus(view);
     if (opts.hash !== false) writeHash();
+
+    const fullLink = host.querySelector<HTMLAnchorElement>('[data-gb-full-link]');
+    if (fullLink) {
+      fullLink.href = `/shorkie-lab/genome/#${encodeViewState(currentState())}`;
+    }
+
     schedule();
   }
 
@@ -1848,10 +1854,12 @@ export function initGenomeBrowser(host: HTMLElement): void {
     a.click();
   });
 
-  chromSel.addEventListener('change', () => {
-    const info = chromInfo(chromSel.value);
-    if (info) setView({ chrom: chromSel.value, start: 0, end: info.length });
-  });
+  if (chromSel) {
+    chromSel.addEventListener('change', () => {
+      const info = chromInfo(chromSel.value);
+      if (info) setView({ chrom: chromSel.value, start: 0, end: info.length });
+    });
+  }
 
   regionSel?.addEventListener('change', () => {
     const v = searchLocus(regionSel.value, searchIndex, index?.chroms ?? []);
@@ -1859,18 +1867,25 @@ export function initGenomeBrowser(host: HTMLElement): void {
     regionSel.selectedIndex = 0;
   });
 
-  const go = () => {
-    const v = searchLocus(locusInput.value, searchIndex, index?.chroms ?? []);
-    if (!v) {
-      locusInput.setAttribute('aria-invalid', 'true');
-      return;
-    }
-    locusInput.removeAttribute('aria-invalid');
-    setView(v);
-  };
-  locusInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
-  locusInput.addEventListener('input', () => locusInput.removeAttribute('aria-invalid'));
-  $<HTMLButtonElement>('[data-gb-go]')?.addEventListener('click', go);
+  if (locusInput) {
+    const go = () => {
+      const v = searchLocus(locusInput.value, searchIndex, index?.chroms ?? []);
+      if (!v) {
+        locusInput.setAttribute('aria-invalid', 'true');
+        return;
+      }
+      locusInput.removeAttribute('aria-invalid');
+      setView(v);
+    };
+    locusInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+    locusInput.addEventListener('input', () => locusInput.removeAttribute('aria-invalid'));
+    $<HTMLButtonElement>('[data-gb-go]')?.addEventListener('click', go);
+  }
+
+  $<HTMLButtonElement>('[data-gb-reset]')?.addEventListener('click', () => {
+    const start = searchLocus(host.dataset.gbDefault || 'chrVII:882,012-884,610', searchIndex, index?.chroms ?? []);
+    if (start) setView(start);
+  });
 
   host.addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
@@ -2028,12 +2043,14 @@ export function initGenomeBrowser(host: HTMLElement): void {
     // reader hunt for chrII, and not by name, which puts chrIX before chrV.
     index.chroms.sort((a, b) => chromOrder(a.name, b.name));
 
-    chromSel.replaceChildren();
-    for (const c of index.chroms) {
-      const o = document.createElement('option');
-      o.value = c.name;
-      o.textContent = `${c.name} · ${formatSpan(c.length)} · ${c.genes} genes`;
-      chromSel.appendChild(o);
+    if (chromSel) {
+      chromSel.replaceChildren();
+      for (const c of index.chroms) {
+        const o = document.createElement('option');
+        o.value = c.name;
+        o.textContent = `${c.name} · ${formatSpan(c.length)} · ${c.genes} genes`;
+        chromSel.appendChild(o);
+      }
     }
 
     const isMinimal = host.dataset.gbMinimal === '1' || host.dataset.gbNoHash === '1';
