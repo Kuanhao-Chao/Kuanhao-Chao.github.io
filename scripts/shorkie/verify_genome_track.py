@@ -65,6 +65,8 @@ def main() -> int:
                 for c in chroms if (TRACK / f"{c}-unmasked.npy").exists()}
     phast = {c: np.load(TRACK / f"{c}-phastcons.npy")
              for c in chroms if (TRACK / f"{c}-phastcons.npy").exists()}
+    gc = {c: np.load(TRACK / f"{c}-gc.npy")
+          for c in chroms if (TRACK / f"{c}-gc.npy").exists()}
 
     print("=== 1. coverage ===")
     total = sum(len(v) for v in tracks.values())
@@ -172,13 +174,28 @@ def main() -> int:
               "every chromosome is mostly covered",
               f"worst {min(np.isfinite(v).mean() for v in phast.values())*100:.1f}%")
 
+    print("\n=== 3c2. GC content ===")
+    check(len(gc) == len(tracks), "every chromosome has GC", f"{len(gc)}/{len(tracks)}")
+    if gc:
+        allg = np.concatenate([v[np.isfinite(v)] for v in gc.values()])
+        check(allg.min() >= 0 and allg.max() <= 1, "GC is a fraction in [0, 1]",
+              f"[{allg.min():.4f}, {allg.max():.4f}]")
+        tot = sum(len(v) for v in gc.values())
+        wm = sum(float(np.nanmean(v)) * len(v) for v in gc.values()) / tot
+        # The independent check that the computation is right: sacCer3's GC content is published.
+        check(0.375 < wm < 0.387, "genome GC matches the published 38.1%", f"{wm*100:.2f}%")
+        # chrM is famously AT-rich; a GC track that did not show that is measuring something else.
+        check("chrM" in gc and float(np.nanmean(gc["chrM"])) < 0.25,
+              "chrM comes out far more AT-rich than the nuclear genome",
+              f"chrM {float(np.nanmean(gc.get('chrM', np.array([np.nan]))))*100:.2f}%")
+
     print("\n=== 3d. the shipped tiles decode back to the arrays ===")
     idx_p = ROOT / "public" / "genome-data" / "index.json"
     if not idx_p.exists():
         check(False, "index.json exists", "run make_genome_tiles.py first")
     else:
         idx = json.loads(idx_p.read_text())
-        src = {"lm-masked": tracks, "lm-unmasked": unmasked, "phastcons": phast}
+        src = {"lm-masked": tracks, "lm-unmasked": unmasked, "phastcons": phast, "gc": gc}
         for spec in idx["tracks"]:
             tid = spec["id"]
             lo, hi = spec["axis"]

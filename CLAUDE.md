@@ -889,6 +889,80 @@ base), it has no flat file, and it is the weakest tier.
   882,296–885,044 because one mRNA isoform extends past the 882,812–883,810 CDS. That is what IGV
   does too, and a test that expected the CDS span was the thing that was wrong.
 
+- **Four score tracks now, and GC content is the one that answers the obvious objection.** The
+  first thing anyone asks of "the model measures constraint" is whether it measures *composition*.
+  Computed locally from sacCer3 (a centred 50 bp window; 5 bp takes six values and is not a
+  composition, and the model's own 128 bp pooling grid would build the thing being controlled for
+  into the control), the answer is **r = −0.020 genome-wide** — about 0.04% of the variance. But
+  **small overall is not zero everywhere**: intergenic is **−0.221**, and chrM is both the most
+  AT-rich sequence in the genome (17.1% GC) and the most predictable (IC 0.457 against a nuclear
+  0.198). Report both halves or the control is doing the opposite of its job.
+  Genome GC comes out **38.15%** against the published 38.1%, which is the check that the
+  computation is right.
+
+- **Natural variation splits three ways, and the split IS the test.** UCSC `evaSnp8` (bigBed, so
+  REST-only — 17 calls, cached in `_scratch/ucsc-cache/`) gives 84,392 variants: **15,879 missense,
+  31,577 synonymous, 36,936 non-coding**. Roughly twice as many synonymous as missense is itself the
+  signature of purifying selection. `variant_class` reads UCSC's comma-joined consequence list as a
+  PRECEDENCE, not a preference: a variant that is missense against *any* transcript is missense, and
+  taking the first entry of `"downstream_gene_variant,missense_variant,upstream_gene_variant"` would
+  file the most informative class in the least informative lane.
+
+- **Clicking a binding-site box shows the factor's JASPAR motif, and the absences are findings.**
+  `make_motif_logos.py` matches the 102 factors in `transRegCode` to JASPAR CORE 2026 (tax 4932):
+  **93 match, three only through an SGD alias** — RCS1 is AFT1, and a name-only join reports it as a
+  factor with no known motif. Of the nine that do not match, **seven are explained by SGD's own GO
+  terms**: SWI6, HAP4, MET4, NDD1 and STB1 carry GO:0003713 (coactivator), DIG1 and UME1 carry
+  GO:0003714 (corepressor). They bind the complex, not DNA, and are in a binding-site table because
+  ChIP cross-links whatever is in the complex — so the popup states the reason instead of failing.
+  - **Do NOT infer the inverse.** "No GO:0003700, therefore not a DNA-binding factor" is wrong and
+    **ABF1 is the counterexample**: SGD's GFF gives it no GO:0003700 and JASPAR gives it MA0265.3, a
+    ChIP-exo matrix. The `Ontology_term` field in that GFF is a partial slice, so its silence means
+    nothing. Only positive coactivator/corepressor evidence is used.
+  - **A PFM is COUNTS.** Drawing it unnormalised produces a logo that looks entirely plausible and
+    is wrong by whatever the column depth happens to be. Bits use a **uniform** background, the
+    sequence-logo convention — the real 38.1% GC background would give relative entropy, a
+    differently-shaped quantity, and would silently make these logos incomparable with every other
+    logo on this site.
+  - **The drawn box and the matrix are routinely different lengths** — a 9 bp Harbison call against
+    a 12 bp JASPAR matrix — so the reference sequence under the logo is taken CENTRED on the box at
+    the matrix's width. Slicing the box's own span gives a sequence that cannot line up column for
+    column, which is the one thing the comparison is for.
+
+- **Overlapping features stack, and the packing is in SCREEN space.** `packGeneRows` is reused
+  rather than reimplemented, so a feature lane and the gene lane cannot disagree about what
+  "overlapping" means. But the input spans are widened to a minimum of 3 pixels' worth of base
+  pairs first: two 6 bp sites 200 bp apart do not overlap as *coordinates* and are the same pixel at
+  100 kb, and stacking them is the only way both are visible. Capped at `FEATURE_MAX_ROWS`, and the
+  lane draws "6+ deep" when it wraps rather than silently hiding the rest.
+
+- **The overview strip is the selection surface; the main panel is not.** Drag the strip to select a
+  region and zoom to it, click it to centre — which is where every genome browser puts region
+  selection and which avoids the pan/select conflict on the panel entirely. Two traps: the view must
+  land ON the band drawn, not merely "narrower than before" (the strip spans a whole chromosome, so
+  selecting on it from a 2.6 kb view legitimately gives a WIDER view, and an
+  asserts-narrowing check would be asserting that selection is always zoom-in); and the click/drag
+  threshold is expressed at the STRIP's scale, where 4 px is several kb.
+
+- **`chromOrder` sorts chrI…chrXVI then chrM, and neither obvious sort works.** By name, `chrIX`
+  sorts before `chrV`. By length — which this shipped with — the list reads chrIV, chrXV, chrVII.
+  And **chrM cannot be ordered by its numeral**: M is 1000, so a roman-aware sort puts the
+  mitochondrion last for the wrong reason and would put a hypothetical chrD (500) there too.
+  Anything without a I–XVI numeral sorts last.
+
+- **Every track and lane documents itself in four fields**, and `make_genome_tiles.py` refuses to
+  write an index missing any of them. `source` / `measures` / `read` / **`caveat`** — the fourth is
+  the one that matters, because every track here invites a specific misreading: phastCons saturates
+  inside CDS, the unmasked pass is not a prediction, GC is a confound rather than a finding, and a
+  variant's absence is also a function of how much sequencing has been done. They surface twice, as
+  an expander beside each toggle and as a reference section on the page, both rendered by iterating
+  the registry so a track cannot be added without them.
+
+- **Nucleosome occupancy was researched and is not feasible**, so it is not missing by oversight:
+  the canonical chemical map (Brogaard 2012, GSE36063) is published only as raw reads — the smallest
+  supplementary file is 238 MB and the archive is 5.8 GB — with no processed track on UCSC or SGD.
+  UCSC's sacCer3 has 49 leaf tracks and no nucleosome, RNA-seq or TSS signal among them.
+
 - **Every lane comes from `laneLayout`, and that refactor is what made everything else possible.**
   The first version hardcoded ruler → track → sequence → genes with literal offsets computed in
   three separate places; adding a fourth lane meant editing all three. The canvas height, the

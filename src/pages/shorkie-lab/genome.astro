@@ -14,7 +14,8 @@ const index = JSON.parse(readFileSync('public/genome-data/index.json', 'utf8')) 
   tileBins: number;
   tracks: {
     id: string; label: string; short: string; detail: string; note: string; source: string;
-    units: string; axis: [number, number]; prediction: boolean;
+    units: string; axis: [number, number]; prediction: boolean; laneTag?: string;
+    docs: { source: string; measures: string; read: string; caveat: string };
   }[];
   comparison?: {
     bases: number; pearson: number; spearman: number; meanIc: number; meanPhastCons: number;
@@ -24,6 +25,10 @@ const index = JSON.parse(readFileSync('public/genome-data/index.json', 'utf8')) 
     }>;
   };
   conservationSource?: { track: string; units: string; source: string };
+  gcComparison?: {
+    bases: number; pearson: number; spearman: number; meanIc: number; meanGc: number;
+    byClass: Record<string, { bases: number; pearson: number; meanIc: number; meanGc: number }>;
+  };
   window: { seqLen: number; flank: number; core: number; k: number; phase: number; note: string };
   chroms: {
     name: string; length: number; genes: number; shortFlankBases: number;
@@ -50,6 +55,8 @@ const meanCons = trackMean('phastcons', nuclear);
 const mito = index.chroms.find((c) => c.name === 'chrM');
 const mitoIc = mito?.tracks['lm-masked']?.mean ?? null;
 const cmp = index.comparison;
+const gcCmp = index.gcComparison;
+const mitoGc = mito?.tracks['gc']?.mean ?? null;
 // phastCons has no value where the alignment has none. Stated, not rounded away.
 const consScored = index.chroms.reduce((s, c) => s + (c.tracks['phastcons']?.scored ?? 0), 0);
 
@@ -176,6 +183,9 @@ const breadcrumbLd = buildBreadcrumbLd([
                     aria-label="Shorkie_LM constraint, conservation, annotation and gene models"
             ></canvas>
             <div class="gb-tooltip" data-gb-tooltip hidden></div>
+            <!-- Opened by clicking a binding-site box: the motif that factor recognises, from
+                 JASPAR, over the reference sequence actually at that position. -->
+            <aside class="gb-motif" data-gb-motif hidden aria-label="Motif"></aside>
           </div>
           <aside class="gb-panel" aria-label="Tracks">
             <div data-gb-panel></div>
@@ -467,6 +477,69 @@ const breadcrumbLd = buildBreadcrumbLd([
         </details>
 
         <details class="vp-how">
+          <summary>Is the model just reading base composition? No — and here is the number</summary>
+          <div class="vp-how-body">
+            <p>
+              The first objection to any claim that a language model measures <em>constraint</em> is
+              that it might only be measuring <strong>composition</strong>: AT-rich sequence is
+              easier to predict than GC-balanced sequence for reasons that have nothing to do with
+              function. The GC lane exists so that objection has an answer on the page rather than
+              in a reader's suspicion.
+            </p>
+            {gcCmp && (
+              <>
+                <div class="vp-scroll-x"><table class="vp-collapse-table">
+                  <thead>
+                    <tr><th>over</th><th>bases</th><th>Pearson r</th><th>mean IC</th><th>mean GC</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>whole genome</strong></td>
+                      <td>{gcCmp.bases.toLocaleString()}</td>
+                      <td><strong>{gcCmp.pearson.toFixed(3)}</strong></td>
+                      <td>{gcCmp.meanIc.toFixed(3)}</td>
+                      <td>{(gcCmp.meanGc * 100).toFixed(1)}%</td>
+                    </tr>
+                    {Object.entries(gcCmp.byClass).map(([name, v]) => (
+                      <tr>
+                        <td>{name === 'cds' ? 'coding sequence' : name}</td>
+                        <td>{v.bases.toLocaleString()}</td>
+                        <td>{v.pearson.toFixed(3)}</td>
+                        <td>{v.meanIc.toFixed(3)}</td>
+                        <td>{(v.meanGc * 100).toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table></div>
+                <p>
+                  <strong>Genome-wide, r = {gcCmp.pearson.toFixed(3)}</strong> — composition
+                  explains about {(gcCmp.pearson ** 2 * 100).toFixed(2)}% of the variance in the
+                  model's certainty. That is the reassuring answer, and it is the one a control is
+                  supposed to give.
+                </p>
+                <p>
+                  <strong>But small overall is not zero everywhere.</strong> Inside coding sequence
+                  the correlation is {gcCmp.byClass.cds.pearson.toFixed(3)}; in intergenic sequence
+                  it is <strong>{gcCmp.byClass.intergenic.pearson.toFixed(3)}</strong> — AT-rich
+                  intergenic sequence really is more predictable to the model. The same effect shows
+                  at chromosome scale: chrM is the most AT-rich sequence in the genome at
+                  {' '}{mitoGc !== null ? `${(mitoGc * 100).toFixed(1)}%` : '17.1%'} GC and also the
+                  most predictable, at {mitoIc !== null ? mitoIc.toFixed(3) : '0.457'} bits against a
+                  nuclear {meanIc.toFixed(3)}. Read a peak in an AT-rich region with that in mind.
+                </p>
+                <p class="vp-notes">
+                  The window is <strong>50 bp, centred</strong>. A 5 bp window — UCSC's choice for
+                  its own GC track — takes only six values and is not a composition; the model's own
+                  128 bp pooling grid would build the thing being controlled for into the control.
+                  As a check that the computation is right, the genome-wide figure comes out at
+                  38.15% against the published 38.1%.
+                </p>
+              </>
+            )}
+          </div>
+        </details>
+
+        <details class="vp-how">
           <summary>The annotation layer, and why the binding sites are in three tiers</summary>
           <div class="vp-how-body">
             <p>
@@ -497,6 +570,31 @@ const breadcrumbLd = buildBreadcrumbLd([
               {' '}profile instead of individual features, and the readout says which it is showing.
               That is what IGV does, and it is the difference between a lane that carries
               information and a solid bar.
+            </p>
+          </div>
+        </details>
+
+        <details class="vp-how">
+          <summary>What every score track is — source, meaning, and how to read it</summary>
+          <div class="vp-how-body">
+            <p>
+              Four fields per track, and the fourth is the one that matters: every track here
+              invites a specific misreading, and naming it is more useful than another sentence
+              about what the track shows. These come from the generator's own track table, so a
+              track cannot be added to the browser without them.
+            </p>
+            {index.tracks.map((tr) => (
+              <div class="gb-ref">
+                <h3>{tr.label} <span class="vp-stat">{tr.units} · {tr.axis[0]}–{tr.axis[1]}</span></h3>
+                <p><strong>Source.</strong> {tr.docs.source}</p>
+                <p><strong>Measures.</strong> {tr.docs.measures}</p>
+                <p><strong>How to read it.</strong> {tr.docs.read}</p>
+                <p><strong>What it does not mean.</strong> {tr.docs.caveat}</p>
+              </div>
+            ))}
+            <p class="vp-notes">
+              The annotation lanes carry the same four fields; open <em>what this is</em> beside any
+              of them in the track panel.
             </p>
           </div>
         </details>

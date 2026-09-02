@@ -106,7 +106,49 @@ TRACKS = [
         "source": "UCSC phastCons7way for sacCer3 (S. cerevisiae, paradoxus, mikatae, "
                   "kudriavzevii, bayanus, castellii, kluyveri)",
     },
+    {
+        "id": "gc", "laneTag": "composition control", "file": "gc",
+        "axis": [0.0, 1.0], "units": "fraction",
+        "label": "GC content · 50 bp",
+        "short": "GC",
+        "detail": "fraction of A/C/G/T in a centred 50 bp window that are G or C",
+        "prediction": False,
+        "note": "A CONTROL rather than a finding. If the model's information content were mostly "
+                "base composition it would show here; measured, r = -0.020 genome-wide.",
+        "source": "computed from the sacCer3 reference; no external data",
+    },
 ]
+
+# Every track documents itself, in four fields rather than a paragraph, so a track cannot ship
+# without saying where it came from, what it physically measures, how to read it, and -- the field
+# that matters most -- what it does NOT mean. `main()` refuses to write an index that is missing
+# any of them, which is what "documented" has to mean to survive more than one round.
+TRACK_DOCS = {
+    "lm-masked": {
+        "source": "Shorkie_LM (Chao et al. 2025, bioRxiv 2025.09.19.677475), the fold-f0 checkpoint, run over sacCer3 in 16,384 bp windows. Not a published track.",
+        "measures": "Information content, 2 − H(p), of the model's four-way distribution at each base, from the K = 7 iterative masked pass: positions are split into 7 disjoint strided sets, each masked in turn, and every position read back only from the pass that masked it. 2 bits means all the probability on one base; 0 means chance.",
+        "read": "High where the surrounding sequence determines what belongs at a position — coding sequence, splice sites, strong binding sites. The nuclear genome averages 0.199 bits, so most of the track is genuinely low and a tall column is the exception rather than the baseline.",
+        "caveat": "Confidence is not importance. A base the model predicts well is predictable FROM 165 Saccharomycetales genomes, which is not the same claim as functionally essential — a repetitive tract is highly predictable and carries little function. Read a peak against the conservation and GC lanes before reading it as meaning."
+    },
+    "lm-unmasked": {
+        "source": "The same model and the same run as the masked track, with nothing masked.",
+        "measures": "Information content from a single forward pass in which the model can see the base it is scoring. This is the quantity the paper's Figure 2A logo is built on.",
+        "read": "Use it to see what masking costs. It runs about 3.4× higher (0.687 bits against 0.199) and picks the right base 97.5% of the time — but confident about WHICH base is not the same as sharply peaked, which is why 97.5% accuracy still averages under 0.7 of a possible 2 bits.",
+        "caveat": "NOT A PREDICTION. The model is largely reading its own input, so its certainty here mostly measures how well it copies. It is drawn because the paper uses it and because the gap between the two passes is informative — never as evidence of what the model knows."
+    },
+    "phastcons": {
+        "source": "UCSC phastCons7way for sacCer3 — a phylo-HMM over a 7-species alignment (S. cerevisiae, paradoxus, mikatae, kudriavzevii, bayanus, castellii, kluyveri), from hgdownload.soe.ucsc.edu/goldenPath/sacCer3/phastCons7way/.",
+        "measures": "The posterior probability that a base lies in a conserved element, 0 to 1. A statement about what evolution has held still across those seven yeasts.",
+        "read": "The independent check on the model: Shorkie_LM is alignment-free and this is alignment-based, so agreement is evidence and disagreement is a question. Genome-wide they correlate at r = 0.121, and both rank coding sequence above intergenic.",
+        "caveat": "It SATURATES inside genes — 40.1% of coding bases sit at 0.99 or above, median 0.974 — so the within-CDS correlation of 0.045 is partly range restriction, not purely disagreement. It also has no value for 0.65% of the genome, drawn as a gap and never as zero."
+    },
+    "gc": {
+        "source": "Computed from the sacCer3 reference on this machine; no external data. The genome-wide figure comes out at 38.15% against the published 38.1%, which is the check that the computation is right.",
+        "measures": "The fraction of A/C/G/T in a centred 50 bp window that are G or C. 50 bp because a 5 bp window takes only six values and is not a composition, while the model's own 128 bp pooling grid would build the thing being controlled for into the control.",
+        "read": "A CONTROL, and a small result is the reassuring one. If the model's information content were mostly base composition it would show here: measured, r = −0.020 genome-wide, so composition explains about 0.04% of the variance in model certainty.",
+        "caveat": "Small overall is not zero everywhere. In intergenic sequence r = −0.221 — AT-rich sequence really is more predictable to the model, which is also why chrM at 17.1% GC is the most predictable chromosome in the genome (IC 0.457 against a nuclear 0.198). Read a peak in an AT-rich region with that in mind."
+    }
+}
 
 
 def quant(a: np.ndarray, lo: float, hi: float) -> np.ndarray:
@@ -183,6 +225,11 @@ def main() -> int:
 
     tracks_present = [t for t in TRACKS
                       if all(array_for(c, t).exists() for c in man["chroms"])]
+    need = {"source", "measures", "read", "caveat"}
+    bad_docs = {t["id"]: sorted(need - set(TRACK_DOCS.get(t["id"], {})))
+                for t in tracks_present if need - set(TRACK_DOCS.get(t["id"], {}))}
+    if bad_docs:
+        raise SystemExit(f"track(s) missing documentation fields: {bad_docs}")
     missing = [t["id"] for t in TRACKS if t not in tracks_present]
     if missing:
         print(f"  note: skipping track(s) with no arrays: {', '.join(missing)}")
@@ -195,15 +242,20 @@ def main() -> int:
         "tileBins": TILE_BINS,
         "noDataByte": 0,
         "quant": "byte 0 is no data; 1-255 map linearly onto the track's own axis range",
-        "tracks": [{k: v for k, v in t.items() if k != "file"} for t in tracks_present],
+        "tracks": [{**{k: v for k, v in t.items() if k != "file"},
+                    "docs": TRACK_DOCS[t["id"]]} for t in tracks_present],
         "window": {"seqLen": man["seqLen"], "flank": man["flank"], "core": man["core"],
                    "k": man["k"], "phase": 128,
                    "note": "every window starts on a multiple of 128, the U-Net's pooling grid; "
                            "the model is ~20x more sensitive to that phase than to the flank"},
         "chroms": [],
     }
+    gc_p = TRACK / "gc.json"
+    gc_rec = json.loads(gc_p.read_text()) if gc_p.exists() else {}
     if cons.get("comparison"):
         index["comparison"] = cons["comparison"]
+    if gc_rec.get("comparison"):
+        index["gcComparison"] = gc_rec["comparison"]
     if cons.get("track"):
         index["conservationSource"] = {"track": cons["track"], "units": cons["units"],
                                        "source": cons["source"]}

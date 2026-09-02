@@ -1858,6 +1858,158 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
       fail(scope, `hovering at 512 bp bins fetched ${strayL0.length} per-base tiles it cannot draw`);
     }
 
+    // 4h. The chromosome dropdown reads the way a yeast biologist names them.
+    const chroms = await page.$$eval('[data-gb-chrom] option', (o) => o.map((x) => x.value));
+    if (chroms[0] !== 'chrI' || chroms[1] !== 'chrII' || chroms[chroms.length - 1] !== 'chrM') {
+      fail(scope, `chromosome order is ${chroms.slice(0, 3).join(',')} … ${chroms.slice(-1)}`);
+    }
+
+    // 4i. The OVERVIEW STRIP is the selection surface: drag on it selects, click still centres.
+    //     The main panel keeps drag-to-pan, which 4c already checks.
+    await page.goto(`${GENOME_ROUTE}#chrVII:882012-884610`, { waitUntil: 'networkidle' });
+    await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 20000 });
+    await page.waitForTimeout(1200);
+    const mini = await page.$eval('[data-gb-mini]', (c) => {
+      const r = c.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    });
+    await page.mouse.move(mini.x + mini.w * 0.30, mini.y + mini.h / 2);
+    await page.mouse.down();
+    await page.mouse.move(mini.x + mini.w * 0.34, mini.y + mini.h / 2, { steps: 10 });
+    const stripBand = await page.$eval('[data-gb-mini]', (c) => c.dataset.gbMiniBrush || '');
+    await page.mouse.up();
+    await page.waitForTimeout(900);
+    if (!stripBand.includes('-')) fail(scope, 'no band was drawn while dragging the overview strip');
+    else {
+      // The view must land ON the band drawn -- not merely "narrower than before". The strip spans
+      // a whole chromosome, so selecting on it from a 2.6 kb view legitimately gives a WIDER view.
+      const [ba, bb] = stripBand.split('-').map(Number);
+      const landed = await readView();
+      const [va, vb] = landed.split(':')[1].split('-').map((v) => Number(v.replace(/,/g, '')));
+      if (Math.abs(va - 1 - ba) > 2 || Math.abs(vb - bb) > 2) {
+        fail(scope, `strip selection ${ba}-${bb} landed on ${landed}`);
+      }
+    }
+    const beforeClick = await readView();
+    await page.mouse.move(mini.x + mini.w * 0.7, mini.y + mini.h / 2);
+    await page.mouse.down();
+    await page.mouse.up();
+    await page.waitForTimeout(800);
+    const afterClick = await readView();
+    if (afterClick === beforeClick || Math.abs(spanOf(afterClick) - spanOf(beforeClick)) > 2) {
+      fail(scope, `a click on the strip should centre without zooming: ${beforeClick} -> ${afterClick}`);
+    }
+
+    // 4j. Four score tracks, each fully documented, and GC drawing as its own lane.
+    const trackMeta = await page.evaluate(async () => {
+      const idx = await (await fetch('/genome-data/index.json')).json();
+      return { tracks: idx.tracks, gc: idx.gcComparison };
+    });
+    if (trackMeta.tracks.length !== 4) {
+      fail(scope, `${trackMeta.tracks.length} score tracks in the index, expected 4`);
+    }
+    for (const tr of trackMeta.tracks) {
+      // Four fields, not a paragraph: a track that ships without saying what it does NOT mean is
+      // the one a reader will misread.
+      const missing = ['source', 'measures', 'read', 'caveat'].filter((k) => !tr.docs?.[k]);
+      if (missing.length) fail(scope, `track ${tr.id} is missing docs: ${missing.join(', ')}`);
+    }
+    if (!trackMeta.gc || Math.abs(trackMeta.gc.pearson) > 0.05) {
+      fail(scope, `model IC vs GC should be near zero, got ${trackMeta.gc?.pearson}`);
+    }
+
+    // 4k. Every lane in the panel carries its documentation.
+    const docCount = await page.$$eval('.gb-docs', (n) => n.length);
+    const toggleCount = await page.$$eval('[data-gb-toggle]', (n) => n.length);
+    if (docCount < toggleCount - 2) {
+      fail(scope, `${docCount} docs expanders for ${toggleCount} toggles — lanes are undocumented`);
+    }
+    const anyDoc = await page.$eval('.gb-docs', (e) => e.textContent || '');
+    if (!/Source\./.test(anyDoc) || !/What it does not mean\./.test(anyDoc)) {
+      fail(scope, 'a docs expander is missing one of its four fields');
+    }
+
+    // 4l. Clicking a binding-site box shows what the factor recognises.
+    await page.goto(`${GENOME_ROUTE}#chrVII:882012-884610;t=lm-masked,genes,tfbs_chip`,
+                    { waitUntil: 'networkidle' });
+    await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 20000 });
+    await page.waitForTimeout(1800);
+    const nMotifs = await page.$eval('[data-genome-browser]',
+                                     (h) => Number(h.dataset.gbMotifs ?? 0));
+    if (nMotifs < 100) fail(scope, `the motif table has ${nMotifs} factors`);
+    const track = await page.$eval('[data-gb-track]', (c) => {
+      const r = c.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    });
+    let motifOpen = false;
+    for (let y = 150; y < track.h - 20 && !motifOpen; y += 4) {
+      for (let xf = 0.12; xf < 0.95 && !motifOpen; xf += 0.02) {
+        await page.mouse.move(track.x + track.w * xf, track.y + y);
+        await page.mouse.down();
+        await page.mouse.up();
+        await page.waitForTimeout(12);
+        motifOpen = await page.$eval('[data-gb-motif]', (e) => !e.hasAttribute('hidden'))
+          .catch(() => false);
+      }
+    }
+    if (!motifOpen) fail(scope, 'clicking a binding-site box did not open the motif panel');
+    else {
+      const m = await page.evaluate(() => {
+        const b = document.querySelector('[data-gb-motif]');
+        const cv = b.querySelector('canvas');
+        return { for: b.dataset.gbMotifFor, has: b.dataset.gbMotifHas,
+                 cols: Number(cv?.dataset.gbMotifLetters ?? 0) };
+      });
+      if (!m.for) fail(scope, 'the motif panel opened without naming a factor');
+      // A factor with no matrix is a FINDING -- it does not bind DNA -- so the panel must still
+      // open and explain, rather than the click doing nothing.
+      if (m.has === '1' && m.cols < 4) fail(scope, `${m.for}: a matrix with ${m.cols} columns`);
+    }
+    // The matrices themselves: counts drawn unnormalised produce a logo that looks plausible and
+    // is wrong by whatever the column depth happens to be.
+    const pfm = await page.evaluate(async () => {
+      const m = await (await fetch('/genome-data/motifs.json')).json();
+      let worstSum = 0;
+      let worstBits = 0;
+      let n = 0;
+      for (const f of Object.values(m.factors)) {
+        if (!f.probs) continue;
+        n += 1;
+        for (let i = 0; i < f.probs.length; i += 1) {
+          worstSum = Math.max(worstSum, Math.abs(f.probs[i].reduce((a, b) => a + b, 0) - 1));
+          const h = -f.probs[i].filter((x) => x > 0)
+            .reduce((a, x) => a + x * Math.log2(x), 0);
+          worstBits = Math.max(worstBits, Math.abs((2 - h) - f.bits[i]));
+        }
+      }
+      return { worstSum, worstBits, n };
+    });
+    if (pfm.worstSum > 1e-3) fail(scope, `a PFM column sums to ${1 + pfm.worstSum}, not 1`);
+    if (pfm.worstBits > 1e-2) fail(scope, `motif bits disagree with 2 - H(p) by ${pfm.worstBits}`);
+
+    // 4m. Overlapping features stack instead of hiding each other.
+    await page.goto(`${GENOME_ROUTE}#chrVII:882012-884610;t=lm-masked,genes,regulatory`,
+                    { waitUntil: 'networkidle' });
+    await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 20000 });
+    await page.waitForTimeout(1500);
+    const packed = await page.evaluate(() => {
+      const c = document.querySelector('[data-gb-track]');
+      return { h: c.clientHeight, feats: JSON.parse(c.dataset.gbFeatures || '{}') };
+    });
+    if (!(packed.feats.regulatory > 1)) {
+      fail(scope, 'the ORegAnno lane drew too few features to test stacking');
+    }
+    // Turning a lane with heavy overlap on must make the canvas taller than the same view without
+    // it: a lane that painted everything on one row would not change the height at all.
+    await page.goto(`${GENOME_ROUTE}#chrVII:882012-884610;t=lm-masked,genes`,
+                    { waitUntil: 'networkidle' });
+    await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 20000 });
+    await page.waitForTimeout(1200);
+    const bare = await page.$eval('[data-gb-track]', (c) => c.clientHeight);
+    if (!(packed.h > bare + 20)) {
+      fail(scope, `stacked features added only ${packed.h - bare}px — rows are not being packed`);
+    }
+
     // 5. Four CLIENT-SIDE round trips must leave exactly one controller listening.
     //
     // This page is `bare`, so its host is destroyed and rebuilt on every navigation and the mount

@@ -585,9 +585,13 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
    which lane a curve belongs to is part of the figure. Each is picked to stay legible on both the
    light and the dark surface, and they are the ONLY thing distinguishing three stacked score
    lanes at a glance. */
-.vp { --gb-unmasked: #7d5ba6; --gb-cons: #8a6d3b; --gb-chip: #2f7d5b; --gb-roi: #b8860b; }
+.vp {
+  --gb-unmasked: #7d5ba6; --gb-cons: #8a6d3b; --gb-gc: #4a7fa8;
+  --gb-chip: #2f7d5b; --gb-roi: #b8860b;
+}
 html[data-theme='dark'] .vp {
-  --gb-unmasked: #b79ad6; --gb-cons: #c9a662; --gb-chip: #63b892; --gb-roi: #d9ab3c;
+  --gb-unmasked: #b79ad6; --gb-cons: #c9a662; --gb-gc: #79aed6;
+  --gb-chip: #63b892; --gb-roi: #d9ab3c;
 }
 
 /* The stage and the track panel sit side by side and stack under 900px, where a 15rem column would
@@ -656,3 +660,35 @@ html[data-theme='dark'] .vp {
   .gb-locus { width: 100%; }
   .gb-hover { min-width: 0; }
 }
+
+/* The per-lane documentation, inside the track panel. Collapsed by default: four fields per lane
+   across a dozen lanes is a reference, not a thing to read past on the way to a checkbox. */
+.gb-docs { margin: 0 0 0.35rem 1.35rem; font-size: 0.82em; color: var(--color-muted); }
+.gb-docs > summary { cursor: pointer; padding: 0.1rem 0; }
+.gb-docs p { margin: 0.3rem 0; line-height: 1.4; }
+
+/* The motif panel, over the stage. `position: absolute` against .gb-stage, which is the element
+   the pointer coordinates are measured in. */
+.gb-motif {
+  position: absolute;
+  z-index: 4;
+  right: 0.5rem;
+  top: 2.6rem;
+  width: min(24rem, calc(100% - 1rem));
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius, 6px);
+  background: var(--color-surface);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.16);
+}
+.gb-motif[hidden] { display: none; }
+.gb-motif__head { display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.35rem; }
+.gb-motif__head strong { font-size: 1.02em; }
+.gb-motif__head .vp-btn { margin-left: auto; }
+.gb-motif__logo { width: 100%; display: block; }
+.gb-motif__meta { margin: 0.35rem 0 0; font-size: 0.8em; }
+
+/* One block per track in the reference section. */
+.gb-ref { margin: 0.9rem 0; padding-left: 0.7rem; border-left: 2px solid var(--color-rule); }
+.gb-ref h3 { margin: 0 0 0.3rem; font-size: 1em; }
+.gb-ref p { margin: 0.25rem 0; }

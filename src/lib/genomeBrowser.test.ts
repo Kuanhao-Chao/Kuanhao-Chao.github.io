@@ -5,7 +5,7 @@ import {
   xOfBp, bpOfX, parseLocus, formatLocus, formatSpan, rulerTicks, MIN_VIEW_BP,
   laneLayout, laneAt, brushRegion, featureDensity, searchLocus, searchSuggest,
   emptyHistory, historyPush, historyBack, historyForward, canGoBack, canGoForward,
-  encodeViewState, decodeViewState,
+  encodeViewState, decodeViewState, chromOrder, romanValue,
   type Level, type ChromInfo, type LaneSpec, type SearchGene, type View,
 } from './genomeBrowser';
 
@@ -292,19 +292,46 @@ describe('against the shipped index.json', () => {
     }
   });
 
-  it('declares three score tracks, and phastCons on its own axis', () => {
-    // The two model passes share the 0-2 bits axis and are directly comparable. phastCons is a
-    // 0-1 posterior: a shared axis would invite reading a 0.9 posterior as 0.9 bits.
+  it('declares four score tracks, each on the right axis in its own units', () => {
+    // The two model passes share the 0-2 bits axis and are directly comparable. phastCons and GC
+    // both run 0-1 and are NOT comparable with each other either: one is a posterior probability
+    // and the other a base fraction. Only the units distinguish them, which is why each lane
+    // prints its own.
     const byId = Object.fromEntries(idx.tracks.map((t: { id: string }) => [t.id, t]));
-    expect(Object.keys(byId).sort()).toEqual(['lm-masked', 'lm-unmasked', 'phastcons']);
+    expect(Object.keys(byId).sort()).toEqual(['gc', 'lm-masked', 'lm-unmasked', 'phastcons']);
     expect(byId['lm-masked'].axis).toEqual([0, 2]);
     expect(byId['lm-unmasked'].axis).toEqual([0, 2]);
     expect(byId['phastcons'].axis).toEqual([0, 1]);
+    expect(byId['gc'].axis).toEqual([0, 1]);
     expect(byId['lm-masked'].units).toBe(byId['lm-unmasked'].units);
+    expect(byId['phastcons'].units).not.toBe(byId['gc'].units);
     expect(byId['phastcons'].units).not.toBe(byId['lm-masked'].units);
     // Exactly one of them is a prediction, and the index is where that is written down.
     expect(idx.tracks.filter((t: { prediction: boolean }) => t.prediction)).toHaveLength(1);
     expect(byId['lm-masked'].prediction).toBe(true);
+  });
+
+  it('documents every track in four fields, including what it does NOT mean', () => {
+    // The generator refuses to build without these, and this is the check that the refusal is
+    // actually wired up rather than a comment. The `caveat` field is the one that matters: every
+    // track here invites a specific misreading, and naming it is the documentation.
+    for (const tr of idx.tracks) {
+      for (const field of ['source', 'measures', 'read', 'caveat']) {
+        expect(tr.docs?.[field], `${tr.id}.docs.${field}`).toBeTruthy();
+        expect(String(tr.docs[field]).length, `${tr.id}.docs.${field} too short`)
+          .toBeGreaterThan(60);
+      }
+    }
+  });
+
+  it('carries the composition control, and it comes out near zero', () => {
+    // The first objection to "the model measures constraint" is that it measures base composition.
+    // A control is only useful if its result is on the page, so the number lives in the index.
+    expect(idx.gcComparison).toBeTruthy();
+    expect(Math.abs(idx.gcComparison.pearson)).toBeLessThan(0.05);
+    // ... and the intergenic split must NOT be near zero: AT-rich intergenic sequence really is
+    // more predictable, and a page that reported only the headline would be hiding that.
+    expect(idx.gcComparison.byClass.intergenic.pearson).toBeLessThan(-0.15);
   });
 
   it('reserves byte 0 for no data, which phastCons actually needs', () => {
@@ -327,6 +354,14 @@ describe('against the shipped index.json', () => {
     // the within-CDS number must stay well below the overall one or that story is wrong.
     expect(idx.comparison.byClass.cds.pearson).toBeLessThan(idx.comparison.pearson);
     expect(idx.comparison.byClass.cds.phastConsSaturated).toBeGreaterThan(0.3);
+  });
+
+  it('orders into the yeast convention: chrI first, chrM last', () => {
+    const names = idx.chroms.map((c: { name: string }) => c.name).sort(chromOrder);
+    expect(names[0]).toBe('chrI');
+    expect(names[1]).toBe('chrII');
+    expect(names[names.length - 1]).toBe('chrM');
+    expect(names).toHaveLength(17);
   });
 
   it('records the pooling phase the track was computed on', () => {
@@ -553,4 +588,52 @@ describe('view state in the hash', () => {
     expect(decodeViewState('#nonsense', CHROMS).view).toBeNull();
     expect(decodeViewState('#chrI:1-1000;t=;roi=zz', CHROMS).roi).toBeUndefined();
   });
+});
+
+
+describe('chromOrder', () => {
+  const YEAST = [
+    'chrIV', 'chrXV', 'chrVII', 'chrXII', 'chrXVI', 'chrXIII', 'chrII', 'chrXIV', 'chrX', 'chrXI',
+    'chrV', 'chrVIII', 'chrIX', 'chrIII', 'chrVI', 'chrI', 'chrM',
+  ];
+
+  it('reads chrI, chrII, … chrXVI, then chrM', () => {
+    expect([...YEAST].sort(chromOrder)).toEqual([
+      'chrI', 'chrII', 'chrIII', 'chrIV', 'chrV', 'chrVI', 'chrVII', 'chrVIII',
+      'chrIX', 'chrX', 'chrXI', 'chrXII', 'chrXIII', 'chrXIV', 'chrXV', 'chrXVI', 'chrM',
+    ]);
+  });
+
+  it('is not a lexical sort', () => {
+    // The whole reason this function exists: "chrIX" < "chrV" as strings, and chrIX is the ninth.
+    expect(chromOrder('chrIX', 'chrV')).toBeGreaterThan(0);
+    expect(['chrIX', 'chrV'].sort()).toEqual(['chrIX', 'chrV']);
+  });
+
+  it('does not put chrM last by accident', () => {
+    // M is 1000 in roman numerals, so a numeral-aware sort would put chrM after chrXVI for a
+    // reason that has nothing to do with it being the mitochondrion -- and would sort a
+    // hypothetical chrD (500) there too. Only I..XVI count as numbered.
+    expect(romanValue('M')).toBe(1000);
+    expect([...YEAST, 'chrD'].sort(chromOrder).slice(-2)).toEqual(['chrD', 'chrM']);
+  });
+
+  it('is a total order: stable, antisymmetric, and agrees with itself', () => {
+    for (const a of YEAST) {
+      expect(chromOrder(a, a)).toBe(0);
+      for (const b of YEAST) {
+        expect(Math.sign(chromOrder(a, b)) || 0).toBe(-Math.sign(chromOrder(b, a)) || 0);
+      }
+    }
+  });
+
+  it('reads the roman numerals the browser actually ships', () => {
+    expect(romanValue('IV')).toBe(4);
+    expect(romanValue('IX')).toBe(9);
+    expect(romanValue('XIV')).toBe(14);
+    expect(romanValue('XVI')).toBe(16);
+    expect(romanValue('')).toBeNull();
+    expect(romanValue('chrIV')).toBeNull();
+  });
+
 });

@@ -441,3 +441,49 @@ export function decodeViewState(hash: string, chroms: ChromInfo[]): DecodedViewS
   }
   return out;
 }
+
+// ------------------------------------------------------------------------------------------------
+// Chromosome order
+// ------------------------------------------------------------------------------------------------
+
+const ROMAN: Record<string, number> = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
+
+/**
+ * A roman numeral to its value, or null if the string is not one.
+ *
+ * `chrM` is the trap: M is a perfectly good roman numeral for 1000, so a naive parser sorts the
+ * mitochondrial chromosome after chrXVI by accident and looks correct. It is rejected explicitly
+ * below rather than relied on to land last.
+ */
+export function romanValue(s: string): number | null {
+  if (!s || !/^[IVXLCDM]+$/.test(s)) return null;
+  let total = 0;
+  for (let i = 0; i < s.length; i += 1) {
+    const v = ROMAN[s[i]];
+    const next = i + 1 < s.length ? ROMAN[s[i + 1]] : 0;
+    total += v < next ? -v : v;
+  }
+  return total;
+}
+
+/**
+ * Order chromosomes the way a yeast biologist names them: chrI, chrII, … chrXVI, then chrM.
+ *
+ * Neither obvious sort works. By NAME, `chrIX` sorts before `chrV` because it is lexical. By
+ * LENGTH — which is what this shipped with — the list reads chrIV, chrXV, chrVII, chrXII, and a
+ * reader looking for chrII has to hunt. And `chrM` cannot be ordered by its numeral: M is 1000, so
+ * a roman-aware sort puts the mitochondrion last for the wrong reason and would put a hypothetical
+ * `chrD` (500) after chrXVI too. Anything without a I–XVI numeral sorts last, alphabetically among
+ * itself, and the mitochondrial chromosome lands last because it is not numbered — which is true.
+ */
+export function chromOrder(a: string, b: string): number {
+  const key = (name: string): [number, string] => {
+    const m = /^chr([IVXLCDM]+)$/i.exec(name.trim());
+    const v = m ? romanValue(m[1].toUpperCase()) : null;
+    // 1..16 is the nuclear set; anything else (chrM, a scaffold, a plasmid) goes after it.
+    return v !== null && v >= 1 && v <= 16 ? [v, name] : [Number.MAX_SAFE_INTEGER, name];
+  };
+  const [av, an] = key(a);
+  const [bv, bn] = key(b);
+  return av - bv || an.localeCompare(bn);
+}
