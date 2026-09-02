@@ -21,16 +21,29 @@ let currentLoadedKey: string | null = null;
 export { getSecureStoredApiKey, setSecureStoredApiKey };
 
 let authFailureCallback: (() => void) | null = null;
+let hasAuthFailed = false;
+
+export function hasGoogleMapsAuthFailed(): boolean {
+  return hasAuthFailed;
+}
 
 export function onGoogleMapsAuthFailure(cb: () => void): void {
   authFailureCallback = cb;
+  if (hasAuthFailed) {
+    try {
+      cb();
+    } catch (_e) {}
+  }
 }
 
 if (typeof window !== 'undefined') {
   (window as unknown as { gm_authFailure?: () => void }).gm_authFailure = () => {
-    console.warn('[BayRoute] Google Maps authentication failed. Switching to OpenStreetMap fallback.');
+    hasAuthFailed = true;
+    console.warn('[BayRoute] Google Maps authentication failed (Referrer/Billing error). Switching to OpenStreetMap fallback.');
     if (authFailureCallback) {
-      authFailureCallback();
+      try {
+        authFailureCallback();
+      } catch (_e) {}
     }
   };
 }
