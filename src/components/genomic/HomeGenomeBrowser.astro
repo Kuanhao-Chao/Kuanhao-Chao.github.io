@@ -1,0 +1,425 @@
+---
+/**
+ * Minimal Embedded Shorkie_LM Genome Browser for the Homepage.
+ * Displays the 6 core tracks:
+ * 1. Shorkie_LM · masked
+ * 2. phastCons · 7 yeasts
+ * 3. Genes
+ * 4. sequence letter
+ * 5. TFBS · ChIP-supported
+ * 6. TFBS · motif only
+ */
+import Icon from '../Icon.astro';
+
+const QUICK_CHIPS = [
+  { name: 'TDH3', locus: 'chrVII:882,012-884,610', desc: 'High-expression glycolytic promoter' },
+  { name: 'GAL1', locus: 'chrII:278,000-281,500', desc: 'Galactose-inducible regulatory locus' },
+  { name: 'HXT1', locus: 'chrVIII:64,500-68,000', desc: 'Glucose transporter with repressor sites' },
+  { name: 'ACT1', locus: 'chrVI:53,000-56,200', desc: 'Highly conserved structural actin' },
+  { name: 'CDC28', locus: 'chrII:180,000-183,500', desc: 'Essential cell-cycle CDK' },
+  { name: 'ADH1', locus: 'chrXV:157,500-161,200', desc: 'Alcohol dehydrogenase I' },
+];
+---
+
+<div
+  class="home-gb-card"
+  data-genome-browser
+  data-gb-minimal="1"
+  data-gb-no-hash="1"
+  data-gb-tracks="lm-masked,phastcons,genes,sequence,tfbs_chip,tfbs_pwm"
+  data-gb-default="chrVII:882,012-884,610"
+>
+  <!-- Top Bar: Quick Jump Chips & Coordinates -->
+  <div class="home-gb-header">
+    <div class="home-gb-chips-row">
+      <span class="home-gb-chips-label">Explore loci:</span>
+      <div class="home-gb-chips">
+        {
+          QUICK_CHIPS.map((chip, idx) => (
+            <button
+              type="button"
+              class={`home-gb-chip ${idx === 0 ? 'is-active' : ''}`}
+              data-gb-chip={chip.locus}
+              title={`${chip.name} · ${chip.desc}`}
+            >
+              <strong>{chip.name}</strong>
+            </button>
+          ))
+        }
+      </div>
+    </div>
+
+    <!-- Active Locus & Hover Coordinate Readout -->
+    <div class="home-gb-readout-row">
+      <div class="home-gb-readout">
+        <strong data-gb-readout>chrVII:882,012–884,610</strong>
+        <span class="home-gb-readout-sub" data-gb-level-out></span>
+        <span class="home-gb-roi" data-gb-roi></span>
+      </div>
+      <span class="home-gb-hover" data-gb-hover></span>
+    </div>
+  </div>
+
+  <!-- Navigation Toolbar -->
+  <div class="home-gb-nav">
+    <div class="home-gb-nav-group">
+      <label class="home-gb-nav-label" for="home-gb-chrom">Chr:</label>
+      <select class="home-gb-select" id="home-gb-chrom" data-gb-chrom aria-label="Chromosome"></select>
+    </div>
+
+    <div class="home-gb-nav-group home-gb-search-group">
+      <label class="home-gb-nav-label" for="home-gb-locus">Search:</label>
+      <input
+        class="home-gb-input"
+        id="home-gb-locus"
+        data-gb-locus
+        spellcheck="false"
+        placeholder="Gene (TDH3, GAL1) or locus..."
+        aria-label="Search gene or coordinate"
+      />
+      <button type="button" class="home-gb-btn home-gb-btn--primary" data-gb-go>Go</button>
+    </div>
+
+    <div class="home-gb-nav-group home-gb-nav-tools">
+      <button type="button" class="home-gb-btn" data-gb-pan="-1" title="Pan left (‹)">‹</button>
+      <button type="button" class="home-gb-btn" data-gb-pan="1" title="Pan right (›)">›</button>
+      <button type="button" class="home-gb-btn" data-gb-zoom="0.5" title="Zoom in (+)">+</button>
+      <button type="button" class="home-gb-btn" data-gb-zoom="2" title="Zoom out (−)">−</button>
+      <button type="button" class="home-gb-btn" data-gb-whole title="View whole chromosome">Whole Chr</button>
+    </div>
+  </div>
+
+  <!-- Stage: Chromosome Minimap & Multi-Track Canvas -->
+  <div class="home-gb-stage">
+    <canvas
+      class="home-gb-canvas home-gb-mini"
+      data-gb-mini
+      aria-label="Chromosome overview strip"
+    ></canvas>
+    <canvas
+      class="home-gb-canvas home-gb-track"
+      tabindex="0"
+      data-gb-track
+      aria-label="Shorkie_LM constraint, conservation, annotation and gene models"
+    ></canvas>
+    <div class="gb-tooltip" data-gb-tooltip hidden></div>
+    <aside class="gb-motif" data-gb-motif hidden aria-label="JASPAR Motif"></aside>
+  </div>
+
+  <!-- Status & Legend Bar -->
+  <div class="home-gb-footer">
+    <div class="home-gb-legend">
+      <span class="legend-item">
+        <span class="legend-dot" style="background: #2563eb;"></span>
+        <span>Shorkie_LM (0–2 bits)</span>
+      </span>
+      <span class="legend-item">
+        <span class="legend-dot" style="background: #10b981;"></span>
+        <span>phastCons (0–1)</span>
+      </span>
+      <span class="legend-item">
+        <span class="legend-dot" style="background: #e11d48;"></span>
+        <span>SGD Genes</span>
+      </span>
+      <span class="legend-item">
+        <span class="legend-dot" style="background: #8b5cf6;"></span>
+        <span>TFBS (ChIP / Motif)</span>
+      </span>
+    </div>
+
+    <a href="/shorkie-lab/genome/" class="home-gb-full-link">
+      <span>Open Full Genome Browser with all 14 tracks</span>
+      <Icon name="arrow-right" size={15} />
+    </a>
+  </div>
+</div>
+
+<script>
+  import '../../scripts/genomeBrowser';
+</script>
+
+<style>
+  .home-gb-card {
+    display: flex;
+    flex-direction: column;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg, 12px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    margin: 1.5rem 0 2rem;
+  }
+
+  .home-gb-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.85rem 1.25rem;
+    border-bottom: 1px solid var(--color-border);
+    background: color-mix(in srgb, var(--color-ink) 2%, var(--color-surface));
+  }
+
+  .home-gb-chips-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .home-gb-chips-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-muted);
+  }
+
+  .home-gb-chips {
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+  }
+
+  .home-gb-chip {
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-size: 0.75rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .home-gb-chip:hover {
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+  }
+
+  .home-gb-readout-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    margin-left: auto;
+  }
+
+  .home-gb-readout strong {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.875rem;
+    color: var(--color-ink);
+  }
+
+  .home-gb-readout-sub {
+    font-size: 0.75rem;
+    color: var(--color-muted);
+    margin-left: 0.35rem;
+  }
+
+  .home-gb-roi {
+    font-size: 0.75rem;
+    color: #e11d48;
+    margin-left: 0.35rem;
+  }
+
+  .home-gb-hover {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.78125rem;
+    color: var(--color-accent);
+    min-width: 14ch;
+    text-align: right;
+  }
+
+  /* Navigation Toolbar */
+  .home-gb-nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 1.25rem;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface);
+  }
+
+  .home-gb-nav-group {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .home-gb-nav-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--color-muted);
+  }
+
+  .home-gb-select,
+  .home-gb-input {
+    padding: 0.35rem 0.65rem;
+    border-radius: var(--radius-sm, 6px);
+    border: 1px solid var(--color-border);
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-size: 0.8125rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+
+  .home-gb-select:focus,
+  .home-gb-input:focus {
+    border-color: var(--color-accent);
+  }
+
+  .home-gb-search-group {
+    flex: 1;
+    min-width: min(100%, 14rem);
+  }
+
+  .home-gb-input {
+    flex: 1;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  .home-gb-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.35rem 0.65rem;
+    border-radius: var(--radius-sm, 6px);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-size: 0.78125rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .home-gb-btn:hover {
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+  }
+
+  .home-gb-btn--primary {
+    background: var(--color-accent);
+    color: #ffffff;
+    border-color: var(--color-accent);
+  }
+
+  .home-gb-nav-tools {
+    display: flex;
+    gap: 0.3rem;
+  }
+
+  /* Stage Canvas Layer */
+  .home-gb-stage {
+    position: relative;
+    width: 100%;
+    background: var(--color-bg);
+  }
+
+  .home-gb-mini {
+    width: 100%;
+    height: 30px;
+    display: block;
+    cursor: pointer;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .home-gb-track {
+    width: 100%;
+    display: block;
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .home-gb-track:active {
+    cursor: grabbing;
+  }
+
+  .home-gb-track:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
+  }
+
+  /* Footer & Legend */
+  .home-gb-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem 1.25rem;
+    border-top: 1px solid var(--color-border);
+    background: color-mix(in srgb, var(--color-ink) 2%, var(--color-surface));
+  }
+
+  .home-gb-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.85rem;
+    font-size: 0.75rem;
+    color: var(--color-muted);
+  }
+
+  .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .home-gb-full-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8125rem;
+    font-weight: 650;
+    color: var(--color-accent);
+    text-decoration: none;
+    transition: transform 0.15s ease;
+  }
+
+  .home-gb-full-link:hover {
+    text-decoration: underline;
+    transform: translateX(2px);
+  }
+
+  /* Tooltip & Motif styles */
+  :global(.gb-tooltip) {
+    position: absolute;
+    pointer-events: none;
+    background: rgba(15, 23, 42, 0.9);
+    color: #f8fafc;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    padding: 0.4rem 0.65rem;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    z-index: 100;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(6px);
+  }
+
+  :global(.gb-motif) {
+    position: absolute;
+    top: 36px;
+    right: 12px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 0.75rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    z-index: 100;
+    max-width: 320px;
+  }
+</style>

@@ -428,9 +428,12 @@ export function initGenomeBrowser(host: HTMLElement): void {
   let lanes: Lane[] = [];
 
   /** Enabled state and height for every lane the panel can toggle. */
+  const isCompact = host.dataset.gbMinimal === '1' || host.dataset.gbCompact === '1';
   const enabled = new Map<string, boolean>();
   const laneHeight = new Map<string, number>([
-    ['lm-masked', 118], ['lm-unmasked', 118], ['phastcons', 96],
+    ['lm-masked', isCompact ? 90 : 118],
+    ['lm-unmasked', isCompact ? 90 : 118],
+    ['phastcons', isCompact ? 72 : 96],
   ]);
 
   const scoreTracks = (): TrackSpec[] => (index?.tracks ?? []).filter((t) => enabled.get(t.id));
@@ -1569,6 +1572,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
   }
 
   function writeHash(): void {
+    if (host.dataset.gbNoHash === '1' || host.dataset.gbMinimal === '1') return;
     const hash = `#${encodeViewState(currentState())}`;
     if (window.location.hash !== hash) {
       window.history.replaceState(null, '', `${window.location.pathname}${hash}`);
@@ -2032,9 +2036,14 @@ export function initGenomeBrowser(host: HTMLElement): void {
       chromSel.appendChild(o);
     }
 
-    for (const id of DEFAULT_ON) enabled.set(id, true);
+    const isMinimal = host.dataset.gbMinimal === '1' || host.dataset.gbNoHash === '1';
+    const initialTracks = host.dataset.gbTracks
+      ? host.dataset.gbTracks.split(',').map((s) => s.trim()).filter(Boolean)
+      : DEFAULT_ON;
 
-    const hash = decodeViewState(window.location.hash, index.chroms);
+    for (const id of initialTracks) enabled.set(id, true);
+
+    const hash = !isMinimal ? decodeViewState(window.location.hash, index.chroms) : { tracks: [], view: null, roi: null };
     if (hash.tracks?.length) applyTracks(hash.tracks);
     else buildPanel();
     if (hash.roi) roi = hash.roi;
@@ -2043,8 +2052,19 @@ export function initGenomeBrowser(host: HTMLElement): void {
       ?? searchLocus(host.dataset.gbDefault || 'chrVII:882,012-884,610', null, index.chroms)
       ?? { chrom: index.chroms[0].name, start: 0, end: Math.min(20000, index.chroms[0].length) };
     lastW = trackCanvas.clientWidth;
-    setView(start, { hash: !hash.view });
+    setView(start, { hash: !hash.view && !isMinimal });
     host.dataset.gbReady = '1';
+
+    // Quick jump chips
+    host.querySelectorAll<HTMLElement>('[data-gb-chip]').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const query = chip.dataset.gbChip;
+        if (query && index) {
+          const target = searchLocus(query, searchIndex, index.chroms);
+          if (target) setView(target, { hash: !isMinimal });
+        }
+      });
+    });
 
     // The search index is small and every search needs it, but nothing on screen waits for it.
     void fetch(`${DATA}/search.json`)
