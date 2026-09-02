@@ -21,6 +21,8 @@ import {
 import {
   getSecureStoredApiKey,
   loadGoogleMapsSDK,
+  onGoogleMapsAuthFailure,
+  hasGoogleMapsAuthFailed,
   GOOGLE_MAPS_DARK_STYLE,
 } from '../lib/googleMaps';
 
@@ -102,6 +104,11 @@ export class BayRouteVisualizer {
     };
 
     this.detectTheme();
+
+    onGoogleMapsAuthFailure(() => {
+      this.switchToLeafletFallback();
+    });
+
     this.initMapEngine();
     this.bindDOMEvents();
   }
@@ -113,15 +120,13 @@ export class BayRouteVisualizer {
   }
 
   private async initMapEngine(): Promise<void> {
-    // 1. Try background Google Maps initialization if an environment key is present
+    // 1. Try Google Maps if an API key is stored and auth hasn't failed
     const envKey = await getSecureStoredApiKey();
-    if (envKey) {
+    if (envKey && !hasGoogleMapsAuthFailed()) {
       try {
         await loadGoogleMapsSDK(envKey);
-        if (window.google && window.google.maps) {
+        if (window.google && window.google.maps && !hasGoogleMapsAuthFailed()) {
           this.initGoogleMap();
-          this.isGoogleMapsActive = true;
-          this.updateMapBadge('Google Maps Active');
           return;
         }
       } catch (_e) {
@@ -131,8 +136,23 @@ export class BayRouteVisualizer {
 
     // 2. Direct high-speed Leaflet Map Engine (Zero config, zero delays, 100% reliable)
     this.initLeafletMap();
+  }
+
+  public switchToLeafletFallback(): void {
+    if (this.leafletMap) return;
     this.isGoogleMapsActive = false;
+    if (this.gmapStartMarker) {
+      this.gmapStartMarker.setMap(null);
+      this.gmapStartMarker = null;
+    }
+    if (this.gmapGoalMarker) {
+      this.gmapGoalMarker.setMap(null);
+      this.gmapGoalMarker = null;
+    }
+    this.gmap = null;
+    this.mapEl.replaceChildren();
     this.updateMapBadge('High-Res GIS Map');
+    this.initLeafletMap();
   }
 
   private updateMapBadge(text: string): void {
@@ -165,8 +185,22 @@ export class BayRouteVisualizer {
       mapTypeId: this.currentTileStyle === 'satellite' ? 'hybrid' : 'roadmap',
     });
 
+    const watchdogTimer = setTimeout(() => {
+      if (!this.isMapReady && !this.leafletMap) {
+        console.warn('[BayRoute] Google Maps initialization timed out. Switching to Leaflet GIS fallback.');
+        this.switchToLeafletFallback();
+      }
+    }, 2500);
+
     window.google.maps.event.addListenerOnce(this.gmap, 'idle', () => {
+      clearTimeout(watchdogTimer);
+      if (hasGoogleMapsAuthFailed()) {
+        this.switchToLeafletFallback();
+        return;
+      }
+      this.isGoogleMapsActive = true;
       this.isMapReady = true;
+      this.updateMapBadge('Google Maps Active');
       this.syncCanvasDimensions();
       this.recalculate();
       this.render();

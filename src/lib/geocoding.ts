@@ -558,13 +558,13 @@ export async function searchBayAreaPlaces(
     }
   }
 
-  if (localMatches.length >= limit) {
+  if (localMatches.length > 0) {
     const result = localMatches.slice(0, limit);
     geocodeCache.set(clean, result);
     return result;
   }
 
-  // 2. Real-time online OSM Nominatim API query with bounding box restriction
+  // 2. Real-time online OSM Nominatim API query for unindexed addresses
   try {
     const viewbox = `${BAY_AREA_BOUNDS.minLng},${BAY_AREA_BOUNDS.maxLat},${BAY_AREA_BOUNDS.maxLng},${BAY_AREA_BOUNDS.minLat}`;
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
@@ -572,13 +572,14 @@ export async function searchBayAreaPlaces(
     )}&viewbox=${viewbox}&bounded=1&limit=${limit}&addressdetails=1`;
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 2500);
+    const timer = setTimeout(() => controller.abort(), 1200);
+
+    const headers: HeadersInit =
+      typeof window === 'undefined' ? { 'User-Agent': 'BayRouteVisualizer/1.0 (khchao.com)' } : {};
 
     const res = await fetch(url, {
       signal: controller.signal,
-      headers: {
-        'User-Agent': 'BayRouteVisualizer/1.0 (khchao.com)',
-      },
+      headers,
     });
     clearTimeout(timer);
 
