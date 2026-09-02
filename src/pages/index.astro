@@ -17,6 +17,7 @@ import { experience, education, software, type SoftwareTool } from '../data/cv';
 import { ALGORITHMS } from '../data/algorithms';
 import { readingTime } from '../lib/format';
 import AlgorithmLogo from '../components/AlgorithmLogo.astro';
+import HomeGenomeBrowser from '../components/genomic/HomeGenomeBrowser.astro';
 
 // Flagship tools for the homepage strip: those with a logo, newest first, each
 // linked to its interactive explainer post. Logos resolve like software.astro.
@@ -205,6 +206,16 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
         </NewsEntry>
       ))}
     </div>
+  </section>
+
+  <section class="section home-section container" data-reveal>
+    <SectionHeading
+      eyebrow="Interactive Genome Browser"
+      title="The yeast genome under Shorkie_LM"
+      href="/shorkie-lab/genome/"
+      more="Open full browser"
+    />
+    <HomeGenomeBrowser />
   </section>
 
   <div class="home-seq"><SequenceTrack /></div>
