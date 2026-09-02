@@ -45,6 +45,8 @@ jobs:
 
       - name: Build site
         run: npm run build
+        env:
+          PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
 
       - name: Audit terminal scroll smoke
         timeout-minutes: 5

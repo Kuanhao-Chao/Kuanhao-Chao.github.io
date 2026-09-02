@@ -10,7 +10,7 @@ const appLd = {
   '@type': 'SoftwareApplication',
   name: 'BayRoute — Real-World Bay Area Pathfinding & Route Search Visualizer',
   description:
-    'Full-scale real-world route planning and pathfinding visualizer across the San Francisco Bay Area powered by Google Maps and open road data. Type any address or click on the map to explore Dijkstra, A*, Bidirectional A*, Greedy, and BFS algorithms with step-by-step glowing frontier animations on real city streets.',
+    'Full-scale real-world route planning and pathfinding visualizer across the San Francisco Bay Area powered by real GIS map tiles and road networks. Type any address or click on the map to explore Dijkstra, A*, Bidirectional A*, Greedy, and BFS algorithms with step-by-step glowing frontier animations on real city streets.',
   url: `${site.url}/games/bay-route/`,
   author: { '@id': `${site.url}/#person` },
   applicationCategory: 'EducationalApplication',
@@ -24,7 +24,7 @@ const appLd = {
   title="BayRoute — Real-World Bay Area Pathfinding Visualizer"
   eyebrow="Interactive Simulation & Algorithm Demo"
   lead="Real-world route planning and graph search visualizer on the San Francisco Bay Area map — type any address or click anywhere to watch Dijkstra, A*, Bidirectional A*, Greedy, and BFS explore real highways and city streets in real time."
-  description="Explore how GPS algorithms find optimal routes across the San Francisco Bay Area on real street tiles. Features Google Maps integration, address autocomplete, step-by-step search frontier animations, live telemetry, and 5-algorithm race mode."
+  description="Explore how GPS algorithms find optimal routes across the San Francisco Bay Area on real street tiles. Features address autocomplete, step-by-step search frontier animations, live telemetry, and 5-algorithm race mode."
   width="wide"
 >
   <script type="application/ld+json" is:inline set:html={JSON.stringify(appLd)} />
@@ -36,111 +36,12 @@ const appLd = {
       <div class="br-header-info">
         <div class="br-header-title-row">
           <h2 class="br-header-title">BayRoute · Real-World Bay Area Pathfinding Visualizer</h2>
-          <button type="button" class="br-api-config-btn" data-br-open-modal title="Configure Google Maps API Key">
-            <span class="br-api-badge" data-br-api-badge>🟡 Checking API...</span>
-            <span class="br-gear-icon" aria-hidden="true">⚙️ Setup Key</span>
-          </button>
+          <span class="br-status-pill" data-br-map-badge>🗺️ High-Res GIS Map</span>
         </div>
         <p class="br-header-subtitle">
-          Enter any address in the Bay Area or click the map. Watch search frontiers navigate
+          Enter any address in the Bay Area or click anywhere on the map. Watch search frontiers navigate
           bridges, highways, and city streets step by step with real-time algorithm comparisons.
         </p>
-      </div>
-    </div>
-
-    <!-- API Key Configuration Modal -->
-    <div class="br-modal-backdrop" data-br-modal hidden>
-      <div class="br-modal" role="dialog" aria-modal="true" aria-labelledby="br-modal-title">
-        <div class="br-modal-head">
-          <h3 id="br-modal-title">⚙️ Google Maps API Key Setup</h3>
-          <button type="button" class="br-modal-close" data-br-close-modal aria-label="Close API Setup Modal">✕</button>
-        </div>
-
-        <div class="br-modal-body">
-          <p class="br-modal-intro">
-            Connect your own Google Maps API Key to enable official Google Maps vector rendering,
-            real-time Google Places Autocomplete, and address Geocoding. The key is stored
-            <strong>locally in your browser</strong> and is never sent to any external server.
-          </p>
-
-          <!-- API Key Input -->
-          <div class="br-modal-field">
-            <label for="br-api-key-input"><strong>Google Maps API Key:</strong></label>
-            <div class="br-modal-input-row">
-              <input
-                id="br-api-key-input"
-                type="text"
-                class="br-modal-input"
-                placeholder="AIzaSy..."
-                data-br-key-input
-                autocomplete="off"
-                spellcheck="false"
-              />
-              <button type="button" class="br-btn br-btn--primary" data-br-test-key>
-                Test & Connect
-              </button>
-            </div>
-          </div>
-
-          <!-- Live Health Diagnostics -->
-          <div class="br-diagnostics-box" data-br-diagnostics hidden>
-            <h4>Live API Access Health:</h4>
-            <ul class="br-diagnostics-list">
-              <li data-diag="maps">
-                <span class="diag-status">⏳</span>
-                <strong>Maps JavaScript API:</strong>
-                <span class="diag-detail">Checking...</span>
-              </li>
-              <li data-diag="places">
-                <span class="diag-status">⏳</span>
-                <strong>Places API (Autocomplete):</strong>
-                <span class="diag-detail">Checking...</span>
-              </li>
-              <li data-diag="geocoding">
-                <span class="diag-status">⏳</span>
-                <strong>Geocoding API:</strong>
-                <span class="diag-detail">Checking...</span>
-              </li>
-            </ul>
-            <div class="br-diagnostics-message" data-br-diag-msg hidden></div>
-          </div>
-
-          <!-- Step-by-Step Setup Guide -->
-          <div class="br-guide-card">
-            <h4>How to Get a Free Google Maps API Key in 3 Minutes:</h4>
-            <ol class="br-guide-steps">
-              <li>
-                Go to the <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer">Google Cloud Console</a> and create or select a project.
-              </li>
-              <li>
-                Open <strong>APIs & Services → Library</strong> and enable these 4 APIs:
-                <div class="br-api-tags">
-                  <span class="api-tag">Maps JavaScript API</span>
-                  <span class="api-tag">Places API</span>
-                  <span class="api-tag">Geocoding API</span>
-                  <span class="api-tag">Directions API</span>
-                </div>
-              </li>
-              <li>
-                Go to <strong>APIs & Services → Credentials</strong> → click <strong>+ CREATE CREDENTIALS → API key</strong>.
-              </li>
-              <li>
-                (Optional) Restrict key HTTP referrers to <code>http://localhost:*/*</code> and <code>https://khchao.com/*</code>.
-              </li>
-              <li>
-                Paste your key above and click <strong>Test & Connect</strong>!
-              </li>
-            </ol>
-            <p class="br-guide-note">
-              💡 <em>Google provides a $200 free monthly credit every month, which covers thousands of map requests for free.</em>
-            </p>
-          </div>
-        </div>
-
-        <div class="br-modal-foot">
-          <button type="button" class="br-btn" data-br-clear-key>Clear Key (Use OSM Fallback)</button>
-          <button type="button" class="br-btn br-btn--primary" data-br-close-modal>Done</button>
-        </div>
       </div>
     </div>
 
@@ -411,13 +312,8 @@ const appLd = {
 
 <script>
   import { initBayRoute } from '../../scripts/bayRoute';
-  import {
-    getSecureStoredApiKey,
-    setSecureStoredApiKey,
-    testGoogleMapsApiKey,
-  } from '../../lib/googleMaps';
 
-  async function setup() {
+  function setup() {
     const viz = initBayRoute('#bay-route-map', '#bay-route-canvas', '[data-br-root]');
     if (!viz) return;
 
@@ -534,81 +430,6 @@ const appLd = {
         viz.setSpeed(speed);
       });
     });
-
-    // API Key Setup Modal
-    const openModalBtn = document.querySelector<HTMLButtonElement>('[data-br-open-modal]');
-    const modal = document.querySelector<HTMLElement>('[data-br-modal]');
-    const closeModalBtns = document.querySelectorAll<HTMLButtonElement>('[data-br-close-modal]');
-    const keyInput = document.querySelector<HTMLInputElement>('[data-br-key-input]');
-    const testKeyBtn = document.querySelector<HTMLButtonElement>('[data-br-test-key]');
-    const clearKeyBtn = document.querySelector<HTMLButtonElement>('[data-br-clear-key]');
-    const diagBox = document.querySelector<HTMLElement>('[data-br-diagnostics]');
-    const diagMsg = document.querySelector<HTMLElement>('[data-br-diag-msg]');
-
-    const savedKey = await getSecureStoredApiKey();
-    if (keyInput && savedKey) {
-      keyInput.value = savedKey;
-    }
-
-    const openModal = () => {
-      if (modal) modal.hidden = false;
-    };
-    const closeModal = () => {
-      if (modal) modal.hidden = true;
-    };
-
-    if (openModalBtn) openModalBtn.addEventListener('click', openModal);
-    closeModalBtns.forEach((b) => b.addEventListener('click', closeModal));
-
-    if (testKeyBtn && keyInput) {
-      testKeyBtn.addEventListener('click', async () => {
-        const key = keyInput.value.trim();
-        if (!key) {
-          alert('Please enter an API key.');
-          return;
-        }
-
-        testKeyBtn.textContent = 'Testing...';
-        if (diagBox) diagBox.hidden = false;
-
-        const res = await testGoogleMapsApiKey(key);
-        testKeyBtn.textContent = 'Test & Connect';
-
-        // Update indicators
-        const diagMaps = document.querySelector('[data-diag="maps"] .diag-status');
-        const diagPlaces = document.querySelector('[data-diag="places"] .diag-status');
-        const diagGeocoding = document.querySelector('[data-diag="geocoding"] .diag-status');
-
-        if (diagMaps) diagMaps.textContent = res.mapsJs ? '🟢' : '🔴';
-        if (diagPlaces) diagPlaces.textContent = res.places ? '🟢' : '🟡 (Optional)';
-        if (diagGeocoding) diagGeocoding.textContent = res.geocoding ? '🟢' : '🟡 (Optional)';
-
-        if (diagMsg) {
-          diagMsg.hidden = false;
-          if (res.valid) {
-            diagMsg.className = 'br-diagnostics-message br-diagnostics-message--success';
-            diagMsg.textContent = '✅ API Key connected and verified! Reloading with Google Maps SDK...';
-            await setSecureStoredApiKey(key);
-            setTimeout(() => {
-              window.location.reload();
-            }, 1200);
-          } else {
-            diagMsg.className = 'br-diagnostics-message br-diagnostics-message--error';
-            diagMsg.textContent = `❌ ${res.errorMessage || 'Failed to verify key.'}`;
-          }
-        }
-      });
-    }
-
-    if (clearKeyBtn) {
-      clearKeyBtn.addEventListener('click', async () => {
-        await setSecureStoredApiKey(null);
-        if (keyInput) keyInput.value = '';
-        if (diagBox) diagBox.hidden = true;
-        alert('API Key cleared. Switching to OpenStreetMap fallback.');
-        window.location.reload();
-      });
-    }
   }
 
   setup();
@@ -616,6 +437,82 @@ const appLd = {
 </script>
 
 <style>
+  /* Embedded Core Leaflet Styles for Instant, Rock-Solid Tile Rendering */
+  :global(.leaflet-pane),
+  :global(.leaflet-tile),
+  :global(.leaflet-marker-icon),
+  :global(.leaflet-marker-shadow),
+  :global(.leaflet-tile-container),
+  :global(.leaflet-pane > svg),
+  :global(.leaflet-pane > canvas),
+  :global(.leaflet-zoom-box),
+  :global(.leaflet-image-layer),
+  :global(.leaflet-layer) {
+    position: absolute;
+    left: 0;
+    top: 0;
+  }
+  :global(.leaflet-container) {
+    overflow: hidden;
+    position: relative;
+    outline: 0;
+  }
+  :global(.leaflet-tile),
+  :global(.leaflet-marker-icon),
+  :global(.leaflet-marker-shadow) {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+  :global(.leaflet-tile-container) {
+    pointer-events: none;
+  }
+  :global(.leaflet-pane) {
+    z-index: 400;
+  }
+  :global(.leaflet-tile-pane) {
+    z-index: 200;
+  }
+  :global(.leaflet-overlay-pane) {
+    z-index: 400;
+  }
+  :global(.leaflet-shadow-pane) {
+    z-index: 500;
+  }
+  :global(.leaflet-marker-pane) {
+    z-index: 600;
+  }
+  :global(.leaflet-tooltip-pane) {
+    z-index: 650;
+  }
+  :global(.leaflet-popup-pane) {
+    z-index: 700;
+  }
+  :global(.leaflet-control) {
+    position: relative;
+    z-index: 800;
+    pointer-events: auto;
+  }
+  :global(.leaflet-top),
+  :global(.leaflet-bottom) {
+    position: absolute;
+    z-index: 1000;
+    pointer-events: none;
+  }
+  :global(.leaflet-top) {
+    top: 0;
+  }
+  :global(.leaflet-right) {
+    right: 0;
+  }
+  :global(.leaflet-bottom) {
+    bottom: 0;
+  }
+  :global(.leaflet-left) {
+    left: 0;
+  }
+
   .br-container {
     display: flex;
     flex-direction: column;
@@ -654,43 +551,17 @@ const appLd = {
     color: var(--color-ink);
   }
 
-  .br-api-config-btn {
+  .br-status-pill {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.4rem 0.75rem;
+    gap: 0.4rem;
+    padding: 0.3rem 0.75rem;
     border-radius: 999px;
     border: 1px solid var(--color-border);
-    background: color-mix(in srgb, var(--color-ink) 4%, var(--color-surface));
+    background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
     color: var(--color-ink);
     font-size: 0.8125rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-
-  .br-api-config-btn:hover {
-    border-color: var(--color-accent);
-    background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
-  }
-
-  .br-api-badge {
-    display: inline-block;
-    font-size: 0.75rem;
-  }
-
-  .br-api-badge--connected {
-    color: #10b981;
-    font-weight: 700;
-  }
-
-  .br-api-badge--fallback {
-    color: #f59e0b;
-    font-weight: 600;
-  }
-
-  .br-gear-icon {
-    opacity: 0.85;
+    font-weight: 650;
   }
 
   .br-header-subtitle {
@@ -698,203 +569,6 @@ const appLd = {
     font-size: 0.92rem;
     color: var(--color-muted);
     line-height: 1.5;
-  }
-
-  /* API Modal Backdrop */
-  .br-modal-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(6px);
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1rem;
-  }
-
-  .br-modal {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg, 12px);
-    max-width: 600px;
-    width: 100%;
-    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.3);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    max-height: 90vh;
-  }
-
-  .br-modal-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1.15rem 1.35rem;
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  .br-modal-head h3 {
-    margin: 0;
-    font-size: 1.2rem;
-    color: var(--color-ink);
-  }
-
-  .br-modal-close {
-    background: transparent;
-    border: none;
-    font-size: 1.25rem;
-    color: var(--color-muted);
-    cursor: pointer;
-    line-height: 1;
-    padding: 0.25rem;
-  }
-
-  .br-modal-close:hover {
-    color: var(--color-ink);
-  }
-
-  .br-modal-body {
-    padding: 1.35rem;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 1.15rem;
-  }
-
-  .br-modal-intro {
-    font-size: 0.875rem;
-    line-height: 1.5;
-    color: var(--color-muted);
-    margin: 0;
-  }
-
-  .br-modal-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-  }
-
-  .br-modal-input-row {
-    display: flex;
-    gap: 0.5rem;
-  }
-
-  .br-modal-input {
-    flex: 1;
-    padding: 0.6rem 0.85rem;
-    border-radius: var(--radius-sm, 6px);
-    border: 1px solid var(--color-border);
-    background: var(--color-bg);
-    color: var(--color-ink);
-    font-size: 0.9rem;
-    font-family: monospace;
-    outline: none;
-  }
-
-  .br-modal-input:focus {
-    border-color: var(--color-accent);
-  }
-
-  .br-diagnostics-box {
-    padding: 1rem;
-    background: color-mix(in srgb, var(--color-ink) 3%, var(--color-surface));
-    border-radius: var(--radius-md, 8px);
-    border: 1px solid var(--color-border);
-  }
-
-  .br-diagnostics-box h4 {
-    margin: 0 0 0.65rem;
-    font-size: 0.9rem;
-  }
-
-  .br-diagnostics-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    font-size: 0.85rem;
-  }
-
-  .br-diagnostics-message {
-    margin-top: 0.75rem;
-    padding: 0.65rem;
-    border-radius: 6px;
-    font-size: 0.85rem;
-    font-weight: 600;
-  }
-
-  .br-diagnostics-message--success {
-    background: rgba(16, 185, 129, 0.15);
-    color: #10b981;
-    border: 1px solid rgba(16, 185, 129, 0.3);
-  }
-
-  .br-diagnostics-message--error {
-    background: rgba(239, 68, 68, 0.15);
-    color: #ef4444;
-    border: 1px solid rgba(239, 68, 68, 0.3);
-  }
-
-  .br-guide-card {
-    padding: 1.15rem;
-    background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface));
-    border-radius: var(--radius-md, 8px);
-    border: 1px solid color-mix(in srgb, var(--color-accent) 25%, var(--color-border));
-  }
-
-  .br-guide-card h4 {
-    margin: 0 0 0.65rem;
-    font-size: 0.95rem;
-    color: var(--color-ink);
-  }
-
-  .br-guide-steps {
-    margin: 0;
-    padding-left: 1.25rem;
-    font-size: 0.85rem;
-    color: var(--color-muted);
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-    line-height: 1.45;
-  }
-
-  .br-api-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem;
-    margin-top: 0.25rem;
-  }
-
-  .api-tag {
-    display: inline-block;
-    padding: 0.15rem 0.5rem;
-    border-radius: 4px;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--color-ink);
-  }
-
-  .br-guide-note {
-    margin: 0.75rem 0 0;
-    font-size: 0.8rem;
-    color: var(--color-muted);
-  }
-
-  .br-modal-foot {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.5rem;
-    padding: 1rem 1.35rem;
-    border-top: 1px solid var(--color-border);
   }
 
   /* Address Bar */
