@@ -4,136 +4,320 @@ interface Props {
   class?: string;
 }
 
-const { size = 72, class: className } = Astro.props;
+const { size = 72, class: className = '' } = Astro.props;
 ---
 
 <svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 100 100"
   width={size}
   height={size}
-  viewBox="0 0 100 100"
-  fill="none"
-  xmlns="http://www.w3.org/2000/svg"
-  class:list={['phage-logo-svg', className]}
+  class:list={['phage-defense-logo', className]}
   role="img"
-  aria-label="Phage Defense Logo"
+  aria-label="Phage Defense Logo — 3D Icosahedral T4 bacteriophage sentinel breaching a bacterial cellular defense matrix"
 >
   <defs>
-    <!-- Background glow gradient -->
-    <radialGradient id="pd-glow" cx="50%" cy="50%" r="50%">
+    <!-- Background Bio-Defense Aura -->
+    <radialGradient id="pd-bg-aura" cx="50%" cy="50%" r="50%">
       <stop offset="0%" stop-color="#10b981" stop-opacity="0.35" />
-      <stop offset="100%" stop-color="#10b981" stop-opacity="0" />
+      <stop offset="60%" stop-color="#064e3b" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#020617" stop-opacity="0" />
     </radialGradient>
 
-    <!-- Phage Head Facet Gradients -->
-    <linearGradient id="pd-capsid-top" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#38bdf8" />
+    <!-- Octagonal Shield Border Gradient -->
+    <linearGradient id="pd-shield-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399" />
+      <stop offset="40%" stop-color="#10b981" />
+      <stop offset="80%" stop-color="#047857" />
+      <stop offset="100%" stop-color="#064e3b" />
+    </linearGradient>
+
+    <!-- 3D Crystalline Capsid Facet Gradients -->
+    <!-- Top Apex Facet (Bright Specular Azure) -->
+    <linearGradient id="pd-facet-apex" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e0f2fe" />
+      <stop offset="40%" stop-color="#38bdf8" />
       <stop offset="100%" stop-color="#0284c7" />
     </linearGradient>
-    <linearGradient id="pd-capsid-left" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#60a5fa" />
-      <stop offset="100%" stop-color="#2563eb" />
-    </linearGradient>
-    <linearGradient id="pd-capsid-right" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#93c5fd" />
-      <stop offset="100%" stop-color="#3b82f6" />
+
+    <!-- Left Upper Facet (Mid Azure) -->
+    <linearGradient id="pd-facet-left" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="60%" stop-color="#0369a1" />
+      <stop offset="100%" stop-color="#0c4a6e" />
     </linearGradient>
 
-    <!-- Shield Border Gradient -->
-    <linearGradient id="pd-shield-border" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#10b981" />
-      <stop offset="50%" stop-color="#059669" />
-      <stop offset="100%" stop-color="var(--color-rule, #334155)" />
+    <!-- Right Upper Facet (Deep Azure with Rim Light) -->
+    <linearGradient id="pd-facet-right" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#7dd3fc" />
+      <stop offset="50%" stop-color="#0284c7" />
+      <stop offset="100%" stop-color="#075985" />
     </linearGradient>
+
+    <!-- Front Lower Facet (Deep Violet-Navy) -->
+    <linearGradient id="pd-facet-bottom" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7" />
+      <stop offset="60%" stop-color="#1e3a8a" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+
+    <!-- Contractile Sheath Metallic Gradient -->
+    <linearGradient id="pd-sheath-metal" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#64748b" />
+      <stop offset="35%" stop-color="#cbd5e1" />
+      <stop offset="70%" stop-color="#94a3b8" />
+      <stop offset="100%" stop-color="#475569" />
+    </linearGradient>
+
+    <!-- Bacterial Membrane Bilayer Gradient -->
+    <linearGradient id="pd-membrane-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="50%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+
+    <!-- Restriction Cleavage Energy Flare -->
+    <radialGradient id="pd-flare" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="30%" stop-color="#fef08a" />
+      <stop offset="65%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#ef4444" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Glow & Shadow Filters -->
+    <filter id="pd-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="2" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <filter id="pd-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="1.5" dy="2.5" stdDeviation="2" flood-color="#000000" flood-opacity="0.45" />
+    </filter>
   </defs>
 
-  <!-- Ambient Glow -->
-  <circle cx="50" cy="50" r="46" fill="url(#pd-glow)" />
+  <!-- 1. Ambient Backdrop Aura -->
+  <circle cx="50" cy="50" r="47" fill="url(#pd-bg-aura)" />
 
-  <!-- Octagonal Defense Shield Crest -->
+  <!-- 2. Octagonal Fortress Shield Frame -->
   <polygon
-    points="50,4 82,16 96,50 82,84 50,96 18,84 4,50 18,16"
-    fill="var(--color-surface, #1e293b)"
-    stroke="url(#pd-shield-border)"
-    stroke-width="2.5"
+    points="50,4 83,16 96,50 83,84 50,96 17,84 4,50 17,16"
+    fill="#091421"
+    stroke="url(#pd-shield-grad)"
+    stroke-width="2.2"
     stroke-linejoin="round"
   />
 
-  <!-- Circular Nucleoid Plasmid Defense Ring -->
+  <!-- Inner Octagonal Tech Border -->
+  <polygon
+    points="50,9 80,20 91,50 80,80 50,91 20,80 9,50 20,20"
+    fill="none"
+    stroke="#1e3a5f"
+    stroke-width="1"
+    stroke-dasharray="3, 3"
+    opacity="0.75"
+  />
+
+  <!-- 3. Circular Plasmid Defense Ring (Bacterial Shield Matrix) -->
   <circle
     cx="50"
     cy="50"
     r="36"
-    stroke="#10b981"
-    stroke-width="1.8"
-    stroke-dasharray="4 3"
     fill="none"
-    opacity="0.6"
+    stroke="#10b981"
+    stroke-width="1.6"
+    stroke-dasharray="4, 4"
+    opacity="0.7"
+    filter="url(#pd-glow)"
+  />
+  <!-- Concentric Inner Barrier Radar Ring -->
+  <circle
+    cx="50"
+    cy="50"
+    r="26"
+    fill="none"
+    stroke="#34d399"
+    stroke-width="0.8"
+    stroke-dasharray="2, 4"
+    opacity="0.45"
   />
 
-  <!-- Cellular Cytoplasm Current Lines -->
-  <path d="M18,36 Q34,28 50,34 T82,30" stroke="rgba(56, 189, 248, 0.25)" stroke-width="1.2" fill="none" />
-  <path d="M18,64 Q34,72 50,66 T82,70" stroke="rgba(56, 189, 248, 0.25)" stroke-width="1.2" fill="none" />
-
-  <!-- T4 Bacteriophage Sentinel -->
-  <g transform="translate(50, 44)">
-    <!-- 1. Icosahedral Capsid Head (Multi-faceted 3D geometry) -->
-    <!-- Top Apex Facet -->
-    <polygon points="0,-30 -12,-20 0,-14 12,-20" fill="url(#pd-capsid-top)" stroke="#ffffff" stroke-width="0.7" />
-    <!-- Left Facet -->
-    <polygon points="-12,-20 0,-14 -8,-3 -18,-10" fill="url(#pd-capsid-left)" stroke="#ffffff" stroke-width="0.7" />
-    <!-- Right Facet -->
-    <polygon points="12,-20 0,-14 8,-3 18,-10" fill="url(#pd-capsid-right)" stroke="#ffffff" stroke-width="0.7" />
-    <!-- Center Lower Facet -->
-    <polygon points="0,-14 -8,-3 0,4 8,-3" fill="#1e40af" stroke="#ffffff" stroke-width="0.7" />
-
-    <!-- 2. Collar & Contractile Sheath (Helical ribbed tail) -->
-    <rect x="-3" y="4" width="6" height="2" rx="1" fill="#cbd5e1" />
-    <!-- Sheath Cylinders -->
-    <line x1="-3" y1="7" x2="3" y2="7" stroke="#e2e8f0" stroke-width="1.5" />
-    <line x1="-3" y1="10" x2="3" y2="10" stroke="#94a3b8" stroke-width="1.5" />
-    <line x1="-3" y1="13" x2="3" y2="13" stroke="#e2e8f0" stroke-width="1.5" />
-    <line x1="-3" y1="16" x2="3" y2="16" stroke="#94a3b8" stroke-width="1.5" />
-    <line x1="-3" y1="19" x2="3" y2="19" stroke="#e2e8f0" stroke-width="1.5" />
-
-    <!-- 3. Baseplate & Tail Spikes -->
-    <polygon points="-5,21 5,21 0,24" fill="#64748b" />
-
-    <!-- 4. Articulated Spider Tail Fibers (Jointed Legs) -->
-    <!-- Left Fibers -->
-    <path d="M-4,21 L-14,24 L-22,36" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" fill="none" />
-    <path d="M-4,21 L-18,29 L-15,38" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" fill="none" />
-    <!-- Right Fibers -->
-    <path d="M4,21 L14,24 L22,36" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" fill="none" />
-    <path d="M4,21 L18,29 L15,38" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round" fill="none" />
-
-    <!-- Restriction Cleavage Energy Sparks around base -->
-    <circle cx="-16" cy="12" r="1.5" fill="#f59e0b" />
-    <circle cx="16" cy="12" r="1.5" fill="#f59e0b" />
-    <circle cx="0" cy="27" r="1.8" fill="#10b981" />
+  <!-- 4. Host Bacterial Lipid Bilayer Membrane (Bottom arc) -->
+  <g class="pd-membrane">
+    <path
+      d="M 18 78 Q 50 86 82 78"
+      fill="none"
+      stroke="url(#pd-membrane-grad)"
+      stroke-width="3"
+      stroke-linecap="round"
+      filter="url(#pd-glow)"
+    />
+    <!-- Membrane Receptor Proteins (Landing targets) -->
+    <rect x="36" y="77" width="5" height="4" rx="1.5" fill="#f59e0b" stroke="#ffffff" stroke-width="0.6" />
+    <rect x="59" y="77" width="5" height="4" rx="1.5" fill="#f59e0b" stroke="#ffffff" stroke-width="0.6" />
+    <circle cx="50" cy="82" r="2" fill="#38bdf8" />
   </g>
 
-  <!-- Bacterial Host Defense Banner -->
-  <rect x="28" y="80" width="44" height="12" rx="3" fill="var(--color-bg, #0f172a)" stroke="#10b981" stroke-width="1.2" />
-  <text
-    x="50"
-    y="88.5"
-    fill="#10b981"
-    font-family="monospace"
-    font-size="6.5"
-    font-weight="bold"
-    text-anchor="middle"
-  >DEFENSE MATRIX</text>
+  <!-- 5. T4 Bacteriophage Sentinel Complex -->
+  <g class="pd-phage" transform="translate(50, 42)" filter="url(#pd-shadow)">
+    <!-- 3D Multi-faceted Icosahedral Capsid Head -->
+    <!-- Internal Packed DNA Coils (visible through crystalline head) -->
+    <ellipse cx="0" cy="-21" rx="8" ry="7" fill="rgba(244, 63, 94, 0.25)" />
+    <path d="M -5 -24 C -2 -27 2 -27 5 -24 C 7 -21 7 -17 3 -15 C -2 -14 -4 -19 0 -22" fill="none" stroke="#f43f5e" stroke-width="1" opacity="0.8" />
+
+    <!-- Crystalline Capsid Facets with Specular Bevels -->
+    <!-- Top Apex Facet -->
+    <polygon
+      points="0,-33 -15,-22 0,-15 15,-22"
+      fill="url(#pd-facet-apex)"
+      stroke="#ffffff"
+      stroke-width="0.9"
+      stroke-linejoin="round"
+    />
+    <!-- Left Mid Facet -->
+    <polygon
+      points="-15,-22 0,-15 -9,-3 -21,-11"
+      fill="url(#pd-facet-left)"
+      stroke="#ffffff"
+      stroke-width="0.9"
+      stroke-linejoin="round"
+    />
+    <!-- Right Mid Facet -->
+    <polygon
+      points="15,-22 0,-15 9,-3 21,-11"
+      fill="url(#pd-facet-right)"
+      stroke="#ffffff"
+      stroke-width="0.9"
+      stroke-linejoin="round"
+    />
+    <!-- Center Lower Facet -->
+    <polygon
+      points="0,-15 -9,-3 0,5 9,-3"
+      fill="url(#pd-facet-bottom)"
+      stroke="#ffffff"
+      stroke-width="0.9"
+      stroke-linejoin="round"
+    />
+
+    <!-- Specular Star Sparkle on Apex Vertex -->
+    <circle cx="0" cy="-33" r="1.5" fill="#ffffff" />
+    <path d="M 0 -36 L 0 -30 M -3 -33 L 3 -33" stroke="#ffffff" stroke-width="0.8" />
+
+    <!-- Neck Collar Disk -->
+    <ellipse cx="0" cy="6" rx="5" ry="1.8" fill="#94a3b8" stroke="#ffffff" stroke-width="0.8" />
+
+    <!-- Contractile Tail Sheath (Ribbed Spring Cylinder) -->
+    <rect x="-3.5" y="7" width="7" height="15" rx="1.5" fill="url(#pd-sheath-metal)" stroke="#334155" stroke-width="0.8" />
+    <!-- Annular Sheath Rings -->
+    <line x1="-3.5" y1="9" x2="3.5" y2="9" stroke="#ffffff" stroke-width="1" />
+    <line x1="-3.5" y1="12" x2="3.5" y2="12" stroke="#ffffff" stroke-width="1" />
+    <line x1="-3.5" y1="15" x2="3.5" y2="15" stroke="#ffffff" stroke-width="1" />
+    <line x1="-3.5" y1="18" x2="3.5" y2="18" stroke="#ffffff" stroke-width="1" />
+
+    <!-- Baseplate & Injection Spikes -->
+    <polygon points="-6,22 6,22 0,26" fill="#475569" stroke="#ffffff" stroke-width="0.8" />
+    <line x1="0" y1="26" x2="0" y2="30" stroke="#f43f5e" stroke-width="1.6" stroke-linecap="round" />
+
+    <!-- Articulated Jointed Tail Fibers (Spider Legs) -->
+    <!-- Left Outer Fiber -->
+    <path
+      d="M -5 22 L -16 26 L -24 38 L -26 42"
+      fill="none"
+      stroke="#38bdf8"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <!-- Left Inner Fiber -->
+    <path
+      d="M -4 23 L -12 28 L -14 41"
+      fill="none"
+      stroke="#38bdf8"
+      stroke-width="1.8"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <!-- Right Outer Fiber -->
+    <path
+      d="M 5 22 L 16 26 L 24 38 L 26 42"
+      fill="none"
+      stroke="#38bdf8"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <!-- Right Inner Fiber -->
+    <path
+      d="M 4 23 L 12 28 L 14 41"
+      fill="none"
+      stroke="#38bdf8"
+      stroke-width="1.8"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+
+    <!-- Fiber Knee Joints & Foot Pads -->
+    <circle cx="-16" cy="26" r="1.4" fill="#ffffff" />
+    <circle cx="16" cy="26" r="1.4" fill="#ffffff" />
+    <circle cx="-26" cy="42" r="1.2" fill="#38bdf8" />
+    <circle cx="26" cy="42" r="1.2" fill="#38bdf8" />
+  </g>
+
+  <!-- 6. Restriction Cleavage Flare Sparks (EcoRI/BamHI Cut Burst) -->
+  <g class="pd-sparks" filter="url(#pd-glow)">
+    <!-- Main Cleavage Burst at Baseplate Landing -->
+    <circle cx="50" cy="72" r="6" fill="url(#pd-flare)" />
+    <circle cx="50" cy="72" r="2.2" fill="#ffffff" />
+    <!-- Radiating Restriction Sparks -->
+    <circle cx="38" cy="68" r="1.4" fill="#f59e0b" />
+    <circle cx="62" cy="68" r="1.4" fill="#f59e0b" />
+    <circle cx="32" cy="48" r="1.2" fill="#34d399" />
+    <circle cx="68" cy="48" r="1.2" fill="#34d399" />
+    <circle cx="50" cy="22" r="1.5" fill="#38bdf8" />
+  </g>
+
+  <!-- 7. Tactical Defense Matrix Banner -->
+  <g class="pd-banner" transform="translate(26, 80)">
+    <rect
+      x="0"
+      y="0"
+      width="48"
+      height="12"
+      rx="3"
+      fill="#062018"
+      stroke="#10b981"
+      stroke-width="1.4"
+      filter="url(#pd-shadow)"
+    />
+    <circle cx="4" cy="6" r="1" fill="#34d399" />
+    <circle cx="44" cy="6" r="1" fill="#34d399" />
+    <text
+      x="24"
+      y="8.5"
+      fill="#34d399"
+      font-family="monospace"
+      font-size="6.5"
+      font-weight="900"
+      letter-spacing="0.6"
+      text-anchor="middle"
+    >DEFENSE MATRIX</text>
+  </g>
 </svg>
 
 <style>
-  .phage-logo-svg {
+  .phage-defense-logo {
     display: inline-block;
+    flex-shrink: 0;
     vertical-align: middle;
-    filter: drop-shadow(0 4px 12px rgba(16, 185, 129, 0.2));
-    transition: transform 0.2s ease, filter 0.2s ease;
+    filter: drop-shadow(0 4px 12px rgba(16, 185, 129, 0.25));
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.25s ease;
   }
-  .phage-logo-svg:hover {
-    transform: scale(1.05);
-    filter: drop-shadow(0 6px 18px rgba(16, 185, 129, 0.35));
+
+  :global(.tool:hover) .phage-defense-logo,
+  .phage-defense-logo:hover {
+    transform: translateY(-2px) scale(1.06);
+    filter: drop-shadow(0 6px 20px rgba(52, 211, 153, 0.45));
   }
 </style>

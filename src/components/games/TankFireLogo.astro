@@ -14,265 +14,233 @@ const { size = 64, class: className = '' } = Astro.props;
   height={size}
   class:list={['tank-fire-logo', className]}
   role="img"
-  aria-label="Tank Fire Logo — Isometric blue battle tank discharging heavy cannon blast with tactical selection ring"
+  aria-label="Tank Fire Logo — Isometric blue battle tank firing a heavy ballistic cannon blast within a holographic tactical target lock reticle"
 >
   <defs>
-    <!-- Battlefield heat aura radial gradient -->
-    <radialGradient id="tf-aura" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.25" />
-      <stop offset="60%" stop-color="#3b82f6" stop-opacity="0.10" />
-      <stop offset="100%" stop-color="#1d4ed8" stop-opacity="0" />
+    <!-- Background Battlefield Aura -->
+    <radialGradient id="tf-bg-aura" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.3" />
+      <stop offset="60%" stop-color="#1e3a8a" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#020617" stop-opacity="0" />
     </radialGradient>
 
-    <!-- Tactical Selection Ring Gradient -->
-    <radialGradient id="tf-ring" cx="50%" cy="50%" r="50%">
-      <stop offset="70%" stop-color="#10b981" stop-opacity="0" />
-      <stop offset="90%" stop-color="#10b981" stop-opacity="0.85" />
-      <stop offset="100%" stop-color="#059669" stop-opacity="0.95" />
-    </radialGradient>
-
-    <!-- Blue Tank Armor Primary Gradient -->
-    <linearGradient id="tf-armor-main" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#93c5fd" />
-      <stop offset="35%" stop-color="#3b82f6" />
-      <stop offset="100%" stop-color="#1d4ed8" />
+    <!-- Outer Frame Gradient -->
+    <linearGradient id="tf-border-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60a5fa" />
+      <stop offset="50%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#10b981" />
     </linearGradient>
 
-    <!-- Blue Tank Armor Shadow/Underbody Gradient -->
-    <linearGradient id="tf-armor-dark" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#2563eb" />
-      <stop offset="50%" stop-color="#1e40af" />
+    <!-- Blue Armor Glacis Plate Gradient -->
+    <linearGradient id="tf-armor-main" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#bfdbfe" />
+      <stop offset="35%" stop-color="#3b82f6" />
+      <stop offset="75%" stop-color="#1d4ed8" />
+      <stop offset="100%" stop-color="#172554" />
+    </linearGradient>
+
+    <!-- Armor Underbody & Track Shadow -->
+    <linearGradient id="tf-armor-shadow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e40af" />
+      <stop offset="50%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+
+    <!-- Turret Dome 3D Highlight -->
+    <linearGradient id="tf-turret-dome" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#dbeafe" />
+      <stop offset="40%" stop-color="#3b82f6" />
+      <stop offset="85%" stop-color="#1e3a8a" />
       <stop offset="100%" stop-color="#0f172a" />
     </linearGradient>
 
-    <!-- Tank Turret Dome Highlight Gradient -->
-    <linearGradient id="tf-turret" x1="20%" y1="0%" x2="80%" y2="100%">
-      <stop offset="0%" stop-color="#bfdbfe" />
-      <stop offset="40%" stop-color="#3b82f6" />
-      <stop offset="100%" stop-color="#1e3a8a" />
-    </linearGradient>
-
     <!-- Cannon Barrel Metallic Gradient -->
-    <linearGradient id="tf-barrel" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#dbeafe" />
-      <stop offset="50%" stop-color="#3b82f6" />
+    <linearGradient id="tf-barrel-metal" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e0f2fe" />
+      <stop offset="40%" stop-color="#3b82f6" />
       <stop offset="100%" stop-color="#1d4ed8" />
     </linearGradient>
 
-    <!-- Cannon Muzzle Flash Fire Gradient -->
-    <radialGradient id="tf-fire" cx="20%" cy="50%" r="80%">
+    <!-- Cannon Muzzle Flash Fireburst -->
+    <radialGradient id="tf-muzzle-fire" cx="20%" cy="50%" r="80%">
       <stop offset="0%" stop-color="#ffffff" />
       <stop offset="25%" stop-color="#fef08a" />
       <stop offset="60%" stop-color="#f59e0b" />
       <stop offset="100%" stop-color="#ef4444" />
     </radialGradient>
 
-    <!-- Shockwave Glow Filter -->
+    <!-- Glow & Shadow Filters -->
     <filter id="tf-glow" x="-30%" y="-30%" width="160%" height="160%">
-      <feGaussianBlur stdDeviation="1.8" result="blur" />
-      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+      <feGaussianBlur stdDeviation="2" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <filter id="tf-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="1.5" dy="2.5" stdDeviation="2" flood-color="#000000" flood-opacity="0.45" />
     </filter>
   </defs>
 
   <!-- 1. Ambient Battlefield Backdrop -->
-  <circle cx="50" cy="50" r="46" fill="url(#tf-aura)" />
+  <circle cx="50" cy="50" r="47" fill="url(#tf-bg-aura)" />
+
+  <!-- 2. Circular Outer Medallion Frame -->
   <circle
     cx="50"
     cy="50"
-    r="44"
-    fill="none"
-    stroke="var(--color-rule, #e5e4df)"
-    stroke-width="1.2"
-    stroke-dasharray="4 3"
-    opacity="0.65"
+    r="46"
+    fill="#080e1a"
+    stroke="url(#tf-border-grad)"
+    stroke-width="2.2"
   />
 
-  <!-- 2. Tactical Battlefield Ground Grid & Tread Tracks -->
-  <g class="tf-terrain" opacity="0.4">
-    <!-- Tread impression lines in ground -->
-    <path d="M 16 64 L 28 72" stroke="#64748b" stroke-width="1.5" stroke-linecap="round" />
-    <path d="M 22 68 L 34 76" stroke="#64748b" stroke-width="1.5" stroke-linecap="round" />
-    <path d="M 28 72 L 40 80" stroke="#64748b" stroke-width="1.5" stroke-linecap="round" />
-    <!-- Tactical terrain lines -->
-    <path
-      d="M 12 40 L 26 50 L 18 64"
-      fill="none"
-      stroke="var(--color-rule, #e5e4df)"
-      stroke-width="1"
-    />
-    <path
-      d="M 78 28 L 86 38 L 92 56"
-      fill="none"
-      stroke="var(--color-rule, #e5e4df)"
-      stroke-width="1"
-    />
+  <!-- Battlefield Tread Impression Marks in Ground Plane -->
+  <g stroke="#1e293b" stroke-width="1.2" opacity="0.6" stroke-linecap="round">
+    <path d="M 16 64 L 28 72" />
+    <path d="M 22 68 L 34 76" />
+    <path d="M 28 72 L 40 80" />
   </g>
 
-  <!-- 3. Isometric Holographic Tactical Unit Selection Ring -->
-  <g class="tf-selection-ring">
-    <!-- Outer green tactical ring ellipse (isometric tilt) -->
+  <!-- 3. Holographic Isometric Tactical Unit Target Lock Ring -->
+  <g class="tf-selection-ring" filter="url(#tf-glow)">
+    <!-- Outer green tactical ring ellipse (isometric angle) -->
     <ellipse
       cx="50"
-      cy="60"
+      cy="62"
       rx="38"
       ry="22"
       fill="none"
       stroke="#10b981"
-      stroke-width="4.5"
+      stroke-width="3.5"
       opacity="0.85"
     />
     <ellipse
       cx="50"
-      cy="60"
+      cy="62"
       rx="38"
       ry="22"
       fill="none"
       stroke="#a7f3d0"
-      stroke-width="1.4"
+      stroke-width="1.2"
       opacity="0.95"
     />
     <!-- Targeting Crosshair Ticks -->
-    <line x1="12" y1="60" x2="6" y2="60" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" />
-    <line x1="88" y1="60" x2="94" y2="60" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" />
-    <line x1="50" y1="38" x2="50" y2="34" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" />
-    <line x1="50" y1="82" x2="50" y2="86" stroke="#10b981" stroke-width="2.2" stroke-linecap="round" />
-    <!-- Tactical status coordinates text -->
-    <circle cx="20" cy="50" r="1.5" fill="#10b981" />
-    <circle cx="80" cy="70" r="1.5" fill="#10b981" />
+    <line x1="12" y1="62" x2="6" y2="62" stroke="#10b981" stroke-width="2.4" stroke-linecap="round" />
+    <line x1="88" y1="62" x2="94" y2="62" stroke="#10b981" stroke-width="2.4" stroke-linecap="round" />
+    <line x1="50" y1="40" x2="50" y2="34" stroke="#10b981" stroke-width="2.4" stroke-linecap="round" />
+    <line x1="50" y1="84" x2="50" y2="88" stroke="#10b981" stroke-width="2.4" stroke-linecap="round" />
   </g>
 
-  <!-- 4. Tank Ground Shadow -->
-  <ellipse cx="48" cy="64" rx="28" ry="14" fill="#0f172a" opacity="0.35" />
+  <!-- Ground Shadow under Tank -->
+  <ellipse cx="48" cy="65" rx="28" ry="14" fill="#020617" opacity="0.5" />
 
-  <!-- 5. Isometric Tank Assembly -->
-  <g class="tf-tank" filter="url(#tf-glow)">
-    <!-- Communications Antenna Whip extending from rear -->
-    <path
-      d="M 36 28 L 24 8"
-      fill="none"
-      stroke="#94a3b8"
-      stroke-width="1.2"
-      stroke-linecap="round"
-    />
+  <!-- 4. Heavy Armored Battle Tank in 3/4 Isometric Perspective -->
+  <g class="tf-tank" filter="url(#tf-shadow)">
+    <!-- Antenna extending from rear hull -->
+    <line x1="36" y1="28" x2="24" y2="8" stroke="#94a3b8" stroke-width="1.2" stroke-linecap="round" />
     <circle cx="24" cy="8" r="1.5" fill="#f59e0b" />
 
     <!-- Left / Rear Caterpillar Track & Wheels -->
     <g class="tf-left-track">
-      <!-- Rubber track loop -->
       <path
         d="M 28 42 C 24 45, 22 52, 24 58 C 26 62, 34 66, 42 66 C 46 66, 48 62, 46 56 C 44 50, 36 44, 28 42 Z"
-        fill="url(#tf-armor-dark)"
-        stroke="#0f172a"
+        fill="url(#tf-armor-shadow)"
+        stroke="#020617"
         stroke-width="1.4"
       />
-      <!-- Left Road Wheel -->
-      <circle cx="30" cy="53" r="7" fill="url(#tf-armor-main)" stroke="#0f172a" stroke-width="1.2" />
-      <circle cx="30" cy="53" r="3" fill="#1e3a8a" />
-      <circle cx="41" cy="59" r="5" fill="url(#tf-armor-main)" stroke="#0f172a" stroke-width="1.2" />
+      <!-- Road Wheels -->
+      <circle cx="30" cy="53" r="7" fill="url(#tf-armor-main)" stroke="#020617" stroke-width="1.2" />
+      <circle cx="30" cy="53" r="3" fill="#172554" />
+      <circle cx="41" cy="59" r="5" fill="url(#tf-armor-main)" stroke="#020617" stroke-width="1.2" />
     </g>
 
-    <!-- Main Armored Tank Hull / Lower Chassis -->
+    <!-- Main Armored Chassis & Sloped Glacis Plate -->
     <g class="tf-hull">
-      <!-- Chassis Base Platform -->
       <path
         d="M 26 48 L 48 36 L 76 46 L 68 64 L 40 70 L 22 56 Z"
         fill="url(#tf-armor-main)"
-        stroke="#0f172a"
+        stroke="#020617"
         stroke-width="1.6"
         stroke-linejoin="round"
       />
-      <!-- Front Slope Armor Glacis Plate -->
+      <!-- Specular Top Glacis Plate -->
       <path
         d="M 48 36 L 76 46 L 66 54 L 42 46 Z"
         fill="#93c5fd"
         opacity="0.45"
       />
-      <!-- Armored Rivets -->
+      <!-- Armor Rivets -->
       <circle cx="46" cy="42" r="0.8" fill="#ffffff" />
       <circle cx="56" cy="46" r="0.8" fill="#ffffff" />
       <circle cx="66" cy="50" r="0.8" fill="#ffffff" />
-      <!-- Front Headlight with glow -->
-      <circle cx="64" cy="50" r="3.2" fill="#fef08a" stroke="#0f172a" stroke-width="1.2" />
-      <circle cx="64" cy="50" r="1.2" fill="#ffffff" />
+      <!-- Headlight with glow -->
+      <circle cx="64" cy="50" r="3.2" fill="#fef08a" stroke="#020617" stroke-width="1.2" />
+      <circle cx="64" cy="50" r="1.4" fill="#ffffff" />
     </g>
 
     <!-- Right / Front Caterpillar Track & Wheels -->
     <g class="tf-right-track">
-      <!-- Rubber track assembly casing -->
       <path
         d="M 42 64 C 38 67, 36 74, 40 78 C 44 81, 56 82, 68 76 C 74 72, 76 66, 72 60 C 66 56, 52 58, 42 64 Z"
-        fill="url(#tf-armor-dark)"
-        stroke="#0f172a"
+        fill="url(#tf-armor-shadow)"
+        stroke="#020617"
         stroke-width="1.5"
       />
-      <!-- Front Large Road Wheel -->
-      <circle cx="46" cy="72" r="7.5" fill="url(#tf-armor-main)" stroke="#0f172a" stroke-width="1.3" />
-      <circle cx="46" cy="72" r="3.5" fill="#1e3a8a" />
+      <!-- Front Road Wheel -->
+      <circle cx="46" cy="72" r="7.5" fill="url(#tf-armor-main)" stroke="#020617" stroke-width="1.3" />
+      <circle cx="46" cy="72" r="3.5" fill="#172554" />
       <circle cx="46" cy="72" r="1.5" fill="#93c5fd" />
       <!-- Rear Road Wheel -->
-      <circle cx="64" cy="68" r="7" fill="url(#tf-armor-main)" stroke="#0f172a" stroke-width="1.3" />
-      <circle cx="64" cy="68" r="3" fill="#1e3a8a" />
+      <circle cx="64" cy="68" r="7" fill="url(#tf-armor-main)" stroke="#020617" stroke-width="1.3" />
+      <circle cx="64" cy="68" r="3" fill="#172554" />
       <circle cx="64" cy="68" r="1.5" fill="#93c5fd" />
-      <!-- Center idler gear -->
-      <circle cx="55" cy="70" r="4.5" fill="url(#tf-armor-main)" stroke="#0f172a" stroke-width="1" />
-      <!-- Track tread notches -->
-      <line x1="40" y1="78" x2="42" y2="80" stroke="#0f172a" stroke-width="1.2" />
-      <line x1="52" y1="81" x2="54" y2="83" stroke="#0f172a" stroke-width="1.2" />
-      <line x1="64" y1="78" x2="66" y2="80" stroke="#0f172a" stroke-width="1.2" />
+      <!-- Track Tread Ridges -->
+      <line x1="40" y1="78" x2="42" y2="80" stroke="#020617" stroke-width="1.4" />
+      <line x1="52" y1="81" x2="54" y2="83" stroke="#020617" stroke-width="1.4" />
+      <line x1="64" y1="78" x2="66" y2="80" stroke="#020617" stroke-width="1.4" />
     </g>
 
-    <!-- Rounded Dome Turret with Reactive Armor Plate -->
-    <g class="tf-turret-assembly">
-      <!-- Turret Dome Body -->
+    <!-- Rounded Dome Turret with Commander's Hatch -->
+    <g class="tf-turret">
       <path
         d="M 36 34 C 34 24, 46 16, 58 18 C 68 20, 72 30, 68 38 C 64 46, 44 46, 36 34 Z"
-        fill="url(#tf-turret)"
-        stroke="#0f172a"
+        fill="url(#tf-turret-dome)"
+        stroke="#020617"
         stroke-width="1.6"
         stroke-linejoin="round"
       />
       <!-- Commander Top Hatch -->
-      <ellipse cx="48" cy="23" rx="6" ry="3.5" fill="url(#tf-armor-dark)" stroke="#0f172a" stroke-width="1.2" />
-      <circle cx="46" cy="22" r="1.5" fill="#60a5fa" />
-
-      <!-- Turret Specular Highlight -->
+      <ellipse cx="48" cy="23" rx="6" ry="3.5" fill="#0f172a" stroke="#020617" stroke-width="1.2" />
+      <circle cx="46" cy="22" r="1.6" fill="#60a5fa" />
+      <!-- Specular Reflection Highlight Arc -->
       <path
         d="M 42 26 C 46 20, 54 20, 58 24"
         fill="none"
         stroke="#ffffff"
-        stroke-width="1.3"
+        stroke-width="1.4"
         stroke-linecap="round"
         opacity="0.85"
       />
     </g>
 
-    <!-- Heavy Cannon Barrel, Recoil Shroud & Laser Sight -->
+    <!-- Heavy Cannon Barrel & Muzzle Recoil Assembly -->
     <g class="tf-cannon">
-      <!-- Conical Cannon Mantlet / Collar -->
-      <path
-        d="M 58 32 L 68 28 L 74 36 L 64 40 Z"
-        fill="url(#tf-barrel)"
-        stroke="#0f172a"
-        stroke-width="1.4"
-      />
-      <!-- Cannon Barrel Tube extending forward-right -->
-      <path
-        d="M 68 28 L 82 23 L 84 29 L 70 34 Z"
-        fill="url(#tf-barrel)"
-        stroke="#0f172a"
-        stroke-width="1.5"
-      />
-      <!-- Barrel Muzzle Ring Lip -->
-      <ellipse cx="83" cy="26" rx="2.5" ry="4" fill="#0f172a" stroke="#93c5fd" stroke-width="1" />
-
-      <!-- Green Laser Sightline -->
-      <line x1="83" y1="26" x2="98" y2="21" stroke="#10b981" stroke-width="0.8" stroke-dasharray="1.5 1.5" opacity="0.8" />
+      <!-- Cannon Mantlet Collar -->
+      <path d="M 58 32 L 68 28 L 74 36 L 64 40 Z" fill="url(#tf-barrel-metal)" stroke="#020617" stroke-width="1.4" />
+      <!-- Barrel Tube -->
+      <path d="M 68 28 L 82 23 L 84 29 L 70 34 Z" fill="url(#tf-barrel-metal)" stroke="#020617" stroke-width="1.5" />
+      <!-- Muzzle Ring Lip -->
+      <ellipse cx="83" cy="26" rx="2.5" ry="4" fill="#020617" stroke="#93c5fd" stroke-width="1" />
+      <!-- Laser Sightline -->
+      <line x1="83" y1="26" x2="98" y2="21" stroke="#10b981" stroke-width="0.9" stroke-dasharray="1.5, 1.5" opacity="0.8" />
     </g>
   </g>
 
-  <!-- 6. Ballistic Cannon Fire Explosion, Muzzle Flash & Shockwaves -->
+  <!-- 5. Ballistic Cannon Fire Explosion, Muzzle Flash & Shockwaves -->
   <g class="tf-explosion" filter="url(#tf-glow)">
-    <!-- Expanding Shockwave Ring -->
+    <!-- Expanding Supersonic Shockwave Ring -->
     <ellipse
       cx="86"
       cy="25"
@@ -280,32 +248,33 @@ const { size = 64, class: className = '' } = Astro.props;
       ry="11"
       fill="none"
       stroke="#fbbf24"
-      stroke-width="1.5"
-      stroke-dasharray="3 2"
+      stroke-width="1.6"
+      stroke-dasharray="3, 2"
       opacity="0.85"
     />
 
-    <!-- Explosive Fireball Burst Flare (💥) -->
+    <!-- Explosive Fireball Starburst Flare (💥) -->
     <path
       d="M 83 26 L 88 18 L 89 22 L 95 19 L 93 25 L 98 28 L 92 31 L 95 36 L 89 33 L 87 38 L 85 30 Z"
-      fill="url(#tf-fire)"
+      fill="url(#tf-muzzle-fire)"
       stroke="#ffffff"
       stroke-width="0.8"
     />
 
-    <!-- White-hot Core Blast Center -->
-    <circle cx="87" cy="26" r="3.4" fill="#ffffff" />
-    <circle cx="87" cy="26" r="1.8" fill="#fef08a" />
+    <!-- White-Hot Core Blast Center -->
+    <circle cx="87" cy="26" r="3.6" fill="#ffffff" />
+    <circle cx="87" cy="26" r="2" fill="#fef08a" />
 
-    <!-- Trailing Ballistic Sparks & Smoke Plumes -->
-    <circle cx="94" cy="14" r="1.4" fill="#f59e0b" />
+    <!-- Trailing Ballistic Sparks & Ember Smoke Plumes -->
+    <circle cx="94" cy="14" r="1.5" fill="#f59e0b" />
     <circle cx="98" cy="22" r="1.6" fill="#ef4444" />
-    <circle cx="96" cy="34" r="1.2" fill="#fbbf24" />
-    <circle cx="91" cy="42" r="0.9" fill="#f97316" />
+    <circle cx="96" cy="34" r="1.3" fill="#fbbf24" />
+    <circle cx="91" cy="42" r="1" fill="#f97316" />
 
-    <!-- Recoil Smoke Puffs -->
-    <circle cx="76" cy="20" r="2.8" fill="#e2e8f0" opacity="0.5" />
-    <circle cx="72" cy="16" r="2.2" fill="#cbd5e1" opacity="0.4" />
+    <!-- Ejected Brass Spent Shell Casing -->
+    <g transform="translate(68, 18) rotate(-35)">
+      <rect x="0" y="0" width="3.5" height="1.8" rx="0.5" fill="#fbbf24" stroke="#d97706" stroke-width="0.5" />
+    </g>
   </g>
 </svg>
 
@@ -314,11 +283,13 @@ const { size = 64, class: className = '' } = Astro.props;
     display: inline-block;
     flex-shrink: 0;
     vertical-align: middle;
-    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.12));
-    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    filter: drop-shadow(0 4px 12px rgba(59, 130, 246, 0.25));
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.25s ease;
   }
 
+  :global(.tool:hover) .tank-fire-logo,
   .tank-fire-logo:hover {
-    transform: scale(1.08) translateY(-2px);
+    transform: translateY(-2px) scale(1.06);
+    filter: drop-shadow(0 6px 20px rgba(96, 165, 250, 0.45));
   }
 </style>

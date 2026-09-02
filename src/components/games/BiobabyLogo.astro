@@ -14,338 +14,226 @@ const { size = 64, class: className = '' } = Astro.props;
   height={size}
   class:list={['biobaby-logo', className]}
   role="img"
-  aria-label="Biobaby Logo — Superhero cape-wearing baby with pacifier and finger-gun molecular blast"
+  aria-label="Biobaby Logo — Superhero cape-wearing baby with glowing pacifier discharging a molecular finger-gun plasma blast"
 >
   <defs>
-    <!-- Background aura radial gradient -->
-    <radialGradient id="bb-aura" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.3" />
-      <stop offset="65%" stop-color="#0284c7" stop-opacity="0.12" />
-      <stop offset="100%" stop-color="#0284c7" stop-opacity="0" />
+    <!-- Background Atomic Bio-Aura -->
+    <radialGradient id="bb-bg-aura" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.32" />
+      <stop offset="60%" stop-color="#0284c7" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#020617" stop-opacity="0" />
     </radialGradient>
 
-    <!-- Baby skin gradient with warm subsurface highlight -->
-    <linearGradient id="bb-skin" x1="0%" y1="0%" x2="100%" y2="100%">
+    <!-- Outer Frame Gradient -->
+    <linearGradient id="bb-border-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="50%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#f43f5e" />
+    </linearGradient>
+
+    <!-- Baby Skin Gradient with Warm Subsurface Highlight -->
+    <linearGradient id="bb-skin-tone" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#fff5ed" />
       <stop offset="45%" stop-color="#fed7aa" />
       <stop offset="100%" stop-color="#fba868" />
     </linearGradient>
 
-    <!-- Baby hair tuft gradient -->
-    <linearGradient id="bb-hair" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#cbd5e1" />
-      <stop offset="60%" stop-color="#64748b" />
-      <stop offset="100%" stop-color="#334155" />
+    <!-- Billowing Superhero Cape (Crimson Velvet) -->
+    <linearGradient id="bb-cape-velvet" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fb7185" />
+      <stop offset="45%" stop-color="#f43f5e" />
+      <stop offset="85%" stop-color="#be123c" />
+      <stop offset="100%" stop-color="#881337" />
     </linearGradient>
 
-    <!-- Superhero Diaper / Shorts gradient -->
-    <linearGradient id="bb-shorts" x1="0%" y1="0%" x2="0%" y2="100%">
+    <!-- Cape Gold Silk Lining -->
+    <linearGradient id="bb-gold-lining" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="50%" stop-color="#fbbf24" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+
+    <!-- Superhero Diaper / Shorts -->
+    <linearGradient id="bb-shorts-blue" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#38bdf8" />
       <stop offset="50%" stop-color="#0284c7" />
       <stop offset="100%" stop-color="#0369a1" />
     </linearGradient>
 
-    <!-- Flowing Superhero Cape gradient -->
-    <linearGradient id="bb-cape" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#f43f5e" />
-      <stop offset="50%" stop-color="#be123c" />
-      <stop offset="100%" stop-color="#881337" />
-    </linearGradient>
-
-    <!-- Cape Gold Trim gradient -->
-    <linearGradient id="bb-gold" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#fef08a" />
-      <stop offset="50%" stop-color="#f59e0b" />
-      <stop offset="100%" stop-color="#d97706" />
-    </linearGradient>
-
-    <!-- Finger-gun laser energy blast gradient -->
-    <linearGradient id="bb-laser" x1="0%" y1="0%" x2="100%" y2="0%">
+    <!-- Molecular Finger-Gun Plasma Burst -->
+    <radialGradient id="bb-plasma-fire" cx="30%" cy="50%" r="70%">
       <stop offset="0%" stop-color="#ffffff" />
       <stop offset="25%" stop-color="#fef08a" />
       <stop offset="60%" stop-color="#fbbf24" />
       <stop offset="100%" stop-color="#f43f5e" />
-    </linearGradient>
+    </radialGradient>
 
-    <!-- Glow filter -->
+    <!-- Glow & Shadow Filters -->
     <filter id="bb-glow" x="-30%" y="-30%" width="160%" height="160%">
-      <feGaussianBlur stdDeviation="1.8" result="blur" />
-      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+      <feGaussianBlur stdDeviation="2" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <filter id="bb-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="1.5" dy="2.5" stdDeviation="2" flood-color="#000000" flood-opacity="0.45" />
     </filter>
   </defs>
 
-  <!-- 1. Ambient Superhero Bio-Aura & Atomic Orbitals -->
-  <circle cx="50" cy="50" r="46" fill="url(#bb-aura)" />
+  <!-- 1. Ambient Background Bio-Aura -->
+  <circle cx="50" cy="50" r="47" fill="url(#bb-bg-aura)" />
+
+  <!-- 2. Circular Outer Medallion Frame -->
   <circle
     cx="50"
     cy="50"
-    r="44"
-    fill="none"
-    stroke="var(--color-rule, #e5e4df)"
-    stroke-width="1.2"
-    stroke-dasharray="4 3"
-    opacity="0.65"
+    r="46"
+    fill="#08101a"
+    stroke="url(#bb-border-grad)"
+    stroke-width="2.2"
   />
 
-  <!-- Atomic orbital ellipses -->
-  <ellipse cx="50" cy="50" rx="42" ry="18" fill="none" stroke="#38bdf8" stroke-width="0.8" opacity="0.3" transform="rotate(-25 50 50)" />
-  <ellipse cx="50" cy="50" rx="42" ry="18" fill="none" stroke="#fbbf24" stroke-width="0.8" opacity="0.3" transform="rotate(35 50 50)" />
+  <!-- Atomic Orbital Ellipses -->
+  <ellipse cx="50" cy="50" rx="42" ry="18" fill="none" stroke="#38bdf8" stroke-width="0.9" opacity="0.35" transform="rotate(-25 50 50)" />
+  <ellipse cx="50" cy="50" rx="42" ry="18" fill="none" stroke="#fbbf24" stroke-width="0.9" opacity="0.35" transform="rotate(35 50 50)" />
 
-  <!-- 2. Trailing Superhero Cape with Billowing Folds -->
+  <!-- 3. Billowing Superhero Crimson Cape with Gold Lining -->
   <g class="bb-cape" filter="url(#bb-glow)">
-    <!-- Main billowing crimson cape -->
     <path
       d="M 46 54 C 40 64, 32 76, 18 86 C 14 89, 10 91, 13 93 C 22 91, 30 86, 40 78 C 47 72, 50 63, 48 56 Z"
-      fill="url(#bb-cape)"
+      fill="url(#bb-cape-velvet)"
       stroke="#4c0519"
-      stroke-width="1.4"
+      stroke-width="1.5"
       stroke-linejoin="round"
     />
-    <!-- Cape golden lining trim -->
+    <!-- Gold Trim Edge -->
     <path
       d="M 13 93 C 22 91, 30 86, 40 78"
       fill="none"
-      stroke="url(#bb-gold)"
-      stroke-width="1.5"
+      stroke="url(#bb-gold-lining)"
+      stroke-width="1.6"
       stroke-linecap="round"
     />
-    <!-- Cape inner fold shadow -->
-    <path
-      d="M 43 58 C 36 68, 28 78, 16 88 C 22 86, 32 81, 40 74 Z"
-      fill="#4c0519"
-      opacity="0.4"
-    />
   </g>
 
-  <!-- 3. Legs & Feet -->
-  <g class="bb-legs">
+  <!-- 4. Legs, Ankle Cuffs & Feet -->
+  <g class="bb-legs" filter="url(#bb-shadow)">
     <!-- Left Leg -->
-    <path
-      d="M 52 74 L 53 88 C 53 90, 55 90, 56 88 L 58 74 Z"
-      fill="url(#bb-skin)"
-      stroke="#0f172a"
-      stroke-width="1.3"
-      stroke-linejoin="round"
-    />
+    <path d="M 52 74 L 53 88 C 53 90, 55 90, 56 88 L 58 74 Z" fill="url(#bb-skin-tone)" stroke="#0f172a" stroke-width="1.4" />
     <!-- Right Leg -->
-    <path
-      d="M 58 74 L 60 86 C 60 88, 62 88, 63 86 L 64 74 Z"
-      fill="url(#bb-skin)"
-      stroke="#0f172a"
-      stroke-width="1.3"
-      stroke-linejoin="round"
-    />
-    <!-- Tiny superhero golden ankle cuffs -->
-    <rect x="52.5" y="85" width="3.5" height="1.8" rx="0.9" fill="url(#bb-gold)" stroke="#0f172a" stroke-width="0.6" />
-    <rect x="59.5" y="83" width="3.5" height="1.8" rx="0.9" fill="url(#bb-gold)" stroke="#0f172a" stroke-width="0.6" />
+    <path d="M 58 74 L 60 86 C 60 88, 62 88, 63 86 L 64 74 Z" fill="url(#bb-skin-tone)" stroke="#0f172a" stroke-width="1.4" />
+    <!-- Gold Superhero Ankle Cuffs -->
+    <rect x="52.5" y="85" width="3.5" height="1.8" rx="0.9" fill="url(#bb-gold-lining)" stroke="#0f172a" stroke-width="0.6" />
+    <rect x="59.5" y="83" width="3.5" height="1.8" rx="0.9" fill="url(#bb-gold-lining)" stroke="#0f172a" stroke-width="0.6" />
   </g>
 
-  <!-- 4. Superhero Blue Shorts / Diaper with Utility Belt -->
-  <g class="bb-shorts">
-    <!-- Main diaper body -->
+  <!-- 5. Superhero Blue Shorts with Gold Utility Belt & DNA Emblem -->
+  <g class="bb-shorts" filter="url(#bb-shadow)">
     <path
       d="M 42 58 C 42 68, 48 76, 62 76 C 68 76, 68 68, 66 58 C 58 56, 50 56, 42 58 Z"
-      fill="url(#bb-shorts)"
-      stroke="#0f172a"
-      stroke-width="1.5"
-      stroke-linejoin="round"
-    />
-    <!-- Gold utility belt -->
-    <path
-      d="M 42 58 C 50 56, 58 56, 66 58"
-      fill="none"
-      stroke="url(#bb-gold)"
-      stroke-width="2.2"
-    />
-    <!-- Belt buckle emblem -->
-    <circle cx="54" cy="57" r="2" fill="url(#bb-gold)" stroke="#0f172a" stroke-width="0.8" />
-    <!-- Leg cuffs -->
-    <line x1="48" y1="74" x2="56" y2="74" stroke="#0f172a" stroke-width="1.3" />
-    <line x1="57" y1="74" x2="64" y2="74" stroke="#0f172a" stroke-width="1.3" />
-  </g>
-
-  <!-- 5. Torso & Arms -->
-  <g class="bb-torso">
-    <!-- Upper body torso -->
-    <path
-      d="M 46 44 C 44 48, 43 54, 43 58 C 50 56, 58 56, 64 58 C 63 52, 62 46, 60 44 Z"
-      fill="url(#bb-skin)"
-      stroke="#0f172a"
-      stroke-width="1.4"
-    />
-
-    <!-- Chest DNA Double-Helix Emblem -->
-    <path
-      d="M 52 48 C 54 50, 56 50, 58 48 C 56 46, 54 46, 52 48 Z"
-      fill="url(#bb-gold)"
-      stroke="#0f172a"
-      stroke-width="0.6"
-    />
-
-    <!-- Left hand resting on cape back -->
-    <path
-      d="M 48 48 C 47 54, 46 62, 45 68 C 46 70, 48 70, 49 66 L 51 52 Z"
-      fill="url(#bb-skin)"
-      stroke="#0f172a"
-      stroke-width="1.3"
-      stroke-linejoin="round"
-    />
-
-    <!-- Right Arm pointing finger-gun (👉) with bio-power wristband -->
-    <g class="bb-arm">
-      <!-- Arm extending forward -->
-      <path
-        d="M 59 47 L 72 46 C 75 46, 75 48, 72 49 L 61 52 Z"
-        fill="url(#bb-skin)"
-        stroke="#0f172a"
-        stroke-width="1.3"
-      />
-      <!-- Gold Wristband -->
-      <rect x="68" y="46" width="3" height="4" rx="1" fill="url(#bb-gold)" stroke="#0f172a" stroke-width="0.7" transform="rotate(-5 69 48)" />
-      <!-- Hand & Thumb pointing up -->
-      <path
-        d="M 72 46 L 73 43 C 73 42, 74 42, 74 44 L 74 46"
-        fill="url(#bb-skin)"
-        stroke="#0f172a"
-        stroke-width="1.3"
-      />
-      <!-- Outstretched index finger -->
-      <path
-        d="M 72 46 L 80 46 C 81 46, 81 48, 80 48 L 73 49"
-        fill="url(#bb-skin)"
-        stroke="#0f172a"
-        stroke-width="1.3"
-        stroke-linejoin="round"
-      />
-      <!-- Curled fingers knuckles -->
-      <path
-        d="M 74 49 C 75 51, 74 52, 72 52"
-        fill="none"
-        stroke="#0f172a"
-        stroke-width="1.2"
-      />
-    </g>
-  </g>
-
-  <!-- 6. Baby Head, Mask & Pacifier -->
-  <g class="bb-head">
-    <!-- Big cute round head -->
-    <path
-      d="M 38 27 C 38 14, 52 7, 65 11 C 77 15, 80 28, 77 39 C 74 48, 64 51, 52 49 C 42 47, 38 38, 38 27 Z"
-      fill="url(#bb-skin)"
+      fill="url(#bb-shorts-blue)"
       stroke="#0f172a"
       stroke-width="1.6"
       stroke-linejoin="round"
     />
-
-    <!-- Cute hair tuft at forehead -->
-    <path
-      d="M 56 10 C 58 14, 62 16, 70 17 C 66 18, 60 17, 57 14 C 55 12, 54 11, 56 10 Z"
-      fill="url(#bb-hair)"
-      stroke="#0f172a"
-      stroke-width="1.2"
-    />
-    <path
-      d="M 61 14 C 64 16, 68 18, 71 19"
-      fill="none"
-      stroke="#0f172a"
-      stroke-width="1"
-    />
-
-    <!-- Ear -->
-    <path
-      d="M 53 28 C 50 28, 50 33, 54 34 C 56 34, 56 30, 54 28"
-      fill="url(#bb-skin)"
-      stroke="#0f172a"
-      stroke-width="1.3"
-    />
-
-    <!-- Hero Mask / Domino Mask around eye -->
-    <path
-      d="M 62 23 C 65 21, 72 21, 75 25 C 73 28, 66 29, 62 26 Z"
-      fill="#0284c7"
-      stroke="#0f172a"
-      stroke-width="1"
-      opacity="0.85"
-    />
-
-    <!-- Determined round baby eye with highlight -->
-    <circle cx="68" cy="25" r="2.8" fill="#0f172a" />
-    <circle cx="67" cy="24" r="1" fill="#ffffff" />
-
-    <!-- Cute eyebrow arch -->
-    <path
-      d="M 65 19 C 67 18, 70 19, 72 21"
-      fill="none"
-      stroke="#0f172a"
-      stroke-width="1.2"
-      stroke-linecap="round"
-    />
-
-    <!-- Rosy Cheek Blush -->
-    <ellipse cx="64" cy="32" rx="4.5" ry="2.8" fill="#f43f5e" opacity="0.65" />
-
-    <!-- Cute nose -->
-    <path
-      d="M 76 31 C 78 32, 78 34, 76 35"
-      fill="none"
-      stroke="#0f172a"
-      stroke-width="1.3"
-      stroke-linecap="round"
-    />
-
-    <!-- Glowing Bio-Energy Pacifier in mouth -->
-    <g class="bb-pacifier" filter="url(#bb-glow)">
-      <!-- Pacifier shield/base with cyan glow -->
-      <ellipse cx="75" cy="37" rx="2.8" ry="3.8" fill="#38bdf8" stroke="#0284c7" stroke-width="1.2" />
-      <!-- Glowing core -->
-      <circle cx="75" cy="37" r="1.5" fill="#ffffff" />
-      <!-- Pacifier bulb/nipple base -->
-      <path
-        d="M 77 35 C 80 34, 82 36, 81 38 C 80 40, 77 39, 76 38"
-        fill="#ffffff"
-        stroke="#0f172a"
-        stroke-width="1.2"
-      />
-      <!-- Golden Pacifier ring handle -->
-      <circle cx="79" cy="37" r="2.2" fill="none" stroke="url(#bb-gold)" stroke-width="1.3" />
-    </g>
+    <!-- Gold Utility Belt -->
+    <path d="M 42 58 C 50 56, 58 56, 66 58" fill="none" stroke="url(#bb-gold-lining)" stroke-width="2.4" />
+    <!-- Belt Buckle DNA Emblem -->
+    <circle cx="54" cy="57" r="2.2" fill="url(#bb-gold-lining)" stroke="#0f172a" stroke-width="0.8" />
   </g>
 
-  <!-- 7. Finger-Gun Laser Blast, Concentric Shockwaves & Sparks -->
-  <g class="bb-effects" filter="url(#bb-glow)">
-    <!-- Shockwave ring 1 -->
+  <!-- 6. Torso, Arms & Finger-Gun Action -->
+  <g class="bb-torso" filter="url(#bb-shadow)">
+    <!-- Upper Body Torso -->
     <path
-      d="M 83 41 C 85 44, 85 50, 83 53"
-      fill="none"
-      stroke="#38bdf8"
-      stroke-width="1.4"
-      stroke-linecap="round"
-      opacity="0.9"
-    />
-    <!-- Shockwave ring 2 -->
-    <path
-      d="M 87 38 C 90 42, 90 52, 87 56"
-      fill="none"
-      stroke="#fbbf24"
-      stroke-width="1.2"
-      stroke-linecap="round"
-      opacity="0.75"
+      d="M 46 44 C 44 48, 43 54, 43 58 C 50 56, 58 56, 64 58 C 63 52, 62 46, 60 44 Z"
+      fill="url(#bb-skin-tone)"
+      stroke="#0f172a"
+      stroke-width="1.5"
     />
 
-    <!-- Starburst plasma blast at fingertip -->
+    <!-- Chest DNA Double-Helix Emblem Badge -->
     <path
-      d="M 86 46 L 90 43 L 88 47 L 93 48 L 88 49 L 90 53 L 86 50 L 82 53 L 84 49 L 79 48 L 84 47 L 82 43 Z"
-      fill="url(#bb-laser)"
-      stroke="#ffffff"
+      d="M 52 48 C 54 50, 56 50, 58 48 C 56 46, 54 46, 52 48 Z"
+      fill="url(#bb-gold-lining)"
+      stroke="#0f172a"
       stroke-width="0.7"
     />
 
-    <!-- Floating molecular energy spark particles -->
-    <circle cx="91" cy="38" r="1.5" fill="#fbbf24" stroke="#ffffff" stroke-width="0.5" />
-    <circle cx="95" cy="46" r="1.2" fill="#f43f5e" />
-    <circle cx="88" cy="56" r="1" fill="#38bdf8" />
-    <circle cx="94" cy="52" r="0.7" fill="#ffffff" />
+    <!-- Left Arm Resting Behind -->
+    <path d="M 48 48 C 47 54, 46 62, 45 68 C 46 70, 48 70, 49 66 L 51 52 Z" fill="url(#bb-skin-tone)" stroke="#0f172a" stroke-width="1.4" />
+
+    <!-- Outstretched Right Arm Pointing Finger-Gun (👉) -->
+    <g class="bb-finger-gun">
+      <path d="M 59 47 L 72 46 C 75 46, 75 48, 72 49 L 61 52 Z" fill="url(#bb-skin-tone)" stroke="#0f172a" stroke-width="1.4" />
+      <!-- Gold Wrist Gauntlet -->
+      <rect x="68" y="46" width="3.2" height="4.2" rx="1" fill="url(#bb-gold-lining)" stroke="#0f172a" stroke-width="0.7" transform="rotate(-5 69 48)" />
+      <!-- Thumb Cocked Up -->
+      <path d="M 72 46 L 73 43 C 73 42, 74 42, 74 44 L 74 46" fill="url(#bb-skin-tone)" stroke="#0f172a" stroke-width="1.4" />
+      <!-- Outstretched Index Finger Barrel -->
+      <path d="M 72 46 L 80 46 C 81 46, 81 48, 80 48 L 73 49" fill="url(#bb-skin-tone)" stroke="#0f172a" stroke-width="1.4" stroke-linejoin="round" />
+    </g>
+  </g>
+
+  <!-- 7. Baby Head, Domino Mask & Glowing Pacifier -->
+  <g class="bb-head" filter="url(#bb-shadow)">
+    <!-- Big Cute Round Head -->
+    <path
+      d="M 38 27 C 38 14, 52 7, 65 11 C 77 15, 80 28, 77 39 C 74 48, 64 51, 52 49 C 42 47, 38 38, 38 27 Z"
+      fill="url(#bb-skin-tone)"
+      stroke="#0f172a"
+      stroke-width="1.8"
+      stroke-linejoin="round"
+    />
+
+    <!-- Forehead Hair Tuft -->
+    <path d="M 56 10 C 58 14, 62 16, 70 17 C 66 18, 60 17, 57 14 C 55 12, 54 11, 56 10 Z" fill="#475569" stroke="#0f172a" stroke-width="1.3" />
+
+    <!-- Cute Baby Ear -->
+    <path d="M 53 28 C 50 28, 50 33, 54 34 C 56 34, 56 30, 54 28" fill="url(#bb-skin-tone)" stroke="#0f172a" stroke-width="1.4" />
+
+    <!-- Domino Hero Mask -->
+    <path d="M 62 23 C 65 21, 72 21, 75 25 C 73 28, 66 29, 62 26 Z" fill="#0284c7" stroke="#0f172a" stroke-width="1.1" />
+
+    <!-- Determined Big Eye with Specular Light -->
+    <circle cx="68" cy="25" r="3" fill="#0f172a" />
+    <circle cx="67" cy="24" r="1.1" fill="#ffffff" />
+
+    <!-- Rosy Cheek Blush -->
+    <ellipse cx="64" cy="32" rx="4.8" ry="3" fill="#f43f5e" opacity="0.7" />
+
+    <!-- Glowing Bio-Energy Pacifier -->
+    <g class="bb-pacifier" filter="url(#bb-glow)">
+      <!-- Cyan Pacifier Shield -->
+      <ellipse cx="75" cy="37" rx="3" ry="4" fill="#38bdf8" stroke="#0284c7" stroke-width="1.2" />
+      <circle cx="75" cy="37" r="1.6" fill="#ffffff" />
+      <!-- Golden Ring Handle -->
+      <circle cx="79" cy="37" r="2.4" fill="none" stroke="url(#bb-gold-lining)" stroke-width="1.4" />
+    </g>
+  </g>
+
+  <!-- 8. Finger-Gun Plasma Blast & Shockwave Rings -->
+  <g class="bb-effects" filter="url(#bb-glow)">
+    <!-- Shockwave Ring 1 -->
+    <path d="M 83 41 C 85 44, 85 50, 83 53" fill="none" stroke="#38bdf8" stroke-width="1.6" stroke-linecap="round" />
+    <!-- Shockwave Ring 2 -->
+    <path d="M 87 38 C 90 42, 90 52, 87 56" fill="none" stroke="#fbbf24" stroke-width="1.4" stroke-linecap="round" />
+
+    <!-- Starburst Plasma Flare at Fingertip -->
+    <path
+      d="M 86 46 L 90 43 L 88 47 L 93 48 L 88 49 L 90 53 L 86 50 L 82 53 L 84 49 L 79 48 L 84 47 L 82 43 Z"
+      fill="url(#bb-plasma-fire)"
+      stroke="#ffffff"
+      stroke-width="0.8"
+    />
+
+    <!-- Floating Molecular Energy Sparks -->
+    <circle cx="91" cy="38" r="1.6" fill="#fbbf24" stroke="#ffffff" stroke-width="0.5" />
+    <circle cx="95" cy="46" r="1.3" fill="#f43f5e" />
+    <circle cx="88" cy="56" r="1.1" fill="#38bdf8" />
+    <circle cx="94" cy="52" r="0.8" fill="#ffffff" />
   </g>
 </svg>
 
@@ -354,11 +242,13 @@ const { size = 64, class: className = '' } = Astro.props;
     display: inline-block;
     flex-shrink: 0;
     vertical-align: middle;
-    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.12));
-    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    filter: drop-shadow(0 4px 12px rgba(56, 189, 248, 0.25));
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.25s ease;
   }
 
+  :global(.tool:hover) .biobaby-logo,
   .biobaby-logo:hover {
-    transform: scale(1.08) translateY(-2px);
+    transform: translateY(-2px) scale(1.06);
+    filter: drop-shadow(0 6px 20px rgba(56, 189, 248, 0.45));
   }
 </style>
