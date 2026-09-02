@@ -5,11 +5,11 @@ import {
   type CustomEndpoint,
 } from '../lib/bayGraph';
 import {
-  buildRealWorldRoadGraph,
-  generateOfflineRealRoadGraph,
-  realRoadGraphToBayGraph,
-  type RealRoadGraph,
-} from '../lib/realWorldRoadGraph';
+  buildFullCityRoadGraph,
+  spliceEndpointIntoCityGraph,
+  cityRoadGraphToBayGraph,
+  type CityRoadGraph,
+} from '../lib/cityRoadGraph';
 import {
   type AlgorithmId,
   type PathfindingResult,
@@ -19,7 +19,6 @@ import {
 import {
   searchBayAreaPlaces,
   reverseGeocodeLocal,
-  LOCAL_BAY_GAZETTEER,
 } from '../lib/geocoding';
 import {
   getSecureStoredApiKey,
@@ -28,32 +27,53 @@ import {
   hasGoogleMapsAuthFailed,
   GOOGLE_MAPS_DARK_STYLE,
 } from '../lib/googleMaps';
+import { audioEngine } from '../lib/audioFeedback';
 
 export type MapTileStyle = 'dark' | 'light' | 'streets' | 'satellite';
 
-const PRESET_COORDINATES: Record<
+export const FULL_CITY_PRESETS: Record<
   string,
-  { start: { name: string; lat: number; lng: number; city: string }; goal: { name: string; lat: number; lng: number; city: string } }
+  { start: { name: string; lat: number; lng: number; district: string }; goal: { name: string; lat: number; lng: number; district: string } }
 > = {
   trip_sf_to_berkeley: {
-    start: { name: 'San Francisco Ferry Building', lat: 37.7955, lng: -122.3937, city: 'San Francisco' },
-    goal: { name: 'UC Berkeley (Sather Tower / Campanile)', lat: 37.8719, lng: -122.2585, city: 'Berkeley' },
+    start: { name: 'Market St & Steuart St (Ferry Bldg)', lat: 37.7942, lng: -122.3955, district: 'Downtown' },
+    goal: { name: 'University Ave & Oxford St (UC Berkeley)', lat: 37.8719, lng: -122.2585, district: 'Berkeley' },
+  },
+  'trip-bay-bridge': {
+    start: { name: 'Market St & Steuart St (Ferry Bldg)', lat: 37.7942, lng: -122.3955, district: 'Downtown' },
+    goal: { name: 'University Ave & Oxford St (UC Berkeley)', lat: 37.8719, lng: -122.2585, district: 'Berkeley' },
   },
   trip_sfo_to_stanford: {
-    start: { name: 'San Francisco International Airport (SFO)', lat: 37.6213, lng: -122.379, city: 'San Bruno' },
-    goal: { name: 'Stanford University (Main Quad)', lat: 37.4275, lng: -122.1697, city: 'Stanford' },
+    start: { name: 'San Francisco International Airport (SFO)', lat: 37.6213, lng: -122.3790, district: 'San Bruno' },
+    goal: { name: 'Stanford University (Palm Drive & Main Quad)', lat: 37.4275, lng: -122.1697, district: 'Stanford' },
+  },
+  'trip-golden-gate': {
+    start: { name: 'Stanford University (Palm Drive & Main Quad)', lat: 37.4275, lng: -122.1697, district: 'Stanford' },
+    goal: { name: 'Golden Gate Bridge Vista Point (Marin Headlands)', lat: 37.8325, lng: -122.4795, district: 'Marin' },
   },
   trip_sj_to_oakland: {
-    start: { name: 'San Jose City Hall / Downtown', lat: 37.3382, lng: -121.8863, city: 'San Jose' },
-    goal: { name: 'Oakland City Center', lat: 37.8044, lng: -122.2712, city: 'Oakland' },
+    start: { name: 'San Jose City Hall & Santa Clara St', lat: 37.3382, lng: -121.8863, district: 'San Jose' },
+    goal: { name: 'Oakland City Center (Broadway & 14th St)', lat: 37.8044, lng: -122.2712, district: 'Oakland' },
+  },
+  'trip-silicon-valley': {
+    start: { name: 'San Francisco International Airport (SFO)', lat: 37.6213, lng: -122.3790, district: 'San Bruno' },
+    goal: { name: 'San Jose City Hall & Santa Clara St', lat: 37.3382, lng: -121.8863, district: 'San Jose' },
   },
   trip_marin_to_sf: {
-    start: { name: 'San Rafael / Marin Civic Center', lat: 37.9735, lng: -122.5311, city: 'San Rafael' },
-    goal: { name: 'San Francisco City Hall (Civic Center)', lat: 37.7793, lng: -122.4192, city: 'San Francisco' },
+    start: { name: 'Golden Gate Bridge Vista Point (Marin Headlands)', lat: 37.8325, lng: -122.4795, district: 'Marin' },
+    goal: { name: 'Market St & 7th St (Civic Center / City Hall)', lat: 37.7798, lng: -122.4137, district: 'Civic Center' },
+  },
+  'trip-bay-corridor': {
+    start: { name: 'San Jose City Hall & Santa Clara St', lat: 37.3382, lng: -121.8863, district: 'San Jose' },
+    goal: { name: 'Market St & 1st St (FiDi)', lat: 37.7909, lng: -122.3998, district: 'FiDi' },
   },
   trip_cross_bay_bridges: {
-    start: { name: 'Salesforce Tower (FiDi)', lat: 37.7897, lng: -122.3972, city: 'San Francisco' },
-    goal: { name: 'Fremont Central Park', lat: 37.5483, lng: -121.9886, city: 'Fremont' },
+    start: { name: 'Market St & Steuart St (Ferry Bldg)', lat: 37.7942, lng: -122.3955, district: 'Downtown' },
+    goal: { name: 'Geary Blvd & Great Highway (Ocean Beach)', lat: 37.7785, lng: -122.5135, district: 'Ocean Beach' },
+  },
+  'trip-dumbarton': {
+    start: { name: 'Geary Blvd & Great Highway (Ocean Beach)', lat: 37.7785, lng: -122.5135, district: 'Ocean Beach' },
+    goal: { name: 'Market St & Steuart St (Ferry Bldg)', lat: 37.7942, lng: -122.3955, district: 'Downtown' },
   },
 };
 
@@ -76,13 +96,15 @@ export class BayRouteVisualizer {
 
   private currentTileStyle: MapTileStyle = 'dark';
 
-  // Dynamic Real-World Road Graph & Arbitrary Endpoints
-  private activeGraph: BayGraph | null = null;
-  private activeRealGraph: RealRoadGraph | null = null;
+  // High-Density Full City Road Graph
+  private cityBaseGraph: CityRoadGraph;
+  private activeCityGraph: CityRoadGraph;
+  private activeBayGraph: BayGraph;
+
   public currentStartEndpoint: CustomEndpoint;
   public currentGoalEndpoint: CustomEndpoint;
-  private startId: string = 'start_node';
-  private goalId: string = 'goal_node';
+  private startId: string = 'mkt_steuart';
+  private goalId: string = 'berkeley_campus';
 
   // App & Algorithm State
   public currentAlgorithm: AlgorithmId = 'dijkstra';
@@ -96,6 +118,9 @@ export class BayRouteVisualizer {
   private lastFrameTimestamp: number = 0;
   private stepsAccumulator: number = 0;
 
+  // Hover & Inspector State
+  private hoveredNodeId: string | null = null;
+
   private isDarkTheme: boolean = true;
   private isMapReady: boolean = false;
 
@@ -107,33 +132,29 @@ export class BayRouteVisualizer {
     this.ctx = ctx;
     this.container = container;
 
-    const defaultStart = LOCAL_BAY_GAZETTEER[0]; // SF Ferry Bldg
-    const defaultGoal = LOCAL_BAY_GAZETTEER.find((p) => p.id === 'geo_uc_berkeley')!; // UC Berkeley
+    // 1. Build the authentic full city road graph
+    this.cityBaseGraph = buildFullCityRoadGraph();
+    this.activeCityGraph = this.cityBaseGraph;
+    this.activeBayGraph = cityRoadGraphToBayGraph(this.activeCityGraph);
 
+    const defaultPreset = FULL_CITY_PRESETS.trip_sf_to_berkeley;
     this.currentStartEndpoint = {
-      id: 'start_node',
-      name: defaultStart.name,
-      lat: defaultStart.lat,
-      lng: defaultStart.lng,
-      city: defaultStart.city,
-      region: defaultStart.region,
+      id: 'mkt_steuart',
+      name: defaultPreset.start.name,
+      lat: defaultPreset.start.lat,
+      lng: defaultPreset.start.lng,
+      city: defaultPreset.start.district,
+      region: 'sf',
     };
 
     this.currentGoalEndpoint = {
-      id: 'goal_node',
-      name: defaultGoal.name,
-      lat: defaultGoal.lat,
-      lng: defaultGoal.lng,
-      city: defaultGoal.city,
-      region: defaultGoal.region,
+      id: 'berkeley_campus',
+      name: defaultPreset.goal.name,
+      lat: defaultPreset.goal.lat,
+      lng: defaultPreset.goal.lng,
+      city: defaultPreset.goal.district,
+      region: 'sf',
     };
-
-    // Pre-seed with instant real-world topological graph
-    this.activeRealGraph = generateOfflineRealRoadGraph(
-      this.currentStartEndpoint,
-      this.currentGoalEndpoint
-    );
-    this.activeGraph = realRoadGraphToBayGraph(this.activeRealGraph);
 
     this.detectTheme();
 
@@ -143,6 +164,7 @@ export class BayRouteVisualizer {
 
     this.initMapEngine();
     this.bindDOMEvents();
+    this.setupInspector();
   }
 
   private detectTheme(): void {
@@ -152,7 +174,6 @@ export class BayRouteVisualizer {
   }
 
   private async initMapEngine(): Promise<void> {
-    // 1. Try Google Maps if an API key is available and auth hasn't failed
     const datasetKey = this.container.getAttribute('data-gmap-token') || '';
     const envKey = datasetKey.trim() || (await getSecureStoredApiKey());
 
@@ -164,11 +185,10 @@ export class BayRouteVisualizer {
           return;
         }
       } catch (_e) {
-        // Fall through to instant Leaflet engine
+        // Fall back to instant Leaflet engine
       }
     }
 
-    // 2. Direct high-speed Leaflet Map Engine
     this.initLeafletMap();
   }
 
@@ -207,11 +227,11 @@ export class BayRouteVisualizer {
 
     this.mapEl.replaceChildren();
 
-    const center = { lat: 37.76, lng: -122.28 };
+    const center = { lat: 37.785, lng: -122.41 };
     this.gmap = new window.google.maps.Map(this.mapEl, {
       center,
-      zoom: 10,
-      minZoom: 8,
+      zoom: 12,
+      minZoom: 9,
       maxZoom: 19,
       styles: this.isDarkTheme ? GOOGLE_MAPS_DARK_STYLE : undefined,
       disableDefaultUI: true,
@@ -260,11 +280,11 @@ export class BayRouteVisualizer {
     }
     this.mapEl.replaceChildren();
 
-    const bayCenter: L.LatLngExpression = [37.76, -122.28];
+    const cityCenter: L.LatLngExpression = [37.785, -122.41];
     this.leafletMap = L.map(this.mapEl, {
-      center: bayCenter,
-      zoom: 10,
-      minZoom: 8,
+      center: cityCenter,
+      zoom: 12,
+      minZoom: 9,
       maxZoom: 18,
       zoomControl: false,
       attributionControl: false,
@@ -447,7 +467,7 @@ export class BayRouteVisualizer {
             resultsContainer.hidden = true;
 
             const endpoint: CustomEndpoint = {
-              id: type === 'start' ? 'start_node' : 'goal_node',
+              id: `custom_${type}_node`,
               name: place.name,
               lat: place.lat,
               lng: place.lng,
@@ -477,13 +497,71 @@ export class BayRouteVisualizer {
     });
   }
 
+  private setupInspector(): void {
+    const tooltip = this.container.querySelector<HTMLElement>('[data-br-inspector]');
+    if (!tooltip) return;
+
+    const viewport = this.container.querySelector<HTMLElement>('.br-map-viewport') || this.canvasEl;
+
+    viewport.addEventListener('mousemove', (e) => {
+      const rect = this.canvasEl.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      // Find nearest node within 22px radius
+      let nearestId: string | null = null;
+      let minDistance = 22;
+
+      for (const [id, node] of this.activeBayGraph.nodes) {
+        const p = this.latLngToPoint(node.lat, node.lng);
+        const dist = Math.hypot(p.x - mouseX, p.y - mouseY);
+        if (dist < minDistance) {
+          minDistance = dist;
+          nearestId = id;
+        }
+      }
+
+      this.hoveredNodeId = nearestId;
+
+      if (nearestId && this.currentResult) {
+        const node = this.activeBayGraph.nodes.get(nearestId)!;
+        const step = this.currentResult.steps.find((s) => s.nodeId === nearestId);
+
+        tooltip.hidden = false;
+        tooltip.style.transform = `translate(${mouseX + 16}px, ${mouseY + 16}px)`;
+
+        const elTitle = tooltip.querySelector('[data-inspector-title]');
+        const elG = tooltip.querySelector('[data-inspector-g]');
+        const elH = tooltip.querySelector('[data-inspector-h]');
+        const elF = tooltip.querySelector('[data-inspector-f]');
+        const elEdge = tooltip.querySelector('[data-inspector-edge]');
+
+        if (elTitle) elTitle.textContent = node.name;
+        if (elG) elG.textContent = step ? `${Math.round(step.g * 10) / 10} min` : 'Unvisited';
+        if (elH) elH.textContent = step ? `${Math.round(step.h * 10) / 10} min` : '—';
+        if (elF) elF.textContent = step ? `${Math.round(step.f * 10) / 10} min` : '—';
+        if (elEdge) elEdge.textContent = step?.edgeName ? `Via: ${step.edgeName}` : `District: ${node.city}`;
+      } else {
+        tooltip.hidden = true;
+      }
+
+      this.render();
+    });
+
+    viewport.addEventListener('mouseleave', () => {
+      this.hoveredNodeId = null;
+      if (tooltip) tooltip.hidden = true;
+      this.render();
+    });
+  }
+
   private handleMapClick(lat: number, lng: number): void {
     const geo = reverseGeocodeLocal(lat, lng);
     const goalInput = this.container.querySelector<HTMLInputElement>('[data-br-input="goal"]');
     if (goalInput) goalInput.value = geo.name;
 
     this.currentGoalEndpoint = {
-      id: 'goal_node',
+      id: 'custom_goal_node',
       name: geo.name,
       lat,
       lng,
@@ -495,24 +573,24 @@ export class BayRouteVisualizer {
   }
 
   public loadTrip(tripId: string): void {
-    const preset = PRESET_COORDINATES[tripId];
+    const preset = FULL_CITY_PRESETS[tripId];
     if (!preset) return;
 
     this.currentStartEndpoint = {
-      id: 'start_node',
+      id: `start_${tripId}`,
       name: preset.start.name,
       lat: preset.start.lat,
       lng: preset.start.lng,
-      city: preset.start.city,
+      city: preset.start.district,
       region: 'sf',
     };
 
     this.currentGoalEndpoint = {
-      id: 'goal_node',
+      id: `goal_${tripId}`,
       name: preset.goal.name,
       lat: preset.goal.lat,
       lng: preset.goal.lng,
-      city: preset.goal.city,
+      city: preset.goal.district,
       region: 'sf',
     };
 
@@ -550,30 +628,18 @@ export class BayRouteVisualizer {
     this.recalculate();
   }
 
-  public async recalculate(): Promise<void> {
+  public recalculate(): void {
     this.pause();
 
-    // Dynamically build real-world road graph for these exact endpoints
-    try {
-      const realGraph = await buildRealWorldRoadGraph(
-        this.currentStartEndpoint,
-        this.currentGoalEndpoint
-      );
-      this.activeRealGraph = realGraph;
-      this.activeGraph = realRoadGraphToBayGraph(realGraph);
-      this.startId = realGraph.startId;
-      this.goalId = realGraph.goalId;
-    } catch (_err) {
-      this.activeRealGraph = generateOfflineRealRoadGraph(
-        this.currentStartEndpoint,
-        this.currentGoalEndpoint
-      );
-      this.activeGraph = realRoadGraphToBayGraph(this.activeRealGraph);
-      this.startId = this.activeRealGraph.startId;
-      this.goalId = this.activeRealGraph.goalId;
-    }
+    // 1. Splice Start into city road graph
+    const splicedStart = spliceEndpointIntoCityGraph(this.cityBaseGraph, this.currentStartEndpoint, true);
+    // 2. Splice Goal into city road graph
+    const splicedGoal = spliceEndpointIntoCityGraph(splicedStart.graph, this.currentGoalEndpoint, false);
 
-    if (!this.activeGraph) return;
+    this.activeCityGraph = splicedGoal.graph;
+    this.activeBayGraph = cityRoadGraphToBayGraph(this.activeCityGraph);
+    this.startId = splicedStart.nodeId;
+    this.goalId = splicedGoal.nodeId;
 
     if (this.isRaceMode) {
       this.raceResults.clear();
@@ -585,14 +651,14 @@ export class BayRouteVisualizer {
         'bfs',
       ];
       for (const alg of algos) {
-        const res = runPathfinding(alg, this.activeGraph, this.startId, this.goalId);
+        const res = runPathfinding(alg, this.activeBayGraph, this.startId, this.goalId);
         this.raceResults.set(alg, res);
       }
       this.currentResult = this.raceResults.get(this.currentAlgorithm) || null;
     } else {
       this.currentResult = runPathfinding(
         this.currentAlgorithm,
-        this.activeGraph,
+        this.activeBayGraph,
         this.startId,
         this.goalId
       );
@@ -729,6 +795,7 @@ export class BayRouteVisualizer {
       this.currentStepIndex++;
       this.updateTelemetry();
       this.render();
+      audioEngine.playStepSound(this.currentStepIndex / max);
     }
   }
 
@@ -771,11 +838,14 @@ export class BayRouteVisualizer {
     const deltaMs = now - this.lastFrameTimestamp;
     this.lastFrameTimestamp = now;
 
+    const maxSteps = this.getMaxSteps();
+
     if (this.animationSpeed >= 999) {
-      this.currentStepIndex = this.getMaxSteps();
+      this.currentStepIndex = maxSteps;
       this.pause();
       this.updateTelemetry();
       this.render();
+      audioEngine.playArrivalFanfare();
       return;
     }
 
@@ -786,14 +856,21 @@ export class BayRouteVisualizer {
     if (stepsToAdvance > 0) {
       this.stepsAccumulator -= stepsToAdvance;
       this.currentStepIndex = Math.min(
-        this.getMaxSteps(),
+        maxSteps,
         this.currentStepIndex + stepsToAdvance
       );
+
+      // Play exploration sonic blip
+      if (maxSteps > 0) {
+        audioEngine.playStepSound(this.currentStepIndex / maxSteps);
+      }
+
       this.updateTelemetry();
       this.render();
 
-      if (this.currentStepIndex >= this.getMaxSteps()) {
+      if (this.currentStepIndex >= maxSteps) {
         this.pause();
+        audioEngine.playArrivalFanfare();
         return;
       }
     }
@@ -928,15 +1005,17 @@ export class BayRouteVisualizer {
     }
   }
 
-  // --- CANVAS RENDERING SYNCHRONIZED WITH GPS MAP ---
+  // --- HARDWARE-ACCELERATED CANVAS RENDERING ---
   public render(): void {
-    if (!this.isMapReady || !this.activeGraph) return;
+    if (!this.isMapReady || !this.activeBayGraph) return;
     const ctx = this.ctx;
     const rect = this.mapEl.getBoundingClientRect();
     ctx.clearRect(0, 0, rect.width, rect.height);
 
-    this.renderRoadNetwork();
+    // Layer 1: The full city road network mesh
+    this.renderCityRoadMesh();
 
+    // Layer 2: Glowing explored edges & frontier nodes
     if (this.isRaceMode) {
       for (const res of this.raceResults.values()) {
         this.renderSingleExploration(res);
@@ -945,17 +1024,19 @@ export class BayRouteVisualizer {
       this.renderSingleExploration(this.currentResult);
     }
 
+    // Layer 3: High-contrast golden optimal highway
     this.renderFinalPath();
+
+    // Layer 4: City intersections & hovered node inspector
     this.renderNodes();
   }
 
-  private renderRoadNetwork(): void {
-    if (!this.activeGraph) return;
+  private renderCityRoadMesh(): void {
     const ctx = this.ctx;
 
-    for (const edge of this.activeGraph.edges) {
-      const u = this.activeGraph.nodes.get(edge.u);
-      const v = this.activeGraph.nodes.get(edge.v);
+    for (const edge of this.activeBayGraph.edges) {
+      const u = this.activeBayGraph.nodes.get(edge.u);
+      const v = this.activeBayGraph.nodes.get(edge.v);
       if (!u || !v) continue;
 
       const p1 = this.latLngToPoint(u.lat, u.lng);
@@ -967,28 +1048,27 @@ export class BayRouteVisualizer {
 
       if (edge.roadType === 'bridge') {
         ctx.strokeStyle = '#f97316';
-        ctx.lineWidth = 4.0;
+        ctx.lineWidth = 3.5;
         ctx.setLineDash([4, 2]);
         ctx.stroke();
         ctx.setLineDash([]);
-      } else if (edge.roadType === 'highway') {
-        ctx.strokeStyle = this.isDarkTheme ? 'rgba(56, 189, 248, 0.4)' : 'rgba(2, 132, 199, 0.5)';
-        ctx.lineWidth = 3.0;
+      } else if (edge.roadType === 'highway' || edge.roadType === 'interstate') {
+        ctx.strokeStyle = this.isDarkTheme ? 'rgba(56, 189, 248, 0.45)' : 'rgba(2, 132, 199, 0.55)';
+        ctx.lineWidth = 2.8;
         ctx.stroke();
       } else if (edge.roadType === 'arterial') {
         ctx.strokeStyle = this.isDarkTheme ? 'rgba(148, 163, 184, 0.35)' : 'rgba(71, 85, 105, 0.4)';
-        ctx.lineWidth = 2.0;
+        ctx.lineWidth = 1.8;
         ctx.stroke();
       } else {
-        ctx.strokeStyle = this.isDarkTheme ? 'rgba(100, 116, 139, 0.25)' : 'rgba(148, 163, 184, 0.3)';
-        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = this.isDarkTheme ? 'rgba(100, 116, 139, 0.22)' : 'rgba(148, 163, 184, 0.28)';
+        ctx.lineWidth = 1.2;
         ctx.stroke();
       }
     }
   }
 
   private renderSingleExploration(res: PathfindingResult): void {
-    if (!this.activeGraph) return;
     const ctx = this.ctx;
     const stepLimit = Math.min(this.currentStepIndex, res.steps.length - 1);
     const color = ALGORITHMS[res.algorithm].color;
@@ -1009,15 +1089,15 @@ export class BayRouteVisualizer {
       }
     }
 
-    // Settled Edges Glow
+    // Explored Edges Laser Glow
     ctx.strokeStyle = color;
     ctx.lineWidth = 3.5;
     ctx.shadowColor = color;
-    ctx.shadowBlur = 9;
+    ctx.shadowBlur = 10;
 
     for (const { u: uId, v: vId } of settledEdges) {
-      const u = this.activeGraph.nodes.get(uId);
-      const v = this.activeGraph.nodes.get(vId);
+      const u = this.activeBayGraph.nodes.get(uId);
+      const v = this.activeBayGraph.nodes.get(vId);
       if (u && v) {
         const p1 = this.latLngToPoint(u.lat, u.lng);
         const p2 = this.latLngToPoint(v.lat, v.lng);
@@ -1032,7 +1112,7 @@ export class BayRouteVisualizer {
     // Settled Node Discs
     ctx.fillStyle = color;
     for (const nId of settledNodes) {
-      const node = this.activeGraph.nodes.get(nId);
+      const node = this.activeBayGraph.nodes.get(nId);
       if (node) {
         const p = this.latLngToPoint(node.lat, node.lng);
         ctx.beginPath();
@@ -1041,23 +1121,23 @@ export class BayRouteVisualizer {
       }
     }
 
-    // Active Frontier Pulse Rings
+    // Active Frontier Pulse Halo Rings
     for (const nId of frontierNodes) {
       if (settledNodes.has(nId)) continue;
-      const node = this.activeGraph.nodes.get(nId);
+      const node = this.activeBayGraph.nodes.get(nId);
       if (node) {
         const p = this.latLngToPoint(node.lat, node.lng);
         ctx.strokeStyle = color;
-        ctx.lineWidth = 1.8;
+        ctx.lineWidth = 2.0;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, 7.5, 0, Math.PI * 2);
         ctx.stroke();
       }
     }
   }
 
   private renderFinalPath(): void {
-    if (!this.currentResult || !this.currentResult.found || !this.activeGraph) return;
+    if (!this.currentResult || !this.currentResult.found || !this.activeBayGraph) return;
 
     const maxSteps = this.getMaxSteps();
     if (this.currentStepIndex < maxSteps) return;
@@ -1066,37 +1146,40 @@ export class BayRouteVisualizer {
     const path = this.currentResult.path;
     if (path.length < 2) return;
 
-    ctx.strokeStyle = '#fbbf24';
-    ctx.lineWidth = 6.0;
+    // Radiant Golden Amber Glow
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 6.5;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.shadowColor = '#fbbf24';
-    ctx.shadowBlur = 14;
+    ctx.shadowBlur = 16;
 
     ctx.beginPath();
-    const startNode = this.activeGraph.nodes.get(path[0])!;
+    const startNode = this.activeBayGraph.nodes.get(path[0])!;
     const pStart = this.latLngToPoint(startNode.lat, startNode.lng);
     ctx.moveTo(pStart.x, pStart.y);
 
     for (let i = 1; i < path.length; i++) {
-      const node = this.activeGraph.nodes.get(path[i])!;
+      const node = this.activeBayGraph.nodes.get(path[i])!;
       const p = this.latLngToPoint(node.lat, node.lng);
       ctx.lineTo(p.x, p.y);
     }
     ctx.stroke();
     ctx.shadowBlur = 0;
 
+    // Sharp White Centerline
     ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2.2;
+    ctx.lineWidth = 2.4;
     ctx.stroke();
   }
 
   private renderNodes(): void {
-    if (!this.activeGraph) return;
     const ctx = this.ctx;
-    for (const node of this.activeGraph.nodes.values()) {
+
+    for (const node of this.activeBayGraph.nodes.values()) {
       const isKey = node.type === 'city' || node.type === 'airport' || node.type === 'landmark';
       const p = this.latLngToPoint(node.lat, node.lng);
+
       ctx.beginPath();
       ctx.arc(p.x, p.y, isKey ? 3.5 : 2.0, 0, Math.PI * 2);
       ctx.fillStyle = isKey
@@ -1105,6 +1188,24 @@ export class BayRouteVisualizer {
           : '#475569'
         : 'rgba(148, 163, 184, 0.4)';
       ctx.fill();
+    }
+
+    // Hovered Node Highlight in Inspector HUD
+    if (this.hoveredNodeId) {
+      const node = this.activeBayGraph.nodes.get(this.hoveredNodeId);
+      if (node) {
+        const p = this.latLngToPoint(node.lat, node.lng);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 9, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
   }
 }

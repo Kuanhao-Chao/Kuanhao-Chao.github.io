@@ -40,8 +40,13 @@ const appLd = {
       <BayRouteLogo size={70} />
       <div class="br-header-info">
         <div class="br-header-title-row">
-          <h2 class="br-header-title">BayRoute · Real-World Bay Area Pathfinding Visualizer</h2>
-          <span class="br-status-pill" data-br-map-badge>🗺️ High-Res GIS Map</span>
+          <h2 class="br-header-title">BayRoute · Full City Road Graph & Search Visualizer</h2>
+          <div class="br-header-actions">
+            <span class="br-status-pill" data-br-map-badge>🗺️ High-Res GIS Map</span>
+            <button type="button" class="br-sound-btn" data-br-sound-toggle title="Toggle procedural sound synthesizer">
+              <span data-sound-icon>🔇</span> <span data-sound-label>Sound Off</span>
+            </button>
+          </div>
         </div>
         <p class="br-header-subtitle">
           Enter any address in the Bay Area or click anywhere on the map. Watch search frontiers navigate
@@ -204,9 +209,32 @@ const appLd = {
       <div id="bay-route-map" class="br-leaflet-map"></div>
       <canvas id="bay-route-canvas" class="br-canvas-layer"></canvas>
 
+      <!-- Cost Inspector HUD Tooltip -->
+      <div class="br-inspector-tooltip" data-br-inspector hidden>
+        <div class="br-inspector-header">
+          <span class="br-inspector-icon">📍</span>
+          <strong class="br-inspector-title" data-inspector-title>Intersection</strong>
+        </div>
+        <div class="br-inspector-metrics">
+          <div class="br-inspector-metric">
+            <span class="br-k">g(n):</span>
+            <span class="br-v" data-inspector-g>—</span>
+          </div>
+          <div class="br-inspector-metric">
+            <span class="br-k">h(n):</span>
+            <span class="br-v" data-inspector-h>—</span>
+          </div>
+          <div class="br-inspector-metric">
+            <span class="br-k">f(n):</span>
+            <span class="br-v" data-inspector-f>—</span>
+          </div>
+        </div>
+        <div class="br-inspector-edge" data-inspector-edge></div>
+      </div>
+
       <!-- Floating Map Hint Overlay -->
       <div class="br-map-hint">
-        <span>💡 Click anywhere on the map to drop custom Start 🚩 or Goal 🏁 pins</span>
+        <span>💡 Click map to set pins · Hover over explored roads to inspect g(n) & h(n) costs</span>
       </div>
     </div>
 
@@ -317,10 +345,29 @@ const appLd = {
 
 <script>
   import { initBayRoute } from '../../scripts/bayRoute';
+  import { audioEngine } from '../../lib/audioFeedback';
 
   function setup() {
     const viz = initBayRoute('#bay-route-map', '#bay-route-canvas', '[data-br-root]');
     if (!viz) return;
+
+    // Sound Synthesizer Toggle
+    const soundBtn = document.querySelector<HTMLButtonElement>('[data-br-sound-toggle]');
+    const soundIcon = document.querySelector<HTMLElement>('[data-sound-icon]');
+    const soundLabel = document.querySelector<HTMLElement>('[data-sound-label]');
+    if (soundBtn) {
+      const updateSoundUI = () => {
+        const enabled = audioEngine.isSoundEnabled();
+        if (soundIcon) soundIcon.textContent = enabled ? '🔊' : '🔇';
+        if (soundLabel) soundLabel.textContent = enabled ? 'Sound On' : 'Sound Off';
+        soundBtn.classList.toggle('is-active', enabled);
+      };
+      updateSoundUI();
+      soundBtn.addEventListener('click', () => {
+        audioEngine.toggleSound();
+        updateSoundUI();
+      });
+    }
 
     // Presets Click
     const presetButtons = document.querySelectorAll<HTMLButtonElement>('.br-preset-btn');
@@ -556,6 +603,13 @@ const appLd = {
     color: var(--color-ink);
   }
 
+  .br-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
   .br-status-pill {
     display: inline-flex;
     align-items: center;
@@ -567,6 +621,32 @@ const appLd = {
     color: var(--color-ink);
     font-size: 0.8125rem;
     font-weight: 650;
+  }
+
+  .br-sound-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .br-sound-btn:hover {
+    border-color: var(--color-accent);
+    color: var(--color-ink);
+  }
+
+  .br-sound-btn.is-active {
+    background: color-mix(in srgb, #10b981 15%, var(--color-surface));
+    border-color: #10b981;
+    color: #10b981;
   }
 
   .br-header-subtitle {
@@ -965,6 +1045,73 @@ const appLd = {
     border: 1px solid rgba(255, 255, 255, 0.15);
     backdrop-filter: blur(8px);
     z-index: 10;
+  }
+
+  .br-inspector-tooltip {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(12px);
+    border-radius: var(--radius-sm, 8px);
+    padding: 0.6rem 0.85rem;
+    color: #f8fafc;
+    font-size: 0.8rem;
+    pointer-events: none;
+    z-index: 50;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    min-width: 170px;
+    transition: opacity 0.1s ease;
+  }
+
+  .br-inspector-header {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-bottom: 0.4rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    padding-bottom: 0.3rem;
+  }
+
+  .br-inspector-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #38bdf8;
+    white-space: nowrap;
+  }
+
+  .br-inspector-metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .br-inspector-metric {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.75rem;
+  }
+
+  .br-inspector-metric .br-k {
+    color: #94a3b8;
+    font-weight: 600;
+  }
+
+  .br-inspector-metric .br-v {
+    color: #f1f5f9;
+    font-weight: 700;
+  }
+
+  .br-inspector-edge {
+    margin-top: 0.35rem;
+    padding-top: 0.25rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 0.72rem;
+    color: #cbd5e1;
+    font-style: italic;
   }
 
   :global(.br-marker-pin) {
