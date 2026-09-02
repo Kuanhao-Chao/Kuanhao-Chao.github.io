@@ -2,27 +2,27 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
   type BayGraph,
-  type BayNode,
-  BAY_NODES,
-  BAY_EDGES,
   PRESET_TRIPS,
-  createBayGraph,
   spliceCustomEndpoints,
   type CustomEndpoint,
 } from '../lib/bayGraph';
+import { buildDenseBayAreaGraph } from '../lib/realRoads';
 import {
   type AlgorithmId,
   type PathfindingResult,
-  type SearchStep,
   ALGORITHMS,
   runPathfinding,
 } from '../lib/pathfinding';
 import {
   searchBayAreaPlaces,
   reverseGeocodeLocal,
-  type GeocodedPlace,
   LOCAL_BAY_GAZETTEER,
 } from '../lib/geocoding';
+import {
+  getSavedGoogleMapsApiKey,
+  loadGoogleMapsSDK,
+  GOOGLE_MAPS_DARK_STYLE,
+} from '../lib/googleMaps';
 
 export type MapTileStyle = 'dark' | 'light' | 'streets' | 'satellite';
 
@@ -32,14 +32,20 @@ export class BayRouteVisualizer {
   private ctx: CanvasRenderingContext2D;
   private container: HTMLElement;
 
-  // Leaflet Map & Layer Instances
-  private map: L.Map | null = null;
-  private tileLayer: L.TileLayer | null = null;
-  private currentTileStyle: MapTileStyle = 'dark';
-  private startMarker: L.Marker | null = null;
-  private goalMarker: L.Marker | null = null;
+  // Map Engines (Google Maps vs Leaflet Fallback)
+  public isGoogleMapsActive: boolean = false;
+  private gmap: google.maps.Map | null = null;
+  private gmapStartMarker: google.maps.Marker | null = null;
+  private gmapGoalMarker: google.maps.Marker | null = null;
 
-  // Graph & Endpoints
+  private leafletMap: L.Map | null = null;
+  private leafletTileLayer: L.TileLayer | null = null;
+  private leafletStartMarker: L.Marker | null = null;
+  private leafletGoalMarker: L.Marker | null = null;
+
+  private currentTileStyle: MapTileStyle = 'dark';
+
+  // Road Graph & Endpoints
   private baseGraph: BayGraph;
   private activeGraph: BayGraph;
   public currentStartEndpoint: CustomEndpoint;
@@ -59,8 +65,6 @@ export class BayRouteVisualizer {
   private lastFrameTimestamp: number = 0;
   private stepsAccumulator: number = 0;
 
-  // Hover & Theme
-  private hoveredNodeId: string | null = null;
   private isDarkTheme: boolean = true;
 
   constructor(mapEl: HTMLElement, canvasEl: HTMLCanvasElement, container: HTMLElement) {
@@ -71,10 +75,10 @@ export class BayRouteVisualizer {
     this.ctx = ctx;
     this.container = container;
 
-    this.baseGraph = createBayGraph();
+    // Use high-density real-world road graph
+    this.baseGraph = buildDenseBayAreaGraph();
     this.activeGraph = this.baseGraph;
 
-    // Default start & goal
     const defaultStart = LOCAL_BAY_GAZETTEER[0]; // SF Ferry Bldg
     const defaultGoal = LOCAL_BAY_GAZETTEER.find((p) => p.id === 'geo_uc_berkeley')!; // UC Berkeley
 
@@ -97,8 +101,7 @@ export class BayRouteVisualizer {
     };
 
     this.detectTheme();
-    this.initMap();
-    this.initCanvasOverlay();
+    this.initMapEngine();
     this.bindDOMEvents();
     this.recalculate();
   }
@@ -109,11 +112,76 @@ export class BayRouteVisualizer {
     this.currentTileStyle = this.isDarkTheme ? 'dark' : 'light';
   }
 
-  private initMap(): void {
-    // Center of the Bay Area (SF Bay waters between SF and Oakland)
-    const bayCenter: L.LatLngExpression = [37.76, -122.28];
+  private async initMapEngine(): Promise<void> {
+    const savedApiKey = getSavedGoogleMapsApiKey();
 
-    this.map = L.map(this.mapEl, {
+    if (savedApiKey) {
+      try {
+        await loadGoogleMapsSDK(savedApiKey);
+        if (window.google && window.google.maps) {
+          this.initGoogleMap();
+          this.isGoogleMapsActive = true;
+          this.updateApiKeyStatusUI(true);
+          return;
+        }
+      } catch (_err) {
+        // Fall back to Leaflet if Google Maps SDK fails to load
+      }
+    }
+
+    // Leaflet OpenStreetMap Fallback
+    this.initLeafletMap();
+    this.isGoogleMapsActive = false;
+    this.updateApiKeyStatusUI(false);
+  }
+
+  // --- GOOGLE MAPS ENGINE INITIALIZATION ---
+  private initGoogleMap(): void {
+    if (!window.google || !window.google.maps) return;
+
+    if (this.leafletMap) {
+      this.leafletMap.remove();
+      this.leafletMap = null;
+    }
+
+    this.mapEl.replaceChildren();
+
+    const center = { lat: 37.76, lng: -122.28 };
+    this.gmap = new window.google.maps.Map(this.mapEl, {
+      center,
+      zoom: 10,
+      minZoom: 8,
+      maxZoom: 19,
+      styles: this.isDarkTheme ? GOOGLE_MAPS_DARK_STYLE : undefined,
+      disableDefaultUI: true,
+      zoomControl: true,
+      mapTypeId: this.currentTileStyle === 'satellite' ? 'hybrid' : 'roadmap',
+    });
+
+    // Sync Canvas on Pan & Zoom
+    this.gmap.addListener('bounds_changed', () => {
+      this.syncCanvasDimensions();
+      this.render();
+    });
+
+    this.gmap.addListener('click', (e: google.maps.MapMouseEvent) => {
+      if (e.latLng) {
+        this.handleMapClick(e.latLng.lat(), e.latLng.lng());
+      }
+    });
+
+    this.syncCanvasDimensions();
+  }
+
+  // --- LEAFLET MAP ENGINE INITIALIZATION (FALLBACK) ---
+  private initLeafletMap(): void {
+    if (this.gmap) {
+      this.gmap = null;
+    }
+    this.mapEl.replaceChildren();
+
+    const bayCenter: L.LatLngExpression = [37.76, -122.28];
+    this.leafletMap = L.map(this.mapEl, {
       center: bayCenter,
       zoom: 10,
       minZoom: 8,
@@ -122,32 +190,28 @@ export class BayRouteVisualizer {
       attributionControl: false,
     });
 
-    // Custom Zoom Controls top-right
-    L.control.zoom({ position: 'topright' }).addTo(this.map);
+    L.control.zoom({ position: 'topright' }).addTo(this.leafletMap);
+    this.updateLeafletTileLayer();
 
-    this.updateTileLayer();
-
-    // Map Events to sync Canvas overlay
-    this.map.on('move zoom viewreset resize', () => {
+    this.leafletMap.on('move zoom viewreset resize', () => {
       this.syncCanvasDimensions();
       this.render();
     });
 
-    // Map Click to drop custom Start / Goal pins
-    this.map.on('click', (e: L.LeafletMouseEvent) => {
+    this.leafletMap.on('click', (e: L.LeafletMouseEvent) => {
       this.handleMapClick(e.latlng.lat, e.latlng.lng);
     });
+
+    this.syncCanvasDimensions();
   }
 
-  private updateTileLayer(): void {
-    if (!this.map) return;
-    if (this.tileLayer) {
-      this.map.removeLayer(this.tileLayer);
+  private updateLeafletTileLayer(): void {
+    if (!this.leafletMap) return;
+    if (this.leafletTileLayer) {
+      this.leafletMap.removeLayer(this.leafletTileLayer);
     }
 
-    let url = '';
-    const subdomains = ['a', 'b', 'c', 'd'];
-
+    let url = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
     switch (this.currentTileStyle) {
       case 'dark':
         url = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
@@ -156,60 +220,81 @@ export class BayRouteVisualizer {
         url = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
         break;
       case 'streets':
-        url = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+        url = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
         break;
       case 'satellite':
         url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
         break;
     }
 
-    this.tileLayer = L.tileLayer(url, {
-      subdomains,
+    this.leafletTileLayer = L.tileLayer(url, {
+      subdomains: ['a', 'b', 'c', 'd'],
       maxZoom: 19,
-    }).addTo(this.map);
+    }).addTo(this.leafletMap);
   }
 
   public setTileStyle(style: MapTileStyle): void {
     this.currentTileStyle = style;
-    this.updateTileLayer();
+    if (this.gmap) {
+      if (style === 'satellite') {
+        this.gmap.setMapTypeId('hybrid');
+      } else {
+        this.gmap.setMapTypeId('roadmap');
+        this.gmap.setOptions({
+          styles: style === 'dark' || this.isDarkTheme ? GOOGLE_MAPS_DARK_STYLE : undefined,
+        });
+      }
+    } else if (this.leafletMap) {
+      this.updateLeafletTileLayer();
+    }
     this.render();
   }
 
-  private initCanvasOverlay(): void {
-    this.syncCanvasDimensions();
-  }
-
   private syncCanvasDimensions(): void {
-    if (!this.map) return;
-    const size = this.map.getSize();
+    const rect = this.mapEl.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
+    const width = rect.width || 800;
+    const height = rect.height || 560;
 
-    this.canvasEl.width = size.x * dpr;
-    this.canvasEl.height = size.y * dpr;
-    this.canvasEl.style.width = `${size.x}px`;
-    this.canvasEl.style.height = `${size.y}px`;
+    this.canvasEl.width = width * dpr;
+    this.canvasEl.height = height * dpr;
+    this.canvasEl.style.width = `${width}px`;
+    this.canvasEl.style.height = `${height}px`;
 
     this.ctx.resetTransform();
     this.ctx.scale(dpr, dpr);
   }
 
   private latLngToPoint(lat: number, lng: number): { x: number; y: number } {
-    if (!this.map) return { x: 0, y: 0 };
-    const p = this.map.latLngToContainerPoint([lat, lng]);
-    return { x: p.x, y: p.y };
+    if (this.gmap) {
+      const bounds = this.gmap.getBounds();
+      if (!bounds) return { x: 0, y: 0 };
+      const ne = bounds.getNorthEast();
+      const sw = bounds.getSouthWest();
+      const rect = this.mapEl.getBoundingClientRect();
+
+      const x = ((lng - sw.lng()) / (ne.lng() - sw.lng())) * rect.width;
+      const y = ((ne.lat() - lat) / (ne.lat() - sw.lat())) * rect.height;
+      return { x, y };
+    }
+
+    if (this.leafletMap) {
+      const p = this.leafletMap.latLngToContainerPoint([lat, lng]);
+      return { x: p.x, y: p.y };
+    }
+
+    return { x: 0, y: 0 };
   }
 
   private bindDOMEvents(): void {
     document.addEventListener('khc:theme-change', () => {
       this.detectTheme();
-      this.updateTileLayer();
-      this.render();
+      this.setTileStyle(this.isDarkTheme ? 'dark' : 'light');
     });
 
     const observer = new MutationObserver(() => {
       this.detectTheme();
-      this.updateTileLayer();
-      this.render();
+      this.setTileStyle(this.isDarkTheme ? 'dark' : 'light');
     });
     observer.observe(document.documentElement, {
       attributes: true,
@@ -288,7 +373,6 @@ export class BayRouteVisualizer {
       }, 250);
     });
 
-    // Close dropdown on outside click
     document.addEventListener('click', (e) => {
       if (!input.contains(e.target as Node) && !resultsContainer.contains(e.target as Node)) {
         resultsContainer.hidden = true;
@@ -298,8 +382,6 @@ export class BayRouteVisualizer {
 
   private handleMapClick(lat: number, lng: number): void {
     const geo = reverseGeocodeLocal(lat, lng);
-
-    // If start is set, update goal; or toggle between them
     const goalInput = this.container.querySelector<HTMLInputElement>('[data-br-input="goal"]');
     if (goalInput) goalInput.value = geo.name;
 
@@ -312,34 +394,6 @@ export class BayRouteVisualizer {
       region: geo.region,
     };
 
-    this.recalculate();
-  }
-
-  public setCustomStart(place: GeocodedPlace): void {
-    this.currentStartEndpoint = {
-      id: place.id,
-      name: place.name,
-      lat: place.lat,
-      lng: place.lng,
-      city: place.city,
-      region: place.region,
-    };
-    const input = this.container.querySelector<HTMLInputElement>('[data-br-input="start"]');
-    if (input) input.value = place.name;
-    this.recalculate();
-  }
-
-  public setCustomGoal(place: GeocodedPlace): void {
-    this.currentGoalEndpoint = {
-      id: place.id,
-      name: place.name,
-      lat: place.lat,
-      lng: place.lng,
-      city: place.city,
-      region: place.region,
-    };
-    const input = this.container.querySelector<HTMLInputElement>('[data-br-input="goal"]');
-    if (input) input.value = place.name;
     this.recalculate();
   }
 
@@ -380,12 +434,18 @@ export class BayRouteVisualizer {
   }
 
   public fitRouteBounds(): void {
-    if (!this.map) return;
-    const bounds = L.latLngBounds(
-      [this.currentStartEndpoint.lat, this.currentStartEndpoint.lng],
-      [this.currentGoalEndpoint.lat, this.currentGoalEndpoint.lng]
-    );
-    this.map.fitBounds(bounds, { padding: [60, 60], maxZoom: 14 });
+    if (this.gmap && window.google && window.google.maps) {
+      const bounds = new window.google.maps.LatLngBounds();
+      bounds.extend({ lat: this.currentStartEndpoint.lat, lng: this.currentStartEndpoint.lng });
+      bounds.extend({ lat: this.currentGoalEndpoint.lat, lng: this.currentGoalEndpoint.lng });
+      this.gmap.fitBounds(bounds, 60);
+    } else if (this.leafletMap) {
+      const bounds = L.latLngBounds(
+        [this.currentStartEndpoint.lat, this.currentStartEndpoint.lng],
+        [this.currentGoalEndpoint.lat, this.currentGoalEndpoint.lng]
+      );
+      this.leafletMap.fitBounds(bounds, { padding: [60, 60], maxZoom: 14 });
+    }
   }
 
   public setAlgorithm(alg: AlgorithmId): void {
@@ -401,12 +461,11 @@ export class BayRouteVisualizer {
   public recalculate(): void {
     this.pause();
 
-    // Splice custom start and goal coordinates into road network graph
     const { graph, startId, goalId } = spliceCustomEndpoints(
       this.baseGraph,
       this.currentStartEndpoint,
       this.currentGoalEndpoint,
-      3
+      4
     );
 
     this.activeGraph = graph;
@@ -444,56 +503,114 @@ export class BayRouteVisualizer {
   }
 
   private updateMapMarkers(): void {
-    if (!this.map) return;
+    if (this.gmap && window.google && window.google.maps) {
+      if (this.gmapStartMarker) this.gmapStartMarker.setMap(null);
+      if (this.gmapGoalMarker) this.gmapGoalMarker.setMap(null);
 
-    if (this.startMarker) this.map.removeLayer(this.startMarker);
-    if (this.goalMarker) this.map.removeLayer(this.goalMarker);
+      this.gmapStartMarker = new window.google.maps.Marker({
+        position: { lat: this.currentStartEndpoint.lat, lng: this.currentStartEndpoint.lng },
+        map: this.gmap,
+        label: '🚩',
+        draggable: true,
+      });
 
-    const startIcon = L.divIcon({
-      className: 'br-leaflet-marker br-leaflet-marker--start',
-      html: `<div class="br-marker-pin br-marker-pin--start">🚩</div>`,
-      iconSize: [28, 28],
-      iconAnchor: [14, 28],
-    });
+      this.gmapGoalMarker = new window.google.maps.Marker({
+        position: { lat: this.currentGoalEndpoint.lat, lng: this.currentGoalEndpoint.lng },
+        map: this.gmap,
+        label: '🏁',
+        draggable: true,
+      });
 
-    const goalIcon = L.divIcon({
-      className: 'br-leaflet-marker br-leaflet-marker--goal',
-      html: `<div class="br-marker-pin br-marker-pin--goal">🏁</div>`,
-      iconSize: [28, 28],
-      iconAnchor: [14, 28],
-    });
+      this.gmapStartMarker.addListener('dragend', (e: google.maps.MapMouseEvent) => {
+        if (e.latLng) {
+          const lat = e.latLng.lat();
+          const lng = e.latLng.lng();
+          this.currentStartEndpoint.lat = lat;
+          this.currentStartEndpoint.lng = lng;
+          const geo = reverseGeocodeLocal(lat, lng);
+          this.currentStartEndpoint.name = geo.name;
+          const input = this.container.querySelector<HTMLInputElement>('[data-br-input="start"]');
+          if (input) input.value = geo.name;
+          this.recalculate();
+        }
+      });
 
-    this.startMarker = L.marker([this.currentStartEndpoint.lat, this.currentStartEndpoint.lng], {
-      icon: startIcon,
-      draggable: true,
-    }).addTo(this.map);
+      this.gmapGoalMarker.addListener('dragend', (e: google.maps.MapMouseEvent) => {
+        if (e.latLng) {
+          const lat = e.latLng.lat();
+          const lng = e.latLng.lng();
+          this.currentGoalEndpoint.lat = lat;
+          this.currentGoalEndpoint.lng = lng;
+          const geo = reverseGeocodeLocal(lat, lng);
+          this.currentGoalEndpoint.name = geo.name;
+          const input = this.container.querySelector<HTMLInputElement>('[data-br-input="goal"]');
+          if (input) input.value = geo.name;
+          this.recalculate();
+        }
+      });
+    } else if (this.leafletMap) {
+      if (this.leafletStartMarker) this.leafletMap.removeLayer(this.leafletStartMarker);
+      if (this.leafletGoalMarker) this.leafletMap.removeLayer(this.leafletGoalMarker);
 
-    this.goalMarker = L.marker([this.currentGoalEndpoint.lat, this.currentGoalEndpoint.lng], {
-      icon: goalIcon,
-      draggable: true,
-    }).addTo(this.map);
+      const startIcon = L.divIcon({
+        className: 'br-leaflet-marker br-leaflet-marker--start',
+        html: `<div class="br-marker-pin br-marker-pin--start">🚩</div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 28],
+      });
 
-    this.startMarker.on('dragend', (e) => {
-      const pos = (e.target as L.Marker).getLatLng();
-      this.currentStartEndpoint.lat = pos.lat;
-      this.currentStartEndpoint.lng = pos.lng;
-      const geo = reverseGeocodeLocal(pos.lat, pos.lng);
-      this.currentStartEndpoint.name = geo.name;
-      const input = this.container.querySelector<HTMLInputElement>('[data-br-input="start"]');
-      if (input) input.value = geo.name;
-      this.recalculate();
-    });
+      const goalIcon = L.divIcon({
+        className: 'br-leaflet-marker br-leaflet-marker--goal',
+        html: `<div class="br-marker-pin br-marker-pin--goal">🏁</div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 28],
+      });
 
-    this.goalMarker.on('dragend', (e) => {
-      const pos = (e.target as L.Marker).getLatLng();
-      this.currentGoalEndpoint.lat = pos.lat;
-      this.currentGoalEndpoint.lng = pos.lng;
-      const geo = reverseGeocodeLocal(pos.lat, pos.lng);
-      this.currentGoalEndpoint.name = geo.name;
-      const input = this.container.querySelector<HTMLInputElement>('[data-br-input="goal"]');
-      if (input) input.value = geo.name;
-      this.recalculate();
-    });
+      this.leafletStartMarker = L.marker(
+        [this.currentStartEndpoint.lat, this.currentStartEndpoint.lng],
+        { icon: startIcon, draggable: true }
+      ).addTo(this.leafletMap);
+
+      this.leafletGoalMarker = L.marker(
+        [this.currentGoalEndpoint.lat, this.currentGoalEndpoint.lng],
+        { icon: goalIcon, draggable: true }
+      ).addTo(this.leafletMap);
+
+      this.leafletStartMarker.on('dragend', (e) => {
+        const pos = (e.target as L.Marker).getLatLng();
+        this.currentStartEndpoint.lat = pos.lat;
+        this.currentStartEndpoint.lng = pos.lng;
+        const geo = reverseGeocodeLocal(pos.lat, pos.lng);
+        this.currentStartEndpoint.name = geo.name;
+        const input = this.container.querySelector<HTMLInputElement>('[data-br-input="start"]');
+        if (input) input.value = geo.name;
+        this.recalculate();
+      });
+
+      this.leafletGoalMarker.on('dragend', (e) => {
+        const pos = (e.target as L.Marker).getLatLng();
+        this.currentGoalEndpoint.lat = pos.lat;
+        this.currentGoalEndpoint.lng = pos.lng;
+        const geo = reverseGeocodeLocal(pos.lat, pos.lng);
+        this.currentGoalEndpoint.name = geo.name;
+        const input = this.container.querySelector<HTMLInputElement>('[data-br-input="goal"]');
+        if (input) input.value = geo.name;
+        this.recalculate();
+      });
+    }
+  }
+
+  private updateApiKeyStatusUI(isConnected: boolean): void {
+    const badge = this.container.querySelector('[data-br-api-badge]');
+    if (badge) {
+      if (isConnected) {
+        badge.className = 'br-api-badge br-api-badge--connected';
+        badge.textContent = '🟢 Google Maps SDK Active';
+      } else {
+        badge.className = 'br-api-badge br-api-badge--fallback';
+        badge.textContent = '🟡 OSM Map Mode';
+      }
+    }
   }
 
   // --- PLAYBACK CONTROLS ---
@@ -565,7 +682,6 @@ export class BayRouteVisualizer {
     this.lastFrameTimestamp = now;
 
     if (this.animationSpeed >= 999) {
-      // Instant
       this.currentStepIndex = this.getMaxSteps();
       this.pause();
       this.updateTelemetry();
@@ -724,17 +840,14 @@ export class BayRouteVisualizer {
     }
   }
 
-  // --- CANVAS RENDERING SYNCHRONIZED WITH LEAFLET GPS ---
+  // --- CANVAS RENDERING SYNCHRONIZED WITH GPS MAP ---
   public render(): void {
-    if (!this.map) return;
     const ctx = this.ctx;
-    const size = this.map.getSize();
-    ctx.clearRect(0, 0, size.x, size.y);
+    const rect = this.mapEl.getBoundingClientRect();
+    ctx.clearRect(0, 0, rect.width, rect.height);
 
-    // 1. Render Base Road Network on Real Map
     this.renderRoadNetwork();
 
-    // 2. Render Search Frontier Animation
     if (this.isRaceMode) {
       for (const res of this.raceResults.values()) {
         this.renderSingleExploration(res);
@@ -743,10 +856,7 @@ export class BayRouteVisualizer {
       this.renderSingleExploration(this.currentResult);
     }
 
-    // 3. Render Final Path Glow
     this.renderFinalPath();
-
-    // 4. Render Graph Intersections
     this.renderNodes();
   }
 
@@ -766,12 +876,12 @@ export class BayRouteVisualizer {
       ctx.lineTo(p2.x, p2.y);
 
       if (edge.roadType === 'bridge') {
-        ctx.strokeStyle = '#f97316'; // International Orange
+        ctx.strokeStyle = '#f97316';
         ctx.lineWidth = 3.5;
         ctx.setLineDash([4, 2]);
         ctx.stroke();
         ctx.setLineDash([]);
-      } else if (edge.roadType === 'interstate') {
+      } else if (edge.roadType === 'highway') {
         ctx.strokeStyle = this.isDarkTheme ? 'rgba(148, 163, 184, 0.4)' : 'rgba(71, 85, 105, 0.5)';
         ctx.lineWidth = 2.5;
         ctx.stroke();
@@ -861,7 +971,6 @@ export class BayRouteVisualizer {
     const path = this.currentResult.path;
     if (path.length < 2) return;
 
-    // Glowing Laser Polyline
     ctx.strokeStyle = '#fbbf24';
     ctx.lineWidth = 6.0;
     ctx.lineCap = 'round';
@@ -882,7 +991,6 @@ export class BayRouteVisualizer {
     ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // Inner bright beam
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 2.2;
     ctx.stroke();
@@ -890,12 +998,8 @@ export class BayRouteVisualizer {
 
   private renderNodes(): void {
     const ctx = this.ctx;
-    const zoom = this.map?.getZoom() || 10;
-
     for (const node of this.activeGraph.nodes.values()) {
       const isKey = node.type === 'city' || node.type === 'airport' || node.type === 'landmark';
-      if (!isKey && zoom < 12) continue; // declutter minor intersections when zoomed out
-
       const p = this.latLngToPoint(node.lat, node.lng);
       ctx.beginPath();
       ctx.arc(p.x, p.y, isKey ? 3.5 : 2.0, 0, Math.PI * 2);
@@ -905,13 +1009,6 @@ export class BayRouteVisualizer {
           : '#475569'
         : 'rgba(148, 163, 184, 0.5)';
       ctx.fill();
-
-      // Show landmark labels when zoomed in or for primary cities
-      if (isKey && zoom >= 11) {
-        ctx.font = 'bold 10px system-ui, sans-serif';
-        ctx.fillStyle = this.isDarkTheme ? '#e2e8f0' : '#1e293b';
-        ctx.fillText(node.name, p.x + 6, p.y + 3);
-      }
     }
   }
 }
