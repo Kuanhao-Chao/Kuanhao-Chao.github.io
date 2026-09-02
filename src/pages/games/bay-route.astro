@@ -29,7 +29,12 @@ const appLd = {
 >
   <script type="application/ld+json" is:inline set:html={JSON.stringify(appLd)} />
 
-  <section class="br-container" data-br-root aria-label="BayRoute Real-World Visualizer">
+  <section
+    class="br-container"
+    data-br-root
+    data-gmap-token={import.meta.env.PUBLIC_GOOGLE_MAPS_API_KEY || ''}
+    aria-label="BayRoute Real-World Visualizer"
+  >
     <!-- Header Card -->
     <div class="br-header-card">
       <BayRouteLogo size={70} />
