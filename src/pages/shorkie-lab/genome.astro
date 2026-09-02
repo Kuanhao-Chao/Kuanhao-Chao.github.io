@@ -163,6 +163,10 @@ const breadcrumbLd = buildBreadcrumbLd([
                   title="Keep this region highlighted while you navigate">mark region</button>
           <button type="button" class="vp-btn" data-gb-export
                   title="Save the current view as a PNG">export</button>
+          <!-- Phone only (CSS): the track panel becomes a drawer over the stage rather than a
+               column below the fold. -->
+          <button type="button" class="vp-btn gb-panel-toggle" data-gb-panel-toggle
+                  aria-expanded="false">tracks</button>
         </span>
       </nav>
 
@@ -197,7 +201,12 @@ const breadcrumbLd = buildBreadcrumbLd([
         </div>
 
         <p class="vp-notes gb-caption">
-          <strong>Drag the ruler to select a region</strong> (or shift-drag anywhere); drag a track
+          <span class="gb-caption__short">
+            <strong>Pinch to zoom</strong>, drag to pan, tap the strip to jump, and{' '}
+            <strong>tracks</strong> to choose what is drawn. Every score lane keeps a fixed axis at
+            every zoom, and prints its own units.
+          </span>
+          <span class="gb-caption__full"><strong>Drag the ruler to select a region</strong> (or shift-drag anywhere); drag a track
           to pan, scroll to zoom, click the overview strip to jump. Every score lane keeps a{' '}
           <em>fixed</em> axis at every zoom, so any two positions are read against the same ruler —
           and each lane prints its own range, because {index.tracks[0].units} and a 0–1 posterior
@@ -209,7 +218,7 @@ const breadcrumbLd = buildBreadcrumbLd([
           <strong>{meanIc.toFixed(3)} bits</strong> masked against{' '}
           <strong>{meanUnmasked.toFixed(3)}</strong> unmasked
           {mitoIc !== null ? `, and chrM ${mitoIc.toFixed(3)} masked` : ''} — so most of the track
-          is genuinely low and the tall columns are the exception.
+          is genuinely low and the tall columns are the exception.</span>
         </p>
 
         <p class="vp-stat gb-status" data-gb-status></p>

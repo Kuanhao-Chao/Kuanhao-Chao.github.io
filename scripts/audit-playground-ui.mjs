@@ -2010,6 +2010,105 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
       fail(scope, `stacked features added only ${packed.h - bare}px — rows are not being packed`);
     }
 
+    // 4n. The phone. A separate context, because a narrow viewport is not a resize -- the default
+    //     lane set and the letter threshold are both decided at boot from the width.
+    {
+      const phone = await browser.newContext({
+        baseURL, viewport: { width: 390, height: 664 },
+        deviceScaleFactor: 3, isMobile: true, hasTouch: true,
+      });
+      const ph = await phone.newPage();
+      try {
+        await ph.goto(GENOME_ROUTE, { waitUntil: 'networkidle' });
+        await ph.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 25000 });
+        await ph.waitForTimeout(2000);
+
+        const readSpan = async () => {
+          const v = await ph.$eval('[data-genome-browser]', (h) => h.dataset.gbView ?? '');
+          const [a, b] = v.split(':')[1].split('-').map((x) => Number(x.replace(/,/g, '')));
+          return b - a;
+        };
+
+        // THE acceptance test. Before this work, six taps reached the 40 bp floor with the mode
+        // still "bars": 252 px of plot over 40 bases is 6.3 px a base, under a flat 7 px
+        // threshold, so the sequence was arithmetically unreachable on a phone.
+        let taps = 0;
+        while ((await readSpan()) > 21 && taps < 40) {
+          await ph.click('[data-gb-zoom="0.5"]');
+          await ph.waitForTimeout(110);
+          taps += 1;
+        }
+        const deep = await ph.$eval('[data-gb-track]', (c) => ({ ...c.dataset }));
+        if (deep.gbMode !== 'letters') {
+          fail(scope, `phone: ${taps} taps reached ${await readSpan()} bp with mode `
+            + `"${deep.gbMode}" — the letter view is unreachable`);
+        }
+
+        // Pinch. `.gb-track` sets touch-action: none, so the browser's own pinch is suppressed
+        // there and this is the only zoom gesture a phone has.
+        await ph.fill('[data-gb-locus]', 'chrIV:100000-140000');
+        await ph.click('[data-gb-go]');
+        await ph.waitForTimeout(700);
+        const beforePinch = await readSpan();
+        const box = await ph.$eval('[data-gb-track]', (c) => {
+          const r = c.getBoundingClientRect();
+          return { x: r.x, y: r.y, w: r.width, h: r.height };
+        });
+        await ph.evaluate(async ({ x, y, w, h }) => {
+          const el = document.querySelector('[data-gb-track]');
+          const cy = y + h / 2;
+          const mk = (type, id, cx) => new PointerEvent(type, {
+            pointerId: id, pointerType: 'touch', isPrimary: id === 1,
+            clientX: cx, clientY: cy, bubbles: true, cancelable: true,
+          });
+          el.dispatchEvent(mk('pointerdown', 1, x + w * 0.4));
+          el.dispatchEvent(mk('pointerdown', 2, x + w * 0.6));
+          for (let i = 1; i <= 10; i += 1) {
+            el.dispatchEvent(mk('pointermove', 1, x + w * (0.4 - 0.025 * i)));
+            el.dispatchEvent(mk('pointermove', 2, x + w * (0.6 + 0.025 * i)));
+            await new Promise((r) => setTimeout(r, 20));
+          }
+          el.dispatchEvent(mk('pointerup', 1, x));
+          el.dispatchEvent(mk('pointerup', 2, x + w));
+          await new Promise((r) => setTimeout(r, 400));
+        }, box);
+        const afterPinch = await readSpan();
+        if (!(afterPinch < beforePinch)) {
+          fail(scope, `phone: spreading two fingers did not zoom in (${beforePinch} -> ${afterPinch} bp)`);
+        }
+
+        // The controls must not eat the screen. Before this work the nav alone was 219 px of a
+        // 664 px viewport and the track began at y = 444.
+        const layout = await ph.evaluate(() => {
+          const nav = document.querySelector('.vp-nav');
+          const track = document.querySelector('[data-gb-track]');
+          return {
+            navH: nav ? Math.round(nav.getBoundingClientRect().height) : 0,
+            trackTop: track ? Math.round(track.getBoundingClientRect().top) : 0,
+            overflow: Math.max(0, document.documentElement.scrollWidth - window.innerWidth),
+          };
+        });
+        if (layout.navH > 90) fail(scope, `phone: the control bar is ${layout.navH}px tall`);
+        if (layout.trackTop > 340) fail(scope, `phone: the track starts at y=${layout.trackTop}`);
+        if (layout.overflow > 1) fail(scope, `phone: document overflows by ${layout.overflow}px`);
+
+        // The track panel is a drawer at this width, not a column below the fold.
+        await ph.click('[data-gb-panel-toggle]');
+        await ph.waitForTimeout(400);
+        const drawer = await ph.evaluate(() => ({
+          open: document.querySelector('[data-genome-browser]').dataset.gbPanelOpen,
+          shown: getComputedStyle(document.querySelector('.gb-panel')).display !== 'none',
+        }));
+        if (drawer.open !== '1' || !drawer.shown) fail(scope, 'phone: the tracks drawer did not open');
+        progress(`  genome/phone: ${taps} taps to letters, pinch `
+          + `${beforePinch}->${afterPinch} bp, nav ${layout.navH}px, track top ${layout.trackTop}`);
+      } catch (error) {
+        fail(scope, `phone: ${error instanceof Error ? error.message : String(error)}`);
+      } finally {
+        await phone.close();
+      }
+    }
+
     // 5. Four CLIENT-SIDE round trips must leave exactly one controller listening.
     //
     // This page is `bare`, so its host is destroyed and rebuilt on every navigation and the mount
