@@ -21,7 +21,6 @@ import {
 import {
   getSecureStoredApiKey,
   loadGoogleMapsSDK,
-  onGoogleMapsAuthFailure,
   GOOGLE_MAPS_DARK_STYLE,
 } from '../lib/googleMaps';
 
@@ -33,7 +32,7 @@ export class BayRouteVisualizer {
   private ctx: CanvasRenderingContext2D;
   private container: HTMLElement;
 
-  // Map Engines (Google Maps vs Leaflet Fallback)
+  // Map Engines
   public isGoogleMapsActive: boolean = false;
   private gmap: google.maps.Map | null = null;
   private gmapStartMarker: google.maps.Marker | null = null;
@@ -77,7 +76,7 @@ export class BayRouteVisualizer {
     this.ctx = ctx;
     this.container = container;
 
-    // Build dense road graph
+    // Use high-density real-world road graph
     this.baseGraph = buildDenseBayAreaGraph();
     this.activeGraph = this.baseGraph;
 
@@ -103,11 +102,6 @@ export class BayRouteVisualizer {
     };
 
     this.detectTheme();
-
-    onGoogleMapsAuthFailure(() => {
-      this.switchToLeafletFallback();
-    });
-
     this.initMapEngine();
     this.bindDOMEvents();
   }
@@ -119,33 +113,33 @@ export class BayRouteVisualizer {
   }
 
   private async initMapEngine(): Promise<void> {
-    const savedApiKey = await getSecureStoredApiKey();
-
-    if (savedApiKey) {
+    // 1. Try background Google Maps initialization if an environment key is present
+    const envKey = await getSecureStoredApiKey();
+    if (envKey) {
       try {
-        await loadGoogleMapsSDK(savedApiKey);
+        await loadGoogleMapsSDK(envKey);
         if (window.google && window.google.maps) {
           this.initGoogleMap();
           this.isGoogleMapsActive = true;
-          this.updateApiKeyStatusUI(true);
+          this.updateMapBadge('Google Maps Active');
           return;
         }
-      } catch (_err) {
-        // Fall back to Leaflet if Google Maps SDK fails to load
+      } catch (_e) {
+        // Fall through to instant Leaflet engine
       }
     }
 
-    // Leaflet OpenStreetMap Fallback
+    // 2. Direct high-speed Leaflet Map Engine (Zero config, zero delays, 100% reliable)
     this.initLeafletMap();
     this.isGoogleMapsActive = false;
-    this.updateApiKeyStatusUI(false);
+    this.updateMapBadge('High-Res GIS Map');
   }
 
-  public switchToLeafletFallback(): void {
-    this.isGoogleMapsActive = false;
-    this.updateApiKeyStatusUI(false);
-    this.initLeafletMap();
-    this.recalculate();
+  private updateMapBadge(text: string): void {
+    const badge = this.container.querySelector('[data-br-map-badge]');
+    if (badge) {
+      badge.textContent = `🗺️ ${text}`;
+    }
   }
 
   // --- GOOGLE MAPS ENGINE INITIALIZATION ---
@@ -189,69 +183,10 @@ export class BayRouteVisualizer {
       }
     });
 
-    this.setupGooglePlacesAutocomplete();
     this.syncCanvasDimensions();
   }
 
-  private setupGooglePlacesAutocomplete(): void {
-    if (!window.google || !window.google.maps || !window.google.maps.places) return;
-
-    const startInput = this.container.querySelector<HTMLInputElement>('[data-br-input="start"]');
-    const goalInput = this.container.querySelector<HTMLInputElement>('[data-br-input="goal"]');
-
-    const bayBounds = new window.google.maps.LatLngBounds(
-      { lat: 37.0, lng: -123.0 },
-      { lat: 38.3, lng: -121.6 }
-    );
-
-    if (startInput) {
-      try {
-        const startAuto = new window.google.maps.places.Autocomplete(startInput, {
-          bounds: bayBounds,
-          componentRestrictions: { country: 'us' },
-        });
-        startAuto.addListener('place_changed', () => {
-          const place = startAuto.getPlace();
-          if (place.geometry && place.geometry.location) {
-            this.currentStartEndpoint = {
-              id: `gplace_${place.place_id || Math.random()}`,
-              name: place.name || startInput.value,
-              lat: place.geometry.location.lat(),
-              lng: place.geometry.location.lng(),
-              city: 'Bay Area',
-            };
-            this.recalculate();
-            this.fitRouteBounds();
-          }
-        });
-      } catch (_e) {}
-    }
-
-    if (goalInput) {
-      try {
-        const goalAuto = new window.google.maps.places.Autocomplete(goalInput, {
-          bounds: bayBounds,
-          componentRestrictions: { country: 'us' },
-        });
-        goalAuto.addListener('place_changed', () => {
-          const place = goalAuto.getPlace();
-          if (place.geometry && place.geometry.location) {
-            this.currentGoalEndpoint = {
-              id: `gplace_${place.place_id || Math.random()}`,
-              name: place.name || goalInput.value,
-              lat: place.geometry.location.lat(),
-              lng: place.geometry.location.lng(),
-              city: 'Bay Area',
-            };
-            this.recalculate();
-            this.fitRouteBounds();
-          }
-        });
-      } catch (_e) {}
-    }
-  }
-
-  // --- LEAFLET MAP ENGINE INITIALIZATION (FALLBACK) ---
+  // --- LEAFLET MAP ENGINE INITIALIZATION (DEFAULT & FALLBACK) ---
   private initLeafletMap(): void {
     if (this.gmap) {
       this.gmap = null;
@@ -281,8 +216,14 @@ export class BayRouteVisualizer {
     });
 
     this.isMapReady = true;
-    this.syncCanvasDimensions();
-    this.recalculate();
+
+    // Invalidate size on next frame so Leaflet tiles fill the container smoothly
+    requestAnimationFrame(() => {
+      this.leafletMap?.invalidateSize();
+      this.syncCanvasDimensions();
+      this.recalculate();
+      this.render();
+    });
   }
 
   private updateLeafletTileLayer(): void {
@@ -291,7 +232,7 @@ export class BayRouteVisualizer {
       this.leafletMap.removeLayer(this.leafletTileLayer);
     }
 
-    let url = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+    let url = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
     switch (this.currentTileStyle) {
       case 'dark':
         url = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
@@ -349,9 +290,7 @@ export class BayRouteVisualizer {
     if (this.gmap && window.google && window.google.maps) {
       const bounds = this.gmap.getBounds();
       const projection = this.gmap.getProjection();
-      if (!bounds || !projection) {
-        return { x: 0, y: 0 };
-      }
+      if (!bounds || !projection) return { x: 0, y: 0 };
 
       const topRight = projection.fromLatLngToPoint(bounds.getNorthEast());
       const bottomLeft = projection.fromLatLngToPoint(bounds.getSouthWest());
@@ -386,6 +325,12 @@ export class BayRouteVisualizer {
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ['data-theme'],
+    });
+
+    window.addEventListener('resize', () => {
+      this.leafletMap?.invalidateSize();
+      this.syncCanvasDimensions();
+      this.render();
     });
 
     this.setupAutocomplete('start');
@@ -687,19 +632,6 @@ export class BayRouteVisualizer {
     }
   }
 
-  private updateApiKeyStatusUI(isConnected: boolean): void {
-    const badge = this.container.querySelector('[data-br-api-badge]');
-    if (badge) {
-      if (isConnected) {
-        badge.className = 'br-api-badge br-api-badge--connected';
-        badge.textContent = '🟢 Google Maps SDK Active';
-      } else {
-        badge.className = 'br-api-badge br-api-badge--fallback';
-        badge.textContent = '🟡 OSM Map Mode';
-      }
-    }
-  }
-
   // --- PLAYBACK CONTROLS ---
   public play(): void {
     if (this.isPlaying) return;
@@ -822,11 +754,9 @@ export class BayRouteVisualizer {
     const elDistance = this.container.querySelector('[data-metric-distance]');
     const elTime = this.container.querySelector('[data-metric-time]');
     const elOptimality = this.container.querySelector('[data-metric-optimality]');
-    const elStepCount = this.container.querySelector('[data-metric-step]');
 
     if (elExplored) elExplored.textContent = String(currStep.closedSetCount);
     if (elFrontier) elFrontier.textContent = String(currStep.openSetCount);
-    if (elStepCount) elStepCount.textContent = `${this.currentStepIndex} / ${maxSteps}`;
 
     const isComplete = this.currentStepIndex >= maxSteps;
     if (elDistance) {
