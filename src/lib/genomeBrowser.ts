@@ -29,8 +29,40 @@ export interface View {
   end: number;
 }
 
-/** The narrowest view worth showing: below this, letters are wider than the panel. */
-export const MIN_VIEW_BP = 40;
+/**
+ * The narrowest view worth showing.
+ *
+ * 20, not 40, and the reason is the phone. A 40 bp floor over a 252 px plot -- which is what a
+ * 390 px phone has after the gutter -- is 6.3 pixels a base, and the letter view needs more than
+ * that, so the deepest zoom on a phone rendered as bars and the sequence was simply unreachable.
+ * The floor has to leave room for the narrowest screen to get there.
+ */
+export const MIN_VIEW_BP = 20;
+
+/**
+ * Pixels a base at which drawing letters starts to make sense, given how wide the plot is.
+ *
+ * A constant is wrong here, and 7 was the constant. On a laptop it is invisible -- 1,300 px of
+ * plot reaches 7 px a base at 185 bases, long before the zoom floor. On a 390 px phone the plot is
+ * 252 px, so 7 px a base needs a 36 bp view, and with the floor at 40 the letter view could not be
+ * reached at all: measured, six taps of [+] reached the floor with `data-gb-mode` still "bars".
+ *
+ * So the threshold scales down for narrow plots, but never below the point where a glyph stops
+ * being a glyph. 4.5 px is about where DejaVu Bold at this stack is still identifiable as a
+ * letter; below it the logo is texture and the bars carry more information.
+ */
+export function letterMinPx(innerWidth: number): number {
+  if (innerWidth >= 700) return 7;
+  // Linear between a 250 px plot at 4.5 and a 700 px plot at 7.
+  const t = Math.max(0, Math.min(1, (innerWidth - 250) / (700 - 250)));
+  return 4.5 + t * 2.5;
+}
+
+/** Whether the letter view should be drawn for a given view width and plot width. */
+export function shouldDrawLetters(spanBp: number, innerWidth: number): boolean {
+  if (innerWidth <= 0 || spanBp <= 0) return false;
+  return innerWidth / spanBp >= letterMinPx(innerWidth);
+}
 
 /**
  * The level to draw a view at.
@@ -487,3 +519,40 @@ export function chromOrder(a: string, b: string): number {
   const [bv, bn] = key(b);
   return av - bv || an.localeCompare(bn);
 }
+
+
+// ------------------------------------------------------------------------------------------------
+// Pinch
+// ------------------------------------------------------------------------------------------------
+
+/**
+ * The zoom a two-finger pinch implies, and the base it should be anchored on.
+ *
+ * Expressed as a factor for `zoomAbout`, which already keeps a chosen base under a chosen point --
+ * so a pinch is that same operation driven by fingers rather than a wheel. `factor` is the
+ * RECIPROCAL of the finger-distance ratio: spreading the fingers apart (a growing distance) means
+ * zooming IN, which means a smaller span.
+ *
+ * Returns null when the gesture cannot be interpreted -- a zero starting distance, or a factor so
+ * close to 1 that it is jitter rather than intent. Acting on jitter makes a pinch feel like it
+ * drifts when a finger is merely resting.
+ */
+export function pinchZoom(
+  startDistancePx: number, currentDistancePx: number, deadZone = 0.02,
+): number | null {
+  if (!(startDistancePx > 0) || !(currentDistancePx > 0)) return null;
+  const factor = startDistancePx / currentDistancePx;
+  if (!Number.isFinite(factor) || factor <= 0) return null;
+  if (Math.abs(factor - 1) < deadZone) return null;
+  return factor;
+}
+
+/** Euclidean distance between two points, for the pinch. */
+export const pointDistance = (
+  ax: number, ay: number, bx: number, by: number,
+): number => Math.hypot(ax - bx, ay - by);
+
+/** Midpoint of two points: the anchor a pinch zooms about. */
+export const pointMidpoint = (
+  ax: number, ay: number, bx: number, by: number,
+): { x: number; y: number } => ({ x: (ax + bx) / 2, y: (ay + by) / 2 });

@@ -39,6 +39,7 @@ import {
   levelForBpPerPixel, tilesCovering, tileStartBp, clampView, zoomAbout,
   xOfBp as xOfBpPure, bpOfX as bpOfXPure, formatLocus, formatSpan, rulerTicks,
   laneLayout, laneAt, brushRegion, featureDensity, searchLocus, chromOrder,
+  shouldDrawLetters, pinchZoom, pointDistance, pointMidpoint,
   emptyHistory, historyPush, historyBack, historyForward, canGoBack, canGoForward,
   encodeViewState, decodeViewState,
   MIN_VIEW_BP, type Level, type ChromInfo, type View, type LaneSpec, type Lane,
@@ -56,8 +57,11 @@ const DATA = '/genome-data';
 /** Decode slice width. Below every browser's maximum canvas dimension, with room to spare. */
 const DECODE_CHUNK = 4096;
 
-/** Below this many pixels a base, letters are unreadable and the track draws bars instead. */
-const LETTER_MIN_PX = 7;
+/**
+ * Whether the letter view is drawn is `shouldDrawLetters(span, innerWidth)` in the pure layer, not
+ * a constant here. A flat 7 px threshold made the sequence unreachable on a phone: 252 px of plot
+ * over the old 40 bp floor is 6.3 px a base, so the deepest zoom still drew bars.
+ */
 
 /**
  * Above this span a feature lane draws a density profile instead of individual features.
@@ -82,7 +86,10 @@ const LANE_GAP = 9;
  * Left gutter, in CSS pixels. Responsive because it is not decoration: at 320 px a fixed 62 px
  * gutter is a fifth of the plot, and the axis labels it exists to hold do not fit there anyway.
  */
-const padLeft = (w: number) => (w < 560 ? 34 : 62);
+const padLeft = (w: number) => (w < 380 ? 22 : w < 560 ? 34 : 62);
+
+/** Below this canvas width the controls collapse and the default lane set shrinks. */
+const PHONE_W = 560;
 
 /** Full height of the overview strip, in bits. A locator scale, not the plot's. */
 const MINI_MAX = 0.5;
@@ -389,6 +396,12 @@ const FEATURE_LANES: {
 
 /** Tracks on by default: one model pass, conservation, genes, and the strongest TFBS tier. */
 const DEFAULT_ON = ['lm-masked', 'phastcons', 'genes', 'sequence', 'tfbs_chip'];
+/**
+ * The narrow default. Fewer lanes, not different ones: the model, its genes and the sequence.
+ * A default rather than a restriction -- every lane is one tap away in the panel, and a shared
+ * link's `t=` list always wins over both of these.
+ */
+const DEFAULT_ON_NARROW = ['lm-masked', 'genes', 'sequence'];
 
 /** Every toggleable lane id, in panel order. */
 const ALL_LANES = (index: IndexFile | null): string[] => [
@@ -810,7 +823,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     }
     const w = Math.max(1, Math.round(trackCanvas!.clientWidth));
     const inner = Math.max(1, w - padLeft(w) - PAD_RIGHT);
-    if ((view.end - view.start) / inner <= 1 / LETTER_MIN_PX && enabled.get('sequence')) {
+    if (shouldDrawLetters(view.end - view.start, inner) && enabled.get('sequence')) {
       out.push({ id: 'sequence', kind: 'sequence', label: 'sequence', height: SEQ_LANE_H });
     }
     for (const fl of FEATURE_LANES) {
@@ -999,7 +1012,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     const top = lane.top;
     const yOf = (v: number) => top + h - ((Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo)) * h;
     const cols = sample(spec.id, lvl, inner, spec.axis);
-    const seq = spec.units === 'bits' && (view.end - view.start) / inner <= 1 / LETTER_MIN_PX
+    const seq = spec.units === 'bits' && shouldDrawLetters(view.end - view.start, inner)
       ? sequence() : null;
 
     // Gridlines and the axis, per lane: every score lane prints its OWN range and units, because
@@ -1233,24 +1246,48 @@ export function initGenomeBrowser(host: HTMLElement): void {
     return count;
   }
 
-  /** Lane names live in the gutter, so they are drawn outside the plot-area clip. */
+  /**
+   * A lane's name, in the gutter when it fits there and inside the plot when it does not.
+   *
+   * The gutter is 22 px on a phone, and "genes" right-aligned at `padLeft - 5` starts at x = -11
+   * and renders as "nes" -- which reads as a different word rather than a clipped one, the same
+   * failure the ruler's end ticks and the feature names each had. Measure it; do not assume the
+   * gutter is wide enough.
+   */
+  function drawLaneName(
+    ctx: CanvasRenderingContext2D, text: string, w: number, y: number,
+    col: Record<string, string>, size = 10,
+  ): void {
+    ctx.font = `${size}px system-ui, sans-serif`;
+    ctx.fillStyle = col.muted;
+    const gutter = padLeft(w);
+    if (ctx.measureText(text).width + 6 <= gutter) {
+      ctx.textAlign = 'right';
+      ctx.fillText(text, gutter - 5, y);
+      return;
+    }
+    // No room: put it just inside the plot, over a chip so it does not sit on the data.
+    ctx.textAlign = 'left';
+    const tw = ctx.measureText(text).width;
+    ctx.globalAlpha = 0.82;
+    ctx.fillStyle = col.bg;
+    ctx.fillRect(gutter + 1, y - 8, tw + 5, 11);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = col.muted;
+    ctx.fillText(text, gutter + 3, y);
+  }
+
   function drawGeneGutter(
     ctx: CanvasRenderingContext2D, lane: Lane, w: number, col: Record<string, string>,
   ): void {
-    ctx.textAlign = 'right';
-    ctx.fillStyle = col.muted;
-    ctx.font = '10px system-ui, sans-serif';
-    ctx.fillText('genes', padLeft(w) - 5, lane.top + GENE_ROW_H / 2 + 3);
+    drawLaneName(ctx, 'genes', w, lane.top + GENE_ROW_H / 2 + 3, col, 10);
   }
 
   function drawFeatureGutter(
     ctx: CanvasRenderingContext2D, lane: Lane, w: number, col: Record<string, string>,
   ): void {
-    ctx.textAlign = 'right';
-    ctx.fillStyle = col.muted;
-    ctx.font = '9px system-ui, sans-serif';
-    ctx.fillText(FEATURE_LANES.find((f) => f.id === lane.id)?.short ?? lane.id,
-                 padLeft(w) - 5, lane.top + lane.height - 5);
+    drawLaneName(ctx, FEATURE_LANES.find((f) => f.id === lane.id)?.short ?? lane.id,
+                 w, lane.top + lane.height - 5, col, 9);
   }
 
   /**
@@ -1615,9 +1652,43 @@ export function initGenomeBrowser(host: HTMLElement): void {
   let dragStart = 0;
   let anchorBp = 0;
 
+  /**
+   * Live pointers on the track, so a second finger can turn a pan into a pinch.
+   *
+   * A phone has no wheel and no keyboard, so pinch is the only gesture anyone will try to zoom
+   * with -- and `.gb-track` sets `touch-action: none`, which means the browser's own pinch is
+   * already suppressed here and nothing was replacing it.
+   */
+  const pointers = new Map<number, { x: number; y: number }>();
+  let pinch: { dist: number; anchorBp: number; startStart: number; startEnd: number } | null = null;
+
   trackCanvas.addEventListener('pointerdown', (e) => {
     const w = Math.max(1, Math.round(trackCanvas.clientWidth));
     const rect = trackCanvas.getBoundingClientRect();
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    // Never let this throw past the gesture logic. A synthetic pointer has no active pointer, so
+    // this raises NotFoundError and aborted the handler before the two-finger branch below could
+    // run -- which is how a pinch silently degraded into a one-finger pan.
+    try { trackCanvas.setPointerCapture(e.pointerId); } catch { /* not a real pointer */ }
+
+    if (pointers.size === 2) {
+      // The second finger takes over. Whatever the first was doing is abandoned rather than
+      // finished, so a pan does not commit a stray view as the pinch begins.
+      const [a, b] = [...pointers.values()];
+      const mid = pointMidpoint(a.x, a.y, b.x, b.y);
+      pinch = {
+        dist: pointDistance(a.x, a.y, b.x, b.y),
+        anchorBp: bpOfX(mid.x - rect.left, w),
+        startStart: view.start,
+        startEnd: view.end,
+      };
+      mode = 'none';
+      brush = null;
+      schedule();
+      return;
+    }
+    if (pointers.size > 2) return;
+
     const lane = laneAt(lanes, e.clientY - rect.top);
     // IGV's convention: the ruler is the selection surface and the tracks are the pan surface, so
     // neither needs a mode toggle. Shift-drag brushes anywhere, for anyone who does not know that.
@@ -1626,7 +1697,6 @@ export function initGenomeBrowser(host: HTMLElement): void {
     dragStart = view.start;
     anchorBp = bpOfX(e.clientX - rect.left, w);
     brush = null;
-    trackCanvas.setPointerCapture(e.pointerId);
     trackCanvas.style.cursor = mode === 'brush' ? 'ew-resize' : 'grabbing';
   });
 
@@ -1635,6 +1705,26 @@ export function initGenomeBrowser(host: HTMLElement): void {
     const rect = trackCanvas.getBoundingClientRect();
     const inner = Math.max(1, w - padLeft(w) - PAD_RIGHT);
     const bpPerPx = (view.end - view.start) / inner;
+
+    if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pinch && pointers.size >= 2) {
+      const [a, b] = [...pointers.values()];
+      // Measured against the span the pinch STARTED from, not the current one: applying a factor
+      // to an already-zoomed view compounds it every frame and the gesture runs away.
+      const factor = pinchZoom(pinch.dist, pointDistance(a.x, a.y, b.x, b.y));
+      if (factor !== null) {
+        const info = chromInfo(view.chrom);
+        if (info) {
+          const width = pinch.startEnd - pinch.startStart;
+          const next = zoomAbout(pinch.startStart, pinch.startStart + width, factor,
+                                 pinch.anchorBp, info.length);
+          setView({ chrom: view.chrom, ...next }, { push: false, hash: false });
+        }
+      }
+      return;
+    }
+
     if (mode === 'pan') {
       const shift = (dragX - e.clientX) * bpPerPx;
       const width = view.end - view.start;
@@ -1686,11 +1776,23 @@ export function initGenomeBrowser(host: HTMLElement): void {
   }
 
   const endDrag = (e: PointerEvent) => {
+    pointers.delete(e.pointerId);
+    try { trackCanvas.releasePointerCapture(e.pointerId); } catch { /* already released */ }
+    if (pinch) {
+      // A pinch ends when it drops below two fingers. The view is already where the gesture left
+      // it; this only records it in the history and the URL, once, rather than per frame.
+      if (pointers.size < 2) {
+        pinch = null;
+        history = historyPush(history, view);
+        writeHash();
+        syncButtons();
+      }
+      return;
+    }
     if (mode === 'none') return;
     const was = mode;
     mode = 'none';
     trackCanvas.style.cursor = 'grab';
-    try { trackCanvas.releasePointerCapture(e.pointerId); } catch { /* already released */ }
     if (was === 'pan') {
       // A pan that never moved is a CLICK, and on a binding-site box a click asks what the factor
       // recognises. Checking the distance rather than adding a separate click listener keeps the
@@ -1855,7 +1957,18 @@ export function initGenomeBrowser(host: HTMLElement): void {
   });
 
   if (chromSel) {
-    chromSel.addEventListener('change', () => {
+    // The track panel is a drawer on a phone (see the 560px block in variantPlayground.css) and a
+  // column everywhere else; the button only exists at that width, so this is a no-op elsewhere.
+  $<HTMLButtonElement>('[data-gb-panel-toggle]')?.addEventListener('click', (e) => {
+    const btn = e.currentTarget as HTMLButtonElement;
+    const layout = host.querySelector('.gb-layout');
+    if (!layout) return;
+    const open = layout.classList.toggle('is-panel-open');
+    btn.setAttribute('aria-expanded', String(open));
+    host.dataset.gbPanelOpen = open ? '1' : '0';
+  });
+
+  chromSel.addEventListener('change', () => {
       const info = chromInfo(chromSel.value);
       if (info) setView({ chrom: chromSel.value, start: 0, end: info.length });
     });
@@ -2054,9 +2167,14 @@ export function initGenomeBrowser(host: HTMLElement): void {
     }
 
     const isMinimal = host.dataset.gbMinimal === '1' || host.dataset.gbNoHash === '1';
+    // A host that names its own tracks (the homepage showcase) always wins. Otherwise the default
+    // set depends on how much room there is: the laptop set stacks to ~340 px of canvas, which on
+    // a 664 px phone viewport pushes the track below the fold before a single base is visible.
+    const narrow = (trackCanvas.clientWidth || window.innerWidth) < PHONE_W;
+    host.dataset.gbNarrow = narrow ? '1' : '0';
     const initialTracks = host.dataset.gbTracks
       ? host.dataset.gbTracks.split(',').map((s) => s.trim()).filter(Boolean)
-      : DEFAULT_ON;
+      : (narrow ? DEFAULT_ON_NARROW : DEFAULT_ON);
 
     for (const id of initialTracks) enabled.set(id, true);
 

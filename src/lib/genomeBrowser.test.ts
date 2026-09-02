@@ -6,6 +6,7 @@ import {
   laneLayout, laneAt, brushRegion, featureDensity, searchLocus, searchSuggest,
   emptyHistory, historyPush, historyBack, historyForward, canGoBack, canGoForward,
   encodeViewState, decodeViewState, chromOrder, romanValue,
+  letterMinPx, shouldDrawLetters, pinchZoom, pointDistance, pointMidpoint,
   type Level, type ChromInfo, type LaneSpec, type SearchGene, type View,
 } from './genomeBrowser';
 
@@ -636,4 +637,104 @@ describe('chromOrder', () => {
     expect(romanValue('chrIV')).toBeNull();
   });
 
+});
+
+
+describe('reaching the letter view', () => {
+  // MEASURED canvas widths, not viewport widths: on a 390 px phone the container's padding leaves
+  // the canvas at 300 px, so the plot is 300 minus the gutters -- which is why the arithmetic that
+  // made letters unreachable was invisible from the breakpoint alone.
+  const PHONE = 300 - 22 - 14;      // 264, with the narrow gutter
+  const PHONE_OLD = 300 - 34 - 14;  // 252, the gutter this shipped with
+  const TABLET = 768 - 62 - 14;     // 692
+  const LAPTOP = 1440 - 62 - 14;    // 1364
+
+  it('lowers the threshold for a narrow plot, and never below legibility', () => {
+    expect(letterMinPx(LAPTOP)).toBe(7);
+    expect(letterMinPx(TABLET)).toBeLessThan(7);
+    expect(letterMinPx(PHONE)).toBeLessThan(letterMinPx(TABLET));
+    // A glyph below ~4.5 px is texture, not a letter, so the ramp stops there.
+    expect(letterMinPx(100)).toBeGreaterThanOrEqual(4.5);
+    expect(letterMinPx(0)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('is monotone in plot width, so a resize cannot flip the view back and forth', () => {
+    let prev = 0;
+    for (let w = 100; w <= 1600; w += 50) {
+      const v = letterMinPx(w);
+      expect(v).toBeGreaterThanOrEqual(prev - 1e-9);
+      prev = v;
+    }
+  });
+
+  it('THE ACCEPTANCE TEST: the zoom floor reaches letters at every real width', () => {
+    // This is the bug in one assertion. With a 40 bp floor, a 7 px threshold and a 252 px phone
+    // plot, 40 bases over 252 px is 6.3 px a base -- so the deepest zoom a phone could reach still
+    // drew bars, and the sequence was unreachable. Measured on the live site before the fix.
+    for (const inner of [PHONE, PHONE_OLD, TABLET, LAPTOP]) {
+      expect(shouldDrawLetters(MIN_VIEW_BP, inner), `plot ${inner}px at the floor`).toBe(true);
+    }
+  });
+
+  it('still does not draw letters when they would be sub-pixel', () => {
+    expect(shouldDrawLetters(10_000, PHONE)).toBe(false);
+    expect(shouldDrawLetters(1_531_933, LAPTOP)).toBe(false);
+    expect(shouldDrawLetters(0, PHONE)).toBe(false);
+    expect(shouldDrawLetters(100, 0)).toBe(false);
+  });
+
+  it('the old floor and the old constant are exactly what made the phone unreachable', () => {
+    // The bug, as arithmetic. 252 px of plot over the old 40 bp floor is 6.3 px a base, under the
+    // old flat 7 px threshold -- so the deepest zoom a phone could reach still drew bars.
+    expect(PHONE_OLD / 40).toBeCloseTo(6.3, 1);
+    expect(PHONE_OLD / 40).toBeLessThan(7);
+    // Either change alone fixes it; both are made, because the floor also governs how far a pinch
+    // can go and the threshold also governs a tablet.
+    expect(PHONE_OLD / MIN_VIEW_BP).toBeGreaterThan(letterMinPx(PHONE_OLD));
+    expect(shouldDrawLetters(MIN_VIEW_BP, PHONE_OLD)).toBe(true);
+  });
+});
+
+describe('pinchZoom', () => {
+  it('spreading the fingers zooms IN', () => {
+    // Fingers further apart => smaller span => factor below 1.
+    const f = pinchZoom(100, 200)!;
+    expect(f).toBeCloseTo(0.5, 6);
+    expect(f).toBeLessThan(1);
+  });
+
+  it('pinching them together zooms OUT', () => {
+    const f = pinchZoom(200, 100)!;
+    expect(f).toBeCloseTo(2, 6);
+    expect(f).toBeGreaterThan(1);
+  });
+
+  it('ignores jitter, so a resting finger does not drift the view', () => {
+    expect(pinchZoom(100, 100)).toBeNull();
+    expect(pinchZoom(100, 101)).toBeNull();
+    expect(pinchZoom(100, 101, 0.001)).not.toBeNull();
+  });
+
+  it('refuses a degenerate gesture rather than returning Infinity', () => {
+    expect(pinchZoom(0, 100)).toBeNull();
+    expect(pinchZoom(100, 0)).toBeNull();
+    expect(pinchZoom(-5, 100)).toBeNull();
+  });
+
+  it('composes with zoomAbout to keep the anchor base fixed', () => {
+    // The whole reason it returns a factor: a pinch IS zoomAbout driven by fingers.
+    const anchor = 1500;
+    const before = { start: 1000, end: 2000 };
+    const f = pinchZoom(100, 250)!;
+    const after = zoomAbout(before.start, before.end, f, anchor, 230218);
+    expect(after.end - after.start).toBeLessThan(before.end - before.start);
+    const fracBefore = (anchor - before.start) / (before.end - before.start);
+    const fracAfter = (anchor - after.start) / (after.end - after.start);
+    expect(fracAfter).toBeCloseTo(fracBefore, 3);
+  });
+
+  it('distance and midpoint are the plain geometry', () => {
+    expect(pointDistance(0, 0, 3, 4)).toBe(5);
+    expect(pointMidpoint(0, 0, 10, 20)).toEqual({ x: 5, y: 10 });
+  });
 });

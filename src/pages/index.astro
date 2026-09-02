@@ -247,6 +247,30 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
     border-block: 1px solid var(--color-rule);
     background: var(--color-rule);
   }
+  /* ------------------------------------------------------------------------------------- */
+  /* Phone: a shorter index.                                                                 */
+  /*                                                                                         */
+  /* Measured on an iPhone 13 (664px viewport): the page ran 11,680px = 17.6 screens, of      */
+  /* which Publications alone was 3.1 and Recent news 1.7. Desktop keeps the full lists --    */
+  /* the frontmatter still renders all of them and this only hides the tail, so the "All      */
+  /* publications" / "All news" links carry the rest.                                        */
+  /*                                                                                         */
+  /* NOTE: the counts live in TWO places once this exists -- the `.slice()` in the            */
+  /* frontmatter and the `n + 4` here. If the slice is ever cut below 4 these rules silently  */
+  /* do nothing, which looks like they were never needed.                                    */
+  /* ------------------------------------------------------------------------------------- */
+  @media (max-width: 639px) {
+    /* `> li` works for publications because the <li> is written in this file and carries this
+       file's scope hash. The news cards are NewsEntry component roots, so they carry NEWSENTRY's
+       hash and Astro's scoped `*[data-astro-cid-...]` never matches them -- the rule compiled
+       fine and silently did nothing. :global is how the rest of this file reaches component
+       roots too (see .home-research :global(.rcard--home)). */
+    .home-pubs > li:nth-child(n + 4),
+    .home-news > :global(*:nth-child(n + 4)) {
+      display: none;
+    }
+  }
+
   .home-pubs {
     list-style: none;
     margin: 0;
@@ -454,11 +478,32 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
   }
   @media (max-width: 639px) {
     .home-research,
-    .home-news,
-    .home-tools,
-    .home-algos,
     .home-bg {
       grid-template-columns: 1fr;
+    }
+    /* Experience & education was 1,056px -- 1.6 screens -- on a phone: eight entries at 77px each
+       plus a 14.4px gap between them. The content is three short lines an entry, so most of that
+       height is space between things rather than the things. */
+    .bg-list {
+      gap: var(--space-3);
+    }
+    .bg-list li {
+      gap: 0.05rem;
+    }
+    /* Section padding is the other half. At 2.25-2.75rem top AND bottom, twelve sections spend
+       roughly a screen and a half on padding alone. */
+    .home-section,
+    .cta {
+      padding-block: clamp(1.5rem, 5vw, 2rem);
+    }
+    /* Two per row, NOT one. A single column of 350px cards is what made these sections 1.4
+       screens each on a phone -- and the column was a fixed 350px rather than a fraction, so it
+       was also wider than the content box at 390px. */
+    .home-news,
+    .home-tools,
+    .home-algos {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--space-4);
     }
     .home-research {
       gap: 1px;

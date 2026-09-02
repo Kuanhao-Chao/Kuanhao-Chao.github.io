@@ -579,6 +579,8 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
 .gb-track { width: 100%; display: block; cursor: grab; touch-action: none; }
 .gb-track:focus-visible { outline: 2px solid var(--color-accent, #3d6ea8); outline-offset: 2px; }
 .gb-caption { margin: 0.5rem 0 0; }
+.gb-caption__short { display: none; }
+@media (max-width: 560px) { .gb-caption__short { display: inline; } }
 .gb-status { margin: 0.35rem 0 0; }
 
 /* Track colours. Fixed hues rather than theme tokens, for the same reason the base colours are:
@@ -654,6 +656,64 @@ html[data-theme='dark'] .vp {
 @media (max-width: 900px) {
   .gb-layout { flex-direction: column; }
   .gb-panel { flex: 1 1 auto; width: 100%; max-height: 18rem; }
+}
+
+/* ------------------------------------------------------------------------------------------- */
+/* Phone                                                                                        */
+/*                                                                                              */
+/* Measured on an iPhone 13 before this block: the nav alone was 219px of a 664px viewport --    */
+/* six control groups wrapping to four rows -- so the track began at y=444 and the track panel   */
+/* at y=777, below the fold. The controls were not too many; they were stacked.                  */
+/* ------------------------------------------------------------------------------------------- */
+@media (max-width: 560px) {
+  /* ONE row that scrolls sideways, the same pattern .term-keybar already uses for the terminal's
+     key strip. Everything stays reachable and the bar costs one row instead of four. */
+  .vp-nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 0.35rem;
+    padding: 0.4rem 0.6rem;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    /* pan-x, not none: the bar scrolls horizontally and the page must still scroll vertically
+       through it. */
+    touch-action: pan-x;
+  }
+  .vp-nav::-webkit-scrollbar { display: none; }
+  .vp-nav__group { flex: none; }
+  /* The labels are the single biggest cost in the bar and every control has a title and an
+     aria-label carrying the same words. */
+  .vp-nav__label { display: none; }
+  .vp-spacer { display: none; }
+  .gb-locus { width: 11rem; }
+
+  /* 44px is the documented minimum tap target; several of these were 28. */
+  .vp-nav .vp-btn { min-height: 40px; min-width: 40px; }
+  .vp-nav .vp-btn--icon { min-width: 40px; padding-inline: 0.4rem; }
+
+  .gb-head { gap: 0.3rem 0.6rem; font-size: 0.92em; }
+  /* The full caption runs to nine lines on a phone, above the fold-worth of track it explains. */
+  .gb-caption__full { display: none; }
+  .gb-hover { display: none; }        /* there is no hover on a touch screen */
+
+  /* The panel is a drawer, not a column: closed it costs one button, open it overlays the stage
+     rather than pushing the track further down the page. */
+  .gb-panel {
+    position: absolute;
+    z-index: 5;
+    inset: auto 0 0 0;
+    max-height: 60vh;
+    box-shadow: 0 -6px 20px rgb(0 0 0 / 0.2);
+  }
+  .gb-layout { position: relative; }
+  .gb-layout:not(.is-panel-open) .gb-panel { display: none; }
+}
+
+/* The toggle exists only where the panel is a drawer. */
+.gb-panel-toggle { display: none; }
+@media (max-width: 560px) {
+  .gb-panel-toggle { display: inline-flex; }
 }
 
 @media (max-width: 640px) {
