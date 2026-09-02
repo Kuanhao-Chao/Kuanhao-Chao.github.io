@@ -46,12 +46,26 @@ Chromosome ends cannot have a full flank. The largest available core is taken an
 bases are recorded in the manifest, because a base scored with 300 bp of left context is not the
 same measurement as one scored with 2,048 and the file should say so.
 
+**Two passes, and the difference between them is the point.** The masked pass is a prediction: the
+model cannot see the base it is scoring. The unmasked pass can, so it is largely reading its own
+input — it is nonetheless the quantity the paper's Figure 2A logo is built on, which is exactly why
+it is worth drawing beside the other rather than instead of it. Measured on the 23 shipped packs,
+mean IC is 0.217 bits masked against 0.705 unmasked, and the two correlate at only r = 0.62, so the
+unmasked pass is not a scaled copy of the masked one.
+
+The unmasked pass costs ONE forward pass a window against the masked pass's seven, so a genome that
+already has its masked arrays gains it for about a minute of GPU:
+
+    python3 scripts/shorkie/make_genome_track.py <ckpt> --passes unmasked
+
 Output (gitignored, the tiler turns it into what ships):
-    scripts/shorkie/_scratch/genome-track/<chrom>.npy      float32 IC per base
+    scripts/shorkie/_scratch/genome-track/<chrom>.npy            float32 masked IC per base
+    scripts/shorkie/_scratch/genome-track/<chrom>-unmasked.npy   float32 unmasked IC per base
     scripts/shorkie/_scratch/genome-track/manifest.json
 
 Usage:
-    python3 scripts/shorkie/make_genome_track.py <lm-checkpoint.h5> [--only chrI] [--force]
+    python3 scripts/shorkie/make_genome_track.py <lm-checkpoint.h5> [--only chrI]
+                                                 [--passes masked,unmasked] [--force]
 """
 
 from __future__ import annotations
@@ -90,6 +104,16 @@ def read_fasta(path: Path) -> dict[str, str]:
     return {k: "".join(v).upper() for k, v in seqs.items()}
 
 
+def array_path(out_dir, chrom: str, which: str):
+    """Where a pass's array lives.
+
+    `masked` keeps the bare `<chrom>.npy` it was first written as: 46 MB of it already exists in
+    `_scratch`, and renaming would either orphan that or force an eight-minute re-run to recover a
+    filename. `unmasked` is suffixed. The tiler maps both onto their published track ids.
+    """
+    return out_dir / (f"{chrom}.npy" if which == "masked" else f"{chrom}-{which}.npy")
+
+
 def plan_windows(n: int) -> list[tuple[int, int, int]]:
     """`(window_start, core_start, core_end)` covering [0, n) with disjoint cores.
 
@@ -121,6 +145,8 @@ def main() -> int:
     ap.add_argument("checkpoint")
     ap.add_argument("--only", default=None, help="one chromosome, e.g. chrI")
     ap.add_argument("--force", action="store_true", help="redo chromosomes already written")
+    ap.add_argument("--passes", default="masked,unmasked",
+                    help="which passes to compute; a pass whose array already exists is skipped")
     ap.add_argument("--device", default=None)
     args = ap.parse_args()
 
@@ -143,45 +169,83 @@ def main() -> int:
     manifest_p = OUT / "manifest.json"
     manifest = json.loads(manifest_p.read_text()) if manifest_p.exists() else {"chroms": {}}
 
-    def masked_ic(seq: str) -> np.ndarray:
-        """Per-base information content, 2 - H, from the K-pass iterative masked prediction."""
+    def window_ic(seq: str, want: set[str]) -> dict[str, np.ndarray]:
+        """Per-base information content, 2 - H, for the requested passes.
+
+        Two passes, and they answer different questions -- the difference IS the paper's Figure 2A
+        point, so they are computed by the same code on the same encoding rather than by two
+        scripts that could drift:
+
+          masked    K disjoint strided sets, each masked in turn, each position read back only from
+                    the pass that masked it. K forward passes. This is a PREDICTION.
+          unmasked  one forward pass with nothing masked, so the model can see the base it is
+                    scoring and is largely reading its own input. NOT a prediction -- but it is the
+                    pass the paper's Figure 2A logo is built on.
+
+        Requesting only `unmasked` costs ONE forward pass against the masked pass's seven, which is
+        why the whole genome can gain it for about a minute of GPU rather than another eight.
+        """
         x0 = encode(seq, species)
-        probs = np.zeros((SEQ_LEN, 4), dtype=np.float32)
         base = torch.from_numpy(x0).to(dev)
-        for r in range(K):
-            sel = np.arange(r, SEQ_LEN, K)
-            x = base.clone()
-            x[0, sel, :4] = 0.0                  # the LM masks by zeroing the four DNA channels
+        out: dict[str, np.ndarray] = {}
+
+        if "unmasked" in want:
             with torch.no_grad():
-                y, _ = model(x)
-            probs[sel] = y[0].float().cpu().numpy()[sel]
-        return (2.0 - entropy_bits(probs)).astype(np.float32)
+                y, _ = model(base)
+            out["unmasked"] = (2.0 - entropy_bits(y[0].float().cpu().numpy())).astype(np.float32)
+
+        if "masked" in want:
+            probs = np.zeros((SEQ_LEN, 4), dtype=np.float32)
+            for r in range(K):
+                sel = np.arange(r, SEQ_LEN, K)
+                x = base.clone()
+                x[0, sel, :4] = 0.0              # the LM masks by zeroing the four DNA channels
+                with torch.no_grad():
+                    y, _ = model(x)
+                probs[sel] = y[0].float().cpu().numpy()[sel]
+            out["masked"] = (2.0 - entropy_bits(probs)).astype(np.float32)
+
+        return out
+
+    requested = [w.strip() for w in args.passes.split(",") if w.strip()]
+    bad = [w for w in requested if w not in ("masked", "unmasked")]
+    if bad:
+        raise SystemExit(f"unknown pass(es): {bad}; expected masked and/or unmasked")
 
     total_windows = sum(len(plan_windows(len(s))) for s in genome.values())
-    print(f"{len(genome)} sequences, {sum(map(len, genome.values())):,} bp, {total_windows} windows\n")
+    print(f"{len(genome)} sequences, {sum(map(len, genome.values())):,} bp, {total_windows} windows")
+    print(f"passes requested: {', '.join(requested)}\n")
     done_windows = 0
     t_all = time.time()
 
     for chrom, seq in sorted(genome.items(), key=lambda kv: -len(kv[1])):
         if args.only and chrom != args.only:
             continue
-        out_p = OUT / f"{chrom}.npy"
-        if out_p.exists() and not args.force and chrom in manifest["chroms"]:
-            print(f"  {chrom:8s} already written, skipping")
+        # Only the passes actually missing are computed. Asking for `unmasked` alone on a genome
+        # whose masked arrays already exist costs one forward pass a window instead of eight.
+        want = {w for w in requested
+                if args.force or not array_path(OUT, chrom, w).exists()
+                or chrom not in manifest["chroms"]}
+        if not want:
+            print(f"  {chrom:8s} already written ({', '.join(requested)}), skipping")
             done_windows += len(plan_windows(len(seq)))
             continue
 
         n = len(seq)
         plan = plan_windows(n)
-        ic = np.full(n, np.nan, dtype=np.float32)
+        ic = {w: np.full(n, np.nan, dtype=np.float32) for w in want}
         short_flank = 0
 
         ck_p = OUT / f"{chrom}-partial.npz"
         first = 0
         if ck_p.exists() and not args.force:
             ck = np.load(ck_p)
-            if int(ck["n"]) == n and int(ck["total"]) == len(plan):
-                ic = ck["ic"]
+            # The checkpoint must carry every pass this run is computing, or a resume would silently
+            # leave one of them full of NaN and the tiling check would be the first to notice.
+            if (int(ck["n"]) == n and int(ck["total"]) == len(plan)
+                    and want <= set(str(k) for k in ck.files)):
+                for w in want:
+                    ic[w] = ck[w]
                 first = int(ck["done"])
                 short_flank = int(ck["short"])
                 print(f"  {chrom:8s} resuming at window {first}/{len(plan)}")
@@ -189,15 +253,19 @@ def main() -> int:
         t0 = time.time()
         for wi in range(first, len(plan)):
             s, c0, c1 = plan[wi]
-            ic_win = masked_ic(seq[s:s + SEQ_LEN])
-            ic[c0:c1] = ic_win[c0 - s:c1 - s]
+            win = window_ic(seq[s:s + SEQ_LEN], want)
+            for w, v in win.items():
+                ic[w][c0:c1] = v[c0 - s:c1 - s]
             # Bases whose flank was cut short by a chromosome end, on either side of this core.
             short_flank += max(0, FLANK - (c0 - s)) + max(0, FLANK - ((s + SEQ_LEN) - c1))
             done_windows += 1
 
             if (wi + 1) % CKPT_WINDOWS == 0 or wi == len(plan) - 1:
+                # `.tmp.npz`, not `.npz.tmp`: np.savez APPENDS `.npz` when the name lacks it, so
+                # a `.npz.tmp` temp file is written as `.npz.tmp.npz` and the rename below fails on
+                # a path that never existed.
                 tmp = OUT / f"{chrom}-partial.tmp.npz"
-                np.savez(tmp, ic=ic, done=wi + 1, n=n, total=len(plan), short=short_flank)
+                np.savez(tmp, done=wi + 1, n=n, total=len(plan), short=short_flank, **ic)
                 tmp.replace(ck_p)
                 el = time.time() - t_all
                 frac = done_windows / max(total_windows, 1)
@@ -205,23 +273,35 @@ def main() -> int:
                       f"({frac*100:4.1f}%)  {el/60:.1f} min elapsed, "
                       f"{(el/frac*(1-frac))/60:.1f} min left", flush=True)
 
-        missing = int(np.isnan(ic).sum())
-        if missing:
-            raise SystemExit(f"{chrom}: {missing} bases have no score — the cores do not tile")
-        np.save(out_p, ic)
+        for w, v in ic.items():
+            missing = int(np.isnan(v).sum())
+            if missing:
+                raise SystemExit(f"{chrom}/{w}: {missing} bases have no score — the cores do not tile")
+            np.save(array_path(OUT, chrom, w), v)
         ck_p.unlink(missing_ok=True)
-        manifest["chroms"][chrom] = {
-            "length": n, "windows": len(plan),
-            "shortFlankBases": short_flank,
-            "mean": round(float(ic.mean()), 5),
-            "min": round(float(ic.min()), 5), "max": round(float(ic.max()), 5),
-        }
+
+        rec = manifest["chroms"].get(chrom, {})
+        rec.update({"length": n, "windows": len(plan), "shortFlankBases": short_flank})
+        for w, v in ic.items():
+            rec[w] = {"mean": round(float(v.mean()), 5),
+                      "min": round(float(v.min()), 5), "max": round(float(v.max()), 5)}
+        # The original single-pass manifest wrote mean/min/max at the top level. Keep them as the
+        # masked pass's, so nothing that already reads them starts reading a different pass.
+        if "masked" in ic:
+            rec.update(rec["masked"])
+        manifest["chroms"][chrom] = rec
         manifest.update({"flank": FLANK, "core": CORE, "seqLen": SEQ_LEN, "k": K,
                          "score": "information content, 2 - H(p), bits",
-                         "pass": "iterative masked, K disjoint strided sets"})
+                         "passes": {
+                             "masked": "iterative masked, K disjoint strided sets — a prediction",
+                             "unmasked": "one forward pass, nothing masked — the model sees the base "
+                                         "it scores, so it is largely reading its own input. This is "
+                                         "the paper's Figure 2A quantity and is NOT a prediction.",
+                         }})
         manifest_p.write_text(json.dumps(manifest, indent=1))
-        print(f"  {chrom:8s} {n:>9,} bp  {len(plan):3d} windows  "
-              f"mean IC {ic.mean():.4f}  [{(time.time()-t0)/60:.1f} min]", flush=True)
+        means = "  ".join(f"{w} {v.mean():.4f}" for w, v in sorted(ic.items()))
+        print(f"  {chrom:8s} {n:>9,} bp  {len(plan):3d} windows  mean IC {means}"
+              f"  [{(time.time()-t0)/60:.1f} min]", flush=True)
 
     have = sorted(manifest["chroms"])
     tot = sum(m["length"] for m in manifest["chroms"].values())

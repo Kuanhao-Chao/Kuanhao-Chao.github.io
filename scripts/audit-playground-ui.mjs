@@ -1622,7 +1622,12 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     const deepest = await ds();
     if (deepest.gbMode !== 'letters') fail(scope, `deepest zoom drew "${deepest.gbMode}", not letters`);
 
-    // 2. the cache bound, exercised hard enough that eviction has to happen
+    // 2. the cache bound, exercised hard enough that eviction has to happen -- with ALL THREE
+    //    score pyramids enabled, which is the case a bound tuned for one track cannot survive.
+    await page.check('[data-gb-toggle="lm-unmasked"]');
+    await page.waitForTimeout(600);
+    const enabledTracks = Number((await ds()).gbScoreTracks);
+    if (enabledTracks !== 3) fail(scope, `expected 3 score tracks enabled, saw ${enabledTracks}`);
     let peak = 0;
     for (const [chrom, len] of [['chrIV', 1531933], ['chrXV', 1091291], ['chrVII', 1090940]]) {
       for (let i = 0; i < 24; i += 1) {
@@ -1634,7 +1639,9 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
       }
     }
     await page.waitForTimeout(1000);
-    if (peak > 48) fail(scope, `tile cache grew to ${peak}, above its bound of 48`);
+    // The bound scales with the number of enabled score tracks: 16 + 16 per track.
+    const cap = 16 + 16 * enabledTracks;
+    if (peak > cap) fail(scope, `tile cache grew to ${peak}, above its bound of ${cap}`);
     const status = await page.$eval('[data-gb-status]', (e) => e.textContent ?? '');
     const evicted = Number(status.match(/(\d+) evicted/)?.[1] ?? 0);
     if (!(evicted > 0)) {
@@ -1699,6 +1706,126 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
       fail(scope, 'the canvas did not repaint on khc:theme-change — it keeps the old palette');
     }
 
+    // 4b. The three score tracks, and the two passes together.
+    //
+    // The unmasked pass is NOT a prediction -- the model sees the base it scores -- so the lane has
+    // to say so on its face, and a reader must be able to draw both at once, which is the whole
+    // point of the paper's Figure 2A comparison.
+    // `page.goto` to the same path with a different HASH does not reload -- it fires `hashchange`,
+    // and a hash carrying no `t=` deliberately leaves the track set alone. So the previous
+    // section's third score track would still be on and this would compare 3 lanes against 3.
+    // Set the state explicitly rather than assuming a navigation reset it.
+    await page.goto(`${GENOME_ROUTE}#chrVII:882012-884610`, { waitUntil: 'networkidle' });
+    await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 20000 });
+    await page.uncheck('[data-gb-toggle="lm-unmasked"]');
+    await page.waitForTimeout(1000);
+    const oneTrack = Number((await ds()).gbDrawn);
+    if (Number((await ds()).gbScoreTracks) !== 2) {
+      fail(scope, 'could not get back to two score tracks before the comparison');
+    }
+    await page.check('[data-gb-toggle="lm-unmasked"]');
+    await page.waitForTimeout(900);
+    const dTwo = await ds();
+    if (Number(dTwo.gbScoreTracks) !== 3) {
+      fail(scope, `enabling the unmasked pass gave ${dTwo.gbScoreTracks} score tracks`);
+    }
+    if (!(Number(dTwo.gbDrawn) > oneTrack)) {
+      fail(scope, `both passes drew ${dTwo.gbDrawn} columns, not more than one pass' ${oneTrack}`);
+    }
+    if (!JSON.parse(dTwo.gbLanes).includes('lm-unmasked')) {
+      fail(scope, 'the unmasked lane is not in the stack after enabling it');
+    }
+    await page.uncheck('[data-gb-toggle="lm-unmasked"]');
+    await page.waitForTimeout(700);
+    if (Number((await ds()).gbScoreTracks) !== 2) fail(scope, 'unchecking did not remove the lane');
+
+    // 4c. Drag on the RULER selects and zooms; drag on a TRACK pans without zooming.
+    const geom = await page.$eval('[data-gb-track]', (c) => {
+      const r = c.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width };
+    });
+    const spanOf = (s) => {
+      const [a, b] = s.split(':')[1].split('-').map((v) => Number(v.replace(/,/g, '')));
+      return b - a;
+    };
+    const readView = () => page.$eval('[data-genome-browser]', (h) => h.dataset.gbView ?? '');
+    const beforeBrush = await readView();
+    await page.mouse.move(geom.x + 400, geom.y + 8);         // y = 8 is inside the ruler lane
+    await page.mouse.down();
+    await page.mouse.move(geom.x + 700, geom.y + 8, { steps: 12 });
+    await page.mouse.up();
+    await page.waitForTimeout(900);
+    const afterBrush = await readView();
+    if (!(spanOf(afterBrush) < spanOf(beforeBrush))) {
+      fail(scope, `ruler drag did not zoom: ${beforeBrush} -> ${afterBrush}`);
+    }
+    const beforePan = await readView();
+    await page.mouse.move(geom.x + 700, geom.y + 120);       // y = 120 is inside a score lane
+    await page.mouse.down();
+    await page.mouse.move(geom.x + 500, geom.y + 120, { steps: 10 });
+    await page.mouse.up();
+    await page.waitForTimeout(800);
+    const afterPan = await readView();
+    if (afterPan === beforePan || Math.abs(spanOf(afterPan) - spanOf(beforePan)) > 2) {
+      fail(scope, `track drag should pan, not zoom: ${beforePan} -> ${afterPan}`);
+    }
+
+    // 4d. Search by gene name, and history.
+    const searchN = await page.$eval('[data-genome-browser]', (h) => Number(h.dataset.gbSearch ?? 0));
+    if (!(searchN > 6000)) fail(scope, `search index has ${searchN} genes`);
+    await page.fill('[data-gb-locus]', 'TDH3');
+    await page.click('[data-gb-go]');
+    await page.waitForTimeout(900);
+    const atGene = await readView();
+    const [g0, g1] = atGene.split(':')[1].split('-').map((v) => Number(v.replace(/,/g, '')));
+    // The whole TDH3 gene record, which contains its 882,812-883,810 CDS.
+    if (!(atGene.startsWith('chrVII:') && g0 <= 882812 && g1 >= 883810)) {
+      fail(scope, `searching "TDH3" landed on ${atGene}`);
+    }
+    await page.click('[data-gb-back]');
+    await page.waitForTimeout(700);
+    if (await readView() === atGene) fail(scope, 'back did not leave the searched view');
+    await page.click('[data-gb-fwd]');
+    await page.waitForTimeout(700);
+    if (await readView() !== atGene) fail(scope, 'forward did not return to the searched view');
+
+    // 4e. Feature lanes: individual features when they can be told apart, density when they cannot.
+    await go('chrIV:1-1531933');
+    await page.waitForTimeout(1000);
+    const wide = await ds();
+    if (wide.gbFeatureMode !== 'density') {
+      fail(scope, `whole chromosome drew features as "${wide.gbFeatureMode}"`);
+    }
+    if (!(JSON.parse(wide.gbFeatures).tfbs_chip > 0)) {
+      fail(scope, 'the ChIP density lane drew nothing across a whole chromosome');
+    }
+    await go('chrIV:100000-110000');
+    await page.waitForTimeout(900);
+    if ((await ds()).gbFeatureMode !== 'detail') fail(scope, '10 kb did not switch to individual features');
+
+    // 4f. Every annotation lane toggles, and the hash restores the exact set.
+    for (const id of ['tfbs_pwm', 'ncrna', 'repeats']) {
+      await page.check(`[data-gb-toggle="${id}"]`);
+    }
+    await page.click('[data-gb-mark]');
+    await page.waitForTimeout(900);
+    const marked = await ds();
+    if (!marked.gbRoi) fail(scope, 'marking a region recorded no ROI');
+    const stateHash = await page.evaluate(() => window.location.hash);
+    if (!stateHash.includes(';t=') || !stateHash.includes(';roi=')) {
+      fail(scope, `hash carries neither tracks nor ROI: ${stateHash}`);
+    }
+    await page.goto(`${GENOME_ROUTE}${stateHash}`, { waitUntil: 'networkidle' });
+    await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 20000 });
+    await page.waitForTimeout(1400);
+    const restored = await ds();
+    if (restored.gbRoi !== marked.gbRoi) {
+      fail(scope, `ROI did not survive the link: ${marked.gbRoi} -> ${restored.gbRoi}`);
+    }
+    if (JSON.parse(restored.gbLanes).sort().join() !== JSON.parse(marked.gbLanes).sort().join()) {
+      fail(scope, `track set did not survive the link: ${marked.gbLanes} -> ${restored.gbLanes}`);
+    }
+
     // 5. Four CLIENT-SIDE round trips must leave exactly one controller listening.
     //
     // This page is `bare`, so its host is destroyed and rebuilt on every navigation and the mount
@@ -1736,8 +1863,8 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
 
     if (bad.length) fail(scope, `genome-data requests failed: ${bad.slice(0, 3).join(', ')}`);
     if (errors.length) fail(scope, `console/page errors: ${errors.slice(0, 2).join(' | ')}`);
-    progress(`  genome: levels ${ladder.join(' ')}, cache peak ${peak}, ${evicted} evicted, `
-      + `${live / 2} controller(s) live after 4 round trips`);
+    progress(`  genome: levels ${ladder.join(' ')}, cache peak ${peak}/${cap}, ${evicted} evicted, `
+      + `${searchN} genes searchable, ${live / 2} controller(s) live after 4 round trips`);
   } finally {
     await context.close();
   }

@@ -61,6 +61,10 @@ def main() -> int:
     man = json.loads((TRACK / "manifest.json").read_text())
     chroms = man["chroms"]
     tracks = {c: np.load(TRACK / f"{c}.npy") for c in chroms}
+    unmasked = {c: np.load(TRACK / f"{c}-unmasked.npy")
+                for c in chroms if (TRACK / f"{c}-unmasked.npy").exists()}
+    phast = {c: np.load(TRACK / f"{c}-phastcons.npy")
+             for c in chroms if (TRACK / f"{c}-phastcons.npy").exists()}
 
     print("=== 1. coverage ===")
     total = sum(len(v) for v in tracks.values())
@@ -131,6 +135,75 @@ def main() -> int:
     # A real step would make the seam difference stand out against ordinary base-to-base variation.
     check(sm < im * 1.5, "no step at the core boundaries",
           f"mean |dIC| across a seam {sm:.4f} vs {im:.4f} at a random interior position")
+
+    print("\n=== 3b. the two passes ===")
+    check(len(unmasked) == len(tracks), "every chromosome has both passes",
+          f"{len(unmasked)}/{len(tracks)} unmasked")
+    if unmasked:
+        # The unmasked pass sees the base it scores, so it MUST be more certain than the masked one.
+        # If the two came out equal the masking would not be doing anything, and the whole
+        # distinction the page draws would be decoration.
+        per = [(c, float(tracks[c].mean()), float(unmasked[c].mean())) for c in unmasked]
+        worse = [c for c, m, u in per if u <= m]
+        tot = sum(len(v) for v in tracks.values())
+        gm = sum(tracks[c].mean() * len(tracks[c]) for c in unmasked) / tot
+        gu = sum(unmasked[c].mean() * len(unmasked[c]) for c in unmasked) / tot
+        check(not worse, "unmasked is more certain than masked on every chromosome",
+              f"genome mean {gm:.4f} -> {gu:.4f} bits ({gu/gm:.2f}x)" if not worse else str(worse[:3]))
+        # ... and not SO much more that they are the same measurement rescaled. On the shipped
+        # per-locus packs the two correlate at r = 0.62, which is what makes both worth drawing.
+        rs = [float(np.corrcoef(tracks[c], unmasked[c])[0, 1]) for c in sorted(unmasked)]
+        check(0.3 < min(rs) < 0.95, "the passes are related but not redundant",
+              f"per-chromosome r {min(rs):.3f}-{max(rs):.3f}, median {np.median(rs):.3f}")
+
+    print("\n=== 3c. conservation ===")
+    check(len(phast) == len(tracks), "every chromosome has phastCons",
+          f"{len(phast)}/{len(tracks)}")
+    if phast:
+        allv = np.concatenate([v[np.isfinite(v)] for v in phast.values()])
+        check(allv.min() >= 0 and allv.max() <= 1, "phastCons is a probability in [0, 1]",
+              f"[{allv.min():.4f}, {allv.max():.4f}]")
+        scored = sum(int(np.isfinite(v).sum()) for v in phast.values())
+        tot = sum(len(v) for v in phast.values())
+        # NaN, not zero. A zero would read as "not conserved" where the truth is "not aligned".
+        check(scored < tot, "unaligned bases are NaN rather than zero",
+              f"{tot - scored:,} of {tot:,} bases unscored ({(tot-scored)/tot*100:.2f}%)")
+        check(all(np.isfinite(v).mean() > 0.7 for v in phast.values()),
+              "every chromosome is mostly covered",
+              f"worst {min(np.isfinite(v).mean() for v in phast.values())*100:.1f}%")
+
+    print("\n=== 3d. the shipped tiles decode back to the arrays ===")
+    idx_p = ROOT / "public" / "genome-data" / "index.json"
+    if not idx_p.exists():
+        check(False, "index.json exists", "run make_genome_tiles.py first")
+    else:
+        idx = json.loads(idx_p.read_text())
+        src = {"lm-masked": tracks, "lm-unmasked": unmasked, "phastcons": phast}
+        for spec in idx["tracks"]:
+            tid = spec["id"]
+            lo, hi = spec["axis"]
+            step = (hi - lo) / 254.0
+            worst_err, worst_where, sentinel_ok = 0.0, "", True
+            for chrom in sorted(src.get(tid, {})):
+                truth = src[tid][chrom]
+                got = np.zeros(len(truth), dtype=np.uint8)
+                for tf in sorted((idx_p.parent / chrom / tid / "L0").glob("*.png"),
+                                 key=lambda q: int(q.stem)):
+                    a = np.asarray(Image.open(tf)).reshape(-1)
+                    s = int(tf.stem) * idx["tileBins"]
+                    got[s:s + len(a)] = a[:len(got) - s]
+                nodata = got == 0
+                if not np.array_equal(nodata, ~np.isfinite(truth)):
+                    sentinel_ok = False
+                fin = np.isfinite(truth) & ~nodata
+                val = (got[fin].astype(np.float64) - 1) / 254.0 * (hi - lo) + lo
+                e = float(np.abs(val - truth[fin]).max()) if fin.any() else 0.0
+                if e > worst_err:
+                    worst_err, worst_where = e, chrom
+            # Half a quantisation step is the uint8 floor, not slack. Anything above it is a bug.
+            check(worst_err <= step / 2 + 1e-9, f"{tid}: L0 decodes to within half a byte",
+                  f"worst {worst_err:.6f} at {worst_where} (half-step {step/2:.6f})")
+            check(sentinel_ok, f"{tid}: byte 0 marks exactly the unscored bases", "")
 
     print("\n=== 4. the scale is real ===")
     lo = min(float(v.min()) for v in tracks.values())

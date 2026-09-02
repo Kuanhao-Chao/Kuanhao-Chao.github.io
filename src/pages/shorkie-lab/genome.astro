@@ -10,32 +10,53 @@ import lociData from '../../data/shorkieLoci.json';
 // prose cannot drift from the data the way a hand-copied count does.
 const index = JSON.parse(readFileSync('public/genome-data/index.json', 'utf8')) as {
   genome: string;
-  score: string;
-  icMax: number;
   levels: { level: number; binBp: number; rows: number }[];
   tileBins: number;
+  tracks: {
+    id: string; label: string; short: string; detail: string; note: string; source: string;
+    units: string; axis: [number, number]; prediction: boolean;
+  }[];
+  comparison?: {
+    bases: number; pearson: number; spearman: number; meanIc: number; meanPhastCons: number;
+    byClass: Record<string, {
+      bases: number; pearson: number; spearman: number; meanIc: number; meanPhastCons: number;
+      phastConsSaturated: number; phastConsMedian: number; icMedian: number;
+    }>;
+  };
+  conservationSource?: { track: string; units: string; source: string };
   window: { seqLen: number; flank: number; core: number; k: number; phase: number; note: string };
   chroms: {
-    name: string; length: number; genes: number; meanIc: number;
-    minIc: number; maxIc: number; shortFlankBases: number;
-    levels: { level: number; bins: number; tiles: number }[];
+    name: string; length: number; genes: number; shortFlankBases: number;
+    tracks: Record<string, { scored: number; mean: number | null }>;
+    levels: Record<string, { level: number; bins: number; tiles: number }[]>;
   }[];
 };
 
 const totalBp = index.chroms.reduce((s, c) => s + c.length, 0);
 const totalGenes = index.chroms.reduce((s, c) => s + c.genes, 0);
-const totalTiles = index.chroms.reduce((s, c) => s + c.levels.reduce((t, l) => t + l.tiles, 0), 0);
+const totalTiles = index.chroms.reduce(
+  (s, c) => s + Object.values(c.levels).reduce((t, ls) => t + ls.reduce((u, l) => u + l.tiles, 0), 0),
+  0,
+);
 const shortFlank = index.chroms.reduce((s, c) => s + c.shortFlankBases, 0);
 const windows = Math.ceil(totalBp / index.window.core) + index.chroms.length;
 const nuclear = index.chroms.filter((c) => c.name !== 'chrM');
-const meanIc = nuclear.reduce((s, c) => s + c.meanIc * c.length, 0)
-  / nuclear.reduce((s, c) => s + c.length, 0);
+const trackMean = (id: string, rows: typeof index.chroms) =>
+  rows.reduce((s, c) => s + (c.tracks[id]?.mean ?? 0) * c.length, 0)
+  / rows.reduce((s, c) => s + c.length, 0);
+const meanIc = trackMean('lm-masked', nuclear);
+const meanUnmasked = trackMean('lm-unmasked', nuclear);
+const meanCons = trackMean('phastcons', nuclear);
 const mito = index.chroms.find((c) => c.name === 'chrM');
+const mitoIc = mito?.tracks['lm-masked']?.mean ?? null;
+const cmp = index.comparison;
+// phastCons has no value where the alignment has none. Stated, not rounded away.
+const consScored = index.chroms.reduce((s, c) => s + (c.tracks['phastcons']?.scored ?? 0), 0);
 
 const levelRows = index.levels.map((l) => ({
   ...l,
   bins: index.chroms.reduce(
-    (s, c) => s + (c.levels.find((x) => x.level === l.level)?.bins ?? 0), 0,
+    (s, c) => s + ((c.levels['lm-masked'] ?? []).find((x) => x.level === l.level)?.bins ?? 0), 0,
   ),
 }));
 
@@ -103,9 +124,10 @@ const breadcrumbLd = buildBreadcrumbLd([
           <select class="vp-select" id="gb-chrom" data-gb-chrom aria-label="Chromosome"></select>
         </span>
         <span class="vp-nav__group">
-          <label class="vp-nav__label" for="gb-locus">locus</label>
+          <label class="vp-nav__label" for="gb-locus">locus or gene</label>
           <input class="vp-input gb-locus" id="gb-locus" data-gb-locus spellcheck="false"
-                 placeholder="chrIV:65,235-65,431" aria-label="Locus" />
+                 placeholder="TDH3 · YGR192C · chrIV:65,235-65,431"
+                 aria-label="Locus or gene name" />
           <button type="button" class="vp-btn" data-gb-go>Go</button>
         </span>
         <span class="vp-nav__group">
@@ -116,6 +138,12 @@ const breadcrumbLd = buildBreadcrumbLd([
           </select>
         </span>
         <span class="vp-spacer"></span>
+        <span class="vp-nav__group" role="group" aria-label="History">
+          <button type="button" class="vp-btn vp-btn--icon" data-gb-back
+                  aria-label="Back ([)" title="Back — [">↶</button>
+          <button type="button" class="vp-btn vp-btn--icon" data-gb-fwd
+                  aria-label="Forward (])" title="Forward — ]">↷</button>
+        </span>
         <span class="vp-nav__group" role="group" aria-label="Pan and zoom">
           <button type="button" class="vp-btn vp-btn--icon" data-gb-pan="-1" aria-label="Pan left">‹</button>
           <button type="button" class="vp-btn vp-btn--icon" data-gb-pan="1" aria-label="Pan right">›</button>
@@ -123,34 +151,55 @@ const breadcrumbLd = buildBreadcrumbLd([
           <button type="button" class="vp-btn vp-btn--icon" data-gb-zoom="2" aria-label="Zoom out">−</button>
           <button type="button" class="vp-btn" data-gb-whole>whole chr</button>
         </span>
+        <span class="vp-nav__group" role="group" aria-label="Region and export">
+          <button type="button" class="vp-btn" data-gb-mark
+                  title="Keep this region highlighted while you navigate">mark region</button>
+          <button type="button" class="vp-btn" data-gb-export
+                  title="Save the current view as a PNG">export</button>
+        </span>
       </nav>
 
       <section class="vp-panel">
         <div class="gb-head">
           <strong class="gb-readout" data-gb-readout>—</strong>
           <span class="vp-stat" data-gb-level-out></span>
+          <span class="vp-stat gb-roi" data-gb-roi></span>
           <span class="vp-spacer"></span>
           <span class="vp-stat gb-hover" data-gb-hover></span>
         </div>
 
-        <canvas class="vp-canvas gb-mini" data-gb-mini
-                aria-label="Whole-chromosome overview with the current viewport marked"></canvas>
-        <canvas class="vp-canvas gb-track" tabindex="0" data-gb-track
-                aria-label="Shorkie_LM information content, ruler, sequence and gene models"></canvas>
+        <div class="gb-layout">
+          <div class="gb-stage">
+            <canvas class="vp-canvas gb-mini" data-gb-mini
+                    aria-label="Whole-chromosome overview with the current viewport marked"></canvas>
+            <canvas class="vp-canvas gb-track" tabindex="0" data-gb-track
+                    aria-label="Shorkie_LM constraint, conservation, annotation and gene models"
+            ></canvas>
+            <div class="gb-tooltip" data-gb-tooltip hidden></div>
+          </div>
+          <aside class="gb-panel" aria-label="Tracks">
+            <div data-gb-panel></div>
+            <p class="gb-panel__note">
+              Hover a name for what it is. The visible set is part of the link, so a shared URL
+              restores this exact picture.
+            </p>
+          </aside>
+        </div>
 
         <p class="vp-notes gb-caption">
-          Per-base information content, <em>2 − H(p)</em>, from Shorkie_LM's seven-pass iterative
-          masked prediction — how sharply the model knows which base belongs at a position, in bits,
-          on a fixed 0–2 axis at every zoom — it never rescales, so any two positions in the genome
-          are read against the same ruler. Above base resolution each pixel column is a summary
-          bin: the filled bar is its <strong>mean</strong>, the pale mark above sits at its{' '}
-          <strong>maximum</strong> and the dark tick at its <strong>minimum</strong>, so a single
-          determined base inside a wide bin stays visible instead of being averaged away. At the
-          deepest zoom the bars become a logo — one letter a base, height set by that base's
-          information content. Drag to pan, scroll to zoom, click the overview strip to jump.
+          <strong>Drag the ruler to select a region</strong> (or shift-drag anywhere); drag a track
+          to pan, scroll to zoom, click the overview strip to jump. Every score lane keeps a{' '}
+          <em>fixed</em> axis at every zoom, so any two positions are read against the same ruler —
+          and each lane prints its own range, because {index.tracks[0].units} and a 0–1 posterior
+          are not the same units. Above base resolution a pixel column is a summary bin: the filled
+          bar is its <strong>mean</strong>, the pale mark its <strong>maximum</strong> and the dark
+          tick its <strong>minimum</strong>, so one determined base inside a wide bin stays visible.
+          At the deepest zoom the bars become a logo, one letter a base.
           The nuclear genome averages{' '}
-          {meanIc.toFixed(3)} bits{mito ? ` and chrM ${mito.meanIc.toFixed(3)}` : ''}, so most of
-          the track is genuinely low and the tall columns are the exception.
+          <strong>{meanIc.toFixed(3)} bits</strong> masked against{' '}
+          <strong>{meanUnmasked.toFixed(3)}</strong> unmasked
+          {mitoIc !== null ? `, and chrM ${mitoIc.toFixed(3)} masked` : ''} — so most of the track
+          is genuinely low and the tall columns are the exception.
         </p>
 
         <p class="vp-stat gb-status" data-gb-status></p>
@@ -166,6 +215,131 @@ const breadcrumbLd = buildBreadcrumbLd([
           {' '}{index.window.flank.toLocaleString()} bp of flank discarded on each side:
           {' '}{windows.toLocaleString()} windows over {index.chroms.length} sequences.
         </p>
+
+        <details class="vp-how">
+          <summary>The two passes, and why only one of them is a prediction</summary>
+          <div class="vp-how-body">
+            <p>
+              A masked language model only predicts where it is masked. The browser can draw the
+              model two ways, and the difference between them is the paper's Figure 2A point:
+            </p>
+            <div class="vp-scroll-x"><table class="vp-collapse-table">
+              <thead>
+                <tr><th>pass</th><th>what it asks</th><th>mean IC, nuclear genome</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>masked</strong></td>
+                  <td>positions are split into {index.window.k} disjoint strided sets, each masked
+                  in turn, and each position is read back <em>only</em> from the pass that masked
+                  it — so the model never sees the base it is scoring</td>
+                  <td><strong>{meanIc.toFixed(3)} bits</strong></td>
+                </tr>
+                <tr>
+                  <td><strong>unmasked</strong></td>
+                  <td>one forward pass with nothing masked, so the model can see the base it is
+                  scoring and is largely reading its own input</td>
+                  <td><strong>{meanUnmasked.toFixed(3)} bits</strong></td>
+                </tr>
+              </tbody>
+            </table></div>
+            <p>
+              <strong>Only the masked pass is a prediction.</strong> The unmasked pass scores
+              {' '}{(meanUnmasked / meanIc).toFixed(2)}× higher for that reason alone, not because
+              it knows more — and the browser labels its lane <em>not a prediction</em> rather than
+              leaving the caveat to a paragraph you might not read. It is nonetheless the quantity
+              the paper's Figure 2A logo is built on, which is exactly why it is worth being able
+              to draw beside the other.
+            </p>
+            <p>
+              They are not two views of one number. Across the 23 primary regions the two correlate
+              at <strong>r ≈ 0.62</strong>, and per chromosome here at 0.59–0.62 — related, and far
+              from redundant. Worth noticing too: the unmasked pass picks the right base{' '}
+              <strong>97.5%</strong> of the time while averaging only {meanUnmasked.toFixed(2)} of
+              a possible 2 bits. It is confident about <em>which</em> base, not sharply peaked.
+            </p>
+            <p>
+              Turn both on in the track panel to see them stacked on the same 0–2 axis.
+            </p>
+          </div>
+        </details>
+
+        <details class="vp-how">
+          <summary>Does the model agree with evolution? Partly — and the way it does not is the
+            interesting part</summary>
+          <div class="vp-how-body">
+            <p>
+              The model's constraint is <strong>alignment-free</strong>: it comes from pretraining
+              on 165 <em>Saccharomycetales</em> genomes and says what the model finds predictable.
+              {' '}<strong>phastCons</strong> is <strong>alignment-based</strong> — a phylo-HMM
+              posterior over a 7-yeast whole-genome alignment — and says what evolution has held
+              still. Two independent measurements of related things, which is what makes laying
+              them in adjacent lanes a check rather than a second opinion from the same source.
+            </p>
+            {cmp && (
+              <>
+                <div class="vp-scroll-x"><table class="vp-collapse-table">
+                  <thead>
+                    <tr>
+                      <th>over</th><th>bases</th><th>Pearson r</th><th>Spearman ρ</th>
+                      <th>mean IC</th><th>mean phastCons</th><th>phastCons ≥ 0.99</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>whole genome</strong></td>
+                      <td>{cmp.bases.toLocaleString()}</td>
+                      <td><strong>{cmp.pearson.toFixed(3)}</strong></td>
+                      <td>{cmp.spearman.toFixed(3)}</td>
+                      <td>{cmp.meanIc.toFixed(3)}</td>
+                      <td>{cmp.meanPhastCons.toFixed(3)}</td>
+                      <td>—</td>
+                    </tr>
+                    {Object.entries(cmp.byClass).map(([name, v]) => (
+                      <tr>
+                        <td>{name === 'cds' ? 'coding sequence' : name}</td>
+                        <td>{v.bases.toLocaleString()}</td>
+                        <td>{v.pearson.toFixed(3)}</td>
+                        <td>{v.spearman.toFixed(3)}</td>
+                        <td>{v.meanIc.toFixed(3)}</td>
+                        <td>{v.meanPhastCons.toFixed(3)}</td>
+                        <td>{(v.phastConsSaturated * 100).toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table></div>
+                <p>
+                  <strong>Read the split before the headline.</strong> Both measures rank coding
+                  sequence above intergenic — IC {cmp.byClass.cds.meanIc.toFixed(3)} against
+                  {' '}{cmp.byClass.intergenic.meanIc.toFixed(3)}, phastCons
+                  {' '}{cmp.byClass.cds.meanPhastCons.toFixed(3)} against
+                  {' '}{cmp.byClass.intergenic.meanPhastCons.toFixed(3)} — and that shared{' '}
+                  <em>regional</em> agreement is most of the overall r = {cmp.pearson.toFixed(3)}.{' '}
+                  <em>Within</em> coding sequence they agree far less
+                  (r = {cmp.byClass.cds.pearson.toFixed(3)} over
+                  {' '}{cmp.byClass.cds.bases.toLocaleString()} bases).
+                </p>
+                <p>
+                  That is partly a real disagreement and partly a property of phastCons:
+                  {' '}<strong>{(cmp.byClass.cds.phastConsSaturated * 100).toFixed(1)}%</strong> of
+                  coding bases sit at ≥ 0.99, median
+                  {' '}{cmp.byClass.cds.phastConsMedian.toFixed(3)}, so inside a gene it is a
+                  near-constant 1 and there is very little variation left for the model's per-base
+                  signal to track. A correlation is bounded by the range of both variables, and
+                  reporting r = {cmp.byClass.cds.pearson.toFixed(3)} without that is a wrong
+                  interpretation of a right number.
+                </p>
+              </>
+            )}
+            <p>
+              phastCons has no value where the alignment has none —
+              {' '}<strong>{((1 - consScored / totalBp) * 100).toFixed(2)}%</strong> of the genome,
+              concentrated on chrM and at telomeres. Those bases are drawn as a <em>gap</em>, never
+              as zero: a zero would read as "completely unconserved" where the truth is
+              "not aligned", and the lane says what fraction of the view is missing.
+            </p>
+          </div>
+        </details>
 
         <details class="vp-how">
           <summary>Why the flank is {index.window.flank.toLocaleString()} bp, and how the first
@@ -256,13 +430,73 @@ const breadcrumbLd = buildBreadcrumbLd([
               </tbody>
             </table></div>
             <p>
-              {totalTiles.toLocaleString()} tiles of {index.tileBins.toLocaleString()} bins, as
-              greyscale PNG — the same encoding every other pack in this lab uses, because{' '}
+              {totalTiles.toLocaleString()} tiles of {index.tileBins.toLocaleString()} bins across
+              {' '}<strong>{index.tracks.length} score tracks</strong>, as greyscale PNG — the same
+              encoding every other pack in this lab uses, because{' '}
               <code>createImageBitmap</code> decodes it natively and no JavaScript inflate has to
               ship. A viewport fetches only the handful of tiles it covers, at only the resolution it
-              can draw, and the cache is bounded so a long pan cannot grow memory without limit.
-              Alongside them: the reference sequence one byte a base for the letter view, and
-              {' '}{totalGenes.toLocaleString()} gene models from the SGD annotation.
+              can draw, and the cache is bounded — and the bound scales with how many score tracks
+              are on, or enabling all three would make every pan evict tiles it is about to need
+              again. Alongside them: the reference sequence one byte a base for the letter view,
+              {' '}{totalGenes.toLocaleString()} gene models, and the annotation layer.
+            </p>
+            <p>
+              <strong>Byte 0 means "no data", in every track.</strong> phastCons has no value where
+              the 7-yeast alignment has none, so values occupy 1–255 and 0 is reserved. Quantised
+              naively that base would become 0, which draws as <em>completely unconserved</em>
+              {' '}exactly where the truth is <em>not aligned</em>. It costs 0.4% of the precision
+              and it is the same rule for the model tracks, which need it nowhere — one decode path
+              rather than two.
+            </p>
+            <div class="vp-scroll-x"><table class="vp-collapse-table">
+              <thead>
+                <tr><th>track</th><th>units</th><th>axis</th><th>what it is</th></tr>
+              </thead>
+              <tbody>
+                {index.tracks.map((tr) => (
+                  <tr>
+                    <td><strong>{tr.label}</strong></td>
+                    <td>{tr.units}</td>
+                    <td>{tr.axis[0]}–{tr.axis[1]}</td>
+                    <td>{tr.detail}. {tr.note}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table></div>
+          </div>
+        </details>
+
+        <details class="vp-how">
+          <summary>The annotation layer, and why the binding sites are in three tiers</summary>
+          <div class="vp-how-body">
+            <p>
+              Every feature comes from a flat file rather than a per-window API call: the SGD
+              annotation for tRNA, snoRNA, ncRNA, snRNA and rRNA genes, replication origins,
+              centromeres, telomeres, LTRs, transposons, pseudogenes and uORFs; the
+              Harbison/MacIsaac regulatory code for transcription-factor binding; ORegAnno for
+              literature-curated regulatory regions; phastCons element calls; and UCSC's tandem
+              repeats.
+            </p>
+            <p>
+              <strong>The binding sites are split three ways and never merged, because they are
+              three different claims.</strong> A ChIP-supported call is a measurement that the
+              factor binds there. A conserved-only call is an argument that it might. A motif-only
+              call says just that the letters look right. The expression playground measures
+              attribution enriching <strong>3.26×</strong> on the ChIP tier against 1.25× and 1.49×
+              on the other two — and there are 122,225 motif-only calls genome-wide against 15,979
+              ChIP-supported ones, so one merged "TFBS" lane would bury the strong result under the
+              weak one. Turn the tiers on separately in the track panel and the difference is
+              visible directly.
+            </p>
+            <p>
+              <strong>JASPAR is deliberately absent.</strong> Unfiltered it is 16.7 million hits
+              genome-wide — 1.4 per base, which is a scan rather than an annotation.
+            </p>
+            <p>
+              Above about {(60000).toLocaleString()} bp a feature lane draws a <em>density</em>
+              {' '}profile instead of individual features, and the readout says which it is showing.
+              That is what IGV does, and it is the difference between a lane that carries
+              information and a solid bar.
             </p>
           </div>
         </details>
@@ -286,7 +520,10 @@ const breadcrumbLd = buildBreadcrumbLd([
               constrained than the genome average in 14 of 14 tested windows; LTRs and transposons
               come out less. chrM is far more predictable than any nuclear chromosome because it is
               AT-rich and repetitive, which is a property of the sequence rather than of its
-              function.
+              function — and it is also where phastCons has the least to say, at
+              {' '}{((index.chroms.find((c) => c.name === 'chrM')?.tracks['phastcons']?.scored ?? 0)
+                / (index.chroms.find((c) => c.name === 'chrM')?.length ?? 1) * 100).toFixed(0)}%
+              coverage against over 99% on every nuclear chromosome.
             </p>
           </div>
         </details>
