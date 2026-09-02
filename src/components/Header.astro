@@ -1310,31 +1310,41 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       }
     }
 
-    // Sync active classes across theme choices (inactive if CRT is active)
-    document.querySelectorAll<HTMLButtonElement>('[data-theme-choice]').forEach((btn) => {
+    // SCOPED to the header's own popover and mobile drawer. These used to be
+    // `document.querySelectorAll`, which also reached the footer's ThemeSwitcher -- and that is
+    // what broke the CRT buttons there. The header pairs its three phosphors with a separate
+    // power switch, so disabling them while the tube is off is right *here*; the footer offers
+    // Amber/Green/Cyan as three peers alongside the six themes with no switch at all, so the same
+    // line left them permanently `disabled` -- at full opacity, with pointer-events auto, so they
+    // looked live and silently swallowed every click. A component must not reach outside itself.
+    const owned = <T extends HTMLElement>(selector: string): T[] => {
+      const roots = [popoverEl, document.getElementById('mobile-menu')].filter(Boolean);
+      return roots.flatMap((root) => [...(root as HTMLElement).querySelectorAll<T>(selector)]);
+    };
+
+    owned<HTMLButtonElement>('[data-theme-choice]').forEach((btn) => {
       const choice = btn.dataset.themeChoice;
       const isActive = !isCrt && choice === currentTheme;
       btn.classList.toggle('is-active', isActive);
       btn.setAttribute('aria-checked', String(isActive));
     });
 
-    // Sync active classes across CRT choices (active only if CRT matches)
-    document.querySelectorAll<HTMLButtonElement>('[data-crt-choice]').forEach((btn) => {
+    owned<HTMLButtonElement>('[data-crt-choice]').forEach((btn) => {
       const choice = btn.dataset.crtChoice;
       const isActive = isCrt && choice === currentCrt;
       btn.classList.toggle('is-active', isActive);
       btn.setAttribute('aria-checked', String(isActive));
-      // A phosphor colour means nothing while the tube is off, so say so rather than
-      // offering a control that silently turns CRT back on.
+      // A phosphor colour means nothing while THIS UI's tube is off, and this UI has a tube
+      // switch beside it.
       btn.disabled = !isCrt;
     });
-    document.querySelectorAll<HTMLButtonElement>('[data-crt-switch]').forEach((btn) => {
+    owned<HTMLButtonElement>('[data-crt-switch]').forEach((btn) => {
       btn.setAttribute('aria-checked', String(isCrt));
       btn.classList.toggle('is-on', isCrt);
       const label = btn.querySelector('[data-crt-switch-text]');
       if (label) label.textContent = isCrt ? 'On' : 'Off';
     });
-    document.querySelectorAll<HTMLElement>('[data-crt-colors]').forEach((row) => {
+    owned<HTMLElement>('[data-crt-colors]').forEach((row) => {
       row.classList.toggle('is-disabled', !isCrt);
     });
   }
@@ -1430,37 +1440,16 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       });
     }
 
-    // Bind choice clicks across top popover and mobile drawer
-    document.querySelectorAll<HTMLButtonElement>('[data-theme-choice]').forEach((btn) => {
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        const choice = btn.dataset.themeChoice;
-        if (choice) {
-          themeApi()?.set(choice);
-          setPopoverOpen(false);
-        }
-      };
-    });
-
-    document.querySelectorAll<HTMLButtonElement>('[data-crt-choice]').forEach((btn) => {
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        const choice = btn.dataset.crtChoice;
-        if (choice) {
-          crtApi()?.set(choice);
-          syncHeaderThemeIcons();
-          setPopoverOpen(false);
-        }
-      };
-    });
-
-    document.querySelectorAll<HTMLButtonElement>('[data-crt-switch]').forEach((btn) => {
-      btn.onclick = (event) => {
-        event.stopPropagation();
-        // Turning it on restores the last phosphor rather than forcing amber.
-        crtApi()?.toggle();
-        syncHeaderThemeIcons();
-      };
+    // Theme, CRT and the CRT power switch are applied by the ONE delegated listener in
+    // BaseLayout. This component binds none of them: it used to, and so did ThemeSwitcher, and
+    // because both used `btn.onclick = ...` over `document.querySelectorAll` each replaced the
+    // other's handler on the SAME buttons -- whichever script ran last won, and the CRT buttons
+    // ended up doing nothing. All that is left here is closing the popover afterwards, which is a
+    // header concern and nothing else's.
+    popoverEl?.querySelectorAll<HTMLButtonElement>(
+      '[data-theme-choice], [data-crt-choice]',
+    ).forEach((btn) => {
+      btn.onclick = () => setPopoverOpen(false);
     });
 
     document.querySelectorAll<HTMLButtonElement>('button[data-cell-mode]').forEach((btn) => {
