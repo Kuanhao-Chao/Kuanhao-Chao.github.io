@@ -2056,12 +2056,17 @@ export function initGenomeBrowser(host: HTMLElement): void {
     host.dataset.gbReady = '1';
 
     // Quick jump chips
-    host.querySelectorAll<HTMLElement>('[data-gb-chip]').forEach((chip) => {
+    const allChips = host.querySelectorAll<HTMLElement>('[data-gb-chip]');
+    allChips.forEach((chip) => {
       chip.addEventListener('click', () => {
         const query = chip.dataset.gbChip;
         if (query && index) {
           const target = searchLocus(query, searchIndex, index.chroms);
-          if (target) setView(target, { hash: !isMinimal });
+          if (target) {
+            allChips.forEach((c) => c.classList.remove('is-active'));
+            chip.classList.add('is-active');
+            setView(target, { hash: !isMinimal });
+          }
         }
       });
     });

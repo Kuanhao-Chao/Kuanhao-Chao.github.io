@@ -11,13 +11,25 @@
  */
 import Icon from '../Icon.astro';
 
-const QUICK_CHIPS = [
-  { name: 'TDH3', locus: 'chrVII:882,012-884,610', desc: 'High-expression glycolytic promoter' },
-  { name: 'GAL1', locus: 'chrII:278,000-281,500', desc: 'Galactose-inducible regulatory locus' },
-  { name: 'HXT1', locus: 'chrVIII:64,500-68,000', desc: 'Glucose transporter with repressor sites' },
-  { name: 'ACT1', locus: 'chrVI:53,000-56,200', desc: 'Highly conserved structural actin' },
-  { name: 'CDC28', locus: 'chrII:180,000-183,500', desc: 'Essential cell-cycle CDK' },
-  { name: 'ADH1', locus: 'chrXV:157,500-161,200', desc: 'Alcohol dehydrogenase I' },
+const LOCI_ROWS = [
+  {
+    category: 'Promoters & Regulation',
+    chips: [
+      { name: 'TDH3', locus: 'chrVII:882,012-884,610', desc: 'High-expression glycolytic promoter' },
+      { name: 'GAL1', locus: 'chrII:278,000-281,500', desc: 'Galactose-inducible regulatory locus' },
+      { name: 'HXT1', locus: 'chrVIII:64,500-68,000', desc: 'Glucose transporter with repressor sites' },
+      { name: 'PHO5', locus: 'chrII:429,000-432,500', desc: 'Phosphate-regulated chromatin locus' },
+    ],
+  },
+  {
+    category: 'Conserved & Essential',
+    chips: [
+      { name: 'ACT1', locus: 'chrVI:53,000-56,200', desc: 'Highly conserved structural actin' },
+      { name: 'CDC28', locus: 'chrII:180,000-183,500', desc: 'Essential cell-cycle CDK' },
+      { name: 'ADH1', locus: 'chrXV:157,500-161,200', desc: 'Alcohol dehydrogenase I' },
+      { name: 'TEF1', locus: 'chrXVI:73,000-76,500', desc: 'Translation elongation factor 1-alpha' },
+    ],
+  },
 ];
 ---
 
@@ -29,33 +41,40 @@ const QUICK_CHIPS = [
   data-gb-tracks="lm-masked,phastcons,genes,sequence,tfbs_chip,tfbs_pwm"
   data-gb-default="chrVII:882,012-884,610"
 >
-  <!-- Top Bar: Quick Jump Chips & Coordinates -->
-  <div class="home-gb-header">
-    <div class="home-gb-chips-row">
-      <span class="home-gb-chips-label">Explore loci:</span>
-      <div class="home-gb-chips">
-        {
-          QUICK_CHIPS.map((chip, idx) => (
-            <button
-              type="button"
-              class={`home-gb-chip ${idx === 0 ? 'is-active' : ''}`}
-              data-gb-chip={chip.locus}
-              title={`${chip.name} · ${chip.desc}`}
-            >
-              <strong>{chip.name}</strong>
-            </button>
-          ))
-        }
-      </div>
-    </div>
+  <!-- Explore Loci Panel: 2 Distinct Rows -->
+  <div class="home-gb-loci-panel">
+    {
+      LOCI_ROWS.map((row, rIdx) => (
+        <div class="home-gb-loci-row">
+          <span class="home-gb-loci-label">{row.category}:</span>
+          <div class="home-gb-chips">
+            {
+              row.chips.map((chip, cIdx) => (
+                <button
+                  type="button"
+                  class={`home-gb-chip ${rIdx === 0 && cIdx === 0 ? 'is-active' : ''}`}
+                  data-gb-chip={chip.locus}
+                  title={`${chip.name} · ${chip.desc}`}
+                >
+                  <strong>{chip.name}</strong>
+                </button>
+              ))
+            }
+          </div>
+        </div>
+      ))
+    }
+  </div>
 
-    <!-- Active Locus & Hover Coordinate Readout -->
-    <div class="home-gb-readout-row">
-      <div class="home-gb-readout">
-        <strong data-gb-readout>chrVII:882,012–884,610</strong>
-        <span class="home-gb-readout-sub" data-gb-level-out></span>
-        <span class="home-gb-roi" data-gb-roi></span>
-      </div>
+  <!-- Dedicated Status & Live Hover Telemetry Bar (Locked Height, Zero Wrap) -->
+  <div class="home-gb-status-bar">
+    <div class="home-gb-readout">
+      <span class="home-gb-readout-prefix">Active:</span>
+      <strong data-gb-readout>chrVII:882,012–884,610</strong>
+      <span class="home-gb-readout-sub" data-gb-level-out></span>
+      <span class="home-gb-roi" data-gb-roi></span>
+    </div>
+    <div class="home-gb-hover-slot">
       <span class="home-gb-hover" data-gb-hover></span>
     </div>
   </div>
@@ -150,40 +169,41 @@ const QUICK_CHIPS = [
     margin: 1.5rem 0 2rem;
   }
 
-  .home-gb-header {
+  /* Explore Loci Panel with 2 Dedicated Rows */
+  .home-gb-loci-panel {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
+    flex-direction: column;
+    gap: 0.45rem;
     padding: 0.85rem 1.25rem;
     border-bottom: 1px solid var(--color-border);
-    background: color-mix(in srgb, var(--color-ink) 2%, var(--color-surface));
+    background: color-mix(in srgb, var(--color-ink) 2.5%, var(--color-surface));
   }
 
-  .home-gb-chips-row {
+  .home-gb-loci-row {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.65rem;
     flex-wrap: wrap;
   }
 
-  .home-gb-chips-label {
+  .home-gb-loci-label {
     font-size: 0.75rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--color-muted);
+    min-width: 11.5rem;
+    flex-shrink: 0;
   }
 
   .home-gb-chips {
     display: flex;
-    gap: 0.35rem;
+    gap: 0.4rem;
     flex-wrap: wrap;
   }
 
   .home-gb-chip {
-    padding: 0.25rem 0.6rem;
+    padding: 0.22rem 0.65rem;
     border-radius: 999px;
     border: 1px solid var(--color-border);
     background: var(--color-surface);
@@ -199,11 +219,39 @@ const QUICK_CHIPS = [
     background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
   }
 
-  .home-gb-readout-row {
+  .home-gb-chip:active,
+  .home-gb-chip.is-active {
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 18%, var(--color-surface));
+    color: var(--color-accent);
+  }
+
+  /* Dedicated Status & Live Hover Bar */
+  .home-gb-status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.55rem 1.25rem;
+    background: color-mix(in srgb, var(--color-ink) 1%, var(--color-surface));
+    border-bottom: 1px solid var(--color-border);
+    min-height: 2.25rem;
+  }
+
+  .home-gb-readout {
     display: flex;
     align-items: baseline;
-    gap: 0.75rem;
-    margin-left: auto;
+    gap: 0.45rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .home-gb-readout-prefix {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-muted);
   }
 
   .home-gb-readout strong {
@@ -215,21 +263,31 @@ const QUICK_CHIPS = [
   .home-gb-readout-sub {
     font-size: 0.75rem;
     color: var(--color-muted);
-    margin-left: 0.35rem;
   }
 
   .home-gb-roi {
     font-size: 0.75rem;
     color: #e11d48;
-    margin-left: 0.35rem;
+  }
+
+  .home-gb-hover-slot {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .home-gb-hover {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 0.78125rem;
     color: var(--color-accent);
-    min-width: 14ch;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     text-align: right;
+    display: block;
+    max-width: 100%;
   }
 
   /* Navigation Toolbar */
