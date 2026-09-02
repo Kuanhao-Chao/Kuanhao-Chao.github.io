@@ -175,25 +175,11 @@ import Icon from './Icon.astro';
     });
   }
 
+  // Clicks are handled ONCE, by the delegated listener in BaseLayout. This component used to bind
+  // `btn.onclick` across every [data-theme-choice] and [data-crt-choice] on the page -- including
+  // the header's copies -- and Header.astro did the same, so the two clobbered each other and the
+  // CRT buttons stopped working. This now only keeps the visual state in sync.
   function bindThemeSwitcherEvents() {
-    document.querySelectorAll<HTMLButtonElement>('[data-theme-choice]').forEach((btn) => {
-      btn.onclick = () => {
-        const choice = btn.dataset.themeChoice;
-        if (choice && (window as unknown as { __khcTheme?: { set: (t: string) => void } }).__khcTheme) {
-          (window as unknown as { __khcTheme: { set: (t: string) => void } }).__khcTheme.set(choice);
-        }
-      };
-    });
-
-    document.querySelectorAll<HTMLButtonElement>('[data-crt-choice]').forEach((btn) => {
-      btn.onclick = () => {
-        const choice = btn.dataset.crtChoice;
-        if (choice && (window as unknown as { __khcCrt?: { set: (m: string) => void } }).__khcCrt) {
-          (window as unknown as { __khcCrt: { set: (m: string) => void } }).__khcCrt.set(choice);
-        }
-      };
-    });
-
     syncThemeSwitcher();
   }
 

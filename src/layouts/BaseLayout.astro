@@ -249,6 +249,48 @@ const { title, description, image, type, noindex, scholarMeta, bare = false } = 
           });
         }
 
+        // ---------------------------------------------------------------------------------
+        // ONE owner for every theme and CRT button on the page.
+        //
+        // These buttons are rendered in three places -- the header popover, the mobile drawer and
+        // the footer switcher -- and two separate scripts each used to bind them with
+        // `querySelectorAll(...).forEach(btn => btn.onclick = ...)`. Property assignment means the
+        // second binder silently replaces the first, so which handler survived depended on script
+        // order, and the CRT buttons ended up doing nothing at all: measured on the live site,
+        // tapping Amber from Monokai left `data-crt-mode` unset and `khc-crt-mode` null, while
+        // calling `__khcCrt.set('amber')` directly worked.
+        //
+        // Delegation fixes it at the root: one listener, no binding order to get wrong, and it
+        // covers markup added later -- which is what both binders were separately trying to do.
+        if (!window.__khcThemeDelegated) {
+          window.__khcThemeDelegated = true;
+          document.addEventListener('click', (event) => {
+            const target = event.target;
+            if (!target || typeof target.closest !== 'function') return;
+
+            const themeBtn = target.closest('[data-theme-choice]');
+            if (themeBtn) {
+              const choice = themeBtn.dataset.themeChoice;
+              // Picking a base theme turns the CRT off. That is deliberate and already what
+              // applyTheme does -- a CRT phosphor is a whole-screen treatment, not a palette that
+              // can sit alongside one.
+              if (choice) window.__khcTheme.set(choice);
+              return;
+            }
+
+            const crtBtn = target.closest('[data-crt-choice]');
+            if (crtBtn) {
+              const choice = crtBtn.dataset.crtChoice;
+              if (choice) window.__khcCrt.set(choice);
+              return;
+            }
+
+            const crtSwitch = target.closest('[data-crt-switch]');
+            // Turning it on restores the last phosphor rather than forcing amber.
+            if (crtSwitch) window.__khcCrt.toggle();
+          });
+        }
+
         window.__khcTheme.sync();
         window.__khcCrt.sync();
       })();
