@@ -41,29 +41,45 @@ const LOCI_ROWS = [
   data-gb-tracks="lm-masked,phastcons,genes,sequence,tfbs_chip,tfbs_pwm"
   data-gb-default="chrVII:882,012-884,610"
 >
-  <!-- Explore Loci Panel: 2 Distinct Rows -->
+  <!-- Explore Loci Panel: Single Cohesive Horizontal Line -->
   <div class="home-gb-loci-panel">
-    {
-      LOCI_ROWS.map((row, rIdx) => (
-        <div class="home-gb-loci-row">
-          <span class="home-gb-loci-label">{row.category}:</span>
-          <div class="home-gb-chips">
-            {
-              row.chips.map((chip, cIdx) => (
-                <button
-                  type="button"
-                  class={`home-gb-chip ${rIdx === 0 && cIdx === 0 ? 'is-active' : ''}`}
-                  data-gb-chip={chip.locus}
-                  title={`${chip.name} · ${chip.desc}`}
-                >
-                  <strong>{chip.name}</strong>
-                </button>
-              ))
-            }
-          </div>
-        </div>
-      ))
-    }
+    <div class="home-gb-loci-group">
+      <span class="home-gb-loci-label">Promoters & Regulation:</span>
+      <div class="home-gb-chips">
+        {
+          LOCI_ROWS[0].chips.map((chip, idx) => (
+            <button
+              type="button"
+              class={`home-gb-chip ${idx === 0 ? 'is-active' : ''}`}
+              data-gb-chip={chip.locus}
+              title={`${chip.name} · ${chip.desc}`}
+            >
+              <strong>{chip.name}</strong>
+            </button>
+          ))
+        }
+      </div>
+    </div>
+
+    <span class="home-gb-loci-divider" aria-hidden="true">·</span>
+
+    <div class="home-gb-loci-group">
+      <span class="home-gb-loci-label">Conserved & Essential:</span>
+      <div class="home-gb-chips">
+        {
+          LOCI_ROWS[1].chips.map((chip) => (
+            <button
+              type="button"
+              class="home-gb-chip"
+              data-gb-chip={chip.locus}
+              title={`${chip.name} · ${chip.desc}`}
+            >
+              <strong>{chip.name}</strong>
+            </button>
+          ))
+        }
+      </div>
+    </div>
   </div>
 
   <!-- Dedicated Status & Live Hover Telemetry Bar (Locked Height, Zero Wrap) -->
@@ -169,21 +185,24 @@ const LOCI_ROWS = [
     margin: 1.5rem 0 2rem;
   }
 
-  /* Explore Loci Panel with 2 Dedicated Rows */
+  /* Explore Loci Panel: Single Cohesive Horizontal Line */
   .home-gb-loci-panel {
     display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-    padding: 0.85rem 1.25rem;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.75rem 1.25rem;
     border-bottom: 1px solid var(--color-border);
     background: color-mix(in srgb, var(--color-ink) 2.5%, var(--color-surface));
+    overflow-x: auto;
+    scrollbar-width: thin;
+    white-space: nowrap;
   }
 
-  .home-gb-loci-row {
+  .home-gb-loci-group {
     display: flex;
     align-items: center;
-    gap: 0.65rem;
-    flex-wrap: wrap;
+    gap: 0.5rem;
+    flex-shrink: 0;
   }
 
   .home-gb-loci-label {
@@ -192,14 +211,20 @@ const LOCI_ROWS = [
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--color-muted);
-    min-width: 11.5rem;
+    flex-shrink: 0;
+  }
+
+  .home-gb-loci-divider {
+    color: var(--color-border);
+    font-weight: bold;
     flex-shrink: 0;
   }
 
   .home-gb-chips {
     display: flex;
-    gap: 0.4rem;
-    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    flex-shrink: 0;
   }
 
   .home-gb-chip {
