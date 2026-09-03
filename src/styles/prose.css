@@ -88,3 +88,22 @@
   background-size: 100% 1px;
   text-decoration: none;
 }
+
+.prose pre {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 1rem;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--color-ink) 4%, transparent);
+}
+
+.prose table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-collapse: collapse;
+}

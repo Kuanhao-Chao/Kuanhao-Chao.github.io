@@ -112,8 +112,8 @@ const breadcrumbLd = buildBreadcrumbLd([
     <header class="vp-top">
       <h1 class="vp-title">Genome browser</h1>
       <span class="vp-sub">
-        Shorkie_LM constraint · sacCer3 / R64 · {totalBp.toLocaleString()} bp ·
-        {index.chroms.length} sequences
+        Shorkie_LM constraint + Shorkie expression · sacCer3 / R64 ·
+        {totalBp.toLocaleString()} bp · {index.chroms.length} sequences
       </span>
       <span class="vp-spacer"></span>
       <a class="vp-sub" href="/shorkie-lab/shorkie_lm/">← Language model</a>
@@ -210,16 +210,21 @@ const breadcrumbLd = buildBreadcrumbLd([
           <span class="gb-caption__short">
             <strong>Pinch to zoom</strong>, drag to pan, tap the strip to jump, and{' '}
             <strong>tracks</strong> to choose what is drawn. Every score lane keeps a fixed axis at
-            every zoom, and prints its own units.
+            every zoom unless you press <strong>autoscale</strong>, and prints its own units.
           </span>
           <span class="gb-caption__full"><strong>Drag the ruler to select a region</strong> (or shift-drag anywhere); drag a track
           to pan, scroll to zoom, click the overview strip to jump. Every score lane keeps a{' '}
           <em>fixed</em> axis at every zoom, so any two positions are read against the same ruler —
           and each lane prints its own range, because {index.tracks[0].units} and a 0–1 posterior
-          are not the same units. Above base resolution a pixel column is a summary bin: the filled
-          bar is its <strong>mean</strong>, the pale mark its <strong>maximum</strong> and the dark
-          tick its <strong>minimum</strong>, so one determined base inside a wide bin stays visible.
-          At the deepest zoom the bars become a logo, one letter a base.
+          are not the same units. <strong>autoscale</strong> suspends that rule for the visible
+          window; it is off by default and every rescaled lane says so on its own face, because an
+          axis that was rescaled without announcing it is the same trick as a bar chart drawn from a
+          non-zero baseline. Above a lane's own resolution a pixel column is a summary bin: the
+          filled bar is its <strong>mean</strong>, the pale mark its <strong>maximum</strong> and
+          the dark tick its <strong>minimum</strong>, so one determined base inside a wide bin stays
+          visible. Signed lanes — the attribution — grow both ways from a zero rule instead. At the
+          deepest zoom the per-base lanes become a logo, one letter a base; a lane whose data is
+          coarser than that stops at its own floor and the readout names it.
           The nuclear genome averages{' '}
           <strong>{meanIc.toFixed(3)} bits</strong> masked against{' '}
           <strong>{meanUnmasked.toFixed(3)}</strong> unmasked
@@ -590,6 +595,49 @@ const breadcrumbLd = buildBreadcrumbLd([
         </details>
 
         <details class="vp-how">
+          <summary>Two models on one axis, and they predict different things</summary>
+          <div class="vp-how-body">
+            <p>
+              The lanes here come from <strong>two different networks</strong> that share an
+              encoder and answer opposite questions, and reading one as the other is the mistake
+              this page most invites.
+            </p>
+            <p>
+              <strong>Shorkie_LM</strong> ({(index.tracks.filter((x) => x.id.startsWith('lm-')).length)}
+              {' '}lanes) predicts <em>the sequence itself</em>: mask a base, ask what belongs
+              there, and report how concentrated the answer is. Its units are bits, and a tall
+              column means <em>constrained</em> — the surrounding sequence determines what goes here.
+            </p>
+            <p>
+              <strong>Shorkie</strong> ({(index.tracks.filter((x) => x.id.startsWith('sk-')).length)}
+              {' '}lanes) predicts <em>what an assay would measure</em> on that sequence — RNA-seq,
+              ChIP-exo, ChIP-MNase — plus a signed per-base attribution of its own RNA-seq
+              prediction. Its units are arbitrary coverage, and a tall column means{' '}
+              <em>expressed</em>, which is a completely different claim. A gene body is high on both
+              lanes for unrelated reasons.
+            </p>
+            <p>
+              Both were run over the same {index.window.core.toLocaleString()} bp cores in the same
+              {' '}{index.window.seqLen.toLocaleString()} bp windows on the same 128 bp pooling
+              phase, so the two are aligned base for base and can be read against each other. Turn
+              on exactly two lanes and the header prints their <strong>correlation over the
+              visible window</strong>, which is the fastest way to see that a genome-wide number
+              and a local one are rarely the same: model constraint against phastCons is 0.121
+              genome-wide and about 0.47 over a strongly expressed gene.
+            </p>
+            <p>
+              <strong>The coverage lanes are 16 bp, and no finer level exists.</strong> Shorkie's
+              head emits 896 bins of 16 bp; storing a per-base version would be
+              {' '}{totalBp.toLocaleString()} numbers carrying {Math.round(totalBp / 16).toLocaleString()}
+              {' '}values of real information, drawn as though the model resolved single bases. The
+              attribution <em>is</em> per base, because it is a derivative with respect to the
+              one-hot input. When a lane is pinned at its own floor the resolution readout names it
+              rather than letting the headline speak for every lane.
+            </p>
+          </div>
+        </details>
+
+        <details class="vp-how">
           <summary>What every score track is — source, meaning, and how to read it</summary>
           <div class="vp-how-body">
             <p>
@@ -615,7 +663,7 @@ const breadcrumbLd = buildBreadcrumbLd([
         </details>
 
         <details class="vp-how">
-          <summary>What this track is not</summary>
+          <summary>What the constraint track is not</summary>
           <div class="vp-how-body">
             <p>
               It is one number a base — how concentrated the model's four-way distribution is — and

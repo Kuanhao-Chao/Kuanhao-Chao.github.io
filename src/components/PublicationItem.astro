@@ -208,6 +208,10 @@ const citation = publicationCitation(d);
   .bib {
     font-size: var(--fs-small);
   }
+  .bib[open] {
+    width: 100%;
+    flex-basis: 100%;
+  }
   .bib summary {
     display: inline-flex;
     align-items: center;
@@ -232,11 +236,17 @@ const citation = publicationCitation(d);
     border: 1px solid var(--color-rule);
     border-radius: var(--radius);
     overflow-x: auto;
+    max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
+    -webkit-overflow-scrolling: touch;
     font-size: 0.8rem;
     line-height: 1.5;
   }
   .bib code {
     font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    white-space: pre;
+    display: block;
   }
 
   @media (max-width: 560px) {

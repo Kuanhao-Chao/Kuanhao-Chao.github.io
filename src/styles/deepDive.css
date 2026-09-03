@@ -188,6 +188,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  min-width: 0;
 }
 
 .deep-dive-card-meta {
@@ -268,6 +269,8 @@
 }
 
 .deep-dive-eq-chip {
+  display: inline-block;
+  vertical-align: middle;
   font-family: var(--font-mono, monospace);
   font-size: 0.78rem;
   background: color-mix(in srgb, var(--color-surface) 60%, var(--color-bg) 40%);
@@ -276,6 +279,7 @@
   border: 1px solid var(--color-rule);
   color: var(--color-ink);
   max-width: 100%;
+  box-sizing: border-box;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -317,6 +321,61 @@
   padding: var(--space-8, 2rem) var(--space-4, 1rem);
   color: var(--color-muted);
   font-size: var(--fs-body, 1.0625rem);
+}
+
+@media (max-width: 768px) {
+  .deep-dive-card {
+    grid-template-columns: auto 1fr;
+    gap: var(--space-3, 0.75rem);
+  }
+  .deep-dive-card-action {
+    grid-column: 1 / -1;
+    margin-left: 0;
+    padding-top: var(--space-2, 0.5rem);
+  }
+}
+
+@media (max-width: 640px) {
+  .deep-dive-tools {
+    align-items: stretch;
+  }
+  .deep-dive-filters {
+    gap: 0.45rem;
+  }
+  .deep-dive-filters .filter-pill {
+    white-space: normal;
+    text-align: left;
+    height: auto;
+    min-height: 38px;
+    max-width: 100%;
+  }
+  .deep-dive-controls {
+    width: 100%;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .deep-dive-controls .search,
+  .deep-dive-controls .sort,
+  .deep-dive-controls .sort select {
+    width: 100%;
+  }
+  .deep-dive-controls .search input {
+    width: 100%;
+    min-width: 0;
+  }
+  .deep-dive-card {
+    grid-template-columns: 1fr;
+    gap: var(--space-3, 0.75rem);
+    padding: var(--space-3, 0.75rem);
+  }
+  .deep-dive-card-leading {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .deep-dive-card-title {
+    font-size: 1.08rem;
+  }
 }
 
 /* ==========================================================================

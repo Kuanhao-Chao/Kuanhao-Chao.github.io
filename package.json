@@ -22,6 +22,7 @@
     "audit:refs:offline": "node scripts/verify-references.mjs --offline",
     "audit:datasets": "node scripts/verify-datasets.mjs",
     "audit:datasets:offline": "node scripts/verify-datasets.mjs --offline",
+    "audit:responsive": "node scripts/audit-responsive-ui.mjs",
     "audit:deep-dives": "node scripts/audit-deep-dive-ui.mjs",
     "audit:deep-dives:ci": "node scripts/audit-deep-dive-ui.mjs --smoke",
     "audit:narrow": "node scripts/audit-narrow.mjs",

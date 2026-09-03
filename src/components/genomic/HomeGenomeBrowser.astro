@@ -9,7 +9,20 @@
  * 5. TFBS · ChIP-supported (Experimentally validated binding sites)
  * 6. TFBS · motif only (JASPAR position-weight matrix matches)
  */
+import { readFileSync } from 'node:fs';
 import Icon from '../Icon.astro';
+
+// Derived, never typed. This card claimed "14 tracks" through two rounds in which the browser had
+// neither 14 nor a fixed number of them, and claimed a GFF export that has never existed. Score
+// tracks come from the shipped index; the feature lanes are counted from the controller's own
+// FEATURE_LANES table, plus the gene and sequence lanes.
+const nScoreTracks = (JSON.parse(
+  readFileSync('public/genome-data/index.json', 'utf8')) as { tracks: unknown[] }).tracks.length;
+const controllerSrc = readFileSync('src/scripts/genomeBrowser.ts', 'utf8');
+const laneBlock = controllerSrc.slice(controllerSrc.indexOf('const FEATURE_LANES'));
+const nFeatureLanes = (laneBlock.slice(0, laneBlock.indexOf('\n];'))
+  .match(/id: '[a-z_]+'/g) ?? []).length;
+const nLanes = nScoreTracks + nFeatureLanes + 2;   // + genes + sequence
 
 const PRESET_LOCI = [
   { name: 'TDH3', locus: 'chrVII:882,012-884,610', tag: 'Glycolysis', desc: 'High-expression glycolytic promoter' },
@@ -105,9 +118,10 @@ const PRESET_LOCI = [
       href="/shorkie-lab/genome/#chrVII:882,012-884,610"
       class="home-gb-cta-btn"
       data-gb-full-link
-      title="Open full browser with all 14 tracks, full chromosome navigation, and GFF export"
+      title={`Open the full browser: ${nLanes} toggleable tracks, whole-chromosome navigation, `
+        + 'gene search, and PNG/CSV export'}
     >
-      <span>Explore Full Genome Browser (14 Tracks & Deep Search)</span>
+      <span>Explore Full Genome Browser ({nLanes} Tracks &amp; Deep Search)</span>
       <Icon name="arrow-right" size={15} />
     </a>
   </div>
