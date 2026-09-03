@@ -2128,6 +2128,29 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
           shown: getComputedStyle(document.querySelector('.gb-panel')).display !== 'none',
         }));
         if (drawer.open !== '1' || !drawer.shown) fail(scope, 'phone: the tracks drawer did not open');
+
+        // Nothing on a phone may be CLIPPED rather than scrollable. A four-column statistics table
+        // is 314 px wide in a 217 px box, and clipping its last column -- "vs genome", the one
+        // that answers the question the panel exists for -- reads as a column that is not there.
+        // The document does not overflow when this happens, so the check above cannot see it.
+        await ph.click('[data-gb-panel-toggle]');
+        await ph.waitForTimeout(400);
+        const clipped = await ph.evaluate(() => {
+          const out = [];
+          for (const el of document.querySelectorAll(
+            '.gb-stats, .gw-chips, .gb-panel__presets, .gb-stats__scroll')) {
+            const scroller = getComputedStyle(el).overflowX === 'auto' ? el : el.parentElement;
+            if (!scroller) continue;
+            const canScroll = getComputedStyle(scroller).overflowX === 'auto';
+            if (el.scrollWidth > scroller.clientWidth + 1 && !canScroll) {
+              out.push(`${el.className}: ${el.scrollWidth} in ${scroller.clientWidth}`);
+            }
+          }
+          return out;
+        });
+        if (clipped.length) {
+          fail(scope, `phone: content clipped rather than scrollable — ${clipped.join('; ')}`);
+        }
         progress(`  genome/phone: ${taps} taps to letters, pinch `
           + `${beforePinch}->${afterPinch} bp, nav ${layout.navH}px, track top ${layout.trackTop}`);
       } catch (error) {
