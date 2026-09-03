@@ -197,6 +197,33 @@ TRACKS = [
         "source": "Shorkie (Chao et al. 2025), fold f0; d log2(T0 coverage) / d input, x input, "
                   "rc-averaged",
     },
+    {
+        "id": "sk-ig", "group": "expression", "laneTag": "signed", "file": "sk-ig",
+        "nativeBp": 1, "space": "symlog", "axisFrom": "symmetric", "axis": None,
+        "units": "d log2 cov",
+        "label": "Shorkie · integrated gradients",
+        "short": "IG",
+        "detail": "signed contribution of each base, integrated from an all-zero-DNA baseline",
+        "prediction": False,
+        "note": "SIGNED, and NOT a smoother version of the lane above: measured on chrI the two "
+                "correlate at only r = 0.60 per base and share 27% of their strongest bases. A "
+                "gradient is the slope AT the sequence; this is the integral along the path to it, "
+                "so it still reports where the local slope has saturated.",
+        "source": "Shorkie (Chao et al. 2025), fold f0; 32-step integrated gradients, rc-averaged",
+    },
+    {
+        "id": "sk-occl", "group": "expression", "laneTag": "signed · exact", "file": "sk-occlusion",
+        "nativeBp": 64, "space": "symlog", "axisFrom": "symmetric", "axis": None,
+        "units": "d log2 cov",
+        "label": "Shorkie · occlusion",
+        "short": "occlusion",
+        "detail": "measured effect on the prediction of ablating each 64 bp of input",
+        "prediction": False,
+        "note": "The only EXACT attribution here: every value is the model actually re-run with "
+                "that stretch removed, not a derivative of it. 64 bp is the ablation window, so no "
+                "finer level exists.",
+        "source": "Shorkie (Chao et al. 2025), fold f0; 256 ablations a window, rc-averaged",
+    },
 ]
 
 # Every track documents itself, in four fields rather than a paragraph, so a track cannot ship
@@ -204,6 +231,18 @@ TRACKS = [
 # that matters most -- what it does NOT mean. `main()` refuses to write an index that is missing
 # any of them, which is what "documented" has to mean to survive more than one round.
 TRACK_DOCS = {
+    'sk-ig': {
+        'source': "Shorkie (Chao et al. 2025, bioRxiv 2025.09.19.677475), the fold-f0 checkpoint, run over sacCer3 in 1,493 windows of 16,384 bp on the same 8,192 bp cores as the language-model tracks, so the two models' lanes are aligned base for base. Not a published track. Integrated gradients at 32 steps from an all-zero-DNA baseline, averaged over both strands — and the completeness target is rc-averaged too, since the average of two complete decompositions is a decomposition of the average.",
+        'measures': "The same quantity as the gradient lane — each base's signed contribution to predicted log2 RNA-seq coverage — obtained by integrating the gradient along the straight path from a sequence with no DNA to this one, instead of reading the slope at this one. Its attributions sum to f(sequence) − f(baseline), which is the property it exists for, and it is deliberately NOT mean-centred across the four bases: that identity is a telescoping integral of the raw gradient, and subtracting a per-position mean breaks it (measured, 8–650% completeness error centred against 0.4–13% un-centred).",
+        'read': 'The same way as the gradient lane — up raises the prediction, down lowers it — but do NOT read it as a smoothed copy of it. Measured on chrI the two correlate at r = 0.60 per base, 0.44 at 64 bp bins, and their strongest 2,000 bases overlap by only 27%. That gap is the point: a gradient is a local slope, so where a promoter is saturated it reads near zero while the path integral still records the base as load-bearing.',
+        'caveat': "Like the gradient lane, this differentiates each window's whole cropped interior rather than a chosen gene — the only target defined at every base — so it does NOT reproduce the region-conditioned figures on /shorkie-lab/shorkie/, where a reader picks a gene first. Gradients superpose, so what is drawn is the sum over everything in view. And 32 steps is a numerical approximation of an integral, not the integral: the completeness error over the per-locus regions runs 0.14–9.41%.",
+    },
+    'sk-occl': {
+        'source': "Shorkie (Chao et al. 2025, bioRxiv 2025.09.19.677475), the fold-f0 checkpoint, run over sacCer3 in 1,493 windows of 16,384 bp on the same 8,192 bp cores as the language-model tracks, so the two models' lanes are aligned base for base. Not a published track. 256 ablations a window at 64 bp, both strands, each one a forward pass — 6.4 hours of GPU for the genome.",
+        'measures': "What the model's predicted log2 RNA-seq coverage actually does when 64 bp of input is removed, by zeroing its four DNA channels and re-running. This is the only EXACT method on the page: every other lane reports a derivative or an integral of one, and this reports the measured difference. Zeroing is how the paper's language model masks a position and is indistinguishable to the model from a run of N — so it asks whether the stretch carries information at all, where the motif-knockout panel's shuffle asks whether its ARRANGEMENT matters. Those are different questions and give different answers.",
+        'read': 'Down means removing that stretch LOWERS the prediction, so the model was relying on it; up means removing it raises the prediction, which is what a repressive element looks like. Because a whole 64 bp goes at once, a single decisive base and a diffuse stretch of sixty-four weak ones read the same here — the per-base lanes above separate them.',
+        'caveat': "Like the gradient lane, this differentiates each window's whole cropped interior rather than a chosen gene — the only target defined at every base — so it does NOT reproduce the region-conditioned figures on /shorkie-lab/shorkie/, where a reader picks a gene first. Gradients superpose, so what is drawn is the sum over everything in view. The resolution is 64 bp because that is the ablation window, and no finer level is stored; a lane drawn at 64 bp while the readout says per base would be the browser claiming precision the measurement does not have. Full single-base mutagenesis is the honest answer to 'what if this one base changed' and is not affordable genome-wide: measured, 1,231 hours.",
+    },
     'sk-rnaseq': {
         'source': "Shorkie (Chao et al. 2025, bioRxiv 2025.09.19.677475), the fold-f0 checkpoint, run over sacCer3 in 1,493 windows of 16,384 bp on the same 8,192 bp cores as the language-model tracks, so the two models' lanes are aligned base for base. Not a published track.",
         'measures': "Predicted RNA-seq coverage, averaged over the 384 `_T0_` tracks — the untreated, glucose, vegetative baseline the paper's own Figure 4 mutagenesis is scored on. One value per 16 bp, which is the model's own output bin; nothing finer is written because nothing finer exists.",
