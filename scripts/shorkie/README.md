@@ -554,3 +554,43 @@ the 3.26× measured at one locus.
 each gene to its own total before averaging. Attribution sits at **1.40×** a gene's mean base in the
 240 bp upstream against **0.94×** in the 240 bp inside, over 113 genes. Without the strand flip the
 average puts promoters against terminators and produces a flat curve indistinguishable from a null.
+
+
+## Constructive analyses: sequence that was built, not found
+
+Everything above perturbs a real window. These three start from dinucleotide-shuffled background and
+add one thing at a time, which is how a **sufficiency** claim is made rather than a necessity one.
+All are forward passes; none needs a GPU day.
+
+| script | asks | cost | output |
+| --- | --- | --- | --- |
+| `make_receptive.py` | how much of the 16,384 bp window the prediction depends on | 920 passes, 30 s | `src/data/shorkieReceptive.json` |
+| `make_gia.py` | is a motif sufficient on its own, or only necessary where it sits | 11,600 passes | `src/data/shorkieGia.json` |
+| `make_spacing.py` | does the arrangement of two motifs matter | 25,448 passes, 10 min | `src/data/shorkieSpacing.json` |
+
+`dinuc_shuffle` (in `make_receptive.py`, imported by the other two) is Altschul-Erikson: a random
+Euler path through the dinucleotide graph, so every dinucleotide count is preserved **exactly** —
+asserted on a 4,000 bp probe before anything is measured with it. Shuffling rather than zeroing
+matters: zeroing the DNA channels is what occlusion does and is indistinguishable from a run of N,
+so it would measure out-of-distribution input rather than context. Dinucleotide rather than
+mononucleotide matters because yeast promoters carry heavy poly(dA:dT) bias.
+
+**Results, in one line each.** Effective context is a property of the gene: median ±2,048 bp of the
+±8,192 available, the six constitutive glycolytic genes settled by ±1 kb, GAL1 needing the whole
+window. Rap1 and Reb1 are **necessary and not sufficient** (z = 0.2 against their own scrambles)
+while the three strongest sufficient activators are Cbf1, Phd1 and Tye7 — all E-box motifs
+containing CACGTG — and the strongest repressors are Ume6's URS1 and the Dot6/PAC pair. There is
+**no helical grammar**: median in-phase / anti-phase ratio 1.094 across six motif pairs, and all
+eighteen top periodogram peaks are harmonics of the scan window.
+
+**Three checks worth knowing.** `CACGTG` is its own reverse complement, so `make_gia.py`'s forward
+and reverse arms implant an identical string and must score identically — it raises if they do not,
+which tests implantation, reverse complement and scoring in one line. `Poly(dA:dT)` has no scramble
+(every permutation of `AAAAAAAAAA` is itself), so the script counts the DISTINCT scrambles it
+achieved rather than reporting a zero spread as a measurement. And `n/6` of the 61-point spacing
+scan is 10.17 bp, within 0.33 bp of one helical turn — so the periodogram **cannot** separate
+phasing from its own sixth harmonic, and the explicit in-phase/anti-phase contrast is the primary
+reading.
+
+`make_gia.py --join-only` and `make_spacing.py --reanalyse` redo the analysis from the stored
+outputs with no model and no forward passes.
