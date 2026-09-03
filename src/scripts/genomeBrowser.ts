@@ -37,6 +37,7 @@
 
 import {
   levelForBpPerPixel, tilesCovering, tileStartBp, clampView, zoomAbout,
+  levelsForTrack, axisFraction, axisValue, isSignedAxis, pearson, exportRows,
   xOfBp as xOfBpPure, bpOfX as bpOfXPure, formatLocus, formatSpan, rulerTicks,
   laneLayout, laneAt, brushRegion, featureDensity, searchLocus, chromOrder,
   shouldDrawLetters, pinchZoom, pointDistance, pointMidpoint,
@@ -104,6 +105,14 @@ interface TrackSpec {
   units: string;
   axis: [number, number];
   prediction: boolean;
+  /** bp a stored bin. 16 for Shorkie's coverage tracks, 1 for a genuinely per-base track. */
+  nativeBp?: number;
+  /** How values map onto the lane. A property of the DATA, not a display preference. */
+  space?: 'linear' | 'log1p' | 'symlog';
+  /** For `symlog`: the value at which the scale turns over from linear to logarithmic. */
+  linthresh?: number;
+  /** The track's own ladder, written by the tiler. A coarse track has holes at the fine end. */
+  levels?: Level[];
   /** Short qualifier drawn on the lane. Empty for the one track that IS a prediction. */
   laneTag?: string;
   /** Written in `make_genome_tiles.py`, which refuses to build without all four fields. */
@@ -422,6 +431,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
   const readout = $('[data-gb-readout]');
   const levelOut = $('[data-gb-level-out]');
   const statusOut = $('[data-gb-status]');
+  const corrOut = $('[data-gb-corr]');
   const hoverOut = $('[data-gb-hover]');
   const panelBox = $('[data-gb-panel]');
   const tooltip = $('[data-gb-tooltip]');
@@ -450,6 +460,42 @@ export function initGenomeBrowser(host: HTMLElement): void {
   ]);
 
   const scoreTracks = (): TrackSpec[] => (index?.tracks ?? []).filter((t) => enabled.get(t.id));
+
+  /** The level each score lane was last drawn at. Tracks differ: a 16 bp track has no L0. */
+  const drawnLevels = new Map<string, Level>();
+
+  /**
+   * Per-lane autoscale, OFF by default and labelled loudly when on.
+   *
+   * It contradicts this browser's own fixed-axis rule, which is exactly why it must be opt-in: the
+   * whole point of an information-content axis pinned at 0-2 bits is that a quiet window looks
+   * quiet, and autoscaling makes an unconstrained stretch look as structured as a constrained one.
+   * It earns its place only on the coverage lanes, where a silent locus and a maximal one differ by
+   * four orders of magnitude and a genome-wide axis leaves a whole chromosome arm flat.
+   */
+  let autoscale = false;
+
+  /** The last computed per-lane range, so the label can say what the axis actually became. */
+  const autoRange = new Map<string, [number, number]>();
+
+  /** The axis a lane is drawn on: the track's own, or the visible data's when autoscale is on. */
+  function laneAxis(spec: TrackSpec, cols: Column[]): [number, number] {
+    if (!autoscale) return spec.axis;
+    let lo = Infinity; let hi = -Infinity;
+    for (const c of cols) {
+      if (!c.have) continue;
+      if (c.min < lo) lo = c.min;
+      if (c.max > hi) hi = c.max;
+    }
+    if (!Number.isFinite(lo) || hi <= lo) return spec.axis;
+    // A signed track keeps its zero rule in the middle even when autoscaled, or the sign stops
+    // being readable off the drawing -- which is the only thing the lane is for.
+    const out: [number, number] = isSignedAxis(spec.axis)
+      ? [-Math.max(Math.abs(lo), Math.abs(hi)), Math.max(Math.abs(lo), Math.abs(hi))]
+      : [Math.min(0, lo), hi];
+    autoRange.set(spec.id, out);
+    return out;
+  }
 
   // -------------------------------------------------------------------------------------------
   // Tile cache: bounded, de-duplicated, shared by every track, the sequence and the minimap.
@@ -607,8 +653,17 @@ export function initGenomeBrowser(host: HTMLElement): void {
     return index?.chroms.find((c) => c.name === name) ?? null;
   }
 
-  /** A stored byte back to its value. Byte 0 is no data, so values live in 1..255. */
-  const dequant = (byte: number, lo: number, hi: number) => ((byte - 1) / 254) * (hi - lo) + lo;
+  /**
+   * A stored byte back to its value. Byte 0 is no data, so values live in 1..255.
+   *
+   * The byte encodes a FRACTION up the lane in the track's own read space, which is how a
+   * log-scaled coverage track keeps its resolution where the data is: quantising linearly over a
+   * range spanning four orders of magnitude wastes almost every level on the top. `axisValue` is
+   * the inverse of the `to_fraction` that `make_genome_tiles.py` wrote with, and the two must agree
+   * exactly or a byte decodes to a different height than it was stored at.
+   */
+  const dequant = (byte: number, spec: Pick<TrackSpec, 'axis' | 'space' | 'linthresh'>) =>
+    axisValue((byte - 1) / 254, spec.axis, spec.space ?? 'linear', spec.linthresh ?? 1);
 
   /**
    * Aggregate one track's bins under each pixel column.
@@ -617,13 +672,16 @@ export function initGenomeBrowser(host: HTMLElement): void {
    * of its bins' minima, not the minimum of their means. Collapsing to the mean first is what makes
    * a pyramid smooth away the spikes it exists to preserve.
    */
-  function sample(trackId: string, lvl: Level, inner: number, axis: [number, number]): Column[] {
+  /** What `sample` needs of a track: its id and how its bytes decode. */
+  type SampleSpec = Pick<TrackSpec, 'id' | 'axis' | 'space' | 'linthresh'>;
+
+  function sample(spec: SampleSpec, lvl: Level, inner: number): Column[] {
+    const trackId = spec.id;
     const info = chromInfo(view.chrom);
     const cols: Column[] = new Array(inner);
     const bpPerPx = (view.end - view.start) / inner;
     const tileBins = index?.tileBins ?? 65536;
     const nBins = info ? Math.ceil(info.length / lvl.binBp) : 0;
-    const [lo, hi] = axis;
 
     const loaded = new Map<number, Tile>();
     for (const t of tilesCovering(view.start, view.end, lvl.binBp, tileBins)) {
@@ -651,9 +709,11 @@ export function initGenomeBrowser(host: HTMLElement): void {
         if (b0 === 0) continue;
         const b1 = t.rows === 1 ? b0 : t.data[t.cols + c];
         const b2 = t.rows === 1 ? b0 : t.data[2 * t.cols + c];
-        const vlo = dequant(b0, lo, hi);
-        const vhi = dequant(b1 || b0, lo, hi);
-        const vme = dequant(b2 || b0, lo, hi);
+        // Decoded to VALUES before aggregating: the pyramid's own mean was taken in value space,
+        // so a pixel spanning several bins has to mean them the same way.
+        const vlo = dequant(b0, spec);
+        const vhi = dequant(b1 || b0, spec);
+        const vme = dequant(b2 || b0, spec);
         if (vlo < mn) mn = vlo;
         if (vhi > mx) mx = vhi;
         sum += vme;
@@ -664,6 +724,48 @@ export function initGenomeBrowser(host: HTMLElement): void {
         : { min: mn, max: mx, mean: sum / n, have: true };
     }
     return cols;
+  }
+
+  /**
+   * One track's stored bins over a fixed bp grid, for export.
+   *
+   * Distinct from `sample`, which aggregates onto PIXEL columns: an export must land on the data's
+   * own grid, or every row is an interpolation the reader has no way to detect. Where the track's
+   * stored bins are finer than `binBp` the values are meaned; where they are coarser the same
+   * stored value repeats, and the header says which by naming the stored resolution.
+   */
+  function sampleBins(
+    spec: SampleSpec & { nativeBp?: number }, lvl: Level,
+    startBp: number, n: number, binBp: number,
+  ): (number | null)[] {
+    const info = chromInfo(view.chrom);
+    const tileBins = index?.tileBins ?? 65536;
+    const nBins = info ? Math.ceil(info.length / lvl.binBp) : 0;
+    const out: (number | null)[] = new Array(n).fill(null);
+    const loaded = new Map<number, Tile>();
+    for (const ti of tilesCovering(startBp, startBp + n * binBp, lvl.binBp, tileBins)) {
+      const got = tile(`${view.chrom}/${spec.id}/L${lvl.level}/${ti}`);
+      if (got) loaded.set(ti, got);
+    }
+    for (let i = 0; i < n; i += 1) {
+      const b0 = Math.floor((startBp + i * binBp) / lvl.binBp);
+      const b1 = Math.max(b0 + 1, Math.ceil((startBp + (i + 1) * binBp) / lvl.binBp));
+      let sum = 0; let k = 0;
+      for (let b = b0; b < b1; b += 1) {
+        if (b < 0 || b >= nBins) continue;
+        const ti = Math.floor(b / tileBins);
+        const tl = loaded.get(ti);
+        if (!tl) continue;
+        const c = b - ti * tileBins;
+        if (c >= tl.cols) continue;
+        const byte = tl.rows === 1 ? tl.data[c] : tl.data[2 * tl.cols + c];
+        if (byte === 0) continue;                 // no data is a GAP, never a zero
+        sum += dequant(byte, spec);
+        k += 1;
+      }
+      out[i] = k ? sum / k : null;
+    }
+    return out;
   }
 
   /** The reference bases across the view, or null where the sequence tile has not arrived. */
@@ -731,8 +833,12 @@ export function initGenomeBrowser(host: HTMLElement): void {
     const rule = css('--color-rule', '#d8d8d8');
     const accent = css('--color-accent', '#3d6ea8');
 
-    const lvl = index.levels[index.levels.length - 1];
     const spec = index.tracks.find((t) => enabled.get(t.id)) ?? index.tracks[0];
+    // The COARSEST level this particular track has. A coarse track's ladder stops short of the
+    // fine end, never the coarse one, so this is always its last entry -- but reading the index's
+    // global ladder would ask a 16 bp track for a level it may not own.
+    const tl = levelsForTrack(spec ?? {}, index.levels);
+    const lvl = tl[tl.length - 1];
     const nBins = Math.ceil(info.length / lvl.binBp);
     const t = spec ? tile(`${view.chrom}/${spec.id}/L${lvl.level}/0`) : null;
 
@@ -743,7 +849,15 @@ export function initGenomeBrowser(host: HTMLElement): void {
     if (t && spec) {
       const top = 5;
       const h = MINIMAP_H - 14;
-      const full = spec.units === 'bits' ? MINI_MAX : spec.axis[1];
+      // The strip is on a DIFFERENT ruler from the plot and says so in its caption: a 4,096 bp
+      // bin mean spans a narrow band of the full axis, which on the plot's own scale is a
+      // featureless stripe. `MINI_MAX` is that compressed range for the bits tracks; every other
+      // track uses its own axis through its own space, so a log track stays log here too.
+      const bitsLike = spec.units === 'bits';
+      const frac = (v: number) => (bitsLike
+        ? Math.max(0, Math.min(1, v / MINI_MAX))
+        : axisFraction(v, spec.axis, spec.space ?? 'linear', spec.linthresh ?? 1));
+      const signed = !bitsLike && isSignedAxis(spec.axis);
       ctx.fillStyle = muted;
       ctx.globalAlpha = 0.75;
       for (let x = 0; x < inner; x += 1) {
@@ -753,12 +867,22 @@ export function initGenomeBrowser(host: HTMLElement): void {
         for (let b = b0; b < b1 && b < t.cols; b += 1) {
           const byte = t.rows === 1 ? t.data[b] : t.data[2 * t.cols + b];
           if (byte === 0) continue;
-          sum += dequant(byte, spec.axis[0], spec.axis[1]);
+          sum += dequant(byte, spec);
           n += 1;
         }
         if (!n) continue;
-        const bh = Math.min(h, (sum / n / full) * h);
-        if (bh > 0) ctx.fillRect(padLeft(w) + x, top + h - bh, 1, bh);
+        const f = frac(sum / n);
+        if (signed) {
+          // A signed track's zero is mid-lane, so its bar grows either way from there rather than
+          // up from the floor -- drawing -0.8 and +0.2 as bars of the same sign is not a summary,
+          // it is the wrong sign on the screen.
+          const y0 = top + h * 0.5;
+          const y1 = top + h * (1 - f);
+          ctx.fillRect(padLeft(w) + x, Math.min(y0, y1), 1, Math.max(1, Math.abs(y1 - y0)));
+        } else {
+          const bh = Math.min(h, f * h);
+          if (bh > 0) ctx.fillRect(padLeft(w) + x, top + h - bh, 1, bh);
+        }
       }
       ctx.globalAlpha = 1;
     }
@@ -888,6 +1012,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     }
 
     let drawn = 0;
+    drawnLevels.clear();
     let geneTally: Record<string, unknown> = {};
     let letters = 0;
     const featureCounts: Record<string, number> = {};
@@ -896,7 +1021,13 @@ export function initGenomeBrowser(host: HTMLElement): void {
       if (lane.kind === 'ruler') drawRuler(ctx, lane, w, inner, col);
       else if (lane.kind === 'score') {
         const spec = index.tracks.find((t) => t.id === lane.id);
-        if (spec) drawn += drawScore(ctx, lane, spec, lvl, w, inner, col);
+        // Each track is drawn at the finest level IT has. `lvl` above is the level a per-base track
+        // would use; a 16 bp track asked for L0 would 404 every tile and draw nothing at all.
+        if (spec) {
+          const tlvl = levelForBpPerPixel(bpPerPx, levelsForTrack(spec, index.levels));
+          drawnLevels.set(spec.id, tlvl);
+          drawn += drawScore(ctx, lane, spec, tlvl, w, inner, col);
+        }
       } else if (lane.kind === 'sequence') letters = drawSequence(ctx, lane, w);
       else if (lane.kind === 'genes') {
         ctx.save();
@@ -943,6 +1074,38 @@ export function initGenomeBrowser(host: HTMLElement): void {
       ctx.globalAlpha = 1;
     }
 
+    // Live correlation between the two enabled score lanes, over the visible window.
+    //
+    // It makes the page's genome-wide constants locally interrogable: IC against phastCons is 0.121
+    // genome-wide but 0.045 within coding sequence, and IC against GC is -0.020 genome-wide but
+    // -0.221 in intergenic. A reader can now go and see where those numbers come from instead of
+    // taking them on trust. Sampled onto the same PIXEL columns the lanes are drawn on, so what is
+    // correlated is exactly what is on screen; `pearson` pairs only where both lanes have data,
+    // which matters because phastCons is undefined over 0.65% of the genome and Shorkie cannot
+    // score the first 1,024 bases of a chromosome.
+    if (corrOut) {
+      const on = scoreTracks();
+      if (on.length !== 2) {
+        corrOut.textContent = on.length < 2
+          ? '' : `${on.length} tracks on · correlation needs exactly 2`;
+      } else {
+        const [a, b] = on;
+        const va = sample(a, drawnLevels.get(a.id) ?? lvl, inner)
+          .map((c) => (c.have ? c.mean : null));
+        const vb = sample(b, drawnLevels.get(b.id) ?? lvl, inner)
+          .map((c) => (c.have ? c.mean : null));
+        const r = pearson(va, vb);
+        corrOut.textContent = r == null
+          ? `${a.short} vs ${b.short}: too little data here`
+          : `${a.short} vs ${b.short}: r = ${r.toFixed(3)} over this view`;
+        // NOT `gbCorr`: the readout span is `[data-gb-corr]`, and a canvas dataset key of the
+        // same name makes that selector resolve to two elements. The same collision cost this
+        // repo a round on `data-lm-locus` in the language-model page.
+        cv.dataset.gbCorrelation = r == null ? '' : r.toFixed(4);
+      }
+      if (on.length !== 2) cv.dataset.gbCorrelation = '';
+    }
+
     cv.dataset.gbLevel = String(lvl.binBp);
     cv.dataset.gbDrawn = String(drawn);
     cv.dataset.gbGeneTrack = JSON.stringify(geneTally);
@@ -953,13 +1116,25 @@ export function initGenomeBrowser(host: HTMLElement): void {
     cv.dataset.gbFeatures = JSON.stringify(featureCounts);
     cv.dataset.gbFeatureMode =
       (view.end - view.start) > FEATURE_DETAIL_BP ? 'density' : 'detail';
-    cv.dataset.gbRoi = roi ? `${roi.start}-${roi.end}` : '';
+    // `gbRoiRange`, not `gbRoi`: the readout is `<span data-gb-roi>` and `$` returns the first
+    // match in document order, so on a page whose embed has no such span -- the genome-wide
+    // section on /shorkie-lab/shorkie/ -- the controller would resolve its ROI readout to this
+    // canvas and write text into it. It only worked here by the span happening to be declared
+    // four lines earlier in the markup.
+    cv.dataset.gbRoiRange = roi ? `${roi.start}-${roi.end}` : '';
 
     if (levelOut) {
       const anyFeature = lanes.some((l) => l.kind === 'features');
+      // Tracks drawn coarser than the headline level are NAMED. A lane silently pinned at its
+      // own 16 bp floor while the readout says "per base" is the browser claiming a resolution the
+      // model does not have, which is the one thing this pyramid is built not to do.
+      const coarser = [...drawnLevels.entries()]
+        .filter(([, l]) => l.binBp > lvl.binBp)
+        .map(([id, l]) => `${index!.tracks.find((s) => s.id === id)?.short ?? id} ${l.binBp} bp`);
       levelOut.textContent = (lvl.binBp === 1
         ? (letters > 0 ? 'per base, letters' : 'per base')
         : `${lvl.binBp.toLocaleString()} bp bins · min/mean/max`)
+        + (coarser.length ? ` · at their own floor: ${coarser.join(', ')}` : '')
         + (anyFeature
           ? ` · features: ${cv.dataset.gbFeatureMode === 'density' ? 'density' : 'individual'}`
           : '');
@@ -1007,33 +1182,60 @@ export function initGenomeBrowser(host: HTMLElement): void {
     ctx: CanvasRenderingContext2D, lane: Lane, spec: TrackSpec, lvl: Level,
     w: number, inner: number, col: Record<string, string>,
   ): number {
-    const [lo, hi] = spec.axis;
+    const space = spec.space ?? 'linear';
+    const signed = isSignedAxis(spec.axis);
     const h = lane.height - 12;
     const top = lane.top;
-    const yOf = (v: number) => top + h - ((Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo)) * h;
-    const cols = sample(spec.id, lvl, inner, spec.axis);
+    const cols = sample(spec, lvl, inner);
+    // Sampled BEFORE the axis is chosen, because autoscale reads the visible data. `linthresh` is
+    // scaled with the axis so a symlog lane keeps the same shape when it zooms in, rather than
+    // flattening as its range shrinks toward the turnover value.
+    const axis = laneAxis(spec, cols);
+    const lin = (spec.linthresh ?? 1)
+      * (axis === spec.axis ? 1 : Math.max(1e-6, axis[1] / Math.max(spec.axis[1], 1e-12)));
+    // Everything positional goes through the track's own space, so a gridline, a tick label, a bar
+    // and the tooltip cannot disagree about where a value sits.
+    const fracOf = (v: number) => axisFraction(v, axis, space, lin);
+    const yOf = (v: number) => top + h - fracOf(v) * h;
+    const yOfFrac = (f: number) => top + h - f * h;
     const seq = spec.units === 'bits' && shouldDrawLetters(view.end - view.start, inner)
       ? sequence() : null;
 
     // Gridlines and the axis, per lane: every score lane prints its OWN range and units, because
-    // 0-2 bits and a 0-1 posterior are not the same ruler and a shared axis would say they are.
+    // 0-2 bits, a 0-1 posterior and a log coverage axis are not the same ruler and a shared axis
+    // would say they are. Ticks are placed by FRACTION and labelled by value, so on a log or
+    // symlog lane they stay evenly spaced on screen while their labels are not evenly spaced in
+    // value -- which is what tells a reader the axis is not linear.
     ctx.strokeStyle = col.rule;
     ctx.setLineDash([2, 3]);
     const gridCount = 4;
     for (let g = 1; g < gridCount; g += 1) {
-      const v = lo + ((hi - lo) * g) / gridCount;
       ctx.beginPath();
-      ctx.moveTo(padLeft(w), Math.round(yOf(v)) + 0.5);
-      ctx.lineTo(padLeft(w) + inner, Math.round(yOf(v)) + 0.5);
+      ctx.moveTo(padLeft(w), Math.round(yOfFrac(g / gridCount)) + 0.5);
+      ctx.lineTo(padLeft(w) + inner, Math.round(yOfFrac(g / gridCount)) + 0.5);
       ctx.stroke();
     }
     ctx.setLineDash([]);
     ctx.fillStyle = col.muted;
     ctx.font = '9px system-ui, sans-serif';
     ctx.textAlign = 'right';
+    const label = (v: number) => (Math.abs(v) >= 100 ? v.toFixed(0)
+      : Math.abs(v) >= 1 ? v.toFixed(1)
+        : v === 0 ? '0' : v.toFixed(3));
     for (let g = 0; g <= gridCount; g += 2) {
-      const v = lo + ((hi - lo) * g) / gridCount;
-      ctx.fillText(v.toFixed(1), padLeft(w) - 5, yOf(v) + 3);
+      const f = g / gridCount;
+      ctx.fillText(label(axisValue(f, axis, space, lin)), padLeft(w) - 5, yOfFrac(f) + 3);
+    }
+    // The zero rule. A signed lane without one is unreadable: a bar is then a magnitude with no
+    // baseline, and the sign -- the whole point of the track -- is not on the screen at all.
+    if (signed) {
+      ctx.strokeStyle = col.muted;
+      ctx.globalAlpha = 0.55;
+      ctx.beginPath();
+      ctx.moveTo(padLeft(w), Math.round(yOf(0)) + 0.5);
+      ctx.lineTo(padLeft(w) + inner, Math.round(yOf(0)) + 0.5);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
     }
 
     const tone = spec.id === 'phastcons' ? css('--gb-cons', '#8a6d3b')
@@ -1052,7 +1254,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
         const b = seq[i];
         const c = cols[Math.min(cols.length - 1, Math.floor(i * bw))];
         if (!b || !c?.have) continue;
-        const sy = ((Math.max(lo, Math.min(hi, c.mean)) - lo) / (hi - lo)) * h * LOGO_GLOBSCALE;
+        const sy = fracOf(c.mean) * h * LOGO_GLOBSCALE;
         if (sy < 0.12) continue;
         ctx.save();
         ctx.translate(xOfBp(view.start + i + 0.5, w), top + h);
@@ -1070,20 +1272,28 @@ export function initGenomeBrowser(host: HTMLElement): void {
         const yMean = yOf(c.mean);
         const yMax = yOf(c.max);
         const yMin = yOf(c.min);
+        // A signed track grows from its zero rule, not from the lane floor. Filling from the floor
+        // would draw -0.8 and +0.2 as bars of the same sign, and every bar on the lane would be an
+        // inverted reading of the one thing the track exists to report.
+        const base = signed ? yOf(0) : top + h;
         ctx.globalAlpha = 0.9;
         ctx.fillStyle = tone;
-        ctx.fillRect(padLeft(w) + x, yMean, 1, top + h - yMean);
+        ctx.fillRect(padLeft(w) + x, Math.min(base, yMean), 1,
+          Math.max(signed ? 1 : 0, Math.abs(base - yMean)));
         // The maximum is a MARK, not a filled extension. Filling from the mean up to the max is the
         // BigWig convention and it inverts the reading here: a 512 bp bin almost always contains
         // one near-determined base, so the fill blankets 90% of the plot.
+        // The extremes are MARKS, not a filled envelope. Filling mean-to-max is the BigWig
+        // convention and it inverts the reading here: a 512 bp bin almost always contains one
+        // near-determined base, so the fill blankets 90% of the plot.
         if (yMax < yMean - 1) {
           ctx.globalAlpha = 0.4;
           ctx.fillRect(padLeft(w) + x, yMax, 1, 1.5);
         }
         if (yMin > yMean + 1.5) {
           ctx.globalAlpha = 0.5;
-          ctx.fillStyle = col.ink;
-          ctx.fillRect(padLeft(w) + x, yMin, 1, 1);
+          ctx.fillStyle = signed ? tone : col.ink;
+          ctx.fillRect(padLeft(w) + x, yMin, 1, signed ? 1.5 : 1);
         }
       }
       ctx.globalAlpha = 1;
@@ -1100,6 +1310,11 @@ export function initGenomeBrowser(host: HTMLElement): void {
     const missing = cols.filter((c) => !c.have).length;
     const text = `${spec.label} · ${spec.units}`
       + (spec.laneTag ? ` · ${spec.laneTag}` : '')
+      // Autoscale is announced ON THE LANE, with the range it became. A rescaled axis that does not
+      // say so is the same defect as a bar chart from a non-zero baseline: the drawing is a
+      // different claim from the one the reader thinks they are looking at.
+      + (axis !== spec.axis
+        ? ` · AUTOSCALED ${label(axis[0])}–${label(axis[1])}` : '')
       + (missing > inner * 0.02 ? ` · ${Math.round((missing / inner) * 100)}% no data` : '');
     // A chip behind it, because phastCons saturates at 1.0 through a whole gene and a bare label
     // at the top of the plot lands on the data rather than above it.
@@ -1402,7 +1617,11 @@ export function initGenomeBrowser(host: HTMLElement): void {
     if (!spec) return null;
     const w = Math.max(1, Math.round(trackCanvas!.clientWidth));
     const inner = Math.max(1, w - padLeft(w) - PAD_RIGHT);
-    const lvl = levelForBpPerPixel((view.end - view.start) / inner, index.levels);
+    // The level this TRACK is being drawn at -- following the drawn level is what stops a hover
+    // pulling a 65,536-base L0 tile the view cannot show, and following the track's OWN ladder is
+    // what stops it asking a 16 bp track for a level that does not exist.
+    const lvl = levelForBpPerPixel((view.end - view.start) / inner,
+      levelsForTrack(spec, index.levels));
     const bin = Math.floor(Math.floor(bp) / lvl.binBp);
     const ti = Math.floor(bin / index.tileBins);
     const t = tile(`${view.chrom}/${trackId}/L${lvl.level}/${ti}`);
@@ -1412,9 +1631,15 @@ export function initGenomeBrowser(host: HTMLElement): void {
     // Byte 0 is no data, and saying so is the point of reserving it.
     const byte = t.rows === 1 ? t.data[c] : t.data[2 * t.cols + c];
     if (byte === 0) return `${spec.short}: no data (not aligned)`;
-    const v = dequant(byte, spec.axis[0], spec.axis[1]).toFixed(3);
-    return lvl.binBp === 1
+    const raw = dequant(byte, spec);
+    // Coverage runs to four figures and an attribution to four decimals; one fixed precision
+    // prints either "1097.560" or "0.000".
+    const v = Math.abs(raw) >= 100 ? raw.toFixed(1)
+      : Math.abs(raw) >= 1 ? raw.toFixed(2) : raw.toFixed(4);
+    const native = spec.nativeBp ?? 1;
+    return lvl.binBp === native
       ? `${spec.short} ${v} ${spec.units}`
+        + (native > 1 ? ` (${native} bp bin)` : '')
       : `${spec.short} ${v} ${spec.units} (mean of ${lvl.binBp.toLocaleString()} bp)`;
   }
 
@@ -1954,6 +2179,54 @@ export function initGenomeBrowser(host: HTMLElement): void {
     a.download = `${formatLocus(view).replace(/[:,]/g, '_')}.png`;
     a.href = out.toDataURL('image/png');
     a.click();
+  });
+
+  $<HTMLButtonElement>('[data-gb-autoscale]')?.addEventListener('click', (e) => {
+    autoscale = !autoscale;
+    const btn = e.currentTarget as HTMLButtonElement;
+    btn.setAttribute('aria-pressed', String(autoscale));
+    btn.classList.toggle('is-on', autoscale);
+    // NOT `gbAutoscale`: the button is `[data-gb-autoscale]`, and a host dataset key of the same
+    // name makes that selector match two elements. Third instance of this collision in this repo.
+    host.dataset.gbAutoscaleOn = String(autoscale);
+    paintTrack();
+  });
+
+  $<HTMLButtonElement>('[data-gb-export-csv]')?.addEventListener('click', () => {
+    // The DATA behind the view, at the level it is being drawn at -- not at some canonical
+    // resolution the reader did not choose. The header names the bin size for each column, because
+    // a bin mean and a per-base value are different numbers and a file carrying neither units nor
+    // a bin size is a trap the moment it leaves the browser.
+    if (!index) return;
+    const specs = scoreTracks();
+    if (!specs.length) return;
+    const w = Math.max(1, Math.round(trackCanvas.clientWidth));
+    const inner = Math.max(1, w - padLeft(w) - PAD_RIGHT);
+    const bpPerPx = (view.end - view.start) / inner;
+    // One row per bin of the COARSEST enabled track, so every column is a real stored value rather
+    // than one track's number repeated down a finer grid.
+    const lvls = specs.map((s) => levelForBpPerPixel(bpPerPx, levelsForTrack(s, index!.levels)));
+    const binBp = Math.max(...lvls.map((l) => l.binBp));
+    const start = Math.floor(view.start / binBp) * binBp;
+    const n = Math.ceil((view.end - start) / binBp);
+    const cols = specs.map((s, i) => {
+      const c = sampleBins(s, lvls[i], start, n, binBp);
+      return c;
+    });
+    const rows = exportRows(view.chrom, start, binBp,
+      specs.map((s) => ({ id: s.id, units: s.units })), cols);
+    const head = [
+      `# ${formatLocus(view)} · ${index.genome} · khchao.com/shorkie-lab/genome/`,
+      `# ${binBp === 1 ? 'per base' : `bin ${binBp} bp, values are bin means`}`,
+      ...specs.map((s, i) => `# ${s.id}: ${s.label} — ${s.detail}`
+        + (lvls[i].binBp < binBp ? ` (stored at ${lvls[i].binBp} bp, re-binned)` : '')),
+    ];
+    const blob = new Blob([`${[...head, ...rows].join('\n')}\n`], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.download = `${formatLocus(view).replace(/[:,]/g, '_')}.csv`;
+    a.href = URL.createObjectURL(blob);
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
 
   if (chromSel) {

@@ -1609,7 +1609,9 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     const ladder = [];
     for (const [locus, want] of [
       ['chrIV:1-1531933', 512], ['chrIV:1-200000', 64],
-      ['chrIV:1-20000', 8], ['chrIV:1-2000', 1], ['chrIV:1000-1120', 1],
+      // 16, not 8: the ladder gained a 16 bp level for Shorkie's own output grid, and at this
+      // width 20 kb is ~18.6 bp a pixel, so 16 is the largest bin no wider than a pixel.
+      ['chrIV:1-20000', 16], ['chrIV:1-2000', 1], ['chrIV:1000-1120', 1],
     ]) {
       await go(locus);
       const dd = await ds();
@@ -1810,7 +1812,7 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     await page.click('[data-gb-mark]');
     await page.waitForTimeout(900);
     const marked = await ds();
-    if (!marked.gbRoi) fail(scope, 'marking a region recorded no ROI');
+    if (!marked.gbRoiRange) fail(scope, 'marking a region recorded no ROI');
     const stateHash = await page.evaluate(() => window.location.hash);
     if (!stateHash.includes(';t=') || !stateHash.includes(';roi=')) {
       fail(scope, `hash carries neither tracks nor ROI: ${stateHash}`);
@@ -1819,8 +1821,8 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 20000 });
     await page.waitForTimeout(1400);
     const restored = await ds();
-    if (restored.gbRoi !== marked.gbRoi) {
-      fail(scope, `ROI did not survive the link: ${marked.gbRoi} -> ${restored.gbRoi}`);
+    if (restored.gbRoiRange !== marked.gbRoiRange) {
+      fail(scope, `ROI did not survive the link: ${marked.gbRoiRange} -> ${restored.gbRoiRange}`);
     }
     if (JSON.parse(restored.gbLanes).sort().join() !== JSON.parse(marked.gbLanes).sort().join()) {
       fail(scope, `track set did not survive the link: ${marked.gbLanes} -> ${restored.gbLanes}`);
@@ -1900,13 +1902,39 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
       fail(scope, `a click on the strip should centre without zooming: ${beforeClick} -> ${afterClick}`);
     }
 
-    // 4j. Four score tracks, each fully documented, and GC drawing as its own lane.
+    // 4j. Every score track fully documented, GC drawing as its own lane, and no track claiming
+    //     a resolution it does not have.
     const trackMeta = await page.evaluate(async () => {
       const idx = await (await fetch('/genome-data/index.json')).json();
-      return { tracks: idx.tracks, gc: idx.gcComparison };
+      return { tracks: idx.tracks, gc: idx.gcComparison, levels: idx.levels };
     });
-    if (trackMeta.tracks.length !== 4) {
-      fail(scope, `${trackMeta.tracks.length} score tracks in the index, expected 4`);
+    // Two models' worth: four Shorkie_LM / conservation / composition lanes and five from the
+    // expression model. A hardcoded total would have to be edited whenever a lane lands, so this
+    // asserts the SHAPE -- both models present, and every track internally consistent.
+    if (trackMeta.tracks.length < 4) {
+      fail(scope, `${trackMeta.tracks.length} score tracks in the index`);
+    }
+    for (const pre of ['lm-', 'sk-']) {
+      if (!trackMeta.tracks.some((t) => t.id.startsWith(pre))) {
+        fail(scope, `no ${pre}* track in the index`);
+      }
+    }
+    for (const tr of trackMeta.tracks) {
+      const native = tr.nativeBp ?? 1;
+      // A level finer than the track's own bins would be an upsampled step function drawn as
+      // though the model resolved single bases; one its bins do not divide evenly would aggregate
+      // a fraction of a bin, which is a different quantity from a mean.
+      for (const l of tr.levels ?? []) {
+        if (l.binBp < native || l.binBp % native !== 0) {
+          fail(scope, `${tr.id} ships a ${l.binBp} bp level for ${native} bp data`);
+        }
+      }
+      if (!(tr.levels ?? []).length) fail(scope, `${tr.id} declares no level ladder`);
+      // A signed axis must be symmetric, or its zero rule sits off-centre and every bar is read
+      // against the wrong baseline.
+      if (tr.axis[0] < 0 && tr.axis[0] !== -tr.axis[1]) {
+        fail(scope, `${tr.id} is signed but its axis ${tr.axis} is asymmetric`);
+      }
     }
     for (const tr of trackMeta.tracks) {
       // Four fields, not a paragraph: a track that ships without saying what it does NOT mean is
@@ -2144,10 +2172,170 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     const canvasCount = await page.evaluate(() => document.querySelectorAll('canvas').length);
     if (canvasCount !== 2) fail(scope, `${canvasCount} canvases after 4 round trips, expected 2`);
 
+    // 4p. A COARSE track must not claim a resolution it does not have.
+    //
+    //     Shorkie's head emits 896 bins of 16 bp. A per-base level for it would be an upsampled
+    //     step function -- 12,157,105 stored values carrying 760,000 values of real information,
+    //     drawn as though the model resolved single bases. The pyramid simply has no such level,
+    //     so the failure mode without the per-track ladder is not a blurred drawing but an empty
+    //     lane: every tile request 404s. Both halves are checked here.
+    await page.goto(`${GENOME_ROUTE}#chrVII:882012-884610;t=sk-rnaseq,sk-gradient,genes`,
+                    { waitUntil: 'networkidle' });
+    await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 20000 });
+    await page.waitForTimeout(2500);
+    const coarse = await ds();
+    if (!JSON.parse(coarse.gbLanes || '[]').includes('sk-rnaseq')) {
+      fail(scope, `the coverage lane did not mount: ${coarse.gbLanes}`);
+    }
+    if (Number(coarse.gbDrawn) < 400) {
+      fail(scope, `coarse + signed tracks drew only ${coarse.gbDrawn} columns`);
+    }
+    // The readout NAMES a track pinned at its own floor, rather than letting "per base" speak for
+    // every lane. A silently-coarse lane is the browser claiming a resolution the model lacks.
+    const lvlText = await page.$eval('[data-gb-level-out]', (e) => e.textContent || '');
+    if (!/own floor/.test(lvlText) || !/16 bp/.test(lvlText)) {
+      fail(scope, `at per-base zoom the readout does not name the 16 bp lane: "${lvlText.trim()}"`);
+    }
+
+    // 4q. A SIGNED track draws above AND below its zero rule.
+    //
+    //     Every bar used to fill from the lane floor, which would draw -0.8 and +0.2 as bars of the
+    //     same sign -- an inverted reading of the one thing the track exists to report. Counted in
+    //     pixels, because the sign is a property of the drawing and nothing else can see it.
+    const halves = await page.evaluate(() => {
+      const cv = document.querySelector('[data-gb-track]');
+      const lanes = JSON.parse(cv.dataset.gbLanes || '[]');
+      const i = lanes.indexOf('sk-gradient');
+      if (i < 0) return null;
+      // Lane geometry is not exported, so the band is found by locating the row with the most ink
+      // in the lower half of the canvas and walking out; simpler and sufficient: split the whole
+      // canvas into lanes by even division is WRONG, so instead scan for the two contiguous ink
+      // bands and take the second.
+      const g = cv.getContext('2d');
+      const { width: w, height: h } = cv;
+      const px = g.getImageData(0, 0, w, h).data;
+      const rowInk = [];
+      for (let y = 0; y < h; y += 1) {
+        let n = 0;
+        for (let x = 60; x < w - 4; x += 1) {
+          const o = (y * w + x) * 4;
+          if (px[o + 3] > 40 && (px[o] < 200 || px[o + 1] < 200 || px[o + 2] < 200)) n += 1;
+        }
+        rowInk.push(n);
+      }
+      return { rowInk, h };
+    });
+    if (!halves) {
+      fail(scope, 'the signed attribution lane never mounted');
+    } else {
+      // The signed lane is the one whose ink is symmetric about its own middle. Find the widest
+      // run of inked rows below the coverage lane and compare its two halves.
+      const { rowInk } = halves;
+      const inked = rowInk.map((n) => n > 3);
+      const runs = [];
+      let s = -1;
+      inked.forEach((v, i) => {
+        if (v && s < 0) s = i;
+        if (!v && s >= 0) { runs.push([s, i]); s = -1; }
+      });
+      if (s >= 0) runs.push([s, inked.length]);
+      const band = runs.filter((r) => r[1] - r[0] > 20).sort((a, b) => (b[1] - b[0]) - (a[1] - a[0]))[1];
+      if (!band) {
+        fail(scope, 'could not find a second inked band — the signed lane may be empty');
+      } else {
+        const mid = Math.round((band[0] + band[1]) / 2);
+        const up = rowInk.slice(band[0], mid).reduce((a, b) => a + b, 0);
+        const dn = rowInk.slice(mid, band[1]).reduce((a, b) => a + b, 0);
+        if (up < 200 || dn < 200) {
+          fail(scope, `signed lane draws ${up} px above and ${dn} px below its middle — `
+            + 'a signed track filling from the floor is an inverted reading');
+        }
+        // Roughly balanced: gradient x input is ~50% negative genome-wide.
+        const ratio = Math.max(up, dn) / Math.max(1, Math.min(up, dn));
+        if (ratio > 4) fail(scope, `signed lane is ${ratio.toFixed(1)}:1 lopsided about its zero rule`);
+      }
+    }
+
+    // 4r. Live correlation appears with exactly two lanes, and moves when the view does.
+    const corrHere = await page.$eval('span[data-gb-corr]', (e) => e.textContent || '');
+    if (!/r = -?\d/.test(corrHere)) {
+      fail(scope, `two lanes on, but no correlation was reported: "${corrHere.trim()}"`);
+    }
+    const r1 = (await ds()).gbCorrelation;
+    await go('chrIV:400,000-460,000');
+    await page.waitForTimeout(1800);
+    const r2 = (await ds()).gbCorrelation;
+    if (!r2) fail(scope, 'correlation vanished after a pan');
+    else if (r1 === r2) fail(scope, `correlation ${r1} unchanged across two different loci`);
+
+    // 4s. Export writes the DATA behind the view, and its header names the bin size. A file with
+    //     neither units nor a bin size is a trap the moment it leaves the browser.
+    const dl = await Promise.all([
+      page.waitForEvent('download', { timeout: 15000 }),
+      page.click('[data-gb-export-csv]'),
+    ]).then(([d]) => d).catch(() => null);
+    if (!dl) {
+      fail(scope, 'CSV export produced no download');
+    } else {
+      const fs = await import('node:fs');
+      const csv = fs.readFileSync(await dl.path(), 'utf8').split('\n');
+      const head = csv.find((l) => l.startsWith('chrom,'));
+      if (!head) fail(scope, 'CSV has no column header');
+      else if (!/mean of \d+ bp|\(a\.u\.\)|\(bits\)/.test(head)) {
+        fail(scope, `CSV header names no bin size or units: ${head}`);
+      }
+      if (!csv.some((l) => l.startsWith('# '))) fail(scope, 'CSV carries no provenance comment');
+      if (csv.filter((l) => /^chr\w+,\d/.test(l)).length < 20) {
+        fail(scope, `CSV has only ${csv.length} lines`);
+      }
+    }
+
+    // 4t. Autoscale is OFF by default, changes the drawing, and SAYS SO on the lane. An axis that
+    //     was rescaled without announcing it is the same defect as a bar chart from a non-zero
+    //     baseline: the drawing is a different claim from the one the reader thinks they see.
+    const pressed0 = await page.$eval('button[data-gb-autoscale]', (b) => b.getAttribute('aria-pressed'));
+    if (pressed0 !== 'false') fail(scope, `autoscale defaults to ${pressed0}, must default off`);
+    const shotA = await page.locator('[data-gb-track]').screenshot();
+    await page.click('button[data-gb-autoscale]');
+    await page.waitForTimeout(1200);
+    const shotB = await page.locator('[data-gb-track]').screenshot();
+    if (Buffer.compare(shotA, shotB) === 0) fail(scope, 'autoscale changed nothing on the canvas');
+    const flag = await page.$eval('[data-genome-browser]', (h) => h.dataset.gbAutoscaleOn);
+    if (flag !== 'true') fail(scope, `autoscale flag is ${flag}`);
+    await page.click('button[data-gb-autoscale]');
+    await page.waitForTimeout(800);
+
+    // 4u. The genome-wide embed on the EXPRESSION page mounts, with the model's own lanes.
+    await page.goto('/shorkie-lab/shorkie/', { waitUntil: 'networkidle' });
+    await page.waitForSelector('.gw-browser[data-gb-ready="1"]', { timeout: 25000 });
+    await page.waitForTimeout(2500);
+    const emb = await page.$eval('.gw-browser [data-gb-track]', (c) => ({ ...c.dataset }));
+    const embLanes = JSON.parse(emb.gbLanes || '[]');
+    for (const need of ['sk-rnaseq', 'sk-gradient', 'genes']) {
+      if (!embLanes.includes(need)) fail(scope, `the embed is missing the ${need} lane`);
+    }
+    if (Number(emb.gbDrawn) < 400) fail(scope, `the embed drew ${emb.gbDrawn} columns`);
+    // The backing store must match its box. A minimum-width floor makes it wider than the element,
+    // `width: 100%` scales it back, and every horizontal coordinate is off by that ratio.
+    const embGeom = await page.$eval('.gw-browser [data-gb-track]',
+      (c) => ({ w: c.width, box: Math.round(c.getBoundingClientRect().width * devicePixelRatio) }));
+    if (Math.abs(embGeom.w - embGeom.box) > 2) {
+      fail(scope, `embed backing store ${embGeom.w} vs box ${embGeom.box}`);
+    }
+    // The chips must be INSIDE the host, or the controller never binds them.
+    const chips = await page.$$eval('.gw-browser [data-gb-chip]', (b) => b.length);
+    if (chips < 10) fail(scope, `only ${chips} locus chips inside the embed host`);
+    const beforeChip = await page.$eval('.gw-browser [data-gb-readout]', (e) => e.textContent);
+    await page.click('.gw-browser [data-gb-chip]:nth-of-type(5)');
+    await page.waitForTimeout(1500);
+    const afterChip = await page.$eval('.gw-browser [data-gb-readout]', (e) => e.textContent);
+    if (beforeChip === afterChip) fail(scope, 'a locus chip in the embed navigated nowhere');
+
     if (bad.length) fail(scope, `genome-data requests failed: ${bad.slice(0, 3).join(', ')}`);
     if (errors.length) fail(scope, `console/page errors: ${errors.slice(0, 2).join(' | ')}`);
     progress(`  genome: levels ${ladder.join(' ')}, cache peak ${peak}/${cap}, ${evicted} evicted, `
-      + `${searchN} genes searchable, ${live / 2} controller(s) live after 4 round trips`);
+      + `${searchN} genes searchable, ${live / 2} controller(s) live after 4 round trips, `
+      + `embed lanes ${embLanes.join('+')}`);
   } finally {
     await context.close();
   }
