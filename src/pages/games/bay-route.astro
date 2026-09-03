@@ -271,6 +271,19 @@ const appLd = {
       </div>
     </div>
 
+    <!-- Turn-by-Turn Navigation & Route Schedule Drawer -->
+    <details class="br-maneuvers-drawer" data-br-maneuvers-drawer open>
+      <summary class="br-maneuvers-summary">
+        <div class="br-maneuvers-title-row">
+          <span class="br-maneuvers-badge">🛣️ Turn-by-Turn Route Schedule</span>
+          <span class="br-maneuvers-summary-text" data-maneuvers-summary>Calculating driving steps on real roads...</span>
+        </div>
+      </summary>
+      <div class="br-maneuvers-list" data-maneuvers-list>
+        <!-- Populated dynamically by script -->
+      </div>
+    </details>
+
     <!-- Race Mode Leaderboard (Visible when Race Mode is active) -->
     <div class="br-race-section" data-br-race-section hidden>
       <div class="br-race-header">
@@ -1184,6 +1197,118 @@ const appLd = {
   .br-metric-sub {
     font-size: 0.72rem;
     color: var(--color-muted);
+  }
+
+  /* Turn-by-Turn Navigation & Schedule Drawer */
+  .br-maneuvers-drawer {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md, 8px);
+    overflow: hidden;
+    transition: border-color 0.15s ease;
+  }
+
+  .br-maneuvers-drawer[open] {
+    border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+  }
+
+  .br-maneuvers-summary {
+    padding: 0.85rem 1.15rem;
+    cursor: pointer;
+    user-select: none;
+    background: color-mix(in srgb, var(--color-ink) 2%, var(--color-surface));
+    border-bottom: 1px solid transparent;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .br-maneuvers-drawer[open] .br-maneuvers-summary {
+    border-bottom-color: var(--color-border);
+  }
+
+  .br-maneuvers-title-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .br-maneuvers-badge {
+    color: var(--color-ink);
+    font-weight: 700;
+  }
+
+  .br-maneuvers-summary-text {
+    font-size: 0.8125rem;
+    color: var(--color-muted);
+    font-weight: 450;
+  }
+
+  .br-maneuvers-list {
+    display: flex;
+    flex-direction: column;
+    max-height: 280px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .br-maneuver-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding: 0.65rem 1.15rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
+    transition: background 0.15s ease;
+  }
+
+  .br-maneuver-item:last-child {
+    border-bottom: none;
+  }
+
+  .br-maneuver-item:hover {
+    background: color-mix(in srgb, var(--color-accent) 4%, transparent);
+  }
+
+  .br-maneuver-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--color-accent) 15%, var(--color-surface));
+    color: var(--color-accent);
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+  }
+
+  .br-maneuver-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .br-maneuver-text {
+    margin: 0;
+    font-size: 0.825rem;
+    color: var(--color-ink);
+    line-height: 1.35;
+    font-weight: 550;
+  }
+
+  .br-maneuver-meta {
+    font-size: 0.72rem;
+    color: var(--color-muted);
+    margin-top: 0.15rem;
+    display: block;
+  }
+
+  .br-maneuver-empty {
+    padding: 1rem 1.15rem;
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+    font-style: italic;
   }
 
   /* Race Leaderboard */

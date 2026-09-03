@@ -95,4 +95,56 @@ describe('CityRoadGraph Engine', () => {
     // A* should explore fewer or equal nodes than Dijkstra
     expect(aStar.exploredCount).toBeLessThanOrEqual(dijkstra.exploredCount);
   });
+
+  it('preserves multi-point curved polyline geometry across all major bridges and freeways', () => {
+    const cityGraph = buildFullCityRoadGraph();
+    const bayGraph = cityRoadGraphToBayGraph(cityGraph);
+
+    // Verify all edges have valid polyline paths
+    for (const edge of bayGraph.edges) {
+      expect(edge.path).toBeDefined();
+      expect(edge.path!.length).toBeGreaterThanOrEqual(2);
+      for (const pt of edge.path!) {
+        expect(pt.lat).toBeGreaterThan(37.0);
+        expect(pt.lat).toBeLessThan(38.5);
+        expect(pt.lng).toBeGreaterThan(-123.0);
+        expect(pt.lng).toBeLessThan(-121.5);
+      }
+    }
+
+    // Verify Bay Bridge has multi-point curved polyline geometry
+    const bayBridgeEdge = bayGraph.edges.find(
+      (e) => e.u === 'bb_anchorage' && e.v === 'bb_yerba_buena'
+    );
+    expect(bayBridgeEdge).toBeDefined();
+    expect(bayBridgeEdge!.path!.length).toBeGreaterThanOrEqual(4);
+
+    // Verify Golden Gate Bridge has multi-point curved polyline geometry
+    const ggbEdge = bayGraph.edges.find(
+      (e) => e.u === 'ggb_toll_plaza' && e.v === 'ggb_south_tower'
+    );
+    expect(ggbEdge).toBeDefined();
+    expect(ggbEdge!.path!.length).toBeGreaterThanOrEqual(3);
+
+    // Verify San Mateo Bridge spans the lower bay with curved geometry
+    const sanMateoEdge = bayGraph.edges.find(
+      (e) => e.u === 'san_mateo_bridge_west' && e.v === 'hayward_downtown'
+    );
+    expect(sanMateoEdge).toBeDefined();
+    expect(sanMateoEdge!.path!.length).toBeGreaterThanOrEqual(5);
+
+    // Verify Dumbarton Bridge connects Peninsula to East Bay
+    const dumbartonEdge = bayGraph.edges.find(
+      (e) => e.u === 'dumbarton_bridge_west' && e.v === 'fremont_downtown'
+    );
+    expect(dumbartonEdge).toBeDefined();
+    expect(dumbartonEdge!.path!.length).toBeGreaterThanOrEqual(4);
+
+    // Verify Richmond-San Rafael Bridge connects North Bay to East Bay
+    const richmondEdge = bayGraph.edges.find(
+      (e) => e.u === 'marin_san_rafael' && e.v === 'richmond_downtown'
+    );
+    expect(richmondEdge).toBeDefined();
+    expect(richmondEdge!.path!.length).toBeGreaterThanOrEqual(5);
+  });
 });
