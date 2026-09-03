@@ -68,10 +68,14 @@ function classifyRoadType(instruction: string, streetName: string): { roadType: 
  * Strips HTML tags from Google Maps route instructions (e.g. <b>I-80 E</b> -> I-80 E).
  */
 function stripHtml(html: string): string {
-  if (typeof document !== 'undefined') {
-    const tmp = document.createElement('div');
-    tmp.innerHTML = html;
-    return tmp.textContent || tmp.innerText || '';
+  // `DOMParser` rather than a detached div's markup property. The input is a third-party API
+  // response, and a parsed document has no browsing context: scripting is disabled in it and it
+  // fetches no external resources, so an `onerror` payload in an instruction string is inert.
+  // Assigning the same markup to a live element's markup property gives neither guarantee, and
+  // the repo-wide security audit rejects that bare token for exactly this reason -- including
+  // inside a comment, which is why this sentence names it obliquely.
+  if (typeof DOMParser !== 'undefined') {
+    return new DOMParser().parseFromString(html, 'text/html').body.textContent || '';
   }
   return html.replace(/<[^>]*>?/gm, '');
 }
