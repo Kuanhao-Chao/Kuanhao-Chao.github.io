@@ -518,6 +518,12 @@ def main() -> int:
             track_stats[t["id"]] = {
                 "scored": int(fin.sum()),
                 "mean": round(float(values[fin].mean()), 5) if fin.any() else None,
+                # For a SIGNED track the mean is near zero everywhere by construction, so it is not
+                # a baseline anything can be compared against. `meanAbs` is, and it is what the
+                # browser's "vs genome" column uses for those lanes -- without it the column is
+                # blank for exactly the two lanes a reader most wants to place in context.
+                **({"meanAbs": round(float(np.abs(values[fin]).mean()), 6)}
+                   if fin.any() and t["axis"][0] < 0 else {}),
                 "min": round(float(values[fin].min()), 5) if fin.any() else None,
                 "max": round(float(values[fin].max()), 5) if fin.any() else None,
             }

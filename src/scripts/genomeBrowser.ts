@@ -189,7 +189,7 @@ interface IndexFile {
   window: Record<string, unknown>;
   chroms: (ChromInfo & {
     genes: number;
-    tracks: Record<string, { scored: number; mean: number | null }>;
+    tracks: Record<string, { scored: number; mean: number | null; meanAbs?: number }>;
     levels: Record<string, { level: number; bins: number; tiles: number }[]>;
   })[];
 }
@@ -565,11 +565,13 @@ export function initGenomeBrowser(host: HTMLElement): void {
    * would let the mitochondrion -- 0.7% of the genome and by far the most atypical sequence in it
    * -- carry a seventeenth of the answer.
    */
-  function genomeMean(id: string): number | null {
+  function genomeMean(id: string, abs = false): number | null {
     if (!index) return null;
     let num = 0; let den = 0;
     for (const c of index.chroms) {
-      const m = c.tracks[id]?.mean;
+      // A signed track's plain mean is near zero everywhere and is not a baseline; the tiler
+      // records `meanAbs` for those, which is what its |v| summary must be compared against.
+      const m = abs ? c.tracks[id]?.meanAbs : c.tracks[id]?.mean;
       if (m == null) continue;
       num += m * c.length; den += c.length;
     }
@@ -1331,7 +1333,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
       const signed = isSignedAxis(s.axis);
       const vals = series[i].filter((v): v is number => v != null)
         .map((v) => (signed ? Math.abs(v) : v));
-      const gm = genomeMean(s.id);
+      const gm = genomeMean(s.id, signed);
       const tr = document.createElement('tr');
       const cell = (txt: string, cls?: string) => {
         const td = document.createElement('td');
@@ -1347,12 +1349,12 @@ export function initGenomeBrowser(host: HTMLElement): void {
       } else {
         const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
         cell(fmt(mean));
-        // A signed track's genome-wide mean is near zero by construction, so `index.json`'s figure
-        // is not the right baseline for a |v| summary and the row says so rather than printing a
-        // ratio against noise.
-        cell(signed || gm == null ? '—' : fmt(gm));
-        cell(signed || gm == null || gm === 0 ? '—' : `${(mean / gm).toFixed(2)}x`,
-          !signed && gm ? (mean / gm > 1.5 ? 'is-high' : mean / gm < 0.67 ? 'is-low' : '') : '');
+        // For a signed track both sides of the comparison are mean |v|, never the plain mean:
+        // gradient x input is 50.2% negative genome-wide, so a ratio against its mean would be
+        // noise over noise, which produces a large number that reads as a finding.
+        cell(gm == null ? '—' : fmt(gm));
+        cell(gm == null || gm === 0 ? '—' : `${(mean / gm).toFixed(2)}x`,
+          gm ? (mean / gm > 1.5 ? 'is-high' : mean / gm < 0.67 ? 'is-low' : '') : '');
       }
       table.appendChild(tr);
     });
