@@ -30,8 +30,15 @@ const giaJoin = giaData.necessityJoin;
 const giaSuff = Object.values(giaData.motifs)
   .filter((m) => m.verdict.startsWith('sufficient'))
   .sort((a, b) => Math.abs(b.marginOverScramble) - Math.abs(a.marginOverScramble));
-const giaTop = giaSuff.filter((m) => m.marginOverScramble > 0).slice(0, 3);
-const giaBottom = giaSuff.filter((m) => m.marginOverScramble < 0).slice(0, 3);
+const SPLICE_IDS = ['donor', 'branch', 'acceptor', 'start', 'stop'];
+const giaTfs = Object.entries(giaData.motifs)
+  .filter(([id]) => !SPLICE_IDS.includes(id)).map(([, m]) => m);
+const giaTop = giaTfs.filter((m) => m.verdict.startsWith('sufficient') && m.marginOverScramble > 0)
+  .sort((a, b) => b.marginOverScramble - a.marginOverScramble).slice(0, 3);
+const giaBottom = giaTfs.filter((m) => m.verdict.startsWith('sufficient') && m.marginOverScramble < 0)
+  .sort((a, b) => a.marginOverScramble - b.marginOverScramble).slice(0, 3);
+const giaDonor = giaData.motifs.donor;
+const giaBranch = giaData.motifs.branch;
 const giaNotSuff = (giaJoin?.rows ?? []).filter((r) => r.quadrant === 'necessary, not sufficient');
 const spBest = Object.values(spacingData.pairs).reduce((a, b) => (b.maxInteraction > a.maxInteraction ? b : a));
 const spNearHelix = Object.values(spacingData.pairs)[0].harmonicsNearHelix;
@@ -1245,12 +1252,22 @@ const breadcrumbLd = buildBreadcrumbLd([
         <canvas class="fr-canvas" data-cn-gia height="360"
                 aria-label="Effect of implanting each motif into an otherwise empty background, against its own scramble"></canvas>
         <p class="vp-notes" style="margin:0.35rem 0 0;">
-          <strong>The model recovers known regulatory logic from sequence alone.</strong> The three
-          strongest activators are{' '}
+          <strong>The model recovers known regulatory logic from sequence alone.</strong> Among the
+          transcription-factor motifs the three strongest activators are{' '}
           {giaTop.map((m) => m.name).join(', ')} — and all three are{' '}
-          <strong>E-box motifs containing CACGTG</strong>. The strongest repressors are{' '}
-          {giaBottom.map((m) => m.name).join(', ')}: Ume6's URS1 site and the Dot6/PAC pair, which is
-          the ribosome-biogenesis repressor module. Nothing told the model any of that.
+          <strong>E-box motifs containing CACGTG</strong>. The three strongest repressors are{' '}
+          {giaBottom.map((m) => m.name).join(', ')}: Ume6's URS1 site, and Dot6 twice over, since
+          the PAC motif is what Dot6 binds — together the ribosome-biogenesis repressor module.
+          Nothing told the model any of that.
+        </p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>The two splice signals are held out of that ranking, and they split.</strong> A
+          branch point implanted alone is the most repressing element in the whole set
+          ({giaBranch.marginOverScramble}, z {giaBranch.marginZ}) while a 5′ splice site{' '}
+          <em>raises</em> predicted coverage ({giaDonor.marginOverScramble}, z {giaDonor.marginZ}).
+          Neither is a regulatory motif and the quantity being predicted is RNA-seq coverage, so
+          they are reported separately rather than ranked against Rap1 and Ume6 — but the split is
+          real, and it is the direction a spliceable intron would push each of them.
         </p>
 
         <h3 class="gb-stats__title" style="margin-top:1rem;">2 · Necessary and sufficient are different claims</h3>
