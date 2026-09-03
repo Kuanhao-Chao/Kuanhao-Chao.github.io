@@ -238,7 +238,6 @@ export function initVariantPlayground(root: ParentNode = document) {
   const enrichStat = host.querySelector<HTMLElement>('[data-vp-enrich-stat]');
   const regionSelect = host.querySelector<HTMLSelectElement>('[data-vp-region]');
   const regionStat = host.querySelector<HTMLElement>('[data-vp-region-stat]');
-  const seqLogoSvg = host.querySelector<SVGSVGElement>('[data-vp-seq-logo]');
   const logoPan = host.querySelector<HTMLInputElement>('[data-vp-logo-pan]');
   const logoWidth = host.querySelector<HTMLSelectElement>('[data-vp-logo-width]');
   const logoSource = host.querySelector<HTMLSelectElement>('[data-vp-logo-source]');
@@ -278,7 +277,6 @@ export function initVariantPlayground(root: ParentNode = document) {
   /** A clicked row (output bin) or column (input window) on the occlusion map, or null. */
   let occlSel: { kind: 'row' | 'col'; index: number } | null = null;
   const traceLabel = $('[data-vp-trace-label]');
-  const anchorSelect = $<HTMLSelectElement>('[data-vp-anchor]');
   const traceClear = $<HTMLButtonElement>('[data-vp-trace-clear]');
   const motifBox = $('[data-vp-motifs]');
   const motifList = $('[data-vp-motif-list]');
@@ -346,28 +344,16 @@ export function initVariantPlayground(root: ParentNode = document) {
     logoWindow = { start: Math.max(0, Math.min(SEQ_LEN - w, Math.round(start))), width: w };
     if (logoPan) logoPan.value = String(Math.round(windowFraction(logoWindow.start + w / 2) * 1000));
     renderMethodLogos();
-    renderIsmLogo();
-    renderLens();
     renderNeuronClasses();
     // Every full-window track carries the focus band, so every one of them repaints when it moves.
     // Missing one leaves a band pointing at a stretch the panel below is no longer showing.
-    renderMethods();
-    renderTrack();
-    renderAttribution();
-    renderAnnotation();
   }
   /**
    * Which motif tiers are drawn. ChIP-supported on by default; the conservation-only tier (~4x
    * larger) and the PWM scan (23,071 hits before thresholding) are opt-in, because a layer that
    * dense buries the features it is meant to explain.
    */
-  const motifTiersOn: Record<MotifTier, boolean> = {
-    chip: true, conserved: false, pwm: false, paper: true,
-  };
   /** Which annotation lanes are drawn. */
-  const annLanesOn: Record<string, boolean> = {
-    gene: true, rna: true, element: true, tfbs: true, regulatory: true,
-  };
   /** Whether the flow canvas and layer raster show activations or the traced region's relevance. */
   let showing: 'activation' | 'relevance' = 'activation';
   /** Why there is no result to show, named so the empty state can say it. */
@@ -668,121 +654,6 @@ export function initVariantPlayground(root: ParentNode = document) {
     return Math.round(node.clientWidth || node.getBoundingClientRect().width || fallback);
   }
 
-  function renderTrack(): void {
-    if (!trackSvg) return;
-    clear(trackSvg);
-    const W = svgWidth(trackSvg);
-    const H = 250;
-    attr(trackSvg, { viewBox: `0 0 ${W} ${H}` });
-    const n = N_BINS;
-    const locusId = LOCI[locusIndex].id;
-    const vals = predictedGroup(locusId, groupIndex, current);
-    if (!vals) {
-      trackSvg.append(text(W / 2, H / 2, emptyReason, 'vp-ax'));
-      return;
-    }
-    const truth = showTruth
-      ? TRUTH.loci?.[LOCI[locusIndex].id]?.[TRACK_GROUPS[groupIndex].id]
-      : undefined;
-    // Prediction and measurement live on different absolute scales, so each is drawn against its
-    // own maximum; the number that carries the comparison is the correlation, not the overlap.
-    const max = Math.max(...vals, 1e-6);
-    const truthMax = truth ? Math.max(...truth, 1e-6) : 1;
-    const plotTop = PLOT.top;
-    const plotBottom = H - PLOT.bottom - GENE_H;
-    const locus = LOCI[locusIndex];
-
-    drawCropShading(trackSvg, W, plotTop, plotBottom);
-    drawAxes(trackSvg, W, plotTop, plotBottom, max, 'predicted coverage (a.u.)', locus, H - 3);
-
-    // Bin i covers CROP_BP + i*BIN_BP, which is where it is now drawn -- not stretched across the
-    // whole panel as if the model predicted the flanks it never sees.
-    const bx = (i: number) => xOfBp(CROP_BP + i * BIN_BP, W);
-    const yOf = (v: number, ceiling: number) =>
-      plotBottom - (useLogAxis ? logAxis(v, ceiling) : ceiling > 0 ? v / ceiling : 0)
-        * (plotBottom - plotTop);
-
-    // The window the paper's figure prints, so a reader can see which slice of the 896 bins
-    // Figure 4 was looking at.
-    if (locus.figureWindow) {
-      const { binStart, binEnd } = locus.figureWindow;
-      const frame = el('rect');
-      attr(frame, {
-        x: bx(binStart), y: plotTop, width: Math.max(bx(binEnd) - bx(binStart), 2),
-        height: plotBottom - plotTop,
-        fill: 'var(--vp-orf)', 'fill-opacity': 0.08,
-        stroke: 'var(--vp-orf)', 'stroke-opacity': 0.5, 'stroke-dasharray': '3 2',
-      });
-      trackSvg.append(frame);
-      trackSvg.append(text(bx(binStart) + 3, plotTop + 10, locus.figurePanel ?? 'figure window', 'vp-ax', 'start'));
-    }
-
-    drawGeneRowsSvg(trackSvg, locus, W, plotBottom + 18);
-
-    let d = `M${bx(0).toFixed(2)} ${yOf(vals[0], max).toFixed(2)}`;
-    for (let i = 1; i < n; i += 1) d += ` L${bx(i).toFixed(2)} ${yOf(vals[i], max).toFixed(2)}`;
-    const path = el('path');
-    attr(path, { d, fill: 'none', stroke: 'var(--vp-track)', 'stroke-width': 1.4 });
-    trackSvg.append(path);
-
-    if (current && reference && reference !== current) {
-      let rd = `M${bx(0).toFixed(2)} ${yOf(reference.tracks[groupIndex], max).toFixed(2)}`;
-      for (let i = 1; i < n; i += 1) {
-        rd += ` L${bx(i).toFixed(2)} ${yOf(reference.tracks[i * 4 + groupIndex], max).toFixed(2)}`;
-      }
-      const rp = el('path');
-      attr(rp, { d: rd, fill: 'none', stroke: 'var(--color-muted)', 'stroke-width': 1, 'stroke-dasharray': '3 3' });
-      trackSvg.insertBefore(rp, path);
-    }
-    if (truth) {
-      let td = `M${bx(0).toFixed(2)} ${yOf(truth[0], truthMax).toFixed(2)}`;
-      for (let i = 1; i < n; i += 1) {
-        td += ` L${bx(i).toFixed(2)} ${yOf(truth[i], truthMax).toFixed(2)}`;
-      }
-      const tp = el('path');
-      attr(tp, { d: td, fill: 'none', stroke: 'var(--vp-fire)', 'stroke-width': 1.1, 'stroke-opacity': 0.85 });
-      trackSvg.append(tp);
-      const r = pearson(Array.from(vals), truth);
-      if (truthStat) truthStat.textContent = `Pearson r = ${r.toFixed(3)} vs measured`;
-      trackSvg.dataset.pearson = r.toFixed(4);
-    } else if (truthStat) {
-      truthStat.textContent = showTruth ? 'no measured coverage loaded' : '';
-      delete trackSvg.dataset.pearson;
-    }
-
-    // The traced region, marked on the curve it was selected from.
-    if (tracedBins) {
-      const r = el('rect');
-      attr(r, {
-        x: bx(tracedBins.start), y: plotTop,
-        width: Math.max(bx(tracedBins.end) - bx(tracedBins.start), 1.5), height: plotBottom - plotTop,
-        fill: 'var(--vp-accent)', 'fill-opacity': 0.12,
-        stroke: 'var(--vp-accent)', 'stroke-opacity': 0.55,
-      });
-      trackSvg.append(r);
-    }
-
-    let argmax = 0;
-    for (let i = 1; i < n; i += 1) if (vals[i] > vals[argmax]) argmax = i;
-    // Full precision, for the python-vs-browser parity check. The visible label is rounded, and
-    // comparing rounded labels is how two different numbers come to look identical.
-    // The same focus band the canvases draw, over the plot area only -- the gene rows below get
-    // theirs from the annotation track, and banding both doubles the ink on a ~7 px marker.
-    focusBandSvg(trackSvg, W, plotTop, plotBottom - plotTop);
-    bindFocusDrag(trackSvg);
-    trackSvg.dataset.peak = String(max);
-    trackSvg.dataset.peakBin = String(argmax);
-    trackSvg.dataset.domainBp = `0-${SEQ_LEN}`;
-    trackSvg.dataset.vpFocus = `${logoWindow.start}-${logoWindow.start + logoWindow.width}`;
-    trackSvg.append(
-      text(PLOT.left, 13,
-        `predicted ${TRACK_GROUPS[groupIndex].label} · 896 bins × 16 bp over bp `
-        + `${CROP_BP.toLocaleString()}–${(CROP_BP + N_BINS * BIN_BP).toLocaleString()}`
-        + ` · peak ${max.toFixed(2)} at bin ${argmax}`
-        + (current?.backend === 'precomputed' || !current ? ' · precomputed' : ' · live run'),
-        'vp-ax vp-caption', 'start'),
-    );
-  }
 
   /**
    * Load a locus's precomputed activations and per-track predictions.
@@ -992,7 +863,6 @@ export function initVariantPlayground(root: ParentNode = document) {
         attention: current.attention,
         tracks: current.tracks,
       } satisfies FlowActivations);
-      renderTrack();
       renderStageDetail(flow?.selected() ?? null);
       renderHeatmap();
       renderSingleTrack();
@@ -1292,7 +1162,6 @@ export function initVariantPlayground(root: ParentNode = document) {
     reference = null;
     flow?.setActivations(null);
     emptyReason = reason;
-    renderTrack();
     renderStageDetail(flow?.selected() ?? null);
     renderHeatmap();
     renderSingleTrack();
@@ -1389,7 +1258,6 @@ export function initVariantPlayground(root: ParentNode = document) {
       attention: got.attention,
       tracks: got.tracks,
     } satisfies FlowActivations);
-    renderTrack();
     renderStageDetail(flow?.selected() ?? null);
     renderHeatmap();
     renderSingleTrack();
@@ -1418,27 +1286,11 @@ export function initVariantPlayground(root: ParentNode = document) {
     if (fig) setLogoWindow((fig.seqStart + fig.seqEnd) / 2 - w / 2, w);
     else if (own) setLogoWindow(own.txStart - 200, w);
     if (logoFigureBtn) logoFigureBtn.hidden = !fig;
-    renderIsmLogo();
     renderMethodLogos();
-    renderAnnotation();
     renderEnrichment();
     renderKnockoutSweep();
     host.dataset.vpTraceReady = attribution ? 'true' : 'false';
-    if (anchorSelect) {                       // removed from the markup; kept null-safe
-      clear(anchorSelect);
-      const none = document.createElement('option');
-      none.value = '';
-      none.textContent = attribution ? 'trace a gene…' : 'traceback unavailable';
-      anchorSelect.append(none);
-      for (const [i, a] of (attribution?.anchors ?? []).entries()) {
-        const o = document.createElement('option');
-        o.value = String(i);
-        o.textContent = `${a.label} (${(a.massInside * 100).toFixed(0)}% of its mass)`;
-        anchorSelect.append(o);
-      }
-    }
     renderRegionList();
-    renderAttribution();
     refreshRegionViews();
   }
 
@@ -1645,17 +1497,19 @@ export function initVariantPlayground(root: ParentNode = document) {
   }
 
   /** The features currently visible, after the lane and tier toggles. */
+  /**
+   * Every curated feature in the window, with a recognised class.
+   *
+   * NO tier or lane filter any more, and that is a correctness fix rather than a simplification.
+   * The filter was driven by checkboxes that belonged to the annotation canvas the browser
+   * absorbed, so it froze at `{chip, paper}` -- and the neuron-class table read the filtered set
+   * while the enrichment table beside it read the unfiltered one. Two panels on the same page,
+   * both claiming to describe "the annotation", disagreeing about which sites were in it. The
+   * browser now owns tier selection, as three separate lanes; here they are one population.
+   */
   function visibleAnnotations(): AnnotationFeature[] {
     if (!annotations) return [];
-    return annotations.features.filter((f) => {
-      const info = ANNOTATION_CLASSES[f.cls];
-      if (!info || !annLanesOn[info.lane]) return false;
-      const tier = motifTier(f);
-      // A record with no tier is not a binding-site claim (a gene, an ARS) and is governed only by
-      // its lane. A record WITH one is governed by its tier, because the three tiers are three
-      // different strengths of evidence and must not be toggled together.
-      return tier === null || motifTiersOn[tier];
-    });
+    return annotations.features.filter((f) => !!ANNOTATION_CLASSES[f.cls]);
   }
 
   /**
@@ -1753,63 +1607,6 @@ export function initVariantPlayground(root: ParentNode = document) {
   }
 
   /** Paint the annotation canvas, sized to whatever the visible lanes need. */
-  function renderAnnotation(): void {
-    if (!annCanvas) return;
-    const cssW = annCanvas.clientWidth || 900;
-    const feats = visibleAnnotations();
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    // Measure first: the canvas has to be tall enough for the lanes that are on, and a lane count
-    // that changes with the toggles means the height cannot be a constant.
-    const probe = document.createElement('canvas').getContext('2d');
-    let need = 24;
-    if (probe && feats.length) {
-      probe.font = '9px system-ui, sans-serif';
-      need = drawAnnotationTrack(probe, cssW, 0) + 20;
-    }
-    const cssH = Math.max(need, 44);   // the gene lane alone needs more than the old 30 px floor
-    annCanvas.width = Math.round(cssW * dpr);
-    annCanvas.height = Math.round(cssH * dpr);
-    annCanvas.style.height = `${cssH}px`;
-    const ctx = annCanvas.getContext('2d');
-    if (!ctx) return;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, cssW, cssH);
-    const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
-    ctx.font = '9px system-ui, sans-serif';
-    if (!feats.length) {
-      ctx.fillStyle = muted;
-      ctx.fillText(annotations ? 'No annotation in the selected lanes.'
-        : 'Annotation loads with the locus.', PLOT.left, 16);
-      delete annCanvas.dataset.vpAnnotation;
-      if (annStat) annStat.textContent = '';
-      return;
-    }
-    drawAnnotationTrack(ctx, cssW, 2);
-    drawFocusBand(ctx, cssW, 0, cssH - 14);
-    bindFocusDrag(annCanvas);
-    annCanvas.dataset.vpFocus = `${logoWindow.start}-${logoWindow.start + logoWindow.width}`;
-
-    ctx.fillStyle = muted;
-    ctx.textAlign = 'left';
-    for (const bp of bpTicks(4000)) {
-      ctx.textAlign = bp === 0 ? 'left' : bp >= SEQ_LEN ? 'right' : 'center';
-      ctx.fillText(bpLabel(bp), xOfBp(bp, cssW), cssH - 2);
-    }
-    ctx.textAlign = 'left';
-
-    const tally = annotationTally();
-    annCanvas.dataset.vpAnnotation = Object.entries(tally)
-      .map(([k, v]) => `${k}:${v}`).join(',');
-    if (annStat && annotations) {
-      const chip = annotations.features.filter((f) => motifTier(f) === 'chip').length;
-      const cons = annotations.features.filter((f) => motifTier(f) === 'conserved').length;
-      const pwm = annotations.features.filter((f) => motifTier(f) === 'pwm').length;
-      // The unfiltered scan count is on the face of the control, not buried in a disclosure: it is
-      // the reason the PWM tier is off by default and the reason it should be read differently.
-      annStat.textContent = `${chip} ChIP-supported · ${cons} conserved only · ${pwm} PWM hits at `
-        + `score ≥ ${annotations.jasparMin} of ${annotations.jasparScanned.toLocaleString()} scanned`;
-    }
-  }
 
   /** What the annotation track drew, for the audit and for the legend. */
   function annotationTally(): Record<string, number> {
@@ -2083,128 +1880,6 @@ export function initVariantPlayground(root: ParentNode = document) {
     sumAttributionRows(a.channels, a.cols.channels, a.groupBins, a.groups, s, e);
 
   /** Draw the traced attribution: which input positions drive the selected output region. */
-  function renderAttribution(): void {
-    if (!attrCanvas) return;
-    // Bound once; the helper is idempotent via a dataset flag.
-    bindFocusDrag(attrCanvas);
-    const cssW = attrCanvas.clientWidth || 900;
-    const cssH = 150;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    attrCanvas.width = Math.round(cssW * dpr);
-    attrCanvas.height = Math.round(cssH * dpr);
-    attrCanvas.style.height = `${cssH}px`;
-    const ctx = attrCanvas.getContext('2d');
-    if (!ctx) return;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, cssW, cssH);
-    const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
-    const rule = getComputedStyle(host).getPropertyValue('--color-rule').trim() || '#e5e7eb';
-    const pos = getComputedStyle(host).getPropertyValue('--vp-fire').trim() || '#b0455a';
-    const neg = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
-    ctx.font = '10px system-ui, sans-serif';
-
-    if (!attribution || !tracedBins) {
-      ctx.fillStyle = muted;
-      ctx.font = '11px system-ui, sans-serif';
-      ctx.fillText('No region traced yet.', PLOT.left, 22);
-      delete attrCanvas.dataset.peak;
-      return;
-    }
-
-    const anchorIdx = attribution.anchors.findIndex(
-      (a) => a.binStart === tracedBins!.start && a.binEnd === tracedBins!.end,
-    );
-    // An anchor carries single-base attribution; a dragged region is the 16 bp matrix.
-    const series = anchorIdx >= 0
-      ? attribution.anchor.subarray(anchorIdx * attribution.cols.anchor,
-                                    (anchorIdx + 1) * attribution.cols.anchor)
-      : traceRegion(attribution, tracedBins.start, tracedBins.end);
-    let peak = 0;
-    for (let i = 0; i < series.length; i += 1) peak = Math.max(peak, Math.abs(series[i]));
-
-    const plotTop = 16;
-    const geneTop = cssH - 34;
-    const plotBottom = geneTop - 12;
-    const mid = (plotTop + plotBottom) / 2;
-    const half = (plotBottom - plotTop) / 2;
-
-    // The same cropped flanks the curve above shades, so a reader can see at a glance which part of
-    // the attribution lies under a bin the model actually predicts -- and that the rest is real.
-    const { lo, hi } = predictedSpan();
-    ctx.fillStyle = muted;
-    ctx.globalAlpha = 0.1;
-    for (const [a, b] of [[0, fractionToBp(lo)], [fractionToBp(hi), SEQ_LEN]] as [number, number][]) {
-      ctx.fillRect(xOfBp(a, cssW), plotTop, xOfBp(b, cssW) - xOfBp(a, cssW), plotBottom - plotTop);
-    }
-    ctx.globalAlpha = 1;
-
-    // Bars, positioned in bp rather than by array index, so this panel and the curve above put the
-    // same base at the same x.
-    const perStep = SEQ_LEN / series.length;
-    for (let i = 0; i < series.length; i += 1) {
-      const v = series[i];
-      if (v === 0) continue;
-      const h = (Math.abs(v) / Math.max(peak, 1e-12)) * half;
-      const x = xOfBp(i * perStep, cssW);
-      const w = Math.max(xOfBp((i + 1) * perStep, cssW) - x, 0.6);
-      ctx.fillStyle = v < 0 ? neg : pos;
-      ctx.fillRect(x, v < 0 ? mid : mid - h, w, h);
-    }
-
-    // A signed axis: zero in the middle, +/- peak at the edges.
-    ctx.strokeStyle = rule;
-    ctx.fillStyle = muted;
-    ctx.textAlign = 'right';
-    for (const [y, label] of [
-      [plotTop, `+${formatTick(peak)}`], [mid, '0'], [plotBottom, `−${formatTick(peak)}`],
-    ] as [number, string][]) {
-      ctx.globalAlpha = y === mid ? 0.8 : 0.35;
-      ctx.beginPath();
-      ctx.moveTo(PLOT.left, y + 0.5);
-      ctx.lineTo(cssW - PLOT.right, y + 0.5);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-      ctx.fillText(label, PLOT.left - 5, y + 3);
-    }
-    ctx.save();
-    ctx.translate(11, mid);
-    ctx.rotate(-Math.PI / 2);
-    ctx.textAlign = 'center';
-    ctx.fillText('gradient × input', 0, 0);
-    ctx.restore();
-
-    // The same bp ruler as the curve above.
-    ctx.textAlign = 'center';
-    for (const bp of bpTicks()) {
-      const x = xOfBp(bp, cssW);
-      ctx.globalAlpha = 0.5;
-      ctx.beginPath();
-      ctx.moveTo(x, plotBottom);
-      ctx.lineTo(x, plotBottom + 3);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-      ctx.textAlign = bp === 0 ? 'left' : bp >= SEQ_LEN ? 'right' : 'center';
-      ctx.fillText(bpLabel(bp), x, plotBottom + 12);
-    }
-    ctx.textAlign = 'left';
-
-    {
-      drawGeneRowsCanvas(ctx, LOCI[locusIndex], cssW, geneTop);
-    }
-    ctx.fillStyle = muted;
-    ctx.fillText(
-      `${tracedBins.label} · ${anchorIdx >= 0 ? 'single base' : `${series.length} bins of 16 bp`}`
-      + ` · peak |attribution| ${peak.toFixed(3)} · same 0–${SEQ_LEN.toLocaleString()} bp axis as the curve above`,
-      PLOT.left, 11,
-    );
-    // The band, over the attribution plot but not the gene rows beneath it -- the annotation track
-    // bands its own genes, and doubling it on a ~7 px marker is ink without information.
-    drawFocusBand(ctx, cssW, 14, geneTop - 20);
-    attrCanvas.dataset.peak = String(peak);
-    attrCanvas.dataset.region = tracedBins.label;
-    attrCanvas.dataset.domainBp = `0-${SEQ_LEN}`;
-    attrCanvas.dataset.vpFocus = `${logoWindow.start}-${logoWindow.start + logoWindow.width}`;
-  }
 
   /**
    * Every stage's share of the traced region's relevance, in one list.
@@ -2741,290 +2416,6 @@ export function initVariantPlayground(root: ParentNode = document) {
     return tracks.find((tr) => (byKey[want] ?? byKey.ism)(tr.label)) ?? tracks[0];
   }
 
-  function renderIsmLogo(): void {
-    if (!ismLogoSvg) return;
-    clear(ismLogoSvg);
-    const W = svgWidth(ismLogoSvg);
-    const H = 210;
-    attr(ismLogoSvg, { viewBox: `0 0 ${W} ${H}` });
-    const track = selectedMethodTrack();
-    if (!track) {
-      ismLogoSvg.append(text(W / 2, H / 2,
-        'Trace a region to see its bases.', 'vp-ax'));
-      delete ismLogoSvg.dataset.letters;
-      return;
-    }
-    const locus = LOCI[locusIndex];
-    const seq = locus.sequence;
-    const lo = logoWindow.start;
-    const span = logoWindow.width;
-    const hi = lo + span;
-    const px = (bp: number) => PLOT.left + ((bp - lo) / span) * (W - PLOT.left - PLOT.right);
-    const logoTop = 46;
-    const logoH = 96;
-
-    // One letter per position: the input is one-hot, so an attribution is identically zero at the
-    // three bases that are not there. That is a property of the method, not a simplification --
-    // the same reason the paper's own ISM logos carry one letter per column after projection.
-    const column = (i: number): number[] => {
-      const out = [0, 0, 0, 0];
-      const b = BASES.indexOf((seq[lo + i] ?? 'N').toUpperCase() as Base);
-      if (b >= 0) out[b] = track.at(lo + i) ?? 0;
-      return out;
-    };
-    const { lo: yLo, hi: yHi, letters } = drawLogo(
-      ismLogoSvg, column, span, PLOT.left, W - PLOT.left - PLOT.right, logoTop, logoH,
-    );
-
-    // Boxed features: the paper's own Figure 4 consensuses AND whatever curated annotation is in
-    // view. The paper's set is six motifs across six loci; the databases cover all fourteen, which
-    // is what makes this panel answer "is that peak a real site" rather than only "does it match
-    // the figure".
-    type Box = {
-      label: string; a: number; b: number;
-      /** IUPAC consensus this box claims to contain, `|`-separated alternatives; '' when unknown. */
-      consensus?: string;
-      strand?: '+' | '-';
-      /** `landmark` and `motif` assert a motif is here; `region` is only a database call. */
-      kind: 'landmark' | 'motif' | 'region';
-      /** The motif's true span, before clipping to the visible window. */
-      trueA: number;
-      trueB: number;
-    };
-    const boxes: Box[] = [];
-    // The paper's own scanned consensuses. These already carry the matched span, so they are
-    // motif claims by construction -- but re-derive the extent from the dictionary where one
-    // exists, because the shipped list carried a WRONG consensus for Fhl1 (GTAAACA, which is not
-    // the paper's Fhl1 motif) and boxed a position 27 bp from where Figure S19B puts it.
-    for (const m of locus.motifs ?? []) {
-      if (m.end <= lo || m.start >= hi) continue;
-      const dict = motifFor(m.name);
-      const w = seqWindow(m.start - 20, m.end + 20);
-      const hit = dict
-        ? motifMatch(w.seq, dict.consensus, w.origin, m.start - w.origin)
-        : null;
-      const a = hit ? hit.start : m.start;
-      const b = hit ? hit.end : m.end;
-      boxes.push({
-        label: m.name,
-        a: Math.max(a, lo),
-        b: Math.min(b, hi),
-        trueA: a,
-        trueB: b,
-        consensus: dict?.consensus ?? m.consensus,
-        strand: hit?.strand ?? (m.strand === '-' ? '-' : '+'),
-        kind: 'motif',
-      });
-    }
-    for (const f of visibleAnnotations()) {
-      // Only the point-like classes: a gene spanning the whole zoom would box the entire panel.
-      if (f.cls !== 'tfbs' && f.cls !== 'regulatory' && f.cls !== 'ars_consensus'
-          && f.cls !== 'uorf') continue;
-      if (f.end <= lo || f.start >= hi) continue;
-      if (f.end - f.start > span * 0.6) continue;
-      const tier = motifTier(f);
-      // Box the MATCH, not the call. A curated regulatory-code call is a PWM-plus-conservation
-      // call: measured across these windows only ~23% contain their factor's canonical consensus,
-      // and those that do sit at offset 0 of the call. So where the consensus is visible the box
-      // is drawn on it and asserts a motif; where it is not, the box is the database's region and
-      // says so, because the two are different claims and must not look alike.
-      const dict = motifFor(f.name);
-      const w = seqWindow(f.start - 6, f.end + 6);
-      const hit = dict
-        ? motifMatch(w.seq, dict.consensus, w.origin, f.start - w.origin)
-        : null;
-      const suffix = tier === 'chip' ? '✓' : tier === 'pwm' ? '·pwm' : '';
-      boxes.push(hit
-        ? {
-          label: `${f.name}${suffix}`,
-          a: Math.max(hit.start, lo), b: Math.min(hit.end, hi),
-          trueA: hit.start, trueB: hit.end,
-          consensus: dict!.consensus, strand: hit.strand, kind: 'motif',
-        }
-        : {
-          label: `${f.name}${suffix}`,
-          a: Math.max(f.start, lo), b: Math.min(f.end, hi),
-          trueA: f.start, trueB: f.end,
-          kind: 'region',
-        });
-    }
-    // Cap the labels: at 1,000 bp a promoter can carry dozens of overlapping calls, and a wall of
-    // text over the letters is the annotation burying the data it exists to explain.
-    boxes.sort((x, y) => (x.b - x.a) - (y.b - y.a));
-    boxes.splice(14);
-    // Splice and codon landmarks derived from the gene model -- but only where the scan above has
-    // not already found them. Several loci carry the splice sites in their motif list with a real
-    // matched consensus (DTD1's branch point is a scanned TACTAAC at 8,210), which beats the
-    // paper's fixed acceptor-minus-30 heuristic that would put it at 8,206. Take the measured one
-    // where it exists and derive only what is missing -- otherwise the panel labels each landmark
-    // twice, once from each source.
-    const own = locus.features.find((f) => f.name === locus.id);
-    // Keep the DIGIT: stripping non-letters made "5′ splice site" and "3′ splice site" the same
-    // key, so a locus carrying a scanned 5′ site silently lost its 3′ box -- RPL26A lost one and
-    // HOP2, with two introns, lost the second intron's pair entirely.
-    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (own) {
-      for (const a of spliceAnnotations(own)) {
-        if (a.end <= lo || a.start >= hi) continue;
-        // Suppress the derived landmark only where a SCANNED box of the same kind already covers
-        // this junction. Position, not label alone: two introns produce two donors, and the
-        // scanned branch point sits a few bases from the paper's fixed-offset estimate (DTD1's is
-        // a real TACTAAC at 8,210 against the heuristic's 8,206), so exact equality would draw
-        // both and bare label equality would drop the second intron's.
-        const dup = boxes.some((b) => norm(b.label) === norm(a.label)
-          && b.a < a.end + 12 && b.b > a.start - 12);
-        if (dup) continue;
-        boxes.push({
-          label: a.label,
-          a: Math.max(a.start, lo),
-          b: Math.min(a.end, hi),
-          trueA: a.start,
-          trueB: a.end,
-          consensus: a.consensus,
-          strand: a.strand,
-          kind: 'landmark',
-        });
-      }
-    }
-    boxes.sort((x, y) => x.a - y.a);
-    // Two label rows, alternating. Splice landmarks cluster within a few dozen bp of each other --
-    // a branch point sits 30 bp from its acceptor by construction -- so one row overprints them
-    // into a smear, which is what "Branch poin3' splice site" looked like.
-    const labelRowY = [logoTop - 8, logoTop - 21];
-    const lastAt = [-Infinity, -Infinity];
-    boxes.forEach((box) => {
-      const x0 = px(box.a);
-      const x1 = px(box.b);
-      const r = el('rect');
-      // A verified motif and an unverified database region are different claims, so they are drawn
-      // differently: the motif solid-dashed at full strength, the region faint and wider-dashed.
-      // Drawing them alike is what made a box labelled with a factor name, over letters that do
-      // not spell its motif, look like an error in the model rather than in the annotation.
-      const isMotif = box.kind !== 'region';
-      attr(r, {
-        x: x0, y: logoTop - 4, width: Math.max(x1 - x0, 2), height: logoH + 8,
-        fill: 'none', stroke: '#d1495b', 'stroke-width': isMotif ? 1 : 0.8,
-        'stroke-dasharray': isMotif ? '3 2' : '1 3',
-        'stroke-opacity': isMotif ? 0.85 : 0.4,
-      });
-      ismLogoSvg.append(r);
-      r.dataset.motif = box.label;
-      r.dataset.motifKind = box.kind;
-      if (box.consensus) r.dataset.motifConsensus = box.consensus;
-      if (box.strand) r.dataset.motifStrand = box.strand;
-      r.setAttribute('role', 'img');
-      // The TRUE span, not the drawn one: a box clipped by the view edge is still a statement
-      // about where the motif is, and reporting the clipped coordinates would describe a 13 bp
-      // Abf1 site as a 9 bp one purely because the pan cut it off.
-      const clipped = box.trueA < box.a - 0.5 || box.trueB > box.b + 0.5;
-      r.dataset.motifSpan = `${Math.round(box.trueA)}-${Math.round(box.trueB)}`;
-      if (clipped) r.dataset.motifClipped = 'true';
-      r.setAttribute('aria-label', (isMotif
-        ? `${box.label}: ${box.consensus ?? 'motif'} at ${Math.round(box.trueA)}-${Math.round(box.trueB)}`
-        : `${box.label}: database region ${Math.round(box.trueA)}-${Math.round(box.trueB)}, `
-          + 'no consensus match in it') + (clipped ? ' (cut off by the view edge)' : ''));
-      // The paper's Reference-DB convention (Figure 4F, S19, S20): under each boxed motif, the
-      // sequence the box actually contains, read on the strand the motif is on. That is the paper's
-      // own answer to "does this box hold the motif it names", and it needs no extra data.
-      if (isMotif && box.consensus && x1 - x0 > 8 && !clipped) {
-        const raw = seqWindow(box.trueA, box.trueB).seq;
-        const shown = box.strand === '-' ? revComp(raw) : raw;
-        const tip = text((x0 + x1) / 2, logoTop + logoH + 16,
-          `${shown}${box.strand === '-' ? ' ↺' : ''}`, 'vp-ax');
-        attr(tip, { 'font-family': 'ui-monospace, SFMono-Regular, Menlo, monospace' });
-        tip.setAttribute('fill', '#d1495b');
-        ismLogoSvg.append(tip);
-      }
-      const row = lastAt[0] <= lastAt[1] ? 0 : 1;
-      if (x0 - lastAt[row] > 52) {
-        const lbl = text((x0 + x1) / 2, labelRowY[row], box.label, 'vp-ax');
-        ismLogoSvg.append(lbl);
-        // A leader from the label down to its box, so a label on the upper row is unambiguous.
-        const lead = el('line');
-        attr(lead, {
-          x1: (x0 + x1) / 2, x2: (x0 + x1) / 2, y1: labelRowY[row] + 3, y2: logoTop - 5,
-          stroke: '#d1495b', 'stroke-width': 0.5, 'stroke-opacity': 0.5,
-        });
-        ismLogoSvg.append(lead);
-        lastAt[row] = x1;
-      }
-      r.style.cursor = 'pointer';
-      r.addEventListener('click', () => {
-        // Zoom the sequence logo onto this motif.
-        setLogoWindow((box.a + box.b) / 2 - 30, 60);
-        if (logoWidth) logoWidth.value = '60';
-        if (logoSource) logoSource.value = 'ism';
-        seqLogoSvg?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      });
-    });
-
-    // The gene model, in the paper's IGV style: royal blue, solid exon blocks, intron line.
-    const geneY = H - 40;
-    for (const f of locus.features) {
-      if (f.txEnd <= lo || f.txStart >= hi) continue;
-      const a = px(Math.max(f.txStart, lo));
-      const b = px(Math.min(f.txEnd, hi));
-      const line = el('line');
-      attr(line, { x1: a, x2: b, y1: geneY, y2: geneY, stroke: '#4169E1', 'stroke-width': 1 });
-      ismLogoSvg.append(line);
-      const fwd = f.strand === '+';
-      for (let x = a + 8; x < b - 3; x += 16) {
-        const c = el('path');
-        attr(c, {
-          d: `M${(x - (fwd ? 2.5 : -2.5)).toFixed(1)} ${geneY - 3} L${(x + (fwd ? 2.5 : -2.5)).toFixed(1)} ${geneY}`
-            + ` L${(x - (fwd ? 2.5 : -2.5)).toFixed(1)} ${geneY + 3}`,
-          fill: 'none', stroke: '#4169E1', 'stroke-width': 0.8,
-        });
-        ismLogoSvg.append(c);
-      }
-      for (const piece of geneTrackShapes(f)) {
-        if (piece.kind === 'intron' || piece.end <= lo || piece.start >= hi) continue;
-        const s = px(Math.max(piece.start, lo));
-        const e2 = px(Math.min(piece.end, hi));
-        const rect = el('rect');
-        attr(rect, {
-          x: s, y: geneY - 5, width: Math.max(e2 - s, 1), height: 10, fill: '#4169E1',
-        });
-        ismLogoSvg.append(rect);
-      }
-      if (f.name === locus.id) {
-        const lbl = text((a + b) / 2, geneY - 9, locus.gene, 'vp-ax');
-        attr(lbl, { 'font-style': 'italic' });
-        ismLogoSvg.append(lbl);
-      }
-    }
-
-    // A bp ruler on the window's own coordinates -- this panel is a zoom, not the full window.
-    //
-    // The tick COUNT comes from the available width, not a fixed eight. Now that the viewBox is in
-    // pixels, label text is a true 10 px at every width, so eight ~9-character labels that fit
-    // comfortably at 1,379 px overlap into an unreadable smear at 259 px.
-    const inner2 = W - PLOT.left - PLOT.right;
-    const maxTicks = Math.max(2, Math.floor(inner2 / 74));
-    const step = Math.max(10, Math.round(span / maxTicks / 10) * 10);
-    for (let bp = Math.ceil(lo / step) * step; bp <= hi; bp += step) {
-      const at = px(bp);
-      // Anchor the end labels inward: centred on the plot edges they clip mid-number, which reads
-      // as a different coordinate rather than as a truncated one.
-      const anchor = at - PLOT.left < 24 ? 'start' : W - PLOT.right - at < 24 ? 'end' : 'middle';
-      ismLogoSvg.append(text(at, H - 4, `${(locus.start + bp) / 1000}`.slice(0, 7) + ' kb',
-        'vp-ax', anchor));
-    }
-    // The caption in the widest form that fits. At 320 px the long form ran off the edge, and a
-    // clipped caption drops exactly the part that says which method is drawn.
-    const capLong = `${locus.gene} · ${lo.toLocaleString()}–${hi.toLocaleString()} bp of the window`
-      + ` · ${track.label} · range ${yLo.toFixed(3)} … ${yHi.toFixed(3)}`;
-    const capMid = `${locus.gene} · ${lo.toLocaleString()}–${hi.toLocaleString()} bp · ${track.label}`;
-    const capShort = `${locus.gene} · ${track.label}`;
-    const probe = document.createElement('canvas').getContext('2d');
-    if (probe) probe.font = '10px system-ui, sans-serif';
-    const fits = (s: string) => !probe || probe.measureText(s).width <= inner2 - 4;
-    ismLogoSvg.append(text(PLOT.left, 12,
-      [capLong, capMid, capShort].find(fits) ?? capShort, 'vp-ax vp-caption', 'start'));
-    ismLogoSvg.dataset.letters = String(letters);
-    ismLogoSvg.dataset.boxes = String(boxes.length);
-    ismLogoSvg.dataset.window = `${lo}-${hi}`;
-  }
 
 
   /**
@@ -3541,105 +2932,8 @@ export function initVariantPlayground(root: ParentNode = document) {
     }
   }
 
-  /**
-   * The focus band: the zoom window, drawn identically on EVERY full-window track.
-   *
-   * The zoomed logos show 150 bp of 16,384 -- 0.9% of the axis above them -- and until now nothing
-   * marked which 0.9%. One helper, one colour, one geometry, called from the coverage plot, the
-   * attribution canvas, the method tracks and the annotation track, so the eye can follow the same
-   * band straight down the column.
-   *
-   * `fx` maps a bp offset to an x coordinate in whatever space the caller is drawing in, so the
-   * same routine serves canvases and the SVG without either re-deriving the axis.
-   */
-  function drawFocusBand(
-    ctx: CanvasRenderingContext2D,
-    width: number,
-    top: number,
-    height: number,
-    opts: { label?: boolean } = {},
-  ): void {
-    const a = xOfBp(logoWindow.start, width);
-    const b = xOfBp(logoWindow.start + logoWindow.width, width);
-    const accent = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
-    ctx.save();
-    // Fill, then two hard edges. At 150 bp of 16,384 the band is ~7 px wide, so the edges are what
-    // actually locate it -- a fill alone at that width reads as a smudge.
-    ctx.fillStyle = accent;
-    ctx.globalAlpha = 0.13;
-    ctx.fillRect(a, top, Math.max(b - a, 1.5), height);
-    ctx.globalAlpha = 0.85;
-    ctx.fillRect(a - 0.5, top, 1.25, height);
-    ctx.fillRect(b - 0.5, top, 1.25, height);
-    ctx.globalAlpha = 1;
-    if (opts.label) {
-      ctx.fillStyle = accent;
-      ctx.font = '9px system-ui, sans-serif';
-      ctx.textAlign = 'left';
-      const text = `${logoWindow.width} bp`;
-      const w = ctx.measureText(text).width;
-      // Flip the label inside when the band is near the right edge, or it is drawn off the canvas.
-      const x = b + 3 + w > width ? a - 3 - w : b + 3;
-      ctx.fillText(text, x, top + 8);
-    }
-    ctx.restore();
-  }
 
-  /** The same band on the coverage SVG, which is not a canvas. */
-  function focusBandSvg(svg: SVGSVGElement, W: number, top: number, height: number): void {
-    const a = xOfBp(logoWindow.start, W);
-    const b = xOfBp(logoWindow.start + logoWindow.width, W);
-    const rect = el('rect');
-    attr(rect, {
-      x: a, y: top, width: Math.max(b - a, 1.5), height,
-      fill: 'currentColor', opacity: 0.13, class: 'vp-focus',
-    });
-    svg.append(rect);
-    for (const x of [a, b]) {
-      const line = el('line');
-      attr(line, { x1: x, x2: x, y1: top, y2: top + height,
-                   stroke: 'currentColor', 'stroke-width': 1, opacity: 0.85, class: 'vp-focus' });
-      svg.append(line);
-    }
-  }
 
-  /**
-   * Make one full-window track a handle for the focus band.
-   *
-   * Every such track is draggable, not just the method strip: six tracks sharing an axis but only
-   * one of them grabbable is what makes an interface feel like six things instead of one.
-   */
-  function bindFocusDrag(node: HTMLCanvasElement | SVGSVGElement): void {
-    if (node.dataset.vpFocusBound === 'true') return;
-    node.dataset.vpFocusBound = 'true';
-    let anchorBp: number | null = null;
-    const bpAt = (ev: PointerEvent): number => {
-      const r = node.getBoundingClientRect();
-      return Math.max(0, Math.min(SEQ_LEN, bpOfX(ev.clientX - r.left, r.width)));
-    };
-    // The union of canvas and SVG widens addEventListener's parameter to `Event`, so the pointer
-    // type is asserted once here rather than at every use.
-    node.addEventListener('pointerdown', (e) => {
-      const ev = e as PointerEvent;
-      anchorBp = bpAt(ev);
-      (node as unknown as HTMLElement).setPointerCapture?.(ev.pointerId);
-    });
-    node.addEventListener('pointermove', (e) => {
-      if (anchorBp === null) return;
-      const b = bpAt(e as PointerEvent);
-      if (Math.abs(b - anchorBp) >= 20) setLogoWindow(Math.min(anchorBp, b), Math.abs(b - anchorBp));
-    });
-    node.addEventListener('pointerup', (e) => {
-      if (anchorBp === null) return;
-      const b = bpAt(e as PointerEvent);
-      // A pointer that moves a couple of pixels between down and up is a click by intent: recentre
-      // at the current width rather than selecting a zero-width window.
-      if (Math.abs(b - anchorBp) < 20) setLogoWindow(b - logoWindow.width / 2, logoWindow.width);
-      anchorBp = null;
-    });
-    node.addEventListener('pointercancel', () => { anchorBp = null; });
-    (node as unknown as HTMLElement).style.cursor = 'ew-resize';
-  }
 
   /** Read a design token at draw time. Canvases keep the old palette otherwise. */
   const css = (name: string, fallback: string) =>
@@ -3929,120 +3223,8 @@ export function initVariantPlayground(root: ParentNode = document) {
    * standard lens idiom. It shares the pixel axis with everything else, so the top of the lens sits
    * exactly under the band on the tracks above and the bottom spans exactly the logos below.
    */
-  function renderLens(): void {
-    if (!lensSvg) return;
-    clear(lensSvg);
-    const W = svgWidth(lensSvg);
-    const H = 22;
-    attr(lensSvg, { viewBox: `0 0 ${W} ${H}` });
-    const a = xOfBp(logoWindow.start, W);
-    const b = xOfBp(logoWindow.start + logoWindow.width, W);
-    const left = PLOT.left;
-    const right = W - PLOT.right;
-    const poly = el('path');
-    attr(poly, {
-      d: `M${a.toFixed(2)} 0 L${b.toFixed(2)} 0 L${right.toFixed(2)} ${H} L${left.toFixed(2)} ${H} Z`,
-      fill: 'currentColor', opacity: 0.1, class: 'vp-focus',
-    });
-    lensSvg.append(poly);
-    for (const [x0, x1] of [[a, left], [b, right]] as const) {
-      const line = el('line');
-      attr(line, { x1: x0, x2: x1, y1: 0, y2: H, stroke: 'currentColor',
-                   'stroke-width': 1, opacity: 0.55, class: 'vp-focus' });
-      lensSvg.append(line);
-    }
-    // Both keys: `vpFocus` for the band-agreement check on the full-window tracks, `window` for
-    // the zoom-view check. The lens spans both, which is the point of it.
-    lensSvg.dataset.vpFocus = `${logoWindow.start}-${logoWindow.start + logoWindow.width}`;
-    lensSvg.dataset.window = `${logoWindow.start}-${logoWindow.start + logoWindow.width}`;
-  }
 
   /** Draw every available method as a small signal track on the shared bp axis. */
-  function renderMethods(): void {
-    if (!methodsCanvas) return;
-    const tracks = methodTracks();
-    const cssW = methodsCanvas.clientWidth || 900;
-    const rowH = 38;   // room for the label above each track
-    const cssH = Math.max(tracks.length, 1) * rowH + 20;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    methodsCanvas.width = Math.round(cssW * dpr);
-    methodsCanvas.height = Math.round(cssH * dpr);
-    methodsCanvas.style.height = `${cssH}px`;
-    const ctx = methodsCanvas.getContext('2d');
-    if (!ctx) return;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, cssW, cssH);
-    const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
-    const pos = getComputedStyle(host).getPropertyValue('--vp-fire').trim() || '#b0455a';
-    const neg = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
-    ctx.font = '9px system-ui, sans-serif';
-
-    if (!tracks.length) {
-      ctx.fillStyle = muted;
-      ctx.fillText('Trace a region to compare the attribution methods.', 8, 18);
-      delete methodsCanvas.dataset.tracks;
-      return;
-    }
-
-    // The plot band starts at PLOT.left, exactly like every other panel, because the entire point
-    // of this strip is that the four methods line up with the coverage curve and the gene models
-    // above them. An earlier version gave it a wider gutter to fit the method names and silently
-    // broke that registration -- the labels go ABOVE each track instead.
-    const GUTTER = PLOT.left;
-    tracks.forEach((tr, i) => {
-      const mid = i * rowH + rowH / 2 + 4;
-      const half = rowH / 2 - 3;
-      ctx.strokeStyle = muted;
-      ctx.globalAlpha = 0.3;
-      ctx.beginPath();
-      ctx.moveTo(GUTTER, mid + 0.5);
-      ctx.lineTo(cssW - PLOT.right, mid + 0.5);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-      for (let x = GUTTER; x < cssW - PLOT.right; x += 1) {
-        // bp across the plot band, which starts at GUTTER here rather than PLOT.left.
-        const v = tr.at(((x - GUTTER) / Math.max(cssW - GUTTER - PLOT.right, 1)) * SEQ_LEN);
-        if (v === null || v === 0) continue;
-        const h = (Math.abs(v) / Math.max(tr.peak, 1e-12)) * half;
-        ctx.fillStyle = v < 0 ? neg : pos;
-        ctx.fillRect(x, v < 0 ? mid : mid - h, 1, h);
-      }
-      ctx.fillStyle = muted;
-      ctx.textAlign = 'left';
-      ctx.fillText(tr.label, GUTTER + 2, mid - half + 7);
-      ctx.textAlign = 'right';
-      // The note is right-aligned against a left-aligned label on the same baseline, with nothing
-      // between them: at a narrow viewport the two simply overlap, and a canvas has no `overflow`
-      // to report it. Drop trailing ` · ` clauses until it fits, keeping the peak, which is the one
-      // part that makes the row's scale readable.
-      const room = (cssW - PLOT.right) - (GUTTER + 2 + ctx.measureText(tr.label).width) - 12;
-      const parts = `±${tr.peak.toPrecision(2)} · ${tr.note}`.split(' · ');
-      let note = parts.join(' · ');
-      while (parts.length > 1 && ctx.measureText(note).width > room) {
-        parts.pop();
-        note = parts.join(' · ');
-      }
-      // Even the peak alone can be too wide at 320px; drawing nothing beats drawing over the label.
-      if (ctx.measureText(note).width <= room) {
-        ctx.fillText(note, cssW - PLOT.right, mid - half + 7);
-      }
-    });
-
-    ctx.fillStyle = muted;
-    ctx.textAlign = 'center';
-    for (const bp of bpTicks(4000)) {
-      const x = GUTTER + (bp / SEQ_LEN) * (cssW - GUTTER - PLOT.right);
-      ctx.textAlign = bp === 0 ? 'left' : bp >= SEQ_LEN ? 'right' : 'center';
-      ctx.fillText(bpLabel(bp), x, cssH - 4);
-    }
-    ctx.textAlign = 'left';
-    // The band, over the whole stack, so all four methods share one visible focus.
-    drawFocusBand(ctx, cssW, 8, Math.max(cssH - 26, 10), { label: true });
-    bindFocusDrag(methodsCanvas);
-    methodsCanvas.dataset.tracks = String(tracks.length);
-    methodsCanvas.dataset.vpFocus = `${logoWindow.start}-${logoWindow.start + logoWindow.width}`;
-    methodsCanvas.dataset.labels = tracks.map((t) => t.label).join('|');
-  }
 
   /**
    * The occlusion matrix: input window on x, output bin on y.
@@ -4222,7 +3404,6 @@ export function initVariantPlayground(root: ParentNode = document) {
           : ev.shiftKey ? { kind: 'col', index: col } : { kind: 'row', index: row };
       }
       renderOcclusion();
-      renderMethods();
     };
     if (occlPick) {
       if (!occlSel) {
@@ -4250,18 +3431,29 @@ export function initVariantPlayground(root: ParentNode = document) {
    * which is exactly how the relevance mode came to be stale for a new region while every panel
    * below it updated correctly.
    */
+  // ARCHIVED RENDERERS. `renderTrack`, `renderAttribution`, `renderAnnotation`,
+  // `renderMethods`, `renderIsmLogo` and `renderLens` drew the six panels the genome
+  // browser absorbed. Each guarded on a null canvas and returned immediately, so they were
+  // 690 lines -- 13% of this file -- that ran on every region change and every resize and
+  // drew nothing. Their capabilities live in `src/scripts/genomeBrowser.ts`.
+
+  // The focus band and its drag went with those renderers. It existed to keep four stacked
+  // panels showing the same window; one canvas cannot disagree with itself.
+
   function refreshRegionViews(): void {
     renderStageProfile();
     renderRollout();
     renderStageStack();
     renderNeuronTraces();
-    renderMethods();
+    // `renderNeuronClasses` was refreshed only as a SIDE EFFECT of `setLogoWindow`, which
+    // `traceBins` happens to call to recentre the letter views -- so step 4 of the trace updated
+    // through a function about the zoom window, and would have stopped the moment that call moved.
+    renderNeuronClasses();
     renderOcclusion();
     renderEnrichment();
     // Both logo views are fed by methodTracks(), which needs a traced region -- so they are region
     // views too, and leaving them out left them showing their empty state after a trace.
     renderMethodLogos();
-    renderIsmLogo();
     applyShowing();          // the flow canvas is region-specific in relevance mode
   }
 
@@ -4276,7 +3468,8 @@ export function initVariantPlayground(root: ParentNode = document) {
     const text = tracedBins
       ? `Tracing ${tracedBins.label} — bins ${tracedBins.start}–${tracedBins.end}`
         + ` (${(((tracedBins.end - tracedBins.start) * BIN_BP) / SEQ_LEN * 100).toFixed(1)}%`
-        + ' of the window). Change it in the bar at the top, or drag on any full-window track.'
+        + ' of the window). Change it in the bar at the top, drag across the method strip, or mark'
+        + ' a region in the browser.'
       : 'No region traced yet — pick one in the bar at the top, or drag across any full-window'
         + ' track to select one.';
     for (const el of host.querySelectorAll<HTMLElement>('[data-vp-trace-context]')) {
@@ -4292,8 +3485,6 @@ export function initVariantPlayground(root: ParentNode = document) {
     // canvases. Goes through the shared setter so all three views move together.
     const midBp = CROP_BP + ((tracedBins.start + tracedBins.end) / 2) * BIN_BP;
     setLogoWindow(midBp - logoWindow.width / 2, logoWindow.width);
-    renderTrack();          // the curve carries the selection marker, so it has to redraw too
-    renderAttribution();
     refreshRegionViews();
     trace3d();
     renderStageDetail(flow?.selected() ?? null);
@@ -4439,9 +3630,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     renderClassFigure();
     renderTssProfile();
     renderHeatmap();
-    renderIsmLogo();
     refreshRegionViews();
-    renderAnnotation();          // a canvas, so it keeps the old palette unless repainted
     renderStageDetail(flow?.selected() ?? null);
   };
   document.addEventListener('khc:theme-change', onTheme);
@@ -4464,19 +3653,16 @@ export function initVariantPlayground(root: ParentNode = document) {
       // horizontal axis, and redrawing every raster for one is wasted work.
       if (host.clientWidth === lastWidth) return;
       lastWidth = host.clientWidth;
-      renderTrack();
       renderSingleTrack();
-      renderAttribution();
-      renderAnnotation();
-      renderMethods();
-      renderMethodLogos();
-      renderIsmLogo();
-      renderLens();
       renderHeatmap();
-      renderOcclusion();
       renderClassFigure();
       renderTssProfile();
       renderStageDetail(flow?.selected() ?? null);
+      // Every region-conditioned view, through the one call that knows them all. Listing them by
+      // hand here omitted the neuron traces, the stage stack, the rollout and the neuron classes,
+      // so after a width change the whole trace panel drew at a stale backing-store resolution
+      // while every panel around it was correct.
+      refreshRegionViews();
     }, 150);
   };
   window.addEventListener('resize', onResize);
@@ -4841,7 +4027,7 @@ export function initVariantPlayground(root: ParentNode = document) {
                 : 'Ink runs low to high across the range this stage occupies. ') +
             `Each column covers ${bp} bp of input; the ruler beneath is the real coordinate, with ` +
             `annotated ORFs. The line above it is channel #${ch} alone — click a row in the ` +
-            `conv-stem raster to change it.`;
+            `stage list or a neuron chip to change it.`;
     }
   }
 
@@ -4960,7 +4146,9 @@ export function initVariantPlayground(root: ParentNode = document) {
     setLogoWindow(logoWindow.start + logoWindow.width / 2 - w / 2, w);
   });
   // The source drives both zoom views: the annotated logo and the per-method stack's own labels.
-  logoSource?.addEventListener('change', () => { renderIsmLogo(); renderMethodLogos(); });
+  // The 1-of-4 source select is archived with the logo it drove; the method strip shows all of
+  // them at once, and the browser offers each as its own lane.
+  logoSource?.addEventListener('change', () => { renderMethodLogos(); });
 
   /**
    * Drag across the method strip to pick the zoom window every logo view reads.
@@ -4983,20 +4171,6 @@ export function initVariantPlayground(root: ParentNode = document) {
   // Annotation lane and evidence-tier toggles. Both re-render the annotation and the enrichment,
   // because the enrichment is computed over exactly the features that are drawn -- if a reader
   // turns off a lane, the statistic must not keep counting it.
-  for (const el of host.querySelectorAll<HTMLInputElement>('[data-vp-lane]')) {
-    el.addEventListener('change', () => {
-      annLanesOn[el.dataset.vpLane!] = el.checked;
-      renderAnnotation();
-      renderEnrichment();
-    });
-  }
-  for (const el of host.querySelectorAll<HTMLInputElement>('[data-vp-tier]')) {
-    el.addEventListener('change', () => {
-      motifTiersOn[el.dataset.vpTier as MotifTier] = el.checked;
-      renderAnnotation();
-      renderEnrichment();
-    });
-  }
 
   occlNorm?.addEventListener('change', renderOcclusion);
 
@@ -5007,8 +4181,6 @@ export function initVariantPlayground(root: ParentNode = document) {
 
   host.querySelector<HTMLInputElement>('[data-vp-generows]')?.addEventListener('change', (ev) => {
     geneRowsExpanded = (ev.target as HTMLInputElement).checked;
-    renderTrack();
-    renderAttribution();
     renderStageDetail(flow?.selected() ?? null);
   });
 
@@ -5035,24 +4207,17 @@ export function initVariantPlayground(root: ParentNode = document) {
       dragFrom = null;
       // A click rather than a drag: take one group's width so there is something to show.
       const width = Math.max(b - a, attribution.groupBins);
-      if (anchorSelect) anchorSelect.value = '';
       traceBins(a, a + width, 'dragged region');
     });
   }
 
-  anchorSelect?.addEventListener('change', () => {
-    const i = Number(anchorSelect.value);
-    const a = attribution?.anchors[i];
-    if (!a) return;
-    traceBins(a.binStart, a.binEnd, a.label);
-  });
-
   traceClear?.addEventListener('click', () => {
     tracedBins = null;
-    if (anchorSelect) anchorSelect.value = '';
-    if (traceLabel) traceLabel.textContent = 'Drag across the curve above to trace a region back to the sequence.';
-    renderTrack();
-    renderAttribution();
+    if (regionSelect) regionSelect.value = '';
+    if (traceLabel) {
+      traceLabel.textContent = 'No region traced — pick one above, drag across the method strip, '
+        + 'or mark a region in the browser.';
+    }
     refreshRegionViews();
     trace3d();
     renderStageDetail(flow?.selected() ?? null);
@@ -5087,7 +4252,6 @@ export function initVariantPlayground(root: ParentNode = document) {
 
   logToggle?.addEventListener('change', () => {
     useLogAxis = logToggle.checked;
-    renderTrack();       // one control, both plots -- they show the same quantity
     renderSingleTrack();
   });
 
@@ -5100,7 +4264,6 @@ export function initVariantPlayground(root: ParentNode = document) {
 
   truthToggle?.addEventListener('change', () => {
     showTruth = truthToggle.checked;
-    renderTrack();
   });
 
   if (groupSelect) {
@@ -5114,7 +4277,6 @@ export function initVariantPlayground(root: ParentNode = document) {
     });
     groupSelect.addEventListener('change', () => {
       groupIndex = Number(groupSelect.value);
-      renderTrack();
     });
   }
 
@@ -5216,15 +4378,12 @@ export function initVariantPlayground(root: ParentNode = document) {
   bindBrowserBridge();
   syncGenomeLink();
   renderLayers();
-  renderTrack();
   renderMotifs();
   renderStageDetail(null);
   renderPicker(true);
   renderHeatmap();
   renderSingleTrack();
-  renderAttribution();
   refreshRegionViews();
-  renderIsmLogo();
   // Locus mode is the only mode, so the first locus loads immediately rather than waiting for a
   // click on a toggle that no longer exists.
   loadLocus();
