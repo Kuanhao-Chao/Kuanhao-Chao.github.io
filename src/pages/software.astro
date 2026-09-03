@@ -360,4 +360,14 @@ const toolBlog = await Promise.all(tools.map((t) => resolveRelatedPosts(t.posts 
       min-width: 2.65rem;
     }
   }
+
+  @media (max-width: 440px) {
+    .tool {
+      align-items: flex-start;
+    }
+    .tool-logo-frame :global(svg) {
+      width: 54px !important;
+      height: 54px !important;
+    }
+  }
 </style>

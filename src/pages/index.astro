@@ -533,4 +533,12 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
       gap: 0.9rem;
     }
   }
+
+  @media (max-width: 440px) {
+    .home-news,
+    .home-tools,
+    .home-algos {
+      grid-template-columns: 1fr;
+    }
+  }
 </style>

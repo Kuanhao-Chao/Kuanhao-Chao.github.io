@@ -1310,8 +1310,18 @@ const breadcrumbLd = buildBreadcrumbLd([
   .gw-stage .gb-track:active { cursor: grabbing; }
 
   @media (max-width: 560px) {
-    .gw-chips { padding: 0.4rem; gap: 0.2rem; }
-    .gw-chip { font-size: 0.7rem; padding: 0.12rem 0.4rem; }
+    /* One scrolling row, not four wrapped ones. 23 chips wrap to 112 px of chrome on a 390 px
+       phone, which pushes the canvas -- the thing the section exists to show -- below the fold. */
+    .gw-chips {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scrollbar-width: none;
+      padding: 0.4rem;
+      gap: 0.2rem;
+    }
+
+    .gw-chips::-webkit-scrollbar { display: none; }
+    .gw-chip { font-size: 0.7rem; padding: 0.12rem 0.4rem; flex: 0 0 auto; }
     /* The nav buttons wrap under the readout rather than squeezing it to nothing. */
     .gw-head { padding: 0.35rem 0.45rem; }
     .gw-head .vp-spacer { display: none; }

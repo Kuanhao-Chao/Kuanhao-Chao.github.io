@@ -1131,11 +1131,17 @@ export function initGenomeBrowser(host: HTMLElement): void {
       const coarser = [...drawnLevels.entries()]
         .filter(([, l]) => l.binBp > lvl.binBp)
         .map(([id, l]) => `${index!.tracks.find((s) => s.id === id)?.short ?? id} ${l.binBp} bp`);
+      // On a phone the full sentence runs to six lines and pushes the canvas below the fold, so it
+      // drops the parts a reader can see for themselves -- that a bar is a mean, that features are
+      // individually drawn -- and keeps the two it cannot: the resolution, and which lane is not
+      // at it. Same rule as the caption's short form on the full page.
+      const tight = w < PHONE_W;
       levelOut.textContent = (lvl.binBp === 1
         ? (letters > 0 ? 'per base, letters' : 'per base')
-        : `${lvl.binBp.toLocaleString()} bp bins · min/mean/max`)
-        + (coarser.length ? ` · at their own floor: ${coarser.join(', ')}` : '')
-        + (anyFeature
+        : `${lvl.binBp.toLocaleString()} bp bins${tight ? '' : ' · min/mean/max'}`)
+        + (coarser.length
+          ? `${tight ? ' · floor: ' : ' · at their own floor: '}${coarser.join(', ')}` : '')
+        + (anyFeature && !tight
           ? ` · features: ${cv.dataset.gbFeatureMode === 'density' ? 'density' : 'individual'}`
           : '');
     }

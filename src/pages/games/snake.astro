@@ -218,6 +218,7 @@ const gameLd = {
 
   .snake-strand-card {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 8px;
     padding: var(--space-2) var(--space-3);
@@ -225,6 +226,8 @@ const gameLd = {
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-md, 8px);
     box-sizing: border-box;
+    max-width: 100%;
+    min-width: 0;
   }
 
   .sequence-ribbon {
@@ -237,6 +240,9 @@ const gameLd = {
     font-weight: 700;
     min-height: 1.4rem;
     color: var(--color-ink);
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
   }
 
   :global(.nucleotide-pill) {
