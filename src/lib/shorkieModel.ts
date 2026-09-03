@@ -1010,6 +1010,41 @@ export function binsToBottleneck(binStart: number, binEnd: number): { start: num
  * The one file in the paper that drops the 1.35 is its own figure-4 reproduction helper, whose
  * logos consequently render about 27% short with visible gaps. Follow the canonical renderer.
  */
+/** The shape a packed uint8 plane's sidecar declares. */
+export interface PackedPlaneSpec {
+  rows: number;
+  cols: number;
+  lo: number[];
+  hi: number[];
+  space?: string;
+}
+
+/**
+ * One row-quantised uint8 plane back to floats.
+ *
+ * EXPORTED, and every consumer must use this rather than writing the inverse again. The packs are
+ * written by `quantize_rows` in `scripts/shorkie/make_ism.py` as `sign(v)·1e-4·(10^|v| − 1)` over a
+ * per-row `lo`/`hi`, and a plausible-looking alternative -- `sign·expm1(|v|·log1p(m))` -- is
+ * monotone and odd, so it preserves every sign and every argmax and fails no obvious check while
+ * changing every correlation computed from it. That exact mistake shipped once here: it reported a
+ * sign agreement of 23/23 and a median r of 0.30 where the truth was 22/23 and 0.369.
+ *
+ * `px` is RGBA from a decoded PNG; only the red channel carries data.
+ */
+export function decodePackedPlane(px: Uint8ClampedArray, spec: PackedPlaneSpec): Float32Array {
+  const out = new Float32Array(spec.rows * spec.cols);
+  const log = spec.space === 'log';
+  for (let r = 0; r < spec.rows; r += 1) {
+    const lo = spec.lo[r] ?? 0;
+    const range = Math.max((spec.hi[r] ?? 1) - lo, 1e-12);
+    for (let c = 0; c < spec.cols; c += 1) {
+      const v = (px[(r * spec.cols + c) * 4] / 255) * range + lo;
+      out[r * spec.cols + c] = log ? Math.sign(v) * 1e-4 * (10 ** Math.abs(v) - 1) : v;
+    }
+  }
+  return out;
+}
+
 export const LOGO_GLOBSCALE = 1.35;
 
 /** Per-letter x-offsets, applied inside the path. Hand-tuned in the paper; do not derive them. */

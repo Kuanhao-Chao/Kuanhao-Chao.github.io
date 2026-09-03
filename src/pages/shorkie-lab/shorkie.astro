@@ -6,12 +6,22 @@ import { SPEC_NOTES } from '../../lib/shorkieModel';
 import { site } from '../../data/site';
 import { buildBreadcrumbLd } from '../../lib/breadcrumbs';
 import lociData from '../../data/shorkieLoci.json';
+import speciesData from '../../data/shorkieSpecies.json';
+import epistasisData from '../../data/shorkieEpistasis.json';
+import kineticsData from '../../data/shorkieKinetics.json';
 
 // Derived, not typed. Four passages here described the enrichment figure and the knockout sweep as
 // covering fourteen windows after the set had grown to 23 -- and `shorkieBiologySummary.json`, which
 // is what both are computed from, carries 23. The two "fourteen" figures further up are deliberately
 // NOT this constant: they describe a timed benchmark run that really did cover fourteen loci.
 const nLoci = lociData.loci.length;
+
+// The frontier panels' headline numbers, read from the generated tables rather than typed — the
+// same rule the rest of this page follows after "fourteen windows" survived in four places.
+const spSummary = speciesData.summary;
+const spControl = speciesData.control;
+const epi = epistasisData;
+const kinData = kineticsData;
 
 // The genome-wide section's numbers come from the tiles that shipped, not from prose. `nLoci`
 // above already exists because four passages here said "fourteen" after the set had grown to 23.
@@ -663,6 +673,134 @@ const breadcrumbLd = buildBreadcrumbLd([
           </p>
       </section>
 
+
+      <!-- ============================================ frontier: three new questions ======== -->
+      <section class="vp-panel" data-shorkie-frontier>
+        <h2>Three questions the first-order methods cannot ask{' '}
+          <span class="vp-stat">species · epistasis · kinetics</span>
+        </h2>
+        <p class="vp-notes vp-lede" style="margin:0 0 0.7rem;">
+          Everything above is <em>first-order</em>: how much each base contributes on its own, in one
+          species, at one moment. These three panels relax one of those assumptions each, and they
+          follow the browser — pick a window up there and all three move.
+        </p>
+
+        <h3 class="gb-stats__title">1 · Tell the model it is a different fungus</h3>
+        <p class="vp-notes" style="margin:0 0 0.4rem;">
+          Shorkie's input carries a <strong>165-dimensional one-hot</strong> naming which{' '}
+          <em>Saccharomycetales</em> genome a sequence came from — an architecture no other
+          sequence-to-function model has, and a counterfactual available here and nowhere else. The
+          DNA below never changes; only the declared species does.
+        </p>
+        <canvas class="fr-canvas" data-fr-species height="190"
+                aria-label="Predicted expression of this gene under each of 165 declared species"></canvas>
+        <p class="vp-stat" data-fr-species-stat></p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>Told the truth about what it is reading, the model predicts the most expression.</strong>{' '}
+          <em>S. cerevisiae</em> ranks <strong>first of 165</strong> at{' '}
+          {spSummary.cerevisiaeFirst} of {spSummary.loci} windows — probability{' '}
+          {spSummary.pUnderRandomRanking} under a null where the ordering is unrelated to the
+          sequence — and sits above the median species at {spSummary.marginPositive} of{' '}
+          {spSummary.loci}, by a median of {spSummary.marginMedian} log₂ units. The exceptions are{' '}
+          {spSummary.exceptions.join(', ')}, and all of them top out on <em>Yarrowia lipolytica</em>,
+          the most distant lineage in the set.
+        </p>
+        <details class="vp-how">
+          <summary>The control that decides whether any of this means anything</summary>
+          <div class="vp-how-body">
+            <p><strong>A per-species bias would look identical at one locus.</strong> If every window
+            ranked the 165 the same way, this would be measuring which channels simply predict more
+            — nothing about the sequence. The between-window rank correlation is a median{' '}
+            <strong>{spControl.betweenLocusSpearman.median}</strong> (range{' '}
+            {spControl.betweenLocusSpearman.min} to {spControl.betweenLocusSpearman.max}), so the
+            orderings genuinely differ: the model reads the same promoter differently depending on
+            the species it is told to be.</p>
+            <p><strong>A second control comes free.</strong> Five of the 165 rows are{' '}
+            <em>Yarrowia lipolytica</em> strains — separate channels the model was never told to
+            treat alike. Their spread is <strong>{(spControl.yarrowiaReplicates.sdRatioMedian * 100).toFixed(1)}%</strong>
+            {' '}of the full 165-species range, which bounds this method's noise from inside the data.</p>
+            <p><strong>The index is confirmed, not assumed.</strong> The paper's own species list has
+            exactly 165 rows and row 109 is <em>Saccharomyces cerevisiae</em> — matching the index
+            this site had previously established by peak magnitude alone, against shuffled and
+            random-sequence controls.</p>
+          </div>
+        </details>
+
+        <h3 class="gb-stats__title" style="margin-top:1rem;">2 · Which bases interact with a binding site</h3>
+        <p class="vp-notes" style="margin:0 0 0.4rem;">
+          Regulation is not additive — factors cooperate, compete, and care about spacing — and a
+          first-order method cannot see any of that by construction. For a motif spanning{' '}
+          <code>[a, b)</code> with indicator <code>v</code>, <strong>H·v = ∇⟨∇f, v⟩</strong> is one
+          vector over all 16,384 bases whose entry <em>i</em> says how much that motif's own
+          sensitivity changes when base <em>i</em> changes. One extra backward pass — 425 ms — rather
+          than the 16,384² Hessian.
+        </p>
+        <div class="vp-controls" style="margin-bottom:0.4rem;">
+          <label class="vp-nav__label" for="fr-ep">binding site</label>
+          <select class="vp-select" id="fr-ep" data-fr-epistasis-pick
+                  aria-label="Which binding site to anchor on"></select>
+        </div>
+        <canvas class="fr-canvas" data-fr-epistasis height="150"
+                aria-label="Second-order interaction field for the selected binding site"></canvas>
+        <p class="vp-stat" data-fr-epistasis-stat></p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>The helical-periodicity prediction is refuted, and that is the result.</strong> If
+          the model had learned B-DNA's 10.5 bp pitch, |H·v| would repeat with it. Pooled over all{' '}
+          {epi.sites} ChIP-supported sites in the {epi.loci} windows it does not: dividing out the
+          decay and comparing distances in phase with 10.5 bp against anti-phase gives a ratio of{' '}
+          <strong>{epi.helical.ratio}</strong> — if anything slightly <em>lower</em> in phase. A
+          falsifiable prediction, tested, and answered no.
+        </p>
+        <details class="vp-how">
+          <summary>Why the periodogram's answer is the wrong answer</summary>
+          <div class="vp-how-body">
+            <p>The spectrum of the detrended profile puts its strongest periods at{' '}
+            {epi.topPeriods.slice(0, 3).map((p) => `${p.bp} bp`).join(', ')} — which are 147/3,
+            147/2 and 147/4, harmonics of the 4–150 bp analysis window. Reporting them as periods
+            would be reporting the ruler. The phase test above needs no spectrum and is not
+            vulnerable to it.</p>
+            <p><strong>The check that a mis-wired second derivative fails is symmetry.</strong>{' '}
+            <em>H</em> is symmetric, so ⟨H·v<sub>A</sub>, v<sub>B</sub>⟩ must equal
+            ⟨H·v<sub>B</sub>, v<sub>A</sub>⟩ for two sites in one window. The worst residual over
+            every pair is <strong>{epi.worstSymmetryResidual.toExponential(1)}</strong>, which is
+            float32 arithmetic. Nothing else catches this: a wrongly wired second derivative has the
+            right shape and the right magnitude and is simply the wrong quantity.</p>
+          </div>
+        </details>
+
+        <h3 class="gb-stats__title" style="margin-top:1rem;">3 · Do the drivers change as the response unfolds?</h3>
+        <p class="vp-notes" style="margin:0 0 0.4rem;">
+          The 3,053 induction tracks resolve into 13 timepoints × 337 regulators. Taking one
+          regulator's own tracks early and late and attributing each over this gene body asks whether
+          the model reads a <em>different part of the sequence</em> as the response develops.
+        </p>
+        <div data-fr-kinetics></div>
+        <p class="vp-stat" data-fr-kinetics-stat></p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>It does, and only where the pairing is real.</strong> Across {kinData.regulators}{' '}
+          regulators × {nLoci} windows the median early-to-late correlation is{' '}
+          <strong>{kinData.median}</strong> — but the floor is <strong>{kinData.min}</strong>, at{' '}
+          <em>MSN2</em> on <em>GAL1</em>, where only half the strongest 500 bases survive. MSN2 and
+          MSN4 are the paralogous general-stress factors that bind the same STRE motif, and they rank
+          one and two independently; GAL1 and GLK1, where they move most, are both glucose-repressed.
+        </p>
+        <details class="vp-how">
+          <summary>Why this is per regulator and not per timepoint</summary>
+          <div class="vp-how-body">
+            <p>The obvious version fails, measured twice. The 13 timepoint <em>mean</em> coverage
+            tracks correlate at ≥ 0.9923 with each other, and their gradients are worse still —
+            early against late attribution comes out at <strong>r ≥ {kinData.timepointMeanControl.r}</strong>{' '}
+            with 99% of the top 500 bases shared. Each mean averages about 300 regulators, and
+            averaging 300 induction experiments leaves the shared baseline transcriptome. The
+            variation is real and lives in the individual tracks, where a single gene body spans
+            43.7× across them.</p>
+            <p>The replicate floor is on <em>count</em>, not on the timepoint label: T15, T30, T45,
+            T60 and T90 carry 64–77 tracks against T0's 384, and a thin mean makes a noisy gradient.
+            At two or more replicates {kinData.regulators} regulators qualify; at three, only eight.</p>
+          </div>
+        </details>
+      </section>
+
       <!-- ------------------------------------------------- interpretation -->
       <section class="vp-panel">
         <h2>Every output track <span class="vp-stat" data-vp-heat-stat></span></h2>
@@ -1289,6 +1427,7 @@ const breadcrumbLd = buildBreadcrumbLd([
   // The genome-wide section embeds the same browser as /shorkie-lab/genome/. It self-mounts on
   // every `[data-genome-browser]` host, so this import is the whole wiring.
   import '../../scripts/genomeBrowser';
+  import '../../scripts/shorkieFrontier';
 </script>
 
 <style>
@@ -1342,6 +1481,14 @@ const breadcrumbLd = buildBreadcrumbLd([
     white-space: nowrap;
     text-decoration: none;
     border-bottom: 1px solid currentcolor;
+  }
+
+  .fr-canvas {
+    display: block;
+    width: 100%;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius, 6px);
+    background: var(--color-bg);
   }
 
   .gw-foot {

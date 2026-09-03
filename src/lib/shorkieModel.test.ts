@@ -88,6 +88,7 @@ import {
   circularShiftOffsets,
   weightedEnrichment,
   type AnnotationFeature,
+  decodePackedPlane,
 } from './shorkieModel';
 import tracks from '../data/shorkieTracks.json';
 import trackNames from '../data/shorkieTrackNames.json';
@@ -2639,5 +2640,52 @@ describe('motifMatch — where the motif actually is, on either strand', () => {
     const rap1 = motifMatch(promoter, 'MACCCANNCAY', 8000);
     expect(rap1!.strand).toBe('-');
     expect(rap1!.start).toBe(8120);
+  });
+});
+
+describe('decodePackedPlane', () => {
+  const rgba = (bytes: number[]) => {
+    const px = new Uint8ClampedArray(bytes.length * 4);
+    bytes.forEach((b, i) => { px[i * 4] = b; px[i * 4 + 3] = 255; });
+    return px;
+  };
+
+  it('inverts the generator exactly, in the log space the packs actually use', () => {
+    // `quantize_rows` in scripts/shorkie/make_ism.py writes
+    //     b = sign(a) * log10(1 + |a| / 1e-4);  q = round((b - lo) / (hi - lo) * 255)
+    // so the inverse is sign(v) * 1e-4 * (10^|v| - 1). Pinned here because the plausible
+    // alternative -- sign * expm1(|v| * log1p(m)) -- is monotone and odd, preserves every sign
+    // and argmax, and silently changes every correlation computed from the result. That mistake
+    // shipped: it reported a sign agreement of 23/23 and a median r of 0.30 against a truth of
+    // 22/23 and 0.369.
+    const spec = { rows: 1, cols: 3, lo: [-2], hi: [2], space: 'log' };
+    const got = decodePackedPlane(rgba([0, 128, 255]), spec);
+    const inv = (q: number) => {
+      const v = (q / 255) * 4 - 2;
+      return Math.sign(v) * 1e-4 * (10 ** Math.abs(v) - 1);
+    };
+    // 9 places, not 12: the result is a Float32Array, so ~7 significant digits is the dtype's
+    // precision and a tighter tolerance would be asserting against the storage rather than the maths.
+    expect(got[0]).toBeCloseTo(inv(0), 9);
+    expect(got[1]).toBeCloseTo(inv(128), 9);
+    expect(got[2]).toBeCloseTo(inv(255), 9);
+    // and it is NOT the expm1/log1p form, which is the whole point of pinning it
+    const wrong = Math.sign(inv(255)) * Math.expm1(Math.abs((255 / 255) * 4 - 2) * Math.log1p(2));
+    expect(Math.abs(got[2] - wrong)).toBeGreaterThan(1e-3);
+  });
+
+  it('is per ROW: each row carries its own lo and hi', () => {
+    const spec = { rows: 2, cols: 2, lo: [0, -10], hi: [1, 10], space: 'linear' };
+    const got = decodePackedPlane(rgba([0, 255, 0, 255]), spec);
+    expect([got[0], got[1]]).toEqual([0, 1]);
+    expect([got[2], got[3]]).toEqual([-10, 10]);
+  });
+
+  it('reads only the red channel, so an opaque PNG and a greyscale one agree', () => {
+    const px = new Uint8ClampedArray(8);
+    px[0] = 255; px[1] = 7; px[2] = 9; px[3] = 255;      // red 255, junk in G/B
+    px[4] = 0; px[5] = 200; px[6] = 200; px[7] = 255;
+    const got = decodePackedPlane(px, { rows: 1, cols: 2, lo: [0], hi: [1], space: 'linear' });
+    expect([got[0], got[1]]).toEqual([1, 0]);
   });
 });
