@@ -1298,6 +1298,11 @@ export function initGenomeBrowser(host: HTMLElement): void {
       series.push(sampleBins(s, l, start, n, l.binBp));
     }
 
+    // A scroll container, because a four-column table is 320 px wide and the box is 240 at a
+    // 320 px viewport. Without it the last column -- "vs genome", the one that answers the
+    // question -- is clipped, which reads as a column that is not there rather than one cut off.
+    const wrap = document.createElement('div');
+    wrap.className = 'gb-stats__scroll';
     const table = document.createElement('table');
     table.className = 'gb-stats';
     const head = document.createElement('tr');
@@ -1337,14 +1342,23 @@ export function initGenomeBrowser(host: HTMLElement): void {
       }
       table.appendChild(tr);
     });
-    statsBox.appendChild(table);
+    wrap.appendChild(table);
+    statsBox.appendChild(wrap);
 
     const note = document.createElement('p');
     note.className = 'gb-stats__note';
+    // Seven lines of explanation on a phone is most of the panel. The long form keeps the reason
+    // the scatter does not share the lanes' fixed axes; the short form keeps only what a reader
+    // cannot work out from the drawing.
+    const tight = (statsBox.clientWidth || 999) < 420;
     note.textContent = specs.length === 2
-      ? 'Each point is one bin of the view, and the scatter fits the view rather than the genome — '
-        + 'the lanes above keep their fixed axes, this shows the shape behind r.'
-      : 'Turn on exactly two score lanes to see their correlation and the shape behind it.';
+      ? (tight
+        ? 'One point per bin; the scatter fits the view, not the genome.'
+        : 'Each point is one bin of the view, and the scatter fits the view rather than the genome — '
+          + 'the lanes above keep their fixed axes, this shows the shape behind r.')
+      : (tight
+        ? 'Two score lanes on shows their correlation.'
+        : 'Turn on exactly two score lanes to see their correlation and the shape behind it.');
     statsBox.appendChild(note);
 
     // The scatter. A correlation is a single number summarising a shape, and the same r comes from
