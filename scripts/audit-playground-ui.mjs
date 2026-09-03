@@ -919,7 +919,18 @@ async function auditExplanations(browser, baseURL, scope) {
         navSticky: getComputedStyle(document.querySelector('.vp-nav')).position,
       };
     });
-    if (spine.acts.length !== 4) fail(scope, `${spine.acts.length} act headings, expected 4`);
+    // Four numbered acts and one reference appendix. The spine is asserted by CONTENT rather than
+    // by count, because a count says nothing about whether the page still reads as a path: predict
+    // -> pick a region -> look inside -> check it against biology.
+    if (spine.acts.length !== 5) {
+      fail(scope, `${spine.acts.length} act headings, expected 4 acts and a reference`);
+    }
+    const spineWants = [/predict/i, /region/i, /inside/i, /biolog/i, /read any of this/i];
+    spineWants.forEach((re, i) => {
+      if (!re.test(spine.acts[i] ?? '')) {
+        fail(scope, `act ${i + 1} does not read as "${re.source}": "${spine.acts[i] ?? ''}"`);
+      }
+    });
     if (new Set(spine.acts).size !== spine.acts.length) fail(scope, 'a duplicate act heading');
     if (spine.navSticky !== 'sticky') fail(scope, `the selection bar is ${spine.navSticky}, not sticky`);
     // The focus band spanned four stacked panels that are now one canvas in the browser, where a
