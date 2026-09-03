@@ -95,6 +95,48 @@ const PHONE_W = 560;
 /** Full height of the overview strip, in bits. A locator scale, not the plot's. */
 const MINI_MAX = 0.5;
 
+/**
+ * One-click lane sets.
+ *
+ * With nine score lanes from two different networks plus twelve annotation lanes, a flat list of
+ * toggles is a puzzle rather than a control. Each preset is a QUESTION, not a tidy grouping: what
+ * is constrained here, what is expressed here, do the two agree, what regulates this gene, and
+ * what varies in the population. Ids that a build does not carry are simply skipped, so a preset
+ * naming a track that has not been generated degrades instead of breaking.
+ */
+const PRESETS: { id: string; label: string; hint: string; lanes: string[] }[] = [
+  {
+    id: 'constraint',
+    label: 'constraint',
+    hint: 'What does the language model think is determined by its context, against 7-species conservation?',
+    lanes: ['lm-masked', 'phastcons', 'genes', 'sequence'],
+  },
+  {
+    id: 'expression',
+    label: 'expression',
+    hint: 'What does the expression model predict is transcribed, and which bases drive it?',
+    lanes: ['sk-rnaseq', 'sk-gradient', 'genes', 'tfbs_chip'],
+  },
+  {
+    id: 'compare',
+    label: 'compare models',
+    hint: 'Constrained against expressed — two lanes, so the header prints their correlation over the view',
+    lanes: ['lm-masked', 'sk-rnaseq', 'genes'],
+  },
+  {
+    id: 'regulation',
+    label: 'regulation',
+    hint: 'Predicted expression against the curated regulatory evidence that might explain it',
+    lanes: ['sk-rnaseq', 'tfbs_chip', 'tfbs_conserved', 'regulatory', 'genes'],
+  },
+  {
+    id: 'variation',
+    label: 'variation',
+    hint: 'Constraint against what actually varies across 1,011 natural isolates',
+    lanes: ['lm-masked', 'variant_missense', 'variant_synonymous', 'genes'],
+  },
+];
+
 interface TrackSpec {
   id: string;
   label: string;
@@ -113,6 +155,8 @@ interface TrackSpec {
   linthresh?: number;
   /** The track's own ladder, written by the tiler. A coarse track has holes at the fine end. */
   levels?: Level[];
+  /** Which model (or neither) this lane comes from. Written by the tiler, never inferred here. */
+  group?: string;
   /** Short qualifier drawn on the lane. Empty for the one track that IS a prediction. */
   laneTag?: string;
   /** Written in `make_genome_tiles.py`, which refuses to build without all four fields. */
@@ -122,6 +166,8 @@ interface TrackSpec {
 interface IndexFile {
   genome: string;
   levels: Level[];
+  /** What each track `group` means, so the panel's headings come from the generator too. */
+  groupLabels?: Record<string, { label: string; hint: string }>;
   tileBins: number;
   noDataByte: number;
   tracks: TrackSpec[];
@@ -2304,11 +2350,19 @@ export function initGenomeBrowser(host: HTMLElement): void {
   function buildPanel(): void {
     if (!panelBox || !index) return;
     panelBox.textContent = '';
-    const group = (title: string) => {
+    const group = (title: string, hint?: string) => {
       const h = document.createElement('p');
       h.className = 'gb-panel__head';
       h.textContent = title;
       panelBox.appendChild(h);
+      if (hint) {
+        // The heading carries a MODEL NAME, which must stay cased and unabbreviated; the
+        // explanation goes on its own line rather than making the heading a three-line sentence.
+        const s = document.createElement('p');
+        s.className = 'gb-panel__hint';
+        s.textContent = hint;
+        panelBox.appendChild(s);
+      }
     };
     const docsBlock = (d: LaneDocs | undefined): HTMLElement | null => {
       if (!d) return null;
@@ -2354,22 +2408,64 @@ export function initGenomeBrowser(host: HTMLElement): void {
       if (d) panelBox.appendChild(d);
     };
 
-    group('Score tracks');
-    for (const t of index.tracks) {
-      const h = document.createElement('input');
-      h.type = 'range';
-      h.className = 'gb-panel__h';
-      h.min = '60';
-      h.max = '220';
-      h.step = '10';
-      h.value = String(laneHeight.get(t.id) ?? 110);
-      h.dataset.gbHeight = t.id;
-      h.setAttribute('aria-label', `${t.label} lane height`);
-      h.addEventListener('input', () => {
-        laneHeight.set(t.id, Number(h.value));
+    // The presets first: they are how a reader with no map gets to a useful view in one click.
+    const pbar = document.createElement('div');
+    pbar.className = 'gb-panel__presets';
+    const plabel = document.createElement('p');
+    plabel.className = 'gb-panel__head';
+    plabel.textContent = 'Views';
+    panelBox.append(plabel, pbar);
+    const known = new Set(ALL_LANES(index));
+    for (const preset of PRESETS) {
+      const lanes = preset.lanes.filter((id) => known.has(id));
+      if (lanes.length < 2) continue;         // a preset whose tracks this build lacks
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'gb-preset';
+      b.textContent = preset.label;
+      b.title = preset.hint;
+      b.dataset.gbPreset = preset.id;
+      b.addEventListener('click', () => {
+        applyTracks(lanes);
+        writeHash();
         schedule();
       });
-      row(t.id, t.label, `${t.detail} — ${t.note}`, h, t.docs);
+      pbar.appendChild(b);
+    }
+
+    // Score tracks, grouped by which network they came from. A flat list of nine hides the one
+    // thing a reader most needs to know: two of these models predict opposite quantities, and a
+    // gene body is high on both for unrelated reasons.
+    // Seeded in the generator's own order, so the two models sit next to each other and the
+    // controls come last. Insertion order alone follows `index.tracks`, which interleaves the
+    // comparative lanes between the two networks -- the one arrangement that hides the contrast.
+    const byGroup = new Map<string, TrackSpec[]>(
+      Object.keys(index.groupLabels ?? {}).map((g) => [g, [] as TrackSpec[]]));
+    for (const t of index.tracks) {
+      const g = t.group ?? 'other';
+      if (!byGroup.has(g)) byGroup.set(g, []);
+      byGroup.get(g)!.push(t);
+    }
+    for (const [g, list] of [...byGroup]) if (!list.length) byGroup.delete(g);
+    for (const [gid, specs] of byGroup) {
+      const gl = index.groupLabels?.[gid];
+      group(gl?.label ?? 'Score tracks', gl?.hint);
+      for (const t of specs) {
+        const h = document.createElement('input');
+        h.type = 'range';
+        h.className = 'gb-panel__h';
+        h.min = '60';
+        h.max = '220';
+        h.step = '10';
+        h.value = String(laneHeight.get(t.id) ?? 110);
+        h.dataset.gbHeight = t.id;
+        h.setAttribute('aria-label', `${t.label} lane height`);
+        h.addEventListener('input', () => {
+          laneHeight.set(t.id, Number(h.value));
+          schedule();
+        });
+        row(t.id, t.label, `${t.detail} — ${t.note}`, h, t.docs);
+      }
     }
 
     group('Annotation');

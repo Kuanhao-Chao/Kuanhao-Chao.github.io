@@ -619,6 +619,44 @@ html[data-theme='dark'] .vp {
   letter-spacing: 0.02em;
 }
 .gb-panel__head:first-child { margin-top: 0; }
+
+/* A group heading names the MODEL. `text-transform: lowercase` above turned "Shorkie_LM" into
+   "shorkie_lm", which is a different thing on a page whose whole point is that two similarly named
+   networks predict opposite quantities. */
+.gb-panel__head:has(+ .gb-panel__hint) { text-transform: none; color: var(--color-ink); }
+
+.gb-panel__hint {
+  margin: -0.15rem 0 0.35rem;
+  font-size: var(--fs-small);
+  color: var(--color-muted);
+  line-height: 1.35;
+  text-wrap: pretty;
+}
+
+.gb-panel__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.gb-preset {
+  padding: 0.18rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--fs-small);
+  cursor: pointer;
+}
+
+.gb-preset:hover {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+}
+
+.gb-preset:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 1px; }
 .gb-panel__row {
   display: flex;
   align-items: center;
