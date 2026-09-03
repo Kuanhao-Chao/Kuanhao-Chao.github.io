@@ -15,6 +15,11 @@ export interface BayNode {
   description?: string;
 }
 
+export interface LatLngPoint {
+  lat: number;
+  lng: number;
+}
+
 export interface BayEdge {
   u: string;
   v: string;
@@ -22,6 +27,7 @@ export interface BayEdge {
   speedLimit: number; // mph
   roadType: RoadType;
   name: string;
+  path?: LatLngPoint[]; // Actual curved road geometry coordinates
 }
 
 export interface PresetTrip {

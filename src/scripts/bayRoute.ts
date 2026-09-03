@@ -2,6 +2,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
   type BayGraph,
+  type BayEdge,
   type CustomEndpoint,
 } from '../lib/bayGraph';
 import {
@@ -10,6 +11,10 @@ import {
   cityRoadGraphToBayGraph,
   type CityRoadGraph,
 } from '../lib/cityRoadGraph';
+import {
+  fetchGoogleDirectionsRoadGraph,
+  type TurnManeuver,
+} from '../lib/googleDirectionsGraph';
 import {
   type AlgorithmId,
   type PathfindingResult,
@@ -120,6 +125,7 @@ export class BayRouteVisualizer {
 
   // Hover & Inspector State
   private hoveredNodeId: string | null = null;
+  private currentManeuvers: TurnManeuver[] = [];
 
   private isDarkTheme: boolean = true;
   private isMapReady: boolean = false;
@@ -628,18 +634,41 @@ export class BayRouteVisualizer {
     this.recalculate();
   }
 
-  public recalculate(): void {
+  public async recalculate(): Promise<void> {
     this.pause();
 
-    // 1. Splice Start into city road graph
-    const splicedStart = spliceEndpointIntoCityGraph(this.cityBaseGraph, this.currentStartEndpoint, true);
-    // 2. Splice Goal into city road graph
-    const splicedGoal = spliceEndpointIntoCityGraph(splicedStart.graph, this.currentGoalEndpoint, false);
+    let isGoogleGraphUsed = false;
+    // Attempt Google Directions live graph if Google Maps is active and connected
+    if (this.isGoogleMapsActive && typeof window !== 'undefined' && window.google && window.google.maps) {
+      try {
+        const gResult = await fetchGoogleDirectionsRoadGraph(
+          { lat: this.currentStartEndpoint.lat, lng: this.currentStartEndpoint.lng, name: this.currentStartEndpoint.name },
+          { lat: this.currentGoalEndpoint.lat, lng: this.currentGoalEndpoint.lng, name: this.currentGoalEndpoint.name }
+        );
+        if (gResult && gResult.graph.edges.length > 0) {
+          this.activeCityGraph = gResult.graph;
+          this.activeBayGraph = cityRoadGraphToBayGraph(this.activeCityGraph);
+          this.startId = gResult.startNodeId;
+          this.goalId = gResult.goalNodeId;
+          this.currentManeuvers = gResult.maneuvers;
+          isGoogleGraphUsed = true;
+        }
+      } catch (err) {
+        console.warn('[BayRoute] Google Directions live graph fetch error, using local polyline graph:', err);
+      }
+    }
 
-    this.activeCityGraph = splicedGoal.graph;
-    this.activeBayGraph = cityRoadGraphToBayGraph(this.activeCityGraph);
-    this.startId = splicedStart.nodeId;
-    this.goalId = splicedGoal.nodeId;
+    if (!isGoogleGraphUsed) {
+      // 1. Splice Start into master city road graph
+      const splicedStart = spliceEndpointIntoCityGraph(this.cityBaseGraph, this.currentStartEndpoint, true);
+      // 2. Splice Goal into master city road graph
+      const splicedGoal = spliceEndpointIntoCityGraph(splicedStart.graph, this.currentGoalEndpoint, false);
+
+      this.activeCityGraph = splicedGoal.graph;
+      this.activeBayGraph = cityRoadGraphToBayGraph(this.activeCityGraph);
+      this.startId = splicedStart.nodeId;
+      this.goalId = splicedGoal.nodeId;
+    }
 
     if (this.isRaceMode) {
       this.raceResults.clear();
@@ -664,11 +693,95 @@ export class BayRouteVisualizer {
       );
     }
 
+    if (!isGoogleGraphUsed) {
+      this.currentManeuvers = this.deriveManeuversFromBayGraph();
+    }
+
     this.currentStepIndex = 0;
     this.updateMapMarkers();
     this.updateTelemetry();
+    this.updateTurnManeuversUI();
     this.render();
     this.play();
+  }
+
+  private deriveManeuversFromBayGraph(): TurnManeuver[] {
+    if (!this.currentResult || !this.currentResult.path || this.currentResult.path.length < 2) {
+      return [];
+    }
+    const maneuvers: TurnManeuver[] = [];
+    const path = this.currentResult.path;
+
+    for (let i = 0; i < path.length - 1; i++) {
+      const u = this.activeBayGraph.nodes.get(path[i]);
+      const v = this.activeBayGraph.nodes.get(path[i + 1]);
+      const edge = this.findEdge(path[i], path[i + 1]);
+      if (!u || !v || !edge) continue;
+
+      const prefix = i === 0 ? 'Depart from' : 'Follow';
+      maneuvers.push({
+        instruction: `${prefix} ${edge.name} toward ${v.name}`,
+        distanceMiles: edge.distance,
+        durationMinutes: Math.round((edge.distance / edge.speedLimit) * 60 * 10) / 10,
+        lat: v.lat,
+        lng: v.lng,
+      });
+    }
+
+    return maneuvers;
+  }
+
+  private updateTurnManeuversUI(): void {
+    const listEl = this.container.querySelector<HTMLElement>('[data-maneuvers-list]');
+    const summaryEl = this.container.querySelector<HTMLElement>('[data-maneuvers-summary]');
+    if (!listEl) return;
+
+    listEl.replaceChildren();
+
+    if (!this.currentManeuvers || this.currentManeuvers.length === 0) {
+      if (summaryEl) summaryEl.textContent = 'Calculating optimal driving maneuvers...';
+      const emptyDiv = document.createElement('div');
+      emptyDiv.className = 'br-maneuver-empty';
+      emptyDiv.textContent = 'No active maneuvers for this route.';
+      listEl.appendChild(emptyDiv);
+      return;
+    }
+
+    let totalDist = 0;
+    let totalTime = 0;
+
+    this.currentManeuvers.forEach((m, idx) => {
+      totalDist += m.distanceMiles;
+      totalTime += m.durationMinutes;
+
+      const item = document.createElement('div');
+      item.className = 'br-maneuver-item';
+
+      const numSpan = document.createElement('span');
+      numSpan.className = 'br-maneuver-num';
+      numSpan.textContent = String(idx + 1);
+      item.appendChild(numSpan);
+
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'br-maneuver-content';
+
+      const textP = document.createElement('p');
+      textP.className = 'br-maneuver-text';
+      textP.textContent = m.instruction;
+      contentDiv.appendChild(textP);
+
+      const metaSpan = document.createElement('span');
+      metaSpan.className = 'br-maneuver-meta';
+      metaSpan.textContent = `${m.distanceMiles.toFixed(1)} mi · ${Math.max(1, Math.round(m.durationMinutes))} min`;
+      contentDiv.appendChild(metaSpan);
+
+      item.appendChild(contentDiv);
+      listEl.appendChild(item);
+    });
+
+    if (summaryEl) {
+      summaryEl.textContent = `${this.currentManeuvers.length} steps · ${totalDist.toFixed(1)} miles (${Math.round(totalTime)} min driving)`;
+    }
   }
 
   private updateMapMarkers(): void {
@@ -1031,6 +1144,14 @@ export class BayRouteVisualizer {
     this.renderNodes();
   }
 
+  private findEdge(uId: string, vId: string): BayEdge | undefined {
+    if (!this.activeBayGraph) return undefined;
+    return (
+      this.activeBayGraph.edges.find((e) => e.u === uId && e.v === vId) ||
+      this.activeBayGraph.edges.find((e) => e.u === vId && e.v === uId)
+    );
+  }
+
   private renderCityRoadMesh(): void {
     const ctx = this.ctx;
 
@@ -1039,12 +1160,20 @@ export class BayRouteVisualizer {
       const v = this.activeBayGraph.nodes.get(edge.v);
       if (!u || !v) continue;
 
-      const p1 = this.latLngToPoint(u.lat, u.lng);
-      const p2 = this.latLngToPoint(v.lat, v.lng);
-
       ctx.beginPath();
-      ctx.moveTo(p1.x, p1.y);
-      ctx.lineTo(p2.x, p2.y);
+      if (edge.path && edge.path.length >= 2) {
+        const p0 = this.latLngToPoint(edge.path[0].lat, edge.path[0].lng);
+        ctx.moveTo(p0.x, p0.y);
+        for (let i = 1; i < edge.path.length; i++) {
+          const pt = this.latLngToPoint(edge.path[i].lat, edge.path[i].lng);
+          ctx.lineTo(pt.x, pt.y);
+        }
+      } else {
+        const p1 = this.latLngToPoint(u.lat, u.lng);
+        const p2 = this.latLngToPoint(v.lat, v.lng);
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+      }
 
       if (edge.roadType === 'bridge') {
         ctx.strokeStyle = '#f97316';
@@ -1089,22 +1218,34 @@ export class BayRouteVisualizer {
       }
     }
 
-    // Explored Edges Laser Glow
+    // Explored Edges Laser Glow along authentic road curves
     ctx.strokeStyle = color;
     ctx.lineWidth = 3.5;
     ctx.shadowColor = color;
     ctx.shadowBlur = 10;
 
     for (const { u: uId, v: vId } of settledEdges) {
-      const u = this.activeBayGraph.nodes.get(uId);
-      const v = this.activeBayGraph.nodes.get(vId);
-      if (u && v) {
-        const p1 = this.latLngToPoint(u.lat, u.lng);
-        const p2 = this.latLngToPoint(v.lat, v.lng);
+      const edge = this.findEdge(uId, vId);
+      if (edge && edge.path && edge.path.length >= 2) {
         ctx.beginPath();
-        ctx.moveTo(p1.x, p1.y);
-        ctx.lineTo(p2.x, p2.y);
+        const p0 = this.latLngToPoint(edge.path[0].lat, edge.path[0].lng);
+        ctx.moveTo(p0.x, p0.y);
+        for (let i = 1; i < edge.path.length; i++) {
+          const pt = this.latLngToPoint(edge.path[i].lat, edge.path[i].lng);
+          ctx.lineTo(pt.x, pt.y);
+        }
         ctx.stroke();
+      } else {
+        const u = this.activeBayGraph.nodes.get(uId);
+        const v = this.activeBayGraph.nodes.get(vId);
+        if (u && v) {
+          const p1 = this.latLngToPoint(u.lat, u.lng);
+          const p2 = this.latLngToPoint(v.lat, v.lng);
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
+        }
       }
     }
     ctx.shadowBlur = 0;
@@ -1146,7 +1287,37 @@ export class BayRouteVisualizer {
     const path = this.currentResult.path;
     if (path.length < 2) return;
 
-    // Radiant Golden Amber Glow
+    // Build the complete array of LatLng points along the real road curves
+    const fullRoutePoints: Array<{ x: number; y: number }> = [];
+
+    for (let i = 0; i < path.length - 1; i++) {
+      const uId = path[i];
+      const vId = path[i + 1];
+      const edge = this.findEdge(uId, vId);
+
+      if (edge && edge.path && edge.path.length >= 2) {
+        const uNode = this.activeBayGraph.nodes.get(uId)!;
+        const distToStart = Math.hypot(edge.path[0].lat - uNode.lat, edge.path[0].lng - uNode.lng);
+        const distToEnd = Math.hypot(edge.path[edge.path.length - 1].lat - uNode.lat, edge.path[edge.path.length - 1].lng - uNode.lng);
+        const pts = distToStart <= distToEnd ? edge.path : [...edge.path].reverse();
+
+        for (let j = 0; j < pts.length; j++) {
+          if (fullRoutePoints.length > 0 && j === 0) continue;
+          fullRoutePoints.push(this.latLngToPoint(pts[j].lat, pts[j].lng));
+        }
+      } else {
+        const u = this.activeBayGraph.nodes.get(uId);
+        const v = this.activeBayGraph.nodes.get(vId);
+        if (u && v) {
+          if (fullRoutePoints.length === 0) fullRoutePoints.push(this.latLngToPoint(u.lat, u.lng));
+          fullRoutePoints.push(this.latLngToPoint(v.lat, v.lng));
+        }
+      }
+    }
+
+    if (fullRoutePoints.length < 2) return;
+
+    // 1. Radiant Golden Amber Glow along the real road curves
     ctx.strokeStyle = '#f59e0b';
     ctx.lineWidth = 6.5;
     ctx.lineCap = 'round';
@@ -1155,22 +1326,40 @@ export class BayRouteVisualizer {
     ctx.shadowBlur = 16;
 
     ctx.beginPath();
-    const startNode = this.activeBayGraph.nodes.get(path[0])!;
-    const pStart = this.latLngToPoint(startNode.lat, startNode.lng);
-    ctx.moveTo(pStart.x, pStart.y);
-
-    for (let i = 1; i < path.length; i++) {
-      const node = this.activeBayGraph.nodes.get(path[i])!;
-      const p = this.latLngToPoint(node.lat, node.lng);
-      ctx.lineTo(p.x, p.y);
+    ctx.moveTo(fullRoutePoints[0].x, fullRoutePoints[0].y);
+    for (let i = 1; i < fullRoutePoints.length; i++) {
+      ctx.lineTo(fullRoutePoints[i].x, fullRoutePoints[i].y);
     }
     ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // Sharp White Centerline
+    // 2. Sharp White Highway Centerline
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 2.4;
     ctx.stroke();
+
+    // 3. Animated Travelling Photon Particle
+    if (fullRoutePoints.length >= 2) {
+      const timeSec = performance.now() / 1000;
+      const photonProgress = (timeSec * 0.4) % 1;
+      const totalSegments = fullRoutePoints.length - 1;
+      const segFloat = photonProgress * totalSegments;
+      const segIndex = Math.floor(segFloat);
+      const t = segFloat - segIndex;
+
+      const pA = fullRoutePoints[segIndex];
+      const pB = fullRoutePoints[Math.min(segIndex + 1, totalSegments)];
+      const photonX = pA.x + (pB.x - pA.x) * t;
+      const photonY = pA.y + (pB.y - pA.y) * t;
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.shadowColor = '#38bdf8';
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.arc(photonX, photonY, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
   }
 
   private renderNodes(): void {

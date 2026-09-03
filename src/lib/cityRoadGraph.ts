@@ -6,7 +6,7 @@
  * avenues, boulevards, one-ways, bridges, and freeway interchanges.
  */
 
-import type { BayGraph, BayNode, BayEdge, NodeType, RoadType } from './bayGraph';
+import type { BayGraph, BayNode, BayEdge, NodeType, RoadType, LatLngPoint } from './bayGraph';
 import { haversineDistanceMiles } from './realWorldRoadGraph';
 
 export type CityRoadType = RoadType | 'local';
@@ -29,6 +29,7 @@ export interface CityRoadSegment {
   distanceMiles: number;
   durationMinutes: number;
   oneWay?: boolean;
+  path?: LatLngPoint[];
 }
 
 export interface CityRoadGraph {
@@ -56,14 +57,33 @@ export function buildFullCityRoadGraph(): CityRoadGraph {
     }
   }
 
-  function addEdge(u: string, v: string, streetName: string, roadType: CityRoadType, speedLimit: number, bidirectional = true): void {
+  function addEdge(
+    u: string,
+    v: string,
+    streetName: string,
+    roadType: CityRoadType,
+    speedLimit: number,
+    bidirectional = true,
+    path?: LatLngPoint[]
+  ): void {
     const nodeU = nodes.get(u);
     const nodeV = nodes.get(v);
     if (!nodeU || !nodeV) return;
 
-    const dist = haversineDistanceMiles(nodeU.lat, nodeU.lng, nodeV.lat, nodeV.lng);
+    let dist = 0;
+    if (path && path.length >= 2) {
+      for (let i = 0; i < path.length - 1; i++) {
+        dist += haversineDistanceMiles(path[i].lat, path[i].lng, path[i + 1].lat, path[i + 1].lng);
+      }
+    } else {
+      dist = haversineDistanceMiles(nodeU.lat, nodeU.lng, nodeV.lat, nodeV.lng);
+    }
     const distanceMiles = Math.max(0.04, Math.round(dist * 100) / 100);
     const durationMinutes = Math.round((distanceMiles / speedLimit) * 60 * 100) / 100;
+
+    const forwardPath = path && path.length >= 2
+      ? [...path]
+      : [{ lat: nodeU.lat, lng: nodeU.lng }, { lat: nodeV.lat, lng: nodeV.lng }];
 
     const segForward: CityRoadSegment = {
       u,
@@ -74,11 +94,16 @@ export function buildFullCityRoadGraph(): CityRoadGraph {
       distanceMiles,
       durationMinutes,
       oneWay: !bidirectional,
+      path: forwardPath,
     };
     edges.push(segForward);
     adjacency.get(u)?.push({ target: v, segment: segForward });
 
     if (bidirectional) {
+      const backwardPath = path && path.length >= 2
+        ? [...path].reverse()
+        : [{ lat: nodeV.lat, lng: nodeV.lng }, { lat: nodeU.lat, lng: nodeU.lng }];
+
       const segBackward: CityRoadSegment = {
         u: v,
         v: u,
@@ -87,6 +112,7 @@ export function buildFullCityRoadGraph(): CityRoadGraph {
         speedLimit,
         distanceMiles,
         durationMinutes,
+        path: backwardPath,
       };
       edges.push(segBackward);
       adjacency.get(v)?.push({ target: u, segment: segBackward });
@@ -385,28 +411,70 @@ export function buildFullCityRoadGraph(): CityRoadGraph {
     { id: 'ggb_vista_point', name: 'Golden Gate Bridge Vista Point (Marin Headlands)', lat: 37.8325, lng: -122.4795, dist: 'Marin' },
   ];
 
-  for (let i = 0; i < ggbStops.length; i++) {
-    const s = ggbStops[i];
+  for (const s of ggbStops) {
     addNode(s.id, s.name, s.dist, s.lat, s.lng, 'bridge' as NodeType);
-    if (i > 0) {
-      addEdge(ggbStops[i - 1].id, s.id, 'Golden Gate Bridge (US-101)', 'bridge', 50);
-    }
   }
 
-  // Connect Lombard / Richardson Ave to Golden Gate Bridge
-  addEdge('lmb_presidio_gate', 'ggb_toll_plaza', 'Doyle Drive / Presidio Parkway (US-101)', 'highway', 55);
+  addEdge('ggb_toll_plaza', 'ggb_south_tower', 'Golden Gate Bridge (US-101)', 'bridge', 50, true, [
+    { lat: 37.8075, lng: -122.4750 },
+    { lat: 37.8125, lng: -122.4768 },
+    { lat: 37.8180, lng: -122.4785 },
+  ]);
+  addEdge('ggb_south_tower', 'ggb_midspan', 'Golden Gate Bridge (US-101)', 'bridge', 50, true, [
+    { lat: 37.8180, lng: -122.4785 },
+    { lat: 37.8200, lng: -122.4790 },
+    { lat: 37.8220, lng: -122.4795 },
+  ]);
+  addEdge('ggb_midspan', 'ggb_north_tower', 'Golden Gate Bridge (US-101)', 'bridge', 50, true, [
+    { lat: 37.8220, lng: -122.4795 },
+    { lat: 37.8240, lng: -122.4800 },
+    { lat: 37.8260, lng: -122.4805 },
+  ]);
+  addEdge('ggb_north_tower', 'ggb_vista_point', 'Golden Gate Bridge (US-101)', 'bridge', 50, true, [
+    { lat: 37.8260, lng: -122.4805 },
+    { lat: 37.8290, lng: -122.4802 },
+    { lat: 37.8325, lng: -122.4795 },
+  ]);
+
+  // Connect Lombard / Richardson Ave to Golden Gate Bridge with Presidio Parkway curve
+  addEdge('lmb_presidio_gate', 'ggb_toll_plaza', 'Doyle Drive / Presidio Parkway (US-101)', 'highway', 55, true, [
+    { lat: 37.7995, lng: -122.4490 },
+    { lat: 37.8020, lng: -122.4580 },
+    { lat: 37.8045, lng: -122.4670 },
+    { lat: 37.8075, lng: -122.4750 },
+  ]);
 
   // Connect Park Presidio Blvd (CA-1) through MacArthur Tunnel to Golden Gate Bridge
-  addEdge('cal_park_presidio', 'ggb_toll_plaza', 'Veterans Blvd (CA-1)', 'highway', 50);
+  addEdge('cal_park_presidio', 'ggb_toll_plaza', 'Veterans Blvd (CA-1)', 'highway', 50, true, [
+    { lat: 37.7845, lng: -122.4725 },
+    { lat: 37.7940, lng: -122.4715 },
+    { lat: 37.8020, lng: -122.4720 },
+    { lat: 37.8075, lng: -122.4750 },
+  ]);
 
   // Continue US-101 North into Marin County
   addNode('marin_sausalito', 'US-101 & Sausalito Lateral (Alexander Ave)', 'Sausalito', 37.8480, -122.4950, 'highway' as NodeType);
   addNode('marin_mill_valley', 'US-101 & CA-1 (Mill Valley / Stinson Beach)', 'Mill Valley', 37.8860, -122.5220, 'highway' as NodeType);
   addNode('marin_san_rafael', 'US-101 & I-580 Interchange (San Rafael Downtown)', 'San Rafael', 37.9735, -122.5311, 'highway' as NodeType);
 
-  addEdge('ggb_vista_point', 'marin_sausalito', 'US-101 Northbound (Waldo Grade / Rainbow Tunnel)', 'highway', 65);
-  addEdge('marin_sausalito', 'marin_mill_valley', 'US-101 Northbound', 'highway', 65);
-  addEdge('marin_mill_valley', 'marin_san_rafael', 'US-101 Northbound (Marin Corridor)', 'highway', 65);
+  addEdge('ggb_vista_point', 'marin_sausalito', 'US-101 Northbound (Waldo Grade / Rainbow Tunnel)', 'highway', 65, true, [
+    { lat: 37.8325, lng: -122.4795 },
+    { lat: 37.8375, lng: -122.4840 },
+    { lat: 37.8425, lng: -122.4900 },
+    { lat: 37.8480, lng: -122.4950 },
+  ]);
+  addEdge('marin_sausalito', 'marin_mill_valley', 'US-101 Northbound', 'highway', 65, true, [
+    { lat: 37.8480, lng: -122.4950 },
+    { lat: 37.8620, lng: -122.5080 },
+    { lat: 37.8750, lng: -122.5160 },
+    { lat: 37.8860, lng: -122.5220 },
+  ]);
+  addEdge('marin_mill_valley', 'marin_san_rafael', 'US-101 Northbound (Marin Corridor)', 'highway', 65, true, [
+    { lat: 37.8860, lng: -122.5220 },
+    { lat: 37.9150, lng: -122.5260 },
+    { lat: 37.9450, lng: -122.5290 },
+    { lat: 37.9735, lng: -122.5311 },
+  ]);
 
   // ==========================================
   // 5. SUNSET DISTRICT, GOLDEN GATE PARK & OCEAN BEACH
@@ -470,13 +538,40 @@ export function buildFullCityRoadGraph(): CityRoadGraph {
     { id: 'oak_macarthur_maze', name: 'MacArthur Maze Interchange (I-80 / I-580 / I-880)', lat: 37.8280, lng: -122.2920, dist: 'Emeryville' },
   ];
 
-  for (let i = 0; i < bayBridgeStops.length; i++) {
-    const s = bayBridgeStops[i];
+  for (const s of bayBridgeStops) {
     addNode(s.id, s.name, s.dist, s.lat, s.lng, 'bridge' as NodeType);
-    if (i > 0) {
-      addEdge(bayBridgeStops[i - 1].id, s.id, 'Bay Bridge (I-80)', 'bridge', 50);
-    }
   }
+
+  // Realistic S-Curve geometry across the Bay Bridge
+  addEdge('bb_fremont_ramp', 'bb_anchorage', 'Bay Bridge SF Approach', 'bridge', 50, true, [
+    { lat: 37.7885, lng: -122.3920 },
+    { lat: 37.7905, lng: -122.3880 },
+    { lat: 37.7930, lng: -122.3830 },
+  ]);
+  addEdge('bb_anchorage', 'bb_yerba_buena', 'Bay Bridge Western Suspension Span', 'bridge', 50, true, [
+    { lat: 37.7930, lng: -122.3830 },
+    { lat: 37.7960, lng: -122.3785 },
+    { lat: 37.8015, lng: -122.3720 },
+    { lat: 37.8065, lng: -122.3670 },
+    { lat: 37.8100, lng: -122.3650 },
+  ]);
+  addEdge('bb_yerba_buena', 'bb_east_span', 'Bay Bridge Eastern Span', 'bridge', 50, true, [
+    { lat: 37.8100, lng: -122.3650 },
+    { lat: 37.8130, lng: -122.3550 },
+    { lat: 37.8155, lng: -122.3460 },
+    { lat: 37.8180, lng: -122.3380 },
+  ]);
+  addEdge('bb_east_span', 'bb_toll_plaza', 'Bay Bridge Oakland Skyway', 'bridge', 50, true, [
+    { lat: 37.8180, lng: -122.3380 },
+    { lat: 37.8205, lng: -122.3270 },
+    { lat: 37.8225, lng: -122.3180 },
+    { lat: 37.8240, lng: -122.3120 },
+  ]);
+  addEdge('bb_toll_plaza', 'oak_macarthur_maze', 'I-80 Toll Plaza to MacArthur Maze', 'highway', 60, true, [
+    { lat: 37.8240, lng: -122.3120 },
+    { lat: 37.8260, lng: -122.3020 },
+    { lat: 37.8280, lng: -122.2920 },
+  ]);
 
   // Connect SoMa / FiDi to Bay Bridge Ramp
   addEdge('fol_1st', 'bb_fremont_ramp', 'Harrison St Bridge Approach', 'arterial', 30);
@@ -492,19 +587,67 @@ export function buildFullCityRoadGraph(): CityRoadGraph {
     { id: 'oak_downtown', name: 'Oakland City Center (Broadway & 14th St BART)', lat: 37.8044, lng: -122.2712, dist: 'Oakland' },
     { id: 'oak_grand_ave', name: 'Grand Ave & Harrison St (Lake Merritt)', lat: 37.8095, lng: -122.2610, dist: 'Oakland' },
     { id: 'oak_airport', name: 'Oakland International Airport (OAK)', lat: 37.7126, lng: -122.2197, dist: 'Oakland' },
+    { id: 'richmond_downtown', name: 'Richmond Downtown & I-580 / BART', lat: 37.9355, lng: -122.3530, dist: 'Richmond' },
+    { id: 'walnut_creek_downtown', name: 'Walnut Creek Downtown (CA-24 / I-680)', lat: 37.9063, lng: -122.0645, dist: 'Walnut Creek' },
   ];
 
   for (const s of eastBayStops) {
     addNode(s.id, s.name, s.dist, s.lat, s.lng, 'city' as NodeType);
   }
 
-  addEdge('oak_macarthur_maze', 'emeryville_powell', 'I-80 Eastbound (Eastshore Fwy)', 'highway', 65);
-  addEdge('emeryville_powell', 'berkeley_university', 'I-80 Eastbound', 'highway', 65);
-  addEdge('berkeley_university', 'berkeley_campus', 'University Avenue Corridor', 'arterial', 35);
+  addEdge('oak_macarthur_maze', 'emeryville_powell', 'I-80 Eastbound (Eastshore Fwy)', 'highway', 65, true, [
+    { lat: 37.8280, lng: -122.2920 },
+    { lat: 37.8340, lng: -122.2940 },
+    { lat: 37.8385, lng: -122.2950 },
+  ]);
+  addEdge('emeryville_powell', 'berkeley_university', 'I-80 Eastbound', 'highway', 65, true, [
+    { lat: 37.8385, lng: -122.2950 },
+    { lat: 37.8520, lng: -122.3000 },
+    { lat: 37.8685, lng: -122.3040 },
+  ]);
+  addEdge('berkeley_university', 'berkeley_campus', 'University Avenue Corridor', 'arterial', 35, true, [
+    { lat: 37.8685, lng: -122.3040 },
+    { lat: 37.8698, lng: -122.2850 },
+    { lat: 37.8710, lng: -122.2700 },
+    { lat: 37.8719, lng: -122.2585 },
+  ]);
 
-  addEdge('oak_macarthur_maze', 'oak_downtown', 'I-980 Southbound into Downtown Oakland', 'highway', 65);
+  addEdge('oak_macarthur_maze', 'oak_downtown', 'I-980 Southbound into Downtown Oakland', 'highway', 65, true, [
+    { lat: 37.8280, lng: -122.2920 },
+    { lat: 37.8160, lng: -122.2820 },
+    { lat: 37.8044, lng: -122.2712 },
+  ]);
   addEdge('oak_downtown', 'oak_grand_ave', 'Grand Avenue Waterfront', 'arterial', 30);
-  addEdge('oak_downtown', 'oak_airport', 'I-880 Southbound (Nimitz Fwy)', 'highway', 65);
+  addEdge('oak_downtown', 'oak_airport', 'I-880 Southbound (Nimitz Fwy)', 'highway', 65, true, [
+    { lat: 37.8044, lng: -122.2712 },
+    { lat: 37.7780, lng: -122.2450 },
+    { lat: 37.7450, lng: -122.2280 },
+    { lat: 37.7126, lng: -122.2197 },
+  ]);
+
+  // CA-24 Eastbound through Caldecott Tunnel to Walnut Creek
+  addEdge('oak_macarthur_maze', 'walnut_creek_downtown', 'CA-24 East (Caldecott Tunnel to Walnut Creek)', 'highway', 65, true, [
+    { lat: 37.8280, lng: -122.2920 },
+    { lat: 37.8450, lng: -122.2520 },
+    { lat: 37.8600, lng: -122.2220 },
+    { lat: 37.8820, lng: -122.1550 },
+    { lat: 37.9063, lng: -122.0645 },
+  ]);
+
+  // Richmond–San Rafael Bridge (I-580)
+  addEdge('marin_san_rafael', 'richmond_downtown', 'Richmond–San Rafael Bridge (I-580)', 'bridge', 55, true, [
+    { lat: 37.9735, lng: -122.5311 },
+    { lat: 37.9480, lng: -122.4920 },
+    { lat: 37.9350, lng: -122.4580 },
+    { lat: 37.9320, lng: -122.4220 },
+    { lat: 37.9270, lng: -122.3880 },
+    { lat: 37.9355, lng: -122.3530 },
+  ]);
+  addEdge('richmond_downtown', 'berkeley_university', 'I-80 / I-580 Southbound', 'highway', 65, true, [
+    { lat: 37.9355, lng: -122.3530 },
+    { lat: 37.9050, lng: -122.3250 },
+    { lat: 37.8685, lng: -122.3040 },
+  ]);
 
   // ==========================================
   // 8. PENINSULA & SOUTH BAY (US-101 & I-280)
@@ -515,7 +658,12 @@ export function buildFullCityRoadGraph(): CityRoadGraph {
     { id: 'san_mateo_bridge_west', name: 'CA-92 & San Mateo Bridge West Plaza', lat: 37.5580, lng: -122.2720, dist: 'San Mateo' },
     { id: 'redwood_city', name: 'Redwood City Courthouse Square', lat: 37.4852, lng: -122.2364, dist: 'Redwood City' },
     { id: 'palo_alto_stanford', name: 'Stanford University (Palm Drive & Main Quad)', lat: 37.4275, lng: -122.1697, dist: 'Stanford' },
-    { id: 'mountain_view_google', name: 'Mountain View (Googleplex / Shoreline Amphitheatre)', lat: 37.4220, lng: -122.0841, dist: 'Mountain View' },
+    { id: 'dumbarton_bridge_west', name: 'CA-84 & Dumbarton Bridge West (EPA)', lat: 37.4820, lng: -122.1490, dist: 'Menlo Park' },
+    { id: 'fremont_downtown', name: 'Fremont Central & Paseo Padre', lat: 37.5485, lng: -121.9886, dist: 'Fremont' },
+    { id: 'mountain_view_google', name: 'Mountain View (Googleplex / Shoreline)', lat: 37.4220, lng: -122.0841, dist: 'Mountain View' },
+    { id: 'i280_crystal_springs', name: 'I-280 & CA-92 (Crystal Springs Reservoirs)', lat: 37.5260, lng: -122.3480, dist: 'Hillsborough' },
+    { id: 'i280_sand_hill', name: 'I-280 & Sand Hill Road (Stanford SLAC)', lat: 37.4180, lng: -122.2060, dist: 'Menlo Park' },
+    { id: 'i280_apple_park', name: 'I-280 & Wolfe Rd (Apple Park Cupertino)', lat: 37.3340, lng: -122.0080, dist: 'Cupertino' },
     { id: 'san_jose_downtown', name: 'San Jose City Hall & Santa Clara St', lat: 37.3382, lng: -121.8863, dist: 'San Jose' },
   ];
 
@@ -523,20 +671,107 @@ export function buildFullCityRoadGraph(): CityRoadGraph {
     addNode(s.id, s.name, s.dist, s.lat, s.lng, 'city' as NodeType);
   }
 
-  // Connect San Francisco to Peninsula via US-101 & I-280
-  addEdge('msn_cesar_chavez', 'sfo_airport', 'US-101 Southbound (Bayshore Fwy)', 'highway', 65);
-  addEdge('daly_city_junc', 'sfo_airport', 'I-280 South to I-380 Connector', 'highway', 65);
-  addEdge('sfo_airport', 'san_mateo_downtown', 'US-101 Southbound', 'highway', 65);
+  // Connect San Francisco to Peninsula via US-101 Bayshore Freeway with true shoreline curvature
+  addEdge('msn_cesar_chavez', 'sfo_airport', 'US-101 Southbound (Bayshore Fwy)', 'highway', 65, true, [
+    { lat: 37.7485, lng: -122.4060 },
+    { lat: 37.7120, lng: -122.3980 },
+    { lat: 37.6750, lng: -122.3920 },
+    { lat: 37.6420, lng: -122.3850 },
+    { lat: 37.6213, lng: -122.3790 },
+  ]);
+  addEdge('sfo_airport', 'san_mateo_downtown', 'US-101 Southbound', 'highway', 65, true, [
+    { lat: 37.6213, lng: -122.3790 },
+    { lat: 37.5980, lng: -122.3610 },
+    { lat: 37.5800, lng: -122.3420 },
+    { lat: 37.5630, lng: -122.3255 },
+  ]);
   addEdge('san_mateo_downtown', 'san_mateo_bridge_west', 'CA-92 Eastbound', 'highway', 65);
-  addEdge('san_mateo_downtown', 'redwood_city', 'US-101 Southbound (Bayshore Fwy)', 'highway', 65);
-  addEdge('redwood_city', 'palo_alto_stanford', 'El Camino Real & University Ave', 'arterial', 35);
-  addEdge('palo_alto_stanford', 'mountain_view_google', 'US-101 Southbound', 'highway', 65);
-  addEdge('mountain_view_google', 'san_jose_downtown', 'US-101 Southbound (Silicon Valley Express)', 'highway', 65);
+  addEdge('san_mateo_downtown', 'redwood_city', 'US-101 Southbound (Bayshore Fwy)', 'highway', 65, true, [
+    { lat: 37.5630, lng: -122.3255 },
+    { lat: 37.5340, lng: -122.2920 },
+    { lat: 37.5080, lng: -122.2580 },
+    { lat: 37.4852, lng: -122.2364 },
+  ]);
+  addEdge('redwood_city', 'palo_alto_stanford', 'El Camino Real & University Ave', 'arterial', 35, true, [
+    { lat: 37.4852, lng: -122.2364 },
+    { lat: 37.4620, lng: -122.2050 },
+    { lat: 37.4420, lng: -122.1820 },
+    { lat: 37.4275, lng: -122.1697 },
+  ]);
+  addEdge('palo_alto_stanford', 'mountain_view_google', 'US-101 Southbound', 'highway', 65, true, [
+    { lat: 37.4275, lng: -122.1697 },
+    { lat: 37.4280, lng: -122.1380 },
+    { lat: 37.4250, lng: -122.1050 },
+    { lat: 37.4220, lng: -122.0841 },
+  ]);
+  addEdge('mountain_view_google', 'san_jose_downtown', 'US-101 Southbound (Silicon Valley Express)', 'highway', 65, true, [
+    { lat: 37.4220, lng: -122.0841 },
+    { lat: 37.4020, lng: -122.0320 },
+    { lat: 37.3780, lng: -121.9750 },
+    { lat: 37.3520, lng: -121.9220 },
+    { lat: 37.3382, lng: -121.8863 },
+  ]);
 
-  // San Mateo Bridge & East Bay connection
+  // I-280 Junipero Serra Freeway Corridor through the hills
+  addEdge('daly_city_junc', 'i280_crystal_springs', 'I-280 Southbound (Junipero Serra Fwy)', 'highway', 70, true, [
+    { lat: 37.7015, lng: -122.4680 },
+    { lat: 37.6450, lng: -122.4420 },
+    { lat: 37.5850, lng: -122.3920 },
+    { lat: 37.5260, lng: -122.3480 },
+  ]);
+  addEdge('i280_crystal_springs', 'i280_sand_hill', 'I-280 Southbound (Crystal Springs Reservoirs)', 'highway', 70, true, [
+    { lat: 37.5260, lng: -122.3480 },
+    { lat: 37.4780, lng: -122.2850 },
+    { lat: 37.4420, lng: -122.2420 },
+    { lat: 37.4180, lng: -122.2060 },
+  ]);
+  addEdge('i280_sand_hill', 'i280_apple_park', 'I-280 Southbound (Foothills Express)', 'highway', 70, true, [
+    { lat: 37.4180, lng: -122.2060 },
+    { lat: 37.3850, lng: -122.1420 },
+    { lat: 37.3520, lng: -122.0680 },
+    { lat: 37.3340, lng: -122.0080 },
+  ]);
+  addEdge('i280_apple_park', 'san_jose_downtown', 'I-280 South into Downtown San Jose', 'highway', 70, true, [
+    { lat: 37.3340, lng: -122.0080 },
+    { lat: 37.3310, lng: -121.9480 },
+    { lat: 37.3382, lng: -121.8863 },
+  ]);
+
+  // Connect I-280 into Peninsula Cities
+  addEdge('daly_city_junc', 'sfo_airport', 'I-280 to I-380 Connector', 'highway', 65);
+  addEdge('i280_crystal_springs', 'san_mateo_bridge_west', 'CA-92 Highway Spine', 'highway', 65);
+  addEdge('i280_sand_hill', 'palo_alto_stanford', 'Sand Hill Road to Stanford Quad', 'arterial', 35);
+  addEdge('i280_apple_park', 'mountain_view_google', 'Sunnyvale / Shoreline Connector', 'arterial', 40);
+
+  // San Mateo–Hayward Bridge (CA-92) with authentic bay curvature
   addNode('hayward_downtown', 'Hayward Downtown (CA-92 & I-880)', 'Hayward', 37.6688, -122.0808, 'city' as NodeType);
-  addEdge('san_mateo_bridge_west', 'hayward_downtown', 'San Mateo–Hayward Bridge (CA-92)', 'bridge', 55);
+  addEdge('san_mateo_bridge_west', 'hayward_downtown', 'San Mateo–Hayward Bridge (CA-92)', 'bridge', 55, true, [
+    { lat: 37.5580, lng: -122.2720 },
+    { lat: 37.5710, lng: -122.2420 },
+    { lat: 37.5890, lng: -122.2030 },
+    { lat: 37.6080, lng: -122.1640 },
+    { lat: 37.6250, lng: -122.1280 },
+    { lat: 37.6450, lng: -122.1020 },
+    { lat: 37.6688, lng: -122.0808 },
+  ]);
   addEdge('hayward_downtown', 'oak_airport', 'I-880 Northbound', 'highway', 65);
+
+  // Dumbarton Bridge (CA-84) connecting Peninsula to Fremont
+  addEdge('palo_alto_stanford', 'dumbarton_bridge_west', 'University Ave & Willow Rd (CA-84)', 'arterial', 40);
+  addEdge('dumbarton_bridge_west', 'fremont_downtown', 'Dumbarton Bridge (CA-84)', 'bridge', 55, true, [
+    { lat: 37.4820, lng: -122.1490 },
+    { lat: 37.4980, lng: -122.1290 },
+    { lat: 37.5140, lng: -122.1050 },
+    { lat: 37.5320, lng: -122.0620 },
+    { lat: 37.5485, lng: -121.9886 },
+  ]);
+  addEdge('fremont_downtown', 'hayward_downtown', 'I-880 Northbound (Nimitz Fwy)', 'highway', 65);
+  addEdge('fremont_downtown', 'san_jose_downtown', 'I-880 Southbound into San Jose', 'highway', 65, true, [
+    { lat: 37.5485, lng: -121.9886 },
+    { lat: 37.4850, lng: -121.9380 },
+    { lat: 37.4220, lng: -121.9050 },
+    { lat: 37.3382, lng: -121.8863 },
+  ]);
 
   cachedCityGraph = { nodes, edges, adjacency };
   return cachedCityGraph;
@@ -605,6 +840,10 @@ export function spliceEndpointIntoCityGraph(
       speedLimit: streetSpeed,
       distanceMiles: distMiles,
       durationMinutes: durMins,
+      path: [
+        { lat: newNode.lat, lng: newNode.lng },
+        { lat: targetNode.lat, lng: targetNode.lng },
+      ],
     };
 
     const backwardSeg: CityRoadSegment = {
@@ -615,6 +854,10 @@ export function spliceEndpointIntoCityGraph(
       speedLimit: streetSpeed,
       distanceMiles: distMiles,
       durationMinutes: durMins,
+      path: [
+        { lat: targetNode.lat, lng: targetNode.lng },
+        { lat: newNode.lat, lng: newNode.lng },
+      ],
     };
 
     edges.push(forwardSeg, backwardSeg);
@@ -663,6 +906,7 @@ export function cityRoadGraphToBayGraph(cityGraph: CityRoadGraph): BayGraph {
       roadType,
       distance: seg.distanceMiles,
       speedLimit: seg.speedLimit,
+      path: seg.path,
     };
     edges.push(bayEdge);
     adjacency.get(seg.u)?.push({
