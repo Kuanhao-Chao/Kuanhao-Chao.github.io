@@ -554,6 +554,16 @@ const breadcrumbLd = buildBreadcrumbLd([
             <div class="gb-tooltip" data-gb-tooltip hidden></div>
             <aside class="gb-motif" data-gb-motif hidden aria-label="Motif"></aside>
           </div>
+          <div class="gw-foot">
+            <span class="vp-stat gb-corr" data-gb-corr></span>
+            <section class="gb-stats-box" aria-label="This view, in numbers">
+              <h3 class="gb-stats__title">This view, in numbers</h3>
+              <div data-gb-stats hidden></div>
+              <canvas class="gb-scatter" data-gb-scatter height="170"
+                      aria-label="The two enabled score lanes plotted against each other"
+                      hidden></canvas>
+            </section>
+          </div>
         </div>
 
         <p class="vp-notes" style="margin:0.5rem 0 0;">
@@ -1292,6 +1302,14 @@ const breadcrumbLd = buildBreadcrumbLd([
     gap: 0.4rem;
     padding: 0.4rem 0.6rem;
     border-bottom: 1px solid var(--color-border);
+  }
+
+  .gw-foot {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0.5rem 0.6rem;
+    border-top: 1px solid var(--color-border);
   }
 
   .gw-stage { position: relative; background: var(--color-bg); }

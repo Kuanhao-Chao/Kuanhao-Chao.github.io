@@ -2146,6 +2146,11 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     // made self-removing. Clicks, never `location.href`, which is a full load and proves nothing.
     await page.goto(GENOME_ROUTE, { waitUntil: 'networkidle' });
     await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 20000 });
+    // How many canvases ONE controller owns, measured before the round trips rather than typed.
+    // The page has grown a third (the scatter) once already, and a hardcoded 2 turns that into a
+    // failure that reads like a leak.
+    const canvasesPerController = await page.evaluate(
+      () => document.querySelectorAll('[data-genome-browser] canvas').length);
     let hardLoads = 0;
     page.on('load', () => { hardLoads += 1; });
     for (let i = 0; i < 4; i += 1) {
@@ -2165,12 +2170,17 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
       HTMLCanvasElement.prototype.getContext = real;
       return n;
     });
-    if (live > 3) {
+    // One controller repaints its own canvases and no more. A leaked controller holds a detached
+    // canvas and repaints that too, so the count scales with how many round trips leaked.
+    if (live > canvasesPerController) {
       fail(scope, `${live} canvases repaint on one theme-change after 4 round trips — `
-        + `${Math.round(live / 2)} controllers are still listening`);
+        + `${(live / canvasesPerController).toFixed(1)} controllers are still listening `
+        + `(one owns ${canvasesPerController})`);
     }
     const canvasCount = await page.evaluate(() => document.querySelectorAll('canvas').length);
-    if (canvasCount !== 2) fail(scope, `${canvasCount} canvases after 4 round trips, expected 2`);
+    if (canvasCount !== canvasesPerController) {
+      fail(scope, `${canvasCount} canvases after 4 round trips, expected ${canvasesPerController}`);
+    }
 
     // 4p. A COARSE track must not claim a resolution it does not have.
     //
@@ -2334,7 +2344,8 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     if (bad.length) fail(scope, `genome-data requests failed: ${bad.slice(0, 3).join(', ')}`);
     if (errors.length) fail(scope, `console/page errors: ${errors.slice(0, 2).join(' | ')}`);
     progress(`  genome: levels ${ladder.join(' ')}, cache peak ${peak}/${cap}, ${evicted} evicted, `
-      + `${searchN} genes searchable, ${live / 2} controller(s) live after 4 round trips, `
+      + `${searchN} genes searchable, ${live / canvasesPerController} controller(s) live after `
+      + '4 round trips, '
       + `embed lanes ${embLanes.join('+')}`);
   } finally {
     await context.close();
