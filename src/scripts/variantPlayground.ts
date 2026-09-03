@@ -105,6 +105,7 @@ import {
   stemActivations,
   type StemActivation,
   type StemWeights,
+  decodePackedPlane,
 } from '../lib/shorkieModel';
 
 
@@ -2069,18 +2070,10 @@ export function initVariantPlayground(root: ParentNode = document) {
     cx.drawImage(bitmap, 0, 0);
     bitmap.close();
     const px = cx.getImageData(0, 0, spec.cols, spec.rows).data;
-    const plane = new Float32Array(spec.rows * spec.cols);
-    const log = spec.space === 'log';
-    for (let r = 0; r < spec.rows; r += 1) {
-      const lo = spec.lo[r];
-      const range = Math.max(spec.hi[r] - lo, 1e-12);
-      for (let c = 0; c < spec.cols; c += 1) {
-        const v = (px[(r * spec.cols + c) * 4] / 255) * range + lo;
-        // Signed log, inverted exactly as the generator wrote it. Getting this wrong would not
-        // throw -- it would draw a plausible logo of the wrong magnitudes.
-        plane[r * spec.cols + c] = log ? Math.sign(v) * 1e-4 * (10 ** Math.abs(v) - 1) : v;
-      }
-    }
+    // ONE decoder, shared with the frontier panels through `src/lib/shorkieModel.ts`. Writing the
+    // inverse a second time is how this repo shipped a wrong correlation while every sign check
+    // passed -- the plausible alternative is monotone and odd, so it preserves signs and argmaxes.
+    const plane = decodePackedPlane(px, spec);
     return { plane, start: spec.start, width: spec.cols, ref: spec.ref, tss: spec.tss };
   }
 
