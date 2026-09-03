@@ -37,7 +37,7 @@
 
 import {
   levelForBpPerPixel, tilesCovering, tileStartBp, clampView, zoomAbout,
-  levelsForTrack, axisFraction, axisValue, isSignedAxis, pearson, exportRows,
+  levelsForTrack, axisFraction, axisValue, isSignedAxis, pearson, exportRows, laneExcluder,
   xOfBp as xOfBpPure, bpOfX as bpOfXPure, formatLocus, formatSpan, rulerTicks,
   laneLayout, laneAt, brushRegion, featureDensity, searchLocus, chromOrder,
   shouldDrawLetters, pinchZoom, pointDistance, pointMidpoint,
@@ -114,6 +114,8 @@ const PRESETS: {
     label: 'constraint',
     hint: 'What does the language model think is determined by its context, against 7-species conservation?',
     lanes: ['lm-masked', 'phastcons', 'genes', 'sequence'],
+    // Without the language model this is "phastCons + genes" under a heading promising constraint.
+    requires: ['lm-masked'],
   },
   {
     id: 'expression',
@@ -126,6 +128,7 @@ const PRESETS: {
     label: 'compare models',
     hint: 'Constrained against expressed — two lanes, so the header prints their correlation over the view',
     lanes: ['lm-masked', 'sk-rnaseq', 'genes'],
+    requires: ['lm-masked'],
   },
   {
     id: 'regulation',
@@ -148,6 +151,7 @@ const PRESETS: {
     label: 'variation',
     hint: 'Constraint against what actually varies across 1,011 natural isolates',
     lanes: ['lm-masked', 'variant_missense', 'variant_synonymous', 'genes'],
+    requires: ['lm-masked'],
   },
 ];
 
@@ -546,6 +550,18 @@ export function initGenomeBrowser(host: HTMLElement): void {
 
   /** Enabled state and height for every lane the panel can toggle. */
   const isCompact = host.dataset.gbMinimal === '1' || host.dataset.gbCompact === '1';
+
+  /**
+   * Lanes this mounting is not allowed to show at all.
+   *
+   * `data-gb-tracks` decides what is ON at startup and says nothing about what EXISTS, so the
+   * expression page's embed would surface the language model's lanes the moment it grew a track
+   * panel. `data-gb-exclude="lm-"` removes the family. Applied in every place that enumerates
+   * lanes -- a lane hidden from the panel but still reachable from a preset or a URL is worse than
+   * one hidden from nothing.
+   */
+  const laneHidden = laneExcluder(host.dataset.gbExclude);
+  const availableLanes = (): string[] => ALL_LANES(index).filter((id) => !laneHidden(id));
   const enabled = new Map<string, boolean>();
   const laneHeight = new Map<string, number>([
     ['lm-masked', isCompact ? 90 : 118],
@@ -553,10 +569,14 @@ export function initGenomeBrowser(host: HTMLElement): void {
     ['phastcons', isCompact ? 72 : 96],
   ]);
 
-  const scoreTracks = (): TrackSpec[] => (index?.tracks ?? []).filter((t) => enabled.get(t.id));
+  const scoreTracks = (): TrackSpec[] =>
+    (index?.tracks ?? []).filter((t) => enabled.get(t.id) && !laneHidden(t.id));
 
   /** The level each score lane was last drawn at. Tracks differ: a 16 bp track has no L0. */
   const drawnLevels = new Map<string, Level>();
+
+  /** Glyphs drawn by score lanes in the current paint; see `letters` in `paintTrack`. */
+  let scoreGlyphs = 0;
 
   /**
    * A track's genome-wide mean, length-weighted over the chromosomes that scored it.
@@ -1129,6 +1149,10 @@ export function initGenomeBrowser(host: HTMLElement): void {
     drawnLevels.clear();
     let geneTally: Record<string, unknown> = {};
     let letters = 0;
+    // Glyphs drawn by a SCORE lane (an information-content or signed-attribution logo), as opposed
+    // to `letters`, which counts only the dedicated sequence lane. Without this the resolution
+    // readout says "bars" over a lane that is visibly letters.
+    scoreGlyphs = 0;
     const featureCounts: Record<string, number> = {};
 
     for (const lane of lanes) {
@@ -1238,7 +1262,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     cv.dataset.gbDrawn = String(drawn);
     cv.dataset.gbGeneTrack = JSON.stringify(geneTally);
     cv.dataset.gbTiles = String(tiles.size);
-    cv.dataset.gbMode = letters > 0 ? 'letters' : 'bars';
+    cv.dataset.gbMode = letters + scoreGlyphs > 0 ? 'letters' : 'bars';
     cv.dataset.gbLanes = JSON.stringify(lanes.map((l) => l.id));
     cv.dataset.gbScoreTracks = String(scoreTracks().length);
     cv.dataset.gbFeatures = JSON.stringify(featureCounts);
@@ -1265,7 +1289,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
       // at it. Same rule as the caption's short form on the full page.
       const tight = w < PHONE_W;
       levelOut.textContent = (lvl.binBp === 1
-        ? (letters > 0 ? 'per base, letters' : 'per base')
+        ? (letters + scoreGlyphs > 0 ? 'per base, letters' : 'per base')
         : `${lvl.binBp.toLocaleString()} bp bins${tight ? '' : ' · min/mean/max'}`)
         + (coarser.length
           ? `${tight ? ' · floor: ' : ' · at their own floor: '}${coarser.join(', ')}` : '')
@@ -1506,7 +1530,17 @@ export function initGenomeBrowser(host: HTMLElement): void {
     const fracOf = (v: number) => axisFraction(v, axis, space, lin);
     const yOf = (v: number) => top + h - fracOf(v) * h;
     const yOfFrac = (f: number) => top + h - f * h;
-    const seq = spec.units === 'bits' && shouldDrawLetters(view.end - view.start, inner)
+    // Letters for an information-content lane, and now for a SIGNED attribution lane too: an
+    // attribution's whole subject is which BASE is doing the work, and a bar chart of it withholds
+    // exactly that. The signed geometry below assumes the zero rule sits mid-lane, which is what
+    // symlog gives; a signed linear track would need `fracOf(0)` handled the same way but is not
+    // something this browser ships.
+    // ...but ONLY where the lane genuinely resolves single bases. Occlusion is signed too, and its
+    // bins are 64 bp, so a letter view of it would draw sixty-four identical glyphs in a row --
+    // the browser claiming a resolution the measurement does not have, in the one rendering where
+    // a reader would take it most literally. `lvl.binBp === 1` is the whole guard.
+    const asLetters = (spec.units === 'bits' || signed) && lvl.binBp === 1;
+    const seq = asLetters && shouldDrawLetters(view.end - view.start, inner)
       ? sequence() : null;
 
     // Gridlines and the axis, per lane: every score lane prints its OWN range and units, because
@@ -1558,19 +1592,29 @@ export function initGenomeBrowser(host: HTMLElement): void {
       // site. `fillText` with a scaled font size is not a logo twice over: font-size scales width
       // with height, and a monospace T stretched 13:1 renders as a lollipop.
       const bw = inner / (view.end - view.start);
+      // An unsigned lane grows from its floor; a signed one from its zero rule, and its height is
+      // the SIGNED half-fraction. `baseY` and `sy` are the only two things that differ.
+      const zeroF = signed ? fracOf(0) : 0;
+      const baseY = signed ? yOf(0) : top + h;
       for (let i = 0; i < seq.length; i += 1) {
         const b = seq[i];
         const c = cols[Math.min(cols.length - 1, Math.floor(i * bw))];
         if (!b || !c?.have) continue;
-        const sy = fracOf(c.mean) * h * LOGO_GLOBSCALE;
-        if (sy < 0.12) continue;
+        const sy = (fracOf(c.mean) - zeroF) * h * LOGO_GLOBSCALE;
+        if (Math.abs(sy) < 0.12) continue;
         ctx.save();
-        ctx.translate(xOfBp(view.start + i + 0.5, w), top + h);
+        ctx.translate(xOfBp(view.start + i + 0.5, w), baseY);
+        // `-sy` for both signs, which is exactly what `drawLogo` in variantPlayground.ts does:
+        // with sy < 0 the glyph is not flipped, so a negative letter hangs MIRRORED below the
+        // rule. That is this site's and the paper's convention -- positives up, negatives
+        // mirrored below -- and the two logo renderers sit next to each other on the page, so
+        // they must not disagree about what a negative letter looks like.
         ctx.scale(bw * LOGO_GLOBSCALE, -sy);
         ctx.fillStyle = LOGO_COLOURS[b];
         ctx.fill(new Path2D(LOGO_GLYPHS[b]));
         ctx.restore();
         drawn += 1;
+        scoreGlyphs += 1;
       }
     } else {
       for (let x = 0; x < inner; x += 1) {
@@ -2124,7 +2168,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
   // -------------------------------------------------------------------------------------------
   const currentState = () => ({
     view,
-    tracks: ALL_LANES(index).filter((id) => enabled.get(id)),
+    tracks: availableLanes().filter((id) => enabled.get(id)),
     roi,
   });
 
@@ -2671,7 +2715,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     plabel.className = 'gb-panel__head';
     plabel.textContent = 'Views';
     panelBox.append(plabel, pbar);
-    const known = new Set(ALL_LANES(index));
+    const known = new Set(availableLanes());
     for (const preset of PRESETS) {
       const lanes = preset.lanes.filter((id) => known.has(id));
       if (lanes.length < 2) continue;         // a preset whose tracks this build lacks
@@ -2701,6 +2745,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     const byGroup = new Map<string, TrackSpec[]>(
       Object.keys(index.groupLabels ?? {}).map((g) => [g, [] as TrackSpec[]]));
     for (const t of index.tracks) {
+      if (laneHidden(t.id)) continue;
       const g = t.group ?? 'other';
       if (!byGroup.has(g)) byGroup.set(g, []);
       byGroup.get(g)!.push(t);
@@ -2728,13 +2773,16 @@ export function initGenomeBrowser(host: HTMLElement): void {
     }
 
     group('Annotation');
-    row('genes', 'Genes', 'SGD gene models; introns are drawn as gaps');
-    row('sequence', 'Sequence letters', 'the reference, at base zoom');
-    for (const f of FEATURE_LANES) row(f.id, f.label, f.hint, undefined, f.docs);
+    if (!laneHidden('genes')) row('genes', 'Genes', 'SGD gene models; introns are drawn as gaps');
+    if (!laneHidden('sequence')) row('sequence', 'Sequence letters', 'the reference, at base zoom');
+    for (const f of FEATURE_LANES) {
+      if (laneHidden(f.id)) continue;
+      row(f.id, f.label, f.hint, undefined, f.docs);
+    }
   }
 
   function applyTracks(ids: string[]): void {
-    for (const id of ALL_LANES(index)) enabled.set(id, ids.includes(id));
+    for (const id of availableLanes()) enabled.set(id, ids.includes(id));
     buildPanel();
   }
 
@@ -2810,7 +2858,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
       ? host.dataset.gbTracks.split(',').map((s) => s.trim()).filter(Boolean)
       : (narrow ? DEFAULT_ON_NARROW : DEFAULT_ON);
 
-    for (const id of initialTracks) enabled.set(id, true);
+    for (const id of initialTracks) if (!laneHidden(id)) enabled.set(id, true);
 
     const hash = !isMinimal ? decodeViewState(window.location.hash, index.chroms) : { tracks: [], view: null, roi: null };
     if (hash.tracks?.length) applyTracks(hash.tracks);
