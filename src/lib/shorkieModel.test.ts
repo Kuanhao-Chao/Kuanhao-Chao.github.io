@@ -89,6 +89,7 @@ import {
   weightedEnrichment,
   type AnnotationFeature,
   decodePackedPlane,
+  motifConsensusFor,
 } from './shorkieModel';
 import tracks from '../data/shorkieTracks.json';
 import trackNames from '../data/shorkieTrackNames.json';
@@ -2687,5 +2688,44 @@ describe('decodePackedPlane', () => {
     px[4] = 0; px[5] = 200; px[6] = 200; px[7] = 255;
     const got = decodePackedPlane(px, { rows: 1, cols: 2, lo: [0], hi: [1], space: 'linear' });
     expect([got[0], got[1]]).toEqual([1, 0]);
+  });
+});
+
+describe('motifConsensusFor', () => {
+  const dict = {
+    motifs: [
+      { name: 'Rap1', consensus: 'MACCCANNCAY', aliases: ['RAP1', 'Rap1'] },
+      { name: 'Sfp1.1', consensus: 'AAAATTTT', aliases: ['SFP1', 'Sfp1'] },
+      { name: "5\u2032 splice site", consensus: 'GTATGT', aliases: [] },
+    ],
+  };
+
+  it('matches whatever spelling a database happens to use', () => {
+    // The solid-vs-hollow distinction is a CLAIM about the sequence, so a name-only join that
+    // misses an alias does not merely lose a label -- it silently downgrades a checkable claim
+    // into "no consensus found here".
+    for (const n of ['RAP1', 'Rap1', 'rap1', 'rAp1']) {
+      expect(motifConsensusFor(n, dict)?.consensus).toBe('MACCCANNCAY');
+    }
+  });
+
+  it('strips a trailing database variant number, which belongs to the call and not the factor', () => {
+    expect(motifConsensusFor('SFP1.2', dict)?.name).toBe('Sfp1.1');
+    expect(motifConsensusFor('SFP1', dict)?.name).toBe('Sfp1.1');
+  });
+
+  it('does not strip a digit that is part of a short name', () => {
+    // `H2B` and `H3` are three characters or fewer; stripping would collapse them together.
+    expect(motifConsensusFor('H2B', dict)).toBeNull();
+    expect(motifConsensusFor('H3', dict)).toBeNull();
+  });
+
+  it('returns null for a factor with no consensus rather than guessing one', () => {
+    expect(motifConsensusFor('STE12', dict)).toBeNull();
+    expect(motifConsensusFor('OREG0030209', dict)).toBeNull();
+  });
+
+  it('handles the non-ASCII names in the shipped dictionary', () => {
+    expect(motifConsensusFor('5\u2032 splice site', dict)?.consensus).toBe('GTATGT');
   });
 });

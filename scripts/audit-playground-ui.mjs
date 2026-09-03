@@ -794,10 +794,6 @@ async function auditExplanations(browser, baseURL, scope) {
       () => document.querySelector('[data-vp]').dataset.vpTraceReady === 'true',
       { timeout: 60_000 },
     );
-    // Captured BEFORE tracing moves the letter views: the locus arrives framed on its promoter,
-    // which is the window whose box count is a statement about the renderer.
-    const boxesAtLoad = await page.evaluate(
-      () => Number(document.querySelector('[data-vp-ism-logo]')?.dataset.boxes ?? '0'));
     // Trace a region: the method tracks, both logo views, the enrichment table and the neuron
     // class table are all region-conditioned and legitimately draw nothing without one.
     await page.locator('[data-vp-region-next]').scrollIntoViewIfNeeded();
@@ -886,8 +882,7 @@ async function auditExplanations(browser, baseURL, scope) {
     // Mutagenesis is the primary logo source now that it covers the whole window, so it must be
     // present AND selected by default. This assertion is the inverse of the one it replaced; both
     // states cannot be right, and pinning only the new prose would let a half-applied revert pass.
-    if (!bio.ismOption) fail(scope, 'the mutagenesis logo source is missing from the dropdown');
-    if (bio.ismDefault !== 'ism') fail(scope, `logo source defaults to "${bio.ismDefault}", expected ism`);
+    // (the ism source select is archived; the browser offers each method as its own lane)
 
     // The brush must move every logo view together.
     const before = uniq[0];
@@ -912,8 +907,9 @@ async function auditExplanations(browser, baseURL, scope) {
     const spine = await page.evaluate(() => {
       // One canvas draws every lane now, so there is no longer a set of panels that could
       // disagree about the focus band. What replaced the check is structural.
-      const focus = [...document.querySelectorAll('[data-vp-lens]')]
-        .map((e) => e.dataset.vpFocus ?? null);
+      // The lens is archived with the logo it connected. One canvas draws every lane in the
+      // browser, so nothing is left that could disagree about a focus band.
+      const focus = [];
       return {
         acts: [...document.querySelectorAll('.vp-act')].map((e) => e.textContent.trim()),
         focus,
@@ -926,12 +922,15 @@ async function auditExplanations(browser, baseURL, scope) {
     if (spine.acts.length !== 4) fail(scope, `${spine.acts.length} act headings, expected 4`);
     if (new Set(spine.acts).size !== spine.acts.length) fail(scope, 'a duplicate act heading');
     if (spine.navSticky !== 'sticky') fail(scope, `the selection bar is ${spine.navSticky}, not sticky`);
-    // Every full-window track must carry the focus band, and they must agree about it -- the whole
-    // point of the shared axis is that the eye can follow one band down the column.
-    if (spine.focus.some((f) => !f)) {
-      fail(scope, `a full-window track has no focus band: ${JSON.stringify(spine.focus)}`);
-    } else if (new Set(spine.focus).size !== 1) {
-      fail(scope, `tracks disagree about the focus band: ${[...new Set(spine.focus)].join(' vs ')}`);
+    // The focus band spanned four stacked panels that are now one canvas in the browser, where a
+    // shared axis is structural rather than something to check. Retired, not weakened: nothing is
+    // left that could disagree.
+    if (spine.focus.length) {
+      if (spine.focus.some((f) => !f)) {
+        fail(scope, `a full-window track has no focus band: ${JSON.stringify(spine.focus)}`);
+      } else if (new Set(spine.focus).size !== 1) {
+        fail(scope, `tracks disagree about the focus band: ${[...new Set(spine.focus)].join(' vs ')}`);
+      }
     }
     if (spine.findings < 3) fail(scope, `${spine.findings} findings stated, expected at least 3`);
     if (spine.classFig < 8) fail(scope, `class figure drew ${spine.classFig} rows`);
@@ -952,42 +951,16 @@ async function auditExplanations(browser, baseURL, scope) {
     );
     if (!opened) fail(scope, 'the first disclosure did not open on click');
 
-    // --- the merged logo draws for every source it offers ----------------------------------
+    // --- the four attribution methods, and the annotation overlay ---------------------------
+    //
+    // The 1-of-4 source dropdown and the paper-fidelity ISM logo are archived. The browser is
+    // additive rather than a selector -- each method is its own lane and several stack at once --
+    // and it now carries the annotation overlay too, which was the panel's only unique capability.
+    // `chromium/genome` step 4u2 re-derives every box's solid/hollow verdict from the sequence,
+    // which is a stronger check than the panel ever had.
     await page.locator('[data-vp-region-next]').scrollIntoViewIfNeeded();
     await page.locator('[data-vp-region-next]').click();
     await page.waitForTimeout(600);
-    const sources = await page.locator('[data-vp-logo-source] option').evaluateAll(
-      (os) => os.map((o) => o.value),
-    );
-    // Four: mutagenesis rejoined as the primary source once it covered all 16,384 bp rather than
-    // the ~500 bp promoter window that had it sitting blank across 97% of the axis.
-    if (sources.length !== 4) fail(scope, `logo offers ${sources.length} sources, expected 4`);
-    if (!sources.includes('ism')) fail(scope, 'the mutagenesis source is missing');
-    if (sources[0] !== 'ism') fail(scope, `mutagenesis should lead the source list; got "${sources[0]}"`);
-    const seen = new Set();
-    for (const src of sources) {
-      await page.selectOption('[data-vp-logo-source]', src);
-      await page.waitForTimeout(300);
-      const s = await page.evaluate(() => {
-        const e = document.querySelector('[data-vp-ism-logo]');
-        return { letters: Number(e?.dataset.letters ?? '0'), stat: e?.dataset.window ?? '' };
-      });
-      if (!(s.letters > 20)) fail(scope, `logo source "${src}" drew ${s.letters} letters`);
-      seen.add(src);
-    }
-    // The annotated whole-window logo came over from the archived panel and must still be here.
-    const panel = await page.evaluate(() => ({
-      letters: Number(document.querySelector('[data-vp-ism-logo]')?.dataset.letters ?? '0'),
-      boxes: Number(document.querySelector('[data-vp-ism-logo]')?.dataset.boxes ?? '0'),
-    }));
-    if (!(panel.letters > 100)) fail(scope, `the annotated logo drew ${panel.letters} letters`);
-    // Boxes are asserted at the locus's OWN default window -- the promoter at TSS-200, which is
-    // where the curated sites are. Asserting them after stepping to an arbitrary traced region
-    // tests where the region stepper landed, not whether the logo can draw a box: bp 2,237-2,387
-    // of TDH3's window has no annotated feature in it, and correctly draws none.
-    if (!(boxesAtLoad > 0)) {
-      fail(scope, `the annotated logo drew ${boxesAtLoad} motif boxes at the locus default`);
-    }
 
     // --- occlusion: marginals and click-through ---------------------------------------------
     const occl = page.locator('[data-vp-occl]');
@@ -1295,8 +1268,10 @@ async function auditInterpretation(browser, baseURL, scope) {
       region: document.querySelector('[data-vp-region]')?.selectedOptions[0]?.textContent ?? '',
       stages: Number(document.querySelector('[data-vp-stage-profile]')?.dataset.stages ?? '0'),
       inside: document.querySelector('[data-vp-rollout]')?.dataset.inside ?? '',
-      letters: Number(document.querySelector('[data-vp-ism-logo]')?.dataset.letters ?? '0'),
-      logoWindow: document.querySelector('[data-vp-ism-logo]')?.dataset.window ?? '',
+      // The ISM logo is archived; the region-conditioned method strip is what still follows a
+      // selection, and it is the thing this scope is actually about.
+      letters: Number(document.querySelector('[data-vp-method-logos]')?.dataset.rows ?? '0'),
+      logoWindow: document.querySelector('[data-vp-method-logos]')?.dataset.window ?? '',
       trace: document.querySelector('[data-vp-trace-label]')?.textContent ?? '',
     }));
 
@@ -1332,12 +1307,12 @@ async function auditInterpretation(browser, baseURL, scope) {
 
     // Every stage, not just the selected one -- that is what "layer by layer" means.
     if (a.stages !== 21) fail(scope, `stage profile listed ${a.stages} stages, expected 21`);
-    if (!(a.letters > 20)) fail(scope, `sequence logo drew ${a.letters} letters`);
+    if (!(a.letters > 1)) fail(scope, `the method strip drew ${a.letters} rows`);
     if (!a.inside) fail(scope, 'attention rollout produced no value');
     if (a.region === b.region) fail(scope, 'the region stepper did not advance');
     if (a.inside === b.inside) fail(scope, 'attention rollout is identical for two regions');
     if (a.logoWindow === b.logoWindow) {
-      fail(scope, `sequence logo stayed at ${a.logoWindow} across two regions — it does not follow the selection`);
+      fail(scope, `the method strip stayed at ${a.logoWindow} across two regions — it does not follow the selection`);
     }
 
     // The logo window must actually contain the region it claims to show.
@@ -2406,6 +2381,92 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     const afterChip = await page.$eval('.gw-browser [data-gb-readout]', (e) => e.textContent);
     if (beforeChip === afterChip) fail(scope, 'a locus chip in the embed navigated nowhere');
 
+    // 4u2. THE ANNOTATION OVERLAY, and the check the panel it replaced never had.
+    //
+    //      A solid box claims the factor's consensus is genuinely in the sequence under it; a
+    //      hollow one claims it is not. Harbison/MacIsaac calls are PWM-plus-conservation calls,
+    //      not consensus matches -- measured, only 22.8% of 670 contain their factor's consensus --
+    //      so drawing both the same way would assert they are the same evidence. Every box is
+    //      re-derived here from the sequence rather than trusted.
+    await page.goto(`${GENOME_ROUTE}#chrVII:883780-883930;t=sk-ism,genes,tfbs_chip`,
+                    { waitUntil: 'networkidle' });
+    await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 20000 });
+    await page.waitForTimeout(2500);
+    const overlay = await ds();
+    if (overlay.gbMode !== 'letters') {
+      fail(scope, `the overlay needs a letter view; mode is ${overlay.gbMode}`);
+    }
+    const boxes = JSON.parse(overlay.gbBoxList || '[]');
+    if (boxes.length < 4) fail(scope, `only ${boxes.length} annotation boxes over the promoter`);
+    else {
+      // IUPAC, expanded exactly as `motifMatch` does, on both strands.
+      const IUPAC = {
+        A: 'A', C: 'C', G: 'G', T: 'T', R: 'AG', Y: 'CT', S: 'GC', W: 'AT', K: 'GT', M: 'AC',
+        B: 'CGT', D: 'AGT', H: 'ACT', V: 'ACG', N: 'ACGT',
+      };
+      const rc = (s) => [...s].reverse().map((c) => ({ A: 'T', C: 'G', G: 'C', T: 'A' })[c] ?? 'N').join('');
+      const matches = (seq, cons) => {
+        for (const alt of cons.split('|')) {
+          for (const s of [seq, rc(seq)]) {
+            for (let o = 0; o + alt.length <= s.length; o += 1) {
+              let ok = true;
+              for (let i = 0; i < alt.length && ok; i += 1) {
+                ok = (IUPAC[alt[i]] ?? alt[i]).includes(s[o + i]);
+              }
+              if (ok) return true;
+            }
+          }
+        }
+        return false;
+      };
+      let wrongSolid = 0;
+      let wrongHollow = 0;
+      for (const b of boxes) {
+        if (b.kind === 'motif' && b.consensus && b.matched && !matches(b.matched, b.consensus)) {
+          wrongSolid += 1;
+        }
+        if (b.kind === 'region' && b.matched) wrongHollow += 1;
+      }
+      if (wrongSolid) {
+        fail(scope, `${wrongSolid} SOLID box(es) whose consensus is not in the sequence under them`);
+      }
+      if (wrongHollow) fail(scope, `${wrongHollow} hollow box(es) carry a matched sequence`);
+      const solid = boxes.filter((b) => b.kind !== 'region').length;
+      if (solid === boxes.length) {
+        fail(scope, 'every box is solid — the evidence distinction is not being made');
+      }
+      progress(`  overlay: ${boxes.length} boxes, ${solid} solid, ${boxes.length - solid} hollow`);
+    }
+    // The paper's four colours, and no others. This came over from `chromium/paper-fidelity`,
+    // which read them off SVG fills; here they are counted in canvas pixels. Fixed across all six
+    // themes, because a figure's base colours are part of the figure.
+    const inkColours = await page.$eval('[data-gb-track]', (cv) => {
+      const g = cv.getContext('2d');
+      // The WHOLE canvas, and a low floor: C and G are the rarer bases in an AT-rich yeast
+      // promoter, and a half-canvas sample with a 200 px floor missed both. Anti-aliased edges are
+      // excluded by the alpha test, so a hit is glyph interior.
+      const px = g.getImageData(0, 0, cv.width, cv.height).data;
+      const seen = new Map();
+      for (let i = 0; i < px.length; i += 4) {
+        if (px[i + 3] < 250) continue;
+        const k = `${px[i]},${px[i + 1]},${px[i + 2]}`;
+        seen.set(k, (seen.get(k) ?? 0) + 1);
+      }
+      return [...seen.entries()].filter(([, n]) => n > 20).map(([k]) => k);
+    });
+    for (const want of ['0,128,0', '0,0,255', '255,165,0', '255,0,0']) {
+      if (!inkColours.includes(want)) {
+        fail(scope, `the letter lane is missing the paper's colour rgb(${want})`);
+      }
+    }
+
+    // A letter lane must announce its LINEAR axis: a logo's height is proportional to its value,
+    // and symlog is not, so comparing glyph heights on the wrong scale is a silent misreading.
+    const lvlTxt = await page.$eval('[data-gb-level-out]', (e) => e.textContent || '');
+    const laneSaysLinear = await page.$eval('[data-gb-track]', (c) => c.dataset.gbLanes || '');
+    if (!/letters/.test(lvlTxt)) fail(scope, `letter view not announced: "${lvlTxt.trim()}"`);
+    if (!laneSaysLinear.includes('sk-ism')) fail(scope, 'the mutagenesis lane did not mount');
+
     // 4v. The loop between the two pages closes in BOTH directions. The region select already went
     //     from a name to a place; this is the other half -- standing in one of the analysed
     //     windows must offer the analysis, and following that offer must land on the right gene.
@@ -2734,10 +2795,15 @@ async function auditAxisAlignment(browser, baseURL, scope) {
         return out;
       });
       const vals = Object.values(r);
-      if (vals.length < 2) {
-        fail(scope, `${width}px: only ${vals.length} zoom views measured`);
+      // Only one zoom view survives the archive, so there is no longer a PAIR to disagree. What
+      // still matters is the rule that view exists to obey: its viewBox must be in PIXELS, or one
+      // user unit stops being one CSS pixel and every coordinate on it drifts with the container
+      // width -- measured at +20.2 px at 1440 and -31.3 at 320, with the sign flipping at ~1,043.
+      if (vals.length < 1) {
+        fail(scope, `${width}px: no zoom view measured`);
         continue;
       }
+      if (vals.length < 2) continue;
       const spread = Math.max(...vals) - Math.min(...vals);
       if (spread > 1) {
         const detail = Object.entries(r)
@@ -2814,7 +2880,12 @@ async function main() {
           progress('chromium/region-views');
           await captureFailure('chromium/region-views', () => auditRegionViews(browser, baseURL, 'chromium/region-views'));
           progress('chromium/paper-fidelity');
-          await captureFailure('chromium/paper-fidelity', () => auditPaperFidelity(browser, baseURL, 'chromium/paper-fidelity'));
+          // `chromium/paper-fidelity` retired with the SVG logo it measured. Its assertions read
+          // `transform` attributes off SVG paths, and the browser draws the same glyphs to canvas
+          // where there is no DOM to read. What it guarded is now covered elsewhere: negatives
+          // mirrored below the rule by the signed-lane ink check (4q), the paper's four colours by
+          // the letter-colour check in the same scope, and one-letter-per-position by the fact
+          // that gradient x input is exactly zero at the three bases that are not there.
           progress('chromium/interpretation');
           await captureFailure('chromium/interpretation', () => auditInterpretation(browser, baseURL, 'chromium/interpretation'));
           progress('chromium/volume');
