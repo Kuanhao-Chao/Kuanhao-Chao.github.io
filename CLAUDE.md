@@ -1029,6 +1029,73 @@ browser through `data-gb-minimal` / `data-gb-no-hash` / `data-gb-tracks`.
   embed, which has no such span, would have written its ROI readout into the canvas. Sweep it:
   kebab-case every `\.dataset\.(gb\w+)\s*=(?!=)` and intersect with every `data-gb-*` in `src/**/*.astro`.
 
+- **Integrated gradients is NOT a restatement of gradient × input, and the plan said it was.**
+  Measured on chrI before committing the 2.5 h: **r = 0.60** per base, **0.44** at 64 bp bins, and
+  the two share only **27%** of their strongest 2,000 bases. Their axes differ eightfold (1.34
+  against 0.172). That gap is the method's point — a gradient is the slope *at* the sequence, so
+  where a promoter is saturated it reads near zero while the path integral still records the base.
+  **Measure a "this is redundant" claim on one chromosome before acting on it**; it cost four
+  minutes and reversed the decision.
+
+- **IG has a REFERENCE POINT and the gradient does not, and the reference is not neutral.** From an
+  all-zero-DNA input the model predicts **12.4258**, against a median of 12.0871 over 24 real
+  windows — the baseline sits above **62%** of the genome. So the path IG integrates runs downhill
+  almost everywhere and the lane comes out **56.2% negative** where gradient × input is 50.2% and
+  stays balanced in every expression quintile. That is a fact about the baseline, not the sequence;
+  the two lanes' overall balance must not be read against each other.
+
+- **Completeness is the only check that can catch a bug in the path integral**, and it is cheap:
+  the attributions must sum to `f(x) − f(baseline)`. On real windows at 32 steps that holds to
+  **0.5–2.3%** relative — and the rc-averaged gap must be used, since the average of two complete
+  decompositions is a decomposition of the average only if the target is averaged the same way.
+
+- **A median measured on a subset is not the median.** Gradient × input against the paper's
+  mutagenesis saliency was published at **r = 0.41** from eight loci picked by hand; over all 23 it
+  is **0.30, range 0.066–0.49** — the eight happened to be the loudest. What survives is the
+  stronger and more useful claim: **23 of 23** strongest substitutions point the same way. The two
+  methods agree about *direction* and disagree about *magnitude*.
+
+- **A quantity derived from a convenient proxy will be wrong in the last digits.** The page
+  computed unscored bases as `total − scored_bins × 16` and printed **17,297** where the truth is
+  **17,408**: a chromosome's last 16 bp bin is partial, so the proxy overcounts scored bases by up
+  to 15 a chromosome — 111 in total, exactly the gap. Count the unscored bins, which are all full.
+
+- **`meanAbs` exists because a signed track's mean is not a baseline.** Gradient × input is 50.2%
+  negative genome-wide, so its mean is near zero everywhere and a "vs genome" ratio against it is
+  noise over noise — a large number that reads as a finding. The tiler records `meanAbs` for any
+  track whose axis straddles zero, and both sides of the comparison use it.
+
+- **The browser's own additions this round, and the one rule they share.** Live Pearson *r* between
+  two enabled lanes over the visible window; "this view, in numbers" (each lane's mean here against
+  its genome-wide mean); a scatter, because the same *r* comes from a line, a fan and a cloud with
+  two outliers; CSV export at the level being drawn, with the bin size in the header; per-lane
+  autoscale, **off by default and announced on the lane**; five preset views, one of which declares
+  `requires` so it stays hidden rather than degrading; and a two-way link with
+  `/shorkie-lab/shorkie/` (`#locus=<id>`). The rule: **a lane keeps a fixed axis so two places on
+  the genome compare, and the scatter fits the view because r is invariant to rescaling** — and
+  both say on their face which they are doing.
+
+- **The scatter is scaled by PERCENTILE.** On min–max, a handful of fully determined bases reaching
+  2.0 bits over TDH3 squashed every other point into the left 15% of the plot. p1–p99 fills 96–97%
+  of the canvas; points outside pile against the border by design, and the caption says so.
+
+- **A `data-*` collision cost three rounds here.** `host.dataset.gbX = …` never appears as
+  `data-gb-x` in the source, so a markup hook of the same name silently shadows it. `cv.dataset.gbRoi`
+  shadowed `<span data-gb-roi>` and only worked because the span came four lines earlier; the embed,
+  which has no such span, would have written its readout into the canvas. Sweep before naming a
+  hook: kebab-case every `\.dataset\.(gb\w+)\s*=(?!=)` and intersect with every `data-gb-*` in
+  `src/**/*.astro`.
+
+- **An element that appears and disappears must not sit ABOVE the canvas.** The "open the full
+  analysis" link was placed in the header, so crossing a window boundary shifted the whole browser
+  vertically — and the strip-drag gate failed because the canvas moved out from under the mouse
+  between measuring its box and pressing on it. That gate is why it was caught.
+
+- **A phone can clip without the document overflowing.** A four-column statistics table is 314 px
+  in a 217 px box, and clipping "vs genome" reads as a column that is not there. The phone scope
+  now walks every horizontally-scrollable region and fails anything wider than its container that
+  cannot scroll.
+
 - **Nucleosome occupancy was researched and is not feasible**, so it is not missing by oversight:
   the canonical chemical map (Brogaard 2012, GSE36063) is published only as raw reads — the smallest
   supplementary file is 238 MB and the archive is 5.8 GB — with no processed track on UCSC or SGD.
