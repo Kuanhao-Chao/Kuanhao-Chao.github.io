@@ -48,6 +48,10 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).parent))
 TRACK = Path(__file__).resolve().parent / "_scratch" / "genome-track"
 
+# The tiler's own mapping, imported rather than reimplemented: a re-derivation here would
+# agree with a mistake in the tiler, which is how a check comes to pass against a bug.
+from make_genome_tiles import to_fraction  # noqa: E402
+
 FAILED = 0
 
 
@@ -196,15 +200,34 @@ def main() -> int:
     else:
         idx = json.loads(idx_p.read_text())
         src = {"lm-masked": tracks, "lm-unmasked": unmasked, "phastcons": phast, "gc": gc}
+        # The expression model's arrays, loaded lazily -- they may not exist yet on a machine that
+        # has only run the language-model passes.
+        for tid, suffix in (("sk-rnaseq", "sk-cov-baseline"), ("sk-chip-exo", "sk-cov-chip_exo"),
+                            ("sk-chip-mnase", "sk-cov-chip_mnase"),
+                            ("sk-strain", "sk-cov-rnaseq_strain"),
+                            ("sk-gradient", "sk-gradient"), ("sk-ig", "sk-ig"),
+                            ("sk-occl", "sk-occlusion")):
+            got = {c: np.load(TRACK / f"{c}-{suffix}.npy")
+                   for c in tracks if (TRACK / f"{c}-{suffix}.npy").exists()}
+            if got:
+                src[tid] = got
         for spec in idx["tracks"]:
             tid = spec["id"]
             lo, hi = spec["axis"]
-            step = (hi - lo) / 254.0
+            space = spec.get("space", "linear")
+            lin = spec.get("linthresh", 1.0)
+            native = spec.get("nativeBp", 1)
+            # A track's BASE level is the finest one it ships, not L0: a 16 bp track has no L0 at
+            # all, and looking for one finds an empty directory and silently checks nothing.
+            base_level = min(l["level"] for l in spec["levels"])
+            # The quantisation step is one byte in the track's READ space, so for a log or symlog
+            # track it is not a constant number of units. Compare in that space.
+            step = 1.0 / 254.0
             worst_err, worst_where, sentinel_ok = 0.0, "", True
             for chrom in sorted(src.get(tid, {})):
                 truth = src[tid][chrom]
                 got = np.zeros(len(truth), dtype=np.uint8)
-                for tf in sorted((idx_p.parent / chrom / tid / "L0").glob("*.png"),
+                for tf in sorted((idx_p.parent / chrom / tid / f"L{base_level}").glob("*.png"),
                                  key=lambda q: int(q.stem)):
                     a = np.asarray(Image.open(tf)).reshape(-1)
                     s = int(tf.stem) * idx["tileBins"]
@@ -213,14 +236,31 @@ def main() -> int:
                 if not np.array_equal(nodata, ~np.isfinite(truth)):
                     sentinel_ok = False
                 fin = np.isfinite(truth) & ~nodata
-                val = (got[fin].astype(np.float64) - 1) / 254.0 * (hi - lo) + lo
-                e = float(np.abs(val - truth[fin]).max()) if fin.any() else 0.0
+                # Both sides in the read space: `to_fraction` is what the tiler quantised with,
+                # and it is the mapping `axisFraction` in the browser inverts. Comparing in value
+                # space would make a log track look wrong at its top and right at its bottom.
+                want = to_fraction(truth[fin], lo, hi, space, lin)
+                val = (got[fin].astype(np.float64) - 1) / 254.0
+                e = float(np.abs(val - want).max()) if fin.any() else 0.0
                 if e > worst_err:
                     worst_err, worst_where = e, chrom
+            if not src.get(tid):
+                continue
             # Half a quantisation step is the uint8 floor, not slack. Anything above it is a bug.
-            check(worst_err <= step / 2 + 1e-9, f"{tid}: L0 decodes to within half a byte",
-                  f"worst {worst_err:.6f} at {worst_where} (half-step {step/2:.6f})")
-            check(sentinel_ok, f"{tid}: byte 0 marks exactly the unscored bases", "")
+            check(worst_err <= step / 2 + 1e-9,
+                  f"{tid}: L{base_level} decodes to within half a byte",
+                  f"worst {worst_err:.6f} of the axis at {worst_where} "
+                  f"(half-step {step/2:.6f}, {native} bp bins, {space})")
+            check(sentinel_ok, f"{tid}: byte 0 marks exactly the unscored bins", "")
+            # No track may ship a level finer than its own bins -- that is an upsampled step
+            # function drawn as though the model resolved single bases.
+            fine = [l["binBp"] for l in spec["levels"] if l["binBp"] < native or l["binBp"] % native]
+            check(not fine, f"{tid}: ships no level finer than its {native} bp data",
+                  f"levels {[l['binBp'] for l in spec['levels']]}")
+            on_disk = sorted(int(d.name[1:]) for d in (idx_p.parent / "chrI" / tid).iterdir()
+                             if d.is_dir())
+            check(on_disk == sorted(l["level"] for l in spec["levels"]),
+                  f"{tid}: the tiles on disk are exactly the declared ladder", f"L{on_disk}")
 
     print("\n=== 4. the scale is real ===")
     lo = min(float(v.min()) for v in tracks.values())
@@ -230,6 +270,104 @@ def main() -> int:
     check("chrM" in chroms and chroms["chrM"]["mean"] > max(nuc) * 1.5,
           "chrM is far more predictable than the nuclear genome",
           f"chrM {chroms.get('chrM', {}).get('mean', 0):.4f} vs nuclear max {max(nuc):.4f}")
+
+    # ---------------------------------------------------------------------------------------
+    print("\n=== 5. the expression model's own tracks ===")
+    man_p = TRACK / "shorkie.json"
+    if not man_p.exists():
+        print("  (make_genome_shorkie.py has not run; skipping)")
+    else:
+        man = json.loads(man_p.read_text())["passes"]
+        loci = json.loads((ROOT / "src" / "data" / "shorkieLoci.json").read_text())["loci"]
+        preds = json.loads((ROOT / "src" / "data" / "shorkiePredictions.json").read_text())["loci"]
+
+        cov = {c: np.load(TRACK / f"{c}-sk-cov-baseline.npy")
+               for c in tracks if (TRACK / f"{c}-sk-cov-baseline.npy").exists()}
+        if cov:
+            # 5a. The head crops 1,024 bp from each window end and no window starts before 0, so
+            #     exactly the first 64 bins of every chromosome are unscored -- no more, no less.
+            #     More than that is a windowing bug; fewer means a window overwrote a neighbour.
+            gaps = {c: int((~np.isfinite(v)).sum()) for c, v in cov.items()}
+            check(set(gaps.values()) == {1024 // 16},
+                  "exactly 1,024 bp unscored at each chromosome start",
+                  f"{sorted(set(gaps.values()))} bins; total {sum(gaps.values())*16:,} bp")
+            first = {c: int(np.argmax(np.isfinite(v))) for c, v in cov.items()}
+            check(set(first.values()) == {1024 // 16},
+                  "the gap is at the START, not scattered through the array",
+                  f"first scored bin {sorted(set(first.values()))}")
+
+            # 5b. Against the shipped per-locus predictions. This asserts CORRELATION for the same
+            #     reason section 2 does -- the packs sit on whatever pooling phase `locus.start`
+            #     gives, and the model is ~20x more sensitive to phase than to flank. What is
+            #     asserted absolutely is the ONE locus that shares the genome grid's phase.
+            rs, aligned = [], []
+            for L in loci:
+                if L["id"] not in preds or L["chrom"] not in cov:
+                    continue
+                ref = np.asarray(preds[L["id"]]["baseline"], dtype=np.float64)
+                j0 = (L["start"] + 1024) // 16
+                mine = cov[L["chrom"]][j0:j0 + 896].astype(np.float64)
+                ok = np.isfinite(mine)
+                if ok.sum() < 500:
+                    continue
+                r = float(np.corrcoef(mine[ok], ref[ok])[0, 1])
+                rs.append((r, L["gene"], float(ref.max())))
+                if L["start"] % 128 == 0 and L["start"] % 16 == 0:
+                    aligned.append((r, L["gene"]))
+            med = float(np.median([r for r, _, _ in rs]))
+            check(med > 0.98, "median r against the shipped per-locus predictions",
+                  f"{med:.5f} over {len(rs)} loci")
+            check(all(r > 0.99 for r, _ in aligned) if aligned else True,
+                  "a phase-aligned locus reproduces its pack almost exactly",
+                  ", ".join(f"{g} {r:.5f}" for r, g in aligned) or "none share the grid phase")
+            # 5c. The residual is LOUDNESS, not a windowing error. If a low r tracked phase
+            #     distance instead, that would be the bug this check exists to distinguish.
+            arr = np.array([[r, np.log10(max(pk, 1e-6))] for r, _, pk in rs])
+            r_loud = float(np.corrcoef(arr[:, 0], arr[:, 1])[0, 1])
+            check(r_loud > 0.4,
+                  "low agreement tracks locus LOUDNESS, not a windowing bug",
+                  f"r(agreement, log peak) = {r_loud:+.3f}; quietest: "
+                  + ", ".join(g for _, g, _ in sorted(rs, key=lambda x: x[2])[:3]))
+
+        # 5d. The signed attribution agrees in SIGN with the shipped mutagenesis planes. A sign
+        #     error is invisible -- the numbers stay the same size -- and inverts every reading.
+        grad = {c: np.load(TRACK / f"{c}-sk-gradient.npy")
+                for c in tracks if (TRACK / f"{c}-sk-gradient.npy").exists()}
+        if grad:
+            allg = np.concatenate([v[np.isfinite(v)] for v in grad.values()])
+            check(abs(float((allg < 0).mean()) - 0.5) < 0.1,
+                  "gradient x input is roughly balanced in sign",
+                  f"{float((allg < 0).mean())*100:.1f}% negative")
+            agree, tested = 0, 0
+            for L in loci:
+                png = ROOT / "public" / "vp-data" / f"{L['id']}-ism.png"
+                side = ROOT / "public" / "vp-data" / f"{L['id']}.json"
+                if not png.exists() or not side.exists() or L["chrom"] not in grad:
+                    continue
+                meta = json.loads(side.read_text())["ism"]
+                img = np.asarray(Image.open(png)).astype(np.float64)
+                m = np.maximum(np.abs(np.array(meta["lo"]))[:, None],
+                               np.abs(np.array(meta["hi"]))[:, None])
+                s = img / 255.0 * 2.0 - 1.0
+                P = np.sign(s) * np.expm1(np.abs(s) * np.log1p(m))
+                # The paper's saliency: mean-centre across the four bases and project on the
+                # reference. With P[ref] = 0 that reduces to minus the sum of the three
+                # alternatives over four.
+                sal = -P.sum(axis=0) / 4.0
+                g = grad[L["chrom"]][L["start"]:L["start"] + 16384]
+                if len(g) < 16384 or not np.isfinite(g).all():
+                    continue
+                i = int(np.argmax(np.abs(sal)))
+                agree += int(np.sign(g[i]) == np.sign(sal[i]))
+                tested += 1
+            check(tested and agree == tested,
+                  "the strongest substitution agrees in sign at every locus",
+                  f"{agree}/{tested}")
+
+        for name, rec in man.items():
+            n = rec.get("native")
+            print(f"    {name:<10} {n:>3} bp bins, rc-averaged {rec.get('rcAveraged')}, "
+                  f"{len(rec.get('chroms', {}))} chromosomes")
 
     short = sum(m["shortFlankBases"] for m in chroms.values())
     print(f"\n  {short:,} bases had a flank cut short by a chromosome end "
