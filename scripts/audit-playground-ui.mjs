@@ -2393,6 +2393,32 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     const awayHidden = await page.$eval('[data-gb-deep]', (a) => a.hidden);
     if (!awayHidden) fail(scope, 'the deep link is shown outside any analysed window');
 
+    //     And the outbound half: the analysis page points back into the browser at whatever
+    //     window is selected, framed on the gene rather than on the 16 kb window -- landing on
+    //     the window shows a dozen genes and no indication which one the page is about.
+    await page.goto('/shorkie-lab/shorkie/', { waitUntil: 'networkidle' });
+    await page.waitForFunction(
+      () => document.querySelectorAll('[data-vp-locus] option').length > 5, null, { timeout: 30000 });
+    await page.waitForTimeout(2000);
+    const first = await page.$eval('[data-vp-genome-link]', (a) => a.getAttribute('href'));
+    const galIdx = await page.$eval('[data-vp-locus]',
+      (s) => [...s.options].findIndex((o) => (o.textContent || '').includes('GAL1')));
+    await page.selectOption('[data-vp-locus]', String(galIdx));
+    await page.waitForTimeout(1500);
+    const moved = await page.$eval('[data-vp-genome-link]', (a) => a.getAttribute('href'));
+    if (!moved || moved === first) {
+      fail(scope, `the "in genome" link did not follow the locus change: ${first} -> ${moved}`);
+    } else {
+      await page.goto(moved, { waitUntil: 'networkidle' });
+      await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 20000 });
+      await page.waitForTimeout(1800);
+      const back = await page.$eval('[data-gb-deep]',
+        (a) => (a.hidden ? null : a.getAttribute('href')));
+      if (!back || !back.includes('locus=')) {
+        fail(scope, `following "${moved}" did not land inside an analysed window`);
+      }
+    }
+
     if (bad.length) fail(scope, `genome-data requests failed: ${bad.slice(0, 3).join(', ')}`);
     if (errors.length) fail(scope, `console/page errors: ${errors.slice(0, 2).join(' | ')}`);
     progress(`  genome: levels ${ladder.join(' ')}, cache peak ${peak}/${cap}, ${evicted} evicted, `

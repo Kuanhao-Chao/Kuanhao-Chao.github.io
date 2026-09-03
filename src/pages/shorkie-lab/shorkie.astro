@@ -95,6 +95,10 @@ const breadcrumbLd = buildBreadcrumbLd([
         <span class="vp-nav__group">
           <label class="vp-nav__label" for="vp-locus">locus</label>
           <select class="vp-select" id="vp-locus" data-vp-locus aria-label="Preset locus"></select>
+          <!-- The mirror of the browser's "open the full analysis" link, so the two pages point at
+               each other from wherever a reader happens to be. -->
+          <a class="vp-sub vp-genome-link" data-vp-genome-link href="/shorkie-lab/genome/"
+             title="See this window in the genome browser, in the genome around it">in genome ↗</a>
         </span>
         <span class="vp-nav__group">
           <label class="vp-nav__label" for="vp-region">region</label>
@@ -1322,6 +1326,12 @@ const breadcrumbLd = buildBreadcrumbLd([
     gap: 0.4rem;
     padding: 0.4rem 0.6rem;
     border-bottom: 1px solid var(--color-border);
+  }
+
+  .vp-genome-link {
+    white-space: nowrap;
+    text-decoration: none;
+    border-bottom: 1px solid currentcolor;
   }
 
   .gw-foot {
