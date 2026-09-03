@@ -380,6 +380,36 @@ def main() -> int:
                   f"{float(np.median(rs)):.4f} over {tested} loci "
                   f"({min(rs):.3f}-{max(rs):.3f})" if rs else "")
 
+        # 5e. The sparse mutagenesis track must BE the packs it was built from -- same values at
+        #     the same genome coordinates, and nothing anywhere else. A sparse track is the one
+        #     place an off-by-one in the locus offset produces a plausible drawing in the wrong
+        #     place rather than an obvious failure.
+        ism = {c: np.load(TRACK / f"{c}-sk-ism.npy")
+               for c in tracks if (TRACK / f"{c}-sk-ism.npy").exists()}
+        if ism:
+            scored = sum(int(np.isfinite(v).sum()) for v in ism.values())
+            check(scored == len(loci) * 16384,
+                  "mutagenesis is scored on exactly the analysed windows",
+                  f"{scored:,} bases = {len(loci)} x 16,384 ({scored / total * 100:.2f}% of the genome)")
+            worst, where = 0.0, ""
+            for L in loci:
+                png = ROOT / "public" / "vp-data" / f"{L['id']}-ism.png"
+                side = ROOT / "public" / "vp-data" / f"{L['id']}.json"
+                if not (png.exists() and side.exists() and L["chrom"] in ism):
+                    continue
+                meta = json.loads(side.read_text())["ism"]
+                want = saliency(dequantize_rows(np.asarray(Image.open(png)),
+                                                np.array(meta["lo"]), np.array(meta["hi"]),
+                                                meta["space"]), L["sequence"][:16384])
+                got = ism[L["chrom"]][L["start"]:L["start"] + 16384]
+                # Compared at float32, which is what the array stores. An exact-equality test
+                # here fails on 2.5e-08 of representation error and says nothing about the data.
+                e = float(np.abs(got - want.astype(np.float32)).max())
+                if e > worst:
+                    worst, where = e, L["gene"]
+            check(worst == 0.0, "every window round-trips from its own pack, to float32",
+                  f"worst {worst:.2e}" + (f" at {where}" if where else ""))
+
         for name, rec in man.items():
             n = rec.get("native")
             print(f"    {name:<10} {n:>3} bp bins, rc-averaged {rec.get('rcAveraged')}, "
