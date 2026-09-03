@@ -175,6 +175,10 @@ interface TrackSpec {
   levels?: Level[];
   /** Which model (or neither) this lane comes from. Written by the tiler, never inferred here. */
   group?: string;
+  /** Lanes sharing a `family` are ONE row with a picker, not N checkboxes. */
+  family?: string;
+  /** What this member is called in that picker. */
+  familyLabel?: string;
   /** Short qualifier drawn on the lane. Empty for the one track that IS a prediction. */
   laneTag?: string;
   /** Written in `make_genome_tiles.py`, which refuses to build without all four fields. */
@@ -186,6 +190,8 @@ interface IndexFile {
   levels: Level[];
   /** What each track `group` means, so the panel's headings come from the generator too. */
   groupLabels?: Record<string, { label: string; hint: string }>;
+  /** What each track `family` means, so the picker's row heading comes from the generator too. */
+  familyLabels?: Record<string, { label: string; hint: string }>;
   tileBins: number;
   noDataByte: number;
   tracks: TrackSpec[];
@@ -580,6 +586,30 @@ export function initGenomeBrowser(host: HTMLElement): void {
 
   /** The ROI start last announced, so a repaint does not re-announce an unchanged region. */
   let lastRoiSent = -1;
+
+  /**
+   * Which member of each track FAMILY is currently selected.
+   *
+   * A pooled block mean is honest only when its members agree, and two of Shorkie's four do not:
+   * measured over the analysed windows, individual ChIP-exo targets have shape correlation 0.82
+   * against each other, differ 23.7x in level and peak 38 bins apart, and the histone marks are
+   * further apart still (0.60, 34.3x, 174 bins). So those two ship per member -- but as ONE lane
+   * with a picker rather than 34 checkboxes, because a reader wants "show me H3K4me3", not a wall
+   * of toggles.
+   */
+  const familyPick = new Map<string, string>();
+
+  /** Every member of a family, in the generator's order. */
+  const familyMembers = (fam: string): TrackSpec[] =>
+    (index?.tracks ?? []).filter((s) => s.family === fam && !laneHidden(s.id));
+
+  /** The member a family currently shows, defaulting to its first. */
+  function familyCurrent(fam: string): string | null {
+    const mem = familyMembers(fam);
+    if (!mem.length) return null;
+    const want = familyPick.get(fam);
+    return want && mem.some((s) => s.id === want) ? want : mem[0].id;
+  }
 
   /**
    * A track's genome-wide mean, length-weighted over the chromosomes that scored it.
@@ -2789,7 +2819,45 @@ export function initGenomeBrowser(host: HTMLElement): void {
     for (const [gid, specs] of byGroup) {
       const gl = index.groupLabels?.[gid];
       group(gl?.label ?? 'Score tracks', gl?.hint);
+      // Families collapse to one row. `seenFamily` keeps the row where the family's FIRST member
+      // sits, so the panel order still follows the generator's.
+      const seenFamily = new Set<string>();
       for (const t of specs) {
+        if (t.family) {
+          if (seenFamily.has(t.family)) continue;
+          seenFamily.add(t.family);
+          const fl = index.familyLabels?.[t.family];
+          const cur = familyCurrent(t.family)!;
+          const sel = document.createElement('select');
+          sel.className = 'vp-select gb-panel__pick';
+          sel.dataset.gbFamily = t.family;
+          sel.setAttribute('aria-label', fl?.label ?? t.family);
+          for (const m of familyMembers(t.family)) {
+            const o = document.createElement('option');
+            o.value = m.id;
+            o.textContent = m.familyLabel ?? m.short;
+            o.title = m.detail;
+            sel.append(o);
+          }
+          sel.value = cur;
+          sel.addEventListener('change', () => {
+            // Move the enabled flag with the selection: the family is one lane, so switching
+            // member must not leave the previous one drawn underneath.
+            const was = familyCurrent(t.family!)!;
+            const on = !!enabled.get(was);
+            enabled.set(was, false);
+            familyPick.set(t.family!, sel.value);
+            enabled.set(sel.value, on);
+            writeHash();
+            buildPanel();
+            schedule();
+          });
+          // Clicking inside the select must not toggle the row's checkbox.
+          sel.addEventListener('click', (e) => e.preventDefault());
+          const spec = index.tracks.find((s) => s.id === cur)!;
+          row(cur, fl?.label ?? spec.label, `${spec.detail} — ${spec.note}`, sel, spec.docs);
+          continue;
+        }
         const h = document.createElement('input');
         h.type = 'range';
         h.className = 'gb-panel__h';
