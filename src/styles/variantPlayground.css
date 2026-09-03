@@ -717,6 +717,13 @@ html[data-theme='dark'] .vp {
   margin-top: 0.4rem;
 }
 
+/* The family picker sits in the row's `extra` slot, the same slot the height slider uses. */
+.gb-panel__pick {
+  margin-left: auto;
+  max-width: 9rem;
+  font-size: var(--fs-small);
+}
+
 .gb-panel__presets {
   display: flex;
   flex-wrap: wrap;

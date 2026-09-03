@@ -252,6 +252,85 @@ TRACKS = [
     },
 ]
 
+# The two families that resolve individually. A pooled block mean is honest only when its members
+# agree; measured over the 23 analysed windows the ChIP blocks do not (shape r 0.82 and 0.60, level
+# 23.7x and 34.3x, argmax 38 and 174 bins apart) while the two RNA-seq blocks are near-degenerate in
+# shape (r 0.999) and stay pooled. A family is ONE lane with a picker, not N checkboxes.
+HISTONE_MARKS = ["H2B", "H2BK123UB", "H3", "H3K27AC", "H3K36ME3", "H3K4ME3", "H3K79ME3",
+                 "H3K9AC", "H4K12AC"]
+CHIP_TARGETS = ["SUA7", "SPT15", "TFA1", "TFB4", "RAD3", "CET1", "HTZ1", "SPT7", "HHF1",
+                "RAP1", "ABF1", "REB1", "TBF1", "CBF1", "FHL1", "SFP1",
+                "GAL4", "MSN2", "HSF1", "PHO4", "INO4", "UME6", "GCN4", "SWI4", "STE12"]
+
+# What each target IS, so the picker names a protein rather than a bare gene symbol. The first nine
+# are general machinery -- and they are also the MOST distinct from the pooled mean, which is the
+# point: a pooled ChIP-exo lane is dominated by where the pre-initiation complex sits.
+TARGET_ROLE = {
+    "SUA7": "TFIIB - pre-initiation complex", "SPT15": "TBP - pre-initiation complex",
+    "TFA1": "TFIIE - pre-initiation complex", "TFB4": "TFIIH - pre-initiation complex",
+    "RAD3": "TFIIH helicase", "CET1": "mRNA capping enzyme",
+    "HTZ1": "H2A.Z - promoter-flanking variant", "SPT7": "SAGA coactivator",
+    "HHF1": "histone H4",
+    "RAP1": "general activator - ribosomal and glycolytic promoters",
+    "ABF1": "general regulator - ARS-binding", "REB1": "general regulator - terminator",
+    "TBF1": "general regulator - subtelomeric", "CBF1": "centromere and MET regulon",
+    "FHL1": "ribosomal protein regulon", "SFP1": "ribosome biogenesis",
+    "GAL4": "galactose regulon activator", "MSN2": "general stress response (STRE)",
+    "HSF1": "heat-shock factor", "PHO4": "phosphate starvation",
+    "INO4": "inositol / phospholipid", "UME6": "early meiotic repressor",
+    "GCN4": "amino-acid starvation", "SWI4": "SBF - cell-cycle G1/S",
+    "STE12": "mating and filamentation",
+}
+
+FAMILY_LABELS = {
+    "histone": {"label": "Shorkie - predicted histone marks",
+                "hint": "9 marks from the ChIP-MNase block - the most distinct tracks the model "
+                        "emits, and the closest thing to a chromatin map sacCer3 has"},
+    "chip-exo": {"label": "Shorkie - predicted ChIP-exo, by target",
+                 "hint": "25 of 765 targets, picked by measured distinctness and by covering the "
+                         "classes - general machinery as well as sequence-specific factors"},
+}
+
+
+def _pretty_mark(m: str) -> str:
+    return m.replace("ME3", "me3").replace("AC", "ac").replace("UB", "ub") if len(m) > 3 else m
+
+
+def family_tracks() -> list[dict]:
+    """The 34 per-condition tracks, generated rather than typed out one by one."""
+    out = []
+    for m in HISTONE_MARKS:
+        pretty = _pretty_mark(m)
+        out.append({
+            "id": f"sk-h-{m.lower()}", "group": "expression", "laneTag": "",
+            "file": f"sk-cov-h_{m}", "family": "histone", "familyLabel": pretty,
+            "nativeBp": 16, "space": "log1p", "axisFrom": "max", "axis": None, "units": "a.u.",
+            "label": f"Shorkie - predicted {pretty}", "short": pretty,
+            "detail": f"predicted ChIP-MNase coverage for {pretty}",
+            "prediction": True,
+            "note": "One histone mark, not the 9-mark average. The marks disagree strongly - "
+                    "pairwise shape correlation 0.60 and peaks 174 bins apart - so the pooled lane "
+                    "is the least representative average on this page.",
+            "source": "Shorkie (Chao et al. 2025), fold f0; mean of that mark's ChIP-MNase tracks",
+        })
+    for k in CHIP_TARGETS:
+        out.append({
+            "id": f"sk-tf-{k.lower()}", "group": "expression", "laneTag": "",
+            "file": f"sk-cov-tf_{k}", "family": "chip-exo", "familyLabel": k,
+            "nativeBp": 16, "space": "log1p", "axisFrom": "max", "axis": None, "units": "a.u.",
+            "label": f"Shorkie - predicted {k} ChIP-exo", "short": k,
+            "detail": f"predicted ChIP-exo coverage for {k} - {TARGET_ROLE[k]}",
+            "prediction": True,
+            "note": f"{TARGET_ROLE[k]}. One target of 765, not their average: individual targets "
+                    "peak a median 38 bins apart, so the pooled ChIP-exo lane averages experiments "
+                    "that disagree about where the signal is.",
+            "source": "Shorkie (Chao et al. 2025), fold f0; mean of that target's ChIP-exo tracks",
+        })
+    return out
+
+
+TRACKS.extend(family_tracks())
+
 # Every track documents itself, in four fields rather than a paragraph, so a track cannot ship
 # without saying where it came from, what it physically measures, how to read it, and -- the field
 # that matters most -- what it does NOT mean. `main()` refuses to write an index that is missing
@@ -336,6 +415,59 @@ TRACK_DOCS = {
         "caveat": "Small overall is not zero everywhere. In intergenic sequence r = −0.221 — AT-rich sequence really is more predictable to the model, which is also why chrM at 17.1% GC is the most predictable chromosome in the genome (IC 0.457 against a nuclear 0.198). Read a peak in an AT-rich region with that in mind."
     }
 }
+
+
+
+_HIST_SRC = ("Shorkie (Chao et al. 2025, bioRxiv 2025.09.19.677475), fold f0, run over sacCer3. "
+             "The ChIP-MNase block is 20 tracks over 9 histone marks; this lane is the mean of one "
+             "mark's replicates rather than of all 20.")
+_TF_SRC = ("Shorkie (Chao et al. 2025, bioRxiv 2025.09.19.677475), fold f0, run over sacCer3. The "
+           "ChIP-exo block is 1,128 tracks over 765 targets; this lane is the mean of one target's "
+           "replicates rather than of all 1,128.")
+_FAM_CAVEAT = ("Arbitrary units, and a PREDICTION rather than an experiment - this is where the "
+               "model expects the assay to read, not where anyone measured it. The first 1,024 "
+               "bases of every chromosome are blank because the head crops that much from each "
+               "window end. And 25 targets of 765 (or 9 marks) is a selection: a factor absent "
+               "from the picker is absent because it was not shipped, never because the model "
+               "predicts nothing for it.")
+
+for _t in TRACKS:
+    if _t.get("family") == "histone":
+        TRACK_DOCS[_t["id"]] = {
+            "source": _HIST_SRC,
+            "measures": f"Predicted ChIP-MNase coverage for {_t['familyLabel']} - nuclease "
+                        "accessibility under an antibody for that mark, which is what a chromatin "
+                        "map is built from.",
+            "read": "Against the expression lane, not alone -- and switch marks in this one lane "
+                    "to see the canonical 5'/3' split, which the model reproduces from sequence "
+                    "with no chromatin input at all. Measured over the 23 analysed genes, "
+                    "normalised to each gene's own mean and oriented 5' to 3': H3K4me3 reads 1.50 "
+                    "over the first quarter against 0.85 over the last, H3K9ac 1.38/0.86 and "
+                    "H3K27ac 1.32/0.88 -- the promoter-proximal marks. H3K36me3 inverts it, "
+                    "0.86/1.14, which is the co-transcriptional gene-body mark. Bulk H2B and H3 "
+                    "stay flat (0.97/1.08 and 0.93/1.09), as histones with no positional "
+                    "preference should.",
+            "caveat": _FAM_CAVEAT + " No MEASURED nucleosome or histone track ships here for "
+                      "comparison: the canonical chemical map (Brogaard 2012, GSE36063) is "
+                      "published only as raw reads and UCSC's sacCer3 carries no nucleosome signal, "
+                      "so there is nothing on this page to check these against.",
+        }
+    elif _t.get("family") == "chip-exo":
+        _k = _t["familyLabel"]
+        TRACK_DOCS[_t["id"]] = {
+            "source": _TF_SRC,
+            "measures": f"Predicted ChIP-exo coverage for {_k} ({TARGET_ROLE[_k]}) - where the "
+                        "model expects this protein to be crosslinked to DNA.",
+            "read": "A sharp peak is a predicted binding footprint; a broad one over a promoter is "
+                    "usually the pre-initiation complex rather than a sequence-specific site. The "
+                    "nine general-machinery targets in this picker exist to make that distinction "
+                    "visible - they are also the targets that differ most from the pooled ChIP-exo "
+                    "mean, which is why that mean is dominated by promoter shape.",
+            "caveat": _FAM_CAVEAT + " ChIP-exo crosslinks whatever is in the complex, so a "
+                      "predicted peak for a coactivator is not evidence that it touches DNA - the "
+                      "browser's motif popup names seven factors here whose absent JASPAR matrix "
+                      "is explained by exactly that.",
+        }
 
 
 def to_fraction(a: np.ndarray, lo: float, hi: float,
@@ -503,6 +635,7 @@ def main() -> int:
         "levels": [{"level": i, "binBp": b, "rows": 1 if i == 0 else 3} for i, b in enumerate(LEVELS)],
         "rowNames": ["min", "max", "mean"],
         "groupLabels": GROUP_LABELS,
+        "familyLabels": FAMILY_LABELS,
         "tileBins": TILE_BINS,
         "noDataByte": 0,
         "quant": "byte 0 is no data; 1-255 map linearly onto the track's own axis range",

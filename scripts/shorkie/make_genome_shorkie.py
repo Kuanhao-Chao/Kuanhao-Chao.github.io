@@ -139,6 +139,48 @@ def main() -> int:
     if len(TIMEPOINTS) != 12:
         raise SystemExit(f"expected 12 timepoints besides T0, found {TIMEPOINTS}")
 
+    # ---- the two families that are worth resolving individually --------------------------------
+    #
+    # A pooled block mean is only honest when its members agree. Measured over the 23 analysed
+    # windows they do not, and they disagree in different ways:
+    #
+    #     block          shape r   level p95/p05   argmax sd
+    #     ChIP-exo         0.82        23.7x        37.9 bins
+    #     ChIP-MNase       0.60        34.3x       174.0 bins
+    #     RNA-seq TF       0.9992       3.3x         1.4 bins
+    #     1000-strain      0.9936       1.6x         0.2 bins
+    #
+    # Averaging 1,128 ChIP-exo tracks that peak 38 bins apart averages experiments that disagree
+    # about WHERE the signal is. The two RNA-seq blocks are near-degenerate in shape and stay
+    # pooled. The compute is free either way -- one forward pass already yields all 5,215 outputs
+    # -- so this costs storage and nothing else.
+    strip = re.compile(r"_S\d+$")
+    marks: dict[str, list[int]] = {}
+    for i, n in enumerate(names[1128:1148], start=1128):
+        marks.setdefault(strip.sub("", n), []).append(i)
+
+    # 25 ChIP-exo targets, chosen by MEASURED distinctness from the pooled mean and by covering the
+    # classes. The top of that ranking is not the famous regulators -- it is the pre-initiation
+    # complex (SUA7 = TFIIB 0.646, TFB4 = TFIIH 0.598, RAD3 0.591, SPT15 = TBP 0.579, TFA1 = TFIIE
+    # 0.542), because those peak sharply at promoters while a sequence-specific factor binds in a
+    # few places. Shipping only the famous names would misrepresent what this block contains.
+    CHIP_TARGETS = [
+        # general machinery and chromatin
+        "SUA7", "SPT15", "TFA1", "TFB4", "RAD3", "CET1", "HTZ1", "SPT7", "HHF1",
+        # general sequence-specific factors
+        "RAP1", "ABF1", "REB1", "TBF1", "CBF1", "FHL1", "SFP1",
+        # condition-specific regulators
+        "GAL4", "MSN2", "HSF1", "PHO4", "INO4", "UME6", "GCN4", "SWI4", "STE12",
+    ]
+    targets: dict[str, list[int]] = {}
+    for i, n in enumerate(names[:1128]):
+        k = strip.sub("", n)
+        if k in CHIP_TARGETS:
+            targets.setdefault(k, []).append(i)
+    missing = [k for k in CHIP_TARGETS if k not in targets]
+    if missing:
+        raise SystemExit(f"ChIP-exo targets not in the track sheet: {missing}")
+
     dev = args.device or ("mps" if torch.backends.mps.is_available() else "cpu")
     model, _ = build(args.checkpoint)
     n_par = sum(p.numel() for p in model.parameters())
@@ -154,10 +196,16 @@ def main() -> int:
     model.eval().to(dev)
     T0_t = torch.tensor(T0, device=dev)
     tp_idx = {m: torch.tensor(by_tp[m], device=dev) for m in TIMEPOINTS}
+    mark_idx = {m: torch.tensor(v, device=dev) for m, v in sorted(marks.items())}
+    target_idx = {k: torch.tensor(targets[k], device=dev) for k in CHIP_TARGETS}
 
     native = {"coverage": BIN_BP, "gradient": 1, "ig": 1, "occlusion": args.win}[args.which]
     keys = ([g[0] for g in GROUPS] + ["baseline"] + [f"t{m}" for m in TIMEPOINTS]
+            + [f"h_{m}" for m in sorted(marks)] + [f"tf_{k}" for k in CHIP_TARGETS]
             if args.which == "coverage" else ["v"])
+    if args.which == "coverage":
+        print(f"  {len(marks)} histone marks: {', '.join(sorted(marks))}")
+        print(f"  {len(CHIP_TARGETS)} ChIP-exo targets: {', '.join(CHIP_TARGETS)}")
     print(f"device {dev} | pass {args.which} | native {native} bp | {len(keys)} array(s) a chromosome")
 
     def raw(x):
@@ -196,6 +244,10 @@ def main() -> int:
         out["baseline"] = y[:, T0_t].mean(dim=-1).float().cpu().numpy()
         for m in TIMEPOINTS:
             out[f"t{m}"] = y[:, tp_idx[m]].mean(dim=-1).float().cpu().numpy()
+        for m, ix in mark_idx.items():
+            out[f"h_{m}"] = y[:, ix].mean(dim=-1).float().cpu().numpy()
+        for k, ix in target_idx.items():
+            out[f"tf_{k}"] = y[:, ix].mean(dim=-1).float().cpu().numpy()
         return out
 
     def window_gradient(x):
