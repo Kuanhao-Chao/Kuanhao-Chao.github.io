@@ -478,6 +478,8 @@ export function initGenomeBrowser(host: HTMLElement): void {
   const levelOut = $('[data-gb-level-out]');
   const statusOut = $('[data-gb-status]');
   const corrOut = $('[data-gb-corr]');
+  const statsBox = $('[data-gb-stats]');
+  const scatterCv = $<HTMLCanvasElement>('[data-gb-scatter]');
   const hoverOut = $('[data-gb-hover]');
   const panelBox = $('[data-gb-panel]');
   const tooltip = $('[data-gb-tooltip]');
@@ -509,6 +511,24 @@ export function initGenomeBrowser(host: HTMLElement): void {
 
   /** The level each score lane was last drawn at. Tracks differ: a 16 bp track has no L0. */
   const drawnLevels = new Map<string, Level>();
+
+  /**
+   * A track's genome-wide mean, length-weighted over the chromosomes that scored it.
+   *
+   * Weighted, because chrIV is eighteen times chrI and an unweighted mean of per-chromosome means
+   * would let the mitochondrion -- 0.7% of the genome and by far the most atypical sequence in it
+   * -- carry a seventeenth of the answer.
+   */
+  function genomeMean(id: string): number | null {
+    if (!index) return null;
+    let num = 0; let den = 0;
+    for (const c of index.chroms) {
+      const m = c.tracks[id]?.mean;
+      if (m == null) continue;
+      num += m * c.length; den += c.length;
+    }
+    return den ? num / den : null;
+  }
 
   /**
    * Per-lane autoscale, OFF by default and labelled loudly when on.
@@ -1152,6 +1172,8 @@ export function initGenomeBrowser(host: HTMLElement): void {
       if (on.length !== 2) cv.dataset.gbCorrelation = '';
     }
 
+    renderStats(inner, bpPerPx, col);
+
     cv.dataset.gbLevel = String(lvl.binBp);
     cv.dataset.gbDrawn = String(drawn);
     cv.dataset.gbGeneTrack = JSON.stringify(geneTally);
@@ -1197,6 +1219,158 @@ export function initGenomeBrowser(host: HTMLElement): void {
         + ` · cap ${maxTiles()}`;
     }
     syncButtons();
+  }
+
+  /**
+   * "This view, in numbers" -- what each enabled lane reads here against what it reads genome-wide,
+   * and, with exactly two lanes, the shape behind their correlation.
+   *
+   * A browser is a picture, and a picture answers "is this region unusual?" only by eye. The
+   * genome-wide means are already in `index.json` because the tiler recorded them, so the
+   * comparison costs one division. Two things it deliberately does NOT do:
+   *
+   * - A SIGNED track is summarised by mean |v|, never by its mean. Gradient x input is 50.2%
+   *   negative genome-wide, so its mean is near zero everywhere and a ratio against it would be
+   *   noise divided by noise -- a large, meaningless number that looks like a finding.
+   * - Values are read at the level the lane is DRAWN at, on the data's own grid rather than on
+   *   pixel columns, so the number does not change when the window is resized.
+   */
+  function renderStats(inner: number, bpPerPx: number, col: Record<string, string>): void {
+    if (!statsBox || !index) return;
+    const specs = scoreTracks();
+    statsBox.textContent = '';
+    if (!specs.length) {
+      statsBox.hidden = true;
+      if (scatterCv) scatterCv.hidden = true;
+      return;
+    }
+    statsBox.hidden = false;
+
+    const series: (number | null)[][] = [];
+    for (const s of specs) {
+      const l = drawnLevels.get(s.id) ?? levelForBpPerPixel(bpPerPx, levelsForTrack(s, index.levels));
+      const start = Math.floor(view.start / l.binBp) * l.binBp;
+      const n = Math.min(4000, Math.ceil((view.end - start) / l.binBp));
+      series.push(sampleBins(s, l, start, n, l.binBp));
+    }
+
+    const table = document.createElement('table');
+    table.className = 'gb-stats';
+    const head = document.createElement('tr');
+    for (const h of ['track', 'here', 'genome', 'vs genome']) {
+      const th = document.createElement('th');
+      th.textContent = h;
+      head.appendChild(th);
+    }
+    table.appendChild(head);
+
+    specs.forEach((s, i) => {
+      const signed = isSignedAxis(s.axis);
+      const vals = series[i].filter((v): v is number => v != null)
+        .map((v) => (signed ? Math.abs(v) : v));
+      const gm = genomeMean(s.id);
+      const tr = document.createElement('tr');
+      const cell = (txt: string, cls?: string) => {
+        const td = document.createElement('td');
+        td.textContent = txt;
+        if (cls) td.className = cls;
+        tr.appendChild(td);
+      };
+      const fmt = (v: number) => (Math.abs(v) >= 100 ? v.toFixed(0)
+        : Math.abs(v) >= 1 ? v.toFixed(2) : v.toFixed(4));
+      cell(s.short + (signed ? ' |v|' : ''));
+      if (!vals.length) {
+        cell('no data'); cell(gm == null ? '—' : fmt(gm)); cell('—');
+      } else {
+        const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+        cell(fmt(mean));
+        // A signed track's genome-wide mean is near zero by construction, so `index.json`'s figure
+        // is not the right baseline for a |v| summary and the row says so rather than printing a
+        // ratio against noise.
+        cell(signed || gm == null ? '—' : fmt(gm));
+        cell(signed || gm == null || gm === 0 ? '—' : `${(mean / gm).toFixed(2)}x`,
+          !signed && gm ? (mean / gm > 1.5 ? 'is-high' : mean / gm < 0.67 ? 'is-low' : '') : '');
+      }
+      table.appendChild(tr);
+    });
+    statsBox.appendChild(table);
+
+    const note = document.createElement('p');
+    note.className = 'gb-stats__note';
+    note.textContent = specs.length === 2
+      ? 'Each point is one bin of the view, and the scatter fits the view rather than the genome — '
+        + 'the lanes above keep their fixed axes, this shows the shape behind r.'
+      : 'Turn on exactly two score lanes to see their correlation and the shape behind it.';
+    statsBox.appendChild(note);
+
+    // The scatter. A correlation is a single number summarising a shape, and the same r comes from
+    // a line, a fan and a cloud with two outliers -- so the number is never shown without it.
+    if (!scatterCv) return;
+    if (specs.length !== 2) { scatterCv.hidden = true; return; }
+    scatterCv.hidden = false;
+    const w = Math.max(1, Math.round(scatterCv.clientWidth));
+    const h = Math.max(1, Math.round(scatterCv.clientHeight || 150));
+    const sctx = fit(scatterCv, h);
+    if (!sctx) return;
+    const [A, B] = [specs[0], specs[1]];
+    const pad = 30;
+
+    /**
+     * The scatter fits the VIEW, where the lanes above keep their fixed axes -- and the two are not
+     * in conflict, they answer different questions. A lane's job is that any two places on the
+     * genome are read against one ruler, so a quiet window has to look quiet. The scatter's job is
+     * the SHAPE behind a correlation, and r is invariant to rescaling either axis, so drawing it on
+     * the genome-wide range puts every point in one corner and reports nothing. Each axis prints
+     * the range it is actually using, which is what keeps that honest.
+     */
+    const rangeOf = (s: TrackSpec, vals: (number | null)[]): [number, number] => {
+      let lo = Infinity; let hi = -Infinity;
+      for (const v of vals) { if (v == null) continue; if (v < lo) lo = v; if (v > hi) hi = v; }
+      if (!Number.isFinite(lo) || hi <= lo) return s.axis;
+      // A signed track keeps zero in the middle, or the sign stops being readable off the plot.
+      return isSignedAxis(s.axis)
+        ? [-Math.max(Math.abs(lo), Math.abs(hi)), Math.max(Math.abs(lo), Math.abs(hi))]
+        : [lo, hi];
+    };
+    const ra = rangeOf(A, series[0]);
+    const rb = rangeOf(B, series[1]);
+    const fa = (v: number) => axisFraction(v, ra, A.space ?? 'linear', A.linthresh ?? 1);
+    const fb = (v: number) => axisFraction(v, rb, B.space ?? 'linear', B.linthresh ?? 1);
+    sctx.strokeStyle = col.rule;
+    sctx.strokeRect(pad + 0.5, 4.5, w - pad - 8, h - pad - 8);
+    sctx.fillStyle = col.accent;
+    sctx.globalAlpha = 0.35;
+    const n = Math.min(series[0].length, series[1].length);
+    let drawn = 0;
+    for (let i = 0; i < n; i += 1) {
+      const a = series[0][i]; const b = series[1][i];
+      if (a == null || b == null) continue;
+      const x = pad + fa(a) * (w - pad - 8);
+      const y = 4 + (1 - fb(b)) * (h - pad - 8);
+      sctx.fillRect(x - 1, y - 1, 2, 2);
+      drawn += 1;
+    }
+    sctx.globalAlpha = 1;
+    sctx.fillStyle = col.muted;
+    sctx.font = '9px system-ui, sans-serif';
+    const num = (v: number) => (Math.abs(v) >= 100 ? v.toFixed(0)
+      : Math.abs(v) >= 1 ? v.toFixed(1) : v.toFixed(3));
+    // The axis endpoints, because the plot fits the view and a reader must be able to see that.
+    sctx.textAlign = 'left';
+    sctx.fillText(num(ra[0]), pad, h - 14);
+    sctx.fillText(`${A.short} →`, pad, h - 3);
+    sctx.textAlign = 'right';
+    sctx.fillText(num(ra[1]), w - 8, h - 14);
+    sctx.textAlign = 'left';
+    sctx.fillText(num(rb[1]), 2, 11);
+    sctx.fillText(num(rb[0]), 2, h - pad - 6);
+    sctx.save();
+    sctx.translate(10, h - pad - 14);
+    sctx.rotate(-Math.PI / 2);
+    sctx.fillText(`${B.short} →`, 0, 0);
+    sctx.restore();
+    scatterCv.dataset.gbScatterPoints = String(drawn);
+    scatterCv.dataset.gbScatterRange = `${num(ra[0])}-${num(ra[1])} x ${num(rb[0])}-${num(rb[1])}`;
   }
 
   function drawRuler(

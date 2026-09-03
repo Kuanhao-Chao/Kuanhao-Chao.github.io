@@ -633,6 +633,59 @@ html[data-theme='dark'] .vp {
   text-wrap: pretty;
 }
 
+/* "This view, in numbers": the quantitative companion to the drawing. A browser answers
+   "is this region unusual?" only by eye without it. */
+.gb-stats-box {
+  margin: 0.6rem 0 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius, 6px);
+  background: var(--color-bg);
+}
+
+.gb-stats__title {
+  margin: 0 0 0.4rem;
+  font-size: var(--fs-small);
+  font-weight: 650;
+  color: var(--color-muted);
+}
+
+.gb-stats {
+  border-collapse: collapse;
+  font-size: var(--fs-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.gb-stats th,
+.gb-stats td {
+  padding: 0.12rem 0.7rem 0.12rem 0;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.gb-stats th { color: var(--color-muted); font-weight: 600; }
+.gb-stats th:first-child,
+.gb-stats td:first-child { text-align: left; }
+.gb-stats .is-high { color: var(--gb-roi, #b8860b); font-weight: 650; }
+.gb-stats .is-low { color: var(--color-muted); }
+
+.gb-stats__note {
+  margin: 0.35rem 0 0;
+  font-size: var(--fs-small);
+  color: var(--color-muted);
+  text-wrap: pretty;
+}
+
+/* No minimum width: a floor makes the backing store wider than its box, `width: 100%` scales it
+   back, and every coordinate on it is off by that ratio. */
+.gb-scatter {
+  display: block;
+  width: 100%;
+  max-width: 340px;
+  height: 170px;
+  margin-top: 0.4rem;
+}
+
 .gb-panel__presets {
   display: flex;
   flex-wrap: wrap;
