@@ -128,9 +128,10 @@ const breadcrumbLd = buildBreadcrumbLd([
         <span class="vp-stat" data-vp-region-stat></span>
       </nav>
     <div class="vp-body">
-        <p class="vp-act" id="act-1"><span class="vp-act__n">1</span>
-          What does it predict, and which bases drive it?</p>
-        <p class="vp-act__sub">A 16,384 bp window in, coverage over 896 bins and 5,215 tracks out. Everything below shares one horizontal axis: pick a locus and a region in the bar above, then read straight down — prediction, attribution, the four methods, the curated evidence for what is really there, and finally the highlighted window again at single-base resolution.</p>
+
+      <!-- ═══════════════════════════ ACT 1 · What the model predicts ═══════════════════════════ -->
+      <p class="vp-act" id="act-1"><span class="vp-act__n">1</span>What the model predicts</p>
+      <p class="vp-act__sub">A 16,384 bp window in; coverage over 896 bins and 5,215 tracks out. Everything below shares one set of coordinates — pick a locus and a region in the bar above, then read straight down.</p>
 
         <section class="vp-panel">
           <h2>Sequence</h2>
@@ -164,7 +165,8 @@ const breadcrumbLd = buildBreadcrumbLd([
           </p>
         </section>
 
-      <!-- ------------------------------------------------- full-width flow -->
+
+
       <!-- ============================================ the browser: one positional view ==== -->
       <section class="vp-panel">
         <h2>Predicted expression, base by base and genome-wide{' '}
@@ -370,6 +372,151 @@ const breadcrumbLd = buildBreadcrumbLd([
             bug. The colours are fixed in every theme, because a figure's base colours are part of the
             figure.
           </p>
+                <details class="vp-how">
+            <summary>How a motif box is placed, and why some are hollow</summary>
+            <div class="vp-how-body">
+              <p><strong>A solid box is a motif; a hollow box is a database region.</strong> Curated
+              binding-site calls come from a PWM scan under a conservation filter, not from matching
+              a consensus string — so most of them do not contain their factor's canonical motif.
+              Measured across these windows, only <strong>22.8% of 670</strong> curated calls do.
+              Crucially their <em>coordinates</em> are not wrong: where the consensus is present it
+              sits at offset 0 of the call. So a box is drawn on the <strong>match</strong> where one
+              exists, tight to the motif and with the matched bases printed beneath it — the
+              reference-DB convention of the paper's own Figure 4F — and on the database's region
+              otherwise, hollow and labelled as such. Two different claims, drawn differently.</p>
+              <p><strong>Splice and codon landmarks are spans, not a fixed window.</strong> They used
+              to be boxed as six bases centred on the junction, which framed{' '}
+              <code>AAGGTA</code> where DTD1's donor motif is <code>GTATGT</code>. Each landmark now
+              carries the span of the motif it names — donor 6 bases, acceptor 2, codons 3, branch
+              point 7 — mirrored on the minus strand, and a test decodes the sequence inside every
+              drawn box to confirm it.</p>
+              <p>The consensuses come from <strong>Figure 4H</strong>, the paper's motif dictionary.
+              Recording them explicitly caught one already: this page had Fhl1 as{' '}
+              <code>GTAAACA</code>, which is not the paper's Fhl1 motif, and was boxing a position
+              27 bp from where Figure S19B puts it.</p>
+            </div>
+          </details>
+                <details class="vp-how">
+            <summary>How the logo is drawn, and why only one letter appears per position</summary>
+            <div class="vp-how-body">
+              <p><strong>The geometry is the paper's, not an approximation of it.</strong> Real DejaVu
+              Sans Bold outlines for A/C/G/T with the paper's own hand-tuned per-letter x-offsets
+              (A −0.350, C −0.366, G −0.384, T −0.305 — not half-advances), scaled by{' '}
+              <code>globscale = 1.35</code> on <em>both</em> axes, which is what makes a stack summing
+              to S fill height S and what makes adjacent letters touch. Colours are the paper's
+              saturated X11 values <code>#008000 / #0000FF / #FFA500 / #FF0000</code>, fixed in every
+              theme because a figure's base colours are part of the figure. Letters are stacked
+              descending by magnitude, positives up from zero and negatives <em>mirrored</em> below,
+              with y-limits at the data min and max each padded by 5% of max|v|.</p>
+              <p><strong>Mutagenesis</strong> is the paper's Figure 4 quantity, in three steps
+              (<code>fig4_common.py:227-230</code>, and identically in two other files):
+              average logSED over the T0 tracks → <em>mean-centre across the four bases</em> →{' '}
+              <em>project on the reference one-hot</em>. Step two is what turns "what this substitution
+              did" into "how much the base that is <em>there</em> matters"; step three is why exactly
+              one letter survives per position. Given the shipped plane <code>P</code> with the
+              reference cell zero, that value is exactly <code>−(Σ P)/4</code>.</p>
+              <p><strong>Gradient × input</strong> also draws one letter per position, but for a
+              different reason: the input is one-hot, so gradient × input is <em>identically zero</em>{' '}
+              at the three bases that are not there. That is a property of the method, not a rendering
+              choice.</p>
+              <p><strong>Occlusion</strong> resolves 64 bp, so every base inside a window carries that
+              window's value and the logo reads as blocks. Its sign is flipped to match the others:
+              occlusion measures what is <em>lost</em>, so a base that matters has a negative logSED,
+              and the logo convention is that up means "raises the prediction".</p>
+            </div>
+          </details>
+        </section>
+
+      <!-- ------------------------------------------------- interpretation -->
+      <section class="vp-panel">
+        <h2>Every output track <span class="vp-stat" data-vp-heat-stat></span></h2>
+        <canvas class="vp-canvas vp-heat" data-vp-heat role="img"
+                aria-label="All 5,215 predicted output tracks, one row each, grouped by assay"></canvas>
+        <div class="vp-controls" style="margin-top:0.5rem;">
+          <select class="vp-select" data-vp-pick-group aria-label="Assay block"></select>
+          <select class="vp-select" data-vp-pick-key aria-label="Regulator, ChIP target or run"></select>
+          <select class="vp-select" data-vp-pick-track aria-label="Timepoint or replicate"></select>
+        </div>
+        <div class="vp-controls" style="margin-top:0.35rem;">
+          <span class="vp-stat" data-vp-track-name></span>
+        </div>
+        <svg class="vp-svg" data-vp-single role="img"
+             aria-label="The selected output track across the window"></svg>
+        <p class="vp-notes" style="margin:0.4rem 0 0;">
+          One row per predicted experiment, in the order the released targets sheet lists them, so
+          the four assay blocks read as bands. Click a row to plot that single track below — the
+          overview above averages thousands of experiments, which is a curve no instrument would
+          produce. Where rows outnumber pixels each drawn row is the maximum over the tracks it covers.
+        </p>
+      </section>
+
+
+
+      <!-- ═══════════════════════════ ACT 2 · Pick a region, and ask four methods what drove it ═══════════════════════════ -->
+      <p class="vp-act" id="act-2"><span class="vp-act__n">2</span>Pick a region, and ask what drove it</p>
+      <p class="vp-act__sub">One choice conditions everything that follows. Four methods answer it, and they are not expected to agree: where they diverge, the divergence is the finding.</p>
+
+      <section class="vp-panel">
+        <h2>Four ways to ask which bases drove it{' '}
+          <span class="vp-stat" data-vp-brush-stat></span>
+        </h2>
+          <svg class="vp-svg" data-vp-method-logos role="img"
+               aria-label="Each method as a DNA logo over the selected window"></svg>
+          <div class="vp-controls vp-annctl">
+            <span class="vp-stat" data-vp-brush-stat>drag across the method tracks to zoom</span>
+            <select class="vp-select" data-vp-brush-width aria-label="Zoom window width">
+              <option value="60">60 bp</option>
+              <option value="150" selected>150 bp</option>
+              <option value="400">400 bp</option>
+              <option value="1000">1,000 bp</option>
+            </select>
+          </div>
+          <p class="vp-notes" style="margin:0.35rem 0 0;">
+            <strong>The same window, as letters, for every method that has them.</strong> A logo of
+            the whole 16,384 bp window is not a drawing that exists — one base is{' '}
+            <strong>0.078 px</strong> — so the strip above stays a signal and the letters live in a
+            zoom. Drag across any method track to move it. Only{' '}
+            <em>gradient × input</em> and <em>integrated gradients</em> are per-base, so only those
+            two become letters; attention rollout resolves 128 bp and occlusion 64 bp, and they are
+            drawn as bands at their real resolution rather than stretched into letters they cannot
+            support.
+          </p>
+
+          <p class="vp-notes" style="margin:0.35rem 0 0;">
+            <strong>Four methods, one axis, one annotation.</strong> They do not measure the same
+            thing and are not expected to agree everywhere:{' '}
+            <em>mutagenesis</em> substitutes one base and re-runs the model;{' '}
+            <em>gradient × input</em> is a local linear sensitivity at the reference base, mean-centred
+            across the four bases as Borzoi does;{' '}
+            <em>integrated gradients</em> accumulates that gradient along a path from an all-zero
+            baseline and is the only one here whose values <em>sum</em> to the prediction difference —
+            a property it would lose if it were mean-centred, so it is not;{' '}
+            <em>occlusion</em> ablates a whole 64 bp stretch and measures what the model loses.
+            Where they agree the result is robust; where they diverge, the divergence is the finding.
+            A method that covers only part of the window is drawn in place with the rest left blank,
+            which is what the paper does for its own partial windows.
+          </p>
+          <p class="vp-context" data-vp-trace-context></p>
+          <p class="vp-notes" style="margin:0.35rem 0 0;">
+            <strong>Traceback.</strong> Gradient × input: how much the prediction over the selected
+            bins moves per unit of each input base, times the base that is actually there. It is a{' '}
+            <em>local sensitivity, not a decomposition</em> — the values do not sum to the
+            prediction. Dragging is exact rather than interpolated, because gradients superpose:
+            the attribution for a set of bins is the sum of their individual gradients. Dragging
+            resolves to 128 bp; picking a gene gives single-base resolution.
+          </p>
+          <div class="vp-controls" style="margin-top:0.5rem;">
+            <!-- `measured coverage` and the output-group select lived here. The first was
+                 permanently inert -- src/data/shorkieTruth.json ships as an empty stub, so the
+                 readout always said "no measured coverage loaded" -- and the second drove only
+                 the coverage curve, which the browser above now owns. -->
+            <label class="vp-stat" style="display:inline-flex;align-items:center;gap:0.35rem;">
+              <input type="checkbox" data-vp-logaxis checked /> log axis
+            </label>
+            <label class="vp-stat" style="display:inline-flex;align-items:center;gap:0.35rem;">
+              <input type="checkbox" data-vp-generows checked /> one row per gene
+            </label>
+          </div>
           <p class="vp-notes" style="margin:0.35rem 0 0;">
             <strong>Two sources, and they are not the same method.</strong> <em>Mutagenesis</em> is the
             paper's Figure 4 quantity: every substitution actually run, then mean-centred across the
@@ -435,143 +582,6 @@ const breadcrumbLd = buildBreadcrumbLd([
               in the whole set.</p>
             </div>
           </details>
-                <details class="vp-how">
-            <summary>Which model this is, and how close the score is to the paper's</summary>
-            <div class="vp-how-body">
-              <p><strong>One fold, and that is the paper's choice.</strong> Figure 4's ISM reads{' '}
-              <code>.../f0c0/part&lt;N&gt;/scores.h5</code> — a single model, fold 0 of the
-              cross-validation, which is the checkpoint this page runs. The repository does ship an
-              8-fold ensemble loader, but it belongs to <strong>Figure 7's eQTL analysis</strong>,
-              not to these logos. Averaging eight folds here would move this page <em>away</em> from
-              the figure it reproduces, so it does not.</p>
-              <p><strong>The score is a different formula from the paper's, and they agree.</strong>{' '}
-              Figure 4 averages <em>per-track</em> logSED across the 384 <code>_T0_</code> tracks;
-              this page computes logSED of the <em>track-averaged</em> coverage. Those are not the
-              same quantity — a mean of logarithms is not the logarithm of a mean — so it was
-              measured rather than assumed. Over 240 real substitutions in TDH3's promoter the two
-              agree to <strong>r = 0.999987</strong>, with a largest difference of{' '}
-              <strong>0.00033</strong>, the same strongest substitution, and a scale ratio of 1.005.
-              That is far below what the shipped uint8 packs can even represent. The reason is that
-              the T0 tracks are strongly correlated; for a heterogeneous track set the two would
-              genuinely diverge.</p>
-              <p><strong>What is not checked.</strong> The paper's own ISM arrays live on the
-              authors' cluster and are not in the public repository, so nothing here is a numeric
-              comparison against published values. The claim is that the <em>recipe</em> matches —
-              the fold, the track subset, the gene-body slice, the rc-averaging, the mean-centring
-              and the one-hot projection — and that the drawing reproduces the published figure.</p>
-            </div>
-          </details>
-                <details class="vp-how">
-            <summary>How a motif box is placed, and why some are hollow</summary>
-            <div class="vp-how-body">
-              <p><strong>A solid box is a motif; a hollow box is a database region.</strong> Curated
-              binding-site calls come from a PWM scan under a conservation filter, not from matching
-              a consensus string — so most of them do not contain their factor's canonical motif.
-              Measured across these windows, only <strong>22.8% of 670</strong> curated calls do.
-              Crucially their <em>coordinates</em> are not wrong: where the consensus is present it
-              sits at offset 0 of the call. So a box is drawn on the <strong>match</strong> where one
-              exists, tight to the motif and with the matched bases printed beneath it — the
-              reference-DB convention of the paper's own Figure 4F — and on the database's region
-              otherwise, hollow and labelled as such. Two different claims, drawn differently.</p>
-              <p><strong>Splice and codon landmarks are spans, not a fixed window.</strong> They used
-              to be boxed as six bases centred on the junction, which framed{' '}
-              <code>AAGGTA</code> where DTD1's donor motif is <code>GTATGT</code>. Each landmark now
-              carries the span of the motif it names — donor 6 bases, acceptor 2, codons 3, branch
-              point 7 — mirrored on the minus strand, and a test decodes the sequence inside every
-              drawn box to confirm it.</p>
-              <p>The consensuses come from <strong>Figure 4H</strong>, the paper's motif dictionary.
-              Recording them explicitly caught one already: this page had Fhl1 as{' '}
-              <code>GTAAACA</code>, which is not the paper's Fhl1 motif, and was boxing a position
-              27 bp from where Figure S19B puts it.</p>
-            </div>
-          </details>
-                <details class="vp-how">
-            <summary>How the logo is drawn, and why only one letter appears per position</summary>
-            <div class="vp-how-body">
-              <p><strong>The geometry is the paper's, not an approximation of it.</strong> Real DejaVu
-              Sans Bold outlines for A/C/G/T with the paper's own hand-tuned per-letter x-offsets
-              (A −0.350, C −0.366, G −0.384, T −0.305 — not half-advances), scaled by{' '}
-              <code>globscale = 1.35</code> on <em>both</em> axes, which is what makes a stack summing
-              to S fill height S and what makes adjacent letters touch. Colours are the paper's
-              saturated X11 values <code>#008000 / #0000FF / #FFA500 / #FF0000</code>, fixed in every
-              theme because a figure's base colours are part of the figure. Letters are stacked
-              descending by magnitude, positives up from zero and negatives <em>mirrored</em> below,
-              with y-limits at the data min and max each padded by 5% of max|v|.</p>
-              <p><strong>Mutagenesis</strong> is the paper's Figure 4 quantity, in three steps
-              (<code>fig4_common.py:227-230</code>, and identically in two other files):
-              average logSED over the T0 tracks → <em>mean-centre across the four bases</em> →{' '}
-              <em>project on the reference one-hot</em>. Step two is what turns "what this substitution
-              did" into "how much the base that is <em>there</em> matters"; step three is why exactly
-              one letter survives per position. Given the shipped plane <code>P</code> with the
-              reference cell zero, that value is exactly <code>−(Σ P)/4</code>.</p>
-              <p><strong>Gradient × input</strong> also draws one letter per position, but for a
-              different reason: the input is one-hot, so gradient × input is <em>identically zero</em>{' '}
-              at the three bases that are not there. That is a property of the method, not a rendering
-              choice.</p>
-              <p><strong>Occlusion</strong> resolves 64 bp, so every base inside a window carries that
-              window's value and the logo reads as blocks. Its sign is flipped to match the others:
-              occlusion measures what is <em>lost</em>, so a base that matters has a negative logSED,
-              and the logo convention is that up means "raises the prediction".</p>
-            </div>
-          </details>
-
-          <svg class="vp-svg" data-vp-method-logos role="img"
-               aria-label="Each method as a DNA logo over the selected window"></svg>
-          <div class="vp-controls vp-annctl">
-            <span class="vp-stat" data-vp-brush-stat>drag across the method tracks to zoom</span>
-            <select class="vp-select" data-vp-brush-width aria-label="Zoom window width">
-              <option value="60">60 bp</option>
-              <option value="150" selected>150 bp</option>
-              <option value="400">400 bp</option>
-              <option value="1000">1,000 bp</option>
-            </select>
-          </div>
-          <p class="vp-notes" style="margin:0.35rem 0 0;">
-            <strong>The same window, as letters, for every method that has them.</strong> A logo of
-            the whole 16,384 bp window is not a drawing that exists — one base is{' '}
-            <strong>0.078 px</strong> — so the strip above stays a signal and the letters live in a
-            zoom. Drag across any method track to move it. Only{' '}
-            <em>gradient × input</em> and <em>integrated gradients</em> are per-base, so only those
-            two become letters; attention rollout resolves 128 bp and occlusion 64 bp, and they are
-            drawn as bands at their real resolution rather than stretched into letters they cannot
-            support.
-          </p>
-
-          <p class="vp-notes" style="margin:0.35rem 0 0;">
-            <strong>Four methods, one axis, one annotation.</strong> They do not measure the same
-            thing and are not expected to agree everywhere:{' '}
-            <em>mutagenesis</em> substitutes one base and re-runs the model;{' '}
-            <em>gradient × input</em> is a local linear sensitivity at the reference base, mean-centred
-            across the four bases as Borzoi does;{' '}
-            <em>integrated gradients</em> accumulates that gradient along a path from an all-zero
-            baseline and is the only one here whose values <em>sum</em> to the prediction difference —
-            a property it would lose if it were mean-centred, so it is not;{' '}
-            <em>occlusion</em> ablates a whole 64 bp stretch and measures what the model loses.
-            Where they agree the result is robust; where they diverge, the divergence is the finding.
-            A method that covers only part of the window is drawn in place with the rest left blank,
-            which is what the paper does for its own partial windows.
-          </p>
-          <p class="vp-context" data-vp-trace-context></p>
-          <p class="vp-notes" style="margin:0.35rem 0 0;">
-            <strong>Traceback.</strong> Gradient × input: how much the prediction over the selected
-            bins moves per unit of each input base, times the base that is actually there. It is a{' '}
-            <em>local sensitivity, not a decomposition</em> — the values do not sum to the
-            prediction. Dragging is exact rather than interpolated, because gradients superpose:
-            the attribution for a set of bins is the sum of their individual gradients. Dragging
-            resolves to 128 bp; picking a gene gives single-base resolution.
-          </p>
-          <div class="vp-controls" style="margin-top:0.5rem;">
-            <!-- `measured coverage` and the output-group select lived here. The first was
-                 permanently inert -- src/data/shorkieTruth.json ships as an empty stub, so the
-                 readout always said "no measured coverage loaded" -- and the second drove only
-                 the coverage curve, which the browser above now owns. -->
-            <label class="vp-stat" style="display:inline-flex;align-items:center;gap:0.35rem;">
-              <input type="checkbox" data-vp-logaxis checked /> log axis
-            </label>
-            <label class="vp-stat" style="display:inline-flex;align-items:center;gap:0.35rem;">
-              <input type="checkbox" data-vp-generows checked /> one row per gene
-            </label>
-          </div>
         <details class="vp-how">
           <summary>How the four method tracks are computed</summary>
           <div class="vp-how-body">
@@ -662,236 +672,9 @@ const breadcrumbLd = buildBreadcrumbLd([
       </section>
 
 
-      <!-- ============================================ frontier: three new questions ======== -->
-      <section class="vp-panel" data-shorkie-frontier>
-        <h2>Three questions the first-order methods cannot ask{' '}
-          <span class="vp-stat">species · epistasis · kinetics</span>
-        </h2>
-        <p class="vp-notes vp-lede" style="margin:0 0 0.7rem;">
-          Everything above is <em>first-order</em>: how much each base contributes on its own, in one
-          species, at one moment. These three panels relax one of those assumptions each, and they
-          follow the browser — pick a window up there and all three move.
-        </p>
-
-        <h3 class="gb-stats__title">1 · Tell the model it is a different fungus</h3>
-        <p class="vp-notes" style="margin:0 0 0.4rem;">
-          Shorkie's input carries a <strong>165-dimensional one-hot</strong> naming which{' '}
-          <em>Saccharomycetales</em> genome a sequence came from — an architecture no other
-          sequence-to-function model has, and a counterfactual available here and nowhere else. The
-          DNA below never changes; only the declared species does.
-        </p>
-        <canvas class="fr-canvas" data-fr-species height="190"
-                aria-label="Predicted expression of this gene under each of 165 declared species"></canvas>
-        <p class="vp-stat" data-fr-species-stat></p>
-        <p class="vp-notes" style="margin:0.35rem 0 0;">
-          <strong>Told the truth about what it is reading, the model predicts the most expression.</strong>{' '}
-          <em>S. cerevisiae</em> ranks <strong>first of 165</strong> at{' '}
-          {spSummary.cerevisiaeFirst} of {spSummary.loci} windows — probability{' '}
-          {spSummary.pUnderRandomRanking} under a null where the ordering is unrelated to the
-          sequence — and sits above the median species at {spSummary.marginPositive} of{' '}
-          {spSummary.loci}, by a median of {spSummary.marginMedian} log₂ units. The exceptions are{' '}
-          {spSummary.exceptions.join(', ')}, and all of them top out on <em>Yarrowia lipolytica</em>,
-          the most distant lineage in the set.
-        </p>
-        <details class="vp-how">
-          <summary>The control that decides whether any of this means anything</summary>
-          <div class="vp-how-body">
-            <p><strong>A per-species bias would look identical at one locus.</strong> If every window
-            ranked the 165 the same way, this would be measuring which channels simply predict more
-            — nothing about the sequence. The between-window rank correlation is a median{' '}
-            <strong>{spControl.betweenLocusSpearman.median}</strong> (range{' '}
-            {spControl.betweenLocusSpearman.min} to {spControl.betweenLocusSpearman.max}), so the
-            orderings genuinely differ: the model reads the same promoter differently depending on
-            the species it is told to be.</p>
-            <p><strong>A second control comes free.</strong> Five of the 165 rows are{' '}
-            <em>Yarrowia lipolytica</em> strains — separate channels the model was never told to
-            treat alike. Their spread is <strong>{(spControl.yarrowiaReplicates.sdRatioMedian * 100).toFixed(1)}%</strong>
-            {' '}of the full 165-species range, which bounds this method's noise from inside the data.</p>
-            <p><strong>The index is confirmed, not assumed.</strong> The paper's own species list has
-            exactly 165 rows and row 109 is <em>Saccharomyces cerevisiae</em> — matching the index
-            this site had previously established by peak magnitude alone, against shuffled and
-            random-sequence controls.</p>
-          </div>
-        </details>
-
-        <h3 class="gb-stats__title" style="margin-top:1rem;">2 · Which bases interact with a binding site</h3>
-        <p class="vp-notes" style="margin:0 0 0.4rem;">
-          Regulation is not additive — factors cooperate, compete, and care about spacing — and a
-          first-order method cannot see any of that by construction. For a motif spanning{' '}
-          <code>[a, b)</code> with indicator <code>v</code>, <strong>H·v = ∇⟨∇f, v⟩</strong> is one
-          vector over all 16,384 bases whose entry <em>i</em> says how much that motif's own
-          sensitivity changes when base <em>i</em> changes. One extra backward pass — 425 ms — rather
-          than the 16,384² Hessian.
-        </p>
-        <div class="vp-controls" style="margin-bottom:0.4rem;">
-          <label class="vp-nav__label" for="fr-ep">binding site</label>
-          <select class="vp-select" id="fr-ep" data-fr-epistasis-pick
-                  aria-label="Which binding site to anchor on"></select>
-        </div>
-        <canvas class="fr-canvas" data-fr-epistasis height="150"
-                aria-label="Second-order interaction field for the selected binding site"></canvas>
-        <p class="vp-stat" data-fr-epistasis-stat></p>
-        <p class="vp-notes" style="margin:0.35rem 0 0;">
-          <strong>The helical-periodicity prediction is refuted, and that is the result.</strong> If
-          the model had learned B-DNA's 10.5 bp pitch, |H·v| would repeat with it. Pooled over all{' '}
-          {epi.sites} ChIP-supported sites in the {epi.loci} windows it does not: dividing out the
-          decay and comparing distances in phase with 10.5 bp against anti-phase gives a ratio of{' '}
-          <strong>{epi.helical.ratio}</strong> — if anything slightly <em>lower</em> in phase. A
-          falsifiable prediction, tested, and answered no.
-        </p>
-        <details class="vp-how">
-          <summary>Why the periodogram's answer is the wrong answer</summary>
-          <div class="vp-how-body">
-            <p>The spectrum of the detrended profile puts its strongest periods at{' '}
-            {epi.topPeriods.slice(0, 3).map((p) => `${p.bp} bp`).join(', ')} — which are 147/3,
-            147/2 and 147/4, harmonics of the 4–150 bp analysis window. Reporting them as periods
-            would be reporting the ruler. The phase test above needs no spectrum and is not
-            vulnerable to it.</p>
-            <p><strong>The check that a mis-wired second derivative fails is symmetry.</strong>{' '}
-            <em>H</em> is symmetric, so ⟨H·v<sub>A</sub>, v<sub>B</sub>⟩ must equal
-            ⟨H·v<sub>B</sub>, v<sub>A</sub>⟩ for two sites in one window. The worst residual over
-            every pair is <strong>{epi.worstSymmetryResidual.toExponential(1)}</strong>, which is
-            float32 arithmetic. Nothing else catches this: a wrongly wired second derivative has the
-            right shape and the right magnitude and is simply the wrong quantity.</p>
-          </div>
-        </details>
-
-        <h3 class="gb-stats__title" style="margin-top:1rem;">3 · Do the drivers change as the response unfolds?</h3>
-        <p class="vp-notes" style="margin:0 0 0.4rem;">
-          The 3,053 induction tracks resolve into 13 timepoints × 337 regulators. Taking one
-          regulator's own tracks early and late and attributing each over this gene body asks whether
-          the model reads a <em>different part of the sequence</em> as the response develops.
-        </p>
-        <div data-fr-kinetics></div>
-        <p class="vp-stat" data-fr-kinetics-stat></p>
-        <p class="vp-notes" style="margin:0.35rem 0 0;">
-          <strong>It does, and only where the pairing is real.</strong> Across {kinData.regulators}{' '}
-          regulators × {nLoci} windows the median early-to-late correlation is{' '}
-          <strong>{kinData.median}</strong> — but the floor is <strong>{kinData.min}</strong>, at{' '}
-          <em>MSN2</em> on <em>GAL1</em>, where only half the strongest 500 bases survive. MSN2 and
-          MSN4 are the paralogous general-stress factors that bind the same STRE motif, and they rank
-          one and two independently; GAL1 and GLK1, where they move most, are both glucose-repressed.
-        </p>
-        <details class="vp-how">
-          <summary>Why this is per regulator and not per timepoint</summary>
-          <div class="vp-how-body">
-            <p>The obvious version fails, measured twice. The 13 timepoint <em>mean</em> coverage
-            tracks correlate at ≥ 0.9923 with each other, and their gradients are worse still —
-            early against late attribution comes out at <strong>r ≥ {kinData.timepointMeanControl.r}</strong>{' '}
-            with 99% of the top 500 bases shared. Each mean averages about 300 regulators, and
-            averaging 300 induction experiments leaves the shared baseline transcriptome. The
-            variation is real and lives in the individual tracks, where a single gene body spans
-            43.7× across them.</p>
-            <p>The replicate floor is on <em>count</em>, not on the timepoint label: T15, T30, T45,
-            T60 and T90 carry 64–77 tracks against T0's 384, and a thin mean makes a noisy gradient.
-            At two or more replicates {kinData.regulators} regulators qualify; at three, only eight.</p>
-          </div>
-        </details>
-      </section>
-
-      <!-- ------------------------------------------------- interpretation -->
-      <section class="vp-panel">
-        <h2>Every output track <span class="vp-stat" data-vp-heat-stat></span></h2>
-        <canvas class="vp-canvas vp-heat" data-vp-heat role="img"
-                aria-label="All 5,215 predicted output tracks, one row each, grouped by assay"></canvas>
-        <div class="vp-controls" style="margin-top:0.5rem;">
-          <select class="vp-select" data-vp-pick-group aria-label="Assay block"></select>
-          <select class="vp-select" data-vp-pick-key aria-label="Regulator, ChIP target or run"></select>
-          <select class="vp-select" data-vp-pick-track aria-label="Timepoint or replicate"></select>
-        </div>
-        <div class="vp-controls" style="margin-top:0.35rem;">
-          <span class="vp-stat" data-vp-track-name></span>
-        </div>
-        <svg class="vp-svg" data-vp-single role="img"
-             aria-label="The selected output track across the window"></svg>
-        <p class="vp-notes" style="margin:0.4rem 0 0;">
-          One row per predicted experiment, in the order the released targets sheet lists them, so
-          the four assay blocks read as bands. Click a row to plot that single track below — the
-          overview above averages thousands of experiments, which is a curve no instrument would
-          produce. Where rows outnumber pixels each drawn row is the maximum over the tracks it covers.
-        </p>
-      </section>
-
-
-      <section class="vp-panel">
-        <h2>What drives what <span class="vp-stat" data-vp-occl-stat></span></h2>
-        <div class="vp-controls" style="margin-bottom:0.4rem;">
-          <label class="vp-stat" style="display:inline-flex;align-items:center;gap:0.35rem;">
-            <input type="checkbox" data-vp-occl-norm /> scale each output bin to its own range
-          </label>
-          <span class="vp-stat" data-vp-occl-pick></span>
-        </div>
-        <canvas class="vp-canvas vp-occl" data-vp-occl role="img"
-                aria-label="Occlusion map: input window on x, output bin on y, colour is what that output loses"></canvas>
-        <p class="vp-notes" style="margin:0.4rem 0 0;">
-          <strong>Every input window against every output bin.</strong> Each column is a 64 bp stretch
-          of the input, ablated; each row is one of the 896 output bins; the colour is what that bin
-          loses when that stretch is gone. Blue is a loss, red a gain. This is the only genuinely
-          two-dimensional view on the page — every other method collapses to a single profile over
-          the input — and it is measured, not inferred: 256 real forward passes a locus.
-        </p>
-        <p class="vp-notes" style="margin:0.35rem 0 0;">
-          <strong>Read it as a map, and read both parts.</strong> The dark diagonal is local effect —
-          a window damaging the output directly above it — and per cell it is by far the strongest
-          thing here. But it is also narrow: one window of 256. Summed across the row, the local
-          footprint accounts for only <strong>0.2–5.6%</strong> of the most damaging window's total
-          effect, so the diagonal is where the model is <em>most intense</em> and the off-diagonal is
-          where most of what it does actually lives. Neither statement alone is the truth.
-          Off the diagonal, a <em>vertical stripe</em> is an input stretch many outputs depend on and
-          a <em>horizontal stripe</em> is an output bin that reads widely.
-        </p>
-        <p class="vp-notes" style="margin:0.35rem 0 0;">
-          <strong>The edges are the margins.</strong> The strip along the top is the column sum —
-          how much each input window matters summed over every output — and the strip down the right
-          is the row sum, how much each output bin depends on the sequence at all. <strong>Click a
-          row</strong> to read that one output bin's input profile, or <strong>a column</strong> to
-          see which outputs that window drives; click again to clear. Bins differ in expression by
-          orders of magnitude, so the checkbox rescales each row to its own range when the raw map is
-          dominated by the loudest ones.
-          <br /><br />
-          Ablation zeroes the four DNA channels, which is exactly how the paper's language model masks
-          a position and is indistinguishable from a run of N. That is a different question from the
-          motif knockouts above, which <em>shuffle</em>: a shuffle keeps base composition and asks
-          whether the arrangement matters, while zeroing asks whether the stretch carries information
-          at all.
-        </p>
-              <details class="vp-how">
-          <summary>How the occlusion map is computed</summary>
-          <div class="vp-how-body">
-            <p>For each of 256 windows of 64 bp: zero the four DNA channels across that window, run
-            the model, and record <code>log2(alt + 1) − log2(ref + 1)</code> for{' '}
-            <em>every one of the 896 output bins</em>. One forward pass answers a whole row, which is
-            why a complete <span class="shape">[256 × 896]</span> map costs 256 passes — 27 s a
-            locus, 54 s with both strands — and why this is the cheapest exact method here.</p>
-            <p><strong>Per cell the unit is logSED</strong>, a log2 fold change, so bins of wildly
-            different expression are comparable within a row. The default colour scale is shared
-            across the whole matrix for that reason; the checkbox rescales each output bin to its own
-            range, which trades the between-bin comparison for the within-bin one and is worth it
-            when a few loud bins dominate.</p>
-            <p><strong>The margins</strong> are plain sums of <code>|logSED|</code>: the top strip is
-            each input window summed over all 896 bins, the right strip each output bin summed over
-            all 256 windows.</p>
-            <p><strong>The diagonal is not the identity line.</strong> The two axes cover different
-            spans — the input is the whole 16,384 bp window, the output only the cropped
-            1,024–15,360 interior — so it is a line of slope &lt;1 that reaches neither corner. It is
-            drawn dashed where it actually falls.</p>
-            <p><strong>Zeroing is not shuffling.</strong> Zeroing the DNA channels is how the paper's
-            language model masks a position and is indistinguishable from a run of N: it asks whether
-            the stretch carries information at all. The motif knockouts above <em>shuffle</em>, which
-            preserves base composition and asks whether the arrangement matters. Different questions,
-            and they can disagree.</p>
-            <p><strong>What occlusion cannot see:</strong> redundancy. If two stretches carry the same
-            information, removing either alone changes nothing, and this map reports both as
-            unimportant.</p>
-          </div>
-        </details>
-</section>
-
-
-      <!-- ------------------------------------------------- every output track -->
-        <p class="vp-act" id="act-2"><span class="vp-act__n">2</span>
-          What happens inside?</p>
-        <p class="vp-act__sub">The same prediction, from the inside. Watch a sequence pass through all twenty stages, open any one of them, then trace one output region back through every layer to the bases.</p>
+      <!-- ═══════════════════════════ ACT 3 · How the network gets there ═══════════════════════════ -->
+      <p class="vp-act" id="act-3"><span class="vp-act__n">3</span>What happens inside?</p>
+      <p class="vp-act__sub">The same prediction, from the inside. Watch a sequence pass through all twenty stages, open any one of them, then trace that region back through every layer to the bases it came from.</p>
 
       <section class="vp-panel vp-flow-panel">
         <h2>The network, end to end — watch a sequence pass through it</h2>
@@ -1126,55 +909,141 @@ const breadcrumbLd = buildBreadcrumbLd([
         </details>
 </section>
 
-        <p class="vp-act" id="act-3"><span class="vp-act__n">3</span>
-          Does any of it match real biology?</p>
-        <p class="vp-act__sub">The tests that can come out negative. Every curated binding site knocked out and measured, and the attribution scored against annotation the model never saw.</p>
 
-        <section class="vp-panel">
-          <h2>What all twenty-three windows say <span class="vp-stat" data-vp-summary-stat></span></h2>
-          <p class="vp-notes" style="margin:0 0 0.6rem;">
-            Every other panel in this act shows one window at a time. This one is the pattern across
-            all twenty-three, computed once from the same packs and the same null those panels use — so
-            it cannot drift from them.
-          </p>
-          <div class="vp-findings" data-vp-findings></div>
-          <div class="vp-scroll-x"><canvas class="vp-canvas" data-vp-class-figure role="img"
-                  aria-label={`Attribution enrichment per annotation class, median across ${nLoci} windows`}></canvas></div>
-          <p class="vp-notes" style="margin:0.4rem 0 0;">
-            Each row is one annotation class; the bar is the <em>median</em> across the windows that
-            contain it, and the dots are the individual windows. A class present in two windows and
-            a class present in {nLoci} are drawn the same width, so the count beside each row is
-            what says how much to trust it.
-          </p>
-          <canvas class="vp-canvas" data-vp-tss role="img"
-                  aria-label="Attribution aligned on the transcription start site"></canvas>
-          <p class="vp-notes" style="margin:0.4rem 0 0;" data-vp-tss-note></p>
-          <details class="vp-how">
-            <summary>How the cross-locus summary and the TSS profile are computed</summary>
-            <div class="vp-how-body">
-              <p><strong>Nothing here is new data.</strong> The per-class enrichment is the same
-              statistic the panel below computes, run once per window offline and the medians taken;
-              the knockout winners are read from the same <code>-ko.json</code> packs the sweep
-              panel reads. It is a second <em>view</em> of numbers that already exist, not a second
-              copy of them — <code>verify_pipeline</code> re-derives it from the packs and fails if
-              the two disagree.</p>
-              <p><strong>The TSS profile aligns on the direction of transcription</strong>, not on
-              coordinate order: the start is <code>txStart</code> on the plus strand and{' '}
-              <code>txEnd</code> on the minus, and minus-strand profiles are reversed so "upstream"
-              is the same side of the plot for every gene. Without that flip the average puts
-              promoters against terminators and produces a flat curve that looks exactly like a real
-              null result.</p>
-              <p><strong>Each gene is normalised to its own total before averaging</strong>, so a
-              highly expressed gene does not dominate. The band is the spread <em>across genes</em>,
-              not a confidence interval on the mean — these genes differ by orders of magnitude in
-              expression and the spread is the honest statement of that.</p>
-              <p><strong>What it cannot tell you.</strong> 198 genes from twenty-three windows is a
-              small, non-random sample: they were chosen as classic high expressers, the galactose
-              regulon and the paper's own figure panels. A metaprofile from them describes those
-              genes, not the yeast genome.</p>
-            </div>
-          </details>
-        </section>
+      <section class="vp-panel">
+        <h2>What drives what <span class="vp-stat" data-vp-occl-stat></span></h2>
+        <div class="vp-controls" style="margin-bottom:0.4rem;">
+          <label class="vp-stat" style="display:inline-flex;align-items:center;gap:0.35rem;">
+            <input type="checkbox" data-vp-occl-norm /> scale each output bin to its own range
+          </label>
+          <span class="vp-stat" data-vp-occl-pick></span>
+        </div>
+        <canvas class="vp-canvas vp-occl" data-vp-occl role="img"
+                aria-label="Occlusion map: input window on x, output bin on y, colour is what that output loses"></canvas>
+        <p class="vp-notes" style="margin:0.4rem 0 0;">
+          <strong>Every input window against every output bin.</strong> Each column is a 64 bp stretch
+          of the input, ablated; each row is one of the 896 output bins; the colour is what that bin
+          loses when that stretch is gone. Blue is a loss, red a gain. This is the only genuinely
+          two-dimensional view on the page — every other method collapses to a single profile over
+          the input — and it is measured, not inferred: 256 real forward passes a locus.
+        </p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>Read it as a map, and read both parts.</strong> The dark diagonal is local effect —
+          a window damaging the output directly above it — and per cell it is by far the strongest
+          thing here. But it is also narrow: one window of 256. Summed across the row, the local
+          footprint accounts for only <strong>0.2–5.6%</strong> of the most damaging window's total
+          effect, so the diagonal is where the model is <em>most intense</em> and the off-diagonal is
+          where most of what it does actually lives. Neither statement alone is the truth.
+          Off the diagonal, a <em>vertical stripe</em> is an input stretch many outputs depend on and
+          a <em>horizontal stripe</em> is an output bin that reads widely.
+        </p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>The edges are the margins.</strong> The strip along the top is the column sum —
+          how much each input window matters summed over every output — and the strip down the right
+          is the row sum, how much each output bin depends on the sequence at all. <strong>Click a
+          row</strong> to read that one output bin's input profile, or <strong>a column</strong> to
+          see which outputs that window drives; click again to clear. Bins differ in expression by
+          orders of magnitude, so the checkbox rescales each row to its own range when the raw map is
+          dominated by the loudest ones.
+          <br /><br />
+          Ablation zeroes the four DNA channels, which is exactly how the paper's language model masks
+          a position and is indistinguishable from a run of N. That is a different question from the
+          motif knockouts above, which <em>shuffle</em>: a shuffle keeps base composition and asks
+          whether the arrangement matters, while zeroing asks whether the stretch carries information
+          at all.
+        </p>
+              <details class="vp-how">
+          <summary>How the occlusion map is computed</summary>
+          <div class="vp-how-body">
+            <p>For each of 256 windows of 64 bp: zero the four DNA channels across that window, run
+            the model, and record <code>log2(alt + 1) − log2(ref + 1)</code> for{' '}
+            <em>every one of the 896 output bins</em>. One forward pass answers a whole row, which is
+            why a complete <span class="shape">[256 × 896]</span> map costs 256 passes — 27 s a
+            locus, 54 s with both strands — and why this is the cheapest exact method here.</p>
+            <p><strong>Per cell the unit is logSED</strong>, a log2 fold change, so bins of wildly
+            different expression are comparable within a row. The default colour scale is shared
+            across the whole matrix for that reason; the checkbox rescales each output bin to its own
+            range, which trades the between-bin comparison for the within-bin one and is worth it
+            when a few loud bins dominate.</p>
+            <p><strong>The margins</strong> are plain sums of <code>|logSED|</code>: the top strip is
+            each input window summed over all 896 bins, the right strip each output bin summed over
+            all 256 windows.</p>
+            <p><strong>The diagonal is not the identity line.</strong> The two axes cover different
+            spans — the input is the whole 16,384 bp window, the output only the cropped
+            1,024–15,360 interior — so it is a line of slope &lt;1 that reaches neither corner. It is
+            drawn dashed where it actually falls.</p>
+            <p><strong>Zeroing is not shuffling.</strong> Zeroing the DNA channels is how the paper's
+            language model masks a position and is indistinguishable from a run of N: it asks whether
+            the stretch carries information at all. The motif knockouts above <em>shuffle</em>, which
+            preserves base composition and asks whether the arrangement matters. Different questions,
+            and they can disagree.</p>
+            <p><strong>What occlusion cannot see:</strong> redundancy. If two stretches carry the same
+            information, removing either alone changes nothing, and this map reports both as
+            unimportant.</p>
+          </div>
+        </details>
+</section>
+
+
+      <!-- ------------------------------------------------- every output track -->
+
+
+      <!-- ═══════════════════════════ ACT 4 · Does any of it correspond to biology? ═══════════════════════════ -->
+      <p class="vp-act" id="act-4"><span class="vp-act__n">4</span>Does any of it match real biology?</p>
+      <p class="vp-act__sub">The tests that can come out negative. Every curated binding site knocked out and measured, the attribution scored against annotation the model never saw, and three questions a first-order method cannot ask at all.</p>
+
+      <section class="vp-panel">
+        <h2>Does the attribution land on real biology? <span class="vp-stat" data-vp-enrich-stat></span></h2>
+        <p class="vp-notes" style="margin:0 0 0.5rem;">
+          <strong>One number per method, per annotation class.</strong> For each class, the mean
+          |attribution| on the bases that class covers, divided by the mean across the whole
+          window — so <strong>1.00× means no preference</strong>. The null comes from circularly
+          shifting the annotation against the signal, which keeps the number of features, their
+          lengths and their spacing exactly and destroys only their alignment; the shaded figure
+          beside each ratio is that null's spread. Cells are shaded by how far the ratio sits from
+          its own null, not by its size. The table measures <em>every</em> evidence tier whatever
+          the lanes above are drawing — comparing the three tiers against each other is the point,
+          and a drawing toggle should not silently change a statistic.
+        </p>
+        <div class="vp-scroll-x"><table class="vp-enrich" data-vp-enrichment></table></div>
+        <p class="vp-notes" style="margin:0.4rem 0 0;">
+          <strong>Read the negatives too.</strong> A class at 1.0× is a real answer: it says the
+          model puts no more weight there than anywhere else. And a method cannot resolve a feature
+          finer than its own resolution — occlusion moves in 64 bp steps and attention rollout in
+          128 bp, so neither can say anything about a 7 bp binding site, which is why their columns
+          are marked. <strong>This is a correlation against a stated null, not evidence the model
+          uses the feature</strong>: a site that happens to sit inside a region the model attends to
+          for unrelated reasons scores exactly the same.
+        </p>
+        <details class="vp-how">
+          <summary>How the enrichment and its null are computed</summary>
+          <div class="vp-how-body">
+            <p><strong>The statistic.</strong> Take the per-base signal <code>s</code> over the
+            16,384 bp window and a binary mask <code>m</code> for the class. The ratio is{' '}
+            <code>(Σ|s|·m / Σm) / (Σ|s| / L)</code> — mean magnitude inside over mean magnitude
+            everywhere. It is scale-free, so two methods with wildly different units are directly
+            comparable, and it is a magnitude, so a class the model <em>suppresses</em> still reads
+            as enriched. The mean signed value inside is reported alongside so that direction is
+            not lost.</p>
+            <p><strong>The null is a circular shift, not a resample.</strong> The mask is rotated
+            by each of 256 evenly spaced offsets and the ratio recomputed. Rotation preserves the
+            feature count, every feature's length, and the spacing between them — so the null
+            compares against an annotation that looks exactly like the real one but is not aligned
+            to the signal. Resampling positions instead would compare against a feature set that
+            does not resemble the real one at all, and would call almost everything significant.
+            The offsets are deterministic (evenly spaced, zero excluded), so a published number is
+            reproducible rather than a draw.</p>
+            <p><strong>The p is empirical</strong>, <code>(#{'{'}null ≥ observed{'}'} + 1) / (256 + 1)</code>,
+            so it is never exactly zero and its floor is 1/257 ≈ 0.0039. A cell at that floor means
+            "no shift out of 256 reached this", not "p = 0".</p>
+            <p><strong>What it cannot tell you.</strong> Circular shifts are a weak null against
+            broad positional trends: if a method's signal is concentrated near the window centre
+            and a class happens to be too, the shift will not fully break that. It is also a
+            per-class test with no multiple-testing correction across the table — read a single
+            marginal cell with that in mind.</p>
+          </div>
+        </details>
+      </section>
 
 
       <section class="vp-panel">
@@ -1246,62 +1115,183 @@ const breadcrumbLd = buildBreadcrumbLd([
         </details>
       </section>
 
-      <section class="vp-panel">
-        <h2>Does the attribution land on real biology? <span class="vp-stat" data-vp-enrich-stat></span></h2>
-        <p class="vp-notes" style="margin:0 0 0.5rem;">
-          <strong>One number per method, per annotation class.</strong> For each class, the mean
-          |attribution| on the bases that class covers, divided by the mean across the whole
-          window — so <strong>1.00× means no preference</strong>. The null comes from circularly
-          shifting the annotation against the signal, which keeps the number of features, their
-          lengths and their spacing exactly and destroys only their alignment; the shaded figure
-          beside each ratio is that null's spread. Cells are shaded by how far the ratio sits from
-          its own null, not by its size. The table measures <em>every</em> evidence tier whatever
-          the lanes above are drawing — comparing the three tiers against each other is the point,
-          and a drawing toggle should not silently change a statistic.
+        <section class="vp-panel">
+          <h2>What all twenty-three windows say <span class="vp-stat" data-vp-summary-stat></span></h2>
+          <p class="vp-notes" style="margin:0 0 0.6rem;">
+            Every other panel in this act shows one window at a time. This one is the pattern across
+            all twenty-three, computed once from the same packs and the same null those panels use — so
+            it cannot drift from them.
+          </p>
+          <div class="vp-findings" data-vp-findings></div>
+          <div class="vp-scroll-x"><canvas class="vp-canvas" data-vp-class-figure role="img"
+                  aria-label={`Attribution enrichment per annotation class, median across ${nLoci} windows`}></canvas></div>
+          <p class="vp-notes" style="margin:0.4rem 0 0;">
+            Each row is one annotation class; the bar is the <em>median</em> across the windows that
+            contain it, and the dots are the individual windows. A class present in two windows and
+            a class present in {nLoci} are drawn the same width, so the count beside each row is
+            what says how much to trust it.
+          </p>
+          <canvas class="vp-canvas" data-vp-tss role="img"
+                  aria-label="Attribution aligned on the transcription start site"></canvas>
+          <p class="vp-notes" style="margin:0.4rem 0 0;" data-vp-tss-note></p>
+          <details class="vp-how">
+            <summary>How the cross-locus summary and the TSS profile are computed</summary>
+            <div class="vp-how-body">
+              <p><strong>Nothing here is new data.</strong> The per-class enrichment is the same
+              statistic the panel below computes, run once per window offline and the medians taken;
+              the knockout winners are read from the same <code>-ko.json</code> packs the sweep
+              panel reads. It is a second <em>view</em> of numbers that already exist, not a second
+              copy of them — <code>verify_pipeline</code> re-derives it from the packs and fails if
+              the two disagree.</p>
+              <p><strong>The TSS profile aligns on the direction of transcription</strong>, not on
+              coordinate order: the start is <code>txStart</code> on the plus strand and{' '}
+              <code>txEnd</code> on the minus, and minus-strand profiles are reversed so "upstream"
+              is the same side of the plot for every gene. Without that flip the average puts
+              promoters against terminators and produces a flat curve that looks exactly like a real
+              null result.</p>
+              <p><strong>Each gene is normalised to its own total before averaging</strong>, so a
+              highly expressed gene does not dominate. The band is the spread <em>across genes</em>,
+              not a confidence interval on the mean — these genes differ by orders of magnitude in
+              expression and the spread is the honest statement of that.</p>
+              <p><strong>What it cannot tell you.</strong> 198 genes from twenty-three windows is a
+              small, non-random sample: they were chosen as classic high expressers, the galactose
+              regulon and the paper's own figure panels. A metaprofile from them describes those
+              genes, not the yeast genome.</p>
+            </div>
+          </details>
+        </section>
+
+
+      <!-- ============================================ frontier: three new questions ======== -->
+      <section class="vp-panel" data-shorkie-frontier>
+        <h2>Three questions the first-order methods cannot ask{' '}
+          <span class="vp-stat">species · epistasis · kinetics</span>
+        </h2>
+        <p class="vp-notes vp-lede" style="margin:0 0 0.7rem;">
+          Everything above is <em>first-order</em>: how much each base contributes on its own, in one
+          species, at one moment. These three panels relax one of those assumptions each, and they
+          follow the browser — pick a window up there and all three move.
         </p>
-        <div class="vp-scroll-x"><table class="vp-enrich" data-vp-enrichment></table></div>
-        <p class="vp-notes" style="margin:0.4rem 0 0;">
-          <strong>Read the negatives too.</strong> A class at 1.0× is a real answer: it says the
-          model puts no more weight there than anywhere else. And a method cannot resolve a feature
-          finer than its own resolution — occlusion moves in 64 bp steps and attention rollout in
-          128 bp, so neither can say anything about a 7 bp binding site, which is why their columns
-          are marked. <strong>This is a correlation against a stated null, not evidence the model
-          uses the feature</strong>: a site that happens to sit inside a region the model attends to
-          for unrelated reasons scores exactly the same.
+
+        <h3 class="gb-stats__title">1 · Tell the model it is a different fungus</h3>
+        <p class="vp-notes" style="margin:0 0 0.4rem;">
+          Shorkie's input carries a <strong>165-dimensional one-hot</strong> naming which{' '}
+          <em>Saccharomycetales</em> genome a sequence came from — an architecture no other
+          sequence-to-function model has, and a counterfactual available here and nowhere else. The
+          DNA below never changes; only the declared species does.
+        </p>
+        <canvas class="fr-canvas" data-fr-species height="190"
+                aria-label="Predicted expression of this gene under each of 165 declared species"></canvas>
+        <p class="vp-stat" data-fr-species-stat></p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>Told the truth about what it is reading, the model predicts the most expression.</strong>{' '}
+          <em>S. cerevisiae</em> ranks <strong>first of 165</strong> at{' '}
+          {spSummary.cerevisiaeFirst} of {spSummary.loci} windows — probability{' '}
+          {spSummary.pUnderRandomRanking} under a null where the ordering is unrelated to the
+          sequence — and sits above the median species at {spSummary.marginPositive} of{' '}
+          {spSummary.loci}, by a median of {spSummary.marginMedian} log₂ units. The exceptions are{' '}
+          {spSummary.exceptions.join(', ')}, and all of them top out on <em>Yarrowia lipolytica</em>,
+          the most distant lineage in the set.
         </p>
         <details class="vp-how">
-          <summary>How the enrichment and its null are computed</summary>
+          <summary>The control that decides whether any of this means anything</summary>
           <div class="vp-how-body">
-            <p><strong>The statistic.</strong> Take the per-base signal <code>s</code> over the
-            16,384 bp window and a binary mask <code>m</code> for the class. The ratio is{' '}
-            <code>(Σ|s|·m / Σm) / (Σ|s| / L)</code> — mean magnitude inside over mean magnitude
-            everywhere. It is scale-free, so two methods with wildly different units are directly
-            comparable, and it is a magnitude, so a class the model <em>suppresses</em> still reads
-            as enriched. The mean signed value inside is reported alongside so that direction is
-            not lost.</p>
-            <p><strong>The null is a circular shift, not a resample.</strong> The mask is rotated
-            by each of 256 evenly spaced offsets and the ratio recomputed. Rotation preserves the
-            feature count, every feature's length, and the spacing between them — so the null
-            compares against an annotation that looks exactly like the real one but is not aligned
-            to the signal. Resampling positions instead would compare against a feature set that
-            does not resemble the real one at all, and would call almost everything significant.
-            The offsets are deterministic (evenly spaced, zero excluded), so a published number is
-            reproducible rather than a draw.</p>
-            <p><strong>The p is empirical</strong>, <code>(#{'{'}null ≥ observed{'}'} + 1) / (256 + 1)</code>,
-            so it is never exactly zero and its floor is 1/257 ≈ 0.0039. A cell at that floor means
-            "no shift out of 256 reached this", not "p = 0".</p>
-            <p><strong>What it cannot tell you.</strong> Circular shifts are a weak null against
-            broad positional trends: if a method's signal is concentrated near the window centre
-            and a class happens to be too, the shift will not fully break that. It is also a
-            per-class test with no multiple-testing correction across the table — read a single
-            marginal cell with that in mind.</p>
+            <p><strong>A per-species bias would look identical at one locus.</strong> If every window
+            ranked the 165 the same way, this would be measuring which channels simply predict more
+            — nothing about the sequence. The between-window rank correlation is a median{' '}
+            <strong>{spControl.betweenLocusSpearman.median}</strong> (range{' '}
+            {spControl.betweenLocusSpearman.min} to {spControl.betweenLocusSpearman.max}), so the
+            orderings genuinely differ: the model reads the same promoter differently depending on
+            the species it is told to be.</p>
+            <p><strong>A second control comes free.</strong> Five of the 165 rows are{' '}
+            <em>Yarrowia lipolytica</em> strains — separate channels the model was never told to
+            treat alike. Their spread is <strong>{(spControl.yarrowiaReplicates.sdRatioMedian * 100).toFixed(1)}%</strong>
+            {' '}of the full 165-species range, which bounds this method's noise from inside the data.</p>
+            <p><strong>The index is confirmed, not assumed.</strong> The paper's own species list has
+            exactly 165 rows and row 109 is <em>Saccharomyces cerevisiae</em> — matching the index
+            this site had previously established by peak magnitude alone, against shuffled and
+            random-sequence controls.</p>
+          </div>
+        </details>
+
+        <h3 class="gb-stats__title" style="margin-top:1rem;">2 · Which bases interact with a binding site</h3>
+        <p class="vp-notes" style="margin:0 0 0.4rem;">
+          Regulation is not additive — factors cooperate, compete, and care about spacing — and a
+          first-order method cannot see any of that by construction. For a motif spanning{' '}
+          <code>[a, b)</code> with indicator <code>v</code>, <strong>H·v = ∇⟨∇f, v⟩</strong> is one
+          vector over all 16,384 bases whose entry <em>i</em> says how much that motif's own
+          sensitivity changes when base <em>i</em> changes. One extra backward pass — 425 ms — rather
+          than the 16,384² Hessian.
+        </p>
+        <div class="vp-controls" style="margin-bottom:0.4rem;">
+          <label class="vp-nav__label" for="fr-ep">binding site</label>
+          <select class="vp-select" id="fr-ep" data-fr-epistasis-pick
+                  aria-label="Which binding site to anchor on"></select>
+        </div>
+        <canvas class="fr-canvas" data-fr-epistasis height="150"
+                aria-label="Second-order interaction field for the selected binding site"></canvas>
+        <p class="vp-stat" data-fr-epistasis-stat></p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>The helical-periodicity prediction is refuted, and that is the result.</strong> If
+          the model had learned B-DNA's 10.5 bp pitch, |H·v| would repeat with it. Pooled over all{' '}
+          {epi.sites} ChIP-supported sites in the {epi.loci} windows it does not: dividing out the
+          decay and comparing distances in phase with 10.5 bp against anti-phase gives a ratio of{' '}
+          <strong>{epi.helical.ratio}</strong> — if anything slightly <em>lower</em> in phase. A
+          falsifiable prediction, tested, and answered no.
+        </p>
+        <details class="vp-how">
+          <summary>Why the periodogram's answer is the wrong answer</summary>
+          <div class="vp-how-body">
+            <p>The spectrum of the detrended profile puts its strongest periods at{' '}
+            {epi.topPeriods.slice(0, 3).map((p) => `${p.bp} bp`).join(', ')} — which are 147/3,
+            147/2 and 147/4, harmonics of the 4–150 bp analysis window. Reporting them as periods
+            would be reporting the ruler. The phase test above needs no spectrum and is not
+            vulnerable to it.</p>
+            <p><strong>The check that a mis-wired second derivative fails is symmetry.</strong>{' '}
+            <em>H</em> is symmetric, so ⟨H·v<sub>A</sub>, v<sub>B</sub>⟩ must equal
+            ⟨H·v<sub>B</sub>, v<sub>A</sub>⟩ for two sites in one window. The worst residual over
+            every pair is <strong>{epi.worstSymmetryResidual.toExponential(1)}</strong>, which is
+            float32 arithmetic. Nothing else catches this: a wrongly wired second derivative has the
+            right shape and the right magnitude and is simply the wrong quantity.</p>
+          </div>
+        </details>
+
+        <h3 class="gb-stats__title" style="margin-top:1rem;">3 · Do the drivers change as the response unfolds?</h3>
+        <p class="vp-notes" style="margin:0 0 0.4rem;">
+          The 3,053 induction tracks resolve into 13 timepoints × 337 regulators. Taking one
+          regulator's own tracks early and late and attributing each over this gene body asks whether
+          the model reads a <em>different part of the sequence</em> as the response develops.
+        </p>
+        <div data-fr-kinetics></div>
+        <p class="vp-stat" data-fr-kinetics-stat></p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>It does, and only where the pairing is real.</strong> Across {kinData.regulators}{' '}
+          regulators × {nLoci} windows the median early-to-late correlation is{' '}
+          <strong>{kinData.median}</strong> — but the floor is <strong>{kinData.min}</strong>, at{' '}
+          <em>MSN2</em> on <em>GAL1</em>, where only half the strongest 500 bases survive. MSN2 and
+          MSN4 are the paralogous general-stress factors that bind the same STRE motif, and they rank
+          one and two independently; GAL1 and GLK1, where they move most, are both glucose-repressed.
+        </p>
+        <details class="vp-how">
+          <summary>Why this is per regulator and not per timepoint</summary>
+          <div class="vp-how-body">
+            <p>The obvious version fails, measured twice. The 13 timepoint <em>mean</em> coverage
+            tracks correlate at ≥ 0.9923 with each other, and their gradients are worse still —
+            early against late attribution comes out at <strong>r ≥ {kinData.timepointMeanControl.r}</strong>{' '}
+            with 99% of the top 500 bases shared. Each mean averages about 300 regulators, and
+            averaging 300 induction experiments leaves the shared baseline transcriptome. The
+            variation is real and lives in the individual tracks, where a single gene body spans
+            43.7× across them.</p>
+            <p>The replicate floor is on <em>count</em>, not on the timepoint label: T15, T30, T45,
+            T60 and T90 carry 64–77 tracks against T0's 384, and a thin mean makes a noisy gradient.
+            At two or more replicates {kinData.regulators} regulators qualify; at three, only eight.</p>
           </div>
         </details>
       </section>
 
-        <p class="vp-act" id="act-4"><span class="vp-act__n">4</span>
-          How do I read any of this?</p>
-        <p class="vp-act__sub">Every panel collapses a multi-dimensional tensor to something drawable, and they do not all collapse the same axis the same way.</p>
+      <!-- ═══════════════════════════ ACT — · Reference ═══════════════════════════ -->
+      <p class="vp-act" id="act-ref"><span class="vp-act__n">—</span>How do I read any of this?</p>
+      <p class="vp-act__sub">Every panel collapses a multi-dimensional tensor to something drawable, and they do not all collapse the same axis the same way. The layer list and the paper-vs-checkpoint notes are here too.</p>
 
       <section class="vp-panel">
         <h2>Every dimension this page collapses</h2>
@@ -1378,6 +1368,32 @@ const breadcrumbLd = buildBreadcrumbLd([
         </p>
       </section>
 
+                <details class="vp-how">
+            <summary>Which model this is, and how close the score is to the paper's</summary>
+            <div class="vp-how-body">
+              <p><strong>One fold, and that is the paper's choice.</strong> Figure 4's ISM reads{' '}
+              <code>.../f0c0/part&lt;N&gt;/scores.h5</code> — a single model, fold 0 of the
+              cross-validation, which is the checkpoint this page runs. The repository does ship an
+              8-fold ensemble loader, but it belongs to <strong>Figure 7's eQTL analysis</strong>,
+              not to these logos. Averaging eight folds here would move this page <em>away</em> from
+              the figure it reproduces, so it does not.</p>
+              <p><strong>The score is a different formula from the paper's, and they agree.</strong>{' '}
+              Figure 4 averages <em>per-track</em> logSED across the 384 <code>_T0_</code> tracks;
+              this page computes logSED of the <em>track-averaged</em> coverage. Those are not the
+              same quantity — a mean of logarithms is not the logarithm of a mean — so it was
+              measured rather than assumed. Over 240 real substitutions in TDH3's promoter the two
+              agree to <strong>r = 0.999987</strong>, with a largest difference of{' '}
+              <strong>0.00033</strong>, the same strongest substitution, and a scale ratio of 1.005.
+              That is far below what the shipped uint8 packs can even represent. The reason is that
+              the T0 tracks are strongly correlated; for a heterogeneous track set the two would
+              genuinely diverge.</p>
+              <p><strong>What is not checked.</strong> The paper's own ISM arrays live on the
+              authors' cluster and are not in the public repository, so nothing here is a numeric
+              comparison against published values. The claim is that the <em>recipe</em> matches —
+              the fold, the track subset, the gene-body slice, the rc-averaging, the mean-centring
+              and the one-hot projection — and that the drawing reproduces the published figure.</p>
+            </div>
+          </details>
       <!-- ------------------------------------------------- reference column -->
       <div>
         <section class="vp-panel">
