@@ -9,6 +9,9 @@ import lociData from '../../data/shorkieLoci.json';
 import speciesData from '../../data/shorkieSpecies.json';
 import epistasisData from '../../data/shorkieEpistasis.json';
 import kineticsData from '../../data/shorkieKinetics.json';
+import receptiveData from '../../data/shorkieReceptive.json';
+import giaData from '../../data/shorkieGia.json';
+import spacingData from '../../data/shorkieSpacing.json';
 
 // Derived, not typed. Four passages here described the enrichment figure and the knockout sweep as
 // covering fourteen windows after the set had grown to 23 -- and `shorkieBiologySummary.json`, which
@@ -22,6 +25,16 @@ const spSummary = speciesData.summary;
 const spControl = speciesData.control;
 const epi = epistasisData;
 const kinData = kineticsData;
+const recData = receptiveData;
+const giaJoin = giaData.necessityJoin;
+const giaSuff = Object.values(giaData.motifs)
+  .filter((m) => m.verdict.startsWith('sufficient'))
+  .sort((a, b) => Math.abs(b.marginOverScramble) - Math.abs(a.marginOverScramble));
+const giaTop = giaSuff.filter((m) => m.marginOverScramble > 0).slice(0, 3);
+const giaBottom = giaSuff.filter((m) => m.marginOverScramble < 0).slice(0, 3);
+const giaNotSuff = (giaJoin?.rows ?? []).filter((r) => r.quadrant === 'necessary, not sufficient');
+const spBest = Object.values(spacingData.pairs).reduce((a, b) => (b.maxInteraction > a.maxInteraction ? b : a));
+const spNearHelix = Object.values(spacingData.pairs)[0].harmonicsNearHelix;
 
 // The genome-wide section's numbers come from the tiles that shipped, not from prose. `nLoci`
 // above already exists because four passages here said "fourteen" after the set had grown to 23.
@@ -671,6 +684,51 @@ const breadcrumbLd = buildBreadcrumbLd([
           </p>
       </section>
 
+      <section class="vp-panel" data-shorkie-constructive>
+        <h2>Before asking which bases drove it — how many bases can?{' '}
+          <span class="vp-stat">effective receptive field</span>
+        </h2>
+        <p class="vp-notes vp-lede" style="margin:0 0 0.7rem;">
+          Every method above distributes credit across all 16,384 bases, and the architecture really
+          can reach all of them — dilated convolutions into full self-attention at the bottleneck.
+          But <em>can see</em> and <em>depends on</em> are different claims, and only the second is
+          measurable. Keep a centred core of real sequence, replace everything outside it with
+          dinucleotide-shuffled DNA, and grow the core until the prediction stops moving.
+        </p>
+        <canvas class="fr-canvas" data-cn-receptive height="210"
+                aria-label="Predicted expression against the radius of real sequence kept, for every window"></canvas>
+        <p class="vp-stat" data-cn-receptive-stat></p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>The effective context is a property of the gene, not of the model.</strong> The
+          median window is settled by <strong>±{recData.medianConvergenceBp.toLocaleString()} bp</strong>{' '}
+          of the ±8,192 available, and the six constitutive glycolytic genes — TDH3, PGK1, ACT1,
+          ADH1, FBA1, PDC1 — are all finished by <strong>±1 kb</strong>: a housekeeping promoter
+          determines its own gene. <strong>GAL1 needs the entire window</strong>, and GAL3, FUN12 and
+          KRE33 need ±4 kb. That is the practical scope of every attribution on this page — outside
+          a window's own radius there is little left to attribute.
+        </p>
+        <details class="vp-how">
+          <summary>Why shuffled and not zeroed, and the two controls</summary>
+          <div class="vp-how-body">
+            <p><strong>Zeroing the DNA channels is what occlusion does</strong>, and it is
+            indistinguishable from a run of N — a sequence the model has never seen. The answer
+            would then be about out-of-distribution input rather than about context. A{' '}
+            <strong>dinucleotide</strong> shuffle is the right null because yeast promoters carry
+            strong dinucleotide bias, poly(dA:dT) above all, and a mononucleotide shuffle destroys
+            that too. The shuffle is Altschul-Erikson — a random Euler path through the dinucleotide
+            graph — and <code>make_receptive.py</code> refuses to run unless all sixteen dinucleotide
+            counts survive it exactly on a 4,000 bp probe.</p>
+            <p><strong>At the largest radius the window is entirely real</strong>, so that point must
+            reproduce the full-context prediction. It does, at every locus, which is the check that
+            the splicing and scoring path is not itself perturbing anything. And convergence requires
+            every <em>larger</em> radius to stay inside the ±5% band as well, so a curve that crosses
+            once and wanders back out is not counted as converged.</p>
+            <p>{recData.shuffles} shuffles per radius per locus, {recData.radii.length} radii,{' '}
+            {nLoci} windows. The spread across shuffles is stored alongside each point.</p>
+          </div>
+        </details>
+      </section>
+
 
       <!-- ═══════════════════════════ ACT 3 · How the network gets there ═══════════════════════════ -->
       <p class="vp-act" id="act-3"><span class="vp-act__n">3</span>What happens inside?</p>
@@ -1162,6 +1220,120 @@ const breadcrumbLd = buildBreadcrumbLd([
         </section>
 
 
+      <!-- ============================================ constructive: built sequence ======== -->
+      <section class="vp-panel" data-shorkie-constructive>
+        <h2>Build a promoter and see what happens{' '}
+          <span class="vp-stat">sufficiency · grammar</span>
+        </h2>
+        <p class="vp-notes vp-lede" style="margin:0 0 0.7rem;">
+          The knockout sweep above is <em>destructive</em>: it shuffles a site that is already
+          sitting in a real promoter and reports what the prediction loses. That measures whether a
+          site is <strong>necessary there</strong> — and a site can be necessary for reasons that
+          are not about the motif at all, because of the nucleosome-free stretch it sits in or the
+          TATA box beside it. These two panels ask the opposite question constructively: start from
+          shuffled DNA containing nothing, add one element at a time, and see what the model does.
+        </p>
+
+        <h3 class="gb-stats__title">1 · Is the motif enough on its own?</h3>
+        <p class="vp-notes" style="margin:0 0 0.4rem;">
+          Each consensus from the paper's dictionary implanted at the centre of{' '}
+          {giaData.backgrounds} dinucleotide-shuffled backgrounds, paired against the same background
+          without it (Global Importance Analysis, Koo &amp; Ploenzke 2021). The tick on each bar is
+          that motif's own <strong>scramble</strong> — the same bases in a shuffled order, so same
+          composition and no motif. A bar that does not clear its own tick is measuring composition.
+        </p>
+        <canvas class="fr-canvas" data-cn-gia height="360"
+                aria-label="Effect of implanting each motif into an otherwise empty background, against its own scramble"></canvas>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>The model recovers known regulatory logic from sequence alone.</strong> The three
+          strongest activators are{' '}
+          {giaTop.map((m) => m.name).join(', ')} — and all three are{' '}
+          <strong>E-box motifs containing CACGTG</strong>. The strongest repressors are{' '}
+          {giaBottom.map((m) => m.name).join(', ')}: Ume6's URS1 site and the Dot6/PAC pair, which is
+          the ribosome-biogenesis repressor module. Nothing told the model any of that.
+        </p>
+
+        <h3 class="gb-stats__title" style="margin-top:1rem;">2 · Necessary and sufficient are different claims</h3>
+        <p class="vp-notes" style="margin:0 0 0.4rem;">
+          Crossing the sweep above against the implantation below. Horizontal is{' '}
+          <strong>necessity</strong> — what the prediction loses when a curated site of that factor
+          is shuffled in its own promoter, over every swept site. Vertical is{' '}
+          <strong>sufficiency</strong> — its margin over its own scramble in an empty background.
+        </p>
+        <canvas class="fr-canvas" data-cn-join height="230"
+                aria-label="Necessity against sufficiency for every factor that appears in both measurements"></canvas>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>{giaNotSuff.map((r) => r.name).join(' and ')} are necessary and not sufficient</strong>,
+          and they are the two most-swept factors on the page —{' '}
+          {giaNotSuff.map((r) => r.sites).join(' and ')} curated sites, among the largest knockout
+          effects anywhere in act 4 — yet implanted into a neutral background neither is
+          distinguishable from its own scramble. Both are yeast's <em>general regulatory factors</em>,
+          and the model has them working through the promoter around them rather than alone. Ume6 is
+          the mirror image: strongly sufficient, barely necessary in these {nLoci} windows, which are
+          mostly constitutive genes where a meiotic repressor has little to do.
+        </p>
+
+        <h3 class="gb-stats__title" style="margin-top:1rem;">3 · Does the arrangement matter?</h3>
+        <p class="vp-notes" style="margin:0 0 0.4rem;">
+          One motif anchored at the centre, a second walked away from it one base at a time in all
+          four orientations. Plotted is the <strong>interaction</strong> — the pair's effect minus
+          each motif's own effect at its own position — so a flat line means the model simply adds
+          the two up. Grey rules mark multiples of 10.5 bp, one turn of the double helix.
+        </p>
+        <div class="vp-controls" style="margin:0 0 0.45rem;">
+          <label class="vp-label" for="cn-sp">motif pair</label>
+          <select class="vp-select" id="cn-sp" data-cn-spacing-pick>
+            {Object.entries(spacingData.pairs).map(([k, v]) => (
+              <option value={k}>{v.label}</option>
+            ))}
+          </select>
+        </div>
+        <canvas class="fr-canvas" data-cn-spacing height="220"
+                aria-label="Interaction between two implanted motifs against their separation, in four orientations"></canvas>
+        <p class="vp-stat" data-cn-spacing-stat></p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>There is no helical grammar, and the constructive test agrees with the Hessian
+          below.</strong> Across the six pairs the in-phase / anti-phase ratio has a median of{' '}
+          <strong>{spacingData.medianHelicalRatio}</strong> and runs from{' '}
+          {spacingData.helicalRatioRange[0]} to {spacingData.helicalRatioRange[1]} —{' '}
+          <em>both</em> sides of 1.0, which is what noise looks like rather than a suppressed
+          signal. Orientation barely matters either. What the sweep does find is short-range and
+          unphased: the strongest interaction anywhere is{' '}
+          <strong>{spBest.a} × {spBest.b} at {spBest.maxAtBp} bp</strong> ({spBest.maxInteraction}{' '}
+          log₂), and Reb1 reaches TATA best at 31 bp.
+        </p>
+        <details class="vp-how">
+          <summary>Why the singles are re-measured at every separation, and how phasing is read</summary>
+          <div class="vp-how-body">
+            <p><strong>The second motif's solo effect is measured at each separation</strong>, not
+            once. A motif's effect varies with position for reasons that have nothing to do with the
+            other motif, and subtracting a single number would fold that positional dependence into
+            the "interaction" — manufacturing exactly the structure this panel is looking for. Every
+            configuration also runs on the same backgrounds, so the curve is paired across
+            separations and background variation cannot appear as spacing structure.</p>
+            <p><strong>Phasing is read two ways, because a periodogram alone has misled this page
+            before.</strong> The explicit contrast compares separations near integer multiples of
+            10.5 bp (the two motifs on the same face of the helix) against those near half-integer
+            multiples (opposite faces). The periodogram is reported with the harmonics of the scan
+            window printed beside it — the Hessian run's apparent periods of 49, 73.5 and 36.8 bp
+            turned out to be 147/3, 147/2 and 147/4, artefacts of the analysis window rather than
+            anything about DNA.</p>
+            <p><strong>All eighteen top periods here are scan-window harmonics</strong> — n/2,
+            n/3, n/4, n/5, n/7 and n/9 of a {Object.values(spacingData.pairs)[0].scanPoints}-point
+            scan — and 10.5 bp appears nowhere. But the limit of that reading has to travel with
+            it: <strong>n/6 is {spNearHelix.join(' and ')} bp, within a third of a base of one
+            helical turn</strong>, so a scan this length cannot separate helical phasing from its
+            own sixth harmonic. That is why the explicit phase contrast is the primary reading and
+            the spectrum is the secondary one.</p>
+            <p><strong>This is the constructive counterpart to the Hessian panel below</strong>,
+            which asked the same question as a second derivative at real sequence and answered no.
+            A local curvature and a built arrangement are genuinely different questions; where they
+            disagree, both numbers are reported rather than reconciled.</p>
+          </div>
+        </details>
+      </section>
+
+
       <!-- ============================================ frontier: three new questions ======== -->
       <section class="vp-panel" data-shorkie-frontier>
         <h2>Three questions the first-order methods cannot ask{' '}
@@ -1432,6 +1604,7 @@ const breadcrumbLd = buildBreadcrumbLd([
   // every `[data-genome-browser]` host, so this import is the whole wiring.
   import '../../scripts/genomeBrowser';
   import '../../scripts/shorkieFrontier';
+  import '../../scripts/shorkieConstructive';
 </script>
 
 <style>

@@ -1601,6 +1601,104 @@ async function auditSwallowedSpaces(browser, baseURL, scope) {
  *   4. **A deep link lands on the coordinates it names**, since the language-model page's 23
  *      primary regions reach the browser through exactly that path.
  */
+/**
+ * The constructive panels: receptive field, motif sufficiency, the two-by-two and the spacing
+ * grammar. These are three canvases and a select, and the failures they can have are the ones a
+ * canvas always has -- it draws nothing, it draws the same thing whatever you do to it, or it
+ * draws a signed quantity on one side of its own zero rule.
+ */
+async function auditConstructive(browser, baseURL, scope) {
+  const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1400 } });
+  const page = await context.newPage();
+  try {
+    await page.goto('/shorkie-lab/shorkie/', { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(
+      () => [...document.querySelectorAll('[data-shorkie-constructive]')]
+        .every((h) => h.dataset.consReady === '1'),
+      { timeout: 30_000 },
+    );
+    const hosts = await page.locator('[data-shorkie-constructive]').count();
+    if (hosts !== 2) throw new Error(`${scope}: expected 2 constructive hosts, found ${hosts}`);
+
+    // 1. Every canvas must actually draw. A canvas that renders nothing looks identical to one
+    //    whose data failed to load, and neither throws.
+    for (const sel of ['[data-cn-receptive]', '[data-cn-gia]', '[data-cn-join]', '[data-cn-spacing]']) {
+      const inked = await page.evaluate((s) => {
+        const c = document.querySelector(s);
+        if (!c) return -1;
+        const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+        let n = 0;
+        for (let i = 3; i < d.length; i += 4) if (d[i] > 8) n += 1;
+        return n / (d.length / 4);
+      }, sel);
+      if (inked < 0) throw new Error(`${scope}: ${sel} is missing`);
+      if (inked < 0.005) throw new Error(`${scope}: ${sel} drew almost nothing (${(inked * 100).toFixed(2)}% inked)`);
+      if (inked > 0.85) throw new Error(`${scope}: ${sel} is a wash (${(inked * 100).toFixed(1)}% inked)`);
+    }
+
+    // 2. The sufficiency chart is a SIGNED quantity and the data contains both activators and
+    //    repressors, so there must be ink on both sides of the zero rule. Filling from one edge
+    //    draws -0.14 and +0.14 as the same bar, which is an inverted reading of the whole panel.
+    const sides = await page.evaluate(() => {
+      const c = document.querySelector('[data-cn-gia]');
+      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      const mid = Math.floor(c.width / 2);
+      let left = 0; let right = 0;
+      for (let y = 0; y < c.height; y += 1) {
+        for (let x = 0; x < c.width; x += 1) {
+          if (d[(y * c.width + x) * 4 + 3] > 8) { if (x < mid - 4) left += 1; else if (x > mid + 4) right += 1; }
+        }
+      }
+      return { left, right };
+    });
+    if (sides.left < 200 || sides.right < 200) {
+      throw new Error(`${scope}: the sufficiency chart drew on one side of its zero rule only `
+        + `(left ${sides.left}, right ${sides.right}) -- a signed lane must grow both ways`);
+    }
+
+    // 3. The spacing picker must change the drawing. A select wired to nothing looks exactly like
+    //    a select wired to something whose pairs happen to be similar.
+    const shot = () => page.evaluate(() => {
+      const c = document.querySelector('[data-cn-spacing]');
+      return c.getContext('2d').getImageData(0, 0, c.width, c.height).data.join(',');
+    });
+    const stat = () => page.locator('[data-cn-spacing-stat]').textContent();
+    const before = await shot(); const statBefore = await stat();
+    const options = await page.locator('[data-cn-spacing-pick] option').count();
+    if (options < 2) throw new Error(`${scope}: the spacing picker has ${options} options`);
+    await page.locator('[data-cn-spacing-pick]').selectOption({ index: 1 });
+    await page.waitForTimeout(250);
+    if (await shot() === before) throw new Error(`${scope}: changing the motif pair redrew nothing`);
+    if (await stat() === statBefore) throw new Error(`${scope}: the spacing readout did not follow the pair`);
+
+    // 4. The receptive-field panel follows the browser's locus, which is what makes it part of the
+    //    page rather than a static figure.
+    const recStat = () => page.locator('[data-cn-receptive-stat]').textContent();
+    const r0 = await recStat();
+    await page.evaluate(() => document.dispatchEvent(new CustomEvent('khc:gb-view',
+      { detail: { locus: 'YBR020W' } })));
+    await page.waitForTimeout(200);
+    const r1 = await recStat();
+    if (r1 === r0) throw new Error(`${scope}: the receptive-field readout ignored a locus change`);
+    if (!/GAL1/.test(r1)) throw new Error(`${scope}: the readout did not name the selected gene: ${r1}`);
+
+    // 5. A canvas reading CSS custom properties must repaint on a theme change; this site ships six
+    //    themes and the fallback palette is the light one.
+    const themed = await page.evaluate(() => {
+      const c = document.querySelector('[data-cn-join]');
+      const b = c.getContext('2d').getImageData(0, 0, c.width, c.height).data.join(',');
+      document.documentElement.setAttribute('data-theme', 'dark');
+      document.dispatchEvent(new CustomEvent('khc:theme-change'));
+      return new Promise((res) => setTimeout(() => {
+        res(c.getContext('2d').getImageData(0, 0, c.width, c.height).data.join(',') !== b);
+      }, 250));
+    });
+    if (!themed) throw new Error(`${scope}: the two-by-two did not repaint on a theme change`);
+  } finally {
+    await context.close();
+  }
+}
+
 async function auditGenomeBrowser(browser, baseURL, scope) {
   const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 950 } });
   const page = await context.newPage();
@@ -2899,6 +2997,8 @@ async function main() {
           // that gradient x input is exactly zero at the three bases that are not there.
           progress('chromium/interpretation');
           await captureFailure('chromium/interpretation', () => auditInterpretation(browser, baseURL, 'chromium/interpretation'));
+          progress('chromium/constructive (receptive field, sufficiency, spacing)');
+          await captureFailure('chromium/constructive', () => auditConstructive(browser, baseURL, 'chromium/constructive'));
           progress('chromium/volume');
           await captureFailure('chromium/volume', () => auditVolume(browser, baseURL, 'chromium/volume'));
           await captureFailure('chromium/volume-still', () => auditVolumeStill(browser, baseURL, 'chromium/volume-still'));

@@ -21,7 +21,6 @@ import lociJson from '../data/shorkieLoci.json';
 import biology from '../data/shorkieBiologySummary.json';
 import { createFlow3d, type Flow3dController } from './shorkieFlow3d';
 import { drawGeneRows } from './geneTrack';
-import motifDict from '../data/shorkieMotifs.json';
 import {
   createFlow,
   FLOW_STAGES,
@@ -31,7 +30,6 @@ import {
   type FlowActivations,
   type FlowStage,
 } from './shorkieFlow';
-import truthJson from '../data/shorkieTruth.json';
 import trackNamesJson from '../data/shorkieTrackNames.json';
 import predictionsJson from '../data/shorkiePredictions.json';
 import {
@@ -40,13 +38,10 @@ import {
   N_BINS,
   TRACK_GROUPS,
   RNA_SEQ_GROUP,
-  pearson,
   activationScale,
   paintActivationMap,
   type Rgb,
-  binToWindowOffset,
   positionToBp,
-  bpToFraction,
   subLayers,
   knockoutMotif,
   ANNOTATION_CLASSES,
@@ -62,7 +57,6 @@ import {
   predictedSpan,
   axisTicks,
   bpTicks,
-  packGeneRows,
   attentionRollout,
   stageRelevanceProfile,
   exactStageProfiles,
@@ -74,9 +68,6 @@ import {
   logoColumn,
   logoRange,
   ismSaliency,
-  spliceAnnotations,
-  motifMatch,
-  revComp,
   stageRasterHeight,
   PX_PER_CHANNEL,
   binsToBottleneck,
@@ -85,12 +76,10 @@ import {
   N_MASK,
   N_SPECIES,
   IN_CHANNELS,
-  geneTrackShapes,
   stageMapOffsets,
   sumAttributionRows,
   trackGroupOf,
   trackIndex,
-  type ParsedTrack,
   trackRowBinning,
   logAxis,
   N_TRACKS,
@@ -98,13 +87,9 @@ import {
   CROP_BP,
   SEQ_LEN,
   SPECIES_S_CEREVISIAE,
-  cleanSequence,
   encodeInput,
   layerSpecs,
   N_HEADS,
-  stemActivations,
-  type StemActivation,
-  type StemWeights,
   decodePackedPlane,
 } from '../lib/shorkieModel';
 
@@ -145,7 +130,6 @@ const LOCI = (lociJson as { loci: Locus[] }).loci;
 
 /** Measured coverage per locus per group, binned exactly as the model's labels were. */
 interface Truth { loci: Record<string, Record<string, number[]>>; tracks: Record<string, string[]>; }
-const TRUTH = truthJson as Truth;
 const TRACK_NAMES = (trackNamesJson as { identifiers: string[] }).identifiers;
 /** The cascading structure behind the track picker: assay -> regulator/target/run -> timepoint. */
 const TRACK_INDEX = trackIndex(TRACK_NAMES);
@@ -163,17 +147,6 @@ interface Predictions {
   baselineTracks: number;
 }
 const PREDICTIONS = predictionsJson as Predictions;
-
-/** The predicted curve for a group, from the live run if there is one, else the shipped one. */
-function predictedGroup(locusId: string, group: number, live: FullResult | null): Float32Array | null {
-  if (live) {
-    const out = new Float32Array(N_BINS);
-    for (let i = 0; i < N_BINS; i += 1) out[i] = live.tracks[i * 4 + group];
-    return out;
-  }
-  const rows = PREDICTIONS.loci[locusId]?.groups;
-  return rows?.[group] ? Float32Array.from(rows[group]) : null;
-}
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const el = <K extends keyof SVGElementTagNameMap>(tag: K) => document.createElementNS(SVG_NS, tag);
@@ -223,10 +196,7 @@ export function initVariantPlayground(root: ParentNode = document) {
   const stackCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-stage-stack]');
   const neuronTraceCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-neurons-trace]');
   const showingBtns = host.querySelectorAll<HTMLButtonElement>('[data-vp-showing]');
-  const annCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-annotation]');
-  const annStat = host.querySelector<HTMLElement>('[data-vp-annstat]');
   const methodLogosSvg = host.querySelector<SVGSVGElement>('[data-vp-method-logos]');
-  const lensSvg = host.querySelector<SVGSVGElement>('[data-vp-lens]');
   const brushStat = host.querySelector<HTMLElement>('[data-vp-brush-stat]');
   const brushWidth = host.querySelector<HTMLSelectElement>('[data-vp-brush-width]');
   const logoFigureBtn = host.querySelector<HTMLButtonElement>('[data-vp-logo-figure]');
@@ -241,20 +211,15 @@ export function initVariantPlayground(root: ParentNode = document) {
   const logoPan = host.querySelector<HTMLInputElement>('[data-vp-logo-pan]');
   const logoWidth = host.querySelector<HTMLSelectElement>('[data-vp-logo-width]');
   const logoSource = host.querySelector<HTMLSelectElement>('[data-vp-logo-source]');
-  const logoStat = host.querySelector<HTMLElement>('[data-vp-logo-stat]');
-  const ismLogoSvg = host.querySelector<SVGSVGElement>('[data-vp-ism-logo]');
   const trackSvg = host.querySelector<SVGSVGElement>('[data-vp-track]');
   const layerList = $('[data-vp-layers]');
-  const liveStat = $('[data-vp-livestat]');
   const flowCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-flow]');
   const flow3dCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-flow3d]');
   const viewBtns = host.querySelectorAll<HTMLButtonElement>('[data-vp-view]');
   const playBtn = $<HTMLButtonElement>('[data-vp-play]');
   const scrubInput = $<HTMLInputElement>('[data-vp-scrub]');
   const stageStat = $('[data-vp-stagestat]');
-  const truthToggle = $<HTMLInputElement>('[data-vp-truth]');
   const groupSelect = $<HTMLSelectElement>('[data-vp-group]');
-  const truthStat = $('[data-vp-truthstat]');
   const stageDetail = $('[data-vp-stage-detail]');
   const subLayerList = $('[data-vp-sublayers]');
   const stageNote = $('[data-vp-stage-note]');
@@ -268,8 +233,6 @@ export function initVariantPlayground(root: ParentNode = document) {
   const pickTrack = $<HTMLSelectElement>('[data-vp-pick-track]');
   const singleSvg = host.querySelector<SVGSVGElement>('[data-vp-single]');
   const logToggle = $<HTMLInputElement>('[data-vp-logaxis]');
-  const attrCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-attr]');
-  const methodsCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-methods]');
   const occlCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-occl]');
   const occlStat = host.querySelector<HTMLElement>('[data-vp-occl-stat]');
   const occlNorm = host.querySelector<HTMLInputElement>('[data-vp-occl-norm]');
@@ -301,7 +264,6 @@ export function initVariantPlayground(root: ParentNode = document) {
   let flow: FlowController | null = null;
   let flow3d: Flow3dController | null = null;
   let groupIndex = RNA_SEQ_GROUP;
-  let showTruth = true;
   let stageTab: 'activation' | 'attention' = 'activation';
   /** Which stage the detail last followed, so the sweep only redraws on a real change. */
   let lastFrontStage = '';
@@ -384,7 +346,6 @@ export function initVariantPlayground(root: ParentNode = document) {
   }
 
   // ---------------------------------------------------------------- live conv-stem raster
-  const FIRE_FLOOR = 0.55; // only paint where a neuron is meaningfully above its baseline
 
 
 
@@ -400,7 +361,6 @@ export function initVariantPlayground(root: ParentNode = document) {
    * drawn where it really falls, with its two cropped flanks shaded rather than scaled away.
    */
   const PLOT = { left: 46, right: 10, top: 20, bottom: 34 };
-  const GENE_H = 46;   // 18 px of bp ruler + two 11 px gene rows + slack
 
   /** A window offset in bp to an x coordinate, in whatever unit space the caller is drawing in. */
   function xOfBp(bp: number, width: number): number {
@@ -583,60 +543,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     aspectCanvas.dataset.shape = `${positions}x${channels}`;
   }
 
-  /**
-   * Gene models as a genome browser draws them: one row per non-overlapping set.
-   *
-   * Every feature used to draw on a single line, distinguished only by opacity, so in the eight
-   * shipped windows that contain an overlap one gene was painted over another and simply could not
-   * be read. `packGeneRows` is the standard greedy assignment; measured, no window needs more than
-   * two rows, so expanding costs one row and hides nothing.
-   */
-  function drawGeneRowsSvg(svg: SVGSVGElement, locus: Locus, W: number, top: number): number {
-    const rows = geneRowsExpanded ? packGeneRows(locus.features) : locus.features.map(() => 0);
-    const nRows = Math.max(...rows) + 1;
-    const rowH = 11;
-    locus.features.forEach((f, i) => {
-      const own = f.name === locus.id;
-      const mid = top + rows[i] * rowH + 5;
-      const x0 = xOfBp(f.txStart, W);
-      const x1 = xOfBp(f.txEnd, W);
-      const line = el('line');
-      attr(line, {
-        x1: x0, x2: x1, y1: mid, y2: mid,
-        stroke: 'var(--vp-orf)', 'stroke-width': 1, 'stroke-opacity': own ? 0.9 : 0.5,
-      });
-      svg.append(line);
-      // Direction, drawn on the intron line where a browser puts it.
-      const fwd = f.strand === '+';
-      for (let x = x0 + 7; x < x1 - 3; x += 13) {
-        const chev = el('path');
-        attr(chev, {
-          d: `M${(x - (fwd ? 2 : -2)).toFixed(1)} ${mid - 2.4} L${(x + (fwd ? 2 : -2)).toFixed(1)} ${mid}`
-            + ` L${(x - (fwd ? 2 : -2)).toFixed(1)} ${mid + 2.4}`,
-          fill: 'none', stroke: 'var(--vp-orf)', 'stroke-width': 0.7,
-          'stroke-opacity': own ? 0.85 : 0.45,
-        });
-        svg.append(chev);
-      }
-      for (const piece of geneTrackShapes(f)) {
-        if (piece.kind === 'intron') continue;
-        const h = piece.kind === 'cds' ? 8 : 4;
-        const r = el('rect');
-        attr(r, {
-          x: xOfBp(piece.start, W), y: mid - h / 2,
-          width: Math.max(xOfBp(piece.end, W) - xOfBp(piece.start, W), 1), height: h,
-          fill: 'var(--vp-orf)', 'fill-opacity': own ? 0.85 : 0.45,
-        });
-        svg.append(r);
-      }
-      // After the gene rather than above it: above put the name straight through the bp ruler.
-      if (own) svg.append(text(x1 + 4, mid + 3, locus.gene, 'vp-ax', 'start'));
-    });
-    svg.dataset.geneRows = String(nRows);
-    return nRows;
-  }
-
-  // ---------------------------------------------------------------- predicted track
+    // ---------------------------------------------------------------- predicted track
   /**
    * An SVG track's width in CSS PIXELS, for its viewBox.
    *
@@ -1295,66 +1202,17 @@ export function initVariantPlayground(root: ParentNode = document) {
   }
 
   /**
-   * Draw a gene track the way a genome browser does.
+   * Gene models on a canvas, the way a genome browser draws them.
    *
    * Exons are blocks, thick where coding and thin where UTR; introns are a line with directional
    * chevrons; orientation follows the strand. This replaces one solid bar per gene drawn from
    * txStart/txEnd, which painted straight over introns -- HOP2's own 70 bp intron among them.
    *
-   * `fx` maps a bp offset in the window to an x coordinate, so the same routine serves the coverage
-   * plot and the layer ruler, which have different horizontal scales.
+   * The drawing itself is `drawGeneRows` in `geneTrack.ts`, shared with the language-model page so
+   * the two cannot disagree about where an intron is. The tally is counted inside the loop that
+   * fills the rectangles, so the gate reads what was drawn rather than what the decomposition
+   * returned -- a canvas has no elements to inspect.
    */
-  /**
-   * Gene models on a canvas, in rows, sharing `drawGeneRowsSvg`'s geometry exactly.
-   *
-   * Two renderers rather than one because the coverage plot is SVG and the attribution and layer
-   * rulers are canvas -- but both take bp through `xOfBp`, so they cannot disagree about where an
-   * intron is. The tally is counted inside the loop that fills the rectangles, so the gate reads
-   * what was drawn rather than what the decomposition returned.
-   */
-  /**
-   * The paper's motif dictionary, looked up by whatever name a database used.
-   *
-   * Figure 4H names twelve motifs and Supplemental S19/S20 add a few more; the databases spell the
-   * same factors half a dozen ways (REB1, Reb1, Reb1.1, REB1_YPD). Matching on a normalised name
-   * plus the declared aliases is what lets a curated call be checked against the consensus the
-   * paper actually draws.
-   */
-  const MOTIF_BY_ALIAS = (() => {
-    const m = new Map<string, { id: string; name: string; consensus: string }>();
-    const key = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-    for (const entry of (motifDict as { motifs: { id: string; name: string; consensus: string; aliases: string[] }[] }).motifs) {
-      m.set(key(entry.id), entry);
-      m.set(key(entry.name), entry);
-      for (const a of entry.aliases) m.set(key(a), entry);
-    }
-    return m;
-  })();
-
-  function motifFor(name: string): { id: string; name: string; consensus: string } | undefined {
-    const key = String(name).toLowerCase().replace(/[^a-z0-9]/g, '');
-    const direct = MOTIF_BY_ALIAS.get(key);
-    if (direct) return direct;
-    // A database name like `SFP1.2` or `REB1.1` is the factor plus a variant number. Drop a
-    // trailing number and retry -- but never below three characters, or a two-letter stem would
-    // start matching unrelated entries.
-    const stem = key.replace(/[0-9]+$/, '');
-    return stem.length >= 3 ? MOTIF_BY_ALIAS.get(stem) : undefined;
-  }
-
-  /**
-   * A clamped slice of the window sequence, with the ORIGIN it really starts at.
-   *
-   * Returning the origin matters: near a window edge the requested start is clamped to 0, and a
-   * caller that assumed its own unclamped start would report every match shifted by the amount
-   * that was cut off.
-   */
-  function seqWindow(a: number, b: number): { seq: string; origin: number } {
-    const seq = LOCI[locusIndex].sequence;
-    const origin = Math.max(0, Math.round(a));
-    return { seq: seq.slice(origin, Math.min(seq.length, Math.round(b))).toUpperCase(), origin };
-  }
-
   function drawGeneRowsCanvas(
     ctx: CanvasRenderingContext2D,
     locus: Locus,
@@ -1512,113 +1370,9 @@ export function initVariantPlayground(root: ParentNode = document) {
     return annotations.features.filter((f) => !!ANNOTATION_CLASSES[f.cls]);
   }
 
-  /**
-   * The annotation track: every curated feature in the window, on the page's shared bp axis.
-   *
-   * Drawn as lanes rather than one row because the classes answer different questions -- where the
-   * genes are, where the non-coding RNAs are, where the replication and repeat elements are, and
-   * where transcription factors bind. Within a lane, overlapping features are packed by
-   * `packGeneRows`, the same first-fit the gene track uses, so nothing is painted over anything.
-   *
-   * Returns the height consumed, and publishes the tally on the canvas: this is a canvas, so there
-   * is no element for an audit to inspect, and counting what was DRAWN is the only way a missing
-   * lane shows up as a failure rather than as a slightly emptier picture.
-   */
-  function drawAnnotationTrack(
-    ctx: CanvasRenderingContext2D,
-    width: number,
-    top: number,
-  ): number {
-    const feats = visibleAnnotations();
-    if (!feats.length) return 0;
-    const muted = css('--color-muted', '#6b7280');
-    // Short labels: the left gutter is PLOT.left wide and "regulatory" ran off it, rendering as
-    // "egulatory" -- a clipped label reads as a different word rather than as a truncated one.
-    const LANES: { id: string; label: string; colour: string }[] = [
-      { id: 'gene', label: 'gene', colour: css('--vp-orf', '#6f62a8') },
-      { id: 'rna', label: 'RNA', colour: css('--vp-rna', '#2f8f6f') },
-      { id: 'element', label: 'elem', colour: css('--vp-element', '#a8762a') },
-      { id: 'tfbs', label: 'TFBS', colour: css('--vp-tfbs', '#b4485f') },
-      { id: 'regulatory', label: 'reg', colour: css('--vp-reg', '#4a7fb5') },
-    ];
-    const ROW_H = 9;
-    let y = top;
-    let drawn = 0;
+    /** Paint the annotation canvas, sized to whatever the visible lanes need. */
 
-    ctx.font = '9px system-ui, sans-serif';
-    ctx.textBaseline = 'alphabetic';
-
-    // Genes first, through the SAME renderer the coverage plot uses: exons as blocks, introns as
-    // chevroned lines, strand-aware, with names. Drawing them as plain rectangles here -- which is
-    // what this lane did -- put a solid bar over every intron the plot above draws as a gap.
-    {
-      const locus = LOCI[locusIndex];
-      ctx.fillStyle = muted;
-      ctx.textAlign = 'right';
-      ctx.fillText('genes', PLOT.left - 4, y + 9);
-      ctx.textAlign = 'left';
-      const usedRows = drawGeneRowsCanvas(ctx, locus, width, y);
-      y += usedRows * 11 + 6;
-      drawn += locus.features.length;
-    }
-
-    for (const lane of LANES) {
-      if (lane.id === 'gene') continue;      // drawn above, as real gene models
-      const inLane = feats.filter((f) => ANNOTATION_CLASSES[f.cls]?.lane === lane.id);
-      if (!inLane.length) continue;
-      // packGeneRows is generic over {txStart, txEnd}; feed it the annotation spans rather than
-      // writing a second packer that could disagree with the gene track's.
-      const rows = packGeneRows(inLane.map((f) => ({ txStart: f.start, txEnd: f.end })));
-      const nRows = Math.max(...rows, 0) + 1;
-      ctx.fillStyle = muted;
-      ctx.textAlign = 'right';
-      ctx.fillText(lane.label, PLOT.left - 4, y + ROW_H - 2);
-      inLane.forEach((f, i) => {
-        const x0 = xOfBp(f.start, width);
-        const x1 = Math.max(xOfBp(f.end, width), x0 + 1.2);
-        const ry = y + rows[i] * ROW_H;
-        const tier = motifTier(f);
-        // Evidence is drawn, not only recorded: a ChIP-supported call is solid, a conserved-only
-        // call is hollow, a PWM hit is a hairline. Three tiers that looked alike would be three
-        // claims presented as one.
-        ctx.globalAlpha = tier === 'pwm' ? 0.4 : tier === 'conserved' ? 0.55 : 0.85;
-        if (tier === 'conserved' || tier === 'pwm') {
-          ctx.strokeStyle = lane.colour;
-          ctx.lineWidth = 1;
-          ctx.strokeRect(x0 + 0.5, ry + 1.5, Math.max(x1 - x0 - 1, 0.5), ROW_H - 4);
-        } else {
-          ctx.fillStyle = lane.colour;
-          ctx.fillRect(x0, ry + 1, Math.max(x1 - x0, 1.2), ROW_H - 3);
-        }
-        // A clipped edge is not a real boundary; mark it so nobody reads the window edge as one.
-        if (f.truncated) {
-          ctx.globalAlpha = 1;
-          ctx.fillStyle = muted;
-          const edge = f.start <= 0 ? x0 : x1 - 2;
-          ctx.fillRect(edge, ry + 1, 2, ROW_H - 3);
-        }
-        drawn += 1;
-      });
-      ctx.globalAlpha = 1;
-      y += nRows * ROW_H + 3;
-    }
-    ctx.textAlign = 'left';
-    return y - top;
-  }
-
-  /** Paint the annotation canvas, sized to whatever the visible lanes need. */
-
-  /** What the annotation track drew, for the audit and for the legend. */
-  function annotationTally(): Record<string, number> {
-    const out: Record<string, number> = {};
-    for (const f of visibleAnnotations()) {
-      const lane = ANNOTATION_CLASSES[f.cls]?.lane ?? 'other';
-      out[lane] = (out[lane] ?? 0) + 1;
-    }
-    return out;
-  }
-
-  async function loadKnockoutSweep(locusId: string): Promise<KoSweep | null> {
+    async function loadKnockoutSweep(locusId: string): Promise<KoSweep | null> {
     const base = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/vp-data`;
     const d = await fetch(`${base}/${locusId}-ko.json`)
       .then((r) => (r.ok ? r.json() : null))
@@ -2391,32 +2145,6 @@ export function initVariantPlayground(root: ParentNode = document) {
    *     use gradients at all -- its one gradient function is unreached scaffolding -- so this is
    *     the fast interactive companion, not a reproduction.
    */
-
-  /**
-   * The mutagenesis window as the paper's Figure 4 logo, annotated the way the paper annotates it.
-   *
-   * This is the panel the site was missing: Figure 4 has no ISM raster anywhere -- all fourteen of
-   * its saliency views are stacked letter logos, with red dashed boxes over matched motifs, the
-   * splice and codon landmarks labelled above, and an IGV-style gene model beneath. The raster
-   * below this is kept because it shows all three substitutions at once, which the logo cannot;
-   * the paper computes that same position x base array (`run_ism_eqtl.py` builds exactly it, with
-   * the reference pinned to zero) and simply never plots it.
-   */
-  /** The method track the logo source dropdown is asking for, or the first available. */
-  function selectedMethodTrack(): MethodTrack | null {
-    const tracks = methodTracks();
-    if (!tracks.length) return null;
-    const want = logoSource?.value ?? 'ism';
-    const byKey: Record<string, (l: string) => boolean> = {
-      ism: (l) => l.startsWith('mutagenesis'),
-      grad: (l) => l.startsWith('gradient'),
-      ig: (l) => l.startsWith('integrated'),
-      occl: (l) => l.startsWith('occlusion'),
-    };
-    return tracks.find((tr) => (byKey[want] ?? byKey.ism)(tr.label)) ?? tracks[0];
-  }
-
-
 
   /**
    * The traced region's relevance for one stage, as a [channels x positions] map.
@@ -4261,10 +3989,6 @@ export function initVariantPlayground(root: ParentNode = document) {
       renderStageDetail(flow?.selected() ?? null);
     }),
   );
-
-  truthToggle?.addEventListener('change', () => {
-    showTruth = truthToggle.checked;
-  });
 
   if (groupSelect) {
     clear(groupSelect);
