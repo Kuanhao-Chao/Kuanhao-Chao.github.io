@@ -2,15 +2,53 @@
 import PageLayout from '../../layouts/PageLayout.astro';
 import BayRouteLogo from '../../components/games/BayRouteLogo.astro';
 import { site } from '../../data/site';
-import { PRESET_TRIPS } from '../../lib/bayGraph';
 import { ALGORITHMS } from '../../lib/pathfinding';
+
+const GLOBAL_PRESET_TRIPS = [
+  {
+    id: 'trip_sf_to_berkeley',
+    name: '🌉 SF to Berkeley',
+    icon: '🌉',
+    description: 'San Francisco Ferry Building to UC Berkeley via the Bay Bridge',
+  },
+  {
+    id: 'trip_nyc_manhattan',
+    name: '🗽 Times Sq to Brooklyn',
+    icon: '🗽',
+    description: 'Times Square to Brooklyn Bridge across Manhattan and East River',
+  },
+  {
+    id: 'trip_tokyo_shibuya',
+    name: '🗼 Shibuya to Tokyo Tower',
+    icon: '🗼',
+    description: 'Shibuya Crossing to Tokyo Tower through Roppongi, Tokyo',
+  },
+  {
+    id: 'trip_london_thames',
+    name: '🇬🇧 Westminster to Tower Bridge',
+    icon: '🇬🇧',
+    description: 'Westminster Palace / Big Ben to Tower Bridge along the River Thames',
+  },
+  {
+    id: 'trip_taipei_101',
+    name: '🇹🇼 Taipei 101 to Shilin',
+    icon: '🇹🇼',
+    description: 'Taipei 101 to Shilin Night Market through Taipei City',
+  },
+  {
+    id: 'trip_sfo_to_stanford',
+    name: '🌲 Silicon Valley Corridor',
+    icon: '🌲',
+    description: 'SFO Airport to Stanford University along the Peninsula',
+  },
+];
 
 const appLd = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
-  name: 'BayRoute — Real-World Bay Area Pathfinding & Route Search Visualizer',
+  name: 'BayRoute — Real-World Road Graph & Global Pathfinding Visualizer',
   description:
-    'Full-scale real-world route planning and pathfinding visualizer across the San Francisco Bay Area powered by real GIS map tiles and road networks. Type any address or click on the map to explore Dijkstra, A*, Bidirectional A*, Greedy, and BFS algorithms with step-by-step glowing frontier animations on real city streets.',
+    'Dynamic real-world route planning and graph search visualizer on authentic Google Maps roads. Type any two addresses anywhere on Earth or click on the map to explore Dijkstra, A*, Bidirectional A*, Greedy, and BFS algorithms with step-by-step glowing frontier animations on real city streets.',
   url: `${site.url}/games/bay-route/`,
   author: { '@id': `${site.url}/#person` },
   applicationCategory: 'EducationalApplication',
@@ -21,10 +59,10 @@ const appLd = {
 ---
 
 <PageLayout
-  title="BayRoute — Real-World Bay Area Pathfinding Visualizer"
+  title="BayRoute — Real-World Road Graph & Global Pathfinding Visualizer"
   eyebrow="Interactive Simulation & Algorithm Demo"
-  lead="Real-world route planning and graph search visualizer on the San Francisco Bay Area map — type any address or click anywhere to watch Dijkstra, A*, Bidirectional A*, Greedy, and BFS explore real highways and city streets in real time."
-  description="Explore how GPS algorithms find optimal routes across the San Francisco Bay Area on real street tiles. Features address autocomplete, step-by-step search frontier animations, live telemetry, and 5-algorithm race mode."
+  lead="Dynamic real-world route planning and graph search visualizer on authentic Google Maps roads — type any two addresses or click anywhere on Earth to watch Dijkstra, A*, Bidirectional A*, Greedy, and BFS explore physical highways and streets in real time."
+  description="Demonstrate GPS pathfinding algorithms on real-world roads anywhere on Earth. Features live Google Directions multi-corridor graphs, step-by-step laser wavefront animations, turn-by-turn schedules, and 5-algorithm race mode."
   width="wide"
 >
   <script type="application/ld+json" is:inline set:html={JSON.stringify(appLd)} />
@@ -40,7 +78,7 @@ const appLd = {
       <BayRouteLogo size={70} />
       <div class="br-header-info">
         <div class="br-header-title-row">
-          <h2 class="br-header-title">BayRoute · Full City Road Graph & Search Visualizer</h2>
+          <h2 class="br-header-title">BayRoute · Real-World Road Graph & Global Pathfinding Visualizer</h2>
           <div class="br-header-actions">
             <span class="br-status-pill" data-br-map-badge>🗺️ High-Res GIS Map</span>
             <button type="button" class="br-sound-btn" data-br-sound-toggle title="Toggle procedural sound synthesizer">
@@ -49,8 +87,8 @@ const appLd = {
           </div>
         </div>
         <p class="br-header-subtitle">
-          Enter any address in the Bay Area or click anywhere on the map. Watch search frontiers navigate
-          bridges, highways, and city streets step by step with real-time algorithm comparisons.
+          Enter any two addresses on Earth or click anywhere on the map. Watch search frontiers navigate
+          physical highways, bridges, and city streets step by step with real-time algorithm comparisons.
         </p>
       </div>
     </div>
@@ -68,7 +106,7 @@ const appLd = {
             id="br-start-input"
             type="text"
             class="br-input"
-            placeholder="Type start address or landmark (e.g. SF Ferry Building)..."
+            placeholder="Type start address anywhere in the world (e.g. Times Square, SF Ferry Bldg)..."
             value="San Francisco Ferry Building"
             data-br-input="start"
             autocomplete="off"
@@ -93,7 +131,7 @@ const appLd = {
             id="br-goal-input"
             type="text"
             class="br-input"
-            placeholder="Type destination address (e.g. UC Berkeley Campanile)..."
+            placeholder="Type destination address anywhere (e.g. Brooklyn Bridge, UC Berkeley)..."
             value="UC Berkeley (Sather Tower / Campanile)"
             data-br-input="goal"
             autocomplete="off"
@@ -106,9 +144,9 @@ const appLd = {
     <!-- Presets Bar -->
     <div class="br-presets-bar">
       <span class="br-bar-label">Quick Trips:</span>
-      <div class="br-presets-list" role="radiogroup" aria-label="Curated Bay Area Trips">
+      <div class="br-presets-list" role="radiogroup" aria-label="Curated Real-World Trips">
         {
-          PRESET_TRIPS.map((trip, idx) => (
+          GLOBAL_PRESET_TRIPS.map((trip, idx) => (
             <button
               type="button"
               class={`br-preset-btn ${idx === 0 ? 'is-active' : ''}`}
