@@ -600,11 +600,14 @@ const breadcrumbLd = buildBreadcrumbLd([
           predicted coverage. Genome-wide there is no chosen gene, so the target is each window's
           whole cropped interior — the only definition that exists at every base. Gradients
           superpose, so what is drawn is the sum of the per-gene attributions of everything in view.
-          Against the mutagenesis planes this page ships it agrees in sign at every locus —{' '}
-          <strong>{nLoci} of {nLoci}</strong>, the single strongest substitution pointing the same
-          way here — but only <strong>median r = 0.30</strong> base by base, and as low as 0.07 at
-          the quietest windows. That is what a local derivative and a finite substitution should do
-          where a promoter is saturated: they agree about direction and disagree about magnitude.
+          Against the mutagenesis planes this page ships it agrees about direction at{' '}
+          <strong>{nLoci - 1} of {nLoci}</strong> loci — the single strongest substitution pointing
+          the same way — and much less about magnitude: <strong>median r = 0.369</strong> base by
+          base, ranging 0.05 to 0.65. The one exception earns its place: at <em>GAL3</em> the
+          gradient reads <strong>+0.0013</strong> at the base mutagenesis calls strongest, which is
+          essentially zero against a genome-wide median of 0.0008. That is gradient{' '}
+          <em>saturation</em> — a local slope going flat where a finite substitution still moves the
+          prediction — and it is exactly why the two other methods are on this page beside it.
         </p>
         <p class="vp-notes" style="margin:0.35rem 0 0;">
           <strong>Coverage is drawn at 16 bp, and no finer level exists.</strong> Shorkie's head

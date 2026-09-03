@@ -997,12 +997,20 @@ browser through `data-gb-minimal` / `data-gb-no-hash` / `data-gb-tracks`.
   construction. Check both before calling a low r a windowing error.
 - **Verify an attribution's SIGN against the mutagenesis planes, never by inspection.** A sign
   error is invisible and inverts every reading. Gradient × input against the paper's saliency
-  (`−Σ P / 4`, which is what `centred[ref]` reduces to when `P[ref] = 0`) agrees about DIRECTION
-  at **23 of 23** loci — the single strongest substitution points the same way — and much less
-  about magnitude: **median r = 0.30, range 0.066–0.49**. An eight-locus sample gave 0.405 and was
-  published before the full set was run; the eight happened to be the loudest. **A median measured
-  on a subset is not the median.** The sign half is re-derived by `verify_genome_track.py` §5d on
-  every run.
+  agrees about DIRECTION at **22 of 23** loci and much less about magnitude: **median r = 0.369,
+  range 0.049–0.654**. The exception is GAL3, where the gradient reads **+0.0013** at mutagenesis's
+  strongest base — essentially zero — which is gradient saturation, not disagreement.
+
+- **Never hand-write a decode for a pack that ships its own.** Both numbers above were first
+  published wrong because I reimplemented the ISM dequantiser as `sign·expm1(|s|·log1p(m))` instead
+  of importing `dequantize_rows` — the pack's real form is `sign(v)·1e-4·(10^|v|−1)` with per-row
+  `lo`/`hi`. The wrong form is monotone and odd, so it preserves **signs and argmaxes** and sailed
+  through the sign check, while silently changing every correlation: it reported 23/23 and 0.30
+  where the truth is 22/23 and 0.369. `verify_genome_track.py` now imports the real decode, and a
+  check that shares an assumption with the thing it checks is not a check.
+
+- **A median measured on a subset is not the median.** An eight-locus sample gave 0.405; the eight
+  happened to be the loudest.
 - **Scale space is a property of the DATA.** `log1p` for coverage — genome-wide the median 16 bp
   bin is **2.07** against a maximum of **1,097.6**, so linearly the median draws at 0.2% of the
   lane. `symlog` for the signed attribution — median |v| **0.00082** against **1.34**, so a typical
