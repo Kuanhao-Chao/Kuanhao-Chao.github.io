@@ -998,7 +998,8 @@ browser through `data-gb-minimal` / `data-gb-no-hash` / `data-gb-tracks`.
 - **Verify an attribution's SIGN against the mutagenesis planes, never by inspection.** A sign
   error is invisible and inverts every reading. Gradient × input against the paper's saliency
   (`−Σ P / 4`, which is what `centred[ref]` reduces to when `P[ref] = 0`) is **median r = +0.405**
-  over eight loci, and at **8 of 8** the single strongest substitution has the same sign.
+  over eight loci, and at **23 of 23** the single strongest substitution has the same sign —
+  re-derived by `verify_genome_track.py` §5d on every run rather than measured once.
 - **Scale space is a property of the DATA.** `log1p` for coverage — genome-wide the median 16 bp
   bin is **2.07** against a maximum of **1,097.6**, so linearly the median draws at 0.2% of the
   lane. `symlog` for the signed attribution — median |v| **0.00082** against **1.34**, so a typical

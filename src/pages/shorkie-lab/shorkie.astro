@@ -590,8 +590,9 @@ const breadcrumbLd = buildBreadcrumbLd([
           predicted coverage. Genome-wide there is no chosen gene, so the target is each window's
           whole cropped interior — the only definition that exists at every base. Gradients
           superpose, so what is drawn is the sum of the per-gene attributions of everything in view.
-          Against the mutagenesis planes this page ships it agrees in sign — at all eight loci
-          checked, the single strongest substitution has the same sign here — and correlates at{' '}
+          Against the mutagenesis planes this page ships it agrees in sign — at all{' '}
+          <strong>{nLoci} of {nLoci}</strong> loci the single strongest substitution has the same
+          sign here — and correlates at{' '}
           <strong>r = 0.41</strong>, which is what a local derivative and a finite substitution
           should do where a promoter is saturated.
         </p>
