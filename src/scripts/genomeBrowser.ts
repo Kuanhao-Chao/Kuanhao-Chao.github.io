@@ -1367,9 +1367,10 @@ export function initGenomeBrowser(host: HTMLElement): void {
     const tight = (statsBox.clientWidth || 999) < 420;
     note.textContent = specs.length === 2
       ? (tight
-        ? 'One point per bin; the scatter fits the view, not the genome.'
-        : 'Each point is one bin of the view, and the scatter fits the view rather than the genome — '
-          + 'the lanes above keep their fixed axes, this shows the shape behind r.')
+        ? 'One point per bin; axes are the view\u2019s 1st\u201399th percentile.'
+        : 'Each point is one bin of the view. The axes span its 1st–99th percentile rather than the '
+          + 'genome-wide range — the lanes above keep their fixed axes, this shows the shape behind '
+          + 'r, and a few points pile against the border by design.')
       : (tight
         ? 'Two score lanes on shows their correlation.'
         : 'Turn on exactly two score lanes to see their correlation and the shape behind it.');
@@ -1396,9 +1397,16 @@ export function initGenomeBrowser(host: HTMLElement): void {
      * the range it is actually using, which is what keeps that honest.
      */
     const rangeOf = (s: TrackSpec, vals: (number | null)[]): [number, number] => {
-      let lo = Infinity; let hi = -Infinity;
-      for (const v of vals) { if (v == null) continue; if (v < lo) lo = v; if (v > hi) hi = v; }
-      if (!Number.isFinite(lo) || hi <= lo) return s.axis;
+      // PERCENTILES, not min-max. These distributions are heavy-tailed: over TDH3's window a
+      // handful of fully determined bases reach 2.0 bits, which on a min-max axis squashes every
+      // other point into the left 15% of the plot and reports nothing about the shape. Points
+      // outside the range pile visibly against the border rather than being dropped.
+      const xs = vals.filter((v): v is number => v != null).sort((a, b) => a - b);
+      if (xs.length < 8) return s.axis;
+      const at = (q: number) => xs[Math.min(xs.length - 1, Math.floor(q * (xs.length - 1)))];
+      let lo = at(0.01); let hi = at(0.99);
+      if (!(hi > lo)) { lo = xs[0]; hi = xs[xs.length - 1]; }
+      if (!(hi > lo)) return s.axis;
       // A signed track keeps zero in the middle, or the sign stops being readable off the plot.
       return isSignedAxis(s.axis)
         ? [-Math.max(Math.abs(lo), Math.abs(hi)), Math.max(Math.abs(lo), Math.abs(hi))]
