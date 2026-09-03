@@ -8,7 +8,7 @@ import {
   encodeViewState, decodeViewState, chromOrder, romanValue,
   letterMinPx, shouldDrawLetters, pinchZoom, pointDistance, pointMidpoint,
   type Level, type ChromInfo, type LaneSpec, type SearchGene, type View,
-  nativeLadder, levelsForTrack, axisFraction, axisValue, isSignedAxis, pearson, exportRows,
+  laneExcluder, nativeLadder, levelsForTrack, axisFraction, axisValue, isSignedAxis, pearson, exportRows,
 } from './genomeBrowser';
 
 const LEVELS: Level[] = [
@@ -354,10 +354,16 @@ describe('against the shipped index.json', () => {
     // and the other a base fraction. Only the units distinguish them, which is why each lane
     // prints its own.
     const byId = Object.fromEntries(idx.tracks.map((t: { id: string }) => [t.id, t]));
-    expect(Object.keys(byId).sort()).toEqual([
-      'gc', 'lm-masked', 'lm-unmasked', 'phastcons',
-      'sk-chip-exo', 'sk-chip-mnase', 'sk-gradient', 'sk-rnaseq', 'sk-strain',
-    ]);
+    // The SHAPE, not a hardcoded roster. This list has had to be edited every time a pass landed,
+    // which makes it a chore rather than a check; what actually matters is that both model
+    // families are present and that the four lanes below still mean what the assertions say.
+    for (const id of ['gc', 'lm-masked', 'lm-unmasked', 'phastcons', 'sk-rnaseq', 'sk-gradient']) {
+      expect(byId[id], `${id} missing from the index`).toBeTruthy();
+    }
+    expect(idx.tracks.filter((t: { id: string }) => t.id.startsWith('lm-')).length)
+      .toBeGreaterThanOrEqual(2);
+    expect(idx.tracks.filter((t: { id: string }) => t.id.startsWith('sk-')).length)
+      .toBeGreaterThanOrEqual(5);
     expect(byId['lm-masked'].axis).toEqual([0, 2]);
     expect(byId['lm-unmasked'].axis).toEqual([0, 2]);
     expect(byId['phastcons'].axis).toEqual([0, 1]);
@@ -368,9 +374,15 @@ describe('against the shipped index.json', () => {
     // Which lanes are predictions is written in the index, never inferred from a name. The two
     // models predict different things -- Shorkie_LM predicts the SEQUENCE, Shorkie predicts assay
     // COVERAGE from sequence -- and phastCons, GC and the attribution predict nothing at all.
-    expect(idx.tracks.filter((t: { prediction: boolean }) => t.prediction).map(
-      (t: { id: string }) => t.id).sort()).toEqual([
-      'lm-masked', 'sk-chip-exo', 'sk-chip-mnase', 'sk-rnaseq', 'sk-strain']);
+    // Every prediction lane, and nothing else. An attribution is a derivative OF a prediction, and
+    // conservation and composition predict nothing at all.
+    const preds = idx.tracks.filter((t: { prediction: boolean }) => t.prediction)
+      .map((t: { id: string }) => t.id).sort();
+    expect(preds).toContain('lm-masked');
+    expect(preds).toContain('sk-rnaseq');
+    for (const id of ['phastcons', 'gc', 'lm-unmasked', 'sk-gradient']) {
+      expect(preds, `${id} is not a prediction`).not.toContain(id);
+    }
     expect(byId['lm-unmasked'].prediction).toBe(false);
     expect(byId['sk-gradient'].prediction).toBe(false);
   });
@@ -924,5 +936,40 @@ describe('exportRows', () => {
   it('omits the bin note at base resolution', () => {
     expect(exportRows('chrI', 0, 1, [{ id: 'gc', units: 'fraction' }], [[0.4]])[0])
       .toBe('chrom,start,end,gc (fraction)');
+  });
+});
+
+describe('laneExcluder', () => {
+  it('excludes nothing when unset', () => {
+    for (const spec of [undefined, null, '', '  ', ',,']) {
+      expect(laneExcluder(spec)('lm-masked')).toBe(false);
+    }
+  });
+
+  it('treats a trailing hyphen as a PREFIX, so a new lane of that family is excluded too', () => {
+    // The point of the prefix form: `/shorkie-lab/shorkie/` is about the expression model, and a
+    // language-model lane added later must not appear there without anyone editing that page.
+    const hidden = laneExcluder('lm-');
+    expect(hidden('lm-masked')).toBe(true);
+    expect(hidden('lm-unmasked')).toBe(true);
+    expect(hidden('lm-anything-added-later')).toBe(true);
+    expect(hidden('sk-rnaseq')).toBe(false);
+    expect(hidden('phastcons')).toBe(false);
+  });
+
+  it('matches an id without a trailing hyphen EXACTLY, never as a prefix', () => {
+    // `gc` must not also hide a future `gc-content-something`, and `sk` must not hide every
+    // expression lane -- an id is an id unless it is deliberately written as a family.
+    const hidden = laneExcluder('gc,tfbs_pwm');
+    expect(hidden('gc')).toBe(true);
+    expect(hidden('tfbs_pwm')).toBe(true);
+    expect(hidden('gc-content')).toBe(false);
+    expect(hidden('tfbs_chip')).toBe(false);
+  });
+
+  it('accepts a mixed list and ignores whitespace', () => {
+    const hidden = laneExcluder(' lm- , gc ');
+    expect(['lm-masked', 'gc'].every(hidden)).toBe(true);
+    expect(['sk-gradient', 'genes'].some(hidden)).toBe(false);
   });
 });

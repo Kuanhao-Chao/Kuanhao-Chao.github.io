@@ -165,6 +165,24 @@ export function axisValue(
   return lo + f * (hi - lo);
 }
 
+/**
+ * Which lanes a particular mounting is allowed to show.
+ *
+ * `data-gb-tracks` says what is ON at startup; it says nothing about what is AVAILABLE, so a page
+ * that embeds this browser to talk about ONE model would still surface the other model's lanes the
+ * moment it grew a track panel. The exclusion is a list of ids or id PREFIXES — `lm-` drops every
+ * language-model lane without naming each one, and without breaking when a new one is added.
+ *
+ * Returns a predicate rather than a filtered list because four separate places enumerate lanes
+ * (the URL state, the preset filter, `applyTracks`, and the panel builder) and a lane that is
+ * hidden from one of them but not the others is worse than one that is hidden from none.
+ */
+export function laneExcluder(spec: string | undefined | null): (id: string) => boolean {
+  const parts = (spec ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+  if (!parts.length) return () => false;
+  return (id: string) => parts.some((p) => (p.endsWith('-') ? id.startsWith(p) : id === p));
+}
+
 /** True where a track's axis straddles zero, so its bars must grow both ways from a zero rule. */
 export function isSignedAxis(axis: [number, number]): boolean {
   return axis[0] < 0 && axis[1] > 0;
