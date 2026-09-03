@@ -63,10 +63,11 @@ export interface EndpointInput {
  * Strips HTML markup from Google Directions instructions.
  */
 function cleanInstruction(html: string): string {
-  if (typeof document !== 'undefined') {
-    const el = document.createElement('div');
-    el.innerHTML = html;
-    return el.textContent || el.innerText || '';
+  // See `stripHtml` in googleDirectionsGraph.ts: a `DOMParser` document is inert -- no browsing
+  // context, no scripting, no resource fetches -- where assigning markup to a live element's
+  // property is not, even on a node that is never appended.
+  if (typeof DOMParser !== 'undefined') {
+    return new DOMParser().parseFromString(html, 'text/html').body.textContent || '';
   }
   return html.replace(/<[^>]*>?/gm, '');
 }
