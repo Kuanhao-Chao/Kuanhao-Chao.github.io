@@ -104,7 +104,11 @@ const MINI_MAX = 0.5;
  * what varies in the population. Ids that a build does not carry are simply skipped, so a preset
  * naming a track that has not been generated degrades instead of breaking.
  */
-const PRESETS: { id: string; label: string; hint: string; lanes: string[] }[] = [
+const PRESETS: {
+  id: string; label: string; hint: string; lanes: string[];
+  /** Tracks without which this view would be misleading rather than merely smaller. */
+  requires?: string[];
+}[] = [
   {
     id: 'constraint',
     label: 'constraint',
@@ -128,6 +132,16 @@ const PRESETS: { id: string; label: string; hint: string; lanes: string[] }[] = 
     label: 'regulation',
     hint: 'Predicted expression against the curated regulatory evidence that might explain it',
     lanes: ['sk-rnaseq', 'tfbs_chip', 'tfbs_conserved', 'regulatory', 'genes'],
+  },
+  {
+    id: 'attribution',
+    label: 'attribution methods',
+    hint: 'Two ways of asking which bases drive the prediction — a local slope and a path integral. '
+      + 'They agree less than they look like they should: r = 0.60 per base.',
+    lanes: ['sk-gradient', 'sk-ig', 'genes'],
+    // Without IG this is one method under a heading that promises a comparison, which is worse
+    // than not offering the view at all.
+    requires: ['sk-ig'],
   },
   {
     id: 'variation',
@@ -2651,6 +2665,9 @@ export function initGenomeBrowser(host: HTMLElement): void {
     for (const preset of PRESETS) {
       const lanes = preset.lanes.filter((id) => known.has(id));
       if (lanes.length < 2) continue;         // a preset whose tracks this build lacks
+      // A preset that would still render but no longer mean what its label says is dropped, not
+      // degraded: "attribution methods" showing one method is a worse answer than no button.
+      if (preset.requires?.some((id) => !known.has(id))) continue;
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'gb-preset';

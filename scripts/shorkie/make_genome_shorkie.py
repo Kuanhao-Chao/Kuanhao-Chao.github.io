@@ -239,6 +239,11 @@ def main() -> int:
     total = sum(len(plan_windows(len(s))) for c, s in genome.items()
                 if not args.only or c == args.only)
     done = 0
+    # Windows already on disk when this run started. The ETA has to be computed against the work
+    # THIS run does, not against the whole genome: on a resume the elapsed clock covers only the
+    # windows since restart, so dividing by the overall fraction reported "0.9 min left" with a
+    # third of the genome still to score.
+    done_at_start = 0
     t_all = time.time()
     print(f"{len(genome)} sequences, {sum(map(len, genome.values())):,} bp, {total} windows\n")
 
@@ -252,6 +257,7 @@ def main() -> int:
         if all(p.exists() for p in paths.values()) and not args.force and chrom in rec["chroms"]:
             print(f"  {chrom:8s} already written, skipping")
             done += len(plan)
+            done_at_start += len(plan)
             continue
 
         acc = {k: np.full(nb, np.nan, dtype=np.float32) for k in keys}
@@ -263,6 +269,8 @@ def main() -> int:
                 for k in keys:
                     acc[k] = ck[k]
                 first = int(ck["done"])
+                done += first
+                done_at_start += first
                 print(f"  {chrom:8s} resuming at window {first}/{len(plan)}")
 
         t0, t_ck = time.time(), time.time()
@@ -303,9 +311,13 @@ def main() -> int:
                 tmp = OUT / f"{chrom}-sk-{args.which}-partial.tmp.npz"
                 np.savez(tmp, done=wi + 1, n=n, total=len(plan), native=native, **acc)
                 tmp.replace(ck_p)
-                el, frac = time.time() - t_all, done / max(total, 1)
+                el = time.time() - t_all
+                frac = done / max(total, 1)
+                # Rate from this run's own work; remaining from the whole genome.
+                rate = (done - done_at_start) / max(el, 1e-9)
+                left = (total - done) / max(rate, 1e-9)
                 print(f"    {chrom} {wi+1}/{len(plan)}  |  {done}/{total} ({frac*100:4.1f}%)  "
-                      f"{el/60:.1f} min elapsed, {(el/max(frac,1e-9)-el)/60:.1f} min left",
+                      f"{el/60:.1f} min this run, {left/60:.1f} min left",
                       flush=True)
 
         for k in keys:
