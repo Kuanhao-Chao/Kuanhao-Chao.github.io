@@ -703,6 +703,12 @@ html[data-theme='dark'] .vp {
 
 /* No minimum width: a floor makes the backing store wider than its box, `width: 100%` scales it
    back, and every coordinate on it is off by that ratio. */
+/* `display: block` on the class beats the `hidden` ATTRIBUTE, so a hidden canvas still occupied
+   its full 170 px -- a dead white band under the statistics table whenever fewer than two score
+   lanes were on. Same family as the rule that visibility is toggled with `el.hidden`: if a class
+   sets `display`, the attribute needs an explicit companion. */
+.gb-scatter[hidden] { display: none; }
+
 .gb-scatter {
   display: block;
   width: 100%;

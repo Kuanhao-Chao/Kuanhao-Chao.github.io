@@ -578,6 +578,9 @@ export function initGenomeBrowser(host: HTMLElement): void {
   /** Glyphs drawn by score lanes in the current paint; see `letters` in `paintTrack`. */
   let scoreGlyphs = 0;
 
+  /** The ROI start last announced, so a repaint does not re-announce an unchanged region. */
+  let lastRoiSent = -1;
+
   /**
    * A track's genome-wide mean, length-weighted over the chromosomes that scored it.
    *
@@ -1274,6 +1277,20 @@ export function initGenomeBrowser(host: HTMLElement): void {
     // canvas and write text into it. It only worked here by the span happening to be declared
     // four lines earlier in the markup.
     cv.dataset.gbRoiRange = roi ? `${roi.start}-${roi.end}` : '';
+    // A marked region is the browser's version of "trace this". Published separately from the
+    // view because it changes far less often and drives an expensive fan-out downstream.
+    if (roi && roi.start !== lastRoiSent) {
+      lastRoiSent = roi.start;
+      const p = primaryHere();
+      if (p) {
+        host.dispatchEvent(new CustomEvent('khc:gb-roi', {
+          bubbles: true,
+          detail: { locus: p.id, gene: p.gene, start: roi.start - p.start, end: roi.end - p.start },
+        }));
+      }
+    } else if (!roi) {
+      lastRoiSent = -1;
+    }
 
     if (levelOut) {
       const anyFeature = lanes.some((l) => l.kind === 'features');
@@ -2183,6 +2200,24 @@ export function initGenomeBrowser(host: HTMLElement): void {
     host.dataset.gbView = formatLocus(view);
     if (opts.hash !== false) writeHash();
 
+    // Publish the view so a companion panel can follow it. The event carries the primary window
+    // the view is inside, if any, because the companions are window-relative and the conversion
+    // needs the locus -- and because "you have left the analysed windows" is something they have
+    // to be able to say rather than keep drawing a stale one.
+    const inWindow = primaryHere();
+    host.dispatchEvent(new CustomEvent('khc:gb-view', {
+      bubbles: true,
+      detail: {
+        chrom: view.chrom,
+        start: view.start,
+        end: view.end,
+        locus: inWindow ? inWindow.id : null,
+        gene: inWindow ? inWindow.gene : null,
+        // Window-relative offset of the view's CENTRE, which is what a fixed-width logo needs.
+        offset: inWindow ? Math.round((view.start + view.end) / 2) - inWindow.start : null,
+      },
+    }));
+
     const fullLink = host.querySelector<HTMLAnchorElement>('[data-gb-full-link]');
     if (fullLink) {
       fullLink.href = `/shorkie-lab/genome/#${encodeViewState(currentState())}`;
@@ -2865,7 +2900,17 @@ export function initGenomeBrowser(host: HTMLElement): void {
     else buildPanel();
     if (hash.roi) roi = hash.roi;
 
+    // `#locus=<id or gene>` beats `data-gb-default`. On a page where the browser IS the
+    // navigation, a deep link naming a window must land the BROWSER there -- otherwise the browser
+    // starts at its default, announces that view, and the companions following it overwrite the
+    // locus the link asked for. That regression is exactly what this guard exists to stop.
+    const wanted = decodeURIComponent(
+      (/[#&]locus=([^&;]+)/.exec(window.location.hash) ?? [])[1] ?? '').trim().toLowerCase();
+    const named = wanted
+      ? primaries.find((q) => q.id.toLowerCase() === wanted || q.gene.toLowerCase() === wanted)
+      : null;
     const start = hash.view
+      ?? (named ? { chrom: named.chrom, start: named.start + 6144, end: named.start + 10240 } : null)
       ?? searchLocus(host.dataset.gbDefault || 'chrVII:882,012-884,610', null, index.chroms)
       ?? { chrom: index.chroms[0].name, start: 0, end: Math.min(20000, index.chroms[0].length) };
     lastW = trackCanvas.clientWidth;

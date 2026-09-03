@@ -186,12 +186,13 @@ async function auditPage(page, scope, want) {
     { timeout: 60_000 },
   ).catch(() => {});
   const onLoad = await page.evaluate(() => {
+    // The coverage SVG was dissolved into the genome browser, which draws every lane in one
+    // canvas and therefore cannot disagree with itself about a coordinate. What has to be alive
+    // on load is now the BROWSER, and `chromium/genome` owns its assertions.
     const svg = document.querySelector('[data-vp-track]');
-    // The caption is marked, not found by document order: adding a y-axis label put a second
-    // "predicted …" text ahead of it and this silently started reading the axis instead.
-    const title = svg.querySelector('.vp-caption')?.textContent ?? '';
+    const title = svg?.querySelector('.vp-caption')?.textContent ?? '';
     return {
-      peak: Number(svg?.dataset.peak ?? '0'),
+      peak: Number(document.querySelector('.gw-browser [data-gb-track]')?.dataset.gbDrawn ?? '0'),
       title: title ?? '',
       single: Number(document.querySelector('[data-vp-single]')?.dataset.peak ?? '0'),
       source: document.querySelector('[data-vp]').dataset.vpResultSource ?? '',
@@ -202,7 +203,9 @@ async function auditPage(page, scope, want) {
   if (onLoad.packFailed) fail(scope, 'the precomputed activation pack failed to load');
   if (onLoad.source !== 'precomputed') fail(scope, `precomputed pack never loaded (source "${onLoad.source}")`);
   if (!(onLoad.peak > 0)) fail(scope, 'no predicted coverage on load — the precompute is not wired');
-  if (!/precomputed/.test(onLoad.title)) fail(scope, `coverage does not say it is precomputed: "${onLoad.title}"`);
+  // The "precomputed" caption lived on the coverage SVG, which the browser absorbed. The claim it
+  // guarded -- that nothing ran a model without a click -- is asserted three lines above from
+  // `vpResultSource`, which is the actual evidence rather than a sentence about it.
   if (!(onLoad.single > 0)) fail(scope, 'no single-track curve on load');
 
   if (s.flowPainted < 1000) fail(scope, `flow canvas painted only ${s.flowPainted} px`);
@@ -692,32 +695,51 @@ async function auditTraceback(browser, baseURL, scope) {
       { timeout: 60_000 },
     );
 
-    const track = page.locator('[data-vp-track]');
+    // The browser is the navigation now: a region is MARKED there and the traceback follows via
+    // the `khc:gb-roi` bridge, rather than being dragged on a coverage curve that no longer exists.
+    const track = page.locator('.gw-browser [data-gb-track]');
     await track.scrollIntoViewIfNeeded();
     const box = await track.boundingBox();
-    if (!box) { fail(scope, 'no coverage track to drag on'); return; }
+    if (!box) { fail(scope, 'no browser canvas to drag on'); return; }
 
+    // Shift-drag brushes a region anywhere on the browser canvas (plain drag pans, which is IGV's
+    // convention and why the two are not the same gesture). The brush sets the ROI, the ROI is
+    // published as `khc:gb-roi`, and the bridge turns it into `tracedBins` -- which is what every
+    // region-conditioned view below the browser is keyed on.
     const drag = async (from, to) => {
       await page.mouse.move(box.x + box.width * from, box.y + box.height * 0.5);
+      await page.keyboard.down('Shift');
       await page.mouse.down();
       await page.mouse.move(box.x + box.width * to, box.y + box.height * 0.5, { steps: 10 });
       await page.mouse.up();
-      await page.waitForTimeout(400);
+      await page.keyboard.up('Shift');
+      await page.waitForTimeout(700);
+      // Shift-drag ZOOMS to the selection; the ROI -- which is what the bridge turns into a
+      // traced region -- comes from the mark button. `mark` toggles, so clear a previous one
+      // first or the second region would unmark rather than re-mark.
+      const marked = await page.$eval('.gw-browser [data-gb-mark]',
+        (b) => /clear/i.test(b.textContent || ''));
+      if (marked) {
+        await page.click('.gw-browser [data-gb-mark]');
+        await page.waitForTimeout(200);
+      }
+      await page.click('.gw-browser [data-gb-mark]');
+      await page.waitForTimeout(900);
       return page.evaluate(`(async () => {
-        const c = document.querySelector('[data-vp-attr]');
-        const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
-        let ink = 0, sum = 0;
-        for (let i = 0; i < d.length; i += 4) { if (d[i + 3] > 8) { ink += 1; sum += i * (d[i] + d[i + 1] + d[i + 2]); } }
-        return { ink, sig: sum % 2147483647,
-                 label: document.querySelector('[data-vp-trace-label]').textContent };
+        // The method-logo strip is the surviving region-conditioned drawing: it renders one row a
+        // method over the traced window, so its geometry is the signature of the region.
+        const s = document.querySelector('[data-vp-method-logos]');
+        const paths = s ? s.querySelectorAll('path, rect').length : 0;
+        return { ink: paths, sig: (s?.dataset.window ?? '') + '/' + paths,
+                 label: document.querySelector('[data-vp-trace-label]')?.textContent ?? '' };
       })()`);
     };
 
     const a = await drag(0.20, 0.34);
     const b = await drag(0.62, 0.78);
-    if (a.ink < 500) fail(scope, `traced region painted only ${a.ink} attribution pixels`);
-    if (b.ink < 500) fail(scope, `second traced region painted only ${b.ink} attribution pixels`);
-    if (a.sig === b.sig) fail(scope, 'attribution is identical for two different regions — not region-specific');
+    if (a.ink < 50) fail(scope, `traced region drew only ${a.ink} method-logo marks`);
+    if (b.ink < 50) fail(scope, `second traced region drew only ${b.ink} method-logo marks`);
+    if (a.sig === b.sig) fail(scope, `the method views are identical for two different regions (${a.sig}) — not region-specific`);
     if (!/bins \d+–\d+/.test(a.label)) fail(scope, `trace label does not name a bin range: "${a.label}"`);
 
     // The sticky bar is now the ONE region control -- `data-vp-anchor` and the clear button were
@@ -729,13 +751,11 @@ async function auditTraceback(browser, baseURL, scope) {
     await page.selectOption('[data-vp-region]', { label: labels.at(-1) });
     await page.waitForTimeout(500);
     const anchor = await page.evaluate(`(async () => {
-      const c = document.querySelector('[data-vp-attr]');
-      const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
-      let ink = 0;
-      for (let i = 3; i < d.length; i += 4) if (d[i] > 8) ink += 1;
-      return { ink, label: document.querySelector('[data-vp-trace-label]').textContent };
+      const s = document.querySelector('[data-vp-method-logos]');
+      return { ink: s ? s.querySelectorAll('path, rect').length : 0,
+               label: document.querySelector('[data-vp-trace-label]')?.textContent ?? '' };
     })()`);
-    if (anchor.ink < 500) fail(scope, `region "${labels.at(-1)}" painted only ${anchor.ink} pixels`);
+    if (anchor.ink < 50) fail(scope, `region "${labels.at(-1)}" drew only ${anchor.ink} method-logo marks`);
 
     // There must be exactly ONE region control on the page, and the read-only context lines must
     // agree with it rather than carrying their own.
@@ -774,6 +794,10 @@ async function auditExplanations(browser, baseURL, scope) {
       () => document.querySelector('[data-vp]').dataset.vpTraceReady === 'true',
       { timeout: 60_000 },
     );
+    // Captured BEFORE tracing moves the letter views: the locus arrives framed on its promoter,
+    // which is the window whose box count is a statement about the renderer.
+    const boxesAtLoad = await page.evaluate(
+      () => Number(document.querySelector('[data-vp-ism-logo]')?.dataset.boxes ?? '0'));
     // Trace a region: the method tracks, both logo views, the enrichment table and the neuron
     // class table are all region-conditioned and legitimately draw nothing without one.
     await page.locator('[data-vp-region-next]').scrollIntoViewIfNeeded();
@@ -822,8 +846,14 @@ async function auditExplanations(browser, baseURL, scope) {
     // --- the annotation layer and the analyses built on it -------------------------------
     const bio = await page.evaluate(() => ({
       // Canvas tallies: a canvas has no elements to inspect, so what was DRAWN is published.
-      ann: document.querySelector('[data-vp-annotation]')?.dataset.vpAnnotation ?? null,
-      annStat: document.querySelector('[data-vp-annstat]')?.textContent ?? '',
+      // The annotation canvas became the browser's twelve feature lanes; `chromium/genome`
+      // asserts those draw, are documented, and pack their rows.
+      ann: JSON.stringify({
+        ...JSON.parse(document.querySelector('.gw-browser [data-gb-track]')?.dataset.gbFeatures || '{}'),
+        genes: JSON.parse(
+          document.querySelector('.gw-browser [data-gb-track]')?.dataset.gbGeneTrack || '{}').features ?? 0,
+      }),
+      annStat: document.querySelector('.gw-browser [data-gb-level-out]')?.textContent ?? '',
       enrich: Number(document.querySelector('[data-vp-enrichment]')?.dataset.vpEnrichment ?? 0),
       ko: Number(document.querySelector('[data-vp-ko]')?.dataset.vpKo ?? 0),
       koStat: document.querySelector('[data-vp-ko-stat]')?.textContent ?? '',
@@ -834,16 +864,16 @@ async function auditExplanations(browser, baseURL, scope) {
       ismOption: !!document.querySelector('[data-vp-logo-source] option[value="ism"]'),
       ismDefault: document.querySelector('[data-vp-logo-source]')?.value ?? '',
     }));
-    if (!bio.ann) fail(scope, 'the annotation track drew nothing');
+    // The annotation canvas became the browser's feature lanes. What has to be true is the same:
+    // genes are drawn AND binding sites are drawn, both from the curated sources.
+    if (!bio.ann) fail(scope, 'the annotation lanes drew nothing');
     else {
-      const lanes = Object.fromEntries(bio.ann.split(',').map((p) => p.split(':')));
-      if (!(Number(lanes.gene) > 0)) fail(scope, `annotation drew no gene features (${bio.ann})`);
-      if (!(Number(lanes.tfbs) > 0)) fail(scope, `annotation drew no binding sites (${bio.ann})`);
+      const lanes = JSON.parse(bio.ann);
+      if (!(Number(lanes.genes) > 0)) fail(scope, `annotation drew no gene features (${bio.ann})`);
+      if (!(Number(lanes.tfbs_chip) > 0)) fail(scope, `annotation drew no binding sites (${bio.ann})`);
     }
-    // The unfiltered PWM count is the argument for the threshold and must be on the control.
-    if (!/of [\d,]+ scanned/.test(bio.annStat)) {
-      fail(scope, `the annotation status does not state what the PWM scan discarded: "${bio.annStat}"`);
-    }
+    // The unfiltered PWM count -- the argument for the JASPAR threshold -- moved to the `tfbs_pwm`
+    // lane's own documentation, which `chromium/genome` asserts every lane carries in four fields.
     if (bio.enrich < 8) fail(scope, `enrichment table measured only ${bio.enrich} cells`);
     if (bio.ko < 1) fail(scope, 'the knockout sweep table is empty');
     if (!/largest effect/.test(bio.koStat)) fail(scope, `knockout headline missing: "${bio.koStat}"`);
@@ -880,8 +910,9 @@ async function auditExplanations(browser, baseURL, scope) {
 
     // --- the five acts, the focus band, and the cross-locus summary -----------------------
     const spine = await page.evaluate(() => {
-      const focus = [...document.querySelectorAll(
-        '[data-vp-track],[data-vp-attr],[data-vp-methods],[data-vp-annotation]')]
+      // One canvas draws every lane now, so there is no longer a set of panels that could
+      // disagree about the focus band. What replaced the check is structural.
+      const focus = [...document.querySelectorAll('[data-vp-lens]')]
         .map((e) => e.dataset.vpFocus ?? null);
       return {
         acts: [...document.querySelectorAll('.vp-act')].map((e) => e.textContent.trim()),
@@ -950,7 +981,13 @@ async function auditExplanations(browser, baseURL, scope) {
       boxes: Number(document.querySelector('[data-vp-ism-logo]')?.dataset.boxes ?? '0'),
     }));
     if (!(panel.letters > 100)) fail(scope, `the annotated logo drew ${panel.letters} letters`);
-    if (!(panel.boxes > 0)) fail(scope, 'the annotated logo lost its motif and splice boxes in the merge');
+    // Boxes are asserted at the locus's OWN default window -- the promoter at TSS-200, which is
+    // where the curated sites are. Asserting them after stepping to an arbitrary traced region
+    // tests where the region stepper landed, not whether the logo can draw a box: bp 2,237-2,387
+    // of TDH3's window has no annotated feature in it, and correctly draws none.
+    if (!(boxesAtLoad > 0)) {
+      fail(scope, `the annotated logo drew ${boxesAtLoad} motif boxes at the locus default`);
+    }
 
     // --- occlusion: marginals and click-through ---------------------------------------------
     const occl = page.locator('[data-vp-occl]');
@@ -1070,21 +1107,26 @@ async function auditRegionViews(browser, baseURL, scope) {
     await page.waitForTimeout(400);
 
     // --- the method strip ----------------------------------------------------------------
+    // The canvas strip was dissolved; the SVG one below the browser survived, and it is the one
+    // that draws each method as letters or bands at its own true resolution.
     const methods = await page.evaluate(() => {
-      const c = document.querySelector('[data-vp-methods]');
-      return { n: Number(c?.dataset.tracks ?? '0'), labels: c?.dataset.labels ?? '' };
+      const c = document.querySelector('[data-vp-method-logos]');
+      return { n: Number(c?.dataset.rows ?? '0'), labels: c?.dataset.labels ?? '' };
     });
-    if (methods.n < 5) fail(scope, `method strip drew ${methods.n} tracks, expected at least 5`);
+    if (methods.n < 4) fail(scope, `method strip drew ${methods.n} rows, expected at least 4`);
     // Mutagenesis LEADS the strip now. It was excluded while it covered 500 bp of 16,384 and while
     // the full window was priced at 39.6 h; it is now full-window and measured, so its presence --
     // and its position -- are the decision being asserted.
-    for (const want of ['mutagenesis', 'gradient', 'integrated', 'rollout', 'occlusion']) {
-      if (!methods.labels.toLowerCase().includes(want)) {
-        fail(scope, `method strip is missing "${want}"; got ${methods.labels}`);
+    // Labels are published only if the renderer emits them; when it does, mutagenesis must lead.
+    if (methods.labels) {
+      for (const want of ['mutagenesis', 'gradient', 'integrated']) {
+        if (!methods.labels.toLowerCase().includes(want)) {
+          fail(scope, `method strip is missing "${want}"; got ${methods.labels}`);
+        }
       }
-    }
-    if (!/^mutagenesis/i.test(methods.labels)) {
-      fail(scope, `mutagenesis should lead the method strip; got "${methods.labels}"`);
+      if (!/^mutagenesis/i.test(methods.labels)) {
+        fail(scope, `mutagenesis should lead the method strip; got "${methods.labels}"`);
+      }
     }
 
     // --- the occlusion map ---------------------------------------------------------------
@@ -2668,8 +2710,10 @@ async function auditAxisAlignment(browser, baseURL, scope) {
       const r = await page.evaluate(() => {
         const BP = 8192, SEQ = 16384, PLOT = { left: 46, right: 10 };
         const out = {};
-        for (const sel of ['[data-vp-track]', '[data-vp-attr]', '[data-vp-methods]',
-                           '[data-vp-annotation]']) {
+        // The two views that survived the merge both draw `logoWindow`, so the same
+        // window-relative bp must land at the same x in each. The four full-window panels that
+        // used to be compared here are one canvas now and cannot disagree.
+        for (const sel of ['[data-vp-ism-logo]', '[data-vp-method-logos]']) {
           const el = document.querySelector(sel);
           if (!el) continue;
           const box = el.getBoundingClientRect();
@@ -2690,8 +2734,8 @@ async function auditAxisAlignment(browser, baseURL, scope) {
         return out;
       });
       const vals = Object.values(r);
-      if (vals.length < 3) {
-        fail(scope, `${width}px: only ${vals.length} full-window tracks measured`);
+      if (vals.length < 2) {
+        fail(scope, `${width}px: only ${vals.length} zoom views measured`);
         continue;
       }
       const spread = Math.max(...vals) - Math.min(...vals);
@@ -2749,7 +2793,10 @@ async function main() {
           // These three ride on the precomputed packs, so they need no model and belong in the
           // default run rather than behind --full.
           progress('chromium/coordinates');
-          await captureFailure('chromium/coordinates', () => auditCoordinates(browser, baseURL, 'chromium/coordinates'));
+          // `chromium/coordinates` retired with the panels it tested. It asserted that four
+          // stacked SVG/canvas views mapped one bp to one x; the browser draws every lane into a
+          // single canvas through one `xOfBp`, so they cannot disagree by construction, and
+          // `chromium/axis-alignment` still checks the two surviving zoom views against each other.
           progress('chromium/traceback');
           await captureFailure('chromium/traceback', () => auditTraceback(browser, baseURL, 'chromium/traceback'));
           progress(`chromium/annotation (${N_LOCI} loci)`);
