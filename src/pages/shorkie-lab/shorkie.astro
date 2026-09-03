@@ -22,6 +22,10 @@ const gwIndex = JSON.parse(readFileSync('public/genome-data/index.json', 'utf8')
 };
 const gwBp = gwIndex.chroms.reduce((s, c) => s + c.length, 0);
 const gwTrack = (id: string) => gwIndex.tracks.find((t) => t.id === id)!;
+// Whether a pass has shipped is read from the tiles, never typed. Two of the four were still
+// generating when this section was written, and a sentence saying so becomes wrong the moment
+// they land.
+const gwHas = (id: string) => gwIndex.tracks.some((t) => t.id === id);
 // Scored bases, from the arrays themselves: Shorkie's head crops 1,024 bp from each window end and
 // no window can start before position 0, so the first 1,024 bases of every chromosome are blank.
 const gwScoredBp = gwIndex.chroms.reduce(
@@ -611,9 +615,13 @@ const breadcrumbLd = buildBreadcrumbLd([
             that phase than to how much flanking sequence it gets.</p>
             <p><strong>Measured on this machine (Apple MPS, batch 1, fold f0).</strong> A forward
             pass is 30 ms, so predicted coverage for the whole genome is <strong>45 s</strong>.
-            Gradient × input, rc-averaged, is 258 ms a window — <strong>6.5 min</strong>. Integrated
-            gradients at 32 steps would be 3.4 h and occlusion at 64 bp 6.4 h; both are affordable
-            and neither is on this page yet.</p>
+            Gradient × input, rc-averaged, is 258 ms a window — <strong>6.5 min</strong>.
+            Integrated gradients at 32 steps is 3.4 h and occlusion at 64 bp is 6.4 h.
+            {gwHas('sk-ig') && gwHas('sk-occl')
+              ? ' Both have been run, and all four are lanes you can turn on.'
+              : gwHas('sk-ig')
+                ? ' Integrated gradients has been run; occlusion is still generating.'
+                : ' Both are affordable and are still generating.'}</p>
             <p><strong>Full mutagenesis genome-wide is not affordable, and that is not a harness
             limit.</strong> Three substitutions at every one of 16,384 positions, on both strands,
             is 2,950 s a window and <strong>1,231 hours</strong> — 51 days of GPU. That is why
