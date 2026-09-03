@@ -816,6 +816,86 @@ Two pages under one hub, both `bare`, both over the same fourteen windows and th
   the right edge at 320px and rendered as "… iteratively maske", which reads as a typo rather than a
   clipped line. Four tiers chosen by `measureText`, the same fix the expression page already carries.
 
+#### The page was rebuilt around the browser, and three frontier analyses were added
+
+`/shorkie-lab/shorkie/` no longer has a "Predicted coverage" section. It had 30 `data-vp-*` hooks,
+five canvases, TWO independent zoom states and four controls 260 lines from the curve they drove;
+everything positional in it is something the browser does better and genome-wide. The browser is act
+2, carrying `data-gb-exclude="lm-"`, and two panels survived as **companions that follow it**: the
+paper-fidelity ISM logo and the four-method strip.
+
+- **`data-gb-exclude` is the only per-host lane filter, and it must reach FIVE places.** `ALL_LANES`,
+  `scoreTracks()`, both loops in `buildPanel()`, and the initial-tracks loop. A lane hidden from the
+  panel but reachable from a preset or a URL is worse than one hidden from none. A trailing hyphen
+  means a prefix (`lm-` catches a language-model lane added later); a bare id matches exactly.
+- **The bridge is two events, and the distinction between them is the whole design.** `khc:gb-view`
+  switches locus on ARRIVING at a different window and re-centres the letter views on PANNING inside
+  one — never both. Arriving must keep the locus's own default framing (the promoter at TSS−200,
+  where `adoptPrecomputed` puts it), because the browser's view centre lands mid-gene-body with
+  nothing annotated in sight. `khc:gb-roi` turns a marked region into `tracedBins`, which every
+  region-conditioned view is keyed on; marking takes the method strip from one row to four.
+- **`#locus=` must steer the BROWSER, not just the selector.** Otherwise the browser starts at its
+  default, announces that view, and the companions following it overwrite the window the link asked
+  for.
+- **An element that appears and disappears must not sit above the canvas.** The "open the full
+  analysis" link in the header shifted the whole browser vertically when the view crossed a window
+  boundary, and the strip-drag gate failed because the canvas moved out from under the mouse
+  between measuring its box and pressing on it.
+- **`display: block` on a class beats the `hidden` ATTRIBUTE.** `.gb-scatter` still occupied 170 px
+  while hidden — a dead band under the statistics table on both pages.
+- **Signed lanes draw DNA logos, but only where `lvl.binBp === 1`.** Occlusion is signed too and its
+  bins are 64 bp, so without that guard it would draw sixty-four identical glyphs. Negative letters
+  are MIRRORED below the rule, matching `drawLogo` — the two renderers sit next to each other.
+
+**Never hand-write a decode for a pack that ships its own.** The ISM packs dequantise as
+`sign(v)·1e-4·(10^|v|−1)`; a reimplementation as `sign·expm1(|v|·log1p(m))` is monotone and odd, so
+it preserves **every sign and every argmax** and passed the sign check while changing every
+correlation computed from it — it reported 23/23 and r = 0.30 where the truth is **22/23 and 0.369**.
+`decodePackedPlane` is now exported from `shorkieModel.ts`, both consumers use it, and its test
+asserts it is *not* the plausible alternative. The one dissenting locus is GAL3, where the gradient
+reads +0.0013 at mutagenesis's strongest base — gradient saturation, not disagreement.
+
+**Two designs died to a measurement, and the measurements are the findings.**
+- **13 genome-wide timepoint lanes would have been one lane.** Lowest pairwise correlation among the
+  13 means: **0.9923**; T5 against T0 is **1.0000**. Each averages ~300 regulators. What shipped
+  instead is the *spread*, `(max−min)/(mean+1)` — one lane, 820 KB against 10 MB — and it finds the
+  GAL7–GAL10–GAL1 cluster unsupervised, peaking at **1.4** against a genome mean of 0.19 exactly
+  where coverage is zero. The normalisation was chosen from data: the RAW range reads the question
+  backwards (TDH3 73.2 against HOP2 1.1) and `range/mean` is unbounded near zero.
+- **The same failure repeats one level up.** Early-vs-late attribution on the timepoint MEANS is
+  r ≥ 0.9995 with 99% of the top 500 bases shared. Per REGULATOR it is real: **MSN2 at GAL1 reads
+  0.215 with 50.2% shared**, and MSN2/MSN4 — paralogues binding the same STRE motif — rank one and
+  two independently.
+
+**A sparse genome track costs ~10% of a dense one and needs no renderer change.** Mutagenesis exists
+on 3.10% of the genome (the 23 windows) and ships as `sk-ism` for 1.5 MB against 15 MB; byte 0
+already means NO DATA and the lane prints "100% no data" outside them. A gap means *not measured*,
+never *no effect*.
+
+**Second-order attribution is affordable and its check is SYMMETRY.** `H·v = ∇⟨∇f, v⟩` is one extra
+backward pass (425 ms), and H is symmetric, so `⟨H·v_A, v_B⟩` must equal `⟨H·v_B, v_A⟩` — worst
+residual **4.2e-04** over 431 sites. Nothing else catches a mis-wired double-backward: it has the
+right shape and magnitude and is simply the wrong quantity. **The helical prediction is REFUTED** —
+in-phase against anti-phase |H·v| gives **0.948**, and the periodogram's "periods" (49, 73.5, 36.8)
+are 147/3, 147/2 and 147/4, harmonics of the analysis window. Reporting them would be reporting the
+ruler.
+
+**The species channel is Shorkie's alone, and the sweep works.** 165 forward passes a locus, 1.6 min
+for the set. With the DNA held byte for byte the model ranks *S. cerevisiae* **first of 165 at 19 of
+23 loci** (p ≈ 6.4e-39) and above the median at 21 of 23. The control that decides whether it means
+anything is the **between-locus rank correlation** — median **0.33**, so the orderings genuinely
+differ and this is not a per-species bias; and the five *Yarrowia lipolytica* strains are free
+replicates whose spread is 9.5% of the range. The tidy story ("the exceptions are the repressed
+genes") is NOT supported: rank against log baseline coverage is only ρ = −0.34, POP4 at 2.9 ranks
+first and GLK1 at 20.6 ranks 162nd. The published species list independently confirms
+`speciesIndex: 109`.
+
+**Retiring an audit scope is sometimes right.** `chromium/coordinates` asserted four stacked views
+mapped one bp to one x; the browser draws every lane into one canvas through one `xOfBp`, so they
+cannot disagree by construction. But check first whether an assertion was *fragile* rather than the
+code broken — the logo's motif boxes are asserted at the locus default now, because after stepping
+to an arbitrary region it can land on bp 2,237–2,387 of TDH3's window, where nothing is annotated.
+
 #### The genome browser (`/shorkie-lab/genome/`)
 
 Shorkie_LM constraint over all **12,157,105 bases** of sacCer3, against phastCons conservation and
