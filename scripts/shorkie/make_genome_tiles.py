@@ -198,6 +198,20 @@ TRACKS = [
                   "rc-averaged",
     },
     {
+        "id": "sk-ism", "group": "expression", "laneTag": "signed · measured · 23 windows",
+        "file": "sk-ism", "nativeBp": 1, "space": "symlog", "axisFrom": "symmetric", "axis": None,
+        "units": "logSED",
+        "label": "Shorkie · mutagenesis (ISM)",
+        "short": "ISM",
+        "detail": "the paper's own attribution: every substitution actually run",
+        "prediction": False,
+        "note": "The paper's Figure 4 quantity, and the only method here that changes a base and "
+                "looks. It exists on 3.10% of the genome — the 23 analysed windows — because "
+                "genome-wide it is 1,231 hours. Everywhere else this lane is blank, which is the "
+                "honest rendering of a measurement that was not made.",
+        "source": "Shorkie (Chao et al. 2025), fold f0; 98,304 forward passes a window, rc-averaged",
+    },
+    {
         "id": "sk-ig", "group": "expression", "laneTag": "signed", "file": "sk-ig",
         "nativeBp": 1, "space": "symlog", "axisFrom": "symmetric", "axis": None,
         "units": "d log2 cov",
@@ -231,6 +245,12 @@ TRACKS = [
 # that matters most -- what it does NOT mean. `main()` refuses to write an index that is missing
 # any of them, which is what "documented" has to mean to survive more than one round.
 TRACK_DOCS = {
+    'sk-ism': {
+        'source': "Shorkie (Chao et al. 2025, bioRxiv 2025.09.19.677475), fold f0. Every one of the three substitutions at all 16,384 positions of each analysed window, on both strands — 98,304 forward passes a window — then rc-averaged, mean-centred across the four bases and projected on the reference, which is the paper's own recipe in all three files that implement it. The browser reads the same packs the per-locus panels do, through their own decoder.",
+        'measures': "What actually happens to the model's predicted log2 RNA-seq coverage when the base that is there is replaced. Not a derivative of that, not an integral of one, and not a block ablation: the finite difference itself, which is why it is the standard this page measures the other three methods against. Positive means the base that is present is HOLDING THE PREDICTION DOWN, so changing it would raise expression; negative means the base is doing work the model relies on.",
+        'read': "At base zoom it becomes the paper's sequence logo — letters above the zero rule, mirrored below. Read it against gradient x input directly above: the two agree about direction at 22 of 23 loci and correlate at a median of only 0.369 base by base, and where they disagree it is usually the gradient going flat on a saturated promoter rather than the mutagenesis being wrong.",
+        'caveat': "BLANK ON 96.9% OF THE GENOME, and that is a fact about what was computed rather than about the sequence. Full mutagenesis is 2,950 s a window — 1,231 hours, 51 days of GPU, for all 1,493 windows — so it was run on the 23 windows this site analyses and nowhere else. A gap here means 'not measured', never 'no effect'; the lane prints the fraction of the view that is missing so the distinction is on the screen. It also scores each window's own gene body, not the whole cropped interior the gradient lanes use, so the two answer subtly different questions even where both are present.",
+    },
     'sk-ig': {
         'source': "Shorkie (Chao et al. 2025, bioRxiv 2025.09.19.677475), the fold-f0 checkpoint, run over sacCer3 in 1,493 windows of 16,384 bp on the same 8,192 bp cores as the language-model tracks, so the two models' lanes are aligned base for base. Not a published track. Integrated gradients at 32 steps from an all-zero-DNA baseline, averaged over both strands — and the completeness target is rc-averaged too, since the average of two complete decompositions is a decomposition of the average.",
         'measures': "The same quantity as the gradient lane — each base's signed contribution to predicted log2 RNA-seq coverage — obtained by integrating the gradient along the straight path from a sequence with no DNA to this one, instead of reading the slope at this one. Its attributions sum to f(sequence) − f(baseline), which is the property it exists for, and it is deliberately NOT mean-centred across the four bases: that identity is a telescoping integral of the raw gradient, and subtracting a per-position mean breaks it (measured, 8–650% completeness error centred against 0.4–13% un-centred).",
