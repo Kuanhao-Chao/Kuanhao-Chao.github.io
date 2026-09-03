@@ -130,12 +130,12 @@ export function initShorkieConstructive(host: HTMLElement): void {
     ctx.font = '10px system-ui, sans-serif';
     ctx.textAlign = 'right';
     for (const f of [0, 0.5, 1]) ctx.fillText(f === 1 ? 'full' : f.toFixed(1), pad.l - 5, Y(f) + 3);
-    ctx.textAlign = 'center';
     radii.forEach((r, i) => {
-      if (i % 2 === 0 || i === radii.length - 1) {
-        ctx.fillText(r >= 1024 ? `${r / 1024}k` : String(r), X(i), H - 16);
-      }
+      if (i % 2 !== 0 && i !== radii.length - 1) return;
+      ctx.textAlign = i === 0 ? 'left' : i === radii.length - 1 ? 'right' : 'center';
+      ctx.fillText(r >= 1024 ? `${r / 1024}k` : String(r), X(i), H - 16);
     });
+    ctx.textAlign = 'center';
     ctx.fillStyle = muted;
     caption(ctx, [
       'radius of real sequence kept (bp); everything outside is dinucleotide-shuffled',
@@ -248,8 +248,13 @@ export function initShorkieConstructive(host: HTMLElement): void {
     ctx.lineTo(X(gia.necessityJoin.medianNecessity), pad.t + plot);
     ctx.stroke();
     ctx.setLineDash([]);
-
     ctx.font = '10px system-ui, sans-serif';
+    // Below the plot, not above it: the page's sticky control bar covers roughly the top 120 px of
+    // whatever is scrolled under it, so a label on a canvas's first rows is the one most often
+    // hidden.
+    ctx.fillStyle = muted; ctx.textAlign = 'center';
+    ctx.fillText('median', X(gia.necessityJoin.medianNecessity), pad.t + plot + 12);
+
     for (const r of rows) {
       const x = X(r.necessity); const y = Y(r.sufficiency);
       const sig = r.quadrant.includes('and sufficient') || r.quadrant.startsWith('sufficient');
@@ -260,8 +265,18 @@ export function initShorkieConstructive(host: HTMLElement): void {
       ctx.fillText(r.name, x + (ctx.textAlign === 'right' ? -8 : 8), y + 3);
     }
     ctx.fillStyle = muted; ctx.textAlign = 'left';
-    ctx.fillText('sufficient', pad.l + 2, pad.t + 8);
-    ctx.fillText('not sufficient', pad.l + 2, pad.t + plot - 2);
+    ctx.fillText('activates ↑', pad.l + 2, pad.t + 8);
+    ctx.fillText('represses ↓', pad.l + 2, pad.t + plot - 2);
+    ctx.fillText('no effect', pad.l + 2, Y(0) - 4);
+    // Sufficiency is the FILL, not the height: a filled marker cleared its own scramble, a hollow
+    // one did not. Two of the hollow ones are the whole point of the panel.
+    const lx = pad.l + inner - 118;
+    ctx.fillStyle = accent;
+    ctx.beginPath(); ctx.arc(lx, pad.t + plot - 6, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = muted;
+    ctx.fillText('sufficient', lx + 8, pad.t + plot - 3);
+    ctx.beginPath(); ctx.arc(lx + 62, pad.t + plot - 6, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillText('not', lx + 70, pad.t + plot - 3);
     ctx.textAlign = 'center';
     caption(ctx, [
       'necessary where it already sits (mean |logSED| when knocked out) →',
@@ -305,19 +320,25 @@ export function initShorkieConstructive(host: HTMLElement): void {
     const seps = p.separations;
     const all = ORIENT.flatMap((o) => p.interaction[o] ?? []);
     const span = Math.max(...all.map(Math.abs)) * 1.1 || 1;
-    const X = (i: number) => pad.l + (inner * i) / Math.max(1, seps.length - 1);
+    // Linear in BASE PAIRS, not in index. The scan is 1 bp apart out to 64 and 5 bp apart beyond,
+    // so an index-linear axis gives the fine half 69% of the width: the tick reading "50" lands at
+    // mid-width when 50 bp is a quarter of the range, and -- fatally for this panel -- the 10.5 bp
+    // helical rules come out unevenly spaced, which is the one reading it exists to support.
+    const lo = seps[0]; const hi = seps[seps.length - 1];
+    const X = (bp: number) => pad.l + (inner * (bp - lo)) / Math.max(1, hi - lo);
     const Y = (v: number) => pad.t + plot / 2 - (plot / 2) * (v / span);
 
     // Helical guides at every integer multiple of the period, so a reader can see for themselves
     // whether the curve has anything at those separations.
-    ctx.strokeStyle = rule; ctx.globalAlpha = 0.8;
+    // Dashed, and at full token strength: these are the guides a reader checks the curve against,
+    // and at 0.8 alpha in the rule colour they were invisible against a dark background.
+    ctx.strokeStyle = muted; ctx.globalAlpha = 0.35; ctx.setLineDash([2, 4]);
     for (let k = 1; k * space.helicalPeriodBp <= seps[seps.length - 1]; k += 1) {
       const d = k * space.helicalPeriodBp;
-      let i = seps.findIndex((s) => s >= d);
-      if (i < 0) continue;
-      ctx.beginPath(); ctx.moveTo(X(i), pad.t); ctx.lineTo(X(i), pad.t + plot); ctx.stroke();
+      if (d < lo) continue;
+      ctx.beginPath(); ctx.moveTo(X(d), pad.t); ctx.lineTo(X(d), pad.t + plot); ctx.stroke();
     }
-    ctx.globalAlpha = 1;
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
     ctx.strokeStyle = rule; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(pad.l, Y(0)); ctx.lineTo(w - pad.r, Y(0)); ctx.stroke();
 
@@ -326,7 +347,7 @@ export function initShorkieConstructive(host: HTMLElement): void {
       if (!y) return;
       ctx.strokeStyle = pal[k]; ctx.lineWidth = 1.4; ctx.globalAlpha = 0.85;
       ctx.beginPath();
-      y.forEach((v, i) => (i ? ctx.lineTo(X(i), Y(v)) : ctx.moveTo(X(i), Y(v))));
+      y.forEach((v, i) => (i ? ctx.lineTo(X(seps[i]), Y(v)) : ctx.moveTo(X(seps[i]), Y(v))));
       ctx.stroke();
       ctx.globalAlpha = 1;
       ctx.fillStyle = pal[k]; ctx.font = '10px system-ui, sans-serif'; ctx.textAlign = 'left';
@@ -343,7 +364,7 @@ export function initShorkieConstructive(host: HTMLElement): void {
     seps.forEach((s, i) => {
       if (s % 50 !== 0 && i !== 0) return;
       ctx.textAlign = i === 0 ? 'left' : i === seps.length - 1 ? 'right' : 'center';
-      ctx.fillText(String(s), X(i), H - 16);
+      ctx.fillText(String(s), X(s), H - 16);
     });
     ctx.textAlign = 'center';
     caption(ctx, [
