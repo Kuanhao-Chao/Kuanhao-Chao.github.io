@@ -1010,6 +1010,39 @@ export function binsToBottleneck(binStart: number, binEnd: number): { start: num
  * The one file in the paper that drops the 1.35 is its own figure-4 reproduction helper, whose
  * logos consequently render about 27% short with visible gaps. Follow the canonical renderer.
  */
+/**
+ * The IUPAC consensus a factor recognises, by every name it answers to.
+ *
+ * Pure and exported because two renderers need it and because the solid-vs-hollow distinction it
+ * feeds is a CLAIM about the sequence: a box is solid only when the consensus is genuinely found
+ * under it. The databases spell a factor several ways (`SFP1.2`, `Sfp1.1`, `RAP1`, `Rap1`), so a
+ * name-only join silently turns a checkable claim into a hollow box.
+ */
+export function motifConsensusFor(
+  name: string,
+  dict: { motifs: { name: string; consensus: string; aliases: string[] }[] },
+): { name: string; consensus: string } | null {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const k = norm(name);
+  for (const m of dict.motifs) {
+    for (const a of [m.name, ...m.aliases]) {
+      if (norm(a) === k) return { name: m.name, consensus: m.consensus };
+    }
+  }
+  // A trailing variant number is the database's, not the factor's: SFP1.2 is Sfp1. It has to be
+  // stripped BEFORE normalising -- `norm('SFP1.2')` is `sfp12`, and trimming digits off that eats
+  // the factor's own 1 as well and leaves `sfp`, which matches nothing.
+  const stem = norm(name.replace(/[.\-_]\d+$/, ''));
+  if (stem !== k) {
+    for (const m of dict.motifs) {
+      for (const a of [m.name, ...m.aliases]) {
+        if (norm(a.replace(/[.\-_]\d+$/, '')) === stem) return { name: m.name, consensus: m.consensus };
+      }
+    }
+  }
+  return null;
+}
+
 /** The shape a packed uint8 plane's sidecar declares. */
 export interface PackedPlaneSpec {
   rows: number;

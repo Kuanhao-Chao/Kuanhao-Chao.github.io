@@ -49,7 +49,29 @@ import {
 import { drawGeneRows, type GeneTrackFeature } from './geneTrack';
 import {
   LOGO_COLOURS, LOGO_GLYPHS, LOGO_GLOBSCALE, packGeneRows, type Base,
+  motifMatch,
+  motifConsensusFor,
+  spliceAnnotations,
+  logoRange,
 } from '../lib/shorkieModel';
+import motifDict from '../data/shorkieMotifs.json';
+
+/**
+ * The IUPAC consensus each factor recognises, by every name it answers to.
+ *
+ * 4 KB, bundled rather than fetched. It is what turns a database CALL into a testable claim: the
+ * curated Harbison/MacIsaac sites are PWM-plus-conservation calls, not consensus matches, so only
+ * 22.8% of them actually contain their factor's consensus. Drawing all of them the same way says
+ * they are all the same kind of evidence, and they are not.
+ */
+const DICT = motifDict as { motifs: { name: string; consensus: string; aliases: string[] }[] };
+const consensusCache = new Map<string, { name: string; consensus: string } | null>();
+
+/** A factor's consensus, memoised — `annotationBoxes` asks for the same names every repaint. */
+function consensusFor(name: string): { name: string; consensus: string } | null {
+  if (!consensusCache.has(name)) consensusCache.set(name, motifConsensusFor(name, DICT));
+  return consensusCache.get(name) ?? null;
+}
 
 const BASES4: Base[] = ['A', 'C', 'G', 'T'];
 
@@ -584,6 +606,12 @@ export function initGenomeBrowser(host: HTMLElement): void {
   /** Glyphs drawn by score lanes in the current paint; see `letters` in `paintTrack`. */
   let scoreGlyphs = 0;
 
+  /** Annotation boxes drawn over letter lanes in the current paint, and how many are solid. */
+  let boxTally = 0;
+  let solidTally = 0;
+  let boxList: { label: string; a: number; b: number; kind: string;
+    consensus: string | null; matched: string | null }[] = [];
+
   /** The ROI start last announced, so a repaint does not re-announce an unchanged region. */
   let lastRoiSent = -1;
 
@@ -935,6 +963,84 @@ export function initGenomeBrowser(host: HTMLElement): void {
     return out;
   }
 
+  interface AnnBox {
+    label: string;
+    a: number;            // genome bp, half-open
+    b: number;
+    kind: 'motif' | 'region' | 'landmark';
+    consensus?: string;
+    matched?: string;     // the sequence actually under a solid box, on the motif's own strand
+  }
+
+  /**
+   * The annotation overlay for a letter lane: which named thing is over these bases, and whether
+   * the sequence really contains it.
+   *
+   * This is the one thing the archived paper-fidelity panel could do that the browser could not,
+   * and it is the reason a letter view is more than a prettier bar chart. Three kinds:
+   *
+   * - **motif** (solid) — a database call whose factor's consensus IS found in the sequence under
+   *   it, by `motifMatch`, on either strand.
+   * - **region** (hollow) — a database call whose consensus is NOT there. Harbison/MacIsaac sites
+   *   are PWM-plus-conservation calls, not consensus matches; measured, only 22.8% of 670 contain
+   *   their factor's consensus. Drawing both the same way would claim they are the same evidence.
+   * - **landmark** (solid) — a splice site, branch point or codon, derived from the gene model by
+   *   `spliceAnnotations` rather than from any database, and carrying its own true span.
+   */
+  function annotationBoxes(lo: number, hi: number, seq: (Base | null)[]): AnnBox[] {
+    const out: AnnBox[] = [];
+    const fc = features.get(view.chrom);
+    const at = (bp: number) => {
+      const i = bp - view.start;
+      return i >= 0 && i < seq.length ? (seq[i] ?? 'N') : 'N';
+    };
+    const window = (a: number, b: number) => {
+      let s = '';
+      for (let x = a; x < b; x += 1) s += at(x);
+      return s;
+    };
+
+    if (fc) {
+      for (const cls of ['tfbs_chip', 'tfbs_conserved', 'tfbs_pwm', 'regulatory', 'ars_consensus',
+        'uorf']) {
+        const f = fc.classes.get(cls);
+        if (!f) continue;
+        for (let i = 0; i < f.starts.length; i += 1) {
+          const a = f.starts[i];
+          const b = a + f.lengths[i];
+          if (b <= lo || a >= hi) continue;
+          // A call wider than 60% of the view is context, not a box worth drawing over letters.
+          if (b - a > (hi - lo) * 0.6) continue;
+          const name = f.names[f.nameIdx[i]] ?? cls;
+          const dict = consensusFor(name);
+          // Padded by 6 bp each side, the same slack the archived panel used: a database call and
+          // the consensus inside it rarely start on exactly the same base.
+          const pa = Math.max(lo, a - 6);
+          const pb = Math.min(hi, b + 6);
+          const hit = dict ? motifMatch(window(pa, pb), dict.consensus, pa, a - pa) : null;
+          out.push(hit
+            ? { label: name, a: hit.start, b: hit.end, kind: 'motif',
+                consensus: dict!.consensus, matched: window(hit.start, hit.end) }
+            : { label: name, a, b, kind: 'region' });
+        }
+      }
+    }
+
+    // Splice and codon landmarks come from the gene model, which carries exons and the CDS extent
+    // — exactly the four fields `spliceAnnotations` needs, so it runs here unchanged.
+    for (const g of genes.get(view.chrom) ?? []) {
+      if (g.txEnd <= lo || g.txStart >= hi) continue;
+      for (const s of spliceAnnotations(g)) {
+        if (s.end <= lo || s.start >= hi) continue;
+        out.push({ label: s.label, a: s.start, b: s.end, kind: 'landmark', consensus: s.consensus });
+      }
+    }
+    // Widest first so a 6 bp landmark is drawn ON TOP of a region containing it and survives the
+    // cap; then left to right, which is what the label row-packing below needs.
+    out.sort((x, y) => (y.b - y.a) - (x.b - x.a));
+    return out.slice(0, 16).sort((x, y) => x.a - y.a);
+  }
+
   /** The reference bases across the view, or null where the sequence tile has not arrived. */
   function sequence(): (Base | null)[] | null {
     const tileBins = index?.tileBins ?? 65536;
@@ -1186,6 +1292,9 @@ export function initGenomeBrowser(host: HTMLElement): void {
     // to `letters`, which counts only the dedicated sequence lane. Without this the resolution
     // readout says "bars" over a lane that is visibly letters.
     scoreGlyphs = 0;
+    boxTally = 0;
+    solidTally = 0;
+    boxList = [];
     const featureCounts: Record<string, number> = {};
 
     for (const lane of lanes) {
@@ -1296,6 +1405,9 @@ export function initGenomeBrowser(host: HTMLElement): void {
     cv.dataset.gbGeneTrack = JSON.stringify(geneTally);
     cv.dataset.gbTiles = String(tiles.size);
     cv.dataset.gbMode = letters + scoreGlyphs > 0 ? 'letters' : 'bars';
+    cv.dataset.gbBoxes = String(boxTally);
+    cv.dataset.gbBoxesSolid = String(solidTally);
+    cv.dataset.gbBoxList = boxTally ? JSON.stringify(boxList) : '';
     cv.dataset.gbLanes = JSON.stringify(lanes.map((l) => l.id));
     cv.dataset.gbScoreTracks = String(scoreTracks().length);
     cv.dataset.gbFeatures = JSON.stringify(featureCounts);
@@ -1572,6 +1684,19 @@ export function initGenomeBrowser(host: HTMLElement): void {
     const axis = laneAxis(spec, cols);
     const lin = (spec.linthresh ?? 1)
       * (axis === spec.axis ? 1 : Math.max(1e-6, axis[1] / Math.max(spec.axis[1], 1e-12)));
+
+    // A LETTER lane is scaled linearly over the window's own range, where a BAR lane is symlog.
+    // These are not in conflict: a bar exists so two places on the genome compare, and the
+    // quantity is heavy-tailed across a genome, so symlog is right there. Letters are a
+    // within-window reading, and the whole convention of a sequence logo is that height is
+    // PROPORTIONAL to the value -- symlog silently breaks that. `logoRange` is the same +-5% of
+    // peak the paper's own logo uses.
+    const letterRange = () => {
+      const vals: number[] = [];
+      for (const c of cols) if (c.have) vals.push(c.mean);
+      const r = logoRange(vals);
+      return [r.lo, r.hi] as [number, number];
+    };
     // Everything positional goes through the track's own space, so a gridline, a tick label, a bar
     // and the tooltip cannot disagree about where a value sits.
     const fracOf = (v: number) => axisFraction(v, axis, space, lin);
@@ -1589,6 +1714,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     const asLetters = (spec.units === 'bits' || signed) && lvl.binBp === 1;
     const seq = asLetters && shouldDrawLetters(view.end - view.start, inner)
       ? sequence() : null;
+    const lAxis: [number, number] | null = seq && signed ? letterRange() : null;
 
     // Gridlines and the axis, per lane: every score lane prints its OWN range and units, because
     // 0-2 bits, a 0-1 posterior and a log coverage axis are not the same ruler and a shared axis
@@ -1641,13 +1767,17 @@ export function initGenomeBrowser(host: HTMLElement): void {
       const bw = inner / (view.end - view.start);
       // An unsigned lane grows from its floor; a signed one from its zero rule, and its height is
       // the SIGNED half-fraction. `baseY` and `sy` are the only two things that differ.
-      const zeroF = signed ? fracOf(0) : 0;
-      const baseY = signed ? yOf(0) : top + h;
+      // Letters use the linear window range where one exists; bars and the bits lanes keep theirs.
+      const lFrac = lAxis
+        ? (v: number) => Math.max(0, Math.min(1, (v - lAxis[0]) / Math.max(lAxis[1] - lAxis[0], 1e-12)))
+        : fracOf;
+      const zeroF = signed ? lFrac(0) : 0;
+      const baseY = signed ? top + h - zeroF * h : top + h;
       for (let i = 0; i < seq.length; i += 1) {
         const b = seq[i];
         const c = cols[Math.min(cols.length - 1, Math.floor(i * bw))];
         if (!b || !c?.have) continue;
-        const sy = (fracOf(c.mean) - zeroF) * h * LOGO_GLOBSCALE;
+        const sy = (lFrac(c.mean) - zeroF) * h * LOGO_GLOBSCALE;
         if (Math.abs(sy) < 0.12) continue;
         ctx.save();
         ctx.translate(xOfBp(view.start + i + 0.5, w), baseY);
@@ -1663,6 +1793,52 @@ export function initGenomeBrowser(host: HTMLElement): void {
         drawn += 1;
         scoreGlyphs += 1;
       }
+
+      // The overlay, over the glyphs it describes.
+      const boxes = annotationBoxes(view.start, view.end, seq);
+      ctx.font = '9px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      // Labels go in THREE rows below the lane's own name chip, and a label is dropped rather than
+      // overprinted when its row is still occupied. Two rows and an alternation was not enough:
+      // three crowded boxes still smeared "OREG0030209" over "STE12", which reads as a corrupt
+      // name rather than as two. Same rule the gene lane already uses -- width is self-limiting,
+      // and a label that cannot be read is worse than one that is absent.
+      const rowRight = [-1e9, -1e9, -1e9];
+      const ROW_Y = [top + 20, top + 30, top + 40];
+      for (const box of boxes) {
+        const x0 = Math.max(padLeft(w), xOfBp(box.a, w));
+        const x1 = Math.min(padLeft(w) + inner, xOfBp(box.b, w));
+        if (x1 - x0 < 1.5) continue;
+        const solid = box.kind !== 'region';
+        ctx.strokeStyle = css('--gb-motif', '#d1495b');
+        ctx.globalAlpha = solid ? 0.85 : 0.4;
+        ctx.lineWidth = solid ? 1 : 0.8;
+        ctx.setLineDash(solid ? [3, 2] : [1, 3]);
+        ctx.strokeRect(x0, top + 1.5, Math.max(x1 - x0, 2), h - 3);
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = css('--gb-motif', '#d1495b');
+        const cx = (x0 + x1) / 2;
+        const tw = ctx.measureText(box.label).width;
+        const row = rowRight.findIndex((r) => cx - tw / 2 > r + 4);
+        if (row >= 0) {
+          rowRight[row] = cx + tw / 2;
+          ctx.fillText(box.label, cx, ROW_Y[row]);
+        }
+        // The sequence actually under a solid box: the reader can check the claim by eye.
+        if (box.matched && x1 - x0 > 22) {
+          ctx.fillStyle = col.muted;
+          ctx.fillText(box.matched, (x0 + x1) / 2, top + h - 2);
+        }
+      }
+      ctx.globalAlpha = 1;
+      ctx.textAlign = 'left';
+      boxTally = boxes.length;
+      solidTally = boxes.filter((b) => b.kind !== 'region').length;
+      // Published so the gate can re-derive every box's verdict from the sequence: a canvas has no
+      // elements to inspect, and "solid" is a CLAIM that the consensus is under those bases.
+      boxList = boxes.map((b) => ({ label: b.label, a: b.a, b: b.b, kind: b.kind,
+        consensus: b.consensus ?? null, matched: b.matched ?? null }));
     } else {
       for (let x = 0; x < inner; x += 1) {
         const c = cols[x];
@@ -1714,6 +1890,9 @@ export function initGenomeBrowser(host: HTMLElement): void {
       // different claim from the one the reader thinks they are looking at.
       + (axis !== spec.axis
         ? ` · AUTOSCALED ${label(axis[0])}–${label(axis[1])}` : '')
+      // A logo's height is proportional to its value, which symlog is not -- so a letter lane says
+      // it has switched, or a reader would compare glyph heights on the wrong scale.
+      + (lAxis ? ` · letters linear ${label(lAxis[0])}–${label(lAxis[1])}` : '')
       + (missing > inner * 0.02 ? ` · ${Math.round((missing / inner) * 100)}% no data` : '');
     // A chip behind it, because phastCons saturates at 1.0 through a whole gene and a bare label
     // at the top of the plot lands on the data rather than above it.

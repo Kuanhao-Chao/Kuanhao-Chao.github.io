@@ -347,33 +347,16 @@ const breadcrumbLd = buildBreadcrumbLd([
 
         <!-- ---- companions: the paper's own drawing, following the browser ---- -->
         <p class="vp-context" data-vp-follow-stat hidden></p>
-          <div class="vp-zoomhead">
-            <span class="vp-zoomhead__label">the paper’s own logo, over the browser’s window</span>
-          </div>
-          <svg class="vp-svg vp-lens" data-vp-lens role="presentation" aria-hidden="true"></svg>
-          <svg class="vp-svg" data-vp-ism-logo role="img"
-               aria-label="The window's attribution as the paper's sequence logo, with motif and splice annotations"></svg>
-          <p class="vp-notes" style="margin:0.35rem 0 0.6rem;">
-            <strong>The whole window, as the paper draws it.</strong> Red dashed boxes are matched
-            motifs and splice landmarks; click one to zoom the logo below onto it. The navy track is
-            the gene model in the paper's own IGV style.
-          </p>
-          <div class="vp-controls" style="margin-bottom:0.45rem;">
-            <input class="vp-range" type="range" min="0" max="1000" value="500" data-vp-logo-pan
-                   style="flex:1;min-width:9rem" aria-label="Position of the sequence logo window" />
-            <select class="vp-select" data-vp-logo-source aria-label="Attribution source">
-              <option value="ism" selected>mutagenesis (ISM) — the paper's</option>
-              <option value="grad">gradient × input</option>
-              <option value="ig">integrated gradients</option>
-              <option value="occl">occlusion</option>
-            </select>
-            <select class="vp-select" data-vp-logo-width aria-label="Logo window width">
-              <option value="60">60 bp</option>
-              <option value="150" selected>150 bp</option>
-              <option value="400">400 bp</option>
-            </select>
-            <button type="button" class="vp-btn" data-vp-logo-figure hidden>the paper's window</button>
-          </div>
+          <!-- ARCHIVED: the paper-fidelity ISM logo and its lens, pan slider, source select and
+               width select. Everything it drew now lives in the browser above -- including the one
+               thing that used to be unique to it, the annotation overlay: motif and splice boxes
+               with the solid-vs-hollow evidence distinction and the matched sequence under each
+               solid one. Two things were fixed in the move. The browser refuses to draw occlusion
+               as letters (64 bp bins, 64 identical glyphs), which this panel would happily do; and
+               a letter lane now scales LINEARLY over the window, so glyph height is proportional to
+               the value the way a sequence logo means it to be, where the panel's own axis was the
+               only reason to keep it. The method strip BELOW is not archived: it is conditioned on
+               the traced region, which the browser's genome-wide lanes are not. -->
           <p class="vp-notes" style="margin:0.4rem 0 0;">
             <strong>Drawn exactly as the paper draws it</strong> — the real DejaVu Sans Bold glyphs at
             the paper's own per-letter offsets, scaled 1.35× on both axes, A green / C blue / G orange /
