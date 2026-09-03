@@ -117,6 +117,11 @@ const breadcrumbLd = buildBreadcrumbLd([
           <select class="vp-select" id="vp-region" data-vp-region aria-label="Region to trace"></select>
           <button type="button" class="vp-btn vp-btn--icon" data-vp-region-next
                   aria-label="Next region">›</button>
+          <!-- The handler for this existed and the button did not, so there was no way to stop
+               tracing once a region was picked -- and every panel below stayed conditioned on a
+               region the reader had moved on from. -->
+          <button type="button" class="vp-btn" data-vp-trace-clear
+                  title="Stop conditioning the panels below on a region">clear</button>
         </span>
         <span class="vp-stat vp-nav__read" data-vp-trace-label></span>
         <span class="vp-spacer"></span>
