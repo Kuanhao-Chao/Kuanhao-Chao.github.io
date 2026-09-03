@@ -6,15 +6,11 @@ import {
   type CustomEndpoint,
 } from '../lib/bayGraph';
 import {
-  buildFullCityRoadGraph,
-  spliceEndpointIntoCityGraph,
-  cityRoadGraphToBayGraph,
-  type CityRoadGraph,
-} from '../lib/cityRoadGraph';
-import {
-  fetchGoogleDirectionsRoadGraph,
+  buildDynamicRealWorldGraph,
+  realWorldGraphToBayGraph,
+  type RealWorldGraph,
   type TurnManeuver,
-} from '../lib/googleDirectionsGraph';
+} from '../lib/realWorldGoogleGraph';
 import {
   type AlgorithmId,
   type PathfindingResult,
@@ -48,37 +44,41 @@ export const FULL_CITY_PRESETS: Record<
     start: { name: 'Market St & Steuart St (Ferry Bldg)', lat: 37.7942, lng: -122.3955, district: 'Downtown' },
     goal: { name: 'University Ave & Oxford St (UC Berkeley)', lat: 37.8719, lng: -122.2585, district: 'Berkeley' },
   },
-  trip_sfo_to_stanford: {
-    start: { name: 'San Francisco International Airport (SFO)', lat: 37.6213, lng: -122.3790, district: 'San Bruno' },
-    goal: { name: 'Stanford University (Palm Drive & Main Quad)', lat: 37.4275, lng: -122.1697, district: 'Stanford' },
+  trip_nyc_manhattan: {
+    start: { name: 'Times Square, Manhattan, NY', lat: 40.7580, lng: -73.9855, district: 'New York City' },
+    goal: { name: 'Brooklyn Bridge Promenade, Brooklyn, NY', lat: 40.7061, lng: -73.9969, district: 'Brooklyn' },
   },
   'trip-golden-gate': {
-    start: { name: 'Stanford University (Palm Drive & Main Quad)', lat: 37.4275, lng: -122.1697, district: 'Stanford' },
-    goal: { name: 'Golden Gate Bridge Vista Point (Marin Headlands)', lat: 37.8325, lng: -122.4795, district: 'Marin' },
+    start: { name: 'Times Square, Manhattan, NY', lat: 40.7580, lng: -73.9855, district: 'New York City' },
+    goal: { name: 'Brooklyn Bridge Promenade, Brooklyn, NY', lat: 40.7061, lng: -73.9969, district: 'Brooklyn' },
   },
-  trip_sj_to_oakland: {
-    start: { name: 'San Jose City Hall & Santa Clara St', lat: 37.3382, lng: -121.8863, district: 'San Jose' },
-    goal: { name: 'Oakland City Center (Broadway & 14th St)', lat: 37.8044, lng: -122.2712, district: 'Oakland' },
+  trip_tokyo_shibuya: {
+    start: { name: 'Shibuya Crossing, Tokyo, Japan', lat: 35.6595, lng: 139.7005, district: 'Tokyo' },
+    goal: { name: 'Tokyo Tower, Minato City, Tokyo', lat: 35.6586, lng: 139.7454, district: 'Tokyo' },
   },
   'trip-silicon-valley': {
-    start: { name: 'San Francisco International Airport (SFO)', lat: 37.6213, lng: -122.3790, district: 'San Bruno' },
-    goal: { name: 'San Jose City Hall & Santa Clara St', lat: 37.3382, lng: -121.8863, district: 'San Jose' },
+    start: { name: 'Shibuya Crossing, Tokyo, Japan', lat: 35.6595, lng: 139.7005, district: 'Tokyo' },
+    goal: { name: 'Tokyo Tower, Minato City, Tokyo', lat: 35.6586, lng: 139.7454, district: 'Tokyo' },
   },
-  trip_marin_to_sf: {
-    start: { name: 'Golden Gate Bridge Vista Point (Marin Headlands)', lat: 37.8325, lng: -122.4795, district: 'Marin' },
-    goal: { name: 'Market St & 7th St (Civic Center / City Hall)', lat: 37.7798, lng: -122.4137, district: 'Civic Center' },
-  },
-  'trip-bay-corridor': {
-    start: { name: 'San Jose City Hall & Santa Clara St', lat: 37.3382, lng: -121.8863, district: 'San Jose' },
-    goal: { name: 'Market St & 1st St (FiDi)', lat: 37.7909, lng: -122.3998, district: 'FiDi' },
-  },
-  trip_cross_bay_bridges: {
-    start: { name: 'Market St & Steuart St (Ferry Bldg)', lat: 37.7942, lng: -122.3955, district: 'Downtown' },
-    goal: { name: 'Geary Blvd & Great Highway (Ocean Beach)', lat: 37.7785, lng: -122.5135, district: 'Ocean Beach' },
+  trip_london_thames: {
+    start: { name: 'Westminster Palace (Big Ben), London', lat: 51.4994, lng: -0.1248, district: 'London' },
+    goal: { name: 'Tower Bridge, London', lat: 51.5055, lng: -0.0754, district: 'London' },
   },
   'trip-dumbarton': {
-    start: { name: 'Geary Blvd & Great Highway (Ocean Beach)', lat: 37.7785, lng: -122.5135, district: 'Ocean Beach' },
-    goal: { name: 'Market St & Steuart St (Ferry Bldg)', lat: 37.7942, lng: -122.3955, district: 'Downtown' },
+    start: { name: 'Westminster Palace (Big Ben), London', lat: 51.4994, lng: -0.1248, district: 'London' },
+    goal: { name: 'Tower Bridge, London', lat: 51.5055, lng: -0.0754, district: 'London' },
+  },
+  trip_taipei_101: {
+    start: { name: 'Taipei 101, Xinyi District, Taipei', lat: 25.0339, lng: 121.5645, district: 'Taipei' },
+    goal: { name: 'Shilin Night Market, Shilin District, Taipei', lat: 25.0881, lng: 121.5244, district: 'Taipei' },
+  },
+  'trip-bay-corridor': {
+    start: { name: 'Taipei 101, Xinyi District, Taipei', lat: 25.0339, lng: 121.5645, district: 'Taipei' },
+    goal: { name: 'Shilin Night Market, Shilin District, Taipei', lat: 25.0881, lng: 121.5244, district: 'Taipei' },
+  },
+  trip_sfo_to_stanford: {
+    start: { name: 'San Francisco International Airport (SFO)', lat: 37.6213, lng: -122.3790, district: 'San Mateo' },
+    goal: { name: 'Stanford University (Palm Drive)', lat: 37.4275, lng: -122.1697, district: 'Stanford' },
   },
 };
 
@@ -101,15 +101,14 @@ export class BayRouteVisualizer {
 
   private currentTileStyle: MapTileStyle = 'dark';
 
-  // High-Density Full City Road Graph
-  private cityBaseGraph: CityRoadGraph;
-  private activeCityGraph: CityRoadGraph;
-  private activeBayGraph: BayGraph;
+  // Dynamic Real-World Google Road Graph
+  private activeRealWorldGraph: RealWorldGraph | null = null;
+  private activeBayGraph: BayGraph = { nodes: new Map(), edges: [], adjacency: new Map() };
 
   public currentStartEndpoint: CustomEndpoint;
   public currentGoalEndpoint: CustomEndpoint;
-  private startId: string = 'mkt_steuart';
-  private goalId: string = 'berkeley_campus';
+  private startId: string = 'start_node';
+  private goalId: string = 'goal_node';
 
   // App & Algorithm State
   public currentAlgorithm: AlgorithmId = 'dijkstra';
@@ -138,14 +137,9 @@ export class BayRouteVisualizer {
     this.ctx = ctx;
     this.container = container;
 
-    // 1. Build the authentic full city road graph
-    this.cityBaseGraph = buildFullCityRoadGraph();
-    this.activeCityGraph = this.cityBaseGraph;
-    this.activeBayGraph = cityRoadGraphToBayGraph(this.activeCityGraph);
-
     const defaultPreset = FULL_CITY_PRESETS.trip_sf_to_berkeley;
     this.currentStartEndpoint = {
-      id: 'mkt_steuart',
+      id: 'start_node',
       name: defaultPreset.start.name,
       lat: defaultPreset.start.lat,
       lng: defaultPreset.start.lng,
@@ -154,7 +148,7 @@ export class BayRouteVisualizer {
     };
 
     this.currentGoalEndpoint = {
-      id: 'berkeley_campus',
+      id: 'goal_node',
       name: defaultPreset.goal.name,
       lat: defaultPreset.goal.lat,
       lng: defaultPreset.goal.lng,
@@ -637,38 +631,25 @@ export class BayRouteVisualizer {
   public async recalculate(): Promise<void> {
     this.pause();
 
-    let isGoogleGraphUsed = false;
-    // Attempt Google Directions live graph if Google Maps is active and connected
-    if (this.isGoogleMapsActive && typeof window !== 'undefined' && window.google && window.google.maps) {
-      try {
-        const gResult = await fetchGoogleDirectionsRoadGraph(
-          { lat: this.currentStartEndpoint.lat, lng: this.currentStartEndpoint.lng, name: this.currentStartEndpoint.name },
-          { lat: this.currentGoalEndpoint.lat, lng: this.currentGoalEndpoint.lng, name: this.currentGoalEndpoint.name }
-        );
-        if (gResult && gResult.graph.edges.length > 0) {
-          this.activeCityGraph = gResult.graph;
-          this.activeBayGraph = cityRoadGraphToBayGraph(this.activeCityGraph);
-          this.startId = gResult.startNodeId;
-          this.goalId = gResult.goalNodeId;
-          this.currentManeuvers = gResult.maneuvers;
-          isGoogleGraphUsed = true;
-        }
-      } catch (err) {
-        console.warn('[BayRoute] Google Directions live graph fetch error, using local polyline graph:', err);
-      }
-    }
+    const startInput = {
+      lat: this.currentStartEndpoint.lat,
+      lng: this.currentStartEndpoint.lng,
+      name: this.currentStartEndpoint.name,
+      district: this.currentStartEndpoint.city,
+    };
+    const goalInput = {
+      lat: this.currentGoalEndpoint.lat,
+      lng: this.currentGoalEndpoint.lng,
+      name: this.currentGoalEndpoint.name,
+      district: this.currentGoalEndpoint.city,
+    };
 
-    if (!isGoogleGraphUsed) {
-      // 1. Splice Start into master city road graph
-      const splicedStart = spliceEndpointIntoCityGraph(this.cityBaseGraph, this.currentStartEndpoint, true);
-      // 2. Splice Goal into master city road graph
-      const splicedGoal = spliceEndpointIntoCityGraph(splicedStart.graph, this.currentGoalEndpoint, false);
-
-      this.activeCityGraph = splicedGoal.graph;
-      this.activeBayGraph = cityRoadGraphToBayGraph(this.activeCityGraph);
-      this.startId = splicedStart.nodeId;
-      this.goalId = splicedGoal.nodeId;
-    }
+    // Dynamically build real-world road graph between Start and Goal anywhere in the world
+    this.activeRealWorldGraph = await buildDynamicRealWorldGraph(startInput, goalInput);
+    this.activeBayGraph = realWorldGraphToBayGraph(this.activeRealWorldGraph);
+    this.startId = this.activeRealWorldGraph.startId;
+    this.goalId = this.activeRealWorldGraph.goalId;
+    this.currentManeuvers = this.activeRealWorldGraph.maneuvers;
 
     if (this.isRaceMode) {
       this.raceResults.clear();
@@ -693,42 +674,12 @@ export class BayRouteVisualizer {
       );
     }
 
-    if (!isGoogleGraphUsed) {
-      this.currentManeuvers = this.deriveManeuversFromBayGraph();
-    }
-
     this.currentStepIndex = 0;
     this.updateMapMarkers();
     this.updateTelemetry();
     this.updateTurnManeuversUI();
     this.render();
     this.play();
-  }
-
-  private deriveManeuversFromBayGraph(): TurnManeuver[] {
-    if (!this.currentResult || !this.currentResult.path || this.currentResult.path.length < 2) {
-      return [];
-    }
-    const maneuvers: TurnManeuver[] = [];
-    const path = this.currentResult.path;
-
-    for (let i = 0; i < path.length - 1; i++) {
-      const u = this.activeBayGraph.nodes.get(path[i]);
-      const v = this.activeBayGraph.nodes.get(path[i + 1]);
-      const edge = this.findEdge(path[i], path[i + 1]);
-      if (!u || !v || !edge) continue;
-
-      const prefix = i === 0 ? 'Depart from' : 'Follow';
-      maneuvers.push({
-        instruction: `${prefix} ${edge.name} toward ${v.name}`,
-        distanceMiles: edge.distance,
-        durationMinutes: Math.round((edge.distance / edge.speedLimit) * 60 * 10) / 10,
-        lat: v.lat,
-        lng: v.lng,
-      });
-    }
-
-    return maneuvers;
   }
 
   private updateTurnManeuversUI(): void {

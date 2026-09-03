@@ -3,7 +3,7 @@ export interface GeocodedPlace {
   name: string;
   address: string;
   city: string;
-  region: 'sf' | 'peninsula' | 'southbay' | 'eastbay' | 'northbay';
+  region: 'sf' | 'peninsula' | 'southbay' | 'eastbay' | 'northbay' | 'nyc' | 'tokyo' | 'london' | 'taipei' | 'paris' | 'global';
   lat: number;
   lng: number;
   category: 'landmark' | 'university' | 'tech_campus' | 'transit' | 'address' | 'city';
@@ -25,6 +25,91 @@ export function isWithinBayArea(lat: number, lng: number): boolean {
     lng <= BAY_AREA_BOUNDS.maxLng
   );
 }
+
+// Pre-indexed Local Gazetteer of Iconic Global Locations
+export const GLOBAL_GAZETTEER: GeocodedPlace[] = [
+  // --- GLOBAL ICONIC LANDMARKS ---
+  {
+    id: 'geo_nyc_times_sq',
+    name: 'Times Square',
+    address: 'Broadway & 7th Ave, New York, NY 10036',
+    city: 'New York City',
+    region: 'nyc',
+    lat: 40.7580,
+    lng: -73.9855,
+    category: 'landmark',
+  },
+  {
+    id: 'geo_nyc_brooklyn_bridge',
+    name: 'Brooklyn Bridge',
+    address: 'Brooklyn Bridge, New York, NY 10038',
+    city: 'New York City',
+    region: 'nyc',
+    lat: 40.7061,
+    lng: -73.9969,
+    category: 'landmark',
+  },
+  {
+    id: 'geo_tokyo_shibuya',
+    name: 'Shibuya Crossing',
+    address: 'Shibuya, Tokyo 150-0043, Japan',
+    city: 'Tokyo',
+    region: 'tokyo',
+    lat: 35.6595,
+    lng: 139.7005,
+    category: 'landmark',
+  },
+  {
+    id: 'geo_tokyo_tower',
+    name: 'Tokyo Tower',
+    address: '4 Chome-2-8 Shibakoen, Minato City, Tokyo, Japan',
+    city: 'Tokyo',
+    region: 'tokyo',
+    lat: 35.6586,
+    lng: 139.7454,
+    category: 'landmark',
+  },
+  {
+    id: 'geo_london_westminster',
+    name: 'Westminster Palace (Big Ben)',
+    address: 'Westminster, London SW1A 0AA, UK',
+    city: 'London',
+    region: 'london',
+    lat: 51.4994,
+    lng: -0.1248,
+    category: 'landmark',
+  },
+  {
+    id: 'geo_london_tower_bridge',
+    name: 'Tower Bridge',
+    address: 'Tower Bridge Rd, London SE1 2UP, UK',
+    city: 'London',
+    region: 'london',
+    lat: 51.5055,
+    lng: -0.0754,
+    category: 'landmark',
+  },
+  {
+    id: 'geo_taipei_101',
+    name: 'Taipei 101',
+    address: 'No. 7, Section 5, Xinyi Rd, Xinyi District, Taipei, Taiwan',
+    city: 'Taipei',
+    region: 'taipei',
+    lat: 25.0339,
+    lng: 121.5645,
+    category: 'landmark',
+  },
+  {
+    id: 'geo_taipei_shilin',
+    name: 'Shilin Night Market',
+    address: 'No. 101, Jihe Rd, Shilin District, Taipei, Taiwan',
+    city: 'Taipei',
+    region: 'taipei',
+    lat: 25.0881,
+    lng: 121.5244,
+    category: 'landmark',
+  },
+];
 
 // Pre-indexed Local Gazetteer of Iconic Bay Area Locations for Instant Zero-Latency Search
 export const LOCAL_BAY_GAZETTEER: GeocodedPlace[] = [
@@ -549,8 +634,9 @@ export async function searchBayAreaPlaces(
   // 1. Local Gazette matching (Instant & Offline-Capable)
   const localMatches: GeocodedPlace[] = [];
   const queryTokens = clean.split(/\s+/).filter(Boolean);
+  const allKnownPlaces = [...LOCAL_BAY_GAZETTEER, ...GLOBAL_GAZETTEER];
 
-  for (const place of LOCAL_BAY_GAZETTEER) {
+  for (const place of allKnownPlaces) {
     const haystack = `${place.name} ${place.address} ${place.city} ${place.region}`.toLowerCase();
     const matchesAll = queryTokens.every((t) => haystack.includes(t));
     if (matchesAll) {
@@ -591,18 +677,16 @@ export async function searchBayAreaPlaces(
         const lat = parseFloat(item.lat);
         const lng = parseFloat(item.lon);
 
-        if (isWithinBayArea(lat, lng)) {
-          onlineResults.push({
-            id: `osm_${item.place_id || Math.random()}`,
-            name: item.name || item.display_name.split(',')[0],
-            address: item.display_name,
-            city: item.address?.city || item.address?.town || item.address?.village || 'Bay Area',
-            region: determineRegionFromCoords(lat, lng),
-            lat,
-            lng,
-            category: 'address',
-          });
-        }
+        onlineResults.push({
+          id: `osm_${item.place_id || Math.random()}`,
+          name: item.name || item.display_name.split(',')[0],
+          address: item.display_name,
+          city: item.address?.city || item.address?.town || item.address?.village || item.address?.state || 'City',
+          region: determineRegionFromCoords(lat, lng),
+          lat,
+          lng,
+          category: 'address',
+        });
       }
 
       const combined = [...localMatches];
@@ -628,10 +712,11 @@ export async function searchBayAreaPlaces(
  * Reverse geocodes a clicked GPS location to find the closest known place or street.
  */
 export function reverseGeocodeLocal(lat: number, lng: number): GeocodedPlace {
-  let closest: GeocodedPlace = LOCAL_BAY_GAZETTEER[0];
+  const allKnownPlaces = [...LOCAL_BAY_GAZETTEER, ...GLOBAL_GAZETTEER];
+  let closest: GeocodedPlace = allKnownPlaces[0];
   let minDistance = Infinity;
 
-  for (const place of LOCAL_BAY_GAZETTEER) {
+  for (const place of allKnownPlaces) {
     const d = Math.hypot(place.lat - lat, place.lng - lng);
     if (d < minDistance) {
       minDistance = d;
@@ -639,8 +724,8 @@ export function reverseGeocodeLocal(lat: number, lng: number): GeocodedPlace {
     }
   }
 
-  // If reasonably close (< 2 miles / 0.03 deg), use the landmark name
-  if (minDistance < 0.03) {
+  // If reasonably close (< 3 miles / 0.045 deg), use the landmark name
+  if (minDistance < 0.045) {
     return {
       id: `custom_${lat.toFixed(4)}_${lng.toFixed(4)}`,
       name: `Near ${closest.name}`,
@@ -654,11 +739,13 @@ export function reverseGeocodeLocal(lat: number, lng: number): GeocodedPlace {
   }
 
   const region = determineRegionFromCoords(lat, lng);
+  const latStr = lat >= 0 ? `${lat.toFixed(4)}°N` : `${Math.abs(lat).toFixed(4)}°S`;
+  const lngStr = lng >= 0 ? `${lng.toFixed(4)}°E` : `${Math.abs(lng).toFixed(4)}°W`;
   return {
     id: `custom_${lat.toFixed(4)}_${lng.toFixed(4)}`,
-    name: `Location (${lat.toFixed(4)}°N, ${Math.abs(lng).toFixed(4)}°W)`,
-    address: `Bay Area (${region.toUpperCase()})`,
-    city: 'Bay Area',
+    name: `Location (${latStr}, ${lngStr})`,
+    address: `Map Pin (${latStr}, ${lngStr})`,
+    city: 'Real World',
     region,
     lat,
     lng,
@@ -669,10 +756,16 @@ export function reverseGeocodeLocal(lat: number, lng: number): GeocodedPlace {
 function determineRegionFromCoords(
   lat: number,
   lng: number
-): 'sf' | 'peninsula' | 'southbay' | 'eastbay' | 'northbay' {
+): 'sf' | 'peninsula' | 'southbay' | 'eastbay' | 'northbay' | 'nyc' | 'tokyo' | 'london' | 'taipei' | 'paris' | 'global' {
+  if (lat > 40.5 && lat < 41.0 && lng > -74.2 && lng < -73.6) return 'nyc';
+  if (lat > 35.4 && lat < 36.0 && lng > 139.4 && lng < 140.0) return 'tokyo';
+  if (lat > 51.3 && lat < 51.7 && lng > -0.5 && lng < 0.3) return 'london';
+  if (lat > 24.8 && lat < 25.3 && lng > 121.3 && lng < 121.8) return 'taipei';
+  if (lat > 48.7 && lat < 49.0 && lng > 2.1 && lng < 2.5) return 'paris';
   if (lat > 37.82 && lng < -122.38) return 'northbay';
   if (lat >= 37.71 && lat <= 37.82 && lng <= -122.36) return 'sf';
   if (lng > -122.35 && lat >= 37.45) return 'eastbay';
   if (lat < 37.45 && lng > -122.25) return 'southbay';
-  return 'peninsula';
+  if (lat >= 37.0 && lat <= 38.3 && lng >= -123.0 && lng <= -121.6) return 'peninsula';
+  return 'global';
 }

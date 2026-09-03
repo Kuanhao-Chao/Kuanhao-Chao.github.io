@@ -1,4 +1,15 @@
-export type Region = 'sf' | 'peninsula' | 'southbay' | 'eastbay' | 'northbay';
+export type Region =
+  | 'sf'
+  | 'peninsula'
+  | 'southbay'
+  | 'eastbay'
+  | 'northbay'
+  | 'nyc'
+  | 'tokyo'
+  | 'london'
+  | 'taipei'
+  | 'paris'
+  | 'global';
 export type NodeType = 'city' | 'airport' | 'landmark' | 'junction' | 'bridge';
 export type RoadType = 'interstate' | 'highway' | 'arterial' | 'bridge';
 
