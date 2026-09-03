@@ -62,6 +62,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
 from pathlib import Path
@@ -119,6 +120,25 @@ def main() -> int:
     if len(T0) != 384:
         raise SystemExit(f"expected 384 T0 tracks, found {len(T0)}")
 
+    # The INDUCTION AXIS. The 3,053 TF-induction RNA-seq tracks resolve into 337 regulators x 13
+    # timepoints (0-180 min). Regulators cannot ship genome-wide -- 337 tracks would be 276 MB --
+    # but the 13 timepoint means can, at 820 KB each, and they are the axis the paper's Figure 5
+    # is about. T0 already ships as `baseline`, so only 12 are added here.
+    #
+    # The forward pass already computes all 5,215 outputs; keeping more aggregates costs storage,
+    # not compute, which is why this is a 45-second re-run rather than a new sweep.
+    tp = re.compile(r"_T(\d+)_")
+    by_tp: dict[int, list[int]] = {}
+    for i, n in enumerate(names):
+        if not (1148 <= i < 4201):
+            continue
+        m = tp.search(n)
+        if m:
+            by_tp.setdefault(int(m.group(1)), []).append(i)
+    TIMEPOINTS = sorted(k for k in by_tp if k != 0)
+    if len(TIMEPOINTS) != 12:
+        raise SystemExit(f"expected 12 timepoints besides T0, found {TIMEPOINTS}")
+
     dev = args.device or ("mps" if torch.backends.mps.is_available() else "cpu")
     model, _ = build(args.checkpoint)
     n_par = sum(p.numel() for p in model.parameters())
@@ -133,9 +153,11 @@ def main() -> int:
                          f"{n_par + n_bn:,}; fold-f0 is 14,253,567")
     model.eval().to(dev)
     T0_t = torch.tensor(T0, device=dev)
+    tp_idx = {m: torch.tensor(by_tp[m], device=dev) for m in TIMEPOINTS}
 
     native = {"coverage": BIN_BP, "gradient": 1, "ig": 1, "occlusion": args.win}[args.which]
-    keys = [g[0] for g in GROUPS] + ["baseline"] if args.which == "coverage" else ["v"]
+    keys = ([g[0] for g in GROUPS] + ["baseline"] + [f"t{m}" for m in TIMEPOINTS]
+            if args.which == "coverage" else ["v"])
     print(f"device {dev} | pass {args.which} | native {native} bp | {len(keys)} array(s) a chromosome")
 
     def raw(x):
@@ -172,6 +194,8 @@ def main() -> int:
         y = forward(x)
         out = {g: y[:, a:b].mean(dim=-1).float().cpu().numpy() for g, a, b in GROUPS}
         out["baseline"] = y[:, T0_t].mean(dim=-1).float().cpu().numpy()
+        for m in TIMEPOINTS:
+            out[f"t{m}"] = y[:, tp_idx[m]].mean(dim=-1).float().cpu().numpy()
         return out
 
     def window_gradient(x):

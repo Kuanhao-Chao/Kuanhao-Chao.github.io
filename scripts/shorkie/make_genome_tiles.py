@@ -198,6 +198,18 @@ TRACKS = [
                   "rc-averaged",
     },
     {
+        "id": "sk-induction", "group": "expression", "laneTag": "derived", "file": "sk-induction",
+        "nativeBp": 16, "space": "linear", "axis": [0.0, 2.0], "units": "fraction",
+        "label": "Shorkie · condition-dependence",
+        "short": "induction",
+        "detail": "spread of predicted expression across the 13 induction timepoints",
+        "prediction": False,
+        "note": "Where the model expects expression to DEPEND on the condition, rather than how "
+                "much of it there is. High over regulated genes (HOP2 0.455, GAL3 0.297) and low "
+                "over the constitutive glycolytic enzymes (PDC1 0.066, TDH3 0.083).",
+        "source": "Shorkie (Chao et al. 2025), fold f0; derived from the 13 timepoint means",
+    },
+    {
         "id": "sk-ism", "group": "expression", "laneTag": "signed · measured · 23 windows",
         "file": "sk-ism", "nativeBp": 1, "space": "symlog", "axisFrom": "symmetric", "axis": None,
         "units": "logSED",
@@ -245,6 +257,12 @@ TRACKS = [
 # that matters most -- what it does NOT mean. `main()` refuses to write an index that is missing
 # any of them, which is what "documented" has to mean to survive more than one round.
 TRACK_DOCS = {
+    'sk-induction': {
+        'source': 'Derived, not predicted separately: the 3,053 TF-induction RNA-seq tracks resolve into 13 timepoints (0-180 min) x 337 regulators, and this is the spread across those 13 timepoint means, (max - min) / (mean + 1), per 16 bp bin. Shorkie (Chao et al. 2025), fold f0.',
+        'measures': "How much the model expects a position's expression to move across the induction timecourse — condition-DEPENDENCE, not condition. A gene pinned at its maximum in every condition scores near zero however loudly it is transcribed; a gene that is silent in one state and active in another scores high however quiet it is on average.",
+        'read': 'Against the coverage lane above it, not on its own. High here and low there is a regulated gene caught in its off state; low here and high there is a constitutive one. Over their own gene bodies the ordering is HOP2 0.455 (meiosis-specific, silent in vegetative growth), MMS2 0.352, POP4 0.302 and GAL3 0.297 (glucose-repressed) at the top, and the glycolytic enzymes at the bottom — PDC1 0.066, ADH1 0.081, FBA1 0.082, TDH3 0.083. A tenfold separation from a quantity nothing was tuned on.',
+        'caveat': "This lane exists BECAUSE the obvious alternative failed a measurement. The plan was 13 genome-wide timepoint lanes so a reader could pick a condition; they are indistinguishable — the lowest pairwise correlation among all 13 is 0.9923 and T5 against T0 is 1.0000 — because each averages ~300 regulators and averaging 300 induction experiments washes out every individual induction. The variation is real and lives in the INDIVIDUAL tracks: over GAL1's gene body the 3,053 of them span 43.7x. Those cannot ship genome-wide (337 regulators would be 276 MB), so individual conditions are available inside the 23 analysed windows and nowhere else. Second caveat: a spread of thirteen means is a floor on the true condition-dependence, never a measurement of it.",
+    },
     'sk-ism': {
         'source': "Shorkie (Chao et al. 2025, bioRxiv 2025.09.19.677475), fold f0. Every one of the three substitutions at all 16,384 positions of each analysed window, on both strands — 98,304 forward passes a window — then rc-averaged, mean-centred across the four bases and projected on the reference, which is the paper's own recipe in all three files that implement it. The browser reads the same packs the per-locus panels do, through their own decoder.",
         'measures': "What actually happens to the model's predicted log2 RNA-seq coverage when the base that is there is replaced. Not a derivative of that, not an integral of one, and not a block ablation: the finite difference itself, which is why it is the standard this page measures the other three methods against. Positive means the base that is present is HOLDING THE PREDICTION DOWN, so changing it would raise expression; negative means the base is doing work the model relies on.",
