@@ -4415,8 +4415,24 @@ export function initVariantPlayground(root: ParentNode = document) {
     if (knockoutStat) knockoutStat.textContent = '';
   }
 
+  /** Point the "in genome" link at the current window, framed on the gene rather than the flanks. */
+  function syncGenomeLink(): void {
+    const a = host.querySelector<HTMLAnchorElement>('[data-vp-genome-link]');
+    const l = LOCI[locusIndex];
+    if (!a || !l) return;
+    // The gene's own span plus a margin, not the whole 16 kb window: landing on the window shows
+    // the reader a dozen genes and no indication which one this page is about.
+    const own = l.features?.find((f) => f.name === l.id);
+    const s = l.start + (own?.txStart ?? 7000);
+    const e = l.start + (own?.txEnd ?? 9400);
+    const pad = Math.max(400, Math.round((e - s) * 0.55));
+    a.href = `/shorkie-lab/genome/#${l.chrom}:${s - pad}-${e + pad}`;
+    a.title = `See ${l.gene} in the genome browser, in the genome around it`;
+  }
+
   locusSelect?.addEventListener('change', () => {
     locusIndex = Number(locusSelect.value);
+    syncGenomeLink();
     loadLocus();
   });
 
@@ -5140,6 +5156,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     }
   }
 
+  syncGenomeLink();
   renderLayers();
   renderTrack();
   renderMotifs();
