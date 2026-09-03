@@ -2239,6 +2239,109 @@ toggle, built on first use so the `three` chunk is only fetched for a reader who
   it, so `getImageData` on this canvas always returns zeros and an audit built on it passes against
   a blank page. Screenshot the element instead — that is what the `volume` gate does.
 
+#### Constructive interpretability: sequence that was BUILT rather than found
+
+Everything else on this page perturbs a real yeast window. Three generators start from
+dinucleotide-shuffled background and add one thing at a time, which is how a **sufficiency** claim
+is made rather than a necessity one — `make_receptive.py`, `make_gia.py`, `make_spacing.py`, all
+forward passes, all minutes. `shorkieConstructive.ts` draws them; the receptive panel closes act 2
+and the other two open act 4.
+
+- **The effective receptive field is a property of the GENE, not of the model.** The architecture
+  reaches all 16,384 bp, but "can see" and "depends on" are different claims and only the second is
+  measurable. Keep a centred core, shuffle the flanks, grow the core: the median window is settled
+  by **±2,048 bp** of ±8,192, the six constitutive glycolytic genes (TDH3, PGK1, ACT1, ADH1, FBA1,
+  PDC1) by **±1 kb**, and **GAL1 needs the entire window**. That is the practical scope of every
+  attribution on the page. Two controls are built in: at the largest radius the window is entirely
+  real so that point must reproduce the full-context prediction (it does, at all 23), and
+  convergence requires every *larger* radius to stay inside the ±5% band too.
+- **Shuffle, never zero — and dinucleotide, never mononucleotide.** Zeroing is what occlusion does
+  and is indistinguishable from a run of N, so it measures out-of-distribution input rather than
+  context. Yeast promoters carry heavy dinucleotide bias (poly(dA:dT) above all), so a
+  mononucleotide shuffle destroys that as well. `dinuc_shuffle` is Altschul-Erikson, and the script
+  refuses to run unless all sixteen dinucleotide counts survive exactly on a 4,000 bp probe.
+- **NECESSARY and SUFFICIENT are different claims, and the two-by-two is the finding.** The knockout
+  sweep measures necessity in context; GIA (Koo & Ploenzke 2021) implants a consensus into 200
+  shuffled backgrounds. **Rap1 (23 swept sites) and Reb1 (14) are necessary and NOT sufficient** —
+  z = 0.2 against their own scrambles — which is what yeast's two general regulatory factors should
+  look like: they work through the promoter around them. Ume6 is the mirror, strongly sufficient and
+  barely necessary in 23 mostly-constitutive windows. The model also recovers the biology unaided:
+  the three strongest activators are **Cbf1, Phd1 and Tye7, all E-box motifs containing CACGTG**,
+  and the strongest repressors are Ume6's URS1 and the Dot6/PAC pair.
+- **A palindromic consensus is a free correctness check on the whole implantation path.** CACGTG is
+  its own reverse complement, so the forward and reverse arms implant an identical string and MUST
+  score identically; `make_gia.py` raises if they do not. It is the only palindrome in the
+  dictionary and carries no degenerate codes, so it cannot fire spuriously.
+- **Poly(dA:dT) has no scramble.** Every permutation of `AAAAAAAAAA` is itself, so the composition
+  control is unavailable and a zero spread is not a measurement. Count the DISTINCT scrambles
+  achieved and report "degenerate scramble" — same family as the unshuffleable knockout site.
+- **Arms that share a background are PAIRED**, so the margin's error bar is the sd of the
+  per-background differences, not `sd(forward)/√n`, which discards the pairing and is much the
+  larger number. (The first run used the unpaired form *and* 120 backgrounds and called Sfp1 a
+  composition effect where the final run makes it sufficient at z = 2.5 — two changes at once, so
+  that flip is not evidence about the pairing alone.)
+- **There is no helical grammar, and the constructive test agrees with the Hessian.** Two motifs
+  walked apart 4–200 bp in four orientations: median in-phase / anti-phase ratio **1.094**, spread
+  0.74–1.37 in *both* directions. **All eighteen top periods across six pairs are harmonics of the
+  scan window** (n/2 … n/9), and 10.5 bp appears nowhere. What is real is short-range and unphased —
+  two Cbf1 E-boxes 6 bp apart interact at 0.209 log₂, Reb1→TATA peaks at 31 bp.
+- **But n/6 is 10.17 bp, within 0.33 bp of one helical turn.** A 61-point periodogram therefore
+  *cannot* separate helical phasing from its own sixth harmonic, which is why the explicit
+  in-phase/anti-phase contrast is the primary reading and the spectrum is secondary. Record which
+  harmonics fall near the period being tested rather than assuming they do not.
+- **Measure the moving motif's solo effect at EVERY separation.** A motif's effect varies with
+  position for reasons unrelated to the other motif; subtracting one number folds that positional
+  dependence into the "interaction" and manufactures the structure being looked for.
+- **Both scripts separate their analysis from their sweep** — `--join-only` and `--reanalyse` — so
+  the two-by-two and the phasing read can be improved without repeating 11,600 and 25,448 forward
+  passes.
+
+#### Three ways a drawing was wrong while every gate was green
+
+All four defects in these panels were found by SCREENSHOTTING them, after `astro check`, 3,816
+tests and the full rendering gate had passed.
+
+- **A signed axis's ends are its SIGN, not its magnitude.** The two-by-two plots the signed margin
+  over the scramble, so a strongly repressing motif sits at the bottom — where the label read "not
+  sufficient". Ume6 was filed under the exact opposite of what the paragraph beside it said. Ends now
+  read activates / no effect / represses, with sufficiency carried by the marker fill.
+- **An axis linear in INDEX is not linear in its units** unless the samples are evenly spaced. The
+  spacing scan steps 1 bp to 64 and 5 bp beyond, so the fine half took 69% of the width, the tick
+  reading "50" sat at mid-width, and the 10.5 bp guides came out unevenly spaced — defeating the one
+  reading the panel exists for.
+- **A generated ranking will mix in a category the sentence does not explain.** The repressor list
+  named three motifs and the prose explained two, because a splice signal had sorted into a
+  transcription-factor ranking. Held out separately they are a finding of their own: a branch point
+  implanted alone is the most repressing element in the set (−0.133) while a 5′ splice site raises
+  coverage (+0.035).
+- **Do not put a label in a canvas's top rows on this page.** The sticky control bar covers roughly
+  the first 120 px of whatever is scrolled under it.
+
+#### Removing a dead function is not a brace count
+
+Archiving last round left ~36 unused identifiers in `variantPlayground.ts` (247 lines, and 117
+repo-wide `ts(6133)` hints down to 85); clearing them took three attempts and both failures are
+worth keeping.
+
+- **Brace-matching from the first `{` after the signature cuts the RETURN TYPE, not the body.**
+  `motifFor` ends `: { id: string; … } | undefined {` and `seqWindow` ends
+  `: { seq: string; origin: number } {`. The rule that works: walk the signature parens to their
+  close, then keep matching `{…}` groups while the next non-whitespace continues a type (`|`, `&`)
+  or opens another brace — the body is the group after which nothing does.
+- **A whole-file balance assertion does NOT catch it.** A mis-chosen span with equal braces is still
+  balanced. What caught it was `astro check`.
+- **Read the SYNTAX errors first; the null cascade is noise.** One `ts(1005)` and its `ts(1109)`
+  produced 26 spurious `ts(18047)` "possibly null" errors — and the null ones printed first, so the
+  two that said what was actually wrong were at the bottom of a 32-error list.
+- **A naive paren counter reads −2 on the untouched file**, because it does not model regex
+  literals. Assert braces and brackets stay exactly zero and the paren count does not MOVE.
+- **A variable that is only ever ASSIGNED reads as unused.** Deleting `showTruth`'s declaration
+  broke an assignment in a handler whose markup (`data-vp-truth`) does not exist on the page at all —
+  so the whole handler was dead too. Check what references a "unused" binding before removing it.
+- **Absorb the doc comment, and back `start` up to the start of its line**, or the comment's own
+  indentation survives and the next declaration gains two spaces.
+
+
 ### Other non-obvious things
 - **Math (KaTeX)** is wired in `astro.config.mjs` (`remark-math` + `rehype-katex`) for the LaTeX-heavy reports; the report slug page imports `katex/dist/katex.min.css` so both the page and its printed PDF typeset math. Posts currently use no math.
 - **Cross-links between sections** use `relatedPosts` references in frontmatter, resolved by `src/lib/relatedPosts.ts` into "Blog" chips on publication/research entries.
