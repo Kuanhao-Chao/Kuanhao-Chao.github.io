@@ -34,7 +34,7 @@ interface JoinRow {
 interface SpacePair {
   label: string; a: string; b: string; separations: number[];
   interaction: Record<string, number[]>; helicalRatio: number | null;
-  topPeriods: number[]; windowHarmonics: number[];
+  topPeriods: number[]; windowHarmonics: number[]; topPeriodsAllHarmonic: boolean;
   orientationMeans: Record<string, number>; maxInteraction: number; maxAtBp: number;
 }
 
@@ -149,7 +149,7 @@ export function initShorkieConstructive(host: HTMLElement): void {
     const r = rec.loci[locus];
     if (!r) return;
     recStat.textContent = `${r.gene}: converges at ±${r.convergenceBp?.toLocaleString() ?? '>8,192'}`
-      + ` bp of the 8,192 available — median across the ${Object.keys(rec.loci).length} windows is`
+      + ` bp of the ±8,192 available — median across the ${Object.keys(rec.loci).length} windows is`
       + ` ±${rec.medianConvergenceBp.toLocaleString()} bp.`;
   }
 
@@ -357,11 +357,12 @@ export function initShorkieConstructive(host: HTMLElement): void {
     if (!spStat) return;
     const p = currentPair();
     if (!p) return;
-    const harm = p.topPeriods.filter((t) => p.windowHarmonics.some((h) => Math.abs(h - t) < 1.5));
     spStat.textContent = `${p.a} × ${p.b}: strongest interaction ${p.maxInteraction.toFixed(4)}`
       + ` log₂ at ${p.maxAtBp} bp; in-phase / anti-phase ratio `
       + `${p.helicalRatio?.toFixed(3) ?? 'n/a'} (1.00 = no helical preference)`
-      + (harm.length ? `; ${harm.length} of the top periods are harmonics of the scan window.` : '.');
+      + (p.topPeriodsAllHarmonic
+        ? '; every apparent period is an artefact of the scan window.'
+        : `; apparent periods ${p.topPeriods.join(', ')} bp.`);
   }
 
   function drawAll(): void {
