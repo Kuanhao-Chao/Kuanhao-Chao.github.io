@@ -28,9 +28,14 @@ const gwTrack = (id: string) => gwIndex.tracks.find((t) => t.id === id)!;
 const gwHas = (id: string) => gwIndex.tracks.some((t) => t.id === id);
 // Scored bases, from the arrays themselves: Shorkie's head crops 1,024 bp from each window end and
 // no window can start before position 0, so the first 1,024 bases of every chromosome are blank.
-const gwScoredBp = gwIndex.chroms.reduce(
-  (s, c) => s + (c.tracks['sk-rnaseq']?.scored ?? 0) * (gwTrack('sk-rnaseq').nativeBp ?? 1), 0);
-const gwGapBp = gwBp - gwScoredBp;
+// From the UNSCORED bins, not from the scored ones. A chromosome's last 16 bp bin is partial --
+// lengths are not multiples of 16 -- so `scored x 16` overcounts by up to 15 bp a chromosome and
+// understated this gap by 111 bases. Every unscored bin is a full one at a chromosome start.
+const gwGapBp = gwIndex.chroms.reduce((s, c) => {
+  const native = gwTrack('sk-rnaseq').nativeBp ?? 1;
+  const bins = Math.ceil(c.length / native);
+  return s + (bins - (c.tracks['sk-rnaseq']?.scored ?? bins)) * native;
+}, 0);
 
 // Each preset locus as a browser coordinate, derived from the gene's own span inside its window --
 // never typed, so a locus cannot drift from the window the model actually ran on.
@@ -516,8 +521,9 @@ const breadcrumbLd = buildBreadcrumbLd([
         </h2>
         <p class="vp-notes" style="margin:0 0 0.6rem;">
           Everything above analyses {nLoci} hand-picked 16,384 bp windows. Shorkie has now been run
-          over <strong>all {gwBp.toLocaleString()} bases</strong> of R64 — {gwChips.length} of those
-          bases' windows are the ones this page dissects, and the rest is the genome they sit in.
+          over <strong>all {gwBp.toLocaleString()} bases</strong> of R64 — those {gwChips.length}
+          windows are {((gwChips.length * 16384) / gwBp * 100).toFixed(1)}% of it, and the rest is
+          the genome they sit in.
           The browser below is the one at{' '}
           <a href="/shorkie-lab/genome/">/shorkie-lab/genome/</a>, carrying the expression model's
           own lanes: <strong>predicted RNA-seq</strong> and the <strong>signed</strong> per-base
@@ -590,11 +596,11 @@ const breadcrumbLd = buildBreadcrumbLd([
           predicted coverage. Genome-wide there is no chosen gene, so the target is each window's
           whole cropped interior — the only definition that exists at every base. Gradients
           superpose, so what is drawn is the sum of the per-gene attributions of everything in view.
-          Against the mutagenesis planes this page ships it agrees in sign — at all{' '}
-          <strong>{nLoci} of {nLoci}</strong> loci the single strongest substitution has the same
-          sign here — and correlates at{' '}
-          <strong>r = 0.41</strong>, which is what a local derivative and a finite substitution
-          should do where a promoter is saturated.
+          Against the mutagenesis planes this page ships it agrees in sign at every locus —{' '}
+          <strong>{nLoci} of {nLoci}</strong>, the single strongest substitution pointing the same
+          way here — but only <strong>median r = 0.30</strong> base by base, and as low as 0.07 at
+          the quietest windows. That is what a local derivative and a finite substitution should do
+          where a promoter is saturated: they agree about direction and disagree about magnitude.
         </p>
         <p class="vp-notes" style="margin:0.35rem 0 0;">
           <strong>Coverage is drawn at 16 bp, and no finer level exists.</strong> Shorkie's head
