@@ -161,8 +161,13 @@ const breadcrumbLd = buildBreadcrumbLd([
         <span class="vp-nav__group" role="group" aria-label="Region and export">
           <button type="button" class="vp-btn" data-gb-mark
                   title="Keep this region highlighted while you navigate">mark region</button>
+          <button type="button" class="vp-btn" data-gb-autoscale aria-pressed="false"
+                  title="Scale each lane to the data in view. Off by default: a fixed axis is what
+                         makes a quiet window look quiet.">autoscale</button>
           <button type="button" class="vp-btn" data-gb-export
-                  title="Save the current view as a PNG">export</button>
+                  title="Save the current view as a PNG">PNG</button>
+          <button type="button" class="vp-btn" data-gb-export-csv
+                  title="Save the data behind this view as CSV, at the level it is drawn at">CSV</button>
           <!-- Phone only (CSS): the track panel becomes a drawer over the stage rather than a
                column below the fold. -->
           <button type="button" class="vp-btn gb-panel-toggle" data-gb-panel-toggle
@@ -175,6 +180,7 @@ const breadcrumbLd = buildBreadcrumbLd([
           <strong class="gb-readout" data-gb-readout>—</strong>
           <span class="vp-stat" data-gb-level-out></span>
           <span class="vp-stat gb-roi" data-gb-roi></span>
+          <span class="vp-stat gb-corr" data-gb-corr></span>
           <span class="vp-spacer"></span>
           <span class="vp-stat gb-hover" data-gb-hover></span>
         </div>

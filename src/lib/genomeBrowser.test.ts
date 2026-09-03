@@ -8,6 +8,7 @@ import {
   encodeViewState, decodeViewState, chromOrder, romanValue,
   letterMinPx, shouldDrawLetters, pinchZoom, pointDistance, pointMidpoint,
   type Level, type ChromInfo, type LaneSpec, type SearchGene, type View,
+  nativeLadder, levelsForTrack, axisFraction, axisValue, isSignedAxis, pearson, exportRows,
 } from './genomeBrowser';
 
 const LEVELS: Level[] = [
@@ -272,7 +273,9 @@ describe('against the shipped index.json', () => {
   it('the level ladder this module assumes is the one on disk', () => {
     // If the tiler's levels change and this module keeps choosing from the old ladder, the browser
     // asks for tiles that do not exist. Pin them to each other.
-    expect(idx.levels.map((l: Level) => l.binBp)).toEqual([1, 8, 64, 512, 4096]);
+    // 16 bp is here for Shorkie's own output grid -- its head emits 896 bins of 16 bp -- and
+    // without it those tracks would fall back to 64 bp, four times blurrier than the data.
+    expect(idx.levels.map((l: Level) => l.binBp)).toEqual([1, 8, 16, 64, 512, 4096]);
     expect(idx.tileBins).toBe(65536);
     expect(idx.icMax).toBe(2);
   });
@@ -282,8 +285,13 @@ describe('against the shipped index.json', () => {
       for (const track of idx.tracks) {
         const levels = c.levels[track.id];
         expect(levels, `${c.name} has no levels for ${track.id}`).toBeTruthy();
+        // A track's OWN ladder, not the index's. Not every track resolves single bases: Shorkie's
+        // coverage tracks are 16 bp and would 404 on every L0 tile. This is the check that a lane
+        // never asks for a level it does not have -- and, read the other way, that the tiler wrote
+        // every level the client will choose.
         for (const span of [1e3, 1e5, c.length]) {
-          const lvl = levelForBpPerPixel(Math.min(span, c.length) / 1400, idx.levels);
+          const lvl = levelForBpPerPixel(Math.min(span, c.length) / 1400,
+            levelsForTrack(track, idx.levels));
           const meta = levels.find((l: { level: number }) => l.level === lvl.level);
           expect(meta, `${c.name}/${track.id} level ${lvl.level}`).toBeTruthy();
           const need = tilesCovering(0, Math.min(span, c.length), lvl.binBp, idx.tileBins);
@@ -293,13 +301,63 @@ describe('against the shipped index.json', () => {
     }
   });
 
-  it('declares four score tracks, each on the right axis in its own units', () => {
+  it('never ships a level finer than a track can honestly supply', () => {
+    // Shorkie's head emits 896 bins of 16 bp and occlusion ablates 64 bp at a time. A per-base
+    // level for either would store 12,157,105 numbers carrying 760,000 values of real information
+    // and draw them as though the model resolved single bases.
+    for (const tr of idx.tracks) {
+      const native = tr.nativeBp ?? 1;
+      expect(tr.levels, `${tr.id} has no ladder`).toBeTruthy();
+      for (const l of tr.levels) {
+        expect(l.binBp, `${tr.id} L${l.level} is finer than its ${native} bp bins`)
+          .toBeGreaterThanOrEqual(native);
+        expect(l.binBp % native, `${tr.id} L${l.level} is not a multiple of ${native}`).toBe(0);
+      }
+      // ... and the ladder on disk matches what the client would derive for itself.
+      expect(tr.levels.map((l: Level) => l.binBp))
+        .toEqual(nativeLadder(native, idx.levels).map((l: Level) => l.binBp));
+      for (const c of idx.chroms) {
+        expect(Object.keys(c.levels[tr.id] ?? {}).length, `${c.name}/${tr.id}`).toBeGreaterThan(0);
+        expect((c.levels[tr.id] as { level: number }[]).map((l) => l.level))
+          .toEqual(tr.levels.map((l: Level) => l.level));
+      }
+    }
+  });
+
+  it('a signed track has a symmetric axis, so its zero rule sits mid-lane', () => {
+    // gradient x input is signed: bases that raise the prediction and bases that lower it. An
+    // asymmetric axis would put zero off-centre and every bar would be read against the wrong
+    // baseline.
+    const signed = idx.tracks.filter((t: { axis: [number, number] }) => isSignedAxis(t.axis));
+    expect(signed.length).toBeGreaterThan(0);
+    for (const tr of signed) {
+      expect(tr.axis[0]).toBe(-tr.axis[1]);
+      expect(tr.space, `${tr.id} draws a heavy-tailed signed quantity`).toBe('symlog');
+      // linthresh is the genome-wide median |v|; it must sit well inside the axis or the scale
+      // never leaves its linear regime and the lane is linear after all.
+      expect(tr.linthresh).toBeGreaterThan(0);
+      expect(tr.linthresh).toBeLessThan(tr.axis[1] / 100);
+    }
+  });
+
+  it('every coverage lane is drawn on a log axis, because its median is 0.2% of its maximum', () => {
+    for (const tr of idx.tracks.filter((t: { units: string }) => t.units === 'a.u.')) {
+      expect(tr.space, tr.id).toBe('log1p');
+      expect(tr.axis[0]).toBe(0);
+      expect(tr.nativeBp, `${tr.id} is Shorkie's 896 x 16 bp head`).toBe(16);
+    }
+  });
+
+  it('declares the score tracks, each on the right axis in its own units', () => {
     // The two model passes share the 0-2 bits axis and are directly comparable. phastCons and GC
     // both run 0-1 and are NOT comparable with each other either: one is a posterior probability
     // and the other a base fraction. Only the units distinguish them, which is why each lane
     // prints its own.
     const byId = Object.fromEntries(idx.tracks.map((t: { id: string }) => [t.id, t]));
-    expect(Object.keys(byId).sort()).toEqual(['gc', 'lm-masked', 'lm-unmasked', 'phastcons']);
+    expect(Object.keys(byId).sort()).toEqual([
+      'gc', 'lm-masked', 'lm-unmasked', 'phastcons',
+      'sk-chip-exo', 'sk-chip-mnase', 'sk-gradient', 'sk-rnaseq', 'sk-strain',
+    ]);
     expect(byId['lm-masked'].axis).toEqual([0, 2]);
     expect(byId['lm-unmasked'].axis).toEqual([0, 2]);
     expect(byId['phastcons'].axis).toEqual([0, 1]);
@@ -307,9 +365,14 @@ describe('against the shipped index.json', () => {
     expect(byId['lm-masked'].units).toBe(byId['lm-unmasked'].units);
     expect(byId['phastcons'].units).not.toBe(byId['gc'].units);
     expect(byId['phastcons'].units).not.toBe(byId['lm-masked'].units);
-    // Exactly one of them is a prediction, and the index is where that is written down.
-    expect(idx.tracks.filter((t: { prediction: boolean }) => t.prediction)).toHaveLength(1);
-    expect(byId['lm-masked'].prediction).toBe(true);
+    // Which lanes are predictions is written in the index, never inferred from a name. The two
+    // models predict different things -- Shorkie_LM predicts the SEQUENCE, Shorkie predicts assay
+    // COVERAGE from sequence -- and phastCons, GC and the attribution predict nothing at all.
+    expect(idx.tracks.filter((t: { prediction: boolean }) => t.prediction).map(
+      (t: { id: string }) => t.id).sort()).toEqual([
+      'lm-masked', 'sk-chip-exo', 'sk-chip-mnase', 'sk-rnaseq', 'sk-strain']);
+    expect(byId['lm-unmasked'].prediction).toBe(false);
+    expect(byId['sk-gradient'].prediction).toBe(false);
   });
 
   it('documents every track in four fields, including what it does NOT mean', () => {
@@ -736,5 +799,130 @@ describe('pinchZoom', () => {
   it('distance and midpoint are the plain geometry', () => {
     expect(pointDistance(0, 0, 3, 4)).toBe(5);
     expect(pointMidpoint(0, 0, 10, 20)).toEqual({ x: 5, y: 10 });
+  });
+});
+
+const LADDER = [1, 8, 16, 64, 512, 4096].map((binBp, level) => ({
+  level, binBp, rows: level === 0 ? 1 : 3,
+}));
+
+describe('native resolution', () => {
+  it('a per-base track keeps the whole ladder', () => {
+    expect(nativeLadder(1, LADDER).map((l) => l.binBp)).toEqual([1, 8, 16, 64, 512, 4096]);
+  });
+
+  it("drops every level finer than the track's own bins, and keeps the level NUMBERS global", () => {
+    // Shorkie's head emits 16 bp bins. An 8 bp level would be an upsampled step function drawn as
+    // though the model resolved single bases; `L3` must still mean 64 bp for every track.
+    const cov = nativeLadder(16, LADDER);
+    expect(cov.map((l) => l.binBp)).toEqual([16, 64, 512, 4096]);
+    expect(cov[0].level).toBe(2);
+    expect(nativeLadder(64, LADDER).map((l) => l.binBp)).toEqual([64, 512, 4096]);
+    expect(nativeLadder(64, LADDER)[0].level).toBe(3);
+  });
+
+  it('drops a level its bins do not divide evenly, rather than aggregating a fraction of one', () => {
+    // A 24 bp track can supply 512 bp and 4,096 bp bins but not 64 bp ones: 64/24 is 2.67 native
+    // bins, and a summary built from a fractional bin is a different quantity from a mean.
+    expect(nativeLadder(24, LADDER).map((l) => l.binBp)).toEqual([4096]);
+    // A native resolution dividing NOTHING leaves only the coarsest level as a floor. That is a
+    // defensive fallback, not a supported case -- `make_genome_tiles.py` refuses to write such a
+    // track at all, because the client cannot tell a bad ladder from a sparse one.
+    expect(nativeLadder(3, LADDER).map((l) => l.binBp)).toEqual([4096]);
+  });
+
+  it('a coarse track never resolves finer than it can, at any zoom', () => {
+    const cov = levelsForTrack({ nativeBp: 16 }, LADDER);
+    // 0.02 bp/pixel is the deepest zoom the browser allows; a per-base track answers 1 bp there.
+    expect(levelForBpPerPixel(0.02, LADDER).binBp).toBe(1);
+    expect(levelForBpPerPixel(0.02, cov).binBp).toBe(16);
+    expect(levelForBpPerPixel(30, cov).binBp).toBe(16);
+    expect(levelForBpPerPixel(100, cov).binBp).toBe(64);
+  });
+
+  it('falls back to the index ladder for a track that declares nothing', () => {
+    expect(levelsForTrack({}, LADDER)).toBe(LADDER);
+  });
+});
+
+describe('axis spaces', () => {
+  it('linear is the plain fraction, clamped', () => {
+    expect(axisFraction(1, [0, 2])).toBeCloseTo(0.5, 12);
+    expect(axisFraction(-5, [0, 2])).toBe(0);
+    expect(axisFraction(99, [0, 2])).toBe(1);
+  });
+
+  it('log1p lifts a heavy-tailed coverage median off the floor', () => {
+    // The genome-wide numbers: median 16 bp bin 2.07, maximum 1097.6. Linearly the median draws at
+    // 0.2% of the lane -- a flat line with spikes, which is not a reading of the data.
+    const axis: [number, number] = [0, 1097.6];
+    expect(axisFraction(2.07, axis, 'linear')).toBeLessThan(0.003);
+    expect(axisFraction(2.07, axis, 'log1p')).toBeGreaterThan(0.14);
+    expect(axisFraction(0, axis, 'log1p')).toBe(0);
+    expect(axisFraction(1097.6, axis, 'log1p')).toBeCloseTo(1, 9);
+  });
+
+  it('symlog is symmetric about the zero rule and lifts a signed median', () => {
+    // chrIV gradient x input: median |v| 0.00082, max 1.34.
+    const axis: [number, number] = [-1.34, 1.34];
+    expect(axisFraction(0, axis, 'symlog', 0.00082)).toBeCloseTo(0.5, 12);
+    const up = axisFraction(0.00082, axis, 'symlog', 0.00082);
+    const dn = axisFraction(-0.00082, axis, 'symlog', 0.00082);
+    expect(up - 0.5).toBeCloseTo(0.5 - dn, 12);
+    expect(up).toBeGreaterThan(0.53);           // linearly this is 0.5003
+    expect(axisFraction(1.34, axis, 'symlog', 0.00082)).toBeCloseTo(1, 9);
+  });
+
+  it('axisValue inverts axisFraction in every space', () => {
+    const cases: [number, [number, number], 'linear' | 'log1p' | 'symlog', number][] = [
+      [1.3, [0, 2], 'linear', 1],
+      [42.5, [0, 1097.6], 'log1p', 1],
+      [0.0104, [-1.34, 1.34], 'symlog', 0.00082],
+      [-0.31, [-1.34, 1.34], 'symlog', 0.00082],
+    ];
+    for (const [v, axis, space, t] of cases) {
+      expect(axisValue(axisFraction(v, axis, space, t), axis, space, t)).toBeCloseTo(v, 6);
+    }
+  });
+
+  it('knows which axes straddle zero', () => {
+    expect(isSignedAxis([-1.34, 1.34])).toBe(true);
+    expect(isSignedAxis([0, 2])).toBe(false);
+  });
+});
+
+describe('pearson', () => {
+  it('is 1 on a positive linear relation and -1 on a negative one', () => {
+    expect(pearson([1, 2, 3, 4, 5, 6, 7, 8], [2, 4, 6, 8, 10, 12, 14, 16])).toBeCloseTo(1, 12);
+    expect(pearson([1, 2, 3, 4, 5, 6, 7, 8], [8, 7, 6, 5, 4, 3, 2, 1])).toBeCloseTo(-1, 12);
+  });
+
+  it('pairs only where BOTH have data, rather than treating a gap as zero', () => {
+    // Every score lane carries its own no-data mask: phastCons is undefined over 0.65% of the
+    // genome and Shorkie cannot score the first 1,024 bases of a chromosome.
+    const a = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    const b = [2, 4, 6, 8, 10, 12, 14, 16, 18];
+    const holed = [...b]; holed[0] = null as unknown as number;
+    expect(pearson(a, holed)).toBeCloseTo(1, 12);
+  });
+
+  it('returns null rather than a number it cannot compute', () => {
+    expect(pearson([1, 2, 3], [1, 2, 3])).toBeNull();              // too few pairs
+    expect(pearson([1, 1, 1, 1, 1, 1, 1, 1], [1, 2, 3, 4, 5, 6, 7, 8])).toBeNull();  // constant
+  });
+});
+
+describe('exportRows', () => {
+  it('names the bin size in the header, so a bin mean is never read as a per-base value', () => {
+    const rows = exportRows('chrIV', 1000, 64, [{ id: 'lm-masked', units: 'bits' }], [[0.5, null, 1.25]]);
+    expect(rows[0]).toBe('chrom,start,end,lm-masked (bits, mean of 64 bp)');
+    expect(rows[1]).toBe('chrIV,1000,1064,0.5');
+    expect(rows[2]).toBe('chrIV,1064,1128,');                      // unscored is EMPTY, not 0
+    expect(rows[3]).toBe('chrIV,1128,1192,1.25');
+  });
+
+  it('omits the bin note at base resolution', () => {
+    expect(exportRows('chrI', 0, 1, [{ id: 'gc', units: 'fraction' }], [[0.4]])[0])
+      .toBe('chrom,start,end,gc (fraction)');
   });
 });

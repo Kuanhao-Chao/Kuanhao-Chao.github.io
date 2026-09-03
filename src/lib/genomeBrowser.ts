@@ -87,6 +87,142 @@ export function levelForBpPerPixel(bpPerPixel: number, levels: Level[]): Level {
   return best;
 }
 
+/**
+ * A track's own level ladder: the shared levels it can honestly supply.
+ *
+ * Not every track resolves single bases. Shorkie's head emits 896 bins of **16 bp** and occlusion
+ * ablates **64 bp** at a time, so a per-base level for either would be an upsampled step function —
+ * 12,157,105 stored values carrying 760,000 (or 190,000) values of real information, drawn as
+ * though the model resolved single bases. A track therefore declares `nativeBp` and keeps only the
+ * levels at or coarser than it that its bins divide evenly.
+ *
+ * Level NUMBERS stay global, so `L3` is 64 bp for every track and a tile path can never mean two
+ * things. A track simply has holes at the top of the ladder.
+ */
+export function nativeLadder(nativeBp: number, levels: Level[]): Level[] {
+  const n = Math.max(1, Math.round(nativeBp));
+  const keep = levels.filter((l) => l.binBp >= n && l.binBp % n === 0);
+  return keep.length ? keep : [levels[levels.length - 1]];
+}
+
+/** The levels a track can be drawn at, falling back to the index's ladder for a per-base track. */
+export function levelsForTrack(
+  spec: { nativeBp?: number; levels?: Level[] }, fallback: Level[],
+): Level[] {
+  if (spec.levels?.length) return spec.levels;
+  return spec.nativeBp && spec.nativeBp > 1 ? nativeLadder(spec.nativeBp, fallback) : fallback;
+}
+
+/**
+ * How a track's values map onto the height of its lane.
+ *
+ * Three spaces, and which one a track uses is a property of its DATA, not a display preference:
+ *
+ * - `linear` — for a bounded quantity that fills its range. Information content (0–2 bits), a
+ *   phastCons posterior (0–1), GC fraction.
+ * - `log1p` — for predicted coverage, which spans four orders of magnitude between a silent locus
+ *   and a maximal one. Genome-wide the median 16 bp bin reads 2.07 against a maximum of 1,097.6, so
+ *   linearly the median sits at 0.2% of the lane and the whole track is a flat line with spikes.
+ * - `symlog` — for a SIGNED attribution, which is heavy-tailed in both directions. Measured on
+ *   chrIV's gradient × input: median |v| 0.00082 against a maximum of 1.34, so on a symmetric
+ *   linear axis the median base draws at 2.5% of half-height. `linthresh` is the value at which the
+ *   scale turns over from linear to logarithmic, and is set to the genome-wide median |v|.
+ *
+ * Returns a fraction of the lane: 0 at the axis floor, 1 at the top. For a signed track 0.5 is the
+ * zero rule, and that is what makes a bar grow downwards.
+ */
+export type ScaleSpace = 'linear' | 'log1p' | 'symlog';
+
+export function axisFraction(
+  v: number, axis: [number, number], space: ScaleSpace = 'linear', linthresh = 1,
+): number {
+  const [lo, hi] = axis;
+  if (space === 'symlog') {
+    const m = Math.max(Math.abs(lo), Math.abs(hi), 1e-12);
+    const t = Math.max(linthresh, 1e-12);
+    const f = Math.sign(v) * (Math.log1p(Math.abs(v) / t) / Math.log1p(m / t));
+    return Math.max(0, Math.min(1, 0.5 + 0.5 * f));
+  }
+  if (space === 'log1p') {
+    const d = Math.log1p(Math.max(hi - lo, 1e-12));
+    return Math.max(0, Math.min(1, Math.log1p(Math.max(0, v - lo)) / d));
+  }
+  return Math.max(0, Math.min(1, (v - lo) / Math.max(hi - lo, 1e-12)));
+}
+
+/** The inverse of `axisFraction`, so a tick can be placed by fraction and labelled by value. */
+export function axisValue(
+  f: number, axis: [number, number], space: ScaleSpace = 'linear', linthresh = 1,
+): number {
+  const [lo, hi] = axis;
+  if (space === 'symlog') {
+    const m = Math.max(Math.abs(lo), Math.abs(hi), 1e-12);
+    const t = Math.max(linthresh, 1e-12);
+    const s = (f - 0.5) * 2;
+    return Math.sign(s) * t * Math.expm1(Math.abs(s) * Math.log1p(m / t));
+  }
+  if (space === 'log1p') return lo + Math.expm1(f * Math.log1p(Math.max(hi - lo, 1e-12)));
+  return lo + f * (hi - lo);
+}
+
+/** True where a track's axis straddles zero, so its bars must grow both ways from a zero rule. */
+export function isSignedAxis(axis: [number, number]): boolean {
+  return axis[0] < 0 && axis[1] > 0;
+}
+
+/**
+ * Pearson r over the pairs where BOTH series have data.
+ *
+ * The browser's score lanes each carry their own no-data mask — phastCons is undefined over 0.65%
+ * of the genome and Shorkie's head cannot score the first 1,024 bases of a chromosome — so pairing
+ * by index without checking would correlate a real value against a placeholder zero. Returns null
+ * rather than 0 when there are too few pairs or either series is constant, because a correlation
+ * that could not be computed and a correlation that came out zero are different answers.
+ */
+export function pearson(a: (number | null)[], b: (number | null)[], minPairs = 8): number | null {
+  const n = Math.min(a.length, b.length);
+  let k = 0; let sa = 0; let sb = 0;
+  for (let i = 0; i < n; i += 1) {
+    if (a[i] == null || b[i] == null) continue;
+    sa += a[i] as number; sb += b[i] as number; k += 1;
+  }
+  if (k < minPairs) return null;
+  const ma = sa / k; const mb = sb / k;
+  let saa = 0; let sbb = 0; let sab = 0;
+  for (let i = 0; i < n; i += 1) {
+    if (a[i] == null || b[i] == null) continue;
+    const da = (a[i] as number) - ma; const db = (b[i] as number) - mb;
+    saa += da * da; sbb += db * db; sab += da * db;
+  }
+  if (saa <= 0 || sbb <= 0) return null;
+  return sab / Math.sqrt(saa * sbb);
+}
+
+/**
+ * The visible region as CSV rows, at the level being drawn.
+ *
+ * The header names the level in base pairs, because a bin mean and a per-base value are different
+ * numbers and a file with neither units nor a bin size is a trap the moment it leaves the browser.
+ * Columns are the enabled tracks in lane order; an unscored bin is empty, never 0.
+ */
+export function exportRows(
+  chrom: string, start: number, binBp: number,
+  tracks: { id: string; units: string }[],
+  columns: (number | null)[][],
+): string[] {
+  const n = columns.length ? Math.max(...columns.map((c) => c.length)) : 0;
+  const head = ['chrom', 'start', 'end',
+    ...tracks.map((t) => `${t.id} (${t.units}${binBp > 1 ? `, mean of ${binBp} bp` : ''})`)];
+  const out = [head.join(',')];
+  for (let i = 0; i < n; i += 1) {
+    const s = start + i * binBp;
+    out.push([chrom, s, s + binBp,
+      ...columns.map((c) => (c[i] == null ? '' : String(Math.round((c[i] as number) * 1e6) / 1e6))),
+    ].join(','));
+  }
+  return out;
+}
+
 /** Bin index covering a base-pair position at a given level. */
 export function binOf(bp: number, binBp: number): number {
   return Math.floor(bp / binBp);
