@@ -7,37 +7,37 @@ import { ALGORITHMS } from '../../lib/pathfinding';
 const GLOBAL_PRESET_TRIPS = [
   {
     id: 'trip_sf_to_berkeley',
-    name: '🌉 SF to Berkeley',
+    name: 'SF to Berkeley',
     icon: '🌉',
     description: 'San Francisco Ferry Building to UC Berkeley via the Bay Bridge',
   },
   {
     id: 'trip_nyc_manhattan',
-    name: '🗽 Times Sq to Brooklyn',
+    name: 'Times Sq to Brooklyn',
     icon: '🗽',
     description: 'Times Square to Brooklyn Bridge across Manhattan and East River',
   },
   {
     id: 'trip_tokyo_shibuya',
-    name: '🗼 Shibuya to Tokyo Tower',
+    name: 'Shibuya to Tokyo Tower',
     icon: '🗼',
     description: 'Shibuya Crossing to Tokyo Tower through Roppongi, Tokyo',
   },
   {
     id: 'trip_london_thames',
-    name: '🇬🇧 Westminster to Tower Bridge',
+    name: 'Westminster to Tower Bridge',
     icon: '🇬🇧',
     description: 'Westminster Palace / Big Ben to Tower Bridge along the River Thames',
   },
   {
     id: 'trip_taipei_101',
-    name: '🇹🇼 Taipei 101 to Shilin',
+    name: 'Taipei 101 to Shilin',
     icon: '🇹🇼',
     description: 'Taipei 101 to Shilin Night Market through Taipei City',
   },
   {
     id: 'trip_sfo_to_stanford',
-    name: '🌲 Silicon Valley Corridor',
+    name: 'Silicon Valley Corridor',
     icon: '🌲',
     description: 'SFO Airport to Stanford University along the Peninsula',
   },
@@ -1290,7 +1290,7 @@ const appLd = {
     -webkit-overflow-scrolling: touch;
   }
 
-  .br-maneuver-item {
+  :global(.br-maneuver-item) {
     display: flex;
     align-items: flex-start;
     gap: 0.85rem;
@@ -1299,15 +1299,15 @@ const appLd = {
     transition: background 0.15s ease;
   }
 
-  .br-maneuver-item:last-child {
+  :global(.br-maneuver-item:last-child) {
     border-bottom: none;
   }
 
-  .br-maneuver-item:hover {
+  :global(.br-maneuver-item:hover) {
     background: color-mix(in srgb, var(--color-accent) 4%, transparent);
   }
 
-  .br-maneuver-num {
+  :global(.br-maneuver-num) {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1322,12 +1322,12 @@ const appLd = {
     margin-top: 0.1rem;
   }
 
-  .br-maneuver-content {
+  :global(.br-maneuver-content) {
     flex: 1;
     min-width: 0;
   }
 
-  .br-maneuver-text {
+  :global(.br-maneuver-text) {
     margin: 0;
     font-size: 0.825rem;
     color: var(--color-ink);
@@ -1335,14 +1335,14 @@ const appLd = {
     font-weight: 550;
   }
 
-  .br-maneuver-meta {
+  :global(.br-maneuver-meta) {
     font-size: 0.72rem;
     color: var(--color-muted);
     margin-top: 0.15rem;
     display: block;
   }
 
-  .br-maneuver-empty {
+  :global(.br-maneuver-empty) {
     padding: 1rem 1.15rem;
     color: var(--color-muted);
     font-size: 0.8125rem;

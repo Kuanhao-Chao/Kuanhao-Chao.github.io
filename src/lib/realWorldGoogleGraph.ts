@@ -109,6 +109,8 @@ function classifyRoad(text: string): { roadType: RoadType; speedLimit: number } 
   return { roadType: 'arterial', speedLimit: 25 };
 }
 
+import { hasGoogleMapsAuthFailed } from './googleMaps';
+
 /**
  * Dynamically builds a real-world road graph between any two global coordinates.
  */
@@ -116,6 +118,11 @@ export async function buildDynamicRealWorldGraph(
   start: EndpointInput,
   goal: EndpointInput
 ): Promise<RealWorldGraph> {
+  // If Google Maps auth failed or is unavailable, use synthesized real road corridor immediately
+  if (hasGoogleMapsAuthFailed()) {
+    return synthesizeRealRoadCorridor(start, goal);
+  }
+
   // If Google Maps JS API is available in browser, query real Google driving routes
   if (typeof window !== 'undefined' && window.google && window.google.maps) {
     try {
@@ -140,48 +147,53 @@ async function queryGoogleMultiCorridorGraph(
   start: EndpointInput,
   goal: EndpointInput
 ): Promise<RealWorldGraph | null> {
+  if (hasGoogleMapsAuthFailed()) return null;
+
   const directionsService = new window.google.maps.DirectionsService();
 
   const origin = new window.google.maps.LatLng(start.lat, start.lng);
   const destination = new window.google.maps.LatLng(goal.lat, goal.lng);
 
-  // Promise 1: Primary Highway Route + Alternatives
-  const p1 = new Promise<google.maps.DirectionsRoute[]>((resolve) => {
-    directionsService.route(
-      {
-        origin,
-        destination,
-        travelMode: window.google.maps.TravelMode.DRIVING,
-        provideRouteAlternatives: true,
-      },
-      (res, status) => {
-        if (status === window.google.maps.DirectionsStatus.OK && res && res.routes) {
-          resolve(res.routes);
-        } else {
-          resolve([]);
-        }
+  const queryWithTimeout = (
+    request: google.maps.DirectionsRequest,
+    timeoutMs = 2200
+  ): Promise<google.maps.DirectionsRoute[]> => {
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        resolve([]);
+      }, timeoutMs);
+
+      try {
+        directionsService.route(request, (res, status) => {
+          clearTimeout(timer);
+          if (status === window.google.maps.DirectionsStatus.OK && res && res.routes) {
+            resolve(res.routes);
+          } else {
+            resolve([]);
+          }
+        });
+      } catch {
+        clearTimeout(timer);
+        resolve([]);
       }
-    );
+    });
+  };
+
+  // Query 1: Primary Highway Route + Alternatives
+  const p1 = queryWithTimeout({
+    origin,
+    destination,
+    travelMode: window.google.maps.TravelMode.DRIVING,
+    provideRouteAlternatives: true,
   });
 
-  // Promise 2: Surface Streets / Avoid Highways (to discover arterial bypasses and detours)
-  const p2 = new Promise<google.maps.DirectionsRoute[]>((resolve) => {
-    directionsService.route(
-      {
-        origin,
-        destination,
-        travelMode: window.google.maps.TravelMode.DRIVING,
-        avoidHighways: true,
-        provideRouteAlternatives: true,
-      },
-      (res, status) => {
-        if (status === window.google.maps.DirectionsStatus.OK && res && res.routes) {
-          resolve(res.routes);
-        } else {
-          resolve([]);
-        }
-      }
-    );
+  // Query 2: Surface Streets / Avoid Highways (to discover arterial bypasses and detours)
+  const p2 = queryWithTimeout({
+    origin,
+    destination,
+    travelMode: window.google.maps.TravelMode.DRIVING,
+    avoidHighways: true,
+    provideRouteAlternatives: true,
   });
 
   const [routesMain, routesLocal] = await Promise.all([p1, p2]);

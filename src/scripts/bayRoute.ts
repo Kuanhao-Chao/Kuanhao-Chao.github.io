@@ -317,16 +317,16 @@ export class BayRouteVisualizer {
       this.leafletMap.removeLayer(this.leafletTileLayer);
     }
 
-    let url = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+    let url = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}';
     switch (this.currentTileStyle) {
       case 'dark':
-        url = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+        url = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}';
         break;
       case 'light':
-        url = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+        url = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}';
         break;
       case 'streets':
-        url = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+        url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
         break;
       case 'satellite':
         url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
@@ -334,14 +334,13 @@ export class BayRouteVisualizer {
     }
 
     this.leafletTileLayer = L.tileLayer(url, {
-      subdomains: ['a', 'b', 'c', 'd'],
       maxZoom: 19,
     }).addTo(this.leafletMap);
   }
 
   public setTileStyle(style: MapTileStyle): void {
     this.currentTileStyle = style;
-    if (this.gmap) {
+    if (this.isGoogleMapsActive && this.gmap) {
       if (style === 'satellite') {
         this.gmap.setMapTypeId('hybrid');
       } else {
@@ -372,7 +371,7 @@ export class BayRouteVisualizer {
   }
 
   private latLngToPoint(lat: number, lng: number): { x: number; y: number } {
-    if (this.gmap && window.google && window.google.maps) {
+    if (this.isGoogleMapsActive && this.gmap && window.google && window.google.maps) {
       const bounds = this.gmap.getBounds();
       const projection = this.gmap.getProjection();
       if (!bounds || !projection) return { x: 0, y: 0 };
@@ -604,7 +603,7 @@ export class BayRouteVisualizer {
   }
 
   public fitRouteBounds(): void {
-    if (this.gmap && window.google && window.google.maps) {
+    if (this.isGoogleMapsActive && this.gmap && window.google && window.google.maps) {
       const bounds = new window.google.maps.LatLngBounds();
       bounds.extend({ lat: this.currentStartEndpoint.lat, lng: this.currentStartEndpoint.lng });
       bounds.extend({ lat: this.currentGoalEndpoint.lat, lng: this.currentGoalEndpoint.lng });
@@ -620,15 +619,15 @@ export class BayRouteVisualizer {
 
   public setAlgorithm(alg: AlgorithmId): void {
     this.currentAlgorithm = alg;
-    this.recalculate();
+    this.recalculate(false);
   }
 
   public setRaceMode(enabled: boolean): void {
     this.isRaceMode = enabled;
-    this.recalculate();
+    this.recalculate(false);
   }
 
-  public async recalculate(): Promise<void> {
+  public async recalculate(rebuildGraph: boolean = true): Promise<void> {
     this.pause();
 
     const startInput = {
@@ -645,11 +644,13 @@ export class BayRouteVisualizer {
     };
 
     // Dynamically build real-world road graph between Start and Goal anywhere in the world
-    this.activeRealWorldGraph = await buildDynamicRealWorldGraph(startInput, goalInput);
-    this.activeBayGraph = realWorldGraphToBayGraph(this.activeRealWorldGraph);
-    this.startId = this.activeRealWorldGraph.startId;
-    this.goalId = this.activeRealWorldGraph.goalId;
-    this.currentManeuvers = this.activeRealWorldGraph.maneuvers;
+    if (rebuildGraph || !this.activeRealWorldGraph) {
+      this.activeRealWorldGraph = await buildDynamicRealWorldGraph(startInput, goalInput);
+      this.activeBayGraph = realWorldGraphToBayGraph(this.activeRealWorldGraph);
+      this.startId = this.activeRealWorldGraph.startId;
+      this.goalId = this.activeRealWorldGraph.goalId;
+      this.currentManeuvers = this.activeRealWorldGraph.maneuvers;
+    }
 
     if (this.isRaceMode) {
       this.raceResults.clear();
@@ -664,7 +665,11 @@ export class BayRouteVisualizer {
         const res = runPathfinding(alg, this.activeBayGraph, this.startId, this.goalId);
         this.raceResults.set(alg, res);
       }
-      this.currentResult = this.raceResults.get(this.currentAlgorithm) || null;
+      this.currentResult =
+        this.raceResults.get(this.currentAlgorithm) ||
+        this.raceResults.get('a_star') ||
+        this.raceResults.values().next().value ||
+        null;
     } else {
       this.currentResult = runPathfinding(
         this.currentAlgorithm,
@@ -972,12 +977,12 @@ export class BayRouteVisualizer {
 
     const isComplete = this.currentStepIndex >= maxSteps;
     if (elDistance) {
-      elDistance.textContent = isComplete
+      elDistance.textContent = this.currentResult.found
         ? `${this.currentResult.totalDistanceMiles} mi`
         : 'Searching...';
     }
     if (elTime) {
-      elTime.textContent = isComplete
+      elTime.textContent = this.currentResult.found
         ? `${Math.round(this.currentResult.totalTimeMinutes)} min`
         : 'Computing...';
     }
@@ -986,7 +991,7 @@ export class BayRouteVisualizer {
         ? ALGORITHMS[this.currentAlgorithm].isOptimal
           ? '100% (Optimal)'
           : 'Suboptimal'
-        : 'Evaluating...';
+        : 'Searching...';
     }
 
     if (this.isRaceMode) {
