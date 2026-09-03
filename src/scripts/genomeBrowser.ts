@@ -479,6 +479,38 @@ export function initGenomeBrowser(host: HTMLElement): void {
   const statusOut = $('[data-gb-status]');
   const corrOut = $('[data-gb-corr]');
   const statsBox = $('[data-gb-stats]');
+  const deepLink = $<HTMLAnchorElement>('[data-gb-deep]');
+
+  /**
+   * The 23 windows that `/shorkie-lab/shorkie/` analyses in full, as genome coordinates.
+   *
+   * The browser can already jump TO one by name; nothing told a reader they were standing IN one,
+   * which is the half that turns two pages into one story. Passed in as data rather than fetched,
+   * because both pages already have `shorkieLoci.json` at build time and a second copy fetched at
+   * runtime is a second thing that can disagree.
+   */
+  type Primary = { id: string; gene: string; chrom: string; start: number; end: number };
+  const primaries: Primary[] = (() => {
+    try {
+      return JSON.parse(host.dataset.gbPrimary || '[]') as Primary[];
+    } catch {
+      return [];
+    }
+  })();
+
+  /** The primary window the view sits in, preferring the one it overlaps most. */
+  function primaryHere(): Primary | null {
+    let best: Primary | null = null;
+    let bestOverlap = 0;
+    for (const p of primaries) {
+      if (p.chrom !== view.chrom) continue;
+      const ov = Math.min(view.end, p.end) - Math.max(view.start, p.start);
+      if (ov > bestOverlap) { best = p; bestOverlap = ov; }
+    }
+    // Half the view has to be inside it, or panning past the edge of a 16 kb window would keep
+    // claiming the reader is in it while almost nothing on screen belongs to it.
+    return bestOverlap > (view.end - view.start) * 0.5 ? best : null;
+  }
   const scatterCv = $<HTMLCanvasElement>('[data-gb-scatter]');
   const hoverOut = $('[data-gb-hover]');
   const panelBox = $('[data-gb-panel]');
@@ -1173,6 +1205,18 @@ export function initGenomeBrowser(host: HTMLElement): void {
     }
 
     renderStats(inner, bpPerPx, col);
+
+    if (deepLink) {
+      const p = primaryHere();
+      deepLink.hidden = !p;
+      if (p) {
+        deepLink.href = `/shorkie-lab/shorkie/#locus=${p.id}`;
+        deepLink.textContent = `in the ${p.gene} window — open the full analysis →`;
+        deepLink.title = `${p.gene} (${p.id}) is one of the ${primaries.length} windows analysed `
+          + 'base by base: mutagenesis, four attribution methods, motif knockouts and layer traces.';
+      }
+      cv.dataset.gbPrimary = p ? p.id : '';
+    }
 
     cv.dataset.gbLevel = String(lvl.binBp);
     cv.dataset.gbDrawn = String(drawn);

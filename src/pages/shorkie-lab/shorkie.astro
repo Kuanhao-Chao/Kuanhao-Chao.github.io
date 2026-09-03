@@ -525,7 +525,11 @@ const breadcrumbLd = buildBreadcrumbLd([
              data-gb-minimal="1"
              data-gb-no-hash="1"
              data-gb-tracks="sk-rnaseq,sk-gradient,genes,tfbs_chip"
-             data-gb-default="chrVII:882,012-884,610">
+             data-gb-default="chrVII:882,012-884,610"
+             data-gb-primary={JSON.stringify(gwChips.map((c, i) => ({
+               id: c.id, gene: c.gene, chrom: lociData.loci[i].chrom,
+               start: lociData.loci[i].start, end: lociData.loci[i].start + 16384,
+             })))}>
           <!-- The chips must live INSIDE the host: the controller binds them with
                `host.querySelectorAll`, so a chip outside is silently inert. -->
           <div class="gw-chips" role="group" aria-label="Jump to a locus">
@@ -556,6 +560,7 @@ const breadcrumbLd = buildBreadcrumbLd([
           </div>
           <div class="gw-foot">
             <span class="vp-stat gb-corr" data-gb-corr></span>
+            <a class="gb-deep" data-gb-deep hidden href="/shorkie-lab/shorkie/"></a>
             <section class="gb-stats-box" aria-label="This view, in numbers">
               <h3 class="gb-stats__title">This view, in numbers</h3>
               <div data-gb-stats hidden></div>

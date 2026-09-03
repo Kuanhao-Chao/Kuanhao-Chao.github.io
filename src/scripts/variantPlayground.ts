@@ -5123,6 +5123,21 @@ export function initVariantPlayground(root: ParentNode = document) {
       opt.title = l.blurb;
       locusSelect.append(opt);
     });
+    // `#locus=<id or gene>` selects a window on load, so the genome browser can hand a reader
+    // straight into the analysis of whatever they were looking at. Matched on the systematic id
+    // first and the common name second, case-insensitively, because a link written by hand will
+    // say TDH3 where a link built from the data says YGR192C.
+    const want = decodeURIComponent((/[#&]locus=([^&]+)/.exec(window.location.hash) ?? [])[1] ?? '')
+      .trim().toLowerCase();
+    if (want) {
+      const i = LOCI.findIndex((l) => l.id.toLowerCase() === want)
+        >= 0 ? LOCI.findIndex((l) => l.id.toLowerCase() === want)
+        : LOCI.findIndex((l) => l.gene.toLowerCase() === want);
+      if (i >= 0) {
+        locusIndex = i;
+        locusSelect.value = String(i);
+      }
+    }
   }
 
   renderLayers();
