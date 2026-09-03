@@ -5156,6 +5156,71 @@ export function initVariantPlayground(root: ParentNode = document) {
     }
   }
 
+  /**
+   * The genome browser above drives the companion views below it.
+   *
+   * The page used to carry TWO zoom states -- the browser's focus band and `logoWindow` -- and the
+   * reader had to keep them in step by hand. Now the browser owns navigation and everything below
+   * follows: moving into a different analysed window switches the locus (which reloads its packs
+   * and repaints every downstream panel), and panning within one re-centres the letter views.
+   *
+   * Listeners are on `document` because the browser mounts itself and the two controllers never
+   * see each other; the events bubble. Both are cheap and idempotent -- `setLogoWindow` clamps and
+   * `loadLocus` is only called when the locus actually changed, since it clears every result.
+   */
+  /** The window the companions last arrived at, so a pan is told apart from a locus change. */
+  let bridgeLocus: string | null = null;
+
+  function bindBrowserBridge(): void {
+    document.addEventListener('khc:gb-view', (e) => {
+      const d = (e as CustomEvent).detail as
+        { locus: string | null; gene: string | null; offset: number | null };
+      const outside = host.querySelector<HTMLElement>('[data-vp-follow-stat]');
+      if (!d.locus || d.offset == null) {
+        // Outside every analysed window there is nothing to draw, and saying so beats leaving the
+        // last window's letters under the new coordinates.
+        if (outside) {
+          outside.textContent = 'the browser is outside the analysed windows — '
+            + 'the views below still show ' + (LOCI[locusIndex]?.gene ?? '');
+          outside.hidden = false;
+        }
+        return;
+      }
+      if (outside) outside.hidden = true;
+      const i = LOCI.findIndex((l) => l.id === d.locus);
+      if (d.locus !== bridgeLocus) {
+        // ARRIVING at a window -- on load, or by switching to another one. The locus has its own
+        // default view, the promoter at TSS-200, which is where the motifs are and where
+        // `adoptPrecomputed` puts the logo. Overriding that with the browser's view centre lands
+        // the reader in the middle of a gene body with nothing annotated in sight.
+        bridgeLocus = d.locus;
+        if (i >= 0 && i !== locusIndex) {
+          locusIndex = i;
+          if (locusSelect) locusSelect.value = String(i);
+          syncGenomeLink();
+          loadLocus();
+        }
+        return;
+      }
+      // PANNING inside the window the companions are already showing: follow.
+      setLogoWindow(d.offset - logoWindow.width / 2, logoWindow.width);
+    });
+
+    document.addEventListener('khc:gb-roi', (e) => {
+      const d = (e as CustomEvent).detail as { locus: string; gene: string; start: number; end: number };
+      const i = LOCI.findIndex((l) => l.id === d.locus);
+      if (i < 0) return;
+      // Window offsets to OUTPUT BINS: the head crops CROP_BP from each end, so bin 0 begins
+      // there. Everything downstream -- the four method rows, the layer traceback, the neuron
+      // traces -- is keyed on `tracedBins`, so this is what makes a marked region drive them.
+      const a = Math.floor((d.start - CROP_BP) / BIN_BP);
+      const b = Math.ceil((d.end - CROP_BP) / BIN_BP);
+      if (b <= 0 || a >= N_BINS) return;
+      traceBins(a, b, `marked region · ${d.gene}`);
+    });
+  }
+
+  bindBrowserBridge();
   syncGenomeLink();
   renderLayers();
   renderTrack();

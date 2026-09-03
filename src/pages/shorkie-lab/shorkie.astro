@@ -150,49 +150,195 @@ const breadcrumbLd = buildBreadcrumbLd([
         </section>
 
       <!-- ------------------------------------------------- full-width flow -->
-        <section class="vp-panel">
-          <h2>Predicted coverage — the full model</h2>
-          <div class="vp-controls" style="margin-bottom:0.5rem;">
-            <button type="button" class="vp-btn" data-vp-run>Load model — live layers &amp; editing</button>
-            <span class="vp-status" data-vp-status></span>
+      <!-- ============================================ the browser: one positional view ==== -->
+      <section class="vp-panel">
+        <h2>Predicted expression, base by base and genome-wide{' '}
+          <span class="vp-stat">{(gwBp / 1e6).toFixed(2)} Mb · {gwChips.length} analysed windows</span>
+        </h2>
+        <div class="vp-controls" style="margin-bottom:0.5rem;">
+          <button type="button" class="vp-btn" data-vp-run>Load model — live layers &amp; editing</button>
+          <span class="vp-status" data-vp-status></span>
+        </div>
+        <p class="vp-notes vp-lede" style="margin:0 0 0.6rem;">
+          Everything the model predicts, and every method that asks why, on one axis and one set of
+          coordinates. Shorkie has been run over <strong>all {gwBp.toLocaleString()} bases</strong>
+          of R64; the {gwChips.length} windows this page dissects base by base are{' '}
+          {((gwChips.length * 16384) / gwBp * 100).toFixed(1)}% of it, and the rest is the genome
+          they sit in. Pick a gene to land on it, or drag and zoom anywhere.
+        </p>
+
+
+        <!-- The full browser, minus the language model. `data-gb-exclude="lm-"` removes that
+             family from the panel, the presets, the URL state and the draw loop alike: this page
+             is about the expression model, and a constraint lane here would be a different
+             network answering the opposite question under the same heading. -->
+        <div class="vp gw-browser"
+             data-genome-browser
+             data-gb-no-hash="1"
+             data-gb-exclude="lm-"
+             data-gb-tracks="sk-rnaseq,sk-ism,sk-gradient,genes,tfbs_chip"
+             data-gb-default="chrVII:882,012-884,610"
+             data-gb-primary={JSON.stringify(gwChips.map((c, i) => ({
+               id: c.id, gene: c.gene, chrom: lociData.loci[i].chrom,
+               start: lociData.loci[i].start, end: lociData.loci[i].start + 16384,
+             })))}>
+               `host.querySelectorAll`, so a chip outside is silently inert. -->
+          <div class="gw-chips" role="group" aria-label="Jump to a locus">
+            {gwChips.map((c, i) => (
+              <button type="button" class={`gw-chip${i === 0 ? ' is-active' : ''}`}
+                      data-gb-chip={c.locus} title={`${c.id} — ${c.blurb}`}>{c.gene}</button>
+            ))}
           </div>
-          <svg class="vp-svg" data-vp-track role="img"
-               aria-label="Predicted RNA-seq coverage across 896 bins"></svg>
-          <canvas class="vp-canvas vp-attr" data-vp-attr role="img"
-                  aria-label="Which input bases drive the selected output region"></canvas>
-          <canvas class="vp-canvas" data-vp-methods role="img"
-                  aria-label="Every interpretability method on one axis, aligned with the annotation"></canvas>
+          <nav class="vp-nav gw-nav" aria-label="Genome navigation">
+            <span class="vp-nav__group">
+              <label class="vp-nav__label" for="gw-chrom">chr</label>
+              <select class="vp-select" id="gw-chrom" data-gb-chrom aria-label="Chromosome"></select>
+            </span>
+            <span class="vp-nav__group">
+              <input class="vp-input gb-locus" id="gw-locus" data-gb-locus spellcheck="false"
+                     placeholder="gene or chrII:278,000-281,500" aria-label="Locus or gene" />
+              <button type="button" class="vp-btn" data-gb-go>Go</button>
+            </span>
+            <span class="vp-nav__group" role="group" aria-label="History">
+              <button type="button" class="vp-btn vp-btn--icon" data-gb-back
+                      aria-label="Back ([)" title="Back">↶</button>
+              <button type="button" class="vp-btn vp-btn--icon" data-gb-fwd
+                      aria-label="Forward (])" title="Forward">↷</button>
+            </span>
+            <span class="vp-nav__group" role="group" aria-label="Pan and zoom">
+              <button type="button" class="vp-btn vp-btn--icon" data-gb-pan="-1" aria-label="Pan left">‹</button>
+              <button type="button" class="vp-btn vp-btn--icon" data-gb-pan="1" aria-label="Pan right">›</button>
+              <button type="button" class="vp-btn vp-btn--icon" data-gb-zoom="0.5" aria-label="Zoom in">+</button>
+              <button type="button" class="vp-btn vp-btn--icon" data-gb-zoom="2" aria-label="Zoom out">−</button>
+              <button type="button" class="vp-btn" data-gb-whole>whole chr</button>
+            </span>
+            <span class="vp-spacer"></span>
+            <span class="vp-nav__group" role="group" aria-label="Region and export">
+              <button type="button" class="vp-btn" data-gb-mark
+                      title="Keep this region highlighted while you navigate">mark region</button>
+              <button type="button" class="vp-btn" data-gb-autoscale aria-pressed="false"
+                      title="Scale each lane to the data in view. Off by default.">autoscale</button>
+              <button type="button" class="vp-btn" data-gb-export title="Save this view as a PNG">PNG</button>
+              <button type="button" class="vp-btn" data-gb-export-csv
+                      title="Save the data behind this view as CSV, at the level it is drawn at">CSV</button>
+              <button type="button" class="vp-btn gb-panel-toggle" data-gb-panel-toggle
+                      aria-expanded="false">tracks</button>
+            </span>
+          </nav>
 
-          <canvas class="vp-canvas" data-vp-annotation role="img"
-                  aria-label="Curated S. cerevisiae annotation across the window"></canvas>
-          <div class="vp-controls vp-annctl">
-            <span class="vp-stat">show</span>
-            <label class="vp-check"><input type="checkbox" data-vp-lane="gene" checked /> genes</label>
-            <label class="vp-check"><input type="checkbox" data-vp-lane="rna" checked /> ncRNA</label>
-            <label class="vp-check"><input type="checkbox" data-vp-lane="element" checked /> elements</label>
-            <label class="vp-check"><input type="checkbox" data-vp-lane="regulatory" checked /> regulatory</label>
-            <span class="vp-stat">binding sites</span>
-            <label class="vp-check"><input type="checkbox" data-vp-tier="chip" checked /> ChIP-supported</label>
-            <label class="vp-check"><input type="checkbox" data-vp-tier="conserved" /> conserved only</label>
-            <label class="vp-check"><input type="checkbox" data-vp-tier="pwm" /> PWM scan</label>
-            <span class="vp-stat" data-vp-annstat></span>
+          <div class="gw-head">
+            <strong class="gb-readout" data-gb-readout>—</strong>
+            <span class="vp-stat" data-gb-level-out></span>
+            <span class="vp-stat gb-roi" data-gb-roi></span>
+            <span class="vp-spacer"></span>
+            <span class="vp-stat gb-hover" data-gb-hover></span>
           </div>
-          <p class="vp-notes" style="margin:0.35rem 0 0;">
-            <strong>What is actually there, from the databases.</strong> Genes, CDS, introns, uORFs,
-            tRNA and snoRNA genes, replication origins, LTRs and transposons come from{' '}
-            <em>SGD</em>; regulatory regions from <em>ORegAnno</em>; binding sites from the{' '}
-            <em>Harbison 2004 / MacIsaac 2006</em> conserved regulatory code and from a{' '}
-            <em>JASPAR</em> PWM scan. Provenance is drawn, not just recorded: a ChIP-supported site
-            is solid, a conserved-only call is hollow, a PWM match is a hairline — three different
-            strengths of evidence that must not be read as one. A grey cap marks a feature clipped
-            by the window edge, so that edge is never mistaken for a real boundary.
-          </p>
+
+          <!-- `.gb-layout` exactly, not a `.gw-` alias: the phone drawer handler looks for that
+               selector, and the panel is the drawer. -->
+          <div class="gb-layout">
+            <div class="gb-stage gw-stage">
+              <canvas class="vp-canvas gb-mini" data-gb-mini
+                      aria-label="Chromosome overview strip"></canvas>
+              <canvas class="vp-canvas gb-track" tabindex="0" data-gb-track
+                      aria-label="Shorkie predicted coverage, attribution, annotation and gene models"></canvas>
+              <div class="gb-tooltip" data-gb-tooltip hidden></div>
+              <aside class="gb-motif" data-gb-motif hidden aria-label="Motif"></aside>
+            </div>
+            <aside class="gb-panel" aria-label="Tracks">
+              <div data-gb-panel></div>
+            </aside>
+          </div>
+
+          <div class="gw-foot">
+            <span class="vp-stat gb-corr" data-gb-corr></span>
+            <a class="gb-deep" data-gb-deep hidden href="/shorkie-lab/shorkie/"></a>
+            <section class="gb-stats-box" aria-label="This view, in numbers">
+              <h3 class="gb-stats__title">This view, in numbers</h3>
+              <div data-gb-stats hidden></div>
+              <canvas class="gb-scatter" data-gb-scatter height="170"
+                      aria-label="The two enabled score lanes plotted against each other"
+                      hidden></canvas>
+            </section>
+            <p class="vp-stat gb-status" data-gb-status></p>
+          </div>
+        </div>
 
 
-          <!-- ---- the zoom: the focus band above, at letter resolution ---- -->
+        <p class="vp-notes" style="margin:0.5rem 0 0;">
+          <strong>The attribution lane is signed, and that is the whole reading.</strong> A bar{' '}
+          <em>above</em> the zero rule is a base whose presence <em>raises</em> the predicted
+          expression of its window; a bar <em>below</em> it is one that lowers it. The axis is
+          symmetric and logarithmic in both directions because the quantity is heavy-tailed — the
+          median base reads |0.0008| against a maximum of{' '}
+          {gwTrack('sk-gradient').axis[1].toFixed(2)}, so on a linear axis a typical base would draw
+          at 2.5% of half-height and the lane would be a flat line with spikes.
+        </p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>This is not the attribution in the panels above, and it will not reproduce
+          them.</strong> There, you pick a gene and the gradient is taken of <em>that gene's</em>
+          predicted coverage. Genome-wide there is no chosen gene, so the target is each window's
+          whole cropped interior — the only definition that exists at every base. Gradients
+          superpose, so what is drawn is the sum of the per-gene attributions of everything in view.
+          Against the mutagenesis planes this page ships it agrees about direction at{' '}
+          <strong>{nLoci - 1} of {nLoci}</strong> loci — the single strongest substitution pointing
+          the same way — and much less about magnitude: <strong>median r = 0.369</strong> base by
+          base, ranging 0.05 to 0.65. The one exception earns its place: at <em>GAL3</em> the
+          gradient reads <strong>+0.0013</strong> at the base mutagenesis calls strongest, which is
+          essentially zero against a genome-wide median of 0.0008. That is gradient{' '}
+          <em>saturation</em> — a local slope going flat where a finite substitution still moves the
+          prediction — and it is exactly why the two other methods are on this page beside it.
+        </p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>Coverage is drawn at 16 bp, and no finer level exists.</strong> Shorkie's head
+          emits 896 bins of 16 bp, so that is the resolution the pyramid stores; asking for a
+          per-base coverage track would be storing {gwBp.toLocaleString()} numbers carrying{' '}
+          {Math.round(gwBp / 16).toLocaleString()} values of real information and drawing them as
+          though the model resolved single bases. The attribution <em>is</em> per base, because it is
+          a derivative with respect to the one-hot input. The lane readout names any track pinned at
+          its own floor rather than letting the headline resolution speak for all of them.
+        </p>
+        <details class="vp-how">
+          <summary>What was run, what it cost, and what could not be</summary>
+          <div class="vp-how-body">
+            <p><strong>The windows are the language model's windows.</strong> Both models sweep the
+            same 1,493 windows on the same 8,192 bp cores, so the lanes here and the constraint
+            lanes at <a href="/shorkie-lab/genome/">/shorkie-lab/genome/</a> are aligned base for
+            base and can be read against each other. Every window starts on a multiple of 128, the
+            U-Net's pooling grid: measured, the model is about <strong>20× more sensitive</strong> to
+            that phase than to how much flanking sequence it gets.</p>
+            <p><strong>Measured on this machine (Apple MPS, batch 1, fold f0).</strong> A forward
+            pass is 30 ms, so predicted coverage for the whole genome is <strong>45 s</strong>.
+            Gradient × input, rc-averaged, is 258 ms a window — <strong>6.5 min</strong>.
+            Integrated gradients at 32 steps is 3.4 h and occlusion at 64 bp is 6.4 h.
+            {gwHas('sk-ig') && gwHas('sk-occl')
+              ? ' Both have been run, and all four are lanes you can turn on.'
+              : gwHas('sk-ig')
+                ? ' Integrated gradients has been run; occlusion is still generating.'
+                : ' Both are affordable and are still generating.'}</p>
+            <p><strong>Full mutagenesis genome-wide is not affordable, and that is not a harness
+            limit.</strong> Three substitutions at every one of 16,384 positions, on both strands,
+            is 2,950 s a window and <strong>1,231 hours</strong> — 51 days of GPU. That is why
+            mutagenesis stays a per-locus quantity and why the {nLoci} windows above exist at all.</p>
+            <p><strong>The first 1,024 bases of every chromosome are blank</strong>,{' '}
+            {gwGapBp.toLocaleString()} bases in total
+            ({((gwGapBp / gwBp) * 100).toFixed(2)}%). The head crops 1,024 bp from each end of its
+            window and no window can start before position 0. They are left as no data rather than
+            filled from a window that never scored them.</p>
+            <p><strong>A single forward pass, not reverse-complement averaged</strong> — so this
+            lane reports the same number as the coverage panel at the top of this page for the same
+            locus. The attribution <em>is</em> rc-averaged, as every published Shorkie attribution
+            run is. Checked against the {nLoci} shipped per-locus predictions, the genome-wide track
+            reproduces them to <strong>1.2 × 10⁻³</strong> where the window happens to sit on the
+            same pooling phase, and correlates at a median <strong>r = 0.993</strong> where it does
+            not.</p>
+          </div>
+        </details>
+
+        <!-- ---- companions: the paper's own drawing, following the browser ---- -->
+        <p class="vp-context" data-vp-follow-stat hidden></p>
           <div class="vp-zoomhead">
-            <span class="vp-zoomhead__label">zoom · the highlighted window above</span>
-            <span class="vp-stat" data-vp-logo-stat></span>
+            <span class="vp-zoomhead__label">the paper’s own logo, over the browser’s window</span>
           </div>
           <svg class="vp-svg vp-lens" data-vp-lens role="presentation" aria-hidden="true"></svg>
           <svg class="vp-svg" data-vp-ism-logo role="img"
@@ -417,17 +563,16 @@ const breadcrumbLd = buildBreadcrumbLd([
             resolves to 128 bp; picking a gene gives single-base resolution.
           </p>
           <div class="vp-controls" style="margin-top:0.5rem;">
-            <label class="vp-stat" style="display:inline-flex;align-items:center;gap:0.35rem;">
-              <input type="checkbox" data-vp-truth checked /> measured coverage
-            </label>
-            <select class="vp-select" data-vp-group aria-label="Output track group"></select>
+            <!-- `measured coverage` and the output-group select lived here. The first was
+                 permanently inert -- src/data/shorkieTruth.json ships as an empty stub, so the
+                 readout always said "no measured coverage loaded" -- and the second drove only
+                 the coverage curve, which the browser above now owns. -->
             <label class="vp-stat" style="display:inline-flex;align-items:center;gap:0.35rem;">
               <input type="checkbox" data-vp-logaxis checked /> log axis
             </label>
             <label class="vp-stat" style="display:inline-flex;align-items:center;gap:0.35rem;">
               <input type="checkbox" data-vp-generows checked /> one row per gene
             </label>
-            <span class="vp-stat" data-vp-truthstat></span>
           </div>
         <details class="vp-how">
           <summary>How the four method tracks are computed</summary>
@@ -516,144 +661,6 @@ const breadcrumbLd = buildBreadcrumbLd([
             requester-pays, so this site ships none of them; <code>scripts/shorkie/make_truth.py</code>{' '}
             builds the overlay from a local copy.
           </p>
-        </section>
-
-      <!-- ------------------------------------- the same model, over the whole genome -->
-      <section class="vp-panel">
-        <h2>The same model, over the whole genome{' '}
-          <span class="vp-stat">{(gwBp / 1e6).toFixed(2)} Mb · {gwChips.length} windows are zoom-ins on this</span>
-        </h2>
-        <p class="vp-notes" style="margin:0 0 0.6rem;">
-          Everything above analyses {nLoci} hand-picked 16,384 bp windows. Shorkie has now been run
-          over <strong>all {gwBp.toLocaleString()} bases</strong> of R64 — those {gwChips.length}
-          windows are {((gwChips.length * 16384) / gwBp * 100).toFixed(1)}% of it, and the rest is
-          the genome they sit in.
-          The browser below is the one at{' '}
-          <a href="/shorkie-lab/genome/">/shorkie-lab/genome/</a>, carrying the expression model's
-          own lanes: <strong>predicted RNA-seq</strong> and the <strong>signed</strong> per-base
-          attribution beneath it. Pick a gene to land on it, or drag and zoom anywhere.
-        </p>
-
-        <div class="vp gw-browser"
-             data-genome-browser
-             data-gb-minimal="1"
-             data-gb-no-hash="1"
-             data-gb-tracks="sk-rnaseq,sk-gradient,genes,tfbs_chip"
-             data-gb-default="chrVII:882,012-884,610"
-             data-gb-primary={JSON.stringify(gwChips.map((c, i) => ({
-               id: c.id, gene: c.gene, chrom: lociData.loci[i].chrom,
-               start: lociData.loci[i].start, end: lociData.loci[i].start + 16384,
-             })))}>
-          <!-- The chips must live INSIDE the host: the controller binds them with
-               `host.querySelectorAll`, so a chip outside is silently inert. -->
-          <div class="gw-chips" role="group" aria-label="Jump to a locus">
-            {gwChips.map((c, i) => (
-              <button type="button" class={`gw-chip${i === 0 ? ' is-active' : ''}`}
-                      data-gb-chip={c.locus} title={`${c.id} — ${c.blurb}`}>{c.gene}</button>
-            ))}
-          </div>
-          <div class="gw-head">
-            <strong class="gb-readout" data-gb-readout>—</strong>
-            <span class="vp-stat" data-gb-level-out></span>
-            <span class="vp-spacer"></span>
-            <span class="vp-stat gb-hover" data-gb-hover></span>
-            <span class="vp-nav__group" role="group" aria-label="Navigate">
-              <button type="button" class="vp-btn vp-btn--icon" data-gb-pan="-1" aria-label="Pan left">‹</button>
-              <button type="button" class="vp-btn vp-btn--icon" data-gb-pan="1" aria-label="Pan right">›</button>
-              <button type="button" class="vp-btn vp-btn--icon" data-gb-zoom="0.5" aria-label="Zoom in">+</button>
-              <button type="button" class="vp-btn vp-btn--icon" data-gb-zoom="2" aria-label="Zoom out">−</button>
-            </span>
-          </div>
-          <div class="gw-stage">
-            <canvas class="vp-canvas gb-mini" data-gb-mini
-                    aria-label="Chromosome overview strip"></canvas>
-            <canvas class="vp-canvas gb-track" tabindex="0" data-gb-track
-                    aria-label="Shorkie predicted coverage, per-base attribution and gene models"></canvas>
-            <div class="gb-tooltip" data-gb-tooltip hidden></div>
-            <aside class="gb-motif" data-gb-motif hidden aria-label="Motif"></aside>
-          </div>
-          <div class="gw-foot">
-            <span class="vp-stat gb-corr" data-gb-corr></span>
-            <a class="gb-deep" data-gb-deep hidden href="/shorkie-lab/shorkie/"></a>
-            <section class="gb-stats-box" aria-label="This view, in numbers">
-              <h3 class="gb-stats__title">This view, in numbers</h3>
-              <div data-gb-stats hidden></div>
-              <canvas class="gb-scatter" data-gb-scatter height="170"
-                      aria-label="The two enabled score lanes plotted against each other"
-                      hidden></canvas>
-            </section>
-          </div>
-        </div>
-
-        <p class="vp-notes" style="margin:0.5rem 0 0;">
-          <strong>The attribution lane is signed, and that is the whole reading.</strong> A bar{' '}
-          <em>above</em> the zero rule is a base whose presence <em>raises</em> the predicted
-          expression of its window; a bar <em>below</em> it is one that lowers it. The axis is
-          symmetric and logarithmic in both directions because the quantity is heavy-tailed — the
-          median base reads |0.0008| against a maximum of{' '}
-          {gwTrack('sk-gradient').axis[1].toFixed(2)}, so on a linear axis a typical base would draw
-          at 2.5% of half-height and the lane would be a flat line with spikes.
-        </p>
-        <p class="vp-notes" style="margin:0.35rem 0 0;">
-          <strong>This is not the attribution in the panels above, and it will not reproduce
-          them.</strong> There, you pick a gene and the gradient is taken of <em>that gene's</em>
-          predicted coverage. Genome-wide there is no chosen gene, so the target is each window's
-          whole cropped interior — the only definition that exists at every base. Gradients
-          superpose, so what is drawn is the sum of the per-gene attributions of everything in view.
-          Against the mutagenesis planes this page ships it agrees about direction at{' '}
-          <strong>{nLoci - 1} of {nLoci}</strong> loci — the single strongest substitution pointing
-          the same way — and much less about magnitude: <strong>median r = 0.369</strong> base by
-          base, ranging 0.05 to 0.65. The one exception earns its place: at <em>GAL3</em> the
-          gradient reads <strong>+0.0013</strong> at the base mutagenesis calls strongest, which is
-          essentially zero against a genome-wide median of 0.0008. That is gradient{' '}
-          <em>saturation</em> — a local slope going flat where a finite substitution still moves the
-          prediction — and it is exactly why the two other methods are on this page beside it.
-        </p>
-        <p class="vp-notes" style="margin:0.35rem 0 0;">
-          <strong>Coverage is drawn at 16 bp, and no finer level exists.</strong> Shorkie's head
-          emits 896 bins of 16 bp, so that is the resolution the pyramid stores; asking for a
-          per-base coverage track would be storing {gwBp.toLocaleString()} numbers carrying{' '}
-          {Math.round(gwBp / 16).toLocaleString()} values of real information and drawing them as
-          though the model resolved single bases. The attribution <em>is</em> per base, because it is
-          a derivative with respect to the one-hot input. The lane readout names any track pinned at
-          its own floor rather than letting the headline resolution speak for all of them.
-        </p>
-        <details class="vp-how">
-          <summary>What was run, what it cost, and what could not be</summary>
-          <div class="vp-how-body">
-            <p><strong>The windows are the language model's windows.</strong> Both models sweep the
-            same 1,493 windows on the same 8,192 bp cores, so the lanes here and the constraint
-            lanes at <a href="/shorkie-lab/genome/">/shorkie-lab/genome/</a> are aligned base for
-            base and can be read against each other. Every window starts on a multiple of 128, the
-            U-Net's pooling grid: measured, the model is about <strong>20× more sensitive</strong> to
-            that phase than to how much flanking sequence it gets.</p>
-            <p><strong>Measured on this machine (Apple MPS, batch 1, fold f0).</strong> A forward
-            pass is 30 ms, so predicted coverage for the whole genome is <strong>45 s</strong>.
-            Gradient × input, rc-averaged, is 258 ms a window — <strong>6.5 min</strong>.
-            Integrated gradients at 32 steps is 3.4 h and occlusion at 64 bp is 6.4 h.
-            {gwHas('sk-ig') && gwHas('sk-occl')
-              ? ' Both have been run, and all four are lanes you can turn on.'
-              : gwHas('sk-ig')
-                ? ' Integrated gradients has been run; occlusion is still generating.'
-                : ' Both are affordable and are still generating.'}</p>
-            <p><strong>Full mutagenesis genome-wide is not affordable, and that is not a harness
-            limit.</strong> Three substitutions at every one of 16,384 positions, on both strands,
-            is 2,950 s a window and <strong>1,231 hours</strong> — 51 days of GPU. That is why
-            mutagenesis stays a per-locus quantity and why the {nLoci} windows above exist at all.</p>
-            <p><strong>The first 1,024 bases of every chromosome are blank</strong>,{' '}
-            {gwGapBp.toLocaleString()} bases in total
-            ({((gwGapBp / gwBp) * 100).toFixed(2)}%). The head crops 1,024 bp from each end of its
-            window and no window can start before position 0. They are left as no data rather than
-            filled from a window that never scored them.</p>
-            <p><strong>A single forward pass, not reverse-complement averaged</strong> — so this
-            lane reports the same number as the coverage panel at the top of this page for the same
-            locus. The attribution <em>is</em> rc-averaged, as every published Shorkie attribution
-            run is. Checked against the {nLoci} shipped per-locus predictions, the genome-wide track
-            reproduces them to <strong>1.2 × 10⁻³</strong> where the window happens to sit on the
-            same pooling phase, and correlates at a median <strong>r = 0.993</strong> where it does
-            not.</p>
-          </div>
-        </details>
       </section>
 
       <!-- ------------------------------------------------- interpretation -->
