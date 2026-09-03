@@ -69,6 +69,19 @@ OUT = ROOT / "public" / "genome-data"
 # NUMBERS are global, so L3 is 64 bp for EVERY track and a tile path can never mean two things; a
 # coarse track simply has holes at the fine end of its ladder.
 LEVELS = [1, 8, 16, 64, 512, 4096]
+
+# What each `group` means in the panel. Written here rather than inferred from an id prefix in the
+# client: which model a lane comes from is a fact about the track, and this file is where a track's
+# facts live. The browser carries TWO networks that share an encoder and answer opposite questions,
+# and a flat list of nine score lanes hides that completely.
+GROUP_LABELS = {
+    "constraint": {"label": "Shorkie_LM · constraint",
+                   "hint": "predicts the SEQUENCE — tall means the context determines this base"},
+    "expression": {"label": "Shorkie · expression",
+                   "hint": "predicts what an ASSAY would measure — tall means transcribed"},
+    "comparative": {"label": "Independent checks",
+                    "hint": "neither model: alignment-based conservation, and a composition control"},
+}
 TILE_BINS = 65536                  # bins a tile holds, at every level
 BASE_IDX = {"A": 0, "C": 1, "G": 2, "T": 3}
 # FASTA name -> SGD GFF name, where the two disagree.
@@ -79,7 +92,7 @@ GFF_ALIAS = {"chrM": "chrmt"}
 # same thing everywhere within a track and the decoder never has to guess.
 TRACKS = [
     {
-        "id": "lm-masked", "laneTag": "", "file": "", "axis": [0.0, 2.0], "units": "bits",
+        "id": "lm-masked", "group": "constraint", "laneTag": "", "file": "", "axis": [0.0, 2.0], "units": "bits",
         "label": "Shorkie_LM · masked",
         "short": "masked",
         "detail": "information content, 2 − H(p), from the K = 7 iterative masked pass",
@@ -89,7 +102,7 @@ TRACKS = [
         "source": "Shorkie_LM (Chao et al. 2025), run over sacCer3 in 16,384 bp windows",
     },
     {
-        "id": "lm-unmasked", "laneTag": "not a prediction", "file": "unmasked", "axis": [0.0, 2.0], "units": "bits",
+        "id": "lm-unmasked", "group": "constraint", "laneTag": "not a prediction", "file": "unmasked", "axis": [0.0, 2.0], "units": "bits",
         "label": "Shorkie_LM · unmasked",
         "short": "unmasked",
         "detail": "information content from one forward pass with nothing masked",
@@ -100,7 +113,7 @@ TRACKS = [
         "source": "Shorkie_LM (Chao et al. 2025), run over sacCer3 in 16,384 bp windows",
     },
     {
-        "id": "phastcons", "laneTag": "alignment-based", "file": "phastcons", "axis": [0.0, 1.0], "units": "posterior",
+        "id": "phastcons", "group": "comparative", "laneTag": "alignment-based", "file": "phastcons", "axis": [0.0, 1.0], "units": "posterior",
         "label": "phastCons · 7 yeasts",
         "short": "phastCons",
         "detail": "posterior probability that a base lies in a conserved element",
@@ -112,7 +125,7 @@ TRACKS = [
                   "kudriavzevii, bayanus, castellii, kluyveri)",
     },
     {
-        "id": "gc", "laneTag": "composition control", "file": "gc",
+        "id": "gc", "group": "comparative", "laneTag": "composition control", "file": "gc",
         "axis": [0.0, 1.0], "units": "fraction",
         "label": "GC content · 50 bp",
         "short": "GC",
@@ -126,7 +139,7 @@ TRACKS = [
     # predicts assay coverage from sequence, where Shorkie_LM predicts the sequence itself. Its head
     # emits 896 bins of 16 bp, so `nativeBp` is 16 and no finer level is written.
     {
-        "id": "sk-rnaseq", "laneTag": "", "file": "sk-cov-baseline",
+        "id": "sk-rnaseq", "group": "expression", "laneTag": "", "file": "sk-cov-baseline",
         "nativeBp": 16, "space": "log1p", "axisFrom": "max", "axis": None, "units": "a.u.",
         "label": "Shorkie · predicted RNA-seq",
         "short": "RNA-seq",
@@ -138,7 +151,7 @@ TRACKS = [
         "source": "Shorkie (Chao et al. 2025), fold f0, run over sacCer3 in 16,384 bp windows",
     },
     {
-        "id": "sk-chip-exo", "laneTag": "", "file": "sk-cov-chip_exo",
+        "id": "sk-chip-exo", "group": "expression", "laneTag": "", "file": "sk-cov-chip_exo",
         "nativeBp": 16, "space": "log1p", "axisFrom": "max", "axis": None, "units": "a.u.",
         "label": "Shorkie · predicted ChIP-exo",
         "short": "ChIP-exo",
@@ -149,7 +162,7 @@ TRACKS = [
         "source": "Shorkie (Chao et al. 2025), fold f0, run over sacCer3 in 16,384 bp windows",
     },
     {
-        "id": "sk-chip-mnase", "laneTag": "", "file": "sk-cov-chip_mnase",
+        "id": "sk-chip-mnase", "group": "expression", "laneTag": "", "file": "sk-cov-chip_mnase",
         "nativeBp": 16, "space": "log1p", "axisFrom": "max", "axis": None, "units": "a.u.",
         "label": "Shorkie · predicted ChIP-MNase",
         "short": "MNase",
@@ -160,7 +173,7 @@ TRACKS = [
         "source": "Shorkie (Chao et al. 2025), fold f0, run over sacCer3 in 16,384 bp windows",
     },
     {
-        "id": "sk-strain", "laneTag": "", "file": "sk-cov-rnaseq_strain",
+        "id": "sk-strain", "group": "expression", "laneTag": "", "file": "sk-cov-rnaseq_strain",
         "nativeBp": 16, "space": "log1p", "axisFrom": "max", "axis": None, "units": "a.u.",
         "label": "Shorkie · predicted 1,000-strain RNA-seq",
         "short": "strain",
@@ -171,7 +184,7 @@ TRACKS = [
         "source": "Shorkie (Chao et al. 2025), fold f0, run over sacCer3 in 16,384 bp windows",
     },
     {
-        "id": "sk-gradient", "laneTag": "signed", "file": "sk-gradient",
+        "id": "sk-gradient", "group": "expression", "laneTag": "signed", "file": "sk-gradient",
         "nativeBp": 1, "space": "symlog", "axisFrom": "symmetric", "axis": None, "units": "d log2 cov",
         "label": "Shorkie · gradient x input",
         "short": "grad x in",
@@ -412,6 +425,7 @@ def main() -> int:
         "icMax": 2.0,
         "levels": [{"level": i, "binBp": b, "rows": 1 if i == 0 else 3} for i, b in enumerate(LEVELS)],
         "rowNames": ["min", "max", "mean"],
+        "groupLabels": GROUP_LABELS,
         "tileBins": TILE_BINS,
         "noDataByte": 0,
         "quant": "byte 0 is no data; 1-255 map linearly onto the track's own axis range",
