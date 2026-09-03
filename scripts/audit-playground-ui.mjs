@@ -2341,6 +2341,35 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     const afterChip = await page.$eval('.gw-browser [data-gb-readout]', (e) => e.textContent);
     if (beforeChip === afterChip) fail(scope, 'a locus chip in the embed navigated nowhere');
 
+    // 4v. The loop between the two pages closes in BOTH directions. The region select already went
+    //     from a name to a place; this is the other half -- standing in one of the analysed
+    //     windows must offer the analysis, and following that offer must land on the right gene.
+    //     A link that appears everywhere is as useless as one that never appears, so both are
+    //     checked.
+    await page.goto(`${GENOME_ROUTE}#chrII:278000-281500`, { waitUntil: 'networkidle' });
+    await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 20000 });
+    await page.waitForTimeout(1800);
+    const deepHref = await page.$eval('[data-gb-deep]',
+      (a) => (a.hidden ? null : a.getAttribute('href')));
+    if (!deepHref || !/#locus=/.test(deepHref)) {
+      fail(scope, `inside the GAL1 window but no deep link: ${deepHref}`);
+    } else {
+      await page.goto(deepHref, { waitUntil: 'networkidle' });
+      await page.waitForSelector('[data-vp-locus]', { timeout: 20000 });
+      await page.waitForTimeout(2500);
+      const landed = await page.$eval('[data-vp-locus]',
+        (s) => s.options[s.selectedIndex].textContent || '');
+      const want = deepHref.split('#locus=')[1];
+      if (!landed.includes(want)) {
+        fail(scope, `${deepHref} landed on "${landed.trim()}", not ${want}`);
+      }
+    }
+    await page.goto(`${GENOME_ROUTE}#chrIV:1000000-1010000`, { waitUntil: 'networkidle' });
+    await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 20000 });
+    await page.waitForTimeout(1800);
+    const awayHidden = await page.$eval('[data-gb-deep]', (a) => a.hidden);
+    if (!awayHidden) fail(scope, 'the deep link is shown outside any analysed window');
+
     if (bad.length) fail(scope, `genome-data requests failed: ${bad.slice(0, 3).join(', ')}`);
     if (errors.length) fail(scope, `console/page errors: ${errors.slice(0, 2).join(' | ')}`);
     progress(`  genome: levels ${ladder.join(' ')}, cache peak ${peak}/${cap}, ${evicted} evicted, `

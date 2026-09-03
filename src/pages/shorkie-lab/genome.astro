@@ -80,6 +80,13 @@ const regions = (lociData.loci as { id: string; gene: string; chrom: string; sta
   })
   .sort((a, b) => a.label.localeCompare(b.label));
 
+// The 23 windows `/shorkie-lab/shorkie/` analyses in full, as genome coordinates. The browser uses
+// them to tell a reader when they are standing in one -- the region select above only goes the
+// other way, from a name to a place.
+const primaryWindows = (lociData.loci as { id: string; gene: string; chrom: string; start: number }[])
+  .map((l) => ({ id: l.id, gene: l.gene, chrom: l.chrom,
+                 start: l.start, end: l.start + 16384 }));
+
 const title = 'The yeast genome under Shorkie_LM';
 const description =
   'A genome browser over Shorkie_LM constraint: per-base information content for all 12,157,105 '
@@ -108,7 +115,8 @@ const breadcrumbLd = buildBreadcrumbLd([
   <script type="application/ld+json" is:inline set:html={JSON.stringify(webAppLd)} />
   <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} />
 
-  <div class="vp" data-genome-browser data-gb-default="chrVII:882,012-884,610">
+  <div class="vp" data-genome-browser data-gb-default="chrVII:882,012-884,610"
+       data-gb-primary={JSON.stringify(primaryWindows)}>
     <header class="vp-top">
       <h1 class="vp-title">Genome browser</h1>
       <span class="vp-sub">
@@ -231,6 +239,11 @@ const breadcrumbLd = buildBreadcrumbLd([
           {mitoIc !== null ? `, and chrM ${mitoIc.toFixed(3)} masked` : ''} — so most of the track
           is genuinely low and the tall columns are the exception.</span>
         </p>
+
+        <!-- BELOW the canvas, deliberately. This link appears and disappears as the view enters
+             and leaves one of the analysed windows, and anything above the canvas that does that
+             shifts the whole browser vertically while a reader is dragging it. -->
+        <a class="gb-deep" data-gb-deep hidden href="/shorkie-lab/shorkie/"></a>
 
         <section class="gb-stats-box" aria-label="This view, in numbers">
           <h3 class="gb-stats__title">This view, in numbers</h3>
