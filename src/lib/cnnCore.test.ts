@@ -216,6 +216,17 @@ describe('CNN Core: calculateReceptiveField', () => {
     expect(rf[2].receptiveField).toBe(15);
   });
 
+  it('defensively clamps non-positive kernel and stride to at least 1', () => {
+    const rf = calculateReceptiveField([
+      { kernel: 0, stride: -1, dilation: 0 },
+    ]);
+    expect(rf).toHaveLength(1);
+    expect(rf[0].kernel).toBe(1);
+    expect(rf[0].stride).toBe(1);
+    expect(rf[0].dilation).toBe(1);
+    expect(rf[0].receptiveField).toBe(1);
+  });
+
   it('returns empty array when no layers provided', () => {
     expect(calculateReceptiveField([])).toEqual([]);
   });
@@ -314,6 +325,21 @@ describe('CNN Core: convolve2D', () => {
   it('handles empty input gracefully', () => {
     expect(convolve2D([], [[1]])).toEqual({ output: [], steps: [] });
     expect(convolve2D([[1]], [])).toEqual({ output: [], steps: [] });
+  });
+
+  it('handles ragged input rows gracefully without throwing', () => {
+    const raggedInput = [
+      [1, 2, 3],
+      [4], // ragged row
+      [7, 8, 9],
+    ];
+    const kernel = [
+      [1, 1],
+      [1, 1],
+    ];
+    const { output } = convolve2D(raggedInput, kernel);
+    // At (0,0): (0,0)=1, (0,1)=2, (1,0)=4, (1,1)=undefined->0 -> sum = 7
+    expect(output[0][0]).toBe(7);
   });
 });
 

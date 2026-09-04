@@ -182,15 +182,17 @@ export function calculateReceptiveField(layers: ReceptiveFieldLayer[]): Receptiv
 
   for (let i = 0; i < layers.length; i++) {
     const layer = layers[i];
-    const dilation = layer.dilation ?? 1;
-    const effectiveKernel = dilation * (layer.kernel - 1) + 1;
+    const dilation = Math.max(1, layer.dilation ?? 1);
+    const kernel = Math.max(1, layer.kernel);
+    const stride = Math.max(1, layer.stride);
+    const effectiveKernel = dilation * (kernel - 1) + 1;
     const receptiveField = currentRF + (effectiveKernel - 1) * currentJump;
-    const jump = currentJump * layer.stride;
+    const jump = currentJump * stride;
 
     steps.push({
       layerIndex: i + 1,
-      kernel: layer.kernel,
-      stride: layer.stride,
+      kernel,
+      stride,
       dilation,
       jump,
       receptiveField,
@@ -271,7 +273,7 @@ export function convolve2D(
           const pc = outC * stride + kc * dilation;
           const inVal =
             pr >= padding && pr < padding + H && pc >= padding && pc < padding + W
-              ? input[pr - padding][pc - padding]
+              ? (input[pr - padding]?.[pc - padding] ?? 0)
               : 0;
           const kVal = kernel[kr][kc];
           const prod = inVal * kVal;
