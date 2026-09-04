@@ -15,6 +15,7 @@ import variationData from '../../data/shorkieVariation.json';
 import giaData from '../../data/shorkieGia.json';
 import spacingData from '../../data/shorkieSpacing.json';
 import positionData from '../../data/shorkiePosition.json';
+import cfData from '../../data/shorkieCounterfactual.json';
 
 // Derived, not typed. Four passages here described the enrichment figure and the knockout sweep as
 // covering fourteen windows after the set had grown to 23 -- and `shorkieBiologySummary.json`, which
@@ -51,6 +52,7 @@ const posEntries = Object.values(positionData.motifs);
 const posBest = posEntries.reduce((a, b) => (b.upstream500 > a.upstream500 ? b : a));
 const posFlat = posEntries.filter((m) => Math.abs(m.upstream500) < 0.03
   && Math.abs(m.inside500) < 0.03).map((m) => m.name);
+const cf = cfData.summary;
 
 // The genome-wide section's numbers come from the tiles that shipped, not from prose. `nLoci`
 // above already exists because four passages here said "fourteen" after the set had grown to 23.
@@ -1187,6 +1189,52 @@ const breadcrumbLd = buildBreadcrumbLd([
           <strong>{spBest.a} × {spBest.b} at {spBest.maxAtBp} bp</strong> ({spBest.maxInteraction}{' '}
           log₂), and Reb1 reaches TATA best at 31 bp.
         </p>
+        <h3 class="gb-stats__title" style="margin-top:1rem;">5 · What would the model build?</h3>
+        <p class="vp-notes" style="margin:0 0 0.4rem;">
+          The generative question, and the only one here that lets the model choose the sequence.
+          Starting from each real window, the {cfData.edits} single-base edits that most raise its
+          own gene's predicted expression — proposed by the gradient, then <em>verified by real
+          forward passes</em>, because a gradient is a local slope on a saturating function and this
+          page has already measured where that fails.
+        </p>
+        <canvas class="fr-canvas" data-cn-counterfactual height="240"
+                aria-label="Gain from twelve edits against each gene's starting predicted expression"></canvas>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>What it finds is headroom, not promoter quality.</strong> The gain runs against
+          starting expression at <strong>r = {cf.gainVsBaselineR}</strong>: the five quietest genes
+          gain <strong>{cf.quietestFiveGain}</strong> log₂ from twelve bases while the five loudest
+          gain <strong>{cf.loudestFiveGain}</strong>. HOP2 and GAL3, both repressed in this
+          baseline, move most; TDH3 and PDC1, already near the top of the model's range, barely
+          move at all. A promoter the model thinks is maximal cannot be improved by editing it.
+        </p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>And the interesting claim does not survive its control.</strong> It is tempting to
+          report that the ascent invents recognisable regulatory motifs — it does, {cf.motifsReal}{' '}
+          of them across {cf.windowsWithMotifReal} windows. But running the identical ascent on
+          dinucleotide-shuffled DNA of the same composition builds{' '}
+          <strong>{cf.motifsControl}</strong> in <strong>{cf.windowsWithMotifControl} of 23</strong>.
+          Raw, the control wins 3×; normalised by how much expression each arm actually gained, the
+          two are within 25% ({cf.motifsPerLog2Real} against {cf.motifsPerLog2Control} motifs per
+          log₂). Either way, building a Reb1 site is a property of the ascent and the base
+          composition — not evidence about promoters.
+        </p>
+        <details class="vp-how">
+          <summary>Why the control is the whole experiment</summary>
+          <div class="vp-how-body">
+            <p><strong>Without it this panel would have published a wrong result.</strong> "Given a
+            free hand, the model rebuilds real yeast regulatory elements" is the sentence the raw
+            numbers invite, and it is exactly the kind of claim that reads as a finding while being
+            a fact about the search. The shuffled arm costs the same compute and settles it.</p>
+            <p>The control is not perfect and the page says so: shuffled DNA starts near silent, so
+            it has far more room to gain and passes through more sequence space, which is why the
+            raw counts are confounded and the normalised comparison is the one quoted. Neither
+            version supports the strong claim.</p>
+            <p><strong>Edits are not restricted to the promoter.</strong> Where they land relative
+            to the TSS is recorded rather than assumed, so "the model edits promoters" would be a
+            result rather than a constraint built into the experiment.</p>
+          </div>
+        </details>
+
         <details class="vp-how">
           <summary>Why the singles are re-measured at every separation, and how phasing is read</summary>
           <div class="vp-how-body">
