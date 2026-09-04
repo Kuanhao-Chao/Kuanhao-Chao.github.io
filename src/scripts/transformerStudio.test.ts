@@ -73,6 +73,7 @@ describe('Transformer Studio: DOM Controller & Lifecycle', () => {
     const classes = new Set<string>();
     const attributes: Record<string, string> = {};
     const children: any[] = [];
+    let innerHtmlVal = '';
 
     const el: any = {
       tagName: tag.toUpperCase(),
@@ -93,7 +94,15 @@ describe('Transformer Studio: DOM Controller & Lifecycle', () => {
         }),
         contains: (cls: string) => classes.has(cls),
       },
-      innerHTML: '',
+      get innerHTML() {
+        return innerHtmlVal;
+      },
+      set innerHTML(val: string) {
+        innerHtmlVal = val;
+        if (val === '') {
+          children.length = 0;
+        }
+      },
       textContent: '',
       title: '',
       value: '',
@@ -111,6 +120,7 @@ describe('Transformer Studio: DOM Controller & Lifecycle', () => {
         if (idx !== -1) children.splice(idx, 1);
         return child;
       }),
+      children,
       select: vi.fn(),
       addEventListener: vi.fn((event: string, fn: Function) => {
         if (!listeners[event]) listeners[event] = [];
@@ -534,6 +544,71 @@ describe('Transformer Studio: DOM Controller & Lifecycle', () => {
     });
     const fallbackSuccess = await controller.copyPyTorchCode();
     expect(fallbackSuccess).toBe(true); // document.execCommand mock succeeds
+
+    controller.destroy();
+  });
+
+  it('handles indivisible GQA head configuration (e.g. H=7, H_KV=3) gracefully without throwing', () => {
+    const { container, elementsMap } = setupMockStudioDOM();
+    const controller = initTransformerStudio(container)!;
+
+    expect(() => {
+      controller.setConfig({ numHeads: 7, numKvHeads: 3 });
+    }).not.toThrow();
+
+    const gqaEl = elementsMap.get('[data-transformer-gqa-diagram]');
+    expect(gqaEl.innerHTML).toContain('Non-Integer GQA Head Ratio');
+
+    controller.destroy();
+  });
+
+  it('handles odd head dimension with RoPE active safely without crashing', () => {
+    const { container } = setupMockStudioDOM();
+    const controller = initTransformerStudio(container)!;
+
+    expect(() => {
+      // dModel=24, numHeads=5 -> raw dHead would be 4, dModel=25, numHeads=5 -> raw dHead would be 5 (odd)
+      controller.setConfig({ posEncoding: 'rope', dModel: 25, numHeads: 5 });
+    }).not.toThrow();
+
+    // dHead was rounded/constrained to an even integer
+    expect(controller.getState().config.dHead % 2).toBe(0);
+
+    controller.destroy();
+  });
+
+  it('handles DOM click events on preset and playback buttons', () => {
+    const { container, presetPromoter, playBtn, nextBtn } = setupMockStudioDOM();
+    const controller = initTransformerStudio(container)!;
+
+    // Simulate click on DNA promoter preset button
+    presetPromoter.dispatchEvent({ type: 'click' });
+    expect(controller.getState().activePresetKey).toBe('dnaPromoter');
+    expect(controller.getState().tokens).toEqual(TRANSFORMER_PRESETS.dnaPromoter.tokens);
+
+    // Simulate click on Play button
+    playBtn.dispatchEvent({ type: 'click' });
+    expect(controller.getState().isPlaying).toBe(true);
+
+    // Simulate click on Next button
+    const stageBefore = controller.getState().currentStageIndex;
+    nextBtn.dispatchEvent({ type: 'click' });
+    expect(controller.getState().currentStageIndex).toBe((stageBefore + 1) % PIPELINE_STAGES.length);
+
+    controller.destroy();
+  });
+
+  it('updates token badge selection when selectCell is called', () => {
+    const { container, elementsMap } = setupMockStudioDOM();
+    const controller = initTransformerStudio(container)!;
+
+    controller.selectCell(2, 2);
+    expect(controller.getState().selectedCell).toEqual({ i: 2, j: 2 });
+
+    const tokenList = elementsMap.get('[data-transformer-token-list]');
+    expect(tokenList.children.length).toBeGreaterThan(0);
+    const badge2 = tokenList.children[2];
+    expect(badge2.classList.contains('active')).toBe(true);
 
     controller.destroy();
   });

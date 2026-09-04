@@ -321,9 +321,15 @@ export class TransformerStudioController {
 
     // Apply positional embeddings
     if (config.posEncoding === 'rope') {
-      const ropeRes = applyRoPE(Q, K);
-      Q = ropeRes.Q_rot;
-      K = ropeRes.K_rot;
+      if (config.dHead % 2 === 0) {
+        try {
+          const ropeRes = applyRoPE(Q, K);
+          Q = ropeRes.Q_rot;
+          K = ropeRes.K_rot;
+        } catch {
+          // Graceful fallback for unexpected numerical errors
+        }
+      }
     } else if (config.posEncoding === 'sinusoidal') {
       Q = applySinusoidalPositionalEncoding(Q);
       K = applySinusoidalPositionalEncoding(K);
@@ -393,7 +399,11 @@ export class TransformerStudioController {
     if (newConfig.numKvHeads > newConfig.numHeads) {
       newConfig.numKvHeads = newConfig.numHeads;
     }
-    newConfig.dHead = Math.max(1, Math.floor(newConfig.dModel / newConfig.numHeads));
+    let rawDHead = Math.max(1, Math.floor(newConfig.dModel / newConfig.numHeads));
+    if (newConfig.posEncoding === 'rope' && rawDHead % 2 !== 0) {
+      rawDHead = Math.max(2, rawDHead - 1);
+    }
+    newConfig.dHead = rawDHead;
 
     this.state.config = newConfig;
     this.recomputeAttention();
@@ -448,6 +458,7 @@ export class TransformerStudioController {
     const N = this.state.tokens.length;
     if (i >= 0 && i < N && j >= 0 && j < N) {
       this.state.selectedCell = { i, j };
+      this.renderTokenList();
       this.renderHeatmap();
       this.renderXRay();
     }
@@ -460,6 +471,7 @@ export class TransformerStudioController {
 
   public setHoveredToken(tokenIdx: number | null) {
     this.state.hoveredTokenIdx = tokenIdx;
+    this.renderTokenList();
     this.renderHeatmapHighlights();
   }
 
@@ -1119,7 +1131,32 @@ export class TransformerStudioController {
     if (!gqaEl) return;
 
     const { numHeads, numKvHeads } = this.state.config;
-    const mapping: GqaMapping = computeGQAHeadMapping(numHeads, numKvHeads);
+
+    if (numHeads % numKvHeads !== 0) {
+      gqaEl.innerHTML = `
+        <div class="gqa-warning-card">
+          <div class="gqa-warning-title">Non-Integer GQA Head Ratio (${numHeads} Q Heads / ${numKvHeads} KV Heads)</div>
+          <p class="gqa-warning-desc">
+            Standard Grouped-Query Attention requires the Query head count (H = ${numHeads}) to be an exact integer
+            multiple of Key/Value heads (H_KV = ${numKvHeads}). Adjust the sliders so that H is divisible by H_KV.
+          </p>
+        </div>
+      `;
+      return;
+    }
+
+    let mapping: GqaMapping;
+    try {
+      mapping = computeGQAHeadMapping(numHeads, numKvHeads);
+    } catch {
+      gqaEl.innerHTML = `
+        <div class="gqa-warning-card">
+          <div class="gqa-warning-title">Invalid GQA Head Mapping</div>
+          <p class="gqa-warning-desc">Unable to compute uniform GQA routing for H=${numHeads}, H_KV=${numKvHeads}.</p>
+        </div>
+      `;
+      return;
+    }
 
     const modeName =
       numKvHeads === numHeads ? 'MHA (Multi-Head)' : numKvHeads === 1 ? 'MQA (Multi-Query)' : 'GQA (Grouped-Query)';
