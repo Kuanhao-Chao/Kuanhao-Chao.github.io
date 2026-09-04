@@ -769,6 +769,7 @@ export class MambaStudioController {
 
   public renderAll() {
     this.renderModeSwitcher();
+    this.renderPresets();
     this.renderStep();
     this.renderZOH();
     this.renderBenchmark();
@@ -777,6 +778,26 @@ export class MambaStudioController {
     this.renderPyTorch();
     if (this.state.activeMode === 'parallel') {
       this.renderParallelScan();
+    }
+  }
+
+  private renderPresets() {
+    const { activePresetKey } = this.state;
+    const presetBtns = this.container.querySelectorAll<HTMLElement>(
+      '[data-mamba-preset]'
+    );
+    presetBtns.forEach((btn) => {
+      const key = btn.dataset.mambaPreset;
+      const isActive = key === activePresetKey;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+
+    const customInput = this.container.querySelector<HTMLInputElement>(
+      '[data-mamba-custom-input]'
+    );
+    if (customInput && this.state.activePresetKey !== 'custom') {
+      customInput.value = this.state.customText;
     }
   }
 

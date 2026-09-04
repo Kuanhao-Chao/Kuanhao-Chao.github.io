@@ -25,6 +25,7 @@
     "audit:responsive": "node scripts/audit-responsive-ui.mjs",
     "audit:cnn": "node scripts/test-cnn-lab.mjs",
     "audit:transformer": "node scripts/test-transformer-lab.mjs",
+    "audit:mamba": "node scripts/test-mamba-lab.mjs",
     "audit:deep-dives": "node scripts/audit-deep-dive-ui.mjs",
     "audit:deep-dives:ci": "node scripts/audit-deep-dive-ui.mjs --smoke",
     "audit:narrow": "node scripts/audit-narrow.mjs",
