@@ -32,7 +32,7 @@ const breadcrumbLd = buildBreadcrumbLd([
   <script type="application/ld+json" is:inline set:html={JSON.stringify(webAppLd)} />
   <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} />
 
-  <div class="nn-page-wrapper">
+  <div class="nn-page-wrapper" data-cnn-studio id="cnn-studio-root">
     <!-- Top Navigation Bar -->
     <header class="nn-topbar">
       <div class="nn-brand-group">
@@ -85,9 +85,9 @@ const breadcrumbLd = buildBreadcrumbLd([
       </div>
     </div>
 
-    <!-- Main CNN Studio Container -->
-    <main data-cnn-studio id="cnn-studio-root" class="nn-main-content">
-      
+    <!-- Main CNN Studio Content -->
+    <main class="nn-main-content">
+
       <!-- ==================================================================== -->
       <!-- 2D SPATIAL VISION PANEL                                             -->
       <!-- ==================================================================== -->
@@ -97,7 +97,7 @@ const breadcrumbLd = buildBreadcrumbLd([
             <h2>2D Spatial Convolution & Feature Extraction</h2>
             <p class="nn-panel-desc">
               Interact with the discrete 2D cross-correlation kernel sliding across an input feature map.
-              Click any input cell to cycle activation values ($0 \to 4$), or select weight presets below to inspect edge detection, sharpening, and smoothing.
+              Click any input cell to cycle activation values (<Katex tex="0 \to 4" />), or select weight presets below to inspect edge detection, sharpening, and smoothing.
             </p>
           </div>
           <div class="nn-math-chip">
@@ -166,7 +166,7 @@ const breadcrumbLd = buildBreadcrumbLd([
 
             <!-- Kernel Size -->
             <div class="nn-param-item">
-              <label for="param-kernel-size" class="nn-param-label">Kernel ($K \times K$)</label>
+              <label for="param-kernel-size" class="nn-param-label">Kernel (<Katex tex="K \times K" />)</label>
               <select id="param-kernel-size" class="nn-select" data-cnn-kernel-size>
                 <option value="1">1 × 1</option>
                 <option value="3" selected>3 × 3</option>
@@ -176,7 +176,7 @@ const breadcrumbLd = buildBreadcrumbLd([
 
             <!-- Stride -->
             <div class="nn-param-item">
-              <label for="param-stride" class="nn-param-label">Stride ($S$)</label>
+              <label for="param-stride" class="nn-param-label">Stride (<Katex tex="S" />)</label>
               <select id="param-stride" class="nn-select" data-cnn-stride>
                 <option value="1" selected>Stride: 1</option>
                 <option value="2">Stride: 2</option>
@@ -186,7 +186,7 @@ const breadcrumbLd = buildBreadcrumbLd([
 
             <!-- Padding -->
             <div class="nn-param-item">
-              <label for="param-padding" class="nn-param-label">Padding ($P$)</label>
+              <label for="param-padding" class="nn-param-label">Padding (<Katex tex="P" />)</label>
               <div class="nn-input-with-pills">
                 <select id="param-padding" class="nn-select" data-cnn-padding>
                   <option value="0">0 (Valid)</option>
@@ -203,7 +203,7 @@ const breadcrumbLd = buildBreadcrumbLd([
 
             <!-- Dilation -->
             <div class="nn-param-item">
-              <label for="param-dilation" class="nn-param-label">Dilation ($d$)</label>
+              <label for="param-dilation" class="nn-param-label">Dilation (<Katex tex="d" />)</label>
               <select id="param-dilation" class="nn-select" data-cnn-dilation>
                 <option value="1" selected>1 (Standard)</option>
                 <option value="2">2 (Atrous)</option>
@@ -211,7 +211,7 @@ const breadcrumbLd = buildBreadcrumbLd([
               </select>
             </div>
 
-            <!-- Channels ($C_{in}$ / $C_{out}$) -->
+            <!-- Channels (C_in / C_out) -->
             <div class="nn-param-item">
               <label class="nn-param-label">Channels (<Katex tex="C_{\text{in}} \to C_{\text{out}}" />)</label>
               <div class="nn-dual-inputs">
@@ -262,7 +262,7 @@ const breadcrumbLd = buildBreadcrumbLd([
 
             <!-- Bias Parameter -->
             <div class="nn-param-item">
-              <label class="nn-param-label">Learnable Bias ($b$)</label>
+              <label class="nn-param-label">Learnable Bias (<Katex tex="b" />)</label>
               <div class="nn-bias-row">
                 <label class="nn-toggle-label">
                   <input type="checkbox" data-cnn-bias-toggle checked />
@@ -290,7 +290,7 @@ const breadcrumbLd = buildBreadcrumbLd([
               <div class="nn-grid-header">
                 <div class="nn-grid-heading">
                   <span class="nn-dot nn-dot--indigo"></span>
-                  <span class="nn-grid-title">Padded Input Matrix $X$</span>
+                  <span class="nn-grid-title">Padded Input Matrix <Katex tex="X" /></span>
                 </div>
                 <span class="nn-grid-hint">Click cell to cycle 0..4</span>
               </div>
@@ -309,7 +309,7 @@ const breadcrumbLd = buildBreadcrumbLd([
               <div class="nn-grid-header">
                 <div class="nn-grid-heading">
                   <span class="nn-dot nn-dot--blue"></span>
-                  <span class="nn-grid-title">Kernel Filter $W$</span>
+                  <span class="nn-grid-title">Kernel Filter <Katex tex="W" /></span>
                 </div>
                 <span class="nn-grid-hint">Click to edit weight</span>
               </div>
@@ -328,7 +328,7 @@ const breadcrumbLd = buildBreadcrumbLd([
               <div class="nn-grid-header">
                 <div class="nn-grid-heading">
                   <span class="nn-dot nn-dot--emerald"></span>
-                  <span class="nn-grid-title">Output Feature Map $Y$</span>
+                  <span class="nn-grid-title">Output Feature Map <Katex tex="Y" /></span>
                 </div>
                 <span class="nn-grid-hint">Click cell to jump</span>
               </div>
@@ -468,7 +468,7 @@ const breadcrumbLd = buildBreadcrumbLd([
             </div>
 
             <div class="nn-param-item nn-param-item--grow">
-              <label for="seq-text-input" class="nn-param-label">Target DNA Sequence ($5' \to 3'$)</label>
+              <label for="seq-text-input" class="nn-param-label">Target DNA Sequence (<Katex tex="5' \to 3'" />)</label>
               <input
                 id="seq-text-input"
                 type="text"
@@ -480,7 +480,7 @@ const breadcrumbLd = buildBreadcrumbLd([
             </div>
 
             <div class="nn-param-item">
-              <label for="seq-stride-input" class="nn-param-label">Stride ($S$)</label>
+              <label for="seq-stride-input" class="nn-param-label">Stride (<Katex tex="S" />)</label>
               <select id="seq-stride-input" class="nn-select" data-cnn-seq-stride>
                 <option value="1" selected>Stride: 1 bp</option>
                 <option value="2">Stride: 2 bp</option>
@@ -559,7 +559,7 @@ const breadcrumbLd = buildBreadcrumbLd([
             <h2>Receptive Field (RF) Expansion Ladder</h2>
             <p class="nn-panel-desc">
               Understand how input spatial context accumulates through successive convolutional operations.
-              For each layer $l$, the effective receptive field expands according to the canonical recurrence relation:
+              For each layer <Katex tex="l" />, the effective receptive field expands according to the canonical recurrence relation:
             </p>
           </div>
           <div class="nn-math-chip">
@@ -647,7 +647,7 @@ const breadcrumbLd = buildBreadcrumbLd([
                 In virtually all state-of-the-art architectures (ResNet, ConvNeXt, EfficientNet), any <code>nn.Conv2d</code> immediately preceding an <code>nn.BatchNorm2d</code> sets <code>bias=False</code>.
                 Here is the complete algebraic cancellation proof demonstrating why a convolutional bias is mathematically redundant.
               </p>
-              
+
               <p>
                 Let <Katex tex="x_i" /> denote the <Katex tex="i" />-th spatial activation patch in mini-batch <Katex tex="\mathcal{B} = \{x_1, \dots, x_m\}" />, <Katex tex="W" /> the convolutional filter weights, and <Katex tex="b" /> an arbitrary additive bias scalar:
               </p>
@@ -676,8 +676,8 @@ const breadcrumbLd = buildBreadcrumbLd([
               </div>
 
               <p>
-                Notice that the constant bias term $b$ is subtracted out identically: $b - b = 0$.
-                Batch Normalization then applies its own learnable affine transformation parameters $\gamma$ (scale) and $\beta$ (shift):
+                Notice that the constant bias term <Katex tex="b" /> is subtracted out identically: <Katex tex="b - b = 0" />.
+                Batch Normalization then applies its own learnable affine transformation parameters <Katex tex="\gamma" /> (scale) and <Katex tex="\beta" /> (shift):
               </p>
               <div class="nn-equation-box">
                 <Katex
@@ -687,7 +687,7 @@ const breadcrumbLd = buildBreadcrumbLd([
               </div>
 
               <p class="nn-callout-text">
-                <strong>Key Takeaway:</strong> The learnable parameter $\beta$ in BatchNorm already serves as the channel bias. Including <code>bias=True</code> in the convolution wastes GPU memory, increases parameter count, and calculates gradient updates for a parameter that is cancelled out at every step.
+                <strong>Key Takeaway:</strong> The learnable parameter <Katex tex="\beta" /> in BatchNorm already serves as the channel bias. Including <code>bias=True</code> in the convolution wastes GPU memory, increases parameter count, and calculates gradient updates for a parameter that is cancelled out at every step.
               </p>
             </div>
           </article>
@@ -710,7 +710,7 @@ const breadcrumbLd = buildBreadcrumbLd([
                 <div class="nn-layout-col">
                   <h4>1. Default PyTorch: NCHW (<code class="nn-code-inline">torch.contiguous_format</code>)</h4>
                   <p>
-                    Values along spatial width $W$ are contiguous in memory. However, accessing all channels $C$ for a given spatial location $(h, w)$ requires strided memory loads with step size $H \times W$.
+                    Values along spatial width <Katex tex="W" /> are contiguous in memory. However, accessing all channels <Katex tex="C" /> for a given spatial location <Katex tex="(h, w)" /> requires strided memory loads with step size <Katex tex="H \times W" />.
                   </p>
                   <p>
                     Because GEMM convolution algorithms (via <code>im2col</code> or Winograd) assemble channel vectors into matrix rows, NCHW necessitates expensive transpose/repack operations in VRAM.
@@ -719,10 +719,10 @@ const breadcrumbLd = buildBreadcrumbLd([
                 <div class="nn-layout-col">
                   <h4>2. Optimized PyTorch: NHWC (<code class="nn-code-inline">torch.channels_last</code>)</h4>
                   <p>
-                    All channels $C$ at coordinate $(n, h, w)$ reside in contiguous memory bytes.
+                    All channels <Katex tex="C" /> at coordinate <Katex tex="(n, h, w)" /> reside in contiguous memory bytes.
                   </p>
                   <p>
-                    NVIDIA Tensor Cores perform matrix multiply-accumulate ($D = A \cdot B + C$) on sub-matrices using 8-element or 16-element channel vectors directly. Under NHWC, 128-bit memory instructions (<code>LDG.128</code>) stream full channel vectors straight into Tensor Core registers without transposition overhead.
+                    NVIDIA Tensor Cores perform matrix multiply-accumulate (<Katex tex="D = A \cdot B + C" />) on sub-matrices using 8-element or 16-element channel vectors directly. Under NHWC, 128-bit memory instructions (<code>LDG.128</code>) stream full channel vectors straight into Tensor Core registers without transposition overhead.
                   </p>
                 </div>
               </div>
@@ -798,7 +798,7 @@ inputs = inputs.to(memory_format=torch.channels_last)</code></pre>
               </div>
 
               <p class="nn-callout-text">
-                For standard <Katex tex="3 \times 3" /> convolutions (<Katex tex="K=3" />) with <Katex tex="C_{\text{out}} \ge 64" />, this represents an <strong>$\approx 8\times$ to $9\times$ reduction</strong> in compute and parameters with only marginal drops in top-1 classification accuracy!
+                For standard <Katex tex="3 \times 3" /> convolutions (<Katex tex="K=3" />) with <Katex tex="C_{\text{out}} \ge 64" />, this represents an <strong><Katex tex="\approx 8\times" /> to <Katex tex="9\times" /> reduction</strong> in compute and parameters with only marginal drops in top-1 classification accuracy!
               </p>
             </div>
           </article>
