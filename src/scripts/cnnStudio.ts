@@ -998,8 +998,8 @@ export function initCnnStudio(root?: ParentNode): CnnStudioController | null {
       vggCalloutEl.innerHTML = `
         <div style="display: flex; gap: 0.75rem; align-items: flex-start; padding: 0.75rem; background: rgba(16, 185, 129, 0.08); border-left: 3px solid #10b981; border-radius: 4px; font-size: 0.85rem;">
           <div>
-            <strong>The VGG Architectural Insight:</strong> Two stacked $3 \\times 3$ convolutions yield an effective receptive field of $5 \\times 5$ ($RF = 1 + 2 + 2 = 5$).
-            For $C$ channels, two stacked layers cost $2 \\times (3^2 \\times C^2) = 18 C^2$ parameters, whereas a single $5 \\times 5$ layer costs $1 \\times (5^2 \\times C^2) = 25 C^2$.
+            <strong>The VGG Architectural Insight:</strong> Two stacked 3&times;3 convolutions yield an effective receptive field of 5&times;5 (<em>RF</em> = 1 + 2 + 2 = 5).
+            For <em>C</em> channels, two stacked layers cost 2 &times; (3<sup>2</sup> &times; <em>C</em><sup>2</sup>) = 18<em>C</em><sup>2</sup> parameters, whereas a single 5&times;5 layer costs 1 &times; (5<sup>2</sup> &times; <em>C</em><sup>2</sup>) = 25<em>C</em><sup>2</sup>.
             Stacking provides <strong>28% fewer parameters</strong>, faster compute, and introduces an extra non-linear activation (ReLU) in between!
           </div>
         </div>
