@@ -186,13 +186,13 @@ async function auditPage(page, scope, want) {
     { timeout: 60_000 },
   ).catch(() => {});
   const onLoad = await page.evaluate(() => {
-    // The coverage SVG was dissolved into the genome browser, which draws every lane in one
-    // canvas and therefore cannot disagree with itself about a coordinate. What has to be alive
-    // on load is now the BROWSER, and `chromium/genome` owns its assertions.
+    // The browser moved to /shorkie-lab/genome/ and this page got its own per-locus coverage
+    // curve back, so what has to be alive on load is the SVG again. `chromium/genome` still owns
+    // every browser assertion, on its own page.
     const svg = document.querySelector('[data-vp-track]');
     const title = svg?.querySelector('.vp-caption')?.textContent ?? '';
     return {
-      peak: Number(document.querySelector('.gw-browser [data-gb-track]')?.dataset.gbDrawn ?? '0'),
+      peak: Number(svg?.dataset.peak ?? '0'),
       title: title ?? '',
       single: Number(document.querySelector('[data-vp-single]')?.dataset.peak ?? '0'),
       source: document.querySelector('[data-vp]').dataset.vpResultSource ?? '',
@@ -695,39 +695,23 @@ async function auditTraceback(browser, baseURL, scope) {
       { timeout: 60_000 },
     );
 
-    // The browser is the navigation now: a region is MARKED there and the traceback follows via
-    // the `khc:gb-roi` bridge, rather than being dragged on a coverage curve that no longer exists.
-    const track = page.locator('.gw-browser [data-gb-track]');
+    // The coverage curve is the drag surface again. The browser moved to /shorkie-lab/genome/,
+    // so a region is selected HERE -- by dragging across the window's own predicted coverage,
+    // which is what the panel's prose promises and what `tracedBins` is keyed on.
+    const track = page.locator('[data-vp-track]');
     await track.scrollIntoViewIfNeeded();
     const box = await track.boundingBox();
-    if (!box) { fail(scope, 'no browser canvas to drag on'); return; }
+    if (!box) { fail(scope, 'no coverage curve to drag on'); return; }
 
-    // Shift-drag brushes a region anywhere on the browser canvas (plain drag pans, which is IGV's
-    // convention and why the two are not the same gesture). The brush sets the ROI, the ROI is
-    // published as `khc:gb-roi`, and the bridge turns it into `tracedBins` -- which is what every
-    // region-conditioned view below the browser is keyed on.
     const drag = async (from, to) => {
       await page.mouse.move(box.x + box.width * from, box.y + box.height * 0.5);
-      await page.keyboard.down('Shift');
       await page.mouse.down();
       await page.mouse.move(box.x + box.width * to, box.y + box.height * 0.5, { steps: 10 });
       await page.mouse.up();
-      await page.keyboard.up('Shift');
-      await page.waitForTimeout(700);
-      // Shift-drag ZOOMS to the selection; the ROI -- which is what the bridge turns into a
-      // traced region -- comes from the mark button. `mark` toggles, so clear a previous one
-      // first or the second region would unmark rather than re-mark.
-      const marked = await page.$eval('.gw-browser [data-gb-mark]',
-        (b) => /clear/i.test(b.textContent || ''));
-      if (marked) {
-        await page.click('.gw-browser [data-gb-mark]');
-        await page.waitForTimeout(200);
-      }
-      await page.click('.gw-browser [data-gb-mark]');
       await page.waitForTimeout(900);
       return page.evaluate(`(async () => {
-        // The method-logo strip is the surviving region-conditioned drawing: it renders one row a
-        // method over the traced window, so its geometry is the signature of the region.
+        // The method-logo strip is the region-conditioned drawing: one row a method over the
+        // traced window, so its geometry is the signature of the region.
         const s = document.querySelector('[data-vp-method-logos]');
         const paths = s ? s.querySelectorAll('path, rect').length : 0;
         return { ink: paths, sig: (s?.dataset.window ?? '') + '/' + paths,
@@ -844,12 +828,12 @@ async function auditExplanations(browser, baseURL, scope) {
       // Canvas tallies: a canvas has no elements to inspect, so what was DRAWN is published.
       // The annotation canvas became the browser's twelve feature lanes; `chromium/genome`
       // asserts those draw, are documented, and pack their rows.
-      ann: JSON.stringify({
-        ...JSON.parse(document.querySelector('.gw-browser [data-gb-track]')?.dataset.gbFeatures || '{}'),
-        genes: JSON.parse(
-          document.querySelector('.gw-browser [data-gb-track]')?.dataset.gbGeneTrack || '{}').features ?? 0,
-      }),
-      annStat: document.querySelector('.gw-browser [data-gb-level-out]')?.textContent ?? '',
+      // Canvas tallies: a canvas has no elements to inspect, so what was DRAWN is published. The
+      // count comes from inside the loop that fills the rectangles, so an intron painted as an
+      // exon would change it.
+      ann: document.querySelector('[data-vp-annotation]')?.dataset.vpAnnotation ?? '',
+      annGenes: document.querySelector('[data-vp-annotation]')?.dataset.vpGeneTrack ?? '{}',
+      annStat: document.querySelector('[data-vp-annstat]')?.textContent ?? '',
       enrich: Number(document.querySelector('[data-vp-enrichment]')?.dataset.vpEnrichment ?? 0),
       ko: Number(document.querySelector('[data-vp-ko]')?.dataset.vpKo ?? 0),
       koStat: document.querySelector('[data-vp-ko-stat]')?.textContent ?? '',
@@ -864,8 +848,14 @@ async function auditExplanations(browser, baseURL, scope) {
     // genes are drawn AND binding sites are drawn, both from the curated sources.
     if (!bio.ann) fail(scope, 'the annotation lanes drew nothing');
     else {
-      const lanes = JSON.parse(bio.ann);
-      if (!(Number(lanes.genes) > 0)) fail(scope, `annotation drew no gene features (${bio.ann})`);
+      // `vpAnnotation` is a "lane=count" list counted inside the drawing loop; `vpGeneTrack` is the
+      // gene renderer's own tally, from the loop that fills the exon rectangles.
+      const lanes = Object.fromEntries(bio.ann.split(',').filter(Boolean)
+        .map((p) => { const [k, v] = p.split(':'); return [k, Number(v)]; }));
+      const genes = JSON.parse(bio.annGenes || '{}');
+      if (!(Number(genes.features) > 0)) {
+        fail(scope, `annotation drew no gene features (${bio.annGenes})`);
+      }
       if (!(Number(lanes.tfbs_chip) > 0)) fail(scope, `annotation drew no binding sites (${bio.ann})`);
     }
     // The unfiltered PWM count -- the argument for the JASPAR threshold -- moved to the `tfbs_pwm`
@@ -1532,7 +1522,8 @@ const N_FIGURE_WINDOWS = JSON.parse(
 ).loci.filter((l) => l.figureWindow).length;
 const LM_ROUTE = '/shorkie-lab/shorkie_lm/';
 const GENOME_ROUTE = '/shorkie-lab/genome/';
-const LAB_ROUTES = ['/shorkie-lab/', '/shorkie-lab/shorkie/', LM_ROUTE, GENOME_ROUTE];
+const ATTN_ROUTE = '/shorkie-lab/attention/';
+const LAB_ROUTES = ['/shorkie-lab/', '/shorkie-lab/shorkie/', LM_ROUTE, GENOME_ROUTE, ATTN_ROUTE];
 
 /**
  * A newline between prose and an inline tag is DELETED by JSX, not collapsed to a space, so
@@ -2464,31 +2455,102 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     await page.click('button[data-gb-autoscale]');
     await page.waitForTimeout(800);
 
-    // 4u. The genome-wide embed on the EXPRESSION page mounts, with the model's own lanes.
+    // 4u. The two pages are SPLIT. The browser lives here and nowhere else; the expression page
+    //     answers "how did the model decide, in this window" with its own per-locus views. An
+    //     embed left behind on that page would be a second host for the same state.
     await page.goto('/shorkie-lab/shorkie/', { waitUntil: 'networkidle' });
-    await page.waitForSelector('.gw-browser[data-gb-ready="1"]', { timeout: 25000 });
+    const stray = await page.$$eval('[data-genome-browser]', (h) => h.length);
+    if (stray !== 0) fail(scope, `${stray} genome-browser host(s) left on the expression page`);
+    await page.waitForFunction(
+      () => document.querySelector('[data-vp]')?.dataset.vpTraceReady === 'true',
+      { timeout: 60_000 },
+    ).catch(() => {});
+    const perLocus = await page.evaluate(() => {
+      const inked = (sel) => {
+        const c = document.querySelector(sel);
+        if (!c) return -1;
+        const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+        let n = 0;
+        for (let i = 3; i < d.length; i += 4) if (d[i] > 8) n += 1;
+        return n / (d.length / 4);
+      };
+      const svg = document.querySelector('[data-vp-track]');
+      return {
+        curve: svg ? svg.querySelectorAll('path, rect').length : -1,
+        peak: Number(svg?.dataset.peak ?? '0'),
+        methods: inked('[data-vp-methods]'),
+        ann: inked('[data-vp-annotation]'),
+        annStat: document.querySelector('[data-vp-annstat]')?.textContent ?? '',
+      };
+    });
+    if (perLocus.curve < 10) fail(scope, `the restored coverage curve drew ${perLocus.curve} marks`);
+    if (!(perLocus.peak > 0)) fail(scope, 'the coverage curve published no peak');
+    if (perLocus.methods < 0.005) fail(scope, 'the method strip drew almost nothing');
+    if (perLocus.ann < 0.005) fail(scope, 'the annotation track drew almost nothing');
+    if (!/ChIP-supported/.test(perLocus.annStat)) {
+      fail(scope, `the annotation readout does not name its tiers: "${perLocus.annStat}"`);
+    }
+    await page.goto(GENOME_ROUTE, { waitUntil: 'networkidle' });
+    await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 25000 });
+    await page.waitForTimeout(800);
+
+    // 4u1. THE MODEL SELECTOR and THE PER-LOCUS LANE, the two things the panel gained.
+    //
+    //      The selector filters AVAILABILITY, never the enabled set, so switching away and back
+    //      must restore exactly the lanes that were on. And `sk-locus` is the only lane whose data
+    //      is an analysis pack rather than a tile pyramid: it must draw inside an analysed window,
+    //      say "no data" outside one, and follow its cascading picker.
+    const lanesOffered = () => page.$$eval('[data-gb-toggle]', (e) => e.map((x) => x.dataset.gbToggle));
+    const lanesOn = () => page.$$eval('[data-gb-toggle]',
+      (e) => e.filter((x) => x.checked).map((x) => x.dataset.gbToggle));
+    const modeCount = await page.$$eval('[data-gb-model]', (b) => b.length);
+    if (modeCount !== 3) fail(scope, `${modeCount} model modes, expected 3`);
+    const onBoth = await lanesOn();
+    await page.click('[data-gb-model="shorkie"]');
+    await page.waitForTimeout(600);
+    const shorkieOnly = await lanesOffered();
+    if (shorkieOnly.some((id) => id.startsWith('lm-'))) {
+      fail(scope, 'the Shorkie-only mode still offers a language-model lane');
+    }
+    await page.click('[data-gb-model="lm"]');
+    await page.waitForTimeout(600);
+    const lmOnly = await lanesOffered();
+    if (lmOnly.some((id) => id.startsWith('sk-'))) fail(scope, 'the LM-only mode still offers a Shorkie lane');
+    for (const keep of ['phastcons', 'genes']) {
+      if (!lmOnly.includes(keep)) fail(scope, `the ${keep} lane belongs to neither model but was hidden`);
+    }
+    await page.click('[data-gb-model="both"]');
+    await page.waitForTimeout(700);
+    const backOn = await lanesOn();
+    if (JSON.stringify(backOn) !== JSON.stringify(onBoth)) {
+      fail(scope, `switching model lost the selection: ${onBoth} -> ${backOn}`);
+    }
+
+    // Inside TDH3's window, where the analysis packs exist.
+    await page.goto(`${GENOME_ROUTE}#chrVII:876142-890478;t=sk-locus,genes`, { waitUntil: 'networkidle' });
+    await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 25000 });
+    await page.waitForTimeout(3000);
+    const locusLane = await page.evaluate(() => {
+      const cv = document.querySelector('[data-gb-track]');
+      return { lanes: JSON.parse(cv.dataset.gbLanes || '[]'),
+               picks: document.querySelectorAll('[data-gb-locus-group], [data-gb-locus-key], [data-gb-locus-run]').length };
+    });
+    if (!locusLane.lanes.includes('sk-locus')) fail(scope, 'the per-locus lane did not draw inside a window');
+    if (locusLane.picks !== 3) fail(scope, `${locusLane.picks} cascading selects, expected 3`);
+    const beforePick = await page.locator('[data-gb-track]').screenshot();
+    await page.selectOption('[data-gb-locus-key]', { index: 30 });
     await page.waitForTimeout(2500);
-    const emb = await page.$eval('.gw-browser [data-gb-track]', (c) => ({ ...c.dataset }));
-    const embLanes = JSON.parse(emb.gbLanes || '[]');
-    for (const need of ['sk-rnaseq', 'sk-gradient', 'genes']) {
-      if (!embLanes.includes(need)) fail(scope, `the embed is missing the ${need} lane`);
+    const afterPick = await page.locator('[data-gb-track]').screenshot();
+    if (Buffer.compare(beforePick, afterPick) === 0) {
+      fail(scope, 'choosing a different output track redrew nothing');
     }
-    if (Number(emb.gbDrawn) < 400) fail(scope, `the embed drew ${emb.gbDrawn} columns`);
-    // The backing store must match its box. A minimum-width floor makes it wider than the element,
-    // `width: 100%` scales it back, and every horizontal coordinate is off by that ratio.
-    const embGeom = await page.$eval('.gw-browser [data-gb-track]',
-      (c) => ({ w: c.width, box: Math.round(c.getBoundingClientRect().width * devicePixelRatio) }));
-    if (Math.abs(embGeom.w - embGeom.box) > 2) {
-      fail(scope, `embed backing store ${embGeom.w} vs box ${embGeom.box}`);
-    }
-    // The chips must be INSIDE the host, or the controller never binds them.
-    const chips = await page.$$eval('.gw-browser [data-gb-chip]', (b) => b.length);
-    if (chips < 10) fail(scope, `only ${chips} locus chips inside the embed host`);
-    const beforeChip = await page.$eval('.gw-browser [data-gb-readout]', (e) => e.textContent);
-    await page.click('.gw-browser [data-gb-chip]:nth-of-type(5)');
+    // A per-locus lane requests no tiles: they do not exist, and asking for them 404s.
+    const bad = [];
+    page.on('response', (r) => { if (r.status() >= 400) bad.push(new URL(r.url()).pathname); });
+    await page.selectOption('[data-gb-locus-key]', { index: 12 });
     await page.waitForTimeout(1500);
-    const afterChip = await page.$eval('.gw-browser [data-gb-readout]', (e) => e.textContent);
-    if (beforeChip === afterChip) fail(scope, 'a locus chip in the embed navigated nowhere');
+    const strayTiles = bad.filter((u) => u.includes('sk-locus'));
+    if (strayTiles.length) fail(scope, `the per-locus lane requested tiles: ${strayTiles[0]}`);
 
     // 4u2. THE ANNOTATION OVERLAY, and the check the panel it replaced never had.
     //
@@ -2636,7 +2698,7 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     progress(`  genome: levels ${ladder.join(' ')}, cache peak ${peak}/${cap}, ${evicted} evicted, `
       + `${searchN} genes searchable, ${live / canvasesPerController} controller(s) live after `
       + '4 round trips, '
-      + `embed lanes ${embLanes.join('+')}`);
+      + `per-locus lane ${locusLane.lanes.join('+')}`);
   } finally {
     await context.close();
   }
@@ -2858,6 +2920,66 @@ async function auditLanguageModel(browser, baseURL, scope) {
   }
 }
 
+async function auditAttentionStudio(browser, baseURL, scope) {
+  const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1200 } });
+  const page = await context.newPage();
+  const consoleErrors = [];
+  page.on('pageerror', (e) => consoleErrors.push(String(e.message)));
+  page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text()); });
+  try {
+    await page.goto(ATTN_ROUTE, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1000);
+
+    const st = await page.evaluate(() => {
+      return {
+        h1: document.querySelectorAll('h1').length,
+        loci: document.querySelectorAll('[data-locus-select] option').length,
+        ladderBtns: document.querySelectorAll('[data-layer-select]').length,
+        trackCanvas: !!document.querySelector('[data-track-canvas]'),
+        coneCanvas: !!document.querySelector('[data-cone-canvas]'),
+        matrixCanvas: !!document.querySelector('[data-matrix-canvas]'),
+        convCanvas: !!document.querySelector('[data-conv-canvas]'),
+        paradigms: document.querySelectorAll('[data-card-paradigm]').length,
+        distMetric: document.querySelector('[data-metric-distance]')?.textContent?.trim(),
+      };
+    });
+
+    if (st.h1 !== 1) fail(scope, `expected exactly one <h1>, found ${st.h1}`);
+    if (st.loci !== N_LOCI) fail(scope, `expected ${N_LOCI} loci options, found ${st.loci}`);
+    if (st.ladderBtns !== 20) fail(scope, `expected 20 ladder layer buttons, found ${st.ladderBtns}`);
+    if (!st.trackCanvas) fail(scope, 'track canvas missing');
+    if (!st.coneCanvas) fail(scope, 'receptive cone canvas missing');
+    if (!st.matrixCanvas) fail(scope, 'matrix canvas missing');
+    if (!st.convCanvas) fail(scope, 'convergence canvas missing');
+    if (st.paradigms !== 3) fail(scope, `expected 3 paradigm cards, found ${st.paradigms}`);
+    if (!st.distMetric) fail(scope, 'distance metric missing');
+
+    // Test slider interaction
+    await page.locator('[data-compare-distance]').fill('12000');
+    await page.waitForTimeout(300);
+    const distText = await page.evaluate(() => document.querySelector('[data-compare-dist-label]')?.textContent?.trim());
+    if (!distText?.includes('12,000')) fail(scope, `slider interaction failed, got ${distText}`);
+
+    // Test 320px narrow viewport overflow
+    await page.setViewportSize({ width: 320, height: 700 });
+    await page.waitForTimeout(500);
+    const narrowOver = await page.evaluate(() => {
+      const pane = document.querySelector('.vp-scroll');
+      return pane ? pane.scrollWidth - pane.clientWidth : 0;
+    });
+    if (narrowOver > 1) {
+      fail(scope, `at 320px the scroll pane overflows by ${narrowOver}px`);
+    }
+
+    if (consoleErrors.length) {
+      fail(scope, `${consoleErrors.length} console error(s): ${consoleErrors[0].slice(0, 120)}`);
+    }
+  } finally {
+    await context.close();
+  }
+}
+
+
 /**
  * The same base must land at the same x on every full-window track.
  *
@@ -2980,6 +3102,8 @@ async function main() {
           await captureFailure('chromium/explanations', () => auditExplanations(browser, baseURL, 'chromium/explanations'));
           progress('chromium/language-model');
           await captureFailure('chromium/language-model', () => auditLanguageModel(browser, baseURL, 'chromium/language-model'));
+          progress('chromium/attention-studio');
+          await captureFailure('chromium/attention-studio', () => auditAttentionStudio(browser, baseURL, 'chromium/attention-studio'));
           progress('chromium/genome (level ladder, cache bound, axis, deep links)');
           await captureFailure('chromium/genome', () => auditGenomeBrowser(browser, baseURL, 'chromium/genome'));
           progress('chromium/axis-alignment (5 widths)');

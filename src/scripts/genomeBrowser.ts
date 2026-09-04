@@ -1414,7 +1414,10 @@ export function initGenomeBrowser(host: HTMLElement): void {
     const rule = css('--color-rule', '#d8d8d8');
     const accent = css('--color-accent', '#3d6ea8');
 
-    const spec = index.tracks.find((t) => enabled.get(t.id)) ?? index.tracks[0];
+    // Never the per-locus lane: it has no tiles, so a chromosome-wide overview of it would be
+    // a 404 and, even if it were not, 3.1% of a chromosome is not an overview.
+    const spec = index.tracks.find((t) => enabled.get(t.id) && t.id !== LOCUS_LANE)
+      ?? index.tracks.find((t) => t.id !== LOCUS_LANE) ?? index.tracks[0];
     // The COARSEST level this particular track has. A coarse track's ladder stops short of the
     // fine end, never the coarse one, so this is always its last entry -- but reading the index's
     // global ladder would ask a 16 bp track for a level it may not own.
@@ -2539,6 +2542,16 @@ export function initGenomeBrowser(host: HTMLElement): void {
     // The level this TRACK is being drawn at -- following the drawn level is what stops a hover
     // pulling a 65,536-base L0 tile the view cannot show, and following the track's OWN ladder is
     // what stops it asking a 16 bp track for a level that does not exist.
+    if (spec.id === LOCUS_LANE) {
+      const pr = primaryHere();
+      const ok = pr && locusRow && locusRow.locus === pr.id && locusRow.track === locusTrackIdx;
+      if (!ok) return `${spec.short}: no data here (only inside the ${primaries.length} analysed windows)`;
+      const b = Math.floor((bp - pr!.start - LOCUS_CROP) / LOCUS_BIN_BP);
+      if (b < 0 || b >= LOCUS_BINS) return `${spec.short}: no data (outside the scored interior)`;
+      const lv = locusRow!.row[b];
+      const ls = Math.abs(lv) >= 100 ? lv.toFixed(1) : Math.abs(lv) >= 1 ? lv.toFixed(2) : lv.toFixed(4);
+      return `${TRACK_NAMES[locusTrackIdx] ?? spec.short}: ${ls} per 16 bp`;
+    }
     const lvl = levelForBpPerPixel((view.end - view.start) / inner,
       levelsForTrack(spec, index.levels));
     const bin = Math.floor(Math.floor(bp) / lvl.binBp);

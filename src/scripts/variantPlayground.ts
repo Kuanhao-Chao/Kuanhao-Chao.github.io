@@ -3345,9 +3345,21 @@ export function initVariantPlayground(root: ParentNode = document) {
   }
 
   /** What the annotation track drew, for the audit and for the legend. */
+  /**
+   * What the annotation canvas actually drew, by lane and by evidence tier.
+   *
+   * Counted from `drawnAnnotations()` -- the filtered set the canvas paints -- and published on the
+   * element, because a canvas has no children to inspect and a feature drawn in the wrong lane, or
+   * a tier silently merged into another, is invisible to every other check.
+   */
   function annotationTally(): Record<string, number> {
     const out: Record<string, number> = {};
     for (const f of drawnAnnotations()) {
+      if (f.cls === 'tfbs') {
+        const tier = motifTier(f);
+        if (tier) out[`tfbs_${tier}`] = (out[`tfbs_${tier}`] ?? 0) + 1;
+        continue;
+      }
       const lane = ANNOTATION_CLASSES[f.cls]?.lane ?? 'other';
       out[lane] = (out[lane] ?? 0) + 1;
     }
@@ -3379,6 +3391,9 @@ export function initVariantPlayground(root: ParentNode = document) {
       return;
     }
     const max = Math.max(...vals, 1e-6);
+    // Published at full precision: a canvas-adjacent SVG has no element carrying its peak, and
+    // reading it back off a `toFixed(2)` label once folded two different values into one string.
+    trackSvg.dataset.peak = String(max);
     const plotTop = PLOT.top;
     const plotBottom = H - PLOT.bottom - GENE_H;
     const locus = LOCI[locusIndex];
