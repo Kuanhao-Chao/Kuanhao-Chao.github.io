@@ -8,6 +8,7 @@
 
 import type { BayGraph, BayNode, BayEdge, NodeType, RoadType, LatLngPoint } from './bayGraph';
 import { haversineDistanceMiles } from './realWorldRoadGraph';
+import { runPathfinding } from './pathfinding';
 
 export type CityRoadType = RoadType | 'local';
 
@@ -917,4 +918,703 @@ export function cityRoadGraphToBayGraph(cityGraph: CityRoadGraph): BayGraph {
   }
 
   return { nodes, edges, adjacency };
+}
+
+// ==========================================
+// GLOBAL CITY ROAD NETWORKS
+// ==========================================
+
+export interface TurnManeuver {
+  instruction: string;
+  distanceMiles: number;
+  durationMinutes: number;
+  lat: number;
+  lng: number;
+}
+
+export interface EndpointInput {
+  id?: string;
+  name: string;
+  lat: number;
+  lng: number;
+  district?: string;
+}
+
+export interface FullCityGraphResult {
+  graph: BayGraph;
+  startId: string;
+  goalId: string;
+  maneuvers: TurnManeuver[];
+  summary: string;
+  totalDistanceMiles: number;
+  totalDurationMinutes: number;
+  cityRoadGraph: CityRoadGraph;
+}
+
+let cachedNycGraph: CityRoadGraph | null = null;
+let cachedTokyoGraph: CityRoadGraph | null = null;
+let cachedLondonGraph: CityRoadGraph | null = null;
+let cachedTaipeiGraph: CityRoadGraph | null = null;
+
+/**
+ * Builds the comprehensive New York City full city road network (Manhattan & Brooklyn).
+ */
+export function buildNycCityRoadGraph(): CityRoadGraph {
+  if (cachedNycGraph) return cachedNycGraph;
+
+  const nodes = new Map<string, CityIntersection>();
+  const edges: CityRoadSegment[] = [];
+  const adjacency = new Map<string, Array<{ target: string; segment: CityRoadSegment }>>();
+
+  function addNode(id: string, name: string, district: string, lat: number, lng: number, type: NodeType = 'junction'): void {
+    if (!nodes.has(id)) {
+      nodes.set(id, { id, name, district, lat, lng, type });
+      adjacency.set(id, []);
+    }
+  }
+
+  function addEdge(
+    u: string,
+    v: string,
+    streetName: string,
+    roadType: CityRoadType,
+    speedLimit: number,
+    bidirectional = true,
+    path?: LatLngPoint[]
+  ): void {
+    const nodeU = nodes.get(u);
+    const nodeV = nodes.get(v);
+    if (!nodeU || !nodeV) return;
+
+    let dist = 0;
+    if (path && path.length >= 2) {
+      for (let i = 0; i < path.length - 1; i++) {
+        dist += haversineDistanceMiles(path[i].lat, path[i].lng, path[i + 1].lat, path[i + 1].lng);
+      }
+    } else {
+      dist = haversineDistanceMiles(nodeU.lat, nodeU.lng, nodeV.lat, nodeV.lng);
+    }
+    const distanceMiles = Math.max(0.04, Math.round(dist * 100) / 100);
+    const durationMinutes = Math.round((distanceMiles / speedLimit) * 60 * 100) / 100;
+
+    const forwardPath = path && path.length >= 2
+      ? [...path]
+      : [{ lat: nodeU.lat, lng: nodeU.lng }, { lat: nodeV.lat, lng: nodeV.lng }];
+
+    const segForward: CityRoadSegment = {
+      u,
+      v,
+      streetName,
+      roadType,
+      speedLimit,
+      distanceMiles,
+      durationMinutes,
+      oneWay: !bidirectional,
+      path: forwardPath,
+    };
+    edges.push(segForward);
+    adjacency.get(u)?.push({ target: v, segment: segForward });
+
+    if (bidirectional) {
+      const backwardPath = path && path.length >= 2
+        ? [...path].reverse()
+        : [{ lat: nodeV.lat, lng: nodeV.lng }, { lat: nodeU.lat, lng: nodeU.lng }];
+
+      const segBackward: CityRoadSegment = {
+        u: v,
+        v: u,
+        streetName,
+        roadType,
+        speedLimit,
+        distanceMiles,
+        durationMinutes,
+        path: backwardPath,
+      };
+      edges.push(segBackward);
+      adjacency.get(v)?.push({ target: u, segment: segBackward });
+    }
+  }
+
+  // Manhattan Core Grid
+  const nycNodes = [
+    { id: 'nyc_times_sq', name: 'Times Square (Broadway & 42nd St)', lat: 40.7580, lng: -73.9855, dist: 'Midtown' },
+    { id: 'nyc_columbus_circle', name: 'Columbus Circle & Central Park South', lat: 40.7681, lng: -73.9819, dist: 'Midtown' },
+    { id: 'nyc_rockefeller', name: 'Rockefeller Center (5th Ave & 50th St)', lat: 40.7587, lng: -73.9787, dist: 'Midtown' },
+    { id: 'nyc_grand_central', name: 'Grand Central Terminal (Park Ave & 42nd)', lat: 40.7527, lng: -73.9772, dist: 'Midtown' },
+    { id: 'nyc_herald_sq', name: "Herald Square / Macy's (Broadway & 34th)", lat: 40.7505, lng: -73.9876, dist: 'Midtown' },
+    { id: 'nyc_empire_state', name: 'Empire State Building (5th Ave & 34th)', lat: 40.7484, lng: -73.9857, dist: 'Midtown' },
+    { id: 'nyc_flatiron', name: 'Flatiron Building & Madison Sq Park (Broadway & 23rd)', lat: 40.7411, lng: -73.9897, dist: 'Flatiron' },
+    { id: 'nyc_union_sq', name: 'Union Square (Broadway & 14th St)', lat: 40.7359, lng: -73.9911, dist: 'Union Sq' },
+    { id: 'nyc_washington_sq', name: 'Washington Square Park / NYU', lat: 40.7308, lng: -73.9973, dist: 'Greenwich Village' },
+    { id: 'nyc_soho', name: 'SoHo (Broadway & Prince St)', lat: 40.7250, lng: -73.9980, dist: 'SoHo' },
+    { id: 'nyc_chinatown', name: 'Chinatown (Canal St & Centre St)', lat: 40.7180, lng: -74.0000, dist: 'Chinatown' },
+    { id: 'nyc_city_hall', name: 'City Hall Park & Brooklyn Bridge Approach', lat: 40.7128, lng: -74.0060, dist: 'Civic Center' },
+    { id: 'nyc_wtc', name: 'World Trade Center / Oculus', lat: 40.7115, lng: -74.0125, dist: 'FiDi' },
+    { id: 'nyc_wall_st', name: 'Wall Street & New York Stock Exchange', lat: 40.7070, lng: -74.0090, dist: 'FiDi' },
+    { id: 'nyc_battery_park', name: 'Battery Park & Statue of Liberty Ferry', lat: 40.7033, lng: -74.0170, dist: 'Battery Park' },
+    { id: 'nyc_fdr_midtown', name: 'FDR Drive at 42nd St (UN Headquarters)', lat: 40.7495, lng: -73.9680, dist: 'East River' },
+    { id: 'nyc_fdr_downtown', name: 'FDR Drive at South St Seaport', lat: 40.7075, lng: -74.0015, dist: 'Seaport' },
+    { id: 'nyc_west_side_midtown', name: 'West Side Highway at 42nd St (Pier 84)', lat: 40.7620, lng: -74.0010, dist: 'Hudson River' },
+    { id: 'nyc_west_side_downtown', name: 'West Side Highway at Battery Place', lat: 40.7060, lng: -74.0175, dist: 'Hudson River' },
+    { id: 'nyc_brooklyn_bridge_manhattan', name: 'Brooklyn Bridge Manhattan Tower', lat: 40.7100, lng: -74.0000, dist: 'East River' },
+    { id: 'nyc_brooklyn_bridge_brooklyn', name: 'Brooklyn Bridge Brooklyn Tower', lat: 40.7040, lng: -73.9940, dist: 'East River' },
+    { id: 'nyc_brooklyn_promenade', name: 'Brooklyn Bridge Promenade & DUMBO', lat: 40.7061, lng: -73.9969, dist: 'Brooklyn' },
+    { id: 'nyc_downtown_brooklyn', name: 'Downtown Brooklyn (Cadman Plaza / Fulton St)', lat: 40.6960, lng: -73.9900, dist: 'Brooklyn' },
+    { id: 'nyc_manhattan_bridge', name: 'Manhattan Bridge (Canal St to Flatbush Ave)', lat: 40.7075, lng: -73.9900, dist: 'East River' },
+  ];
+
+  for (const n of nycNodes) {
+    addNode(n.id, n.name, n.dist, n.lat, n.lng, n.id.includes('bridge') ? 'bridge' : 'city');
+  }
+
+  // Broadway Spine
+  addEdge('nyc_columbus_circle', 'nyc_times_sq', 'Broadway Southbound', 'arterial', 25);
+  addEdge('nyc_times_sq', 'nyc_herald_sq', 'Broadway / 7th Ave', 'arterial', 25);
+  addEdge('nyc_herald_sq', 'nyc_flatiron', 'Broadway Southbound', 'arterial', 25);
+  addEdge('nyc_flatiron', 'nyc_union_sq', 'Broadway Southbound', 'arterial', 25);
+  addEdge('nyc_union_sq', 'nyc_soho', 'Broadway Corridor', 'arterial', 25);
+  addEdge('nyc_soho', 'nyc_chinatown', 'Broadway into Canal St', 'arterial', 25);
+  addEdge('nyc_chinatown', 'nyc_city_hall', 'Centre Street Corridor', 'arterial', 25);
+  addEdge('nyc_city_hall', 'nyc_wtc', 'Vesey / Fulton St', 'local', 20);
+  addEdge('nyc_city_hall', 'nyc_wall_st', 'Broadway into Wall Street', 'local', 20);
+  addEdge('nyc_wall_st', 'nyc_battery_park', 'Broadway / State St', 'local', 20);
+
+  // 5th Avenue Spine
+  addEdge('nyc_columbus_circle', 'nyc_rockefeller', 'Central Park South to 5th Ave', 'arterial', 25);
+  addEdge('nyc_rockefeller', 'nyc_grand_central', '5th Ave & 42nd St', 'arterial', 25);
+  addEdge('nyc_grand_central', 'nyc_empire_state', 'Park Ave to 34th St', 'arterial', 25);
+  addEdge('nyc_empire_state', 'nyc_flatiron', '5th Avenue Southbound', 'arterial', 25);
+  addEdge('nyc_flatiron', 'nyc_washington_sq', '5th Ave into Washington Sq Arch', 'arterial', 25);
+  addEdge('nyc_washington_sq', 'nyc_soho', 'Houston St to Prince St', 'arterial', 25);
+
+  // East-West Connectors
+  addEdge('nyc_times_sq', 'nyc_rockefeller', '42nd St / 48th St', 'local', 20);
+  addEdge('nyc_times_sq', 'nyc_grand_central', '42nd Street Crosstown', 'arterial', 25);
+  addEdge('nyc_herald_sq', 'nyc_empire_state', '34th Street Crosstown', 'arterial', 25);
+  addEdge('nyc_union_sq', 'nyc_washington_sq', '14th St to University Pl', 'local', 20);
+
+  // Highways
+  addEdge('nyc_grand_central', 'nyc_fdr_midtown', '42nd St to FDR Drive', 'arterial', 30);
+  addEdge('nyc_fdr_midtown', 'nyc_fdr_downtown', 'FDR Drive Southbound (East River Scenic)', 'highway', 50);
+  addEdge('nyc_fdr_downtown', 'nyc_battery_park', 'FDR Drive Underpass to Battery', 'highway', 45);
+
+  addEdge('nyc_times_sq', 'nyc_west_side_midtown', '42nd St to West Side Hwy', 'arterial', 30);
+  addEdge('nyc_west_side_midtown', 'nyc_west_side_downtown', 'West Side Highway (12th Ave)', 'highway', 50);
+  addEdge('nyc_west_side_downtown', 'nyc_battery_park', 'Battery Place Tunnel', 'arterial', 30);
+  addEdge('nyc_west_side_downtown', 'nyc_wtc', 'West St to Oculus', 'arterial', 30);
+
+  // Brooklyn Bridge with curved coordinates
+  addEdge('nyc_city_hall', 'nyc_brooklyn_bridge_manhattan', 'Brooklyn Bridge Manhattan Ramp', 'bridge', 45);
+  addEdge('nyc_brooklyn_bridge_manhattan', 'nyc_brooklyn_bridge_brooklyn', 'Brooklyn Bridge Main Cable Span', 'bridge', 45, true, [
+    { lat: 40.7100, lng: -74.0000 },
+    { lat: 40.7080, lng: -73.9980 },
+    { lat: 40.7061, lng: -73.9969 },
+    { lat: 40.7040, lng: -73.9940 },
+  ]);
+  addEdge('nyc_brooklyn_bridge_brooklyn', 'nyc_brooklyn_promenade', 'Brooklyn Bridge Cadman Plaza Ramp', 'bridge', 40);
+  addEdge('nyc_brooklyn_promenade', 'nyc_downtown_brooklyn', 'Cadman Plaza West', 'arterial', 30);
+
+  // Alternative Manhattan Bridge
+  addEdge('nyc_chinatown', 'nyc_manhattan_bridge', 'Canal St Bridge Approach', 'arterial', 30);
+  addEdge('nyc_manhattan_bridge', 'nyc_downtown_brooklyn', 'Manhattan Bridge to Flatbush Ave', 'bridge', 45);
+
+  cachedNycGraph = { nodes, edges, adjacency };
+  return cachedNycGraph;
+}
+
+/**
+ * Builds the comprehensive Tokyo central road network (Shibuya, Roppongi, Tokyo Tower, Ginza).
+ */
+export function buildTokyoCityRoadGraph(): CityRoadGraph {
+  if (cachedTokyoGraph) return cachedTokyoGraph;
+
+  const nodes = new Map<string, CityIntersection>();
+  const edges: CityRoadSegment[] = [];
+  const adjacency = new Map<string, Array<{ target: string; segment: CityRoadSegment }>>();
+
+  function addNode(id: string, name: string, district: string, lat: number, lng: number, type: NodeType = 'junction'): void {
+    if (!nodes.has(id)) {
+      nodes.set(id, { id, name, district, lat, lng, type });
+      adjacency.set(id, []);
+    }
+  }
+
+  function addEdge(
+    u: string,
+    v: string,
+    streetName: string,
+    roadType: CityRoadType,
+    speedLimit: number,
+    bidirectional = true,
+    path?: LatLngPoint[]
+  ): void {
+    const nodeU = nodes.get(u);
+    const nodeV = nodes.get(v);
+    if (!nodeU || !nodeV) return;
+
+    let dist = 0;
+    if (path && path.length >= 2) {
+      for (let i = 0; i < path.length - 1; i++) {
+        dist += haversineDistanceMiles(path[i].lat, path[i].lng, path[i + 1].lat, path[i + 1].lng);
+      }
+    } else {
+      dist = haversineDistanceMiles(nodeU.lat, nodeU.lng, nodeV.lat, nodeV.lng);
+    }
+    const distanceMiles = Math.max(0.04, Math.round(dist * 100) / 100);
+    const durationMinutes = Math.round((distanceMiles / speedLimit) * 60 * 100) / 100;
+
+    const forwardPath = path && path.length >= 2
+      ? [...path]
+      : [{ lat: nodeU.lat, lng: nodeU.lng }, { lat: nodeV.lat, lng: nodeV.lng }];
+
+    const segForward: CityRoadSegment = {
+      u,
+      v,
+      streetName,
+      roadType,
+      speedLimit,
+      distanceMiles,
+      durationMinutes,
+      oneWay: !bidirectional,
+      path: forwardPath,
+    };
+    edges.push(segForward);
+    adjacency.get(u)?.push({ target: v, segment: segForward });
+
+    if (bidirectional) {
+      const backwardPath = path && path.length >= 2
+        ? [...path].reverse()
+        : [{ lat: nodeV.lat, lng: nodeV.lng }, { lat: nodeU.lat, lng: nodeU.lng }];
+
+      const segBackward: CityRoadSegment = {
+        u: v,
+        v: u,
+        streetName,
+        roadType,
+        speedLimit,
+        distanceMiles,
+        durationMinutes,
+        path: backwardPath,
+      };
+      edges.push(segBackward);
+      adjacency.get(v)?.push({ target: u, segment: segBackward });
+    }
+  }
+
+  const tokyoNodes = [
+    { id: 'tky_shibuya', name: 'Shibuya Crossing & Hachiko', lat: 35.6595, lng: 139.7005, dist: 'Shibuya' },
+    { id: 'tky_harajuku', name: 'Harajuku / Meiji Jingu', lat: 35.6702, lng: 139.7027, dist: 'Shibuya' },
+    { id: 'tky_omotesando', name: 'Omotesando Boulevard', lat: 35.6652, lng: 139.7123, dist: 'Minato' },
+    { id: 'tky_aoyama', name: 'Aoyama-itchome Crossing', lat: 35.6728, lng: 139.7240, dist: 'Minato' },
+    { id: 'tky_roppongi', name: 'Roppongi Crossing & Dori', lat: 35.6628, lng: 139.7314, dist: 'Roppongi' },
+    { id: 'tky_roppongi_hills', name: 'Roppongi Hills & Mori Tower', lat: 35.6605, lng: 139.7292, dist: 'Roppongi' },
+    { id: 'tky_azabu', name: 'Azabu-Juban Shopping Street', lat: 35.6550, lng: 139.7360, dist: 'Minato' },
+    { id: 'tky_tokyo_tower', name: 'Tokyo Tower & Shiba Park', lat: 35.6586, lng: 139.7454, dist: 'Shiba' },
+    { id: 'tky_toranomon', name: 'Toranomon Hills', lat: 35.6668, lng: 139.7495, dist: 'Toranomon' },
+    { id: 'tky_shimbashi', name: 'Shimbashi Station Gateway', lat: 35.6664, lng: 139.7583, dist: 'Minato' },
+    { id: 'tky_ginza', name: 'Ginza 4-chome Crossing', lat: 35.6719, lng: 139.7649, dist: 'Ginza' },
+    { id: 'tky_hibiya', name: 'Hibiya Park & Imperial Palace Outer Garden', lat: 35.6750, lng: 139.7560, dist: 'Chiyoda' },
+    { id: 'tky_tokyo_stn', name: 'Tokyo Station Marunouchi', lat: 35.6812, lng: 139.7671, dist: 'Marunouchi' },
+    { id: 'tky_rainbow_bridge', name: 'Rainbow Bridge (Daiba Line)', lat: 35.6366, lng: 139.7631, dist: 'Tokyo Bay' },
+    { id: 'tky_odaiba', name: 'Odaiba Seaside Park', lat: 35.6290, lng: 139.7750, dist: 'Odaiba' },
+  ];
+
+  for (const n of tokyoNodes) {
+    addNode(n.id, n.name, n.dist, n.lat, n.lng, n.id.includes('bridge') ? 'bridge' : 'city');
+  }
+
+  addEdge('tky_shibuya', 'tky_harajuku', 'Meiji Dori Northbound', 'arterial', 35);
+  addEdge('tky_harajuku', 'tky_omotesando', 'Omotesando Dori', 'arterial', 30);
+  addEdge('tky_shibuya', 'tky_omotesando', 'Aoyama Dori Eastbound', 'arterial', 35);
+  addEdge('tky_omotesando', 'tky_aoyama', 'Aoyama Dori', 'arterial', 40);
+  addEdge('tky_shibuya', 'tky_roppongi_hills', 'Roppongi Dori (Route 412)', 'arterial', 35);
+  addEdge('tky_roppongi_hills', 'tky_roppongi', 'Roppongi Keyakizaka Dori', 'local', 25);
+  addEdge('tky_aoyama', 'tky_roppongi', 'Gaien-Higashi Dori', 'arterial', 35);
+  addEdge('tky_roppongi', 'tky_azabu', 'Azabu Dori Southbound', 'arterial', 30);
+  addEdge('tky_roppongi', 'tky_tokyo_tower', 'Sakurada Dori to Tokyo Tower', 'arterial', 35);
+  addEdge('tky_azabu', 'tky_tokyo_tower', 'Akabanebashi Crossing', 'local', 25);
+  addEdge('tky_tokyo_tower', 'tky_toranomon', 'Atago Dori / Shintora Dori', 'arterial', 35);
+  addEdge('tky_toranomon', 'tky_shimbashi', 'Shintora Dori Eastbound', 'arterial', 35);
+  addEdge('tky_shimbashi', 'tky_ginza', 'Chuo Dori into Ginza', 'arterial', 30);
+  addEdge('tky_ginza', 'tky_tokyo_stn', 'Chuo Dori to Marunouchi', 'arterial', 30);
+  addEdge('tky_hibiya', 'tky_tokyo_stn', 'Hibiya Dori Northbound', 'arterial', 35);
+  addEdge('tky_toranomon', 'tky_hibiya', 'Hibiya Dori', 'arterial', 35);
+  addEdge('tky_shimbashi', 'tky_rainbow_bridge', 'Shuto Expressway Route 1 Haneda Line', 'highway', 60);
+  addEdge('tky_rainbow_bridge', 'tky_odaiba', 'Rainbow Bridge Suspension Span (Tokyo Bay)', 'bridge', 50, true, [
+    { lat: 35.6366, lng: 139.7631 },
+    { lat: 35.6330, lng: 139.7690 },
+    { lat: 35.6290, lng: 139.7750 },
+  ]);
+
+  cachedTokyoGraph = { nodes, edges, adjacency };
+  return cachedTokyoGraph;
+}
+
+/**
+ * Builds the comprehensive London central road network (Westminster to Tower Bridge).
+ */
+export function buildLondonCityRoadGraph(): CityRoadGraph {
+  if (cachedLondonGraph) return cachedLondonGraph;
+
+  const nodes = new Map<string, CityIntersection>();
+  const edges: CityRoadSegment[] = [];
+  const adjacency = new Map<string, Array<{ target: string; segment: CityRoadSegment }>>();
+
+  function addNode(id: string, name: string, district: string, lat: number, lng: number, type: NodeType = 'junction'): void {
+    if (!nodes.has(id)) {
+      nodes.set(id, { id, name, district, lat, lng, type });
+      adjacency.set(id, []);
+    }
+  }
+
+  function addEdge(
+    u: string,
+    v: string,
+    streetName: string,
+    roadType: CityRoadType,
+    speedLimit: number,
+    bidirectional = true,
+    path?: LatLngPoint[]
+  ): void {
+    const nodeU = nodes.get(u);
+    const nodeV = nodes.get(v);
+    if (!nodeU || !nodeV) return;
+
+    let dist = 0;
+    if (path && path.length >= 2) {
+      for (let i = 0; i < path.length - 1; i++) {
+        dist += haversineDistanceMiles(path[i].lat, path[i].lng, path[i + 1].lat, path[i + 1].lng);
+      }
+    } else {
+      dist = haversineDistanceMiles(nodeU.lat, nodeU.lng, nodeV.lat, nodeV.lng);
+    }
+    const distanceMiles = Math.max(0.04, Math.round(dist * 100) / 100);
+    const durationMinutes = Math.round((distanceMiles / speedLimit) * 60 * 100) / 100;
+
+    const forwardPath = path && path.length >= 2
+      ? [...path]
+      : [{ lat: nodeU.lat, lng: nodeU.lng }, { lat: nodeV.lat, lng: nodeV.lng }];
+
+    const segForward: CityRoadSegment = {
+      u,
+      v,
+      streetName,
+      roadType,
+      speedLimit,
+      distanceMiles,
+      durationMinutes,
+      oneWay: !bidirectional,
+      path: forwardPath,
+    };
+    edges.push(segForward);
+    adjacency.get(u)?.push({ target: v, segment: segForward });
+
+    if (bidirectional) {
+      const backwardPath = path && path.length >= 2
+        ? [...path].reverse()
+        : [{ lat: nodeV.lat, lng: nodeV.lng }, { lat: nodeU.lat, lng: nodeU.lng }];
+
+      const segBackward: CityRoadSegment = {
+        u: v,
+        v: u,
+        streetName,
+        roadType,
+        speedLimit,
+        distanceMiles,
+        durationMinutes,
+        path: backwardPath,
+      };
+      edges.push(segBackward);
+      adjacency.get(v)?.push({ target: u, segment: segBackward });
+    }
+  }
+
+  const londonNodes = [
+    { id: 'ldn_westminster', name: 'Westminster Palace / Big Ben', lat: 51.4994, lng: -0.1248, dist: 'Westminster' },
+    { id: 'ldn_westminster_bridge', name: 'Westminster Bridge (River Thames)', lat: 51.5008, lng: -0.1215, dist: 'Thames' },
+    { id: 'ldn_waterloo', name: 'London Eye & Waterloo Station', lat: 51.5033, lng: -0.1195, dist: 'South Bank' },
+    { id: 'ldn_trafalgar', name: 'Trafalgar Square & National Gallery', lat: 51.5080, lng: -0.1281, dist: 'West End' },
+    { id: 'ldn_strand', name: 'Strand & Aldwych', lat: 51.5125, lng: -0.1170, dist: 'Covent Garden' },
+    { id: 'ldn_waterloo_bridge', name: 'Waterloo Bridge (South Bank to Strand)', lat: 51.5085, lng: -0.1170, dist: 'Thames' },
+    { id: 'ldn_embankment', name: 'Victoria Embankment Waterfront', lat: 51.5105, lng: -0.1110, dist: 'City of London' },
+    { id: 'ldn_blackfriars', name: 'Blackfriars Bridge', lat: 51.5110, lng: -0.1040, dist: 'Thames' },
+    { id: 'ldn_st_pauls', name: "St. Paul's Cathedral & Ludgate Hill", lat: 51.5138, lng: -0.0984, dist: 'City of London' },
+    { id: 'ldn_tate_modern', name: 'Tate Modern & Bankside', lat: 51.5076, lng: -0.0994, dist: 'Bankside' },
+    { id: 'ldn_bank', name: 'Bank of England (Threadneedle St)', lat: 51.5134, lng: -0.0888, dist: 'City of London' },
+    { id: 'ldn_london_bridge_north', name: 'London Bridge North (Monument)', lat: 51.5108, lng: -0.0860, dist: 'City of London' },
+    { id: 'ldn_london_bridge_south', name: 'The Shard & London Bridge Station', lat: 51.5045, lng: -0.0865, dist: 'Southwark' },
+    { id: 'ldn_tooley_st', name: 'Tooley Street & Hay’s Galleria', lat: 51.5040, lng: -0.0800, dist: 'Southwark' },
+    { id: 'ldn_tower_of_london', name: 'Tower of London & Castle Moat', lat: 51.5081, lng: -0.0759, dist: 'Tower Hill' },
+    { id: 'ldn_tower_bridge', name: 'Tower Bridge (Iconic Twin Gothic Towers)', lat: 51.5055, lng: -0.0754, dist: 'Tower Bridge' },
+  ];
+
+  for (const n of londonNodes) {
+    addNode(n.id, n.name, n.dist, n.lat, n.lng, n.id.includes('bridge') ? 'bridge' : 'city');
+  }
+
+  addEdge('ldn_westminster', 'ldn_trafalgar', 'Whitehall Northbound', 'arterial', 25);
+  addEdge('ldn_trafalgar', 'ldn_strand', 'Strand Eastbound', 'arterial', 25);
+  addEdge('ldn_strand', 'ldn_embankment', 'Arundel St to Embankment', 'local', 20);
+  addEdge('ldn_embankment', 'ldn_blackfriars', 'Victoria Embankment', 'arterial', 30);
+  addEdge('ldn_blackfriars', 'ldn_st_pauls', 'New Bridge St to Ludgate Hill', 'arterial', 25);
+  addEdge('ldn_st_pauls', 'ldn_bank', 'Cheapside into Bank', 'arterial', 25);
+  addEdge('ldn_bank', 'ldn_london_bridge_north', 'King William St to Monument', 'arterial', 25);
+  addEdge('ldn_london_bridge_north', 'ldn_tower_of_london', 'Lower Thames St / Eastcheap', 'arterial', 25);
+  addEdge('ldn_tower_of_london', 'ldn_tower_bridge', 'Tower Hill Approach', 'bridge', 30);
+
+  addEdge('ldn_westminster', 'ldn_westminster_bridge', 'Westminster Bridge Approach', 'bridge', 30);
+  addEdge('ldn_westminster_bridge', 'ldn_waterloo', 'York Road to Waterloo', 'bridge', 30);
+  addEdge('ldn_waterloo', 'ldn_waterloo_bridge', 'Waterloo Road', 'arterial', 25);
+  addEdge('ldn_waterloo_bridge', 'ldn_strand', 'Waterloo Bridge', 'bridge', 30);
+
+  addEdge('ldn_waterloo', 'ldn_tate_modern', 'Stamford St & Southwark St', 'arterial', 25);
+  addEdge('ldn_tate_modern', 'ldn_blackfriars', 'Blackfriars Bridge South', 'bridge', 30);
+  addEdge('ldn_tate_modern', 'ldn_london_bridge_south', 'Southwark St Eastbound', 'arterial', 25);
+  addEdge('ldn_london_bridge_north', 'ldn_london_bridge_south', 'London Bridge Crossing', 'bridge', 30);
+  addEdge('ldn_london_bridge_south', 'ldn_tooley_st', 'Tooley Street Eastbound', 'arterial', 25);
+  addEdge('ldn_tooley_st', 'ldn_tower_bridge', 'Tower Bridge Road', 'bridge', 30);
+
+  cachedLondonGraph = { nodes, edges, adjacency };
+  return cachedLondonGraph;
+}
+
+/**
+ * Builds the comprehensive Taipei road network (Taipei 101 to Shilin Night Market).
+ */
+export function buildTaipeiCityRoadGraph(): CityRoadGraph {
+  if (cachedTaipeiGraph) return cachedTaipeiGraph;
+
+  const nodes = new Map<string, CityIntersection>();
+  const edges: CityRoadSegment[] = [];
+  const adjacency = new Map<string, Array<{ target: string; segment: CityRoadSegment }>>();
+
+  function addNode(id: string, name: string, district: string, lat: number, lng: number, type: NodeType = 'junction'): void {
+    if (!nodes.has(id)) {
+      nodes.set(id, { id, name, district, lat, lng, type });
+      adjacency.set(id, []);
+    }
+  }
+
+  function addEdge(
+    u: string,
+    v: string,
+    streetName: string,
+    roadType: CityRoadType,
+    speedLimit: number,
+    bidirectional = true,
+    path?: LatLngPoint[]
+  ): void {
+    const nodeU = nodes.get(u);
+    const nodeV = nodes.get(v);
+    if (!nodeU || !nodeV) return;
+
+    let dist = 0;
+    if (path && path.length >= 2) {
+      for (let i = 0; i < path.length - 1; i++) {
+        dist += haversineDistanceMiles(path[i].lat, path[i].lng, path[i + 1].lat, path[i + 1].lng);
+      }
+    } else {
+      dist = haversineDistanceMiles(nodeU.lat, nodeU.lng, nodeV.lat, nodeV.lng);
+    }
+    const distanceMiles = Math.max(0.04, Math.round(dist * 100) / 100);
+    const durationMinutes = Math.round((distanceMiles / speedLimit) * 60 * 100) / 100;
+
+    const forwardPath = path && path.length >= 2
+      ? [...path]
+      : [{ lat: nodeU.lat, lng: nodeU.lng }, { lat: nodeV.lat, lng: nodeV.lng }];
+
+    const segForward: CityRoadSegment = {
+      u,
+      v,
+      streetName,
+      roadType,
+      speedLimit,
+      distanceMiles,
+      durationMinutes,
+      oneWay: !bidirectional,
+      path: forwardPath,
+    };
+    edges.push(segForward);
+    adjacency.get(u)?.push({ target: v, segment: segForward });
+
+    if (bidirectional) {
+      const backwardPath = path && path.length >= 2
+        ? [...path].reverse()
+        : [{ lat: nodeV.lat, lng: nodeV.lng }, { lat: nodeU.lat, lng: nodeU.lng }];
+
+      const segBackward: CityRoadSegment = {
+        u: v,
+        v: u,
+        streetName,
+        roadType,
+        speedLimit,
+        distanceMiles,
+        durationMinutes,
+        path: backwardPath,
+      };
+      edges.push(segBackward);
+      adjacency.get(v)?.push({ target: u, segment: segBackward });
+    }
+  }
+
+  const taipeiNodes = [
+    { id: 'tpe_101', name: 'Taipei 101 & Xinyi Shopping District', lat: 25.0339, lng: 121.5645, dist: 'Xinyi' },
+    { id: 'tpe_city_hall', name: 'Taipei City Hall & Songgao Rd', lat: 25.0410, lng: 121.5660, dist: 'Xinyi' },
+    { id: 'tpe_sun_yat_sen', name: 'Sun Yat-sen Memorial Hall', lat: 25.0400, lng: 121.5580, dist: 'Xinyi' },
+    { id: 'tpe_zhongxiao_dunhua', name: 'Zhongxiao Dunhua (East District)', lat: 25.0415, lng: 121.5500, dist: 'Daan' },
+    { id: 'tpe_daan_park', name: 'Daan Forest Park (Xinyi & Jianguo)', lat: 25.0300, lng: 121.5350, dist: 'Daan' },
+    { id: 'tpe_cksm_hall', name: 'Chiang Kai-shek Memorial Hall', lat: 25.0355, lng: 121.5197, dist: 'Zhongzheng' },
+    { id: 'tpe_main_stn', name: 'Taipei Main Station (Zhongxiao West Rd)', lat: 25.0478, lng: 121.5170, dist: 'Zhongzheng' },
+    { id: 'tpe_ximending', name: 'Ximending Red House & Hanzhong St', lat: 25.0422, lng: 121.5070, dist: 'Wanhua' },
+    { id: 'tpe_civic_blvd_east', name: 'Civic Boulevard Expressway (Guanghua)', lat: 25.0450, lng: 121.5350, dist: 'Zhongshan' },
+    { id: 'tpe_jianguo_expwy', name: 'Jianguo Elevated Expressway (Minquan Exit)', lat: 25.0620, lng: 121.5370, dist: 'Zhongshan' },
+    { id: 'tpe_zhongshan_north', name: 'Zhongshan North Road & Mackay Hospital', lat: 25.0580, lng: 121.5230, dist: 'Zhongshan' },
+    { id: 'tpe_yuanshan', name: 'Yuanshan MRT & The Grand Hotel', lat: 25.0715, lng: 121.5200, dist: 'Zhongshan' },
+    { id: 'tpe_zhongshan_bridge', name: 'Zhongshan Bridge (Keelung River Crossing)', lat: 25.0760, lng: 121.5235, dist: 'Keelung River' },
+    { id: 'tpe_shilin_night_market', name: 'Shilin Night Market & Jiantan MRT', lat: 25.0881, lng: 121.5244, dist: 'Shilin' },
+    { id: 'tpe_shilin_residence', name: 'Shilin Official Residence & Fulin Rd', lat: 25.0930, lng: 121.5300, dist: 'Shilin' },
+    { id: 'tpe_dazhi', name: 'Dazhi Miramar Ferris Wheel & Beian Rd', lat: 25.0830, lng: 121.5570, dist: 'Zhongshan' },
+    { id: 'tpe_songshan_airport', name: 'Taipei Songshan Airport (TSA)', lat: 25.0697, lng: 121.5525, dist: 'Songshan' },
+    { id: 'tpe_raohe', name: 'Raohe Street Night Market / Songshan Stn', lat: 25.0500, lng: 121.5780, dist: 'Songshan' },
+  ];
+
+  for (const n of taipeiNodes) {
+    addNode(n.id, n.name, n.dist, n.lat, n.lng, n.id.includes('bridge') ? 'bridge' : 'city');
+  }
+
+  addEdge('tpe_101', 'tpe_city_hall', 'City Hall Road Northbound', 'arterial', 35);
+  addEdge('tpe_101', 'tpe_sun_yat_sen', 'Renai Road Boulevard', 'arterial', 40);
+  addEdge('tpe_city_hall', 'tpe_sun_yat_sen', 'Zhongxiao East Road Sec 4', 'arterial', 35);
+  addEdge('tpe_sun_yat_sen', 'tpe_zhongxiao_dunhua', 'Zhongxiao East Road', 'arterial', 35);
+  addEdge('tpe_101', 'tpe_daan_park', 'Xinyi Road East-West Corridor', 'arterial', 40);
+  addEdge('tpe_daan_park', 'tpe_cksm_hall', 'Xinyi Road into CKS Memorial', 'arterial', 35);
+  addEdge('tpe_cksm_hall', 'tpe_main_stn', 'Zhongshan South Road', 'arterial', 35);
+  addEdge('tpe_main_stn', 'tpe_ximending', 'Zhonghua Road Sec 1', 'arterial', 35);
+
+  addEdge('tpe_zhongxiao_dunhua', 'tpe_civic_blvd_east', 'Dunhua South to Civic Blvd', 'arterial', 35);
+  addEdge('tpe_civic_blvd_east', 'tpe_main_stn', 'Civic Boulevard Elevated Expressway', 'highway', 60);
+  addEdge('tpe_civic_blvd_east', 'tpe_jianguo_expwy', 'Jianguo Elevated Expressway North', 'highway', 65);
+  addEdge('tpe_main_stn', 'tpe_zhongshan_north', 'Zhongshan North Road Sec 1 & 2', 'arterial', 35);
+  addEdge('tpe_zhongshan_north', 'tpe_yuanshan', 'Zhongshan North Road Sec 3', 'arterial', 40);
+  addEdge('tpe_jianguo_expwy', 'tpe_yuanshan', 'Minquan East to Yuanshan', 'arterial', 40);
+
+  addEdge('tpe_yuanshan', 'tpe_zhongshan_bridge', 'Zhongshan North Road Bridge Ramp', 'bridge', 45);
+  addEdge('tpe_zhongshan_bridge', 'tpe_shilin_night_market', 'Zhongshan Bridge to Jiantan', 'bridge', 45, true, [
+    { lat: 25.0760, lng: 121.5235 },
+    { lat: 25.0820, lng: 121.5240 },
+    { lat: 25.0881, lng: 121.5244 },
+  ]);
+  addEdge('tpe_shilin_night_market', 'tpe_shilin_residence', 'Zhongshan North Rd Sec 5', 'arterial', 35);
+
+  addEdge('tpe_yuanshan', 'tpe_dazhi', 'Beian Road through Grand Hotel Foothills', 'arterial', 40);
+  addEdge('tpe_dazhi', 'tpe_shilin_night_market', 'Ziqiang Tunnel to Shilin', 'arterial', 40);
+  addEdge('tpe_dazhi', 'tpe_songshan_airport', 'Dazhi Bridge over Keelung River', 'bridge', 45);
+  addEdge('tpe_songshan_airport', 'tpe_raohe', 'Minquan East Rd to Bade Rd', 'arterial', 35);
+  addEdge('tpe_raohe', 'tpe_city_hall', 'Keelung Road Southbound', 'arterial', 40);
+
+  cachedTaipeiGraph = { nodes, edges, adjacency };
+  return cachedTaipeiGraph;
+}
+
+/**
+ * Universally dispatches the appropriate metropolitan full city road graph
+ * based on geographic coordinates.
+ */
+export function getFullCityRoadGraph(lat: number, lng: number): CityRoadGraph {
+  if (lat >= 40.4 && lat <= 41.2 && lng >= -74.3 && lng <= -73.6) {
+    return buildNycCityRoadGraph();
+  }
+  if (lat >= 35.3 && lat <= 36.2 && lng >= 139.3 && lng <= 140.2) {
+    return buildTokyoCityRoadGraph();
+  }
+  if (lat >= 51.2 && lat <= 51.8 && lng >= -0.6 && lng <= 0.4) {
+    return buildLondonCityRoadGraph();
+  }
+  if (lat >= 24.7 && lat <= 25.5 && lng >= 121.2 && lng <= 121.9) {
+    return buildTaipeiCityRoadGraph();
+  }
+  return buildFullCityRoadGraph();
+}
+
+/**
+ * Complete Full-City Graph Builder with Spliced Endpoints and Driving Maneuvers.
+ * Seamlessly integrates any two points into the comprehensive city network and derives
+ * realistic turn maneuvers from the optimal path.
+ */
+export function buildFullCityGraphWithEndpoints(
+  start: EndpointInput,
+  goal: EndpointInput
+): FullCityGraphResult {
+  const avgLat = (start.lat + goal.lat) / 2;
+  const avgLng = (start.lng + goal.lng) / 2;
+  const baseCityGraph = getFullCityRoadGraph(avgLat, avgLng);
+
+  const splicedStart = spliceEndpointIntoCityGraph(baseCityGraph, start, true);
+  const splicedGoal = spliceEndpointIntoCityGraph(splicedStart.graph, goal, false);
+
+  const bayGraph = cityRoadGraphToBayGraph(splicedGoal.graph);
+  const startId = splicedStart.nodeId;
+  const goalId = splicedGoal.nodeId;
+
+  // Run A* pathfinding to extract the primary optimal driving route for maneuvers
+  const pathRes = runPathfinding('a_star', bayGraph, startId, goalId);
+
+  const maneuvers: TurnManeuver[] = [];
+  let summary = `Driving route from ${start.name} to ${goal.name}`;
+
+  if (pathRes.found && pathRes.pathEdges.length > 0) {
+    const primaryHighways = new Set<string>();
+
+    for (let i = 0; i < pathRes.pathEdges.length; i++) {
+      const pe = pathRes.pathEdges[i];
+      const targetNode = bayGraph.nodes.get(pe.v);
+      const targetLat = targetNode?.lat ?? goal.lat;
+      const targetLng = targetNode?.lng ?? goal.lng;
+
+      let instruction = `Continue onto ${pe.name}`;
+      if (i === 0) {
+        instruction = `Depart ${start.name} onto ${pe.name}`;
+      } else if (i === pathRes.pathEdges.length - 1) {
+        instruction = `Follow ${pe.name} to arrive at ${goal.name}`;
+      } else if (pe.name.toLowerCase().includes('bridge') || pe.name.toLowerCase().includes('span')) {
+        instruction = `Cross ${pe.name}`;
+      }
+
+      if (pe.name.includes('I-') || pe.name.includes('US-') || pe.name.includes('CA-') || pe.name.includes('Bridge') || pe.name.includes('Fwy') || pe.name.includes('Expressway')) {
+        primaryHighways.add(pe.name);
+      }
+
+      const durMins = (pe.distance / pe.speedLimit) * 60;
+      maneuvers.push({
+        instruction,
+        distanceMiles: pe.distance,
+        durationMinutes: durMins,
+        lat: targetLat,
+        lng: targetLng,
+      });
+    }
+
+    if (primaryHighways.size > 0) {
+      summary = `via ${Array.from(primaryHighways).slice(0, 2).join(' and ')}`;
+    }
+  } else {
+    maneuvers.push({
+      instruction: `Head towards ${goal.name}`,
+      distanceMiles: haversineDistanceMiles(start.lat, start.lng, goal.lat, goal.lng),
+      durationMinutes: 10,
+      lat: goal.lat,
+      lng: goal.lng,
+    });
+  }
+
+  return {
+    graph: bayGraph,
+    startId,
+    goalId,
+    maneuvers,
+    summary,
+    totalDistanceMiles: pathRes.totalDistanceMiles,
+    totalDurationMinutes: pathRes.totalTimeMinutes,
+    cityRoadGraph: splicedGoal.graph,
+  };
 }
