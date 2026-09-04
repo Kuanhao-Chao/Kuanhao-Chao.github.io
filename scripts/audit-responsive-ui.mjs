@@ -41,6 +41,7 @@ const TEST_ROUTES = [
   '/shorkie-lab',
   '/shorkie-lab/attention',
   '/nn-lab',
+  '/nn-lab/transformer',
   '/search',
   '/404'
 ];
