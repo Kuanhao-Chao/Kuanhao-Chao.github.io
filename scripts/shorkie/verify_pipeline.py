@@ -627,6 +627,88 @@ def verify_knockout_sweep() -> None:
           f"{single} suspicious")
 
 
+def verify_new_methods() -> None:
+    """Causal tracing, motif discovery and the sparse dictionary, checked FROM THEIR PACKS.
+
+    Not by re-running the generators. This repo has already shipped an assertion that agreed with
+    the code because both sides shared the same mistake, so what is checked here is whatever each
+    pack can be held to on its own terms: an identity that must hold, or a self-consistency between
+    two fields that were computed by different routes.
+    """
+    # --- causal tracing -------------------------------------------------------------------------
+    pt = json.loads((ROOT / "src" / "data" / "shorkiePatching.json").read_text())
+    S, B = len(pt["stages"]), pt["bands"]
+    bad_shape = [k for k, v in pt["loci"].items()
+                 if len(v["grid"]) != S or any(len(r) != B for r in v["grid"])]
+    check(not bad_shape, f"every recovery grid is {S} stages x {B} bands",
+          f"{len(pt['loci'])} loci")
+    # The three controls are the whole scale. Restoring every position of the first stage makes
+    # everything downstream the clean run's; so does restoring every position of the last, by an
+    # independent route; restoring nothing must move nothing. A pack whose controls drifted is a
+    # pack whose recovery numbers mean something else.
+    bad_ctl = [k for k, v in pt["loci"].items()
+               if abs(v["controls"]["firstStageAllPositions"] - 1.0) > 5e-3
+               or abs(v["controls"]["lastStageAllPositions"] - 1.0) > 5e-3
+               or abs(v["controls"]["noPositions"]) > 5e-3]
+    check(not bad_ctl, "every locus's three patching controls hold", f"{len(pt['loci'])} loci")
+    # `skipBypass` is defined as what a fully restored bottleneck does NOT recover, so the two
+    # fields must sum to 1 exactly. They were written by different lines.
+    bad_sum = [k for k, v in pt["loci"].items()
+               if abs(v["bottleneckAllPositions"] + v["skipBypass"] - 1.0) > 1e-4]
+    check(not bad_sum, "skipBypass is exactly 1 - the bottleneck's full recovery",
+          f"{len(pt['loci'])} loci")
+    # And the headline the page prints must be the median of the per-locus values it is drawn from.
+    med = sorted(v["skipBypass"] for v in pt["loci"].values())
+    n = len(med)
+    want = med[n // 2] if n % 2 else (med[n // 2 - 1] + med[n // 2]) / 2
+    check(abs(want - pt["summary"]["medianSkipBypass"]) < 5e-4,
+          "the published median skip-bypass is the median of the loci",
+          f"{pt['summary']['medianSkipBypass']:.4f}")
+
+    # --- motif discovery ------------------------------------------------------------------------
+    md = json.loads((ROOT / "src" / "data" / "shorkieModisco.json").read_text())
+    BASES = "ACGT"
+    for i, c in enumerate(md["clusters"]):
+        pwm = np.array(c["pwm"], dtype=np.float64)
+        cols = pwm.sum(axis=0)
+        check(float(np.abs(cols - 1).max()) < 1e-3, f"cluster {i} PWM columns are distributions",
+              f"max |sum-1| {float(np.abs(cols - 1).max()):.2e}")
+        # The consensus must be the argmax of the matrix it is published beside. A softmax of tiny
+        # contributions is near-uniform, and its argmax is the argmax of noise -- which is exactly
+        # what the first version of this generator shipped, at 0.00 bits.
+        want_cons = "".join(BASES[j] for j in pwm.argmax(axis=0))
+        check(want_cons == c["consensus"], f"cluster {i} consensus is its PWM's argmax",
+              f"{c['consensus']}")
+        p = np.clip(pwm, 1e-12, 1)
+        bits = float((2.0 + (p * np.log2(p)).sum(axis=0)).sum())
+        check(abs(bits - c["bits"]) < 5e-3, f"cluster {i} information content re-derives",
+              f"{c['bits']:.3f} bits")
+    # The control is not decoration: it has to have been RUN, on the same number of seqlets.
+    check(md["control"]["seqlets"] > 0.8 * md["real"]["seqlets"],
+          "the shuffled control ran on a comparable number of seqlets",
+          f"real {md['real']['seqlets']} vs control {md['control']['seqlets']}")
+
+    # --- the sparse dictionary ------------------------------------------------------------------
+    sa = json.loads((ROOT / "src" / "data" / "shorkieSae.json").read_text())
+    r, c = sa["real"], sa["control"]
+    check(abs(r["meanL0"] - r["k"]) < 0.05,
+          "the dictionary is exactly k-sparse, as TopK promises",
+          f"mean L0 {r['meanL0']} against k {r['k']}")
+    check(r["alive"] + r["dead"] == r["features"], "alive + dead accounts for every feature",
+          f"{r['alive']:,} alive, {r['dead']:,} dead")
+    check(0.0 <= r["fvu"] <= 1.0 and 0.0 <= c["fvu"] <= 1.0, "both FVUs are fractions",
+          f"real {r['fvu']:.4f}, control {c['fvu']:.4f}")
+    # The whole claim. If shuffling each channel independently -- which keeps every channel's own
+    # distribution and destroys only which channels fire together -- reconstructed as well, the
+    # dictionary would be memorising a distribution rather than finding structure.
+    check(c["fvu"] > r["fvu"],
+          "the column-shuffled control reconstructs WORSE than the real activations",
+          f"gain {sa['reconstructionGain']:.4f}")
+    check(abs((c["fvu"] - r["fvu"]) - sa["reconstructionGain"]) < 1e-4,
+          "the published reconstruction gain is the difference of the two FVUs",
+          f"{sa['reconstructionGain']:.4f}")
+
+
 def main() -> int:
     import torch
     import onnx
@@ -657,6 +739,9 @@ def main() -> int:
 
     section("3b. attribution planes and their conventions")
     verify_attribution(Image)
+
+    section("3h. causal tracing, motif discovery and the sparse dictionary")
+    verify_new_methods()
 
     section("3c. occlusion matrices")
     verify_occlusion(Image)

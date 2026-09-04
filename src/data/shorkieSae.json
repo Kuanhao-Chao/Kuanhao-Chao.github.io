@@ -1,0 +1,28 @@
+{
+ "note": "A TopK sparse autoencoder on the bottleneck residual stream. The dictionary is overcomplete and the sparsity is a hard count, so each direction is under pressure to mean one thing. Trained again on column-shuffled activations as the control: that arm keeps every channel's marginal distribution and destroys the co-activation structure, so the gap between the two FVUs is what the dictionary actually found.",
+ "layer": "attn_out8",
+ "dModel": 384,
+ "positions": 128,
+ "positionBp": 128,
+ "real": {
+  "fvu": 0.0194,
+  "alive": 6144,
+  "dead": 0,
+  "meanL0": 32.0,
+  "vectors": 94970,
+  "features": 6144,
+  "k": 32,
+  "steps": 4000
+ },
+ "control": {
+  "fvu": 0.372,
+  "alive": 6144,
+  "dead": 0,
+  "meanL0": 32.0,
+  "vectors": 94970,
+  "features": 6144,
+  "k": 32,
+  "steps": 4000
+ },
+ "reconstructionGain": 0.3526
+}

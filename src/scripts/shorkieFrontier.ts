@@ -15,6 +15,7 @@ import epistasisData from '../data/shorkieEpistasis.json';
 import kineticsData from '../data/shorkieKinetics.json';
 import headsData from '../data/shorkieHeads.json';
 import variationData from '../data/shorkieVariation.json';
+import patchingData from '../data/shorkiePatching.json';
 
 const DATA = `${import.meta.env.BASE_URL}/vp-data`.replace(/\/{2,}/g, '/');
 const SEQ_LEN = 16384;
@@ -287,6 +288,86 @@ export function initShorkieFrontier(host: HTMLElement): void {
   // ---------------------------------------------------------------------------------------
   const headsCv = $<HTMLCanvasElement>('[data-fr-heads]');
   const headsStat = $('[data-fr-heads-stat]');
+  const patchCv = $<HTMLCanvasElement>('[data-fr-patching]');
+  const patchStat = $('[data-fr-patching-stat]');
+
+  /**
+   * Causal tracing: recovery of the clean prediction by stage (down) and position band (across).
+   *
+   * A heatmap and not a line, because the finding is two-dimensional -- the depth at which the
+   * answer is decided AND the band that decides it are both results, and collapsing either axis
+   * loses the one that matters. Averaged over the loci, because a single window's grid is one
+   * gene's promoter and the claim is about the architecture.
+   *
+   * Drawn on a SEQUENTIAL scale from zero, not a diverging one: recovery is bounded below by 0 and
+   * a value above 1 is an over-recovery, which happens and is worth seeing rather than clipping.
+   */
+  function drawPatching(): void {
+    if (!patchCv) return;
+    const pd = patchingData as unknown as {
+      stages: string[]; bands: number; bandBp: number;
+      summary: { loci: number; medianPeakRecovery: number; medianBottleneckMean: number;
+                 medianSkipBypass: number };
+      loci: Record<string, { grid: number[][] }>;
+    };
+    const grids = Object.values(pd.loci).map((l) => l.grid);
+    if (!grids.length) return;
+    const S = pd.stages.length;
+    const B = pd.bands;
+    // The mean over loci. Every locus's grid is already normalised to its own clean-minus-corrupt
+    // gap, so they are commensurable and a mean is the right summary.
+    const mean: number[][] = Array.from({ length: S }, (_, s) =>
+      Array.from({ length: B }, (_, b) =>
+        grids.reduce((acc, g) => acc + (g[s]?.[b] ?? 0), 0) / grids.length));
+
+    const GUT = 62;
+    const ROW = 11;
+    const H = S * ROW + 46;
+    const ctx = fit(patchCv, H);
+    if (!ctx) return;
+    const w = Math.max(1, Math.round(patchCv.clientWidth));
+    const ink = css(host, '--color-ink', '#1a1a1a');
+    const muted = css(host, '--color-muted', '#6b7280');
+    const inner = Math.max(1, w - GUT - 8);
+    const cw = inner / B;
+
+    let hi = 0;
+    for (const row of mean) for (const v of row) hi = Math.max(hi, v);
+    hi = Math.max(hi, 1e-6);
+
+    ctx.font = '9px ui-monospace, SFMono-Regular, Menlo, monospace';
+    ctx.textBaseline = 'middle';
+    for (let s = 0; s < S; s += 1) {
+      const y = 16 + s * ROW;
+      ctx.fillStyle = muted;
+      ctx.textAlign = 'right';
+      ctx.fillText(pd.stages[s].replace('attn_out', 'attn '), GUT - 5, y + ROW / 2);
+      for (let b = 0; b < B; b += 1) {
+        const f = Math.max(0, Math.min(1, mean[s][b] / hi));
+        // One hue, ramped by alpha off the ink colour, so the scale reads as "more" rather than
+        // as a set of categories -- and so it survives both themes without a second palette.
+        ctx.globalAlpha = 0.06 + 0.94 * f;
+        ctx.fillStyle = ink;
+        ctx.fillRect(GUT + b * cw, y + 0.5, Math.max(1, cw - 0.5), ROW - 1);
+      }
+      ctx.globalAlpha = 1;
+    }
+    ctx.fillStyle = muted;
+    ctx.textAlign = 'left';
+    ctx.fillText('position across the 16,384 bp window \u2192', GUT, 8);
+    ctx.textAlign = 'right';
+    ctx.fillText(`0 \u2013 ${hi.toFixed(2)} recovered`, w - 8, 8);
+    ctx.textAlign = 'left';
+    ctx.fillText(`${pd.stages.length} stages \u00b7 ${B} bands of ${pd.bandBp} bp `
+      + `\u00b7 mean over ${pd.summary.loci} windows`, GUT, H - 12);
+    patchCv.dataset.frPatching = `${S}x${B}`;
+    if (patchStat) {
+      patchStat.textContent =
+        `peak recovery ${(pd.summary.medianPeakRecovery * 100).toFixed(1)}% \u00b7 `
+        + `one band at the bottleneck ${(pd.summary.medianBottleneckMean * 100).toFixed(1)}% \u00b7 `
+        + `bypassing the bottleneck ${(pd.summary.medianSkipBypass * 100).toFixed(1)}%`;
+    }
+  }
 
   function drawHeads(): void {
     if (!headsCv) return;
@@ -424,7 +505,7 @@ export function initShorkieFrontier(host: HTMLElement): void {
   window.addEventListener('resize', () => {
     window.clearTimeout(resizeT);
     resizeT = window.setTimeout(() => {
-      drawSpecies(); drawEpistasis(); drawHeads(); drawVariation();
+      drawSpecies(); drawEpistasis(); drawHeads(); drawVariation(); drawPatching();
     }, 150);
   });
 
@@ -432,6 +513,7 @@ export function initShorkieFrontier(host: HTMLElement): void {
   drawKinetics();
   drawHeads();
   drawVariation();
+  drawPatching();
   void loadEpistasis();
   host.dataset.frontierReady = '1';
 }

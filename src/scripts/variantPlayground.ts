@@ -22,6 +22,17 @@ import biology from '../data/shorkieBiologySummary.json';
 import { createFlow3d, type Flow3dController } from './shorkieFlow3d';
 import { drawGeneRows } from './geneTrack';
 import {
+  VP_PLOT, drawLaneLabel, drawLaneNote, drawRuler, drawCoverageLane, drawMethodLane,
+  drawLogoLane, drawSequenceLane, drawOverview, drawCaption,
+  type VpCtx, type VpLane, type VpTheme,
+} from './shorkieViewport';
+import {
+  viewportLanes, projectedLogoColumns, hypotheticalLogoColumns, windowView, clampWindowView,
+  lettersVisible, defaultView, zoomReadout, binsForRange, LOCUS_LEN,
+  type ViewportState,
+} from '../lib/shorkieViewport';
+import { laneLayout, zoomAbout, brushRegion, type View } from '../lib/genomeBrowser';
+import {
   createFlow,
   FLOW_STAGES,
   stageMap,
@@ -44,7 +55,6 @@ import {
   positionToBp,
   subLayers,
   knockoutMotif,
-  geneTrackShapes,
   pearson,
   packGeneRows,
   ANNOTATION_CLASSES,
@@ -65,11 +75,6 @@ import {
   exactStageProfiles,
   relevanceMap,
   STAGE_MAP_POSITIONS,
-  LOGO_GLOBSCALE,
-  LOGO_GLYPHS,
-  LOGO_COLOURS,
-  logoColumn,
-  logoRange,
   ismSaliency,
   stageRasterHeight,
   PX_PER_CHANNEL,
@@ -200,7 +205,6 @@ export function initVariantPlayground(root: ParentNode = document) {
   const stackCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-stage-stack]');
   const neuronTraceCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-neurons-trace]');
   const showingBtns = host.querySelectorAll<HTMLButtonElement>('[data-vp-showing]');
-  const methodLogosSvg = host.querySelector<SVGSVGElement>('[data-vp-method-logos]');
   const brushStat = host.querySelector<HTMLElement>('[data-vp-brush-stat]');
   const brushWidth = host.querySelector<HTMLSelectElement>('[data-vp-brush-width]');
   const logoFigureBtn = host.querySelector<HTMLButtonElement>('[data-vp-logo-figure]');
@@ -214,10 +218,7 @@ export function initVariantPlayground(root: ParentNode = document) {
   const regionStat = host.querySelector<HTMLElement>('[data-vp-region-stat]');
   const logoPan = host.querySelector<HTMLInputElement>('[data-vp-logo-pan]');
   const logoWidth = host.querySelector<HTMLSelectElement>('[data-vp-logo-width]');
-  const logoSource = host.querySelector<HTMLSelectElement>('[data-vp-logo-source]');
-  const trackSvg = host.querySelector<SVGSVGElement>('[data-vp-track]');
   /** 18 px of bp ruler + two 11 px gene rows + slack. */
-  const GENE_H = 46;
   /**
    * Which annotation lanes and which evidence tiers the CANVAS draws.
    *
@@ -228,9 +229,6 @@ export function initVariantPlayground(root: ParentNode = document) {
    */
   const annLanesOn = new Set(['gene', 'rna', 'element', 'regulatory']);
   const annTiersOn = new Set(['chip']);
-  const attrCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-attr]');
-  const methodsCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-methods]');
-  const annCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-annotation]');
   const annStat = host.querySelector<HTMLElement>('[data-vp-annstat]');
   const layerList = $('[data-vp-layers]');
   const flowCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-flow]');
@@ -252,6 +250,16 @@ export function initVariantPlayground(root: ParentNode = document) {
   const pickKey = $<HTMLSelectElement>('[data-vp-pick-key]');
   const pickTrack = $<HTMLSelectElement>('[data-vp-pick-track]');
   const singleSvg = host.querySelector<SVGSVGElement>('[data-vp-single]');
+  // The viewport. `data-vp-viewport` and `data-vp-overview` were checked against every
+  // `.dataset.vpX =` write in this file before being named: a dataset write never appears as a
+  // `data-vp-x` attribute in source, so a new markup hook can silently shadow one.
+  const viewportCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-viewport]');
+  const overviewCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-overview]');
+  const viewReadout = host.querySelector<HTMLElement>('[data-vp-view-read]');
+  const vpZoomIn = host.querySelector<HTMLButtonElement>('[data-vp-zoom-in]');
+  const vpZoomOut = host.querySelector<HTMLButtonElement>('[data-vp-zoom-out]');
+  const vpZoomReset = host.querySelector<HTMLButtonElement>('[data-vp-zoom-reset]');
+  const vpHypoToggle = host.querySelector<HTMLInputElement>('[data-vp-ism-hypothetical]');
   const logToggle = $<HTMLInputElement>('[data-vp-logaxis]');
   const occlCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-occl]');
   const occlStat = host.querySelector<HTMLElement>('[data-vp-occl-stat]');
@@ -324,11 +332,13 @@ export function initVariantPlayground(root: ParentNode = document) {
   function setLogoWindow(start: number, width: number): void {
     const w = Math.max(20, Math.min(SEQ_LEN, Math.round(width)));
     logoWindow = { start: Math.max(0, Math.min(SEQ_LEN - w, Math.round(start))), width: w };
-    if (logoPan) logoPan.value = String(Math.round(windowFraction(logoWindow.start + w / 2) * 1000));
-    renderMethodLogos();
+    // The letter views the four full-window tracks used to band are lanes of the viewport now, so
+    // moving the window IS moving the view. This function used to declare -- in a comment right
+    // here -- that every band-carrying track repaints, and then repaint none of them; three of the
+    // four bands went stale on every drag, and only the coverage SVG looked right because a second
+    // pointer binding on it happened to call `refreshRegionViews`.
+    setVpView(logoWindow.start, logoWindow.start + w);
     renderNeuronClasses();
-    // Every full-window track carries the focus band, so every one of them repaints when it moves.
-    // Missing one leaves a band pointing at a stretch the panel below is no longer showing.
   }
   /**
    * Which motif tiers are drawn. ChIP-supported on by default; the conservation-only tier (~4x
@@ -385,12 +395,6 @@ export function initVariantPlayground(root: ParentNode = document) {
   /** A window offset in bp to an x coordinate, in whatever unit space the caller is drawing in. */
   function xOfBp(bp: number, width: number): number {
     return PLOT.left + windowFraction(bp) * (width - PLOT.left - PLOT.right);
-  }
-
-  /** The inverse, so a pointer lands on the base it is over rather than 1,024 bp away from it. */
-  function bpOfX(x: number, width: number): number {
-    const inner = width - PLOT.left - PLOT.right;
-    return fractionToBp(inner > 0 ? (x - PLOT.left) / inner : 0);
   }
 
   /** Short bp labels for a ruler: 0, 2k, 4k … rather than 0, 2048, 4096. */
@@ -1201,15 +1205,23 @@ export function initVariantPlayground(root: ParentNode = document) {
     const locus = LOCI[locusIndex];
     const fig = locus.figureWindow;
     const own = locus.features.find((f) => f.name === locus.id);
-    const w = Number(brushWidth?.value ?? 150);
-    if (fig) setLogoWindow((fig.seqStart + fig.seqEnd) / 2 - w / 2, w);
-    else if (own) setLogoWindow(own.txStart - 200, w);
+    const w = Number(brushWidth?.value ?? 400);
+    // Where the viewport opens. On the paper's own published window where the locus has one --
+    // those six are the panels Figure 4 draws -- otherwise on the promoter of the gene the window
+    // is named for, on the correct side for its strand. Never the window centre: a 16,384 bp yeast
+    // window holds a dozen genes and the middle of it is rarely the one being asked about.
+    if (fig) {
+      setVpView((fig.seqStart + fig.seqEnd) / 2 - w / 2, (fig.seqStart + fig.seqEnd) / 2 + w / 2);
+    } else {
+      const v = defaultView(own ? own.txStart : null, locus.strand === '-' ? '-' : '+', w);
+      setVpView(v.start, v.end);
+    }
     if (logoFigureBtn) logoFigureBtn.hidden = !fig;
-    renderMethodLogos();
+    renderViewport();
     renderEnrichment();
     renderKnockoutSweep();
     host.dataset.vpTraceReady = attribution ? 'true' : 'false';
-    renderAnnotation();
+    renderViewport();
     renderRegionList();
     refreshRegionViews();
   }
@@ -1232,6 +1244,9 @@ export function initVariantPlayground(root: ParentNode = document) {
     width: number,
     top: number,
     rowH = 11,
+    // The viewport draws the same gene models at an arbitrary zoom, so the mapping is a parameter.
+    // Defaulting to the full-window `xOfBp` keeps every existing call site unchanged.
+    mapX: (bp: number, w: number) => number = xOfBp,
   ): number {
     // The drawing itself lives in `src/scripts/geneTrack.ts`, shared with the language-model page,
     // so the two pages cannot disagree about where an intron is. This wrapper keeps the three call
@@ -1244,7 +1259,7 @@ export function initVariantPlayground(root: ParentNode = document) {
       top,
       rowH,
       expanded: geneRowsExpanded,
-      xOfBp,
+      xOfBp: mapX,
       colours: {
         orf: getComputedStyle(host).getPropertyValue('--vp-orf').trim() || '#6f62a8',
         muted: getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280',
@@ -2090,62 +2105,6 @@ export function initVariantPlayground(root: ParentNode = document) {
   }
 
   /**
-   * Draw a (L, 4) attribution matrix as the Shorkie paper draws it.
-   *
-   * This is `dna_letter_at` + `plot_seq_scores` from the paper's own renderer, in SVG. Every
-   * constant lives in the pure layer and is documented there; what matters here is the transform.
-   *
-   * The glyph path is in the paper's coordinate system -- y up, baseline 0 -- so the transform
-   * flips y and scales by the value. Scaling the PATH is the whole point: setting `font-size`
-   * instead would scale width with height, and the letters would stop being a logo. A negative
-   * value gives a negative y-scale, which mirrors the glyph rather than merely dropping it below
-   * the line -- that is what the paper does and what its negative letters look like.
-   */
-  function drawLogo(
-    svg: SVGSVGElement,
-    values: (i: number) => number[],
-    n: number,
-    x0: number,
-    width: number,
-    top: number,
-    height: number,
-  ): { lo: number; hi: number; letters: number } {
-    const flat: number[] = [];
-    for (let i = 0; i < n; i += 1) for (const v of values(i)) flat.push(v);
-    const { lo, hi } = logoRange(flat);
-    const span = Math.max(hi - lo, 1e-12);
-    const yOf = (v: number) => top + ((hi - v) / span) * height;
-    const colW = width / n;
-    let letters = 0;
-
-    for (let i = 0; i < n; i += 1) {
-      for (const letter of logoColumn(values(i))) {
-        // Height in user units for one unit of value, and the glyph is 1 em tall before scaling.
-        const sy = (letter.value / span) * height * LOGO_GLOBSCALE;
-        if (Math.abs(sy) < 0.12) continue;
-        const g = el('path');
-        attr(g, {
-          d: LOGO_GLYPHS[letter.base],
-          class: 'vp-glyph',
-          fill: LOGO_COLOURS[letter.base],
-          // translate to the column centre and the letter's baseline, then flip y and scale.
-          transform: `translate(${(x0 + (i + 0.5) * colW).toFixed(3)} ${yOf(letter.y).toFixed(3)})`
-            + ` scale(${(colW * LOGO_GLOBSCALE).toFixed(4)} ${(-sy).toFixed(4)})`,
-        });
-        svg.append(g);
-        letters += 1;
-      }
-    }
-    // The zero rule. Always drawn, always black -- logoRange guarantees zero is inside the range.
-    const axis = el('line');
-    attr(axis, {
-      x1: x0, x2: x0 + width, y1: yOf(0), y2: yOf(0), stroke: '#000', 'stroke-width': 1,
-    });
-    svg.append(axis);
-    return { lo, hi, letters };
-  }
-
-  /**
    * The traced region's attribution as the paper's sequence logo.
    *
    * 16,384 letters across 900 px is 0.05 px each, so this pans a window of 60-400 bp. Two sources
@@ -2194,6 +2153,12 @@ export function initVariantPlayground(root: ParentNode = document) {
 
   /** One interpretability method, as a per-position signal over the window. */
   interface MethodTrack {
+    /**
+     * A stable id, so the viewport can put a method in ITS lane rather than matching on the label.
+     * The labels carry resolutions and gene names that change with the selection; the lane a
+     * method belongs to does not.
+     */
+    id: 'ism' | 'grad' | 'ig' | 'rollout' | 'occl';
     label: string;
     /** Value per position, and the bp each position covers. Sparse coverage is allowed. */
     at: (bp: number) => number | null;
@@ -2235,6 +2200,7 @@ export function initVariantPlayground(root: ParentNode = document) {
       let peak = 0;
       for (const v of sal) peak = Math.max(peak, Math.abs(v));
       out.push({
+        id: 'ism',
         label: 'mutagenesis (ISM)',
         at: (bp) => sal[Math.round(bp) - plane.start] ?? null,
         peak,
@@ -2259,6 +2225,7 @@ export function initVariantPlayground(root: ParentNode = document) {
       let peak = 0;
       for (let i = 0; i < grad.length; i += 1) peak = Math.max(peak, Math.abs(grad[i]));
       out.push({
+        id: 'grad',
         label: 'gradient × input',
         at: (bp) => grad[perBase ? Math.round(bp) : Math.floor((bp / SEQ_LEN) * grad.length)] ?? null,
         peak,
@@ -2271,7 +2238,8 @@ export function initVariantPlayground(root: ParentNode = document) {
         for (let i = 0; i < ig.length; i += 1) ipk = Math.max(ipk, Math.abs(ig[i]));
         const a = attribution.anchors[ai];
         out.push({
-          label: 'integrated gradients',
+          id: 'ig',
+        label: 'integrated gradients',
           at: (bp) => ig[Math.round(bp)] ?? null,
           peak: ipk,
           note: a.igAbsError !== undefined
@@ -2298,6 +2266,7 @@ export function initVariantPlayground(root: ParentNode = document) {
       for (const v of prof) peak = Math.max(peak, v);
       const per = SEQ_LEN / BOTTLENECK_LEN;
       out.push({
+        id: 'rollout',
         label: 'attention rollout',
         at: (bp) => prof[Math.min(BOTTLENECK_LEN - 1, Math.floor(bp / per))] ?? null,
         peak,
@@ -2319,6 +2288,7 @@ export function initVariantPlayground(root: ParentNode = document) {
       let peak = 0;
       for (const v of prof) peak = Math.max(peak, Math.abs(v));
       out.push({
+        id: 'occl',
         label: `occlusion (${o.win} bp)`,
         at: (bp) => prof[Math.min(o.rows - 1, Math.floor(bp / o.win))] ?? null,
         peak,
@@ -2457,95 +2427,514 @@ export function initVariantPlayground(root: ParentNode = document) {
    * the method never produced. They get a band at their real step instead, on the same axis, so
    * the comparison is still possible without the fiction.
    */
-  function renderMethodLogos(): void {
-    if (!methodLogosSvg) return;
-    clear(methodLogosSvg);
-    const tracks = methodTracks();
-    const seq = LOCI[locusIndex].sequence;
-    const { start, width } = logoWindow;
-    const W = svgWidth(methodLogosSvg);
-    const LOGO_ROW = 74;
-    const BAND_ROW = 40;
-    const rowH = (tr: MethodTrack) => (tr.resolutionBp <= 1 ? LOGO_ROW : BAND_ROW);
-    const rowTop = (i: number) => tracks.slice(0, i).reduce((s, tr) => s + rowH(tr), 0) + 16;
-    const H = tracks.reduce((s, tr) => s + rowH(tr), 0) + 26;
-    attr(methodLogosSvg, { viewBox: `0 0 ${W} ${H}` });
-    if (!tracks.length) {
-      methodLogosSvg.append(text(W / 2, 24, 'Trace a region to compare the methods here.', 'vp-ax'));
-      delete methodLogosSvg.dataset.rows;
-      return;
-    }
-    const inner = W - PLOT.left - PLOT.right;
-    const px = (i: number) => PLOT.left + (i / width) * inner;
 
-    tracks.forEach((tr, r) => {
-      const top = rowTop(r);
-      const perBase = tr.resolutionBp <= 1;
-      methodLogosSvg.append(text(PLOT.left, top - 4, tr.label, 'vp-ax', 'start'));
-      if (perBase) {
-        const column = (i: number): number[] => {
-          const out = [0, 0, 0, 0];
-          const b = BASES.indexOf((seq[start + i] ?? 'N').toUpperCase() as Base);
-          if (b >= 0) out[b] = tr.at(start + i) ?? 0;
-          return out;
-        };
-        const { lo, hi } = drawLogo(methodLogosSvg, column, width, PLOT.left, inner, top, LOGO_ROW - 22);
-        methodLogosSvg.append(text(W - PLOT.right, top - 4,
-          `per base · ${lo.toFixed(3)} … ${hi.toFixed(3)}`, 'vp-ax', 'end'));
-      } else {
-        // A band at the method's own step. Its edges are where the method's windows actually fall,
-        // so a reader can see that one value covers many bases rather than inferring it.
-        const step = tr.resolutionBp;
-        const vals: { a: number; b: number; v: number }[] = [];
-        let peak = 1e-12;
-        for (let bp = Math.floor(start / step) * step; bp < start + width; bp += step) {
-          const v = tr.at(bp) ?? 0;
-          vals.push({ a: Math.max(bp - start, 0), b: Math.min(bp + step - start, width), v });
-          peak = Math.max(peak, Math.abs(v));
-        }
-        const mid = top + (BAND_ROW - 20) / 2;
-        const half = (BAND_ROW - 20) / 2;
-        for (const cell of vals) {
-          const h = (Math.abs(cell.v) / peak) * half;
-          const rect = el('rect');
-          attr(rect, {
-            x: px(cell.a) + 0.5, y: cell.v >= 0 ? mid - h : mid,
-            width: Math.max(px(cell.b) - px(cell.a) - 1, 0.5), height: Math.max(h, 0.5),
-            fill: 'currentColor', opacity: 0.28, stroke: 'currentColor', 'stroke-width': 0.6,
+  // ==============================================================================================
+  // The viewport: one canvas, every lane, one horizontal mapping
+  //
+  // This replaces four stacked elements -- a coverage SVG, an attribution canvas, a method strip
+  // and an annotation canvas -- that each computed their own inset and so put the same base pair at
+  // four different x positions at every container width but ~1,043 px. One canvas, `laneLayout`,
+  // and `vpMapX` mean that disagreement is no longer expressible rather than merely policed.
+  // ==============================================================================================
+
+  /** The zoomable view, in window-relative bp. Its "chromosome" is the 16,384 bp window. */
+  let vpView: View = windowView(0, LOCUS_LEN);
+  /** Mutagenesis as all four bases (the mean-centred plane) rather than the paper's projection. */
+  let vpHypothetical = false;
+  /** Whether the last repaint was zoomed far enough for letters. Read by the readout and the gate. */
+  let vpLettersOn = false;
+
+  function vpTheme(): VpTheme {
+    return {
+      ink: css('--color-ink', '#1f2328'),
+      muted: css('--color-muted', '#6b7280'),
+      rule: css('--color-rule', '#e5e7eb'),
+      accent: css('--vp-accent', '#3976a8'),
+      track: css('--vp-track', '#3976a8'),
+      orf: css('--vp-orf', '#6f62a8'),
+      fire: css('--vp-fire', '#b0455a'),
+      // Read off a real element: `--vp-panel` resolves to the literal `var(--color-surface, #fff)`
+      // rather than to a colour, and an unpainted ancestor computes to `rgba(0,0,0,0)`, which
+      // parses as black and turns a label chip into a black box on a white page.
+      bg: css('--color-surface', '#ffffff'),
+    };
+  }
+
+  /** bp -> x at the current view. The one horizontal mapping every lane reads. */
+  function vpMapX(width: number): (bp: number) => number {
+    const inner = Math.max(1, width - VP_PLOT.left - VP_PLOT.right);
+    const span = Math.max(1, vpView.end - vpView.start);
+    return (bp) => VP_PLOT.left + ((bp - vpView.start) / span) * inner;
+  }
+
+  /** Its exact inverse, so a pointer lands on the base it is over. */
+  function vpBpOfX(x: number, width: number): number {
+    const inner = Math.max(1, width - VP_PLOT.left - VP_PLOT.right);
+    return vpView.start + ((x - VP_PLOT.left) / inner) * (vpView.end - vpView.start);
+  }
+
+  function setVpView(start: number, end: number): void {
+    const v = clampWindowView(start, end);
+    if (v.start === vpView.start && v.end === vpView.end) return;
+    vpView = windowView(v.start, v.end);
+    renderViewport();
+  }
+
+  /** The 896-bin curve for the current assay group: the live pass if there is one, else shipped. */
+  function vpCoverage(): Float32Array | null {
+    const locusId = LOCI[locusIndex].id;
+    if (current) {
+      const o = new Float32Array(N_BINS);
+      for (let i = 0; i < N_BINS; i += 1) o[i] = current.tracks[i * 4 + groupIndex];
+      return o;
+    }
+    const rows = (PREDICTIONS.loci as Record<string, { groups: number[][] }>)[locusId]?.groups;
+    return rows?.[groupIndex] ? Float32Array.from(rows[groupIndex]) : null;
+  }
+
+  /** The one output track picked out of the 5,215, once its pack has decoded. */
+  function vpOutputTrack(): { label: string; values: Float32Array } | null {
+    if (!current) return null;
+    const values = new Float32Array(N_BINS);
+    for (let b = 0; b < N_BINS; b += 1) values[b] = current.allTracks[b * N_TRACKS + selectedTrack];
+    return { label: TRACK_NAMES[selectedTrack] ?? `track ${selectedTrack}`, values };
+  }
+
+  /**
+   * Whether the traced region is exactly one of the shipped anchors.
+   *
+   * This is what buys single-base gradient x input and integrated gradients: the packs carry those
+   * two per base only for the 9-12 anchors each locus ships. Anywhere else grad x input is
+   * reconstructed from 128 bp groups and IG has nothing to draw -- and a lane that quietly fell
+   * back to 128 bp while still being called "per base" is a lane claiming a precision it lacks.
+   */
+  function vpAnchorExact(): boolean {
+    if (!attribution || !tracedBins) return false;
+    return attribution.anchors.some(
+      (a) => a.binStart === tracedBins!.start && a.binEnd === tracedBins!.end,
+    );
+  }
+
+  function renderViewport(): void {
+    if (!viewportCanvas) return;
+    const ctx = viewportCanvas.getContext('2d');
+    // NO minimum width. `Math.max(320, clientWidth)` on a 288 px element makes the backing store
+    // wider than its box, `width: 100%` scales it back, and every horizontal coordinate is off by
+    // that ratio -- uniformly, so nothing looks broken.
+    const cssW = Math.round(
+      viewportCanvas.clientWidth || viewportCanvas.getBoundingClientRect().width,
+    );
+    if (!ctx || cssW <= 0) return;
+
+    const theme = vpTheme();
+    const inner = Math.max(1, cssW - VP_PLOT.left - VP_PLOT.right);
+    vpLettersOn = lettersVisible(vpView, inner);
+
+    const mapX2 = (bp: number, _w: number) => vpMapX(cssW)(bp);
+    const tracks = methodTracks();
+    const byId = new Map(tracks.map((t) => [t.id, t]));
+    const anchorExact = vpAnchorExact();
+    const picked = vpOutputTrack();
+
+    // The annotation lane's height depends on how many rows its features pack into, which depends
+    // on the zoom -- two 6 bp sites 200 bp apart share a pixel at full window and do not at base
+    // resolution. Measure it against a probe context before sizing anything.
+    let annH = 0;
+    if (annotations) {
+      const probe = document.createElement('canvas').getContext('2d');
+      if (probe) annH = drawAnnotationTrack(probe, cssW, 0, mapX2, true, vpView);
+    }
+
+    const state: ViewportState = {
+      hasIsm: !!ism,
+      hasAnchor: !!byId.get('grad'),
+      hasIg: !!byId.get('ig'),
+      hasOccl: !!byId.get('occl'),
+      hasRollout: !!byId.get('rollout'),
+      hasAnnotation: annH > 0,
+      outputTrack: picked?.label ?? null,
+      anchorExact,
+      letters: vpLettersOn,
+      ismHypothetical: vpHypothetical,
+      annotationHeight: annH,
+    };
+    const { lanes, total } = laneLayout(viewportLanes(state), 8);
+    const cssH = total + 18;                       // room for the caption below the last lane
+
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    viewportCanvas.width = Math.round(cssW * dpr);
+    viewportCanvas.height = Math.round(cssH * dpr);
+    viewportCanvas.style.height = `${cssH}px`;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+
+    const c: VpCtx = {
+      ctx, width: cssW, view: vpView,
+      left: VP_PLOT.left, right: VP_PLOT.right, theme, xOfBp: vpMapX(cssW),
+    };
+
+    const locus = LOCI[locusIndex];
+    const logoLetters: string[] = [];
+    let peakLabel = '';
+    let geneRowsDrawn = 0;
+    const logoDetail: { id: string; letters: number; columns: number; colours: string[];
+                        minPx: number; maxPx: number }[] = [];
+
+    for (const lane of lanes as VpLane[]) {
+      switch (lane.kind) {
+        case 'ruler':
+          drawRuler(c, lane, locus.chrom, locus.start);
+          break;
+
+        case 'coverage': {
+          const vals = vpCoverage();
+          if (!vals) break;
+          const ref = current && reference && reference !== current
+            ? (() => {
+              const o = new Float32Array(N_BINS);
+              for (let i = 0; i < N_BINS; i += 1) o[i] = reference!.tracks[i * 4 + groupIndex];
+              return o;
+            })()
+            : null;
+          const max = drawCoverageLane(c, lane, {
+            values: vals, reference: ref, useLog: useLogAxis,
+            traced: tracedBins
+              ? { start: CROP_BP + tracedBins.start * BIN_BP, end: CROP_BP + tracedBins.end * BIN_BP }
+              : null,
+            figure: locus.figureWindow
+              ? {
+                binStart: locus.figureWindow.binStart, binEnd: locus.figureWindow.binEnd,
+                label: locus.figurePanel ?? 'figure window',
+              }
+              : null,
           });
-          methodLogosSvg.append(rect);
-          // The value, printed on each step. A near-constant band over a 150 bp window is a grey
-          // block otherwise -- true, but it reads as "no data" rather than as "one number covers
-          // all of this", which is the thing the row exists to show.
-          const w = px(cell.b) - px(cell.a);
-          if (w > 34) {
-            methodLogosSvg.append(text((px(cell.a) + px(cell.b)) / 2,
-              cell.v >= 0 ? mid - h - 3 : mid + h + 9, cell.v.toPrecision(2), 'vp-ax'));
-          }
+          // Full precision. Reading a peak back off a `toFixed(2)` label once folded two different
+          // values into one string and made a real parity gap look like an exact match.
+          viewportCanvas.dataset.vpPeak = String(max);
+          peakLabel = max.toFixed(2);
+          drawLaneNote(c, lane, [
+            `${TRACK_GROUPS[groupIndex].label}`,
+            '896 bins × 16 bp',
+            current?.backend === 'precomputed' || !current ? 'precomputed' : 'live run',
+          ]);
+          break;
         }
-        const rule = el('line');
-        attr(rule, { x1: PLOT.left, x2: W - PLOT.right, y1: mid, y2: mid,
-                     stroke: 'currentColor', 'stroke-width': 0.5, opacity: 0.4 });
-        methodLogosSvg.append(rule);
-        methodLogosSvg.append(text(W - PLOT.right, top - 4,
-          `${step} bp steps · not per base`, 'vp-ax', 'end'));
+
+        case 'track':
+          if (picked) {
+            let max = 1e-6;
+            for (const v of picked.values) max = Math.max(max, v);
+            drawCoverageLane(c, lane, {
+              values: picked.values, useLog: useLogAxis, colour: theme.accent,
+            });
+            drawLaneNote(c, lane, [`peak ${max.toFixed(1)}`, 'its own axis']);
+          }
+          break;
+
+        case 'method': {
+          const tr = byId.get(lane.id as 'ism' | 'grad' | 'ig' | 'rollout' | 'occl');
+          if (!tr) break;
+          drawMethodLane(c, lane, tr.at, tr.peak);
+          drawLaneNote(c, lane, [
+            lane.resolutionBp === 1 ? 'single base' : `${lane.resolutionBp} bp`,
+            lane.degraded ?? lane.target ?? '',
+          ].filter(Boolean));
+          break;
+        }
+
+        case 'logo': {
+          const from = Math.max(0, Math.floor(vpView.start));
+          const n = Math.min(LOCUS_LEN - from, Math.ceil(vpView.end) - from);
+          let cols: Float64Array[] | null = null;
+          if (lane.id === 'ism-logo' && ism) {
+            cols = vpHypothetical
+              ? hypotheticalLogoColumns(ism.plane, ism.width, from - ism.start, n)
+              : projectedLogoColumns(
+                ismSaliency(ism.plane, ism.width, locus.sequence, ism.start),
+                locus.sequence, from, n,
+              );
+          } else if (lane.id === 'grad-logo' || lane.id === 'ig-logo') {
+            const tr = byId.get(lane.id === 'grad-logo' ? 'grad' : 'ig');
+            if (tr) {
+              const vals = new Float64Array(LOCUS_LEN);
+              for (let bp = from; bp < from + n; bp += 1) vals[bp] = tr.at(bp) ?? 0;
+              cols = projectedLogoColumns(vals, locus.sequence, from, n);
+            }
+          }
+          if (!cols) break;
+          const drawn = drawLogoLane(c, lane, cols, from);
+          // Countable, because it is the page's central claim: mutagenesis ships all four bases and
+          // can stack up to four letters a column; the two gradient methods multiply by a one-hot
+          // input and are identically zero at the three bases that are not there, so they draw one.
+          logoLetters.push(`${lane.id}=${drawn.letters}`);
+          logoDetail.push({ id: lane.id, ...drawn });
+          drawLaneNote(c, lane, [
+            lane.id === 'ism-logo' && vpHypothetical ? 'all four bases' : 'the reference base',
+            lane.target ?? '',
+          ].filter(Boolean));
+          break;
+        }
+
+        case 'sequence':
+          drawSequenceLane(c, lane, locus.sequence);
+          break;
+
+        case 'genes':
+          withVpClip(ctx, c, () => {
+            // `drawGeneRows` publishes its own tally as JSON on the canvas; the row COUNT is
+            // published separately as a number because that is what the gate compares when the
+            // one-row-per-gene toggle moves, and parsing JSON to read one integer invites the
+            // NaN that a `Number(<json>)` silently produces.
+            geneRowsDrawn = drawGeneRowsCanvas(ctx, locus, cssW, lane.top, 11, mapX2);
+          });
+          break;
+
+        case 'annotation':
+          withVpClip(ctx, c, () => {
+            drawAnnotationTrack(ctx, cssW, lane.top, mapX2, true, vpView);
+          });
+          break;
+
+        default:
+          break;
       }
+      // The gutter label last, and OUTSIDE the clip: the gutter is where a lane says what it is.
+      drawLaneLabel(c, lane);
+    }
+
+    const span = vpView.end - vpView.start;
+    drawCaption(ctx, cssW, total + 4, theme, [
+      `${zoomReadout(vpView, locus.chrom, locus.start)}`
+        + `${peakLabel ? ` · peak ${peakLabel}` : ''}`
+        + ` · drag to pan, drag the ruler to select, scroll to zoom`,
+      `${zoomReadout(vpView, locus.chrom, locus.start)}${peakLabel ? ` · peak ${peakLabel}` : ''}`,
+      `${span.toLocaleString()} bp`,
+    ]);
+
+    viewportCanvas.dataset.vpView = `${vpView.start}-${vpView.end}`;
+    viewportCanvas.dataset.vpLanes = (lanes as VpLane[]).map((l) => l.id).join('|');
+    viewportCanvas.dataset.vpLetters = String(vpLettersOn);
+    viewportCanvas.dataset.vpLogoLetters = logoLetters.join('|');
+    viewportCanvas.dataset.vpAnchorExact = String(anchorExact);
+    viewportCanvas.dataset.vpGeneRows = String(geneRowsDrawn);
+    // What each logo lane actually put on the canvas. A canvas has no elements to inspect,
+    // so the checks the SVG logo used to carry -- one letter a column when projected, the
+    // paper's four colours and nothing else, heights that vary -- come back as data here.
+    viewportCanvas.dataset.vpLogoDetail = JSON.stringify(logoDetail);
+    const methodLanes = (lanes as VpLane[]).filter((l) => l.kind === 'method');
+    viewportCanvas.dataset.vpMethods = methodLanes.map((l) => l.id).join('|');
+    // The ids are what the code calls a lane; the labels are what a reader sees, and it is the
+    // labels that have to say "mutagenesis" rather than "ism".
+    viewportCanvas.dataset.vpMethodLabels = methodLanes.map((l) => l.label).join('|');
+    viewportCanvas.dataset.vpBacking = `${viewportCanvas.width / dpr}x${cssW}`;
+    // A canvas has no elements to inspect, so the annotation is published as data. This tally is
+    // LOCUS-wide, not view-wide, deliberately: the lane itself draws only what the view can show,
+    // but a count that changed with the zoom would be a moving target for both a reader and an
+    // audit. It answers "what did this locus load", which is the question a missing lane fails.
+    const tally = annotationTally();
+    viewportCanvas.dataset.vpAnnotation = JSON.stringify(tally);
+    if (annStat) {
+      // Named, not keyed. `tfbs_chip 53` is a JSON key leaking into prose -- and the three TFBS
+      // tiers are three different claims about evidence, so the readout has to say which is which
+      // rather than making the reader decode an underscore.
+      const NAMES: Record<string, string> = {
+        gene: 'genes', rna: 'ncRNA', element: 'elements', regulatory: 'regulatory regions',
+        tfbs_chip: 'ChIP-supported sites', tfbs_conserved: 'conserved-only calls',
+        tfbs_pwm: 'PWM matches', tfbs_paper: 'paper motifs',
+      };
+      annStat.textContent = Object.entries(tally)
+        .map(([k, v]) => `${v} ${NAMES[k] ?? k}`).join(' · ') || 'no annotation loaded';
+    }
+    if (brushStat) {
+      const perBase = (lanes as VpLane[]).filter((l) => l.kind === 'method' && l.resolutionBp === 1);
+      brushStat.textContent = `${tracks.length} methods · ${perBase.length} at single-base`
+        + (anchorExact ? '' : ' · trace a whole gene for per-base gradients');
+    }
+    if (viewReadout) {
+      viewReadout.textContent = zoomReadout(vpView, locus.chrom, locus.start)
+        + (vpLettersOn ? ' · letters' : '');
+    }
+    renderOverview();
+  }
+
+  /** Clip a span-drawing lane to the plot area; a gene left of the view starts at a negative x. */
+  function withVpClip(ctx: CanvasRenderingContext2D, c: VpCtx, fn: () => void): void {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(c.left, 0, Math.max(1, c.width - c.left - c.right), 1e5);
+    ctx.clip();
+    fn();
+    ctx.restore();
+  }
+
+  /** The whole window, with the view as a band. The selection surface. */
+  function renderOverview(): void {
+    if (!overviewCanvas) return;
+    const ctx = overviewCanvas.getContext('2d');
+    const cssW = Math.round(
+      overviewCanvas.clientWidth || overviewCanvas.getBoundingClientRect().width,
+    );
+    if (!ctx || cssW <= 0) return;
+    const cssH = 34;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    overviewCanvas.width = Math.round(cssW * dpr);
+    overviewCanvas.height = Math.round(cssH * dpr);
+    overviewCanvas.style.height = `${cssH}px`;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawOverview(ctx, cssW, cssH, vpView, vpTheme(), vpCoverage());
+    overviewCanvas.dataset.vpView = `${vpView.start}-${vpView.end}`;
+  }
+
+  /**
+   * Pointer, wheel and keyboard on the viewport.
+   *
+   * IGV's conventions, and the genome browser on the sibling page already follows them, so the two
+   * halves of this lab do not want different gestures: drag pans, drag on the RULER selects a
+   * region to zoom to, shift-drag brushes anywhere, wheel zooms about the cursor. Idempotent, so a
+   * repaint cannot bind a second set.
+   */
+  function bindViewport(): void {
+    if (!viewportCanvas || viewportCanvas.dataset.vpBound === 'true') return;
+    viewportCanvas.dataset.vpBound = 'true';
+
+    let anchor: number | null = null;
+    /** Ruler drag: select a range and zoom to it. */
+    let selecting = false;
+    /** Shift-drag: select a range and TRACE it — what every panel below is conditioned on. */
+    let tracing = false;
+    let moved = false;
+    let startView: View = vpView;
+
+    const bpAt = (ev: PointerEvent): number => {
+      const r = viewportCanvas!.getBoundingClientRect();
+      return vpBpOfX(ev.clientX - r.left, r.width);
+    };
+    // The ruler is the top lane, and its height is the one constant the interaction needs.
+    const onRuler = (ev: PointerEvent): boolean => {
+      const r = viewportCanvas!.getBoundingClientRect();
+      return ev.clientY - r.top <= 8 + 26;
+    };
+
+    viewportCanvas.addEventListener('pointerdown', (e) => {
+      const ev = e as PointerEvent;
+      anchor = bpAt(ev);
+      // Three gestures, and they must not collapse into one. Plain drag PANS, which is what a
+      // reader expects of a zoomable view and what the genome browser on the sibling page does.
+      // Dragging the RULER selects a range and zooms to it, IGV's convention. Shift-drag TRACES a
+      // range — the page's own semantics, and the affordance the old un-zoomable coverage curve
+      // had by default. Losing it to panning would leave the region selector as the only way to
+      // condition the twenty panels below.
+      selecting = onRuler(ev) && !ev.shiftKey;
+      tracing = ev.shiftKey;
+      moved = false;
+      startView = vpView;
+      viewportCanvas!.setPointerCapture?.(ev.pointerId);
+      viewportCanvas!.style.cursor = selecting || tracing ? 'col-resize' : 'grabbing';
+    });
+    viewportCanvas.addEventListener('pointermove', (e) => {
+      const ev = e as PointerEvent;
+      if (anchor === null) { viewportCanvas!.style.cursor = onRuler(ev) ? 'col-resize' : 'grab'; return; }
+      const b = bpAt(ev);
+      if (Math.abs(b - anchor) > 0) moved = true;
+      if (selecting || tracing) { renderViewport(); return; }
+      const shift = anchor - b;
+      setVpView(startView.start + shift, startView.end + shift);
+      // Panning re-reads the anchor against the NEW view, so the base under the pointer stays put.
+      anchor = bpAt(ev);
+      startView = vpView;
+    });
+    const finish = (e: Event) => {
+      const ev = e as PointerEvent;
+      if (anchor === null) return;
+      const b = bpAt(ev);
+      // The click/drag threshold is PIXELS converted at the current scale, never a bp constant:
+      // 4 px is 40 bp at full window and 0.4 bp at base resolution.
+      const r = viewportCanvas!.getBoundingClientRect();
+      const minBp = (4 / Math.max(1, r.width - VP_PLOT.left - VP_PLOT.right))
+        * (vpView.end - vpView.start);
+      if (tracing) {
+        const sel = brushRegion(anchor, b, minBp);
+        if (sel) {
+          const bins = binsForRange(sel.start, sel.end);
+          if (bins.end > bins.start) traceBins(bins.start, bins.end, 'dragged');
+        }
+      } else if (selecting) {
+        const sel = brushRegion(anchor, b, minBp);
+        if (sel) setVpView(sel.start, sel.end);
+        else { const w = vpView.end - vpView.start; setVpView(b - w / 2, b + w / 2); }
+      } else if (!moved) {
+        // A click that did not pan traces the 16 bp bin under it, which is what the coverage curve
+        // used to own and what every region-conditioned panel below reads.
+        const bins = binsForRange(b - BIN_BP, b + BIN_BP);
+        if (bins.end > bins.start) traceBins(bins.start, bins.end, 'clicked');
+      }
+      anchor = null;
+      selecting = false;
+      tracing = false;
+      viewportCanvas!.style.cursor = 'grab';
+    };
+    viewportCanvas.addEventListener('pointerup', finish);
+    viewportCanvas.addEventListener('pointercancel', () => {
+      anchor = null; selecting = false; tracing = false;
     });
 
-    // One axis for the stack, in real genomic coordinates.
-    const locus = LOCI[locusIndex];
-    const step = Math.max(10, Math.round(width / 6));
-    for (let k = 0; k <= width; k += step) {
-      const anchorPos = k === 0 ? 'start' : k + step > width ? 'end' : 'middle';
-      methodLogosSvg.append(text(px(k), H - 6,
-        (locus.start + start + k).toLocaleString(), 'vp-ax', anchorPos));
+    viewportCanvas.addEventListener('wheel', (e) => {
+      const ev = e as WheelEvent;
+      if (Math.abs(ev.deltaY) < 1) return;
+      ev.preventDefault();
+      const r = viewportCanvas!.getBoundingClientRect();
+      const at = vpBpOfX(ev.clientX - r.left, r.width);
+      const z = zoomAbout(vpView.start, vpView.end, ev.deltaY > 0 ? 1.25 : 0.8, at, LOCUS_LEN);
+      setVpView(z.start, z.end);
+    }, { passive: false });
+
+    viewportCanvas.tabIndex = 0;
+    viewportCanvas.addEventListener('keydown', (e) => {
+      const ev = e as KeyboardEvent;
+      const w = vpView.end - vpView.start;
+      const step = Math.max(1, Math.round(w * 0.2));
+      if (ev.key === 'ArrowLeft') setVpView(vpView.start - step, vpView.end - step);
+      else if (ev.key === 'ArrowRight') setVpView(vpView.start + step, vpView.end + step);
+      else if (ev.key === '+' || ev.key === '=') vpZoom(0.6);
+      else if (ev.key === '-' || ev.key === '_') vpZoom(1 / 0.6);
+      else if (ev.key === 'Home') setVpView(0, LOCUS_LEN);
+      else return;
+      ev.preventDefault();
+    });
+
+    if (overviewCanvas && overviewCanvas.dataset.vpBound !== 'true') {
+      overviewCanvas.dataset.vpBound = 'true';
+      let a: number | null = null;
+      const bpOfStrip = (ev: PointerEvent): number => {
+        const r = overviewCanvas!.getBoundingClientRect();
+        const innerPx = Math.max(1, r.width - VP_PLOT.left - VP_PLOT.right);
+        return ((ev.clientX - r.left - VP_PLOT.left) / innerPx) * LOCUS_LEN;
+      };
+      overviewCanvas.addEventListener('pointerdown', (e) => {
+        a = bpOfStrip(e as PointerEvent);
+        overviewCanvas!.setPointerCapture?.((e as PointerEvent).pointerId);
+      });
+      overviewCanvas.addEventListener('pointerup', (e) => {
+        if (a === null) return;
+        const b = bpOfStrip(e as PointerEvent);
+        // The threshold is expressed at the STRIP's scale, where a few pixels is several hundred bp.
+        const r = overviewCanvas!.getBoundingClientRect();
+        const minBp = (5 / Math.max(1, r.width - VP_PLOT.left - VP_PLOT.right)) * LOCUS_LEN;
+        const sel = brushRegion(a, b, minBp);
+        if (sel) setVpView(sel.start, sel.end);
+        else { const w = vpView.end - vpView.start; setVpView(b - w / 2, b + w / 2); }
+        a = null;
+      });
+      overviewCanvas.style.cursor = 'col-resize';
     }
-    methodLogosSvg.dataset.rows = String(tracks.length);
-    methodLogosSvg.dataset.window = `${start}-${start + width}`;
-    if (brushStat) {
-      brushStat.textContent = `bp ${start.toLocaleString()}–${(start + width).toLocaleString()} `
-        + `of the window · ${locus.chrom}:${(locus.start + start).toLocaleString()}`;
-    }
+
+    viewportCanvas.style.cursor = 'grab';
+  }
+
+  function vpZoom(factor: number): void {
+    const mid = (vpView.start + vpView.end) / 2;
+    const z = zoomAbout(vpView.start, vpView.end, factor, mid, LOCUS_LEN);
+    setVpView(z.start, z.end);
   }
 
   /**
@@ -3198,59 +3587,6 @@ export function initVariantPlayground(root: ParentNode = document) {
    * ------------------------------------------------------------------------------------------ */
 
   /**
-   * Gene models as a genome browser draws them: one row per non-overlapping set.
-   *
-   * Every feature used to draw on a single line, distinguished only by opacity, so in the eight
-   * shipped windows that contain an overlap one gene was painted over another and simply could not
-   * be read. `packGeneRows` is the standard greedy assignment; measured, no window needs more than
-   * two rows, so expanding costs one row and hides nothing.
-   */
-  function drawGeneRowsSvg(svg: SVGSVGElement, locus: Locus, W: number, top: number): number {
-    const rows = geneRowsExpanded ? packGeneRows(locus.features) : locus.features.map(() => 0);
-    const nRows = Math.max(...rows) + 1;
-    const rowH = 11;
-    locus.features.forEach((f, i) => {
-      const own = f.name === locus.id;
-      const mid = top + rows[i] * rowH + 5;
-      const x0 = xOfBp(f.txStart, W);
-      const x1 = xOfBp(f.txEnd, W);
-      const line = el('line');
-      attr(line, {
-        x1: x0, x2: x1, y1: mid, y2: mid,
-        stroke: 'var(--vp-orf)', 'stroke-width': 1, 'stroke-opacity': own ? 0.9 : 0.5,
-      });
-      svg.append(line);
-      // Direction, drawn on the intron line where a browser puts it.
-      const fwd = f.strand === '+';
-      for (let x = x0 + 7; x < x1 - 3; x += 13) {
-        const chev = el('path');
-        attr(chev, {
-          d: `M${(x - (fwd ? 2 : -2)).toFixed(1)} ${mid - 2.4} L${(x + (fwd ? 2 : -2)).toFixed(1)} ${mid}`
-            + ` L${(x - (fwd ? 2 : -2)).toFixed(1)} ${mid + 2.4}`,
-          fill: 'none', stroke: 'var(--vp-orf)', 'stroke-width': 0.7,
-          'stroke-opacity': own ? 0.85 : 0.45,
-        });
-        svg.append(chev);
-      }
-      for (const piece of geneTrackShapes(f)) {
-        if (piece.kind === 'intron') continue;
-        const h = piece.kind === 'cds' ? 8 : 4;
-        const r = el('rect');
-        attr(r, {
-          x: xOfBp(piece.start, W), y: mid - h / 2,
-          width: Math.max(xOfBp(piece.end, W) - xOfBp(piece.start, W), 1), height: h,
-          fill: 'var(--vp-orf)', 'fill-opacity': own ? 0.85 : 0.45,
-        });
-        svg.append(r);
-      }
-      // After the gene rather than above it: above put the name straight through the bp ruler.
-      if (own) svg.append(text(x1 + 4, mid + 3, locus.gene, 'vp-ax', 'start'));
-    });
-    svg.dataset.geneRows = String(nRows);
-    return nRows;
-  }
-
-  /**
    * The annotation track: every curated feature in the window, on the page's shared bp axis.
    *
    * Drawn as lanes rather than one row because the classes answer different questions -- where the
@@ -3266,8 +3602,21 @@ export function initVariantPlayground(root: ParentNode = document) {
     ctx: CanvasRenderingContext2D,
     width: number,
     top: number,
+    mapX: (bp: number, w: number) => number = xOfBp,
+    // The viewport carries its own always-on gene lane, drawn from `locus.features`, which ships in
+    // the bundle and needs no fetch -- so gene models are on screen before `-ann.json` arrives.
+    // Drawing them here as well would put two copies of the same models in one stack.
+    omitGenes = false,
+    // Only the features the view can actually show. Packing rows for all 610 of a locus's features
+    // while drawing the twenty that are on screen reserves the full-locus height at every zoom --
+    // at 20 bp that is an empty band several hundred pixels tall under a lane label, which reads as
+    // a rendering failure rather than as "nothing is annotated here".
+    range: { start: number; end: number } | null = null,
   ): number {
-    const feats = drawnAnnotations();
+    const all = drawnAnnotations();
+    const feats = range
+      ? all.filter((f) => f.end > range.start && f.start < range.end)
+      : all;
     if (!feats.length) return 0;
     const muted = css('--color-muted', '#6b7280');
     // Short labels: the left gutter is PLOT.left wide and "regulatory" ran off it, rendering as
@@ -3289,13 +3638,13 @@ export function initVariantPlayground(root: ParentNode = document) {
     // Genes first, through the SAME renderer the coverage plot uses: exons as blocks, introns as
     // chevroned lines, strand-aware, with names. Drawing them as plain rectangles here -- which is
     // what this lane did -- put a solid bar over every intron the plot above draws as a gap.
-    {
+    if (!omitGenes) {
       const locus = LOCI[locusIndex];
       ctx.fillStyle = muted;
       ctx.textAlign = 'right';
       ctx.fillText('genes', PLOT.left - 4, y + 9);
       ctx.textAlign = 'left';
-      const usedRows = drawGeneRowsCanvas(ctx, locus, width, y);
+      const usedRows = drawGeneRowsCanvas(ctx, locus, width, y, 11, mapX);
       y += usedRows * 11 + 6;
       drawn += locus.features.length;
     }
@@ -3312,8 +3661,8 @@ export function initVariantPlayground(root: ParentNode = document) {
       ctx.textAlign = 'right';
       ctx.fillText(lane.label, PLOT.left - 4, y + ROW_H - 2);
       inLane.forEach((f, i) => {
-        const x0 = xOfBp(f.start, width);
-        const x1 = Math.max(xOfBp(f.end, width), x0 + 1.2);
+        const x0 = mapX(f.start, width);
+        const x1 = Math.max(mapX(f.end, width), x0 + 1.2);
         const ry = y + rows[i] * ROW_H;
         const tier = motifTier(f);
         // Evidence is drawn, not only recorded: a ChIP-supported call is solid, a conserved-only
@@ -3366,114 +3715,6 @@ export function initVariantPlayground(root: ParentNode = document) {
     return out;
   }
 
-  function renderTrack(): void {
-    if (!trackSvg) return;
-    clear(trackSvg);
-    const W = svgWidth(trackSvg);
-    const H = 250;
-    attr(trackSvg, { viewBox: `0 0 ${W} ${H}` });
-    const n = N_BINS;
-    const locusId = LOCI[locusIndex].id;
-    // The live pass when the model has been run, the shipped precomputed curve otherwise -- so
-    // every panel is populated on load and `Load model` buys editing, not a number that exists.
-    const vals: Float32Array | null = current
-      ? (() => {
-        const o = new Float32Array(N_BINS);
-        for (let i = 0; i < N_BINS; i += 1) o[i] = current.tracks[i * 4 + groupIndex];
-        return o;
-      })()
-      : (() => {
-        const rows = (PREDICTIONS.loci as Record<string, { groups: number[][] }>)[locusId]?.groups;
-        return rows?.[groupIndex] ? Float32Array.from(rows[groupIndex]) : null;
-      })();
-    if (!vals) {
-      trackSvg.append(text(W / 2, H / 2, emptyReason, 'vp-ax'));
-      return;
-    }
-    const max = Math.max(...vals, 1e-6);
-    // Published at full precision: a canvas-adjacent SVG has no element carrying its peak, and
-    // reading it back off a `toFixed(2)` label once folded two different values into one string.
-    trackSvg.dataset.peak = String(max);
-    const plotTop = PLOT.top;
-    const plotBottom = H - PLOT.bottom - GENE_H;
-    const locus = LOCI[locusIndex];
-
-    drawCropShading(trackSvg, W, plotTop, plotBottom);
-    drawAxes(trackSvg, W, plotTop, plotBottom, max, 'predicted coverage (a.u.)', locus, H - 3);
-
-    // Bin i covers CROP_BP + i*BIN_BP, which is where it is now drawn -- not stretched across the
-    // whole panel as if the model predicted the flanks it never sees.
-    const bx = (i: number) => xOfBp(CROP_BP + i * BIN_BP, W);
-    const yOf = (v: number, ceiling: number) =>
-      plotBottom - (useLogAxis ? logAxis(v, ceiling) : ceiling > 0 ? v / ceiling : 0)
-        * (plotBottom - plotTop);
-
-    // The window the paper's figure prints, so a reader can see which slice of the 896 bins
-    // Figure 4 was looking at.
-    if (locus.figureWindow) {
-      const { binStart, binEnd } = locus.figureWindow;
-      const frame = el('rect');
-      attr(frame, {
-        x: bx(binStart), y: plotTop, width: Math.max(bx(binEnd) - bx(binStart), 2),
-        height: plotBottom - plotTop,
-        fill: 'var(--vp-orf)', 'fill-opacity': 0.08,
-        stroke: 'var(--vp-orf)', 'stroke-opacity': 0.5, 'stroke-dasharray': '3 2',
-      });
-      trackSvg.append(frame);
-      trackSvg.append(text(bx(binStart) + 3, plotTop + 10, locus.figurePanel ?? 'figure window', 'vp-ax', 'start'));
-    }
-
-    drawGeneRowsSvg(trackSvg, locus, W, plotBottom + 18);
-
-    let d = `M${bx(0).toFixed(2)} ${yOf(vals[0], max).toFixed(2)}`;
-    for (let i = 1; i < n; i += 1) d += ` L${bx(i).toFixed(2)} ${yOf(vals[i], max).toFixed(2)}`;
-    const path = el('path');
-    attr(path, { d, fill: 'none', stroke: 'var(--vp-track)', 'stroke-width': 1.4 });
-    trackSvg.append(path);
-
-    if (current && reference && reference !== current) {
-      let rd = `M${bx(0).toFixed(2)} ${yOf(reference.tracks[groupIndex], max).toFixed(2)}`;
-      for (let i = 1; i < n; i += 1) {
-        rd += ` L${bx(i).toFixed(2)} ${yOf(reference.tracks[i * 4 + groupIndex], max).toFixed(2)}`;
-      }
-      const rp = el('path');
-      attr(rp, { d: rd, fill: 'none', stroke: 'var(--color-muted)', 'stroke-width': 1, 'stroke-dasharray': '3 3' });
-      trackSvg.insertBefore(rp, path);
-    }
-    // The traced region, marked on the curve it was selected from.
-    if (tracedBins) {
-      const r = el('rect');
-      attr(r, {
-        x: bx(tracedBins.start), y: plotTop,
-        width: Math.max(bx(tracedBins.end) - bx(tracedBins.start), 1.5), height: plotBottom - plotTop,
-        fill: 'var(--vp-accent)', 'fill-opacity': 0.12,
-        stroke: 'var(--vp-accent)', 'stroke-opacity': 0.55,
-      });
-      trackSvg.append(r);
-    }
-
-    let argmax = 0;
-    for (let i = 1; i < n; i += 1) if (vals[i] > vals[argmax]) argmax = i;
-    // Full precision, for the python-vs-browser parity check. The visible label is rounded, and
-    // comparing rounded labels is how two different numbers come to look identical.
-    // The same focus band the canvases draw, over the plot area only -- the gene rows below get
-    // theirs from the annotation track, and banding both doubles the ink on a ~7 px marker.
-    focusBandSvg(trackSvg, W, plotTop, plotBottom - plotTop);
-    bindFocusDrag(trackSvg);
-    trackSvg.dataset.peak = String(max);
-    trackSvg.dataset.peakBin = String(argmax);
-    trackSvg.dataset.domainBp = `0-${SEQ_LEN}`;
-    trackSvg.dataset.vpFocus = `${logoWindow.start}-${logoWindow.start + logoWindow.width}`;
-    trackSvg.append(
-      text(PLOT.left, 13,
-        `predicted ${TRACK_GROUPS[groupIndex].label} · 896 bins × 16 bp over bp `
-        + `${CROP_BP.toLocaleString()}–${(CROP_BP + N_BINS * BIN_BP).toLocaleString()}`
-        + ` · peak ${max.toFixed(2)} at bin ${argmax}`
-        + (current?.backend === 'precomputed' || !current ? ' · precomputed' : ' · live run'),
-        'vp-ax vp-caption', 'start'),
-    );
-  }
-
   /** Paint the annotation canvas, sized to whatever the visible lanes need. */
   /** `visibleAnnotations()` narrowed by the canvas's own lane and tier toggles. */
   function drawnAnnotations(): AnnotationFeature[] {
@@ -3487,381 +3728,11 @@ export function initVariantPlayground(root: ParentNode = document) {
     });
   }
 
-  function renderAnnotation(): void {
-    if (!annCanvas) return;
-    const cssW = annCanvas.clientWidth || 900;
-    const feats = drawnAnnotations();
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    // Measure first: the canvas has to be tall enough for the lanes that are on, and a lane count
-    // that changes with the toggles means the height cannot be a constant.
-    const probe = document.createElement('canvas').getContext('2d');
-    let need = 24;
-    if (probe && feats.length) {
-      probe.font = '9px system-ui, sans-serif';
-      need = drawAnnotationTrack(probe, cssW, 0) + 20;
-    }
-    const cssH = Math.max(need, 44);   // the gene lane alone needs more than the old 30 px floor
-    annCanvas.width = Math.round(cssW * dpr);
-    annCanvas.height = Math.round(cssH * dpr);
-    annCanvas.style.height = `${cssH}px`;
-    const ctx = annCanvas.getContext('2d');
-    if (!ctx) return;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, cssW, cssH);
-    const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
-    ctx.font = '9px system-ui, sans-serif';
-    if (!feats.length) {
-      ctx.fillStyle = muted;
-      ctx.fillText(annotations ? 'No annotation in the selected lanes.'
-        : 'Annotation loads with the locus.', PLOT.left, 16);
-      delete annCanvas.dataset.vpAnnotation;
-      if (annStat) annStat.textContent = '';
-      return;
-    }
-    drawAnnotationTrack(ctx, cssW, 2);
-    drawFocusBand(ctx, cssW, 0, cssH - 14);
-    bindFocusDrag(annCanvas);
-    annCanvas.dataset.vpFocus = `${logoWindow.start}-${logoWindow.start + logoWindow.width}`;
-
-    ctx.fillStyle = muted;
-    ctx.textAlign = 'left';
-    for (const bp of bpTicks(4000)) {
-      ctx.textAlign = bp === 0 ? 'left' : bp >= SEQ_LEN ? 'right' : 'center';
-      ctx.fillText(bpLabel(bp), xOfBp(bp, cssW), cssH - 2);
-    }
-    ctx.textAlign = 'left';
-
-    const tally = annotationTally();
-    annCanvas.dataset.vpAnnotation = Object.entries(tally)
-      .map(([k, v]) => `${k}:${v}`).join(',');
-    if (annStat && annotations) {
-      const chip = annotations.features.filter((f) => motifTier(f) === 'chip').length;
-      const cons = annotations.features.filter((f) => motifTier(f) === 'conserved').length;
-      const pwm = annotations.features.filter((f) => motifTier(f) === 'pwm').length;
-      // The unfiltered scan count is on the face of the control, not buried in a disclosure: it is
-      // the reason the PWM tier is off by default and the reason it should be read differently.
-      annStat.textContent = `${chip} ChIP-supported · ${cons} conserved only · ${pwm} PWM hits at `
-        + `score ≥ ${annotations.jasparMin} of ${annotations.jasparScanned.toLocaleString()} scanned`;
-    }
-  }
-
-  /** Draw the traced attribution: which input positions drive the selected output region. */
-  function renderAttribution(): void {
-    if (!attrCanvas) return;
-    // Bound once; the helper is idempotent via a dataset flag.
-    bindFocusDrag(attrCanvas);
-    const cssW = attrCanvas.clientWidth || 900;
-    const cssH = 150;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    attrCanvas.width = Math.round(cssW * dpr);
-    attrCanvas.height = Math.round(cssH * dpr);
-    attrCanvas.style.height = `${cssH}px`;
-    const ctx = attrCanvas.getContext('2d');
-    if (!ctx) return;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, cssW, cssH);
-    const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
-    const rule = getComputedStyle(host).getPropertyValue('--color-rule').trim() || '#e5e7eb';
-    const pos = getComputedStyle(host).getPropertyValue('--vp-fire').trim() || '#b0455a';
-    const neg = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
-    ctx.font = '10px system-ui, sans-serif';
-
-    if (!attribution || !tracedBins) {
-      ctx.fillStyle = muted;
-      ctx.font = '11px system-ui, sans-serif';
-      ctx.fillText('No region traced yet.', PLOT.left, 22);
-      delete attrCanvas.dataset.peak;
-      return;
-    }
-
-    const anchorIdx = attribution.anchors.findIndex(
-      (a) => a.binStart === tracedBins!.start && a.binEnd === tracedBins!.end,
-    );
-    // An anchor carries single-base attribution; a dragged region is the 16 bp matrix.
-    const series = anchorIdx >= 0
-      ? attribution.anchor.subarray(anchorIdx * attribution.cols.anchor,
-                                    (anchorIdx + 1) * attribution.cols.anchor)
-      : traceRegion(attribution, tracedBins.start, tracedBins.end);
-    let peak = 0;
-    for (let i = 0; i < series.length; i += 1) peak = Math.max(peak, Math.abs(series[i]));
-
-    const plotTop = 16;
-    const geneTop = cssH - 34;
-    const plotBottom = geneTop - 12;
-    const mid = (plotTop + plotBottom) / 2;
-    const half = (plotBottom - plotTop) / 2;
-
-    // The same cropped flanks the curve above shades, so a reader can see at a glance which part of
-    // the attribution lies under a bin the model actually predicts -- and that the rest is real.
-    const { lo, hi } = predictedSpan();
-    ctx.fillStyle = muted;
-    ctx.globalAlpha = 0.1;
-    for (const [a, b] of [[0, fractionToBp(lo)], [fractionToBp(hi), SEQ_LEN]] as [number, number][]) {
-      ctx.fillRect(xOfBp(a, cssW), plotTop, xOfBp(b, cssW) - xOfBp(a, cssW), plotBottom - plotTop);
-    }
-    ctx.globalAlpha = 1;
-
-    // Bars, positioned in bp rather than by array index, so this panel and the curve above put the
-    // same base at the same x.
-    const perStep = SEQ_LEN / series.length;
-    for (let i = 0; i < series.length; i += 1) {
-      const v = series[i];
-      if (v === 0) continue;
-      const h = (Math.abs(v) / Math.max(peak, 1e-12)) * half;
-      const x = xOfBp(i * perStep, cssW);
-      const w = Math.max(xOfBp((i + 1) * perStep, cssW) - x, 0.6);
-      ctx.fillStyle = v < 0 ? neg : pos;
-      ctx.fillRect(x, v < 0 ? mid : mid - h, w, h);
-    }
-
-    // A signed axis: zero in the middle, +/- peak at the edges.
-    ctx.strokeStyle = rule;
-    ctx.fillStyle = muted;
-    ctx.textAlign = 'right';
-    for (const [y, label] of [
-      [plotTop, `+${formatTick(peak)}`], [mid, '0'], [plotBottom, `−${formatTick(peak)}`],
-    ] as [number, string][]) {
-      ctx.globalAlpha = y === mid ? 0.8 : 0.35;
-      ctx.beginPath();
-      ctx.moveTo(PLOT.left, y + 0.5);
-      ctx.lineTo(cssW - PLOT.right, y + 0.5);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-      ctx.fillText(label, PLOT.left - 5, y + 3);
-    }
-    ctx.save();
-    ctx.translate(11, mid);
-    ctx.rotate(-Math.PI / 2);
-    ctx.textAlign = 'center';
-    ctx.fillText('gradient × input', 0, 0);
-    ctx.restore();
-
-    // The same bp ruler as the curve above.
-    ctx.textAlign = 'center';
-    for (const bp of bpTicks()) {
-      const x = xOfBp(bp, cssW);
-      ctx.globalAlpha = 0.5;
-      ctx.beginPath();
-      ctx.moveTo(x, plotBottom);
-      ctx.lineTo(x, plotBottom + 3);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-      ctx.textAlign = bp === 0 ? 'left' : bp >= SEQ_LEN ? 'right' : 'center';
-      ctx.fillText(bpLabel(bp), x, plotBottom + 12);
-    }
-    ctx.textAlign = 'left';
-
-    {
-      drawGeneRowsCanvas(ctx, LOCI[locusIndex], cssW, geneTop);
-    }
-    ctx.fillStyle = muted;
-    ctx.fillText(
-      `${tracedBins.label} · ${anchorIdx >= 0 ? 'single base' : `${series.length} bins of 16 bp`}`
-      + ` · peak |attribution| ${peak.toFixed(3)} · same 0–${SEQ_LEN.toLocaleString()} bp axis as the curve above`,
-      PLOT.left, 11,
-    );
-    // The band, over the attribution plot but not the gene rows beneath it -- the annotation track
-    // bands its own genes, and doubling it on a ~7 px marker is ink without information.
-    drawFocusBand(ctx, cssW, 14, geneTop - 20);
-    attrCanvas.dataset.peak = String(peak);
-    attrCanvas.dataset.region = tracedBins.label;
-    attrCanvas.dataset.domainBp = `0-${SEQ_LEN}`;
-    attrCanvas.dataset.vpFocus = `${logoWindow.start}-${logoWindow.start + logoWindow.width}`;
-  }
-
-  /** Draw every available method as a small signal track on the shared bp axis. */
-  function renderMethods(): void {
-    if (!methodsCanvas) return;
-    const tracks = methodTracks();
-    const cssW = methodsCanvas.clientWidth || 900;
-    const rowH = 38;   // room for the label above each track
-    const cssH = Math.max(tracks.length, 1) * rowH + 20;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    methodsCanvas.width = Math.round(cssW * dpr);
-    methodsCanvas.height = Math.round(cssH * dpr);
-    methodsCanvas.style.height = `${cssH}px`;
-    const ctx = methodsCanvas.getContext('2d');
-    if (!ctx) return;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, cssW, cssH);
-    const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
-    const pos = getComputedStyle(host).getPropertyValue('--vp-fire').trim() || '#b0455a';
-    const neg = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
-    ctx.font = '9px system-ui, sans-serif';
-
-    if (!tracks.length) {
-      ctx.fillStyle = muted;
-      ctx.fillText('Trace a region to compare the attribution methods.', 8, 18);
-      delete methodsCanvas.dataset.tracks;
-      return;
-    }
-
-    // The plot band starts at PLOT.left, exactly like every other panel, because the entire point
-    // of this strip is that the four methods line up with the coverage curve and the gene models
-    // above them. An earlier version gave it a wider gutter to fit the method names and silently
-    // broke that registration -- the labels go ABOVE each track instead.
-    const GUTTER = PLOT.left;
-    tracks.forEach((tr, i) => {
-      const mid = i * rowH + rowH / 2 + 4;
-      const half = rowH / 2 - 3;
-      ctx.strokeStyle = muted;
-      ctx.globalAlpha = 0.3;
-      ctx.beginPath();
-      ctx.moveTo(GUTTER, mid + 0.5);
-      ctx.lineTo(cssW - PLOT.right, mid + 0.5);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-      for (let x = GUTTER; x < cssW - PLOT.right; x += 1) {
-        // bp across the plot band, which starts at GUTTER here rather than PLOT.left.
-        const v = tr.at(((x - GUTTER) / Math.max(cssW - GUTTER - PLOT.right, 1)) * SEQ_LEN);
-        if (v === null || v === 0) continue;
-        const h = (Math.abs(v) / Math.max(tr.peak, 1e-12)) * half;
-        ctx.fillStyle = v < 0 ? neg : pos;
-        ctx.fillRect(x, v < 0 ? mid : mid - h, 1, h);
-      }
-      ctx.fillStyle = muted;
-      ctx.textAlign = 'left';
-      ctx.fillText(tr.label, GUTTER + 2, mid - half + 7);
-      ctx.textAlign = 'right';
-      // The note is right-aligned against a left-aligned label on the same baseline, with nothing
-      // between them: at a narrow viewport the two simply overlap, and a canvas has no `overflow`
-      // to report it. Drop trailing ` · ` clauses until it fits, keeping the peak, which is the one
-      // part that makes the row's scale readable.
-      const room = (cssW - PLOT.right) - (GUTTER + 2 + ctx.measureText(tr.label).width) - 12;
-      const parts = `±${tr.peak.toPrecision(2)} · ${tr.note}`.split(' · ');
-      let note = parts.join(' · ');
-      while (parts.length > 1 && ctx.measureText(note).width > room) {
-        parts.pop();
-        note = parts.join(' · ');
-      }
-      // Even the peak alone can be too wide at 320px; drawing nothing beats drawing over the label.
-      if (ctx.measureText(note).width <= room) {
-        ctx.fillText(note, cssW - PLOT.right, mid - half + 7);
-      }
-    });
-
-    ctx.fillStyle = muted;
-    ctx.textAlign = 'center';
-    for (const bp of bpTicks(4000)) {
-      const x = GUTTER + (bp / SEQ_LEN) * (cssW - GUTTER - PLOT.right);
-      ctx.textAlign = bp === 0 ? 'left' : bp >= SEQ_LEN ? 'right' : 'center';
-      ctx.fillText(bpLabel(bp), x, cssH - 4);
-    }
-    ctx.textAlign = 'left';
-    // The band, over the whole stack, so all four methods share one visible focus.
-    drawFocusBand(ctx, cssW, 8, Math.max(cssH - 26, 10), { label: true });
-    bindFocusDrag(methodsCanvas);
-    methodsCanvas.dataset.tracks = String(tracks.length);
-    methodsCanvas.dataset.vpFocus = `${logoWindow.start}-${logoWindow.start + logoWindow.width}`;
-    methodsCanvas.dataset.labels = tracks.map((t) => t.label).join('|');
-  }
-
-  /**
-   * The focus band: the zoom window, drawn identically on EVERY full-window track.
-   *
-   * The zoomed logos show 150 bp of 16,384 -- 0.9% of the axis above them -- and until now nothing
-   * marked which 0.9%. One helper, one colour, one geometry, called from the coverage plot, the
-   * attribution canvas, the method tracks and the annotation track, so the eye can follow the same
-   * band straight down the column.
-   *
-   * `fx` maps a bp offset to an x coordinate in whatever space the caller is drawing in, so the
-   * same routine serves canvases and the SVG without either re-deriving the axis.
-   */
-  function drawFocusBand(
-    ctx: CanvasRenderingContext2D,
-    width: number,
-    top: number,
-    height: number,
-    opts: { label?: boolean } = {},
-  ): void {
-    const a = xOfBp(logoWindow.start, width);
-    const b = xOfBp(logoWindow.start + logoWindow.width, width);
-    const accent = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
-    ctx.save();
-    // Fill, then two hard edges. At 150 bp of 16,384 the band is ~7 px wide, so the edges are what
-    // actually locate it -- a fill alone at that width reads as a smudge.
-    ctx.fillStyle = accent;
-    ctx.globalAlpha = 0.13;
-    ctx.fillRect(a, top, Math.max(b - a, 1.5), height);
-    ctx.globalAlpha = 0.85;
-    ctx.fillRect(a - 0.5, top, 1.25, height);
-    ctx.fillRect(b - 0.5, top, 1.25, height);
-    ctx.globalAlpha = 1;
-    if (opts.label) {
-      ctx.fillStyle = accent;
-      ctx.font = '9px system-ui, sans-serif';
-      ctx.textAlign = 'left';
-      const text = `${logoWindow.width} bp`;
-      const w = ctx.measureText(text).width;
-      // Flip the label inside when the band is near the right edge, or it is drawn off the canvas.
-      const x = b + 3 + w > width ? a - 3 - w : b + 3;
-      ctx.fillText(text, x, top + 8);
-    }
-    ctx.restore();
-  }
-
-  /** The same band on the coverage SVG, which is not a canvas. */
-  function focusBandSvg(svg: SVGSVGElement, W: number, top: number, height: number): void {
-    const a = xOfBp(logoWindow.start, W);
-    const b = xOfBp(logoWindow.start + logoWindow.width, W);
-    const rect = el('rect');
-    attr(rect, {
-      x: a, y: top, width: Math.max(b - a, 1.5), height,
-      fill: 'currentColor', opacity: 0.13, class: 'vp-focus',
-    });
-    svg.append(rect);
-    for (const x of [a, b]) {
-      const line = el('line');
-      attr(line, { x1: x, x2: x, y1: top, y2: top + height,
-                   stroke: 'currentColor', 'stroke-width': 1, opacity: 0.85, class: 'vp-focus' });
-      svg.append(line);
-    }
-  }
-
-  /**
-   * Make one full-window track a handle for the focus band.
-   *
-   * Every such track is draggable, not just the method strip: six tracks sharing an axis but only
-   * one of them grabbable is what makes an interface feel like six things instead of one.
-   */
-  function bindFocusDrag(node: HTMLCanvasElement | SVGSVGElement): void {
-    if (node.dataset.vpFocusBound === 'true') return;
-    node.dataset.vpFocusBound = 'true';
-    let anchorBp: number | null = null;
-    const bpAt = (ev: PointerEvent): number => {
-      const r = node.getBoundingClientRect();
-      return Math.max(0, Math.min(SEQ_LEN, bpOfX(ev.clientX - r.left, r.width)));
-    };
-    // The union of canvas and SVG widens addEventListener's parameter to `Event`, so the pointer
-    // type is asserted once here rather than at every use.
-    node.addEventListener('pointerdown', (e) => {
-      const ev = e as PointerEvent;
-      anchorBp = bpAt(ev);
-      (node as unknown as HTMLElement).setPointerCapture?.(ev.pointerId);
-    });
-    node.addEventListener('pointermove', (e) => {
-      if (anchorBp === null) return;
-      const b = bpAt(e as PointerEvent);
-      if (Math.abs(b - anchorBp) >= 20) setLogoWindow(Math.min(anchorBp, b), Math.abs(b - anchorBp));
-    });
-    node.addEventListener('pointerup', (e) => {
-      if (anchorBp === null) return;
-      const b = bpAt(e as PointerEvent);
-      // A pointer that moves a couple of pixels between down and up is a click by intent: recentre
-      // at the current width rather than selecting a zero-width window.
-      if (Math.abs(b - anchorBp) < 20) setLogoWindow(b - logoWindow.width / 2, logoWindow.width);
-      anchorBp = null;
-    });
-    node.addEventListener('pointercancel', () => { anchorBp = null; });
-    (node as unknown as HTMLElement).style.cursor = 'ew-resize';
-  }
-
   function refreshRegionViews(): void {
-    // The window's own views first: the coverage curve carries the traced band, and the
-    // attribution and method strips are conditioned on the region outright.
-    renderTrack();
-    renderAttribution();
-    renderMethods();
+    // The window's own view first. The coverage curve, the attribution lane, the method strip and
+    // the annotation used to be four elements repainted here individually; they are lanes of one
+    // canvas now, so one call cannot leave three of them stale.
+    renderViewport();
     renderStageProfile();
     renderRollout();
     renderStageStack();
@@ -3872,9 +3743,6 @@ export function initVariantPlayground(root: ParentNode = document) {
     renderNeuronClasses();
     renderOcclusion();
     renderEnrichment();
-    // Both logo views are fed by methodTracks(), which needs a traced region -- so they are region
-    // views too, and leaving them out left them showing their empty state after a trace.
-    renderMethodLogos();
     applyShowing();          // the flow canvas is region-specific in relevance mode
   }
 
@@ -4060,6 +3928,17 @@ export function initVariantPlayground(root: ParentNode = document) {
   };
   document.addEventListener('khc:theme-change', onTheme);
 
+  // The viewport's own controls. `bindViewport` is idempotent via a dataset flag, so a repaint
+  // cannot grow a second set of listeners.
+  bindViewport();
+  vpZoomIn?.addEventListener('click', () => vpZoom(0.6));
+  vpZoomOut?.addEventListener('click', () => vpZoom(1 / 0.6));
+  vpZoomReset?.addEventListener('click', () => setVpView(0, LOCUS_LEN));
+  vpHypoToggle?.addEventListener('change', () => {
+    vpHypothetical = !!vpHypoToggle?.checked;
+    renderViewport();
+  });
+
   /**
    * Redraw the tracks when the viewport changes size.
    *
@@ -4085,7 +3964,7 @@ export function initVariantPlayground(root: ParentNode = document) {
       renderStageDetail(flow?.selected() ?? null);
       // The annotation is keyed on the LOCUS, not the region, so `refreshRegionViews` does not
       // reach it and a width change would leave it at a stale backing-store resolution.
-      renderAnnotation();
+      renderViewport();
       // Every region-conditioned view, through the one call that knows them all. Listing them by
       // hand here omitted the neuron traces, the stage stack, the rollout and the neuron classes,
       // so after a width change the whole trace panel drew at a stale backing-store resolution
@@ -4094,6 +3973,28 @@ export function initVariantPlayground(root: ParentNode = document) {
     }, 150);
   };
   window.addEventListener('resize', onResize);
+
+  // ---------------------------------------------------------------------------------------------
+  // Restored. All three of these were swallowed by the deletion of the dead `trackSvg` drag block:
+  // the removal walked backwards past a doc comment to absorb it and took three unrelated handlers
+  // with it. The gate caught only one -- "resume rotation did not restart the idle animation" --
+  // and could not see the other two at all, which is why the fix was to diff EVERY
+  // `addEventListener` LINE against the previous revision rather than to fix the one that failed.
+  // An identifier-level regex missed the third, because it is written as a chained
+  // `host.querySelector(...)?.addEventListener` rather than through a named binding.
+  // ---------------------------------------------------------------------------------------------
+  occlNorm?.addEventListener('change', renderOcclusion);
+
+  spinBtn?.addEventListener('click', () => {
+    flow3d?.resumeSpin();
+    spinBtn.hidden = true;
+  });
+
+  host.querySelector<HTMLInputElement>('[data-vp-generows]')?.addEventListener('change', (ev) => {
+    geneRowsExpanded = (ev.target as HTMLInputElement).checked;
+    renderViewport();
+    renderStageDetail(flow?.selected() ?? null);
+  });
 
   runBtn?.addEventListener('click', () => void runFull());
 
@@ -4585,68 +4486,6 @@ export function initVariantPlayground(root: ParentNode = document) {
   // The source drives both zoom views: the annotated logo and the per-method stack's own labels.
   // The 1-of-4 source select is archived with the logo it drove; the method strip shows all of
   // them at once, and the browser offers each as its own lane.
-  logoSource?.addEventListener('change', () => { renderMethodLogos(); });
-
-  /**
-   * Drag across the method strip to pick the zoom window every logo view reads.
-   *
-   * A click (no drag) recentres at the current width rather than selecting a zero-width window,
-   * because a pointer that moves two pixels between down and up is a click by intent.
-   */
-  // Jump to the window Figure 4 actually publishes. Present only on the six loci that have one --
-  // a control that does nothing on eight of fourteen loci is worse than no control.
-  logoFigureBtn?.addEventListener('click', () => {
-    const fig = LOCI[locusIndex].figureWindow;
-    if (!fig) return;
-    setLogoWindow(fig.seqStart, fig.seqEnd - fig.seqStart);
-  });
-  brushWidth?.addEventListener('change', () => {
-    const w = Number(brushWidth.value);
-    setLogoWindow(logoWindow.start + logoWindow.width / 2 - w / 2, w);
-  });
-
-  // Annotation lane and evidence-tier toggles. Both re-render the annotation and the enrichment,
-  // because the enrichment is computed over exactly the features that are drawn -- if a reader
-  // turns off a lane, the statistic must not keep counting it.
-
-  occlNorm?.addEventListener('change', renderOcclusion);
-
-  spinBtn?.addEventListener('click', () => {
-    flow3d?.resumeSpin();
-    spinBtn.hidden = true;
-  });
-
-  host.querySelector<HTMLInputElement>('[data-vp-generows]')?.addEventListener('change', (ev) => {
-    geneRowsExpanded = (ev.target as HTMLInputElement).checked;
-    renderStageDetail(flow?.selected() ?? null);
-  });
-
-  if (trackSvg) {
-    // Drag across the predicted curve to choose a region. The plot is inset by PLOT.left and runs
-    // over the FULL window, so a pointer must go x -> bp -> bin rather than straight to a bin
-    // fraction: doing the latter put every selection about 1,024 bp left of the pointer.
-    let dragFrom: number | null = null;
-    const binAt = (ev: PointerEvent) => {
-      const box = trackSvg.getBoundingClientRect();
-      const bp = bpOfX(((ev.clientX - box.left) / box.width) * 1000, 1000);
-      return Math.round((bp - CROP_BP) / BIN_BP);
-    };
-    trackSvg.classList.add('vp-track-select');
-    trackSvg.addEventListener('pointerdown', (ev) => {
-      if (!attribution) return;
-      dragFrom = binAt(ev);
-      trackSvg.setPointerCapture(ev.pointerId);
-    });
-    trackSvg.addEventListener('pointerup', (ev) => {
-      if (dragFrom === null || !attribution) return;
-      const to = binAt(ev);
-      const [a, b] = dragFrom <= to ? [dragFrom, to] : [to, dragFrom];
-      dragFrom = null;
-      // A click rather than a drag: take one group's width so there is something to show.
-      const width = Math.max(b - a, attribution.groupBins);
-      traceBins(a, a + width, 'dragged region');
-    });
-  }
 
   /** Drop the trace. One path, so the button, the placeholder option and a locus change agree. */
   function clearTrace(): void {
@@ -4708,14 +4547,14 @@ export function initVariantPlayground(root: ParentNode = document) {
     cb.addEventListener('change', () => {
       const id = cb.dataset.vpLane!;
       if (cb.checked) annLanesOn.add(id); else annLanesOn.delete(id);
-      renderAnnotation();
+      renderViewport();
     });
   });
   host.querySelectorAll<HTMLInputElement>('[data-vp-tier]').forEach((cb) => {
     cb.addEventListener('change', () => {
       const id = cb.dataset.vpTier!;
       if (cb.checked) annTiersOn.add(id); else annTiersOn.delete(id);
-      renderAnnotation();
+      renderViewport();
     });
   });
 
@@ -4730,7 +4569,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     });
     groupSelect.addEventListener('change', () => {
       groupIndex = Number(groupSelect.value);
-      renderTrack();
+      renderViewport();
     });
   }
 
