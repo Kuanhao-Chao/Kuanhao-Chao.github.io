@@ -91,6 +91,7 @@ import {
   layerSpecs,
   N_HEADS,
   decodePackedPlane,
+  decodePackedRows,
 } from '../lib/shorkieModel';
 
 
@@ -596,20 +597,12 @@ export function initVariantPlayground(root: ParentNode = document) {
       cx.drawImage(bitmap, 0, 0);
       bitmap.close();
       const px = cx.getImageData(0, 0, spec.cols, spec.rows).data;
-      const out = new Float32Array(spec.rows * spec.cols);
-      for (let r = 0; r < spec.rows; r += 1) {
-        const lo = spec.lo[r];
-        const range = Math.max(spec.hi[r] - lo, 1e-9);
-        for (let c = 0; c < spec.cols; c += 1) {
-          // Greyscale: R is the value; the PNG carries one channel.
-          const v = (px[(r * spec.cols + c) * 4] / 255) * range + lo;
-          // Coverage is quantized in log space -- 256 levels spread linearly across a range that
-          // spans orders of magnitude leaves a visible staircase in the low values on a log plot
-          // (2.2e-1 of the axis, against 1.96e-3 this way).
-          out[r * spec.cols + c] = spec.space === 'log' ? Math.expm1(v) : v;
-        }
-      }
-      return out;
+      // Coverage is quantized in log space -- 256 levels spread linearly across a range that spans
+      // orders of magnitude leaves a visible staircase in the low values on a log plot (2.2e-1 of
+      // the axis, against 1.96e-3 this way). `log1p` is passed EXPLICITLY: this locus's sidecar
+      // also carries an `ism` plane declaring `space: "log"`, and that one means the signed
+      // `sign·1e-4·(10^|v|−1)` form. See `PackSpace`.
+      return decodePackedRows(px, spec, spec.space === 'log' ? 'log1p' : 'linear');
     };
 
     const [tracksT, stages, stem, attn] = await Promise.all(
