@@ -594,3 +594,60 @@ reading.
 
 `make_gia.py --join-only` and `make_spacing.py --reanalyse` redo the analysis from the stored
 outputs with no model and no forward passes.
+
+
+## Four more analyses, and one that its own control refutes
+
+| script | asks | cost | needs the model |
+| --- | --- | --- | --- |
+| `make_variation.py` | do segregating variants avoid the bases the model says matter? | seconds | **no** |
+| `make_heads.py` | what does each of the eight attention heads attend to? | seconds | **no** |
+| `make_position.py` | *where* does a motif work, relative to the TSS? | 47,104 passes, 21 min | yes |
+| `make_counterfactual.py` | what would the model *build*, given a free hand? | 5.5 min | yes |
+
+The first two need no forward passes at all: the mutagenesis packs already hold all three
+substitutions at every base of all 23 windows, and every locus pack ships its full
+`[8 × 128 × 128]` attention maps.
+
+**Natural variation.** 2,544 UCSC `evaSnp8` variants fall inside the ISM-covered windows. Each
+observed alternate allele is compared against the two alternates **at the same base** that nature
+did not choose — paired, so position, context, gene and expression level are held fixed by
+construction and no null model is needed. Observed alleles are the milder ones 55.8% / 55.4% /
+54.6% of the time for missense / synonymous / non-coding, sign-test z = 2.5 / 3.3 / 2.7. A sign
+test rather than a t-test because the ratios are heavily skewed: for missense the ratio of mean
+effects is 0.99 while the median per-site ratio is 0.90. The control that makes the coordinates
+trustworthy is that the reference base named in each record matched sacCer3 at **2,319 of 2,319**.
+
+**Attention heads.** Heads 0 and 3 read regulatory DNA (conserved TFBS 1.75× and 1.88×, ORegAnno
+1.82× and 1.72×) and are depleted on coding at 0.73 and 0.69; head 4 is the mirror image; head 6
+alone reads tRNA at 1.50×. Three things decide whether that means anything, and all three are in
+the script: the annotation mask is pooled to the bottleneck's 128 positions by **mean, never max**
+(a 7 bp site is 5% of a 128 bp cell, and a max makes every class identical once pooled); the null
+is a **circular shift**, which preserves feature count, length and gaps and destroys only
+alignment; and every class records its **ceiling**, `1/coverage` — genes cover 91.5% of a window,
+so nothing can exceed 1.09× on them however hard a head looks.
+
+**Positional sweep.** One motif implanted every 64 bp across each real window, scored on that
+window's own gene, **against a scramble of the same bases at the same position**. Overwriting 8 bp
+of a real promoter destroys whatever was there, and in a promoter that is exactly where the real
+sites are, so a bare curve would be partly a map of the damage — and the artefact would look like
+the signal. Aligned on the direction of transcription (`txStart` on +, `txEnd` on −), or the
+average puts promoters against terminators. Cbf1 reaches **+0.094** in the 500 bp upstream against
+**−0.002** inside the gene; Rap1 and TATA, the two GIA found *not* sufficient, are flat in both.
+Every curve goes flat beyond ±2 kb, which independently reproduces the receptive-field result.
+
+**Counterfactual design, and why the control is the experiment.** Greedy gradient-proposed,
+forward-**verified** single-base edits — the gradient only shortlists, because it is a local slope
+on a saturating function and this repo has measured where that fails. The tempting result is that
+the ascent invents recognisable regulatory motifs: it builds 18 across 11 windows. **That does not
+survive its control.** The identical ascent on dinucleotide-shuffled DNA of the same composition
+builds **54, in 23 of 23 windows**. Raw the control wins 3.0×; normalised by how much expression
+each arm gained — the honest comparison, since shuffled DNA starts near silent and has far more
+room — the two are within 25%. Without that arm this would have published "given a free hand the
+model rebuilds real yeast regulatory elements", which is the sentence a reader most wants to be
+true. What survives is that the achievable gain is set by **headroom**: gain against starting
+expression is **r = −0.873**, the five quietest genes gaining 2.80 log₂ from twelve bases and the
+five loudest 0.39.
+
+`make_counterfactual.py --summarise` re-derives both comparisons from the output with no model, so
+the confounding argument can be re-checked without a re-run.
