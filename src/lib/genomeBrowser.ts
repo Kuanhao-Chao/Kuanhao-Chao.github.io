@@ -399,6 +399,34 @@ export interface Lane extends LaneSpec {
 }
 
 /**
+ * THE lane ordering. Panel, canvas and the enumerator all read this one function.
+ *
+ * Three orderings used to disagree: the panel grouped score tracks by `groupLabels`, the canvas
+ * drew them in raw `index.tracks` order with genes last, and the enumerator matched neither while
+ * its comment claimed it was "in panel order". A reader ticking a box in the panel then had to
+ * find the lane somewhere else in the stack.
+ *
+ * Score tracks sort by their group's position in `groupOrder` and, within a group, keep the
+ * generator's own order -- which is meaningful, since that is where a family's members sit
+ * together. A group the order does not name sorts last rather than being dropped. Then the
+ * annotation lanes, in the order they are drawn: sequence, features, genes.
+ */
+export function laneOrder(
+  tracks: { id: string; group?: string }[],
+  groupOrder: string[],
+  featureIds: string[],
+): string[] {
+  const rank = new Map(groupOrder.map((g, i) => [g, i]));
+  const scored = tracks.map((t, i) => ({
+    id: t.id,
+    g: rank.get(t.group ?? '') ?? groupOrder.length,
+    i,
+  }));
+  scored.sort((a, b) => a.g - b.g || a.i - b.i);
+  return [...scored.map((s) => s.id), 'sequence', ...featureIds, 'genes'];
+}
+
+/**
  * Stack lanes and return where each one's content sits.
  *
  * Pure, and that is the point: the canvas height, the drawing offsets and the hit-testing all read
