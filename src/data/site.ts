@@ -112,28 +112,41 @@ export const identity = {
  */
 export const askEndpoint = 'https://khchao-ask.khchao.workers.dev';
 
-export type NavItem = { label: string; href: string; footerOnly?: boolean };
+export type NavGroup = 'pages' | 'labs';
+
+export type NavItem = {
+  label: string;
+  href: string;
+  footerOnly?: boolean;
+  group?: NavGroup;
+};
 
 export const nav: NavItem[] = [
-  { label: 'Research', href: '/research/' },
-  { label: 'Projects', href: '/projects/', footerOnly: true },
-  { label: 'Publications', href: '/publications/' },
-  { label: 'Software', href: '/software/' },
-  { label: 'Talks', href: '/talks/' },
-  { label: 'Teaching', href: '/teaching/' },
-  { label: 'CV', href: '/cv/', footerOnly: true },
-  { label: 'Photos', href: '/photos/', footerOnly: true },
-  { label: 'Posts', href: '/posts/' },
-  { label: 'News', href: '/news/' },
-  { label: 'Search', href: '/search/', footerOnly: true },
-  { label: 'Algorithms', href: '/algorithms/', footerOnly: true },
-  { label: 'Deep Dives', href: '/deep_dives/', footerOnly: true },
-  { label: 'Papers', href: '/papers/', footerOnly: true },
-  { label: 'Cell Lab', href: '/lab', footerOnly: true },
-  { label: 'Shorkie Lab', href: '/shorkie-lab/', footerOnly: true },
-  { label: 'Fun Lab', href: '/fun-lab/', footerOnly: true },
-  { label: 'Terminal', href: '/terminal/', footerOnly: true },
+  // Pages & Academic Work
+  { label: 'Research', href: '/research/', group: 'pages' },
+  { label: 'Publications', href: '/publications/', group: 'pages' },
+  { label: 'Projects', href: '/projects/', footerOnly: true, group: 'pages' },
+  { label: 'Software', href: '/software/', group: 'pages' },
+  { label: 'Talks', href: '/talks/', group: 'pages' },
+  { label: 'Teaching', href: '/teaching/', group: 'pages' },
+  { label: 'CV', href: '/cv/', footerOnly: true, group: 'pages' },
+  { label: 'Photos', href: '/photos/', footerOnly: true, group: 'pages' },
+  { label: 'Posts', href: '/posts/', group: 'pages' },
+  { label: 'News', href: '/news/', group: 'pages' },
+
+  // Interactive Labs & Explorations
+  { label: 'Algorithms', href: '/algorithms/', footerOnly: true, group: 'labs' },
+  { label: 'Deep Dives', href: '/deep_dives/', footerOnly: true, group: 'labs' },
+  { label: 'Papers', href: '/papers/', footerOnly: true, group: 'labs' },
+  { label: 'Cell Lab', href: '/lab', footerOnly: true, group: 'labs' },
+  { label: 'Shorkie Lab', href: '/shorkie-lab/', footerOnly: true, group: 'labs' },
+  { label: 'Fun Lab', href: '/fun-lab/', footerOnly: true, group: 'labs' },
+  { label: 'Terminal', href: '/terminal/', footerOnly: true, group: 'labs' },
+  { label: 'Search', href: '/search/', footerOnly: true, group: 'labs' },
 ];
+
+export const navPages = nav.filter((item) => item.group === 'pages');
+export const navLabs = nav.filter((item) => item.group === 'labs');
 
 export type SocialKey =
   'email' | 'scholar' | 'github' | 'linkedin' | 'orcid' | 'twitter' | 'bluesky' | 'calendly';
