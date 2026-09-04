@@ -2708,6 +2708,8 @@ export function initGenomeBrowser(host: HTMLElement): void {
     view,
     tracks: availableLanes().filter((id) => enabled.get(id)),
     roi,
+    // Only when the lane is on, so an ordinary link stays short.
+    locusTrack: enabled.get(LOCUS_LANE) ? locusTrackIdx : undefined,
   });
 
   function setView(next: View, opts: { push?: boolean; hash?: boolean } = {}): void {
@@ -3475,6 +3477,12 @@ export function initGenomeBrowser(host: HTMLElement): void {
     for (const id of initialTracks) if (!laneHidden(id)) enabled.set(id, true);
 
     const hash = !isMinimal ? decodeViewState(window.location.hash, index.chroms) : { tracks: [], view: null, roi: null };
+    // Before applyTracks, so the panel is built with the right track already selected rather than
+    // built for the default and then rebuilt.
+    if (hash.locusTrack != null && hash.locusTrack >= 0 && hash.locusTrack < TRACK_NAMES.length) {
+      locusTrackIdx = hash.locusTrack;
+      refreshLocusSpec();
+    }
     if (hash.tracks?.length) applyTracks(hash.tracks);
     else buildPanel();
     if (hash.roi) roi = hash.roi;
