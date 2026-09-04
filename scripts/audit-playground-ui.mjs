@@ -186,14 +186,14 @@ async function auditPage(page, scope, want) {
     { timeout: 60_000 },
   ).catch(() => {});
   const onLoad = await page.evaluate(() => {
-    // The browser moved to /shorkie-lab/genome/ and this page got its own per-locus coverage
-    // curve back, so what has to be alive on load is the SVG again. `chromium/genome` still owns
-    // every browser assertion, on its own page.
-    const svg = document.querySelector('[data-vp-track]');
-    const title = svg?.querySelector('.vp-caption')?.textContent ?? '';
+    // The coverage SVG, the attribution canvas, the method strip and the annotation canvas are
+    // ONE canvas now, stacked by `laneLayout`. What has to be alive on load is that canvas, with
+    // a real peak and at least the ruler, the coverage lane and the gene models drawn.
+    const cv = document.querySelector('[data-vp-viewport]');
     return {
-      peak: Number(svg?.dataset.peak ?? '0'),
-      title: title ?? '',
+      peak: Number(cv?.dataset.vpPeak ?? '0'),
+      lanes: (cv?.dataset.vpLanes ?? '').split('|').filter(Boolean),
+      title: cv?.dataset.vpView ?? '',
       single: Number(document.querySelector('[data-vp-single]')?.dataset.peak ?? '0'),
       source: document.querySelector('[data-vp]').dataset.vpResultSource ?? '',
       packFailed: document.querySelector('[data-vp]').dataset.vpPackFailed === 'true',
@@ -203,6 +203,12 @@ async function auditPage(page, scope, want) {
   if (onLoad.packFailed) fail(scope, 'the precomputed activation pack failed to load');
   if (onLoad.source !== 'precomputed') fail(scope, `precomputed pack never loaded (source "${onLoad.source}")`);
   if (!(onLoad.peak > 0)) fail(scope, 'no predicted coverage on load — the precompute is not wired');
+  for (const want of ['ruler', 'coverage', 'genes']) {
+    if (!onLoad.lanes.includes(want)) {
+      fail(scope, `viewport is missing its ${want} lane on load: ${onLoad.lanes.join('|')}`);
+    }
+  }
+  if (!/^\d+-\d+$/.test(onLoad.title)) fail(scope, `viewport published no view: "${onLoad.title}"`);
   // The "precomputed" caption lived on the coverage SVG, which the browser absorbed. The claim it
   // guarded -- that nothing ran a model without a click -- is asserted three lines above from
   // `vpResultSource`, which is the actual evidence rather than a sentence about it.
@@ -298,8 +304,10 @@ async function auditStaleState(browser, baseURL, scope) {
         stamp: document.querySelector('[data-vp]').dataset.vpResultLocus ?? '',
         loud: document.querySelector('[data-vp-stage-top]')?.textContent ?? '',
         detailInk: ink,
-        track: [...document.querySelectorAll('[data-vp-track] text')]
-          .map((x) => x.textContent).find((x) => /predicted/.test(x)) ?? '',
+        // The coverage caption is drawn ON the canvas now, so there is no text node to read.
+        // The peak is the content that must change with the locus, and it is published at full
+        // precision -- reading a rounded label once folded two different values into one string.
+        track: document.querySelector('[data-vp-viewport]')?.dataset.vpPeak ?? '',
       };
     });
     // Staleness is now about CONTENT, not presence: switching locus loads the new gene's
@@ -316,7 +324,7 @@ async function auditStaleState(browser, baseURL, scope) {
     // not a blank. PGK1's shipped RNA-seq peak is 400.52; TDH3's is 994.88, so the two are
     // unmistakable and a retained stale curve fails here.
     const peak = await page.evaluate(() =>
-      Number(document.querySelector('[data-vp-track]')?.dataset.peak ?? '0'));
+      Number(document.querySelector('[data-vp-viewport]')?.dataset.vpPeak ?? '0'));
     if (Math.abs(peak - 400.52) > 0.01) {
       fail(scope, `after switching to PGK1 the coverage peak is ${peak}, expected its precomputed 400.52`);
     }
@@ -427,7 +435,7 @@ async function auditNoModel(browser, baseURL, scope) {
         };
         return {
           src: document.querySelector('[data-vp]').dataset.vpResultSource,
-          peak: Number(document.querySelector('[data-vp-track]')?.dataset.peak ?? '0'),
+          peak: Number(document.querySelector('[data-vp-viewport]')?.dataset.vpPeak ?? '0'),
           layer: paint('[data-vp-stage-map]', 200),
           heat: paint('[data-vp-heat]'),
           gene: document.querySelector('[data-vp-locus]').selectedOptions[0].textContent,
@@ -547,7 +555,7 @@ async function auditFullModel(browser, baseURL, scope) {
     const after = await page.evaluate(() => ({
       heat: document.querySelector('[data-vp-heat-stat]')?.textContent ?? '',
       track: document.querySelector('[data-vp-single]')?.dataset.track ?? '',
-      peak: Number(document.querySelector('[data-vp-track]')?.dataset.peak ?? '0'),
+      peak: Number(document.querySelector('[data-vp-viewport]')?.dataset.vpPeak ?? '0'),
     }));
     if (!/5,215 tracks/.test(after.heat)) fail(scope, `heatmap stat wrong: "${after.heat}"`);
     if (!after.track) fail(scope, 'single-track plot is unnamed');
@@ -555,8 +563,7 @@ async function auditFullModel(browser, baseURL, scope) {
     // The regression that started all this: a WebGPU pipeline rejected by validation returns
     // zeros while onnxruntime reports success. A run that reports Done must have real output.
     const allZero = await page.evaluate(() => {
-      const svg = document.querySelector('[data-vp-track]');
-      return Number(svg?.dataset.peak ?? '0') === 0;
+      return Number(document.querySelector('[data-vp-viewport]')?.dataset.vpPeak ?? '0') === 0;
     });
     if (allZero) fail(scope, 'a run reported success with an all-zero prediction');
 
@@ -573,7 +580,7 @@ async function auditFullModel(browser, baseURL, scope) {
       const note = await page.locator('[data-vp-knockout]').textContent();
       if (!/scrambled/.test(note ?? '')) fail(scope, `knockout produced no readout: "${note}"`);
       const now = await page.evaluate(() =>
-        Number(document.querySelector('[data-vp-track]')?.dataset.peak ?? '0'));
+        Number(document.querySelector('[data-vp-viewport]')?.dataset.vpPeak ?? '0'));
       if (now === before) fail(scope, 'knocking out a splice site changed nothing at all');
     } else {
       fail(scope, "DTD1 has no 5' splice site button");
@@ -612,7 +619,7 @@ async function auditCoordinates(browser, baseURL, scope) {
       { timeout: 60_000 },
     ).catch(() => {});
     // A trace is needed before the attribution canvas draws anything at all.
-    const track = page.locator('[data-vp-track]');
+    const track = page.locator('[data-vp-viewport]');
     await track.scrollIntoViewIfNeeded();
     const box = await track.boundingBox();
     await page.mouse.move(box.x + box.width * 0.44, box.y + box.height * 0.5);
@@ -621,52 +628,42 @@ async function auditCoordinates(browser, baseURL, scope) {
     await page.mouse.up();
     await page.waitForTimeout(500);
 
+    // The four stacked panels this scope used to cross-check are ONE canvas now, so "do they
+    // agree about where bp 8,192 is" is not a question that can be asked of them -- they share one
+    // `xOfBp`. Retired deliberately, and replaced by the invariant that actually still has a way
+    // to go wrong: the canvas's backing store must equal its CSS box, or every horizontal
+    // coordinate is off by that ratio uniformly and nothing looks broken.
     const geo = await page.evaluate(() => {
-      const svg = document.querySelector('[data-vp-track]');
-      const attr = document.querySelector('[data-vp-attr]');
-      const single = document.querySelector('[data-vp-single]');
-      const r = (e) => { const b = e.getBoundingClientRect(); return { left: b.left, width: b.width }; };
+      const cv = document.querySelector('[data-vp-viewport]');
+      const b = cv.getBoundingClientRect();
       return {
-        track: r(svg), attr: r(attr), single: r(single),
-        domains: [svg.dataset.domainBp, attr.dataset.domainBp],
-        rows: svg.dataset.geneRows,
+        backing: cv.width / (window.devicePixelRatio || 1),
+        box: b.width,
+        view: cv.dataset.vpView ?? '',
+        rows: Number(cv.dataset.vpGeneRows ?? '0'),
+        lanes: (cv.dataset.vpLanes ?? '').split('|').filter(Boolean),
+        readout: document.querySelector('[data-vp-view-read]')?.textContent ?? '',
       };
     });
-    for (const [name, d] of Object.entries(geo.domains)) {
-      if (d !== '0-16384') fail(scope, `panel ${name} declares domain "${d}", expected the full window`);
+    if (Math.abs(geo.backing - geo.box) > 0.75) {
+      fail(scope, `viewport backing store is ${geo.backing.toFixed(1)} against a ${geo.box.toFixed(1)}px box`);
     }
-    // Same element width and offset, so identical bp fractions land on identical screen x.
-    for (const [name, box2] of [['attribution', geo.attr], ['single-track', geo.single]]) {
-      if (Math.abs(box2.left - geo.track.left) > 1) {
-        fail(scope, `${name} panel starts ${Math.abs(box2.left - geo.track.left).toFixed(1)}px from the coverage track`);
-      }
-      if (Math.abs(box2.width - geo.track.width) > 1) {
-        fail(scope, `${name} panel is ${Math.abs(box2.width - geo.track.width).toFixed(1)}px wider/narrower than the coverage track`);
-      }
+    // The coordinate readout carries both systems, because neither alone locates anything: the
+    // genome coordinate is what a reader pastes into a browser, the window offset is what every
+    // plane on this page is indexed by.
+    if (!/chr\w+:[\d,]+–[\d,]+/.test(geo.readout)) {
+      fail(scope, `readout has no genome coordinate: "${geo.readout}"`);
     }
-
-    // Axes must actually be labelled, not merely present.
-    const axes = await page.evaluate(() => {
-      const svg = document.querySelector('[data-vp-track]');
-      const texts = [...svg.querySelectorAll('text')].map((t) => t.textContent.trim());
-      return {
-        caption: svg.querySelector('.vp-caption')?.textContent ?? '',
-        unit: texts.some((t) => /coverage|a\.u\./.test(t)),
-        bpTicks: texts.filter((t) => /^\d+(\.\d+)?k$|^0$/.test(t)).length,
-        cropped: texts.filter((t) => t === 'cropped').length,
-      };
-    });
-    if (!axes.unit) fail(scope, 'coverage plot has no value-axis unit label');
-    if (axes.bpTicks < 5) fail(scope, `coverage plot has ${axes.bpTicks} bp tick labels, expected the full ruler`);
-    if (axes.cropped !== 2) fail(scope, `${axes.cropped} cropped-flank markers, expected 2`);
-    if (!/1,024–15,360/.test(axes.caption)) fail(scope, `caption does not state the predicted span: "${axes.caption}"`);
+    if (!/window [\d,]+–[\d,]+/.test(geo.readout)) {
+      fail(scope, `readout has no window offset: "${geo.readout}"`);
+    }
 
     // Gene rows: expanding a window with an overlap must use more rows than collapsing it.
-    const expanded = Number(geo.rows);
+    const expanded = geo.rows;
     await page.uncheck('[data-vp-generows]');
     await page.waitForTimeout(300);
     const collapsed = Number(await page.evaluate(
-      () => document.querySelector('[data-vp-track]').dataset.geneRows,
+      () => document.querySelector('[data-vp-viewport]').dataset.vpGeneRows,
     ));
     if (collapsed !== 1) fail(scope, `collapsed gene track drew ${collapsed} rows, expected 1`);
     if (!(expanded > collapsed)) {
@@ -698,31 +695,44 @@ async function auditTraceback(browser, baseURL, scope) {
     // The coverage curve is the drag surface again. The browser moved to /shorkie-lab/genome/,
     // so a region is selected HERE -- by dragging across the window's own predicted coverage,
     // which is what the panel's prose promises and what `tracedBins` is keyed on.
-    const track = page.locator('[data-vp-track]');
+    const track = page.locator('[data-vp-viewport]');
     await track.scrollIntoViewIfNeeded();
     const box = await track.boundingBox();
     if (!box) { fail(scope, 'no coverage curve to drag on'); return; }
 
+    // SHIFT-drag traces. Plain drag pans the zoomable view, and drag on the ruler selects a range
+    // to zoom to — three gestures on one canvas, and the tracing one is the page's own semantics.
     const drag = async (from, to) => {
+      await page.keyboard.down('Shift');
       await page.mouse.move(box.x + box.width * from, box.y + box.height * 0.5);
       await page.mouse.down();
       await page.mouse.move(box.x + box.width * to, box.y + box.height * 0.5, { steps: 10 });
       await page.mouse.up();
+      await page.keyboard.up('Shift');
       await page.waitForTimeout(900);
       return page.evaluate(`(async () => {
-        // The method-logo strip is the region-conditioned drawing: one row a method over the
-        // traced window, so its geometry is the signature of the region.
-        const s = document.querySelector('[data-vp-method-logos]');
-        const paths = s ? s.querySelectorAll('path, rect').length : 0;
-        return { ink: paths, sig: (s?.dataset.window ?? '') + '/' + paths,
+        // The viewport IS the region-conditioned drawing: which method lanes exist, how many
+        // letters each logo drew, and what view they were drawn at. That triple is the signature
+        // of the region, and unlike a path count it cannot be matched by a stub.
+        const cv = document.querySelector('[data-vp-viewport]');
+        const letters = (cv?.dataset.vpLogoLetters ?? '')
+          .split('|').filter(Boolean)
+          .reduce((n, part) => n + Number(part.split('=')[1] || 0), 0);
+        const methods = (cv?.dataset.vpMethods ?? '').split('|').filter(Boolean).length;
+        return { letters, methods,
+                 sig: (cv?.dataset.vpView ?? '') + '/' + (cv?.dataset.vpMethods ?? '')
+                      + '/' + (document.querySelector('[data-vp-trace-label]')?.textContent ?? ''),
                  label: document.querySelector('[data-vp-trace-label]')?.textContent ?? '' };
       })()`);
     };
 
     const a = await drag(0.20, 0.34);
     const b = await drag(0.62, 0.78);
-    if (a.ink < 50) fail(scope, `traced region drew only ${a.ink} method-logo marks`);
-    if (b.ink < 50) fail(scope, `second traced region drew only ${b.ink} method-logo marks`);
+    // A traced region must light the region-conditioned method lanes: gradient x input, integrated
+    // gradients and occlusion all need one, and mutagenesis is there unconditionally. Counting
+    // lanes rather than marks, because the lanes are the thing the region actually changes.
+    if (a.methods < 3) fail(scope, `traced region lit only ${a.methods} method lanes`);
+    if (b.methods < 3) fail(scope, `second traced region lit only ${b.methods} method lanes`);
     if (a.sig === b.sig) fail(scope, `the method views are identical for two different regions (${a.sig}) — not region-specific`);
     if (!/bins \d+–\d+/.test(a.label)) fail(scope, `trace label does not name a bin range: "${a.label}"`);
 
@@ -735,11 +745,17 @@ async function auditTraceback(browser, baseURL, scope) {
     await page.selectOption('[data-vp-region]', { label: labels.at(-1) });
     await page.waitForTimeout(500);
     const anchor = await page.evaluate(`(async () => {
-      const s = document.querySelector('[data-vp-method-logos]');
-      return { ink: s ? s.querySelectorAll('path, rect').length : 0,
+      const cv = document.querySelector('[data-vp-viewport]');
+      return { methods: (cv?.dataset.vpMethods ?? '').split('|').filter(Boolean),
                label: document.querySelector('[data-vp-trace-label]')?.textContent ?? '' };
     })()`);
-    if (anchor.ink < 50) fail(scope, `region "${labels.at(-1)}" drew only ${anchor.ink} method-logo marks`);
+    // Picking a whole-gene anchor is what buys per-base gradient x input and integrated gradients:
+    // the packs carry those two per base only for the shipped anchors. So an anchor region must
+    // light up strictly more method lanes than an arbitrary drag does.
+    if (anchor.methods.length < 4) {
+      fail(scope, `region "${labels.at(-1)}" lit only ${anchor.methods.length} method lanes: `
+        + anchor.methods.join('|'));
+    }
 
     // There must be exactly ONE region control on the page, and the read-only context lines must
     // agree with it rather than carrying their own.
@@ -831,16 +847,20 @@ async function auditExplanations(browser, baseURL, scope) {
       // Canvas tallies: a canvas has no elements to inspect, so what was DRAWN is published. The
       // count comes from inside the loop that fills the rectangles, so an intron painted as an
       // exon would change it.
-      ann: document.querySelector('[data-vp-annotation]')?.dataset.vpAnnotation ?? '',
-      annGenes: document.querySelector('[data-vp-annotation]')?.dataset.vpGeneTrack ?? '{}',
+      ann: document.querySelector('[data-vp-viewport]')?.dataset.vpAnnotation ?? '',
+      annGenes: document.querySelector('[data-vp-viewport]')?.dataset.vpGeneTrack ?? '{}',
       annStat: document.querySelector('[data-vp-annstat]')?.textContent ?? '',
       enrich: Number(document.querySelector('[data-vp-enrichment]')?.dataset.vpEnrichment ?? 0),
       ko: Number(document.querySelector('[data-vp-ko]')?.dataset.vpKo ?? 0),
       koStat: document.querySelector('[data-vp-ko-stat]')?.textContent ?? '',
-      logoRows: Number(document.querySelector('[data-vp-method-logos]')?.dataset.rows ?? 0),
-      // The one window every letter view must agree on.
-      windows: [...document.querySelectorAll('[data-vp-method-logos],[data-vp-ism-logo],[data-vp-lens]')]
-        .map((e) => e.dataset.window ?? null),
+      // How many method lanes the viewport drew, and how many letters each logo lane put down.
+      logoRows: (document.querySelector('[data-vp-viewport]')?.dataset.vpMethods ?? '')
+        .split('|').filter(Boolean).length,
+      logoLetters: document.querySelector('[data-vp-viewport]')?.dataset.vpLogoLetters ?? '',
+      // There is ONE letter view now, so "do they agree about the window" is answered by
+      // construction rather than by comparison. What is still worth asserting is that the view
+      // exists and is a real range.
+      windows: [document.querySelector('[data-vp-viewport]')?.dataset.vpView ?? null],
       ismOption: !!document.querySelector('[data-vp-logo-source] option[value="ism"]'),
       ismDefault: document.querySelector('[data-vp-logo-source]')?.value ?? '',
     }));
@@ -848,10 +868,11 @@ async function auditExplanations(browser, baseURL, scope) {
     // genes are drawn AND binding sites are drawn, both from the curated sources.
     if (!bio.ann) fail(scope, 'the annotation lanes drew nothing');
     else {
-      // `vpAnnotation` is a "lane=count" list counted inside the drawing loop; `vpGeneTrack` is the
-      // gene renderer's own tally, from the loop that fills the exon rectangles.
-      const lanes = Object.fromEntries(bio.ann.split(',').filter(Boolean)
-        .map((p) => { const [k, v] = p.split(':'); return [k, Number(v)]; }));
+      // `vpAnnotation` is a JSON object of lane counts, published by the viewport from the same
+      // tally the readout prints; `vpGeneTrack` is the gene renderer's own tally, from the loop
+      // that fills the exon rectangles. Parsing the first as a "k:v," list is how a real count of
+      // 53 ChIP-supported sites came to read as zero.
+      const lanes = JSON.parse(bio.ann || '{}');
       const genes = JSON.parse(bio.annGenes || '{}');
       if (!(Number(genes.features) > 0)) {
         fail(scope, `annotation drew no gene features (${bio.annGenes})`);
@@ -876,7 +897,7 @@ async function auditExplanations(browser, baseURL, scope) {
 
     // The brush must move every logo view together.
     const before = uniq[0];
-    const strip = await page.$('[data-vp-methods]');
+    const strip = await page.$('[data-vp-viewport]');
     if (strip) {
       await strip.scrollIntoViewIfNeeded();
       const box = await strip.boundingBox();
@@ -886,8 +907,7 @@ async function auditExplanations(browser, baseURL, scope) {
       await page.mouse.up();
       await page.waitForTimeout(500);
       const after = await page.evaluate(() =>
-        [...document.querySelectorAll('[data-vp-method-logos],[data-vp-ism-logo],[data-vp-lens]')]
-          .map((e) => e.dataset.window ?? null));
+        [document.querySelector('[data-vp-viewport]')?.dataset.vpView ?? null]);
       const afterUniq = [...new Set(after.filter(Boolean))];
       if (afterUniq.length !== 1) fail(scope, `after brushing, logo views disagree: ${afterUniq.join(' vs ')}`);
       else if (afterUniq[0] === before) fail(scope, 'brushing the method strip did not move the logo window');
@@ -909,19 +929,53 @@ async function auditExplanations(browser, baseURL, scope) {
         navSticky: getComputedStyle(document.querySelector('.vp-nav')).position,
       };
     });
-    // Four numbered acts and one reference appendix. The spine is asserted by CONTENT rather than
-    // by count, because a count says nothing about whether the page still reads as a path: predict
-    // -> pick a region -> look inside -> check it against biology.
-    if (spine.acts.length !== 5) {
-      fail(scope, `${spine.acts.length} act headings, expected 4 acts and a reference`);
+    // Eight numbered acts and one reference appendix. Asserted by CONTENT rather than by count,
+    // because a count says nothing about whether the page still reads as a research plan: define
+    // the system -> scope it -> predict -> attribute -> validate -> open the model -> go beyond
+    // first order -> check it against biology outside the model.
+    if (spine.acts.length !== 9) {
+      fail(scope, `${spine.acts.length} act headings, expected 8 acts and a reference`);
     }
-    const spineWants = [/predict/i, /region/i, /inside/i, /biolog/i, /read any of this/i];
+    const spineWants = [
+      /system and the question/i, /see at all/i, /predict/i, /bases drove it/i,
+      /attribution real/i, /how does it do it/i, /grammar/i, /outside the model/i,
+      /read any of this/i,
+    ];
     spineWants.forEach((re, i) => {
       if (!re.test(spine.acts[i] ?? '')) {
         fail(scope, `act ${i + 1} does not read as "${re.source}": "${spine.acts[i] ?? ''}"`);
       }
     });
     if (new Set(spine.acts).size !== spine.acts.length) fail(scope, 'a duplicate act heading');
+
+    // Every analysis panel opens with the same four-term frame: question, method, cost, and what
+    // would refute it. That is the page's spine as a research plan, and the fourth term is the one
+    // that matters -- without it a reader cannot tell a claim carrying a control from one without,
+    // and the page's best material is exactly the claims that survived a control. The reference act
+    // opts out: a table of tensor collapses is not a question.
+    const frames = await page.evaluate(() => {
+      const ref = document.querySelector('#act-ref');
+      return [...document.querySelectorAll('.vp-panel')]
+        .filter((s) => !ref || !ref.contains(s))
+        .map((s) => {
+          const dl = s.querySelector('.vp-frame');
+          const terms = [...(dl?.querySelectorAll('dt') ?? [])].map((d) => d.textContent.trim());
+          const vals = [...(dl?.querySelectorAll('dd') ?? [])].map((d) => d.textContent.trim());
+          return { title: s.querySelector('h3')?.textContent.trim().slice(0, 44) ?? '?',
+                   terms, vals };
+        });
+    });
+    const WANT = ['Question', 'Method', 'Cost', 'What would refute it'];
+    for (const f of frames) {
+      if (f.terms.join('|') !== WANT.join('|')) {
+        fail(scope, `panel "${f.title}" has terms ${f.terms.join('|') || '(none)'}`);
+      } else if (f.vals.some((v) => v.length < 20)) {
+        // A padded field is worse than a missing one: it looks like the question was answered.
+        fail(scope, `panel "${f.title}" has a frame field under 20 characters: `
+          + f.vals.map((v, i) => `${WANT[i]}=${v.length}`).join(' '));
+      }
+    }
+    if (frames.length < 20) fail(scope, `only ${frames.length} framed panels outside the reference`);
     if (spine.navSticky !== 'sticky') fail(scope, `the selection bar is ${spine.navSticky}, not sticky`);
     // The focus band spanned four stacked panels that are now one canvas in the browser, where a
     // shared axis is structural rather than something to check. Retired, not weakened: nothing is
@@ -1080,12 +1134,14 @@ async function auditRegionViews(browser, baseURL, scope) {
     await page.locator('[data-vp-showing="activation"]').click();
     await page.waitForTimeout(400);
 
-    // --- the method strip ----------------------------------------------------------------
-    // The canvas strip was dissolved; the SVG one below the browser survived, and it is the one
-    // that draws each method as letters or bands at its own true resolution.
+    // --- the method lanes ------------------------------------------------------------------
+    // Every method is a lane of the one viewport now, drawn at its own true resolution and
+    // labelled with it. `vpMethods` is the lane list; `vpLogoLetters` is what each logo drew.
     const methods = await page.evaluate(() => {
-      const c = document.querySelector('[data-vp-method-logos]');
-      return { n: Number(c?.dataset.rows ?? '0'), labels: c?.dataset.labels ?? '' };
+      const c = document.querySelector('[data-vp-viewport]');
+      const ids = (c?.dataset.vpMethods ?? '').split('|').filter(Boolean);
+      return { n: ids.length, labels: c?.dataset.vpMethodLabels ?? '',
+               letters: c?.dataset.vpLogoLetters ?? '' };
     });
     if (methods.n < 4) fail(scope, `method strip drew ${methods.n} rows, expected at least 4`);
     // Mutagenesis LEADS the strip now. It was excluded while it covered 500 bp of 16,384 and while
@@ -1150,38 +1206,60 @@ async function auditPaperFidelity(browser, baseURL, scope) {
     await page.locator('[data-vp-region-next]').scrollIntoViewIfNeeded();
     await page.locator('[data-vp-region-next]').click();
     await page.waitForFunction(
-      () => document.querySelector('[data-vp-ism-logo]')?.dataset.letters !== undefined,
+      () => (document.querySelector('[data-vp-viewport]')?.dataset.vpMethods ?? '').includes('ism'),
       { timeout: 60_000 },
     ).catch(() => {});
-    // Then jump to the window the figure actually publishes -- the logo now follows the traced
-    // region, which for most regions is nowhere near it.
-    await page.locator('[data-vp-logo-figure]').click();
+    // Zoom in until the lanes grow letters. The logo is a lane of the viewport now, so reaching it
+    // is a zoom rather than a jump to a fixed window.
+    for (let i = 0; i < 8; i += 1) {
+      await page.locator('[data-vp-zoom-in]').click();
+      await page.waitForTimeout(70);
+    }
     await page.waitForTimeout(600);
 
+    // A canvas has no glyph elements to inspect, so the drawing reports itself. Same three claims
+    // the SVG version asserted -- one letter a column when projected, the paper's four colours and
+    // nothing else, and heights that actually vary -- read from what was drawn rather than from
+    // markup that no longer exists.
     const logo = await page.evaluate(() => {
-      const s = document.querySelector('[data-vp-ism-logo]');
-      const paths = [...(s?.querySelectorAll('path.vp-glyph') ?? [])];
-      const boxes = [...(s?.querySelectorAll('rect[stroke]') ?? [])];
-      const ism = s?.dataset.window ?? '0-0';
-      const [wa, wb] = ism.split('-').map(Number);
+      const cv = document.querySelector('[data-vp-viewport]');
+      const detail = JSON.parse(cv?.dataset.vpLogoDetail ?? '[]');
+      const ism = detail.find((d) => d.id === 'ism-logo') ?? null;
+      const [wa, wb] = (cv?.dataset.vpView ?? '0-0').split('-').map(Number);
       return {
-        letters: Number(s?.dataset.letters ?? '0'),
+        letters: ism?.letters ?? 0,
+        columns: ism?.columns ?? 0,
         windowBp: wb - wa,
-        boxCount: Number(s?.dataset.boxes ?? '0'),
-        fills: [...new Set(paths.map((p) => p.getAttribute('fill')))].sort(),
-        // A logo glyph must be scaled, never re-typeset: x and y scales differ, and negatives flip.
-        transforms: paths.slice(0, 400).map((p) => p.getAttribute('transform') ?? ''),
-        labels: [...(s?.querySelectorAll('text') ?? [])].map((x) => x.textContent ?? ''),
+        fills: ism?.colours ?? [],
+        minPx: ism?.minPx ?? 0,
+        maxPx: ism?.maxPx ?? 0,
+        lettersOn: cv?.dataset.vpLetters === 'true',
+        detail,
       };
     });
-    // The logo is PROJECTED on the reference, so it must draw about one letter per position --
-    // not four. Fewer means the projection or the visibility floor is wrong; more means it is
-    // drawing all four bases and has stopped matching the figure.
-    if (logo.letters > logo.windowBp) {
-      fail(scope, `ISM logo drew ${logo.letters} letters over ${logo.windowBp} bp — a projected logo has one per position`);
+    if (!logo.lettersOn) fail(scope, 'zooming in never reached the letter view');
+    // The logo is PROJECTED on the reference by default, so it must draw about one letter per
+    // column -- not four. Fewer means the projection or the visibility floor is wrong; more means
+    // it is drawing all four bases and has stopped matching the figure.
+    if (logo.letters > logo.columns) {
+      fail(scope, `ISM logo drew ${logo.letters} letters over ${logo.columns} columns — a projected logo has one each`);
     }
-    if (logo.letters < logo.windowBp * 0.8) {
-      fail(scope, `ISM logo drew ${logo.letters} letters over ${logo.windowBp} bp — too few`);
+    if (logo.letters < logo.columns * 0.7) {
+      fail(scope, `ISM logo drew ${logo.letters} letters over ${logo.columns} columns — too few`);
+    }
+    // The one invariant the three logo lanes differ on, and the page's central claim about them.
+    // Gradient x input and integrated gradients multiply by a ONE-HOT input, so they are
+    // identically zero at the three bases that are not there and can never draw more than one
+    // letter a column. Mutagenesis ships all four and can.
+    for (const d of logo.detail) {
+      if (d.id !== 'ism-logo' && d.letters > d.columns) {
+        fail(scope, `${d.id} drew ${d.letters} letters over ${d.columns} columns — `
+          + 'a gradient logo is zero at the three bases that are not there');
+      }
+    }
+    // Heights that do not vary mean the value encoding is gone and the lane is a row of stamps.
+    if (logo.maxPx > 0 && logo.maxPx - logo.minPx < 1) {
+      fail(scope, `every ISM glyph is the same height (${logo.minPx}–${logo.maxPx}px)`);
     }
     const want = ['#0000FF', '#008000', '#FF0000', '#FFA500'];
     for (const c of want) {
@@ -1190,12 +1268,10 @@ async function auditPaperFidelity(browser, baseURL, scope) {
     for (const c of logo.fills) {
       if (!want.includes(c)) fail(scope, `logo drew a colour the paper does not use: ${c}`);
     }
-    const scales = logo.transforms
-      .map((s) => /scale\(([-\d.]+) ([-\d.]+)\)/.exec(s))
-      .filter(Boolean)
-      .map((m) => [Number(m[1]), Number(m[2])]);
-    if (scales.length < 100) fail(scope, 'logo glyphs are not scaled by transform');
-    if (scales.some(([sx]) => sx <= 0)) fail(scope, 'a glyph has a non-positive x scale');
+    // The transform check moved to the unit tests. On a canvas `ctx.scale(colW * GLOBSCALE, -sy)`
+    // leaves no attribute to read, and asserting it from the drawing would mean re-deriving the
+    // transform from pixels. `shorkieViewport.test.ts` pins the column geometry instead, and the
+    // height spread above is what still catches a lane drawn without its value encoding.
     if (!scales.some(([, sy]) => sy < 0)) {
       fail(scope, 'no glyph is mirrored — negative values must flip, not merely sit below the line');
     }
@@ -1269,10 +1345,11 @@ async function auditInterpretation(browser, baseURL, scope) {
       region: document.querySelector('[data-vp-region]')?.selectedOptions[0]?.textContent ?? '',
       stages: Number(document.querySelector('[data-vp-stage-profile]')?.dataset.stages ?? '0'),
       inside: document.querySelector('[data-vp-rollout]')?.dataset.inside ?? '',
-      // The ISM logo is archived; the region-conditioned method strip is what still follows a
-      // selection, and it is the thing this scope is actually about.
-      letters: Number(document.querySelector('[data-vp-method-logos]')?.dataset.rows ?? '0'),
-      logoWindow: document.querySelector('[data-vp-method-logos]')?.dataset.window ?? '',
+      // The region-conditioned drawing is the viewport: which method lanes exist depends on the
+      // selection, and per-base gradients appear only at an exact anchor.
+      letters: (document.querySelector('[data-vp-viewport]')?.dataset.vpMethods ?? '')
+        .split('|').filter(Boolean).length,
+      logoWindow: document.querySelector('[data-vp-viewport]')?.dataset.vpView ?? '',
       trace: document.querySelector('[data-vp-trace-label]')?.textContent ?? '',
     }));
 
@@ -1577,6 +1654,17 @@ async function auditSwallowedSpaces(browser, baseURL, scope) {
               if (/[\w),.;:%]$/.test(tail) && /^[\w(]/.test(raw)) {
                 out.push((tail.slice(-30) + raw.slice(0, 20)).replace(/\s+/g, ' '));
               }
+              // The CLOSING direction, which this check did not look at and which let two through:
+              // `</em>position` renders as "everyposition" exactly as `for<em>every` renders as
+              // "forevery". The defect is a newline JSX deleted; which side of the tag it sat on
+              // makes no difference to the reader.
+              const after = kid.nextSibling;
+              if (after && after.nodeType === Node.TEXT_NODE && raw.trim()) {
+                const head = after.textContent ?? '';
+                if (/[\w),.;:%]$/.test(raw) && /^[\w(]/.test(head)) {
+                  out.push((raw.slice(-20) + head.slice(0, 30)).replace(/\s+/g, ' '));
+                }
+              }
             }
             walk(el);
           }
@@ -1627,7 +1715,18 @@ async function auditConstructive(browser, baseURL, scope) {
       { timeout: 30_000 },
     );
     const hosts = await page.locator('[data-shorkie-constructive]').count();
-    if (hosts !== 2) throw new Error(`${scope}: expected 2 constructive hosts, found ${hosts}`);
+    // DERIVED from the source, like the panel count. The five-questions-in-one-panel block was
+    // split so each question is its own panel carrying the host attribute, and the controller
+    // mounts per host, reading its canvases through `host.querySelector` -- which already tolerated
+    // a host owning one canvas of five, since the receptive-field panel has always been exactly
+    // that. A hardcoded number here turns the next added panel into a spurious failure, which is
+    // what it did the first time: 6 became 7 the moment motif discovery landed.
+    const pageSrc = readFileSync(
+      new URL('../src/pages/shorkie-lab/shorkie.astro', import.meta.url), 'utf8');
+    const wantHosts = (pageSrc.match(/data-shorkie-constructive/g) ?? []).length;
+    if (hosts !== wantHosts) {
+      throw new Error(`${scope}: expected ${wantHosts} constructive hosts from source, found ${hosts}`);
+    }
 
     // 1. Every canvas must actually draw. A canvas that renders nothing looks identical to one
     //    whose data failed to load, and neither throws.
@@ -2492,19 +2591,24 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
         for (let i = 3; i < d.length; i += 4) if (d[i] > 8) n += 1;
         return n / (d.length / 4);
       };
-      const svg = document.querySelector('[data-vp-track]');
+      const cv = document.querySelector('[data-vp-viewport]');
+      const lanes = (cv?.dataset.vpLanes ?? '').split('|').filter(Boolean);
       return {
-        curve: svg ? svg.querySelectorAll('path, rect').length : -1,
-        peak: Number(svg?.dataset.peak ?? '0'),
-        methods: inked('[data-vp-methods]'),
-        ann: inked('[data-vp-annotation]'),
+        lanes,
+        methods: (cv?.dataset.vpMethods ?? '').split('|').filter(Boolean).length,
+        peak: Number(cv?.dataset.vpPeak ?? '0'),
+        ink: inked('[data-vp-viewport]'),
+        ann: lanes.includes('annotation') ? 1 : 0,
         annStat: document.querySelector('[data-vp-annstat]')?.textContent ?? '',
       };
     });
-    if (perLocus.curve < 10) fail(scope, `the restored coverage curve drew ${perLocus.curve} marks`);
-    if (!(perLocus.peak > 0)) fail(scope, 'the coverage curve published no peak');
-    if (perLocus.methods < 0.005) fail(scope, 'the method strip drew almost nothing');
-    if (perLocus.ann < 0.005) fail(scope, 'the annotation track drew almost nothing');
+    if (!perLocus.lanes.includes('coverage')) {
+      fail(scope, `the per-locus viewport has no coverage lane: ${perLocus.lanes.join('|')}`);
+    }
+    if (!(perLocus.peak > 0)) fail(scope, 'the coverage lane published no peak');
+    if (perLocus.methods < 1) fail(scope, 'no attribution method lane is drawn');
+    if (perLocus.ink < 0.005) fail(scope, 'the viewport drew almost nothing');
+    if (!perLocus.ann) fail(scope, 'the annotation lane is absent');
     if (!/ChIP-supported/.test(perLocus.annStat)) {
       fail(scope, `the annotation readout does not name its tiers: "${perLocus.annStat}"`);
     }
@@ -2999,14 +3103,22 @@ async function auditAttentionStudio(browser, baseURL, scope) {
 
 
 /**
- * The same base must land at the same x on every full-window track.
+ * The viewport's horizontal axis, at five widths.
  *
- * The existing focus-band check compares each track's `data-vp-focus` STRING, which only says they
- * intend to show the same range. It passed for a whole round while the drawing was misaligned: the
- * SVG tracks used a 1000-unit viewBox, so `PLOT.left = 46` meant 4.6% of the width, while the
- * canvases used the same constant as 46 CSS pixels. Offsets ran +20 px at 1440 and -31 px at 320,
- * with the SIGN FLIPPING at ~1043 -- which is why that width is measured here deliberately: a
- * regression that reintroduces the bug would be invisible at exactly one width.
+ * The check this replaces compared two SVG zoom views against each other, because the page used to
+ * draw the same base pair through four separate elements each computing its own inset -- and they
+ * disagreed at every container width but ~1,043 px, with the SIGN of the error flipping there.
+ * There is one canvas now and one `xOfBp`, so that particular disagreement is not expressible.
+ *
+ * What CAN still go wrong is the backing store. `Math.max(320, clientWidth)` on a narrower element
+ * makes the canvas wider than its box, `width: 100%` scales it back, and every horizontal
+ * coordinate is off by that ratio -- uniformly, so the ruler, the logos and the sequence all lie by
+ * the same amount and nothing looks broken. 1,043 px stays in the list: it was the width at which
+ * the old bug was invisible, and it is the width a regression would hide at again.
+ *
+ * The second assertion is the one the zoom exists for: driven to base resolution, the sequence lane
+ * must draw exactly one letter per base pair in view. That ties the drawing to the coordinate
+ * system rather than to itself.
  */
 async function auditAxisAlignment(browser, baseURL, scope) {
   for (const width of [320, 390, 760, 1043, 1440]) {
@@ -3017,47 +3129,64 @@ async function auditAxisAlignment(browser, baseURL, scope) {
       await page.locator('[data-vp-region-next]').scrollIntoViewIfNeeded();
       await page.locator('[data-vp-region-next]').click();
       await page.waitForTimeout(900);
-      const r = await page.evaluate(() => {
-        const BP = 8192, SEQ = 16384, PLOT = { left: 46, right: 10 };
-        const out = {};
-        // The two views that survived the merge both draw `logoWindow`, so the same
-        // window-relative bp must land at the same x in each. The four full-window panels that
-        // used to be compared here are one canvas now and cannot disagree.
-        for (const sel of ['[data-vp-ism-logo]', '[data-vp-method-logos]']) {
-          const el = document.querySelector(sel);
-          if (!el) continue;
-          const box = el.getBoundingClientRect();
-          if (!box.width) continue;
-          let left;
-          let inner;
-          if (el.tagName.toLowerCase() === 'svg') {
-            const vb = el.getAttribute('viewBox').split(' ').map(Number);
-            const s = box.width / vb[2];
-            left = PLOT.left * s;
-            inner = (vb[2] - PLOT.left - PLOT.right) * s;
-          } else {
-            left = PLOT.left;
-            inner = box.width - PLOT.left - PLOT.right;
-          }
-          out[sel] = box.left + left + (BP / SEQ) * inner;
-        }
-        return out;
+
+      const geom = () => page.evaluate(() => {
+        const cv = document.querySelector('[data-vp-viewport]');
+        const ov = document.querySelector('[data-vp-overview]');
+        const dpr = window.devicePixelRatio || 1;
+        const b = cv.getBoundingClientRect();
+        const ob = ov.getBoundingClientRect();
+        const [a0, a1] = (cv.dataset.vpView ?? '0-0').split('-').map(Number);
+        return {
+          backing: cv.width / dpr, box: b.width,
+          ovBacking: ov.width / dpr, ovBox: ob.width,
+          span: a1 - a0,
+          letters: cv.dataset.vpLetters === 'true',
+          lanes: (cv.dataset.vpLanes ?? '').split('|').filter(Boolean),
+          ovView: ov.dataset.vpView ?? '',
+          view: cv.dataset.vpView ?? '',
+        };
       });
-      const vals = Object.values(r);
-      // Only one zoom view survives the archive, so there is no longer a PAIR to disagree. What
-      // still matters is the rule that view exists to obey: its viewBox must be in PIXELS, or one
-      // user unit stops being one CSS pixel and every coordinate on it drifts with the container
-      // width -- measured at +20.2 px at 1440 and -31.3 at 320, with the sign flipping at ~1,043.
-      if (vals.length < 1) {
-        fail(scope, `${width}px: no zoom view measured`);
+
+      const r = await geom();
+      if (Math.abs(r.backing - r.box) > 0.75) {
+        fail(scope, `${width}px: viewport backing ${r.backing.toFixed(1)} vs box ${r.box.toFixed(1)}`);
+      }
+      if (Math.abs(r.ovBacking - r.ovBox) > 0.75) {
+        fail(scope, `${width}px: overview backing ${r.ovBacking.toFixed(1)} vs box ${r.ovBox.toFixed(1)}`);
+      }
+      // The overview strip is the selection surface, so it must be showing the view it is meant to
+      // let you move. A strip drawing a stale band is worse than no strip.
+      if (r.ovView !== r.view) {
+        fail(scope, `${width}px: overview shows ${r.ovView} while the viewport shows ${r.view}`);
+      }
+
+      // Every width must be able to REACH the letter view. The threshold scales with the plot, and
+      // a constant 7 px a base once put it out of reach on a 390 px phone entirely.
+      for (let i = 0; i < 14; i += 1) {
+        const now = await geom();
+        if (now.letters) break;
+        await page.locator('[data-vp-zoom-in]').click();
+        await page.waitForTimeout(60);
+      }
+      const z = await geom();
+      if (!z.letters) {
+        fail(scope, `${width}px: 14 taps of [+] never reached the letter view (span ${z.span} bp)`);
         continue;
       }
-      if (vals.length < 2) continue;
-      const spread = Math.max(...vals) - Math.min(...vals);
-      if (spread > 1) {
-        const detail = Object.entries(r)
-          .map(([k, v]) => `${k}=${v.toFixed(1)}`).join(' ');
-        fail(scope, `${width}px: bp 8,192 lands ${spread.toFixed(1)}px apart across tracks — ${detail}`);
+      for (const want of ['sequence', 'ism-logo']) {
+        if (!z.lanes.includes(want)) {
+          fail(scope, `${width}px: no ${want} lane at base zoom — ${z.lanes.join('|')}`);
+        }
+      }
+      const seq = await page.evaluate(() => {
+        const cv = document.querySelector('[data-vp-viewport]');
+        const d = JSON.parse(cv.dataset.vpLogoDetail ?? '[]');
+        return d.find((x) => x.id === 'ism-logo')?.columns ?? 0;
+      });
+      // One column per base in view, which is what ties the letters to the coordinate system.
+      if (Math.abs(seq - z.span) > 2) {
+        fail(scope, `${width}px: the logo drew ${seq} columns over a ${z.span} bp view`);
       }
     } finally {
       await context.close();

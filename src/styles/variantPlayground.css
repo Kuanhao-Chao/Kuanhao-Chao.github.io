@@ -83,7 +83,7 @@ html[data-theme='dark'] .vp {
   padding: 0.75rem 0.85rem;
 }
 .vp-panel + .vp-panel { margin-top: 1rem; }
-.vp-panel h2 {
+.vp-panel h3 {
   font-size: var(--fs-small);
   font-weight: 700;
   letter-spacing: var(--tracking-meta, 0.08em);
@@ -138,6 +138,31 @@ html[data-theme='dark'] .vp {
 
 .vp-svg { width: 100%; height: auto; display: block; }
 .vp-canvas { width: 100%; display: block; image-rendering: pixelated; border-radius: 3px; }
+
+/* ------------------------------------------------------------------------------------------------
+   The viewport: one canvas, every lane, one zoom.
+
+   `image-rendering: pixelated` is right for the activation rasters -- a 384 x 128 tensor blown up
+   should show its cells -- and wrong here: this canvas draws glyph outlines and a coverage curve at
+   device resolution, and pixelating them undoes the whole point of the dpr scaling.
+
+   No `min-width`. A backing store wider than its box makes every horizontal coordinate off by that
+   ratio, uniformly, so nothing looks broken and the ruler, the logos and the sequence all lie by
+   the same amount.
+   ------------------------------------------------------------------------------------------------ */
+.vp-viewport,
+.vp-overview {
+  image-rendering: auto;
+  touch-action: pan-y;          /* wheel/drag zoom needs the horizontal gesture */
+}
+.vp-viewport { cursor: grab; }
+.vp-viewport:focus-visible { outline: 2px solid var(--vp-accent, #3976a8); outline-offset: 2px; }
+.vp-overview { margin-bottom: 0.3rem; cursor: col-resize; }
+.vp-zoomctl {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem;
+  margin: 0 0 0.4rem;
+}
+.vp-zoomctl .vp-nav__read { margin-left: auto; min-width: 0; overflow-wrap: anywhere; }
 .vp-svg .vp-ax { fill: var(--color-muted); font-size: 10px; }
 .vp-svg .vp-base { font-family: ui-monospace, Menlo, monospace; font-weight: 700; }
 .vp-svg .vp-base-A { fill: #2f8069; }
@@ -468,7 +493,11 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
 .vp-btn--icon { padding: 0.15rem 0.45rem; line-height: 1.1; }
 
 /* An act is a question the panels beneath it answer. */
-.vp-act {
+/* An act is a real <section> with a real <h2> now, so the document outline reads
+   h1 -> act -> panel instead of h1 -> 17 sibling h2s with no boundary between the acts. The old
+   rules styled the <p> that used to stand in for the heading; they move to `.vp-act__h`. */
+.vp-act { display: block; }
+.vp-act__h {
   display: flex;
   align-items: baseline;
   gap: 0.55rem;
@@ -478,7 +507,7 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
   font-weight: 700;
   color: var(--color-ink);
 }
-.vp-body > .vp-act:first-child { margin-top: 0.9rem; }
+.vp-body > .vp-act:first-child > .vp-act__h { margin-top: 0.9rem; }
 .vp-act__n {
   display: inline-grid;
   place-items: center;
@@ -919,3 +948,49 @@ html[data-theme='dark'] .vp {
 .gb-ref { margin: 0.9rem 0; padding-left: 0.7rem; border-left: 2px solid var(--color-rule); }
 .gb-ref h3 { margin: 0 0 0.3rem; font-size: 1em; }
 .gb-ref p { margin: 0.25rem 0; }
+
+
+/* ------------------------------------------------------------------------------------------------
+   The research frame each analysis panel opens with: question, method, cost, and what would refute
+   it. Four short lines, in a two-column grid that collapses to one on a phone. Deliberately quiet
+   -- it is scaffolding for the result below it, not the result.
+   ------------------------------------------------------------------------------------------------ */
+.vp-frame {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.6rem;
+  border-left: 2px solid var(--color-rule, #e5e7eb);
+  background: color-mix(in srgb, var(--color-rule, #e5e7eb) 22%, transparent);
+  border-radius: 0 3px 3px 0;
+  display: grid;
+  gap: 0.3rem 0.7rem;
+}
+.vp-frame__row { display: grid; grid-template-columns: 8.5rem 1fr; gap: 0.2rem 0.7rem; min-width: 0; }
+.vp-frame dt {
+  font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--color-muted, #6b7280); font-weight: 600; padding-top: 0.06rem;
+}
+.vp-frame dd {
+  margin: 0; font-size: 0.82rem; line-height: 1.45;
+  color: var(--color-ink, #1f2328); min-width: 0; overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .vp-frame__row { grid-template-columns: 1fr; gap: 0.05rem; }
+}
+
+/* The method matrix reads across, so it must scroll rather than crush its prose cells into
+   four-line fragments -- the failure `article table`'s own overflow rule allows. */
+.vp-method-matrix { min-width: 46rem; }
+.vp-method-matrix th[scope='row'] {
+  text-align: left; white-space: nowrap; color: var(--color-muted, #6b7280); font-weight: 600;
+}
+
+/* The one scalar every method on the page differentiates, set apart from the prose around it
+   because twenty panels are only commensurable by virtue of it. */
+.vp-target {
+  text-align: center;
+  padding: 0.5rem 0.4rem;
+  background: color-mix(in srgb, var(--vp-accent, #3976a8) 8%, transparent);
+  border-radius: 3px;
+  overflow-x: auto;
+}
+.vp-target code { font-size: 0.92rem; }

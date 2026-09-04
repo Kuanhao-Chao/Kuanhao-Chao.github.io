@@ -315,10 +315,26 @@ class ShorkieTorch(nn.Module):
             "pos_features", positional_features(distances, N_POS_FEATURES, BOTTLENECK_LEN)
         )
 
-    def forward(self, x: torch.Tensor, want_intermediates: bool = False):
-        """x: [B, 16384, 170] channels-last, matching the Keras input contract."""
+    def forward(self, x: torch.Tensor, want_intermediates: bool = False, patch_fn=None):
+        """x: [B, 16384, 170] channels-last, matching the Keras input contract.
+
+        `patch_fn(name, tensor) -> tensor` is called at every named activation and may return a
+        replacement. It exists for causal tracing (`make_patching.py`): restore a clean run's
+        activations into a corrupted one at one stage and one position band, and measure how much
+        of the clean prediction comes back.
+
+        Default `None` is a strict no-op -- the identity is applied nowhere, not applied as an
+        identity function -- so every existing number this file produces is unchanged, which
+        `verify_pipeline.py` re-checks. Patching happens at the point the activation is RECORDED,
+        so a patched residual block feeds both its skip connection and the pooling below it; a
+        patch that reached only one of those would be a different quantity entirely.
+        """
         acts: dict[str, torch.Tensor] = {}
-        h = self.stem(x.transpose(1, 2))                     # [B, 96, L]
+
+        def _p(name: str, tensor: torch.Tensor) -> torch.Tensor:
+            return tensor if patch_fn is None else patch_fn(name, tensor)
+
+        h = _p("stem", self.stem(x.transpose(1, 2)))         # [B, 96, L]
         if want_intermediates:
             acts["stem"] = h
 
@@ -327,7 +343,7 @@ class ShorkieTorch(nn.Module):
             a = self.conv_a[i](F.gelu(self.bn_a[i](h)))
             r = self.conv_b[i](F.gelu(self.bn_b[i](a)))
             r = r * self.scales[i].view(1, -1, 1)
-            block_out = a + r
+            block_out = _p(f"block{i + 1}", a + r)
             skips.append(block_out)
             if want_intermediates:
                 acts[f"block{i + 1}"] = block_out
@@ -341,7 +357,7 @@ class ShorkieTorch(nn.Module):
             if want_intermediates and wmap is not None:
                 attn_maps.append(wmap)
             f = self.ff2[i](F.relu(self.ff1[i](self.ln_ff[i](t))))
-            t = t + f
+            t = _p(f"attn_out{i + 1}", t + f)
             if want_intermediates:
                 # The residual stream AFTER this layer's attention and feed-forward -- this layer's
                 # actual output feature map. Without it the only thing a visualisation can show for
@@ -370,7 +386,7 @@ class ShorkieTorch(nn.Module):
             main = self.dec_main[i](F.gelu(self.dec_bn_main[i](h)).transpose(1, 2))
             main = F.interpolate(main.transpose(1, 2), scale_factor=2, mode="nearest")
             skip = self.dec_skip[i](F.gelu(self.dec_bn_skip[i](skips[skip_idx])).transpose(1, 2))
-            h = self.dec_sep[i](main + skip.transpose(1, 2))
+            h = _p(f"decoder{i + 1}", self.dec_sep[i](main + skip.transpose(1, 2)))
             if want_intermediates:
                 acts[f"decoder{i + 1}"] = h
 

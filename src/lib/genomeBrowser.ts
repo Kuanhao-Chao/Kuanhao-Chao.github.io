@@ -390,13 +390,20 @@ export interface LaneSpec {
   height: number;
 }
 
-export interface Lane extends LaneSpec {
+/**
+ * Where a stacked lane sits. Split out of `Lane` so `laneLayout` can stack ANY spec carrying a
+ * height -- the Shorkie viewport has its own lane kinds (logos, a DNA sequence row) and must not
+ * have to borrow this file's `LaneKind` to reuse the one function that decides where a lane is.
+ */
+export interface LanePos {
   /** Top of the lane's CONTENT, padding already applied. */
   top: number;
   /** Top of the lane's box, including its share of the gap. Used for hit-testing. */
   boxTop: number;
   boxHeight: number;
 }
+
+export interface Lane extends LaneSpec, LanePos {}
 
 /**
  * THE lane ordering. Panel, canvas and the enumerator all read this one function.
@@ -434,8 +441,10 @@ export function laneOrder(
  * version computed offsets inline at three separate places and adding a fourth lane meant editing
  * all of them.
  */
-export function laneLayout(specs: LaneSpec[], gap = 8): { lanes: Lane[]; total: number } {
-  const lanes: Lane[] = [];
+export function laneLayout<T extends { height: number }>(
+  specs: T[], gap = 8,
+): { lanes: (T & LanePos)[]; total: number } {
+  const lanes: (T & LanePos)[] = [];
   let y = 0;
   for (const s of specs) {
     const h = Math.max(1, Math.round(s.height));
@@ -446,7 +455,7 @@ export function laneLayout(specs: LaneSpec[], gap = 8): { lanes: Lane[]; total: 
 }
 
 /** The lane whose box contains `y`, or null above/below the stack. */
-export function laneAt(lanes: Lane[], y: number): Lane | null {
+export function laneAt<T extends LanePos>(lanes: T[], y: number): T | null {
   for (const l of lanes) {
     if (y >= l.boxTop && y < l.boxTop + l.boxHeight) return l;
   }

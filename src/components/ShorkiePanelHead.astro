@@ -1,0 +1,44 @@
+---
+/**
+ * The frame every analysis panel on `/shorkie-lab/shorkie/` opens with.
+ *
+ * The page is a research plan, and a research plan states four things per question before it states
+ * an answer: what is being asked, how it is measured, what that measurement cost, and what result
+ * would have refuted it. Those four were previously scattered — costs buried in prose, refutation
+ * conditions usually absent — so a reader could not tell a claim carrying a control from one
+ * without, and the page's best material is exactly the claims that survived a control.
+ *
+ * Plain strings, not markup. These are four short declarative lines; letting them carry `<em>` and
+ * `<code>` would mean `set:html`, which this repo's security audit fails by default and allowlists
+ * only where inline SVG genuinely needs it. Nothing here needs it.
+ *
+ * `refuted` is not optional and must not be padded. If a panel has no result that could have come
+ * out the other way, say that in the field — it is a fact about the panel worth knowing.
+ */
+interface Props {
+  /** What is being asked, as a question. */
+  question: string;
+  /** How it is measured — the estimator, not the conclusion. */
+  method: string;
+  /** What it cost to run: passes, wall clock, or that the packs already ship it. */
+  cost: string;
+  /** What result would have refuted it, or the control that was run against it. */
+  refuted: string;
+}
+const { question, method, cost, refuted } = Astro.props;
+const rows: [string, string][] = [
+  ['Question', question],
+  ['Method', method],
+  ['Cost', cost],
+  ['What would refute it', refuted],
+];
+---
+
+<dl class="vp-frame" data-vp-frame>
+  {rows.map(([term, value]) => (
+    <div class="vp-frame__row">
+      <dt>{term}</dt>
+      <dd>{value}</dd>
+    </div>
+  ))}
+</dl>

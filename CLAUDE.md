@@ -2342,6 +2342,147 @@ worth keeping.
   indentation survives and the next declaration gains two spaces.
 
 
+#### The page is a research plan now, and the coverage panel is one zoomable canvas
+
+Eight numbered acts plus a reference appendix, each a real `<section class="vp-act">` with an
+`<h2>`; panel titles are `<h3>`. The two five-questions-in-one-panel blocks were split so each
+question is its own `.vp-panel`, and every analysis panel opens with `ShorkiePanelHead` —
+**Question · Method · Cost · What would refute it**. `audit:playground` asserts all four are present
+and non-trivial on every panel outside the reference act.
+
+- **`data-shorkie-constructive` / `-frontier` go on each split panel, and that needed no script
+  change.** Both controllers mount with `querySelectorAll` and read canvases through
+  `host.querySelector`, which already tolerated a host owning one canvas of five — the
+  receptive-field panel has always been exactly that. Six constructive hosts and five frontier
+  hosts now.
+
+- **ONE canvas draws coverage, every attribution method, three DNA logos, the sequence, the genes
+  and the annotation.** `viewportLanes` (`src/lib/shorkieViewport.ts`, pure and tested) decides
+  which lanes exist; `laneLayout` stacks them; `src/scripts/shorkieViewport.ts` draws them. That
+  replaced four stacked elements — a coverage SVG, an attribution canvas, a method strip and an
+  annotation canvas — each computing its own inset, and the disagreement they used to have is no
+  longer expressible rather than merely policed.
+
+- **`laneLayout` and `laneAt` in `genomeBrowser.ts` are GENERIC now** (`<T extends {height:number}>`,
+  with the position fields split out as `LanePos`), so the viewport reuses the stacker without
+  borrowing the browser's `LaneKind`. Its gap is **leading**, so `total` lands exactly on the last
+  lane's content bottom — a test asserted a trailing gap and was itself the thing that was wrong.
+
+- **The three logos do not draw the same number of letters, and that is the page's central claim.**
+  Mutagenesis ships all four bases (4 × 16,384), so it stacks up to four a column. Gradient × input
+  and integrated gradients both multiply by a ONE-HOT input, so they are identically zero at the
+  three bases that are not there and draw exactly one — by construction, not by simplification.
+  `drawLogoLane` returns `{letters, columns, colours, minPx, maxPx}` and the page publishes it as
+  `data-vp-logo-detail`, because a canvas has no glyph elements and the SVG version's checks
+  (one letter a column, the paper's four colours and nothing else, heights that vary) would
+  otherwise stop being checked at all.
+
+- **Their scoring targets differ too.** Mutagenesis is logSED on the window's own gene body and is
+  unconditional; grad × input and IG are conditioned on the traced region and are per base **only**
+  at one of the 9–12 shipped anchors. Otherwise grad × input falls back to 128 bp and IG has nothing
+  to draw. Every lane carries its target and its fallback reason on its right.
+
+- **Three gestures on one canvas, and they must not collapse.** Plain drag PANS; drag on the RULER
+  selects a range and zooms to it; **shift-drag TRACES** the region every panel below is conditioned
+  on. Losing the third to panning left the region `<select>` as the only way to condition twenty
+  panels — the gate caught it as an empty `data-vp-trace-label`.
+
+- **`setLogoWindow` carried a comment saying every band-carrying track repaints, and repainted
+  none of them.** Four tracks drew the focus band; only `renderMethodLogos` and
+  `renderNeuronClasses` were called. It survived because `[data-vp-track]` had a *second* pointer
+  binding for `traceBins` that did call `refreshRegionViews`, so the one track anyone dragged
+  happened to be right. Moot now — the band is the view.
+
+- **The annotation lane must filter its features to the VIEW before packing rows.** Packing all 610
+  of a locus's features while drawing the twenty on screen reserves the full-locus height at every
+  zoom: at 20 bp that is an empty band hundreds of pixels tall under a lane label, which reads as a
+  rendering failure rather than as "nothing is annotated here". The probe measurement and the real
+  draw must pass the same range or the height is a lie.
+
+- **A `dataset` tally is not prose.** `tfbs_chip 53` is a JSON key leaking into a readout, and the
+  three TFBS tiers are three different claims about evidence. The readout names them; the gate reads
+  `data-vp-annotation` as **JSON**, and parsing it as a `k:v,` list is how a real count of 53 came
+  to read as zero.
+
+- **Deleting a dead block swallowed three unrelated handlers.** Removing the `if (trackSvg)` drag
+  block walked backwards past a doc comment to absorb it and took `occlNorm.change`,
+  `spinBtn.click` and the `[data-vp-generows]` change handler with it. The gate saw only one of the
+  three ("resume rotation did not restart the idle animation"). **The fix is to diff every
+  `addEventListener` LINE against the previous revision, not to fix the one that failed** — and not
+  by identifier either, because the third is written as a chained
+  `host.querySelector(...)?.addEventListener` and an identifier-level regex misses it.
+
+#### Three more interpretability methods, and two of their controls are the result
+
+- **`make_patching.py` — causal tracing.** Corrupt the promoter by dinucleotide shuffle, restore the
+  clean activations at one stage and one 512 bp band, measure recovery of `f_clean − f_corrupt`.
+  19 stages × 32 bands × 22 windows, 346 s. Averaged over the windows, recovery **climbs through
+  the encoder and decays through the transformer**: 0.434 at the stem → **0.546** at block7, a tie
+  with attn_out1 at **0.543**, then monotonically down to **0.349** by attn_out8. Per window the
+  peak sits in the encoder in **18 of 22** and is nearly total (median **96.5%**), while restoring
+  one band at the bottleneck recovers a median of **3.9%**. The encoder localises and the
+  transformer distributes; either claim alone is half the result.
+  - **The mean grid's argmax and the per-locus argmax are different statistics**, and the figure
+    draws the first while the prose was quoting the second. They agree here (block7), but the margin
+    over attn_out1 is **0.003** — a tie, and drawn as one. A SCREENSHOT is what caught the mismatch
+    between the drawing and the sentence beside it: the numbers were right and the sentence implied
+    a separation the picture does not show.
+  - **Patching a whole stage is degenerate**: everything downstream becomes the clean run's, so
+    recovery is 1 at every depth. Restoring a BAND is what makes the question answerable.
+  - **`shorkie_torch.forward` gained `patch_fn`**, called at every named activation, default `None`
+    and a strict no-op. Patch at the point the activation is RECORDED, so a patched residual block
+    feeds both its skip and the pooling below it.
+  - `verify_pipeline.py` **§3h** re-checks all three FROM THEIR PACKS rather than by re-running the
+    generators: the three patching controls per locus, `skipBypass` summing to 1 with the
+    bottleneck's full recovery, each MoDISco consensus being its own PWM's argmax with its bits
+    re-derived, and the dictionary being exactly k-sparse with the control reconstructing worse.
+    19 checks.
+  - **The obvious fourth control is not one, and it failed at 0.9663.** Restoring every position of
+    a BOTTLENECK stage does not recover 1.0, because the U-Net skips carry `block1..7` straight to
+    the decoder around the transformer — a clean residual stream still meets corrupted skips. That
+    shortfall is a measurement (`skipBypass`, median **2.8%**) and is published rather than worked
+    around. The three controls that DO hold are first-stage-all, last-stage-all and no-positions.
+  - **The position axis differs by stage.** Conv stages are `[B, C, L]` and the transformer stages
+    `[B, T, C]` — the residual stream is stored untransposed on purpose. Guessing one axis for both
+    writes the patch into the channel axis: it broadcasts, completes, and every number is wrong.
+
+- **`make_modisco.py` — TF-MoDISco in the small, and the control nearly matches.** 1,047 seqlets
+  from the mutagenesis planes cluster into **3** patterns, all matching JASPAR; the identical
+  pipeline on dinucleotide-shuffled sequence yields **2**, and both of those match too. Three
+  against two is not a result. What separates them is sharpness (7.00 bits against 3.91) — but every
+  pattern in both arms is AT-rich, and a dinucleotide shuffle preserves AT-richness by construction.
+  **The honest statement is that at this threshold what clusters is composition, not syntax.**
+  - **The threshold is set by the CONTROL, before either arm is clustered**: the 99.9th percentile of
+    the shuffled arm's own pairwise-similarity distribution. Any clustering returns clusters and a
+    lower correlation returns more, so picking one by eye and reporting the count is choosing the
+    answer.
+  - **A cluster's PWM must be counted from the bases its seqlets contain**, not taken as a softmax
+    of mean-centred contributions. The first version produced **0.00-bit** patterns whose consensus
+    was the argmax of noise — and they still matched JASPAR at r = 0.93, because Pearson normalises
+    amplitude away. A high match r on a flat matrix is not a match.
+  - A seqlet is a 4 × w mean-centred block, never a per-position score: clustering the score alone
+    discards which base did the work, so `AAATTT` and `TTTAAA` would group together.
+
+- **`make_sae.py` — a TopK sparse dictionary on the bottleneck.** 384 → 6,144 features, k = 32,
+  unit-norm decoder columns, trained on bottleneck vectors swept from the genome. The control is
+  the finding: the same architecture on **column-shuffled** activations — every channel's marginal
+  distribution kept exactly, only the co-activation structure destroyed — reconstructs far worse.
+  Measured over the whole genome (94,970 bottleneck vectors): **FVU 0.0194 against 0.3720**, a gap
+  of 0.353, with all 6,144 features alive and mean L0 exactly 32. That gap is precisely what the
+  model's own basis was spreading out.
+  - **Keep the training set on the CPU and move batches.** It is only ~292 MB, but a shared GPU is
+    shared: this died twice at 19 GB of "other allocations" — a Playwright gate and a site build on
+    the same machine. A generator that only completes when nothing else is running will not be
+    re-run.
+  - **Batch the final statistics pass.** Run whole it materialises `n × n_features` — 190,000 ×
+    6,144 is 4.7 GB of float32, twice over for the TopK scatter, and it OOMs at the last step of a
+    twenty-minute run.
+  - **Reconstruction is the necessary condition, not the sufficient one.** A dictionary that
+    reconstructs well is not one whose features are individually interpretable; that needs each
+    feature tied to biology through the same circular-shift null the enrichment table uses, with the
+    raw 384 channels put through the identical test. Saying so beats a gallery of hand-picked
+    features.
+
 #### The two pages were split, and what that fixed
 
 `/shorkie-lab/shorkie/` embedded the genome browser as act 1 while `/shorkie-lab/genome/` embedded
