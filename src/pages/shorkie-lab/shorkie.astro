@@ -10,6 +10,8 @@ import speciesData from '../../data/shorkieSpecies.json';
 import epistasisData from '../../data/shorkieEpistasis.json';
 import kineticsData from '../../data/shorkieKinetics.json';
 import receptiveData from '../../data/shorkieReceptive.json';
+import headsData from '../../data/shorkieHeads.json';
+import variationData from '../../data/shorkieVariation.json';
 import giaData from '../../data/shorkieGia.json';
 import spacingData from '../../data/shorkieSpacing.json';
 
@@ -26,6 +28,8 @@ const spControl = speciesData.control;
 const epi = epistasisData;
 const kinData = kineticsData;
 const recData = receptiveData;
+const headTop = [...headsData.classes].sort((a, b) => b.bestEnrichment - a.bestEnrichment)[0];
+const varClasses = variationData.classes;
 const giaJoin = giaData.necessityJoin;
 const giaSuff = Object.values(giaData.motifs)
   .filter((m) => m.verdict.startsWith('sufficient'))
@@ -1165,8 +1169,8 @@ const breadcrumbLd = buildBreadcrumbLd([
 
       <!-- ============================================ frontier: three new questions ======== -->
       <section class="vp-panel" data-shorkie-frontier>
-        <h2>Three questions the first-order methods cannot ask{' '}
-          <span class="vp-stat">species · epistasis · kinetics</span>
+        <h2>Five questions the first-order methods cannot ask{' '}
+          <span class="vp-stat">species · epistasis · kinetics · heads · selection</span>
         </h2>
         <p class="vp-notes vp-lede" style="margin:0 0 0.7rem;">
           Everything above is <em>first-order</em>: how much each base contributes on its own, in one
@@ -1273,6 +1277,87 @@ const breadcrumbLd = buildBreadcrumbLd([
           MSN4 are the paralogous general-stress factors that bind the same STRE motif, and they rank
           one and two independently; GAL1 and GLK1, where they move most, are both glucose-repressed.
         </p>
+        <h3 class="gb-stats__title" style="margin-top:1rem;">4 · Which head reads what?</h3>
+        <p class="vp-notes" style="margin:0 0 0.4rem;">
+          The transformer at the bottleneck has <strong>eight heads over 128 positions</strong>, and
+          every locus pack already ships their full maps — so this asks a mechanistic question with
+          no forward passes at all. For each head, how much of its attention lands on each class of
+          curated annotation, against a null that rotates the annotation and destroys only its
+          alignment.
+        </p>
+        <canvas class="fr-canvas" data-fr-heads height="240"
+                aria-label="Attention enrichment of each head on each annotation class"></canvas>
+        <p class="vp-stat" data-fr-heads-stat></p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>The heads have divided the genome the way a biologist would.</strong> Heads 0 and
+          3 read regulatory DNA — conserved binding sites at 1.75× and 1.88×, ORegAnno regions at
+          1.82× and 1.72×, ChIP-supported sites at 1.65× and 1.52× — and are <em>depleted</em> on
+          coding sequence at 0.73 and 0.69. Head 4 is the mirror image: CDS 1.10× and every
+          regulatory class below 0.90. Head 6 alone reads tRNA genes, at 1.50×. Nothing in training
+          named any of these categories.
+        </p>
+        <details class="vp-how">
+          <summary>The three things that decide whether this means anything</summary>
+          <div class="vp-how-body">
+            <p><strong>The mask is pooled by MEAN, never by max.</strong> One bottleneck position is
+            128 bp and a typical binding site is 7 bp — 5% of a cell. A max would mark the whole
+            cell annotated and every class would come out identical once pooled: numbers that mean
+            nothing while looking exactly like numbers that do.</p>
+            <p><strong>The null is a circular shift</strong>, not a resample. Rotation preserves the
+            feature count, every length and every gap, and destroys only the alignment. Resampling
+            positions compares against an annotation that does not resemble the real one and calls
+            almost everything significant.</p>
+            <p><strong>Every class carries its ceiling, 1/coverage.</strong> Genes cover 91.5% of a
+            window, so no head can exceed <strong>1.09×</strong> on them however hard it looks —
+            reading their 1.03 as "flat" would be wrong when it is most of the way to the maximum
+            the geometry allows. The same saturation makes phastCons look uncorrelated inside
+            coding sequence.</p>
+          </div>
+        </details>
+
+        <h3 class="gb-stats__title" style="margin-top:1rem;">5 · Does selection agree with the model?</h3>
+        <p class="vp-notes" style="margin:0 0 0.4rem;">
+          {(varClasses.variant_missense.n + varClasses.variant_synonymous.n
+            + varClasses.variant_noncoding.n).toLocaleString()} real segregating variants from
+          UCSC's <em>evaSnp8</em> fall inside the windows mutagenesis covers — and those packs hold
+          all three substitutions at every base. So for each variant the allele that actually
+          segregates can be compared with the two alternates <strong>at the same base</strong> that
+          nature did not choose. Paired, so position, context, gene and expression level are held
+          fixed by construction and no null model is needed.
+        </p>
+        <canvas class="fr-canvas" data-fr-variation height="160"
+                aria-label="How often the observed allele is the milder of the three at its base"></canvas>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>They agree, modestly and consistently.</strong> The observed allele is the milder
+          one{' '}
+          {(varClasses.variant_missense.fractionBelow1 * 100).toFixed(1)}% of the time for missense
+          (sign test z = {varClasses.variant_missense.signTestZ}),{' '}
+          {(varClasses.variant_synonymous.fractionBelow1 * 100).toFixed(1)}% for synonymous
+          (z = {varClasses.variant_synonymous.signTestZ}) and{' '}
+          {(varClasses.variant_noncoding.fractionBelow1 * 100).toFixed(1)}% for non-coding
+          (z = {varClasses.variant_noncoding.signTestZ}), with a median per-site ratio near 0.90 in
+          all three. The model has never been shown a variant; this is purifying selection on
+          expression, visible through a network trained only to predict assays.
+        </p>
+        <details class="vp-how">
+          <summary>Why a sign test, and the control that makes the coordinates trustworthy</summary>
+          <div class="vp-how-body">
+            <p><strong>A sign test, because the ratios are heavily skewed.</strong> For missense the
+            ratio of mean effects is 0.99 while the median per-site ratio is 0.90 — a few sites
+            where the observed allele is much the louder pull the mean up. The design is paired, so
+            under neutrality the observed allele is the milder one exactly half the time, and a
+            distribution-free test on that is the one the data already earns.</p>
+            <p><strong>The reference base named in each variant record matched sacCer3 at
+            {' '}{variationData.refChecked.toLocaleString()} of{' '}
+            {variationData.refChecked.toLocaleString()} checked.</strong> A one-base coordinate
+            convention error, or an allele reported against the other strand, would otherwise have
+            produced a clean and completely meaningless answer.</p>
+            <p>The reference row of a mutagenesis plane is zero by construction, so it is excluded
+            rather than averaged into the unobserved pair — including it would drag every
+            comparison toward zero and manufacture the result.</p>
+          </div>
+        </details>
+
         <details class="vp-how">
           <summary>Why this is per regulator and not per timepoint</summary>
           <div class="vp-how-body">

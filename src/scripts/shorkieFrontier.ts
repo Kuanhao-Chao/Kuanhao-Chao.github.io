@@ -13,6 +13,8 @@ import { decodePackedPlane, type PackedPlaneSpec } from '../lib/shorkieModel';
 import speciesData from '../data/shorkieSpecies.json';
 import epistasisData from '../data/shorkieEpistasis.json';
 import kineticsData from '../data/shorkieKinetics.json';
+import headsData from '../data/shorkieHeads.json';
+import variationData from '../data/shorkieVariation.json';
 
 const DATA = `${import.meta.env.BASE_URL}/vp-data`.replace(/\/{2,}/g, '/');
 const SEQ_LEN = 16384;
@@ -26,6 +28,13 @@ interface HessPack extends PackedPlaneSpec {
 }
 interface KinPack extends PackedPlaneSpec {
   regulators: { reg: string; early: number; late: number; r: number; overlap: number }[];
+}
+
+/** The widest caption that fits. A clipped canvas caption reads as a different sentence. */
+function caption(ctx: CanvasRenderingContext2D, tiers: string[], x: number, y: number, max: number) {
+  for (const t of tiers) {
+    if (ctx.measureText(t).width <= max) { ctx.fillText(t, x, y); return; }
+  }
 }
 
 const css = (el: HTMLElement, name: string, fallback: string) =>
@@ -274,6 +283,125 @@ export function initShorkieFrontier(host: HTMLElement): void {
   }
 
   // ---------------------------------------------------------------------------------------
+  // 4. Attention-head specialisation
+  // ---------------------------------------------------------------------------------------
+  const headsCv = $<HTMLCanvasElement>('[data-fr-heads]');
+  const headsStat = $('[data-fr-heads-stat]');
+
+  function drawHeads(): void {
+    if (!headsCv) return;
+    const hd = headsData as unknown as {
+      heads: number;
+      classes: { cls: string; meanCoverage: number; ceiling: number | null;
+                 byHead: number[]; best: number; bestEnrichment: number }[];
+    };
+    // Only the classes with something to say: a class every head reads at 1.0 is a row of
+    // identical cells, and eight of those would bury the four that separate.
+    const rows = hd.classes.filter((r) => r.bestEnrichment >= 1.1 || Math.min(...r.byHead) <= 0.9);
+    const ROW = 20;
+    const H = rows.length * ROW + 40;
+    const ctx = fit(headsCv, H);
+    if (!ctx) return;
+    const w = Math.max(1, Math.round(headsCv.clientWidth));
+    const ink = css(host, '--color-ink', '#1a1a1a');
+    const muted = css(host, '--color-muted', '#6b7280');
+    const up = css(host, '--color-accent', '#2563eb');
+    const dn = css(host, '--vp-tfbs', '#dc2626');
+    ctx.clearRect(0, 0, w, H);
+    ctx.font = '10px system-ui, sans-serif';
+    const lab = Math.min(112, Math.max(...rows.map((r) => ctx.measureText(r.cls).width)) + 8);
+    const cell = Math.max(18, Math.min(72, (w - lab - 10) / hd.heads));
+    const gridW = cell * hd.heads;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = muted;
+    for (let h = 0; h < hd.heads; h += 1) ctx.fillText(`h${h}`, lab + cell * (h + 0.5), 12);
+    rows.forEach((r, i) => {
+      const y = 20 + i * ROW;
+      ctx.textAlign = 'right';
+      ctx.fillStyle = ink;
+      ctx.fillText(r.cls, lab - 5, y + ROW / 2 + 2);
+      r.byHead.forEach((v, h) => {
+        // Diverging around 1.0, which is "this head reads the class no more than its share of the
+        // sequence". A sequential ramp would draw 0.7 and 1.0 as merely different amounts of ink.
+        const d = Math.max(-1, Math.min(1, (v - 1) / 0.9));
+        ctx.fillStyle = d >= 0 ? up : dn;
+        ctx.globalAlpha = Math.abs(d) * 0.85;
+        ctx.fillRect(lab + cell * h + 1, y + 2, cell - 2, ROW - 5);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = Math.abs(d) > 0.55 ? css(host, '--color-bg', '#fff') : muted;
+        ctx.textAlign = 'center';
+        ctx.fillText(v.toFixed(2), lab + cell * (h + 0.5), y + ROW / 2 + 2);
+      });
+    });
+    ctx.fillStyle = muted;
+    ctx.textAlign = 'center';
+    caption(ctx, [
+      'attention mass on each class against a circular-shift null · 1.00 = no preference',
+      'vs a circular-shift null · 1.00 = no preference',
+      '1.00 = no preference',
+    ], lab + gridW / 2, H - 6, gridW + lab);
+    if (headsStat) {
+      const best = rows.reduce((a, b) => (b.bestEnrichment > a.bestEnrichment ? b : a));
+      headsStat.textContent = `${hd.heads} heads · strongest is ${best.cls} on head `
+        + `${best.best} at ${best.bestEnrichment.toFixed(2)}×`
+        + (best.ceiling ? ` of ${best.ceiling.toFixed(2)}× possible` : '');
+    }
+  }
+
+  // ---------------------------------------------------------------------------------------
+  // 5. Natural variation
+  // ---------------------------------------------------------------------------------------
+  const varCv = $<HTMLCanvasElement>('[data-fr-variation]');
+
+  function drawVariation(): void {
+    if (!varCv) return;
+    const vd = variationData as unknown as {
+      classes: Record<string, { n: number; medianRatio: number; fractionBelow1: number;
+                                signTestZ: number }>;
+    };
+    const rows = Object.entries(vd.classes);
+    const ROW = 34;
+    const H = rows.length * ROW + 54;
+    const ctx = fit(varCv, H);
+    if (!ctx) return;
+    const w = Math.max(1, Math.round(varCv.clientWidth));
+    const ink = css(host, '--color-ink', '#1a1a1a');
+    const muted = css(host, '--color-muted', '#6b7280');
+    const rule = css(host, '--color-rule', '#e5e7eb');
+    const acc = css(host, '--color-accent', '#2563eb');
+    ctx.clearRect(0, 0, w, H);
+    ctx.font = '10px system-ui, sans-serif';
+    const lab = Math.min(110, Math.max(...rows.map(([k]) => ctx.measureText(k.replace('variant_', '')).width)) + 10);
+    const pad = { l: lab, r: 58, t: 24, b: 26 };
+    const inner = w - pad.l - pad.r;
+    // Centred on 50%, because the design is paired: under neutrality the observed allele is the
+    // milder one exactly half the time, so 50% is the null and the deviation is the finding.
+    const span = 0.12;
+    const X = (f: number) => pad.l + inner * (0.5 + Math.max(-1, Math.min(1, (f - 0.5) / span)) / 2);
+    ctx.strokeStyle = rule;
+    ctx.beginPath(); ctx.moveTo(X(0.5), pad.t - 4); ctx.lineTo(X(0.5), H - pad.b); ctx.stroke();
+    rows.forEach(([k, v], i) => {
+      const y = pad.t + i * ROW;
+      ctx.fillStyle = ink; ctx.textAlign = 'right';
+      ctx.fillText(k.replace('variant_', ''), pad.l - 6, y + ROW / 2);
+      ctx.fillStyle = acc;
+      ctx.fillRect(Math.min(X(0.5), X(v.fractionBelow1)), y + 6,
+        Math.abs(X(v.fractionBelow1) - X(0.5)), ROW - 18);
+      ctx.fillStyle = muted; ctx.textAlign = 'left';
+      ctx.fillText(`${(v.fractionBelow1 * 100).toFixed(1)}%  z ${v.signTestZ.toFixed(1)}`,
+        X(v.fractionBelow1) + 6, y + ROW / 2);
+      ctx.fillText(`n = ${v.n.toLocaleString()}`, pad.l + 4, y + ROW - 4);
+    });
+    ctx.fillStyle = muted; ctx.textAlign = 'center';
+    ctx.fillText('50% — no selection', X(0.5), pad.t - 6);
+    caption(ctx, [
+      'how often the allele that actually segregates is the milder of the three at that base',
+      'how often the observed allele is the milder one',
+      'observed allele milder',
+    ], pad.l + inner / 2, H - 8, inner + pad.r);
+  }
+
+    // ---------------------------------------------------------------------------------------
   function setLocus(id: string): void {
     if (id === locus) return;
     locus = id;
@@ -289,15 +417,21 @@ export function initShorkieFrontier(host: HTMLElement): void {
   });
   // A canvas that reads CSS custom properties must repaint when the theme changes; this site
   // ships six themes and `css()` falls back to the light palette.
-  document.addEventListener('khc:theme-change', () => { drawSpecies(); drawEpistasis(); });
+  document.addEventListener('khc:theme-change', () => {
+    drawSpecies(); drawEpistasis(); drawHeads(); drawVariation();
+  });
   let resizeT = 0;
   window.addEventListener('resize', () => {
     window.clearTimeout(resizeT);
-    resizeT = window.setTimeout(() => { drawSpecies(); drawEpistasis(); }, 150);
+    resizeT = window.setTimeout(() => {
+      drawSpecies(); drawEpistasis(); drawHeads(); drawVariation();
+    }, 150);
   });
 
   drawSpecies();
   drawKinetics();
+  drawHeads();
+  drawVariation();
   void loadEpistasis();
   host.dataset.frontierReady = '1';
 }
