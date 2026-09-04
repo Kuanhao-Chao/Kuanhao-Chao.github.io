@@ -44,6 +44,9 @@ import {
   positionToBp,
   subLayers,
   knockoutMotif,
+  geneTrackShapes,
+  pearson,
+  packGeneRows,
   ANNOTATION_CLASSES,
   motifTier,
   featureMask,
@@ -213,6 +216,22 @@ export function initVariantPlayground(root: ParentNode = document) {
   const logoWidth = host.querySelector<HTMLSelectElement>('[data-vp-logo-width]');
   const logoSource = host.querySelector<HTMLSelectElement>('[data-vp-logo-source]');
   const trackSvg = host.querySelector<SVGSVGElement>('[data-vp-track]');
+  /** 18 px of bp ruler + two 11 px gene rows + slack. */
+  const GENE_H = 46;
+  /**
+   * Which annotation lanes and which evidence tiers the CANVAS draws.
+   *
+   * The drawing only. `visibleAnnotations()` stays unfiltered, so the enrichment table and the
+   * neuron-class table keep measuring every tier whatever is ticked here -- tying that table to
+   * these toggles once hid the three-tier comparison, which is the finding rather than a display
+   * option (ChIP-supported 3.26x against 1.25x conserved-only and 1.49x PWM).
+   */
+  const annLanesOn = new Set(['gene', 'rna', 'element', 'regulatory']);
+  const annTiersOn = new Set(['chip']);
+  const attrCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-attr]');
+  const methodsCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-methods]');
+  const annCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-annotation]');
+  const annStat = host.querySelector<HTMLElement>('[data-vp-annstat]');
   const layerList = $('[data-vp-layers]');
   const flowCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-flow]');
   const flow3dCanvas = host.querySelector<HTMLCanvasElement>('[data-vp-flow3d]');
@@ -1190,6 +1209,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     renderEnrichment();
     renderKnockoutSweep();
     host.dataset.vpTraceReady = attribution ? 'true' : 'false';
+    renderAnnotation();
     renderRegionList();
     refreshRegionViews();
   }
@@ -3161,7 +3181,672 @@ export function initVariantPlayground(root: ParentNode = document) {
   // The focus band and its drag went with those renderers. It existed to keep four stacked
   // panels showing the same window; one canvas cannot disagree with itself.
 
+  /* ------------------------------------------------------------------------------------------ *
+   * The per-locus track views.
+   *
+   * These four were archived when the genome browser was embedded on this page as act 1. The
+   * browser has moved to /shorkie-lab/genome/, where it answers "where in the genome", and this
+   * page answers "how did the model decide, here" -- which needs the window's own coverage,
+   * attribution, method strip and annotation on one shared axis, at 16 bp, with the traced region
+   * drawn across all of them.
+   *
+   * Restored verbatim apart from three things: the measured-coverage overlay is gone (the truth
+   * bucket is requester-pays and this site ships none of it, so the control could only ever report
+   * "no measured coverage loaded"), the lens/logo pair stays in act 2 where the zoomed view lives,
+   * and every SVG takes its viewBox width from `clientWidth` so one user unit is one CSS pixel --
+   * these panels and the canvases below them agreed only at a 1,000 px container before.
+   * ------------------------------------------------------------------------------------------ */
+
+  /**
+   * Gene models as a genome browser draws them: one row per non-overlapping set.
+   *
+   * Every feature used to draw on a single line, distinguished only by opacity, so in the eight
+   * shipped windows that contain an overlap one gene was painted over another and simply could not
+   * be read. `packGeneRows` is the standard greedy assignment; measured, no window needs more than
+   * two rows, so expanding costs one row and hides nothing.
+   */
+  function drawGeneRowsSvg(svg: SVGSVGElement, locus: Locus, W: number, top: number): number {
+    const rows = geneRowsExpanded ? packGeneRows(locus.features) : locus.features.map(() => 0);
+    const nRows = Math.max(...rows) + 1;
+    const rowH = 11;
+    locus.features.forEach((f, i) => {
+      const own = f.name === locus.id;
+      const mid = top + rows[i] * rowH + 5;
+      const x0 = xOfBp(f.txStart, W);
+      const x1 = xOfBp(f.txEnd, W);
+      const line = el('line');
+      attr(line, {
+        x1: x0, x2: x1, y1: mid, y2: mid,
+        stroke: 'var(--vp-orf)', 'stroke-width': 1, 'stroke-opacity': own ? 0.9 : 0.5,
+      });
+      svg.append(line);
+      // Direction, drawn on the intron line where a browser puts it.
+      const fwd = f.strand === '+';
+      for (let x = x0 + 7; x < x1 - 3; x += 13) {
+        const chev = el('path');
+        attr(chev, {
+          d: `M${(x - (fwd ? 2 : -2)).toFixed(1)} ${mid - 2.4} L${(x + (fwd ? 2 : -2)).toFixed(1)} ${mid}`
+            + ` L${(x - (fwd ? 2 : -2)).toFixed(1)} ${mid + 2.4}`,
+          fill: 'none', stroke: 'var(--vp-orf)', 'stroke-width': 0.7,
+          'stroke-opacity': own ? 0.85 : 0.45,
+        });
+        svg.append(chev);
+      }
+      for (const piece of geneTrackShapes(f)) {
+        if (piece.kind === 'intron') continue;
+        const h = piece.kind === 'cds' ? 8 : 4;
+        const r = el('rect');
+        attr(r, {
+          x: xOfBp(piece.start, W), y: mid - h / 2,
+          width: Math.max(xOfBp(piece.end, W) - xOfBp(piece.start, W), 1), height: h,
+          fill: 'var(--vp-orf)', 'fill-opacity': own ? 0.85 : 0.45,
+        });
+        svg.append(r);
+      }
+      // After the gene rather than above it: above put the name straight through the bp ruler.
+      if (own) svg.append(text(x1 + 4, mid + 3, locus.gene, 'vp-ax', 'start'));
+    });
+    svg.dataset.geneRows = String(nRows);
+    return nRows;
+  }
+
+  /**
+   * The annotation track: every curated feature in the window, on the page's shared bp axis.
+   *
+   * Drawn as lanes rather than one row because the classes answer different questions -- where the
+   * genes are, where the non-coding RNAs are, where the replication and repeat elements are, and
+   * where transcription factors bind. Within a lane, overlapping features are packed by
+   * `packGeneRows`, the same first-fit the gene track uses, so nothing is painted over anything.
+   *
+   * Returns the height consumed, and publishes the tally on the canvas: this is a canvas, so there
+   * is no element for an audit to inspect, and counting what was DRAWN is the only way a missing
+   * lane shows up as a failure rather than as a slightly emptier picture.
+   */
+  function drawAnnotationTrack(
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    top: number,
+  ): number {
+    const feats = drawnAnnotations();
+    if (!feats.length) return 0;
+    const muted = css('--color-muted', '#6b7280');
+    // Short labels: the left gutter is PLOT.left wide and "regulatory" ran off it, rendering as
+    // "egulatory" -- a clipped label reads as a different word rather than as a truncated one.
+    const LANES: { id: string; label: string; colour: string }[] = [
+      { id: 'gene', label: 'gene', colour: css('--vp-orf', '#6f62a8') },
+      { id: 'rna', label: 'RNA', colour: css('--vp-rna', '#2f8f6f') },
+      { id: 'element', label: 'elem', colour: css('--vp-element', '#a8762a') },
+      { id: 'tfbs', label: 'TFBS', colour: css('--vp-tfbs', '#b4485f') },
+      { id: 'regulatory', label: 'reg', colour: css('--vp-reg', '#4a7fb5') },
+    ];
+    const ROW_H = 9;
+    let y = top;
+    let drawn = 0;
+
+    ctx.font = '9px system-ui, sans-serif';
+    ctx.textBaseline = 'alphabetic';
+
+    // Genes first, through the SAME renderer the coverage plot uses: exons as blocks, introns as
+    // chevroned lines, strand-aware, with names. Drawing them as plain rectangles here -- which is
+    // what this lane did -- put a solid bar over every intron the plot above draws as a gap.
+    {
+      const locus = LOCI[locusIndex];
+      ctx.fillStyle = muted;
+      ctx.textAlign = 'right';
+      ctx.fillText('genes', PLOT.left - 4, y + 9);
+      ctx.textAlign = 'left';
+      const usedRows = drawGeneRowsCanvas(ctx, locus, width, y);
+      y += usedRows * 11 + 6;
+      drawn += locus.features.length;
+    }
+
+    for (const lane of LANES) {
+      if (lane.id === 'gene') continue;      // drawn above, as real gene models
+      const inLane = feats.filter((f) => ANNOTATION_CLASSES[f.cls]?.lane === lane.id);
+      if (!inLane.length) continue;
+      // packGeneRows is generic over {txStart, txEnd}; feed it the annotation spans rather than
+      // writing a second packer that could disagree with the gene track's.
+      const rows = packGeneRows(inLane.map((f) => ({ txStart: f.start, txEnd: f.end })));
+      const nRows = Math.max(...rows, 0) + 1;
+      ctx.fillStyle = muted;
+      ctx.textAlign = 'right';
+      ctx.fillText(lane.label, PLOT.left - 4, y + ROW_H - 2);
+      inLane.forEach((f, i) => {
+        const x0 = xOfBp(f.start, width);
+        const x1 = Math.max(xOfBp(f.end, width), x0 + 1.2);
+        const ry = y + rows[i] * ROW_H;
+        const tier = motifTier(f);
+        // Evidence is drawn, not only recorded: a ChIP-supported call is solid, a conserved-only
+        // call is hollow, a PWM hit is a hairline. Three tiers that looked alike would be three
+        // claims presented as one.
+        ctx.globalAlpha = tier === 'pwm' ? 0.4 : tier === 'conserved' ? 0.55 : 0.85;
+        if (tier === 'conserved' || tier === 'pwm') {
+          ctx.strokeStyle = lane.colour;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(x0 + 0.5, ry + 1.5, Math.max(x1 - x0 - 1, 0.5), ROW_H - 4);
+        } else {
+          ctx.fillStyle = lane.colour;
+          ctx.fillRect(x0, ry + 1, Math.max(x1 - x0, 1.2), ROW_H - 3);
+        }
+        // A clipped edge is not a real boundary; mark it so nobody reads the window edge as one.
+        if (f.truncated) {
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = muted;
+          const edge = f.start <= 0 ? x0 : x1 - 2;
+          ctx.fillRect(edge, ry + 1, 2, ROW_H - 3);
+        }
+        drawn += 1;
+      });
+      ctx.globalAlpha = 1;
+      y += nRows * ROW_H + 3;
+    }
+    ctx.textAlign = 'left';
+    return y - top;
+  }
+
+  /** What the annotation track drew, for the audit and for the legend. */
+  function annotationTally(): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const f of drawnAnnotations()) {
+      const lane = ANNOTATION_CLASSES[f.cls]?.lane ?? 'other';
+      out[lane] = (out[lane] ?? 0) + 1;
+    }
+    return out;
+  }
+
+  function renderTrack(): void {
+    if (!trackSvg) return;
+    clear(trackSvg);
+    const W = svgWidth(trackSvg);
+    const H = 250;
+    attr(trackSvg, { viewBox: `0 0 ${W} ${H}` });
+    const n = N_BINS;
+    const locusId = LOCI[locusIndex].id;
+    // The live pass when the model has been run, the shipped precomputed curve otherwise -- so
+    // every panel is populated on load and `Load model` buys editing, not a number that exists.
+    const vals: Float32Array | null = current
+      ? (() => {
+        const o = new Float32Array(N_BINS);
+        for (let i = 0; i < N_BINS; i += 1) o[i] = current.tracks[i * 4 + groupIndex];
+        return o;
+      })()
+      : (() => {
+        const rows = (PREDICTIONS.loci as Record<string, { groups: number[][] }>)[locusId]?.groups;
+        return rows?.[groupIndex] ? Float32Array.from(rows[groupIndex]) : null;
+      })();
+    if (!vals) {
+      trackSvg.append(text(W / 2, H / 2, emptyReason, 'vp-ax'));
+      return;
+    }
+    const max = Math.max(...vals, 1e-6);
+    const plotTop = PLOT.top;
+    const plotBottom = H - PLOT.bottom - GENE_H;
+    const locus = LOCI[locusIndex];
+
+    drawCropShading(trackSvg, W, plotTop, plotBottom);
+    drawAxes(trackSvg, W, plotTop, plotBottom, max, 'predicted coverage (a.u.)', locus, H - 3);
+
+    // Bin i covers CROP_BP + i*BIN_BP, which is where it is now drawn -- not stretched across the
+    // whole panel as if the model predicted the flanks it never sees.
+    const bx = (i: number) => xOfBp(CROP_BP + i * BIN_BP, W);
+    const yOf = (v: number, ceiling: number) =>
+      plotBottom - (useLogAxis ? logAxis(v, ceiling) : ceiling > 0 ? v / ceiling : 0)
+        * (plotBottom - plotTop);
+
+    // The window the paper's figure prints, so a reader can see which slice of the 896 bins
+    // Figure 4 was looking at.
+    if (locus.figureWindow) {
+      const { binStart, binEnd } = locus.figureWindow;
+      const frame = el('rect');
+      attr(frame, {
+        x: bx(binStart), y: plotTop, width: Math.max(bx(binEnd) - bx(binStart), 2),
+        height: plotBottom - plotTop,
+        fill: 'var(--vp-orf)', 'fill-opacity': 0.08,
+        stroke: 'var(--vp-orf)', 'stroke-opacity': 0.5, 'stroke-dasharray': '3 2',
+      });
+      trackSvg.append(frame);
+      trackSvg.append(text(bx(binStart) + 3, plotTop + 10, locus.figurePanel ?? 'figure window', 'vp-ax', 'start'));
+    }
+
+    drawGeneRowsSvg(trackSvg, locus, W, plotBottom + 18);
+
+    let d = `M${bx(0).toFixed(2)} ${yOf(vals[0], max).toFixed(2)}`;
+    for (let i = 1; i < n; i += 1) d += ` L${bx(i).toFixed(2)} ${yOf(vals[i], max).toFixed(2)}`;
+    const path = el('path');
+    attr(path, { d, fill: 'none', stroke: 'var(--vp-track)', 'stroke-width': 1.4 });
+    trackSvg.append(path);
+
+    if (current && reference && reference !== current) {
+      let rd = `M${bx(0).toFixed(2)} ${yOf(reference.tracks[groupIndex], max).toFixed(2)}`;
+      for (let i = 1; i < n; i += 1) {
+        rd += ` L${bx(i).toFixed(2)} ${yOf(reference.tracks[i * 4 + groupIndex], max).toFixed(2)}`;
+      }
+      const rp = el('path');
+      attr(rp, { d: rd, fill: 'none', stroke: 'var(--color-muted)', 'stroke-width': 1, 'stroke-dasharray': '3 3' });
+      trackSvg.insertBefore(rp, path);
+    }
+    // The traced region, marked on the curve it was selected from.
+    if (tracedBins) {
+      const r = el('rect');
+      attr(r, {
+        x: bx(tracedBins.start), y: plotTop,
+        width: Math.max(bx(tracedBins.end) - bx(tracedBins.start), 1.5), height: plotBottom - plotTop,
+        fill: 'var(--vp-accent)', 'fill-opacity': 0.12,
+        stroke: 'var(--vp-accent)', 'stroke-opacity': 0.55,
+      });
+      trackSvg.append(r);
+    }
+
+    let argmax = 0;
+    for (let i = 1; i < n; i += 1) if (vals[i] > vals[argmax]) argmax = i;
+    // Full precision, for the python-vs-browser parity check. The visible label is rounded, and
+    // comparing rounded labels is how two different numbers come to look identical.
+    // The same focus band the canvases draw, over the plot area only -- the gene rows below get
+    // theirs from the annotation track, and banding both doubles the ink on a ~7 px marker.
+    focusBandSvg(trackSvg, W, plotTop, plotBottom - plotTop);
+    bindFocusDrag(trackSvg);
+    trackSvg.dataset.peak = String(max);
+    trackSvg.dataset.peakBin = String(argmax);
+    trackSvg.dataset.domainBp = `0-${SEQ_LEN}`;
+    trackSvg.dataset.vpFocus = `${logoWindow.start}-${logoWindow.start + logoWindow.width}`;
+    trackSvg.append(
+      text(PLOT.left, 13,
+        `predicted ${TRACK_GROUPS[groupIndex].label} · 896 bins × 16 bp over bp `
+        + `${CROP_BP.toLocaleString()}–${(CROP_BP + N_BINS * BIN_BP).toLocaleString()}`
+        + ` · peak ${max.toFixed(2)} at bin ${argmax}`
+        + (current?.backend === 'precomputed' || !current ? ' · precomputed' : ' · live run'),
+        'vp-ax vp-caption', 'start'),
+    );
+  }
+
+  /** Paint the annotation canvas, sized to whatever the visible lanes need. */
+  /** `visibleAnnotations()` narrowed by the canvas's own lane and tier toggles. */
+  function drawnAnnotations(): AnnotationFeature[] {
+    return visibleAnnotations().filter((f) => {
+      if (f.cls === 'tfbs') {
+        const tier = motifTier(f);
+        return tier != null && annTiersOn.has(tier);
+      }
+      const lane = ANNOTATION_CLASSES[f.cls]?.lane ?? null;
+      return lane != null && annLanesOn.has(lane);
+    });
+  }
+
+  function renderAnnotation(): void {
+    if (!annCanvas) return;
+    const cssW = annCanvas.clientWidth || 900;
+    const feats = drawnAnnotations();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // Measure first: the canvas has to be tall enough for the lanes that are on, and a lane count
+    // that changes with the toggles means the height cannot be a constant.
+    const probe = document.createElement('canvas').getContext('2d');
+    let need = 24;
+    if (probe && feats.length) {
+      probe.font = '9px system-ui, sans-serif';
+      need = drawAnnotationTrack(probe, cssW, 0) + 20;
+    }
+    const cssH = Math.max(need, 44);   // the gene lane alone needs more than the old 30 px floor
+    annCanvas.width = Math.round(cssW * dpr);
+    annCanvas.height = Math.round(cssH * dpr);
+    annCanvas.style.height = `${cssH}px`;
+    const ctx = annCanvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+    const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
+    ctx.font = '9px system-ui, sans-serif';
+    if (!feats.length) {
+      ctx.fillStyle = muted;
+      ctx.fillText(annotations ? 'No annotation in the selected lanes.'
+        : 'Annotation loads with the locus.', PLOT.left, 16);
+      delete annCanvas.dataset.vpAnnotation;
+      if (annStat) annStat.textContent = '';
+      return;
+    }
+    drawAnnotationTrack(ctx, cssW, 2);
+    drawFocusBand(ctx, cssW, 0, cssH - 14);
+    bindFocusDrag(annCanvas);
+    annCanvas.dataset.vpFocus = `${logoWindow.start}-${logoWindow.start + logoWindow.width}`;
+
+    ctx.fillStyle = muted;
+    ctx.textAlign = 'left';
+    for (const bp of bpTicks(4000)) {
+      ctx.textAlign = bp === 0 ? 'left' : bp >= SEQ_LEN ? 'right' : 'center';
+      ctx.fillText(bpLabel(bp), xOfBp(bp, cssW), cssH - 2);
+    }
+    ctx.textAlign = 'left';
+
+    const tally = annotationTally();
+    annCanvas.dataset.vpAnnotation = Object.entries(tally)
+      .map(([k, v]) => `${k}:${v}`).join(',');
+    if (annStat && annotations) {
+      const chip = annotations.features.filter((f) => motifTier(f) === 'chip').length;
+      const cons = annotations.features.filter((f) => motifTier(f) === 'conserved').length;
+      const pwm = annotations.features.filter((f) => motifTier(f) === 'pwm').length;
+      // The unfiltered scan count is on the face of the control, not buried in a disclosure: it is
+      // the reason the PWM tier is off by default and the reason it should be read differently.
+      annStat.textContent = `${chip} ChIP-supported · ${cons} conserved only · ${pwm} PWM hits at `
+        + `score ≥ ${annotations.jasparMin} of ${annotations.jasparScanned.toLocaleString()} scanned`;
+    }
+  }
+
+  /** Draw the traced attribution: which input positions drive the selected output region. */
+  function renderAttribution(): void {
+    if (!attrCanvas) return;
+    // Bound once; the helper is idempotent via a dataset flag.
+    bindFocusDrag(attrCanvas);
+    const cssW = attrCanvas.clientWidth || 900;
+    const cssH = 150;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    attrCanvas.width = Math.round(cssW * dpr);
+    attrCanvas.height = Math.round(cssH * dpr);
+    attrCanvas.style.height = `${cssH}px`;
+    const ctx = attrCanvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+    const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
+    const rule = getComputedStyle(host).getPropertyValue('--color-rule').trim() || '#e5e7eb';
+    const pos = getComputedStyle(host).getPropertyValue('--vp-fire').trim() || '#b0455a';
+    const neg = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
+    ctx.font = '10px system-ui, sans-serif';
+
+    if (!attribution || !tracedBins) {
+      ctx.fillStyle = muted;
+      ctx.font = '11px system-ui, sans-serif';
+      ctx.fillText('No region traced yet.', PLOT.left, 22);
+      delete attrCanvas.dataset.peak;
+      return;
+    }
+
+    const anchorIdx = attribution.anchors.findIndex(
+      (a) => a.binStart === tracedBins!.start && a.binEnd === tracedBins!.end,
+    );
+    // An anchor carries single-base attribution; a dragged region is the 16 bp matrix.
+    const series = anchorIdx >= 0
+      ? attribution.anchor.subarray(anchorIdx * attribution.cols.anchor,
+                                    (anchorIdx + 1) * attribution.cols.anchor)
+      : traceRegion(attribution, tracedBins.start, tracedBins.end);
+    let peak = 0;
+    for (let i = 0; i < series.length; i += 1) peak = Math.max(peak, Math.abs(series[i]));
+
+    const plotTop = 16;
+    const geneTop = cssH - 34;
+    const plotBottom = geneTop - 12;
+    const mid = (plotTop + plotBottom) / 2;
+    const half = (plotBottom - plotTop) / 2;
+
+    // The same cropped flanks the curve above shades, so a reader can see at a glance which part of
+    // the attribution lies under a bin the model actually predicts -- and that the rest is real.
+    const { lo, hi } = predictedSpan();
+    ctx.fillStyle = muted;
+    ctx.globalAlpha = 0.1;
+    for (const [a, b] of [[0, fractionToBp(lo)], [fractionToBp(hi), SEQ_LEN]] as [number, number][]) {
+      ctx.fillRect(xOfBp(a, cssW), plotTop, xOfBp(b, cssW) - xOfBp(a, cssW), plotBottom - plotTop);
+    }
+    ctx.globalAlpha = 1;
+
+    // Bars, positioned in bp rather than by array index, so this panel and the curve above put the
+    // same base at the same x.
+    const perStep = SEQ_LEN / series.length;
+    for (let i = 0; i < series.length; i += 1) {
+      const v = series[i];
+      if (v === 0) continue;
+      const h = (Math.abs(v) / Math.max(peak, 1e-12)) * half;
+      const x = xOfBp(i * perStep, cssW);
+      const w = Math.max(xOfBp((i + 1) * perStep, cssW) - x, 0.6);
+      ctx.fillStyle = v < 0 ? neg : pos;
+      ctx.fillRect(x, v < 0 ? mid : mid - h, w, h);
+    }
+
+    // A signed axis: zero in the middle, +/- peak at the edges.
+    ctx.strokeStyle = rule;
+    ctx.fillStyle = muted;
+    ctx.textAlign = 'right';
+    for (const [y, label] of [
+      [plotTop, `+${formatTick(peak)}`], [mid, '0'], [plotBottom, `−${formatTick(peak)}`],
+    ] as [number, string][]) {
+      ctx.globalAlpha = y === mid ? 0.8 : 0.35;
+      ctx.beginPath();
+      ctx.moveTo(PLOT.left, y + 0.5);
+      ctx.lineTo(cssW - PLOT.right, y + 0.5);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.fillText(label, PLOT.left - 5, y + 3);
+    }
+    ctx.save();
+    ctx.translate(11, mid);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.fillText('gradient × input', 0, 0);
+    ctx.restore();
+
+    // The same bp ruler as the curve above.
+    ctx.textAlign = 'center';
+    for (const bp of bpTicks()) {
+      const x = xOfBp(bp, cssW);
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(x, plotBottom);
+      ctx.lineTo(x, plotBottom + 3);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.textAlign = bp === 0 ? 'left' : bp >= SEQ_LEN ? 'right' : 'center';
+      ctx.fillText(bpLabel(bp), x, plotBottom + 12);
+    }
+    ctx.textAlign = 'left';
+
+    {
+      drawGeneRowsCanvas(ctx, LOCI[locusIndex], cssW, geneTop);
+    }
+    ctx.fillStyle = muted;
+    ctx.fillText(
+      `${tracedBins.label} · ${anchorIdx >= 0 ? 'single base' : `${series.length} bins of 16 bp`}`
+      + ` · peak |attribution| ${peak.toFixed(3)} · same 0–${SEQ_LEN.toLocaleString()} bp axis as the curve above`,
+      PLOT.left, 11,
+    );
+    // The band, over the attribution plot but not the gene rows beneath it -- the annotation track
+    // bands its own genes, and doubling it on a ~7 px marker is ink without information.
+    drawFocusBand(ctx, cssW, 14, geneTop - 20);
+    attrCanvas.dataset.peak = String(peak);
+    attrCanvas.dataset.region = tracedBins.label;
+    attrCanvas.dataset.domainBp = `0-${SEQ_LEN}`;
+    attrCanvas.dataset.vpFocus = `${logoWindow.start}-${logoWindow.start + logoWindow.width}`;
+  }
+
+  /** Draw every available method as a small signal track on the shared bp axis. */
+  function renderMethods(): void {
+    if (!methodsCanvas) return;
+    const tracks = methodTracks();
+    const cssW = methodsCanvas.clientWidth || 900;
+    const rowH = 38;   // room for the label above each track
+    const cssH = Math.max(tracks.length, 1) * rowH + 20;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    methodsCanvas.width = Math.round(cssW * dpr);
+    methodsCanvas.height = Math.round(cssH * dpr);
+    methodsCanvas.style.height = `${cssH}px`;
+    const ctx = methodsCanvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+    const muted = getComputedStyle(host).getPropertyValue('--color-muted').trim() || '#6b7280';
+    const pos = getComputedStyle(host).getPropertyValue('--vp-fire').trim() || '#b0455a';
+    const neg = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
+    ctx.font = '9px system-ui, sans-serif';
+
+    if (!tracks.length) {
+      ctx.fillStyle = muted;
+      ctx.fillText('Trace a region to compare the attribution methods.', 8, 18);
+      delete methodsCanvas.dataset.tracks;
+      return;
+    }
+
+    // The plot band starts at PLOT.left, exactly like every other panel, because the entire point
+    // of this strip is that the four methods line up with the coverage curve and the gene models
+    // above them. An earlier version gave it a wider gutter to fit the method names and silently
+    // broke that registration -- the labels go ABOVE each track instead.
+    const GUTTER = PLOT.left;
+    tracks.forEach((tr, i) => {
+      const mid = i * rowH + rowH / 2 + 4;
+      const half = rowH / 2 - 3;
+      ctx.strokeStyle = muted;
+      ctx.globalAlpha = 0.3;
+      ctx.beginPath();
+      ctx.moveTo(GUTTER, mid + 0.5);
+      ctx.lineTo(cssW - PLOT.right, mid + 0.5);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      for (let x = GUTTER; x < cssW - PLOT.right; x += 1) {
+        // bp across the plot band, which starts at GUTTER here rather than PLOT.left.
+        const v = tr.at(((x - GUTTER) / Math.max(cssW - GUTTER - PLOT.right, 1)) * SEQ_LEN);
+        if (v === null || v === 0) continue;
+        const h = (Math.abs(v) / Math.max(tr.peak, 1e-12)) * half;
+        ctx.fillStyle = v < 0 ? neg : pos;
+        ctx.fillRect(x, v < 0 ? mid : mid - h, 1, h);
+      }
+      ctx.fillStyle = muted;
+      ctx.textAlign = 'left';
+      ctx.fillText(tr.label, GUTTER + 2, mid - half + 7);
+      ctx.textAlign = 'right';
+      // The note is right-aligned against a left-aligned label on the same baseline, with nothing
+      // between them: at a narrow viewport the two simply overlap, and a canvas has no `overflow`
+      // to report it. Drop trailing ` · ` clauses until it fits, keeping the peak, which is the one
+      // part that makes the row's scale readable.
+      const room = (cssW - PLOT.right) - (GUTTER + 2 + ctx.measureText(tr.label).width) - 12;
+      const parts = `±${tr.peak.toPrecision(2)} · ${tr.note}`.split(' · ');
+      let note = parts.join(' · ');
+      while (parts.length > 1 && ctx.measureText(note).width > room) {
+        parts.pop();
+        note = parts.join(' · ');
+      }
+      // Even the peak alone can be too wide at 320px; drawing nothing beats drawing over the label.
+      if (ctx.measureText(note).width <= room) {
+        ctx.fillText(note, cssW - PLOT.right, mid - half + 7);
+      }
+    });
+
+    ctx.fillStyle = muted;
+    ctx.textAlign = 'center';
+    for (const bp of bpTicks(4000)) {
+      const x = GUTTER + (bp / SEQ_LEN) * (cssW - GUTTER - PLOT.right);
+      ctx.textAlign = bp === 0 ? 'left' : bp >= SEQ_LEN ? 'right' : 'center';
+      ctx.fillText(bpLabel(bp), x, cssH - 4);
+    }
+    ctx.textAlign = 'left';
+    // The band, over the whole stack, so all four methods share one visible focus.
+    drawFocusBand(ctx, cssW, 8, Math.max(cssH - 26, 10), { label: true });
+    bindFocusDrag(methodsCanvas);
+    methodsCanvas.dataset.tracks = String(tracks.length);
+    methodsCanvas.dataset.vpFocus = `${logoWindow.start}-${logoWindow.start + logoWindow.width}`;
+    methodsCanvas.dataset.labels = tracks.map((t) => t.label).join('|');
+  }
+
+  /**
+   * The focus band: the zoom window, drawn identically on EVERY full-window track.
+   *
+   * The zoomed logos show 150 bp of 16,384 -- 0.9% of the axis above them -- and until now nothing
+   * marked which 0.9%. One helper, one colour, one geometry, called from the coverage plot, the
+   * attribution canvas, the method tracks and the annotation track, so the eye can follow the same
+   * band straight down the column.
+   *
+   * `fx` maps a bp offset to an x coordinate in whatever space the caller is drawing in, so the
+   * same routine serves canvases and the SVG without either re-deriving the axis.
+   */
+  function drawFocusBand(
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    top: number,
+    height: number,
+    opts: { label?: boolean } = {},
+  ): void {
+    const a = xOfBp(logoWindow.start, width);
+    const b = xOfBp(logoWindow.start + logoWindow.width, width);
+    const accent = getComputedStyle(host).getPropertyValue('--vp-accent').trim() || '#3976a8';
+    ctx.save();
+    // Fill, then two hard edges. At 150 bp of 16,384 the band is ~7 px wide, so the edges are what
+    // actually locate it -- a fill alone at that width reads as a smudge.
+    ctx.fillStyle = accent;
+    ctx.globalAlpha = 0.13;
+    ctx.fillRect(a, top, Math.max(b - a, 1.5), height);
+    ctx.globalAlpha = 0.85;
+    ctx.fillRect(a - 0.5, top, 1.25, height);
+    ctx.fillRect(b - 0.5, top, 1.25, height);
+    ctx.globalAlpha = 1;
+    if (opts.label) {
+      ctx.fillStyle = accent;
+      ctx.font = '9px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      const text = `${logoWindow.width} bp`;
+      const w = ctx.measureText(text).width;
+      // Flip the label inside when the band is near the right edge, or it is drawn off the canvas.
+      const x = b + 3 + w > width ? a - 3 - w : b + 3;
+      ctx.fillText(text, x, top + 8);
+    }
+    ctx.restore();
+  }
+
+  /** The same band on the coverage SVG, which is not a canvas. */
+  function focusBandSvg(svg: SVGSVGElement, W: number, top: number, height: number): void {
+    const a = xOfBp(logoWindow.start, W);
+    const b = xOfBp(logoWindow.start + logoWindow.width, W);
+    const rect = el('rect');
+    attr(rect, {
+      x: a, y: top, width: Math.max(b - a, 1.5), height,
+      fill: 'currentColor', opacity: 0.13, class: 'vp-focus',
+    });
+    svg.append(rect);
+    for (const x of [a, b]) {
+      const line = el('line');
+      attr(line, { x1: x, x2: x, y1: top, y2: top + height,
+                   stroke: 'currentColor', 'stroke-width': 1, opacity: 0.85, class: 'vp-focus' });
+      svg.append(line);
+    }
+  }
+
+  /**
+   * Make one full-window track a handle for the focus band.
+   *
+   * Every such track is draggable, not just the method strip: six tracks sharing an axis but only
+   * one of them grabbable is what makes an interface feel like six things instead of one.
+   */
+  function bindFocusDrag(node: HTMLCanvasElement | SVGSVGElement): void {
+    if (node.dataset.vpFocusBound === 'true') return;
+    node.dataset.vpFocusBound = 'true';
+    let anchorBp: number | null = null;
+    const bpAt = (ev: PointerEvent): number => {
+      const r = node.getBoundingClientRect();
+      return Math.max(0, Math.min(SEQ_LEN, bpOfX(ev.clientX - r.left, r.width)));
+    };
+    // The union of canvas and SVG widens addEventListener's parameter to `Event`, so the pointer
+    // type is asserted once here rather than at every use.
+    node.addEventListener('pointerdown', (e) => {
+      const ev = e as PointerEvent;
+      anchorBp = bpAt(ev);
+      (node as unknown as HTMLElement).setPointerCapture?.(ev.pointerId);
+    });
+    node.addEventListener('pointermove', (e) => {
+      if (anchorBp === null) return;
+      const b = bpAt(e as PointerEvent);
+      if (Math.abs(b - anchorBp) >= 20) setLogoWindow(Math.min(anchorBp, b), Math.abs(b - anchorBp));
+    });
+    node.addEventListener('pointerup', (e) => {
+      if (anchorBp === null) return;
+      const b = bpAt(e as PointerEvent);
+      // A pointer that moves a couple of pixels between down and up is a click by intent: recentre
+      // at the current width rather than selecting a zero-width window.
+      if (Math.abs(b - anchorBp) < 20) setLogoWindow(b - logoWindow.width / 2, logoWindow.width);
+      anchorBp = null;
+    });
+    node.addEventListener('pointercancel', () => { anchorBp = null; });
+    (node as unknown as HTMLElement).style.cursor = 'ew-resize';
+  }
+
   function refreshRegionViews(): void {
+    // The window's own views first: the coverage curve carries the traced band, and the
+    // attribution and method strips are conditioned on the region outright.
+    renderTrack();
+    renderAttribution();
+    renderMethods();
     renderStageProfile();
     renderRollout();
     renderStageStack();
@@ -3338,6 +4023,10 @@ export function initVariantPlayground(root: ParentNode = document) {
   locusSelect?.addEventListener('change', () => {
     locusIndex = Number(locusSelect.value);
     syncGenomeLink();
+    // A region is a range of bins in ONE window, so it cannot survive a locus change. Clearing it
+    // here is what stops the sticky bar naming the previous gene's region while every panel below
+    // re-renders against the new locus at the old bin range.
+    clearTrace();
     loadLocus();
   });
 
@@ -3379,6 +4068,9 @@ export function initVariantPlayground(root: ParentNode = document) {
       renderClassFigure();
       renderTssProfile();
       renderStageDetail(flow?.selected() ?? null);
+      // The annotation is keyed on the LOCUS, not the region, so `refreshRegionViews` does not
+      // reach it and a width change would leave it at a stale backing-store resolution.
+      renderAnnotation();
       // Every region-conditioned view, through the one call that knows them all. Listing them by
       // hand here omitted the neuron traces, the stage stack, the rollout and the neuron classes,
       // so after a width change the whole trace panel drew at a stale backing-store resolution
@@ -3823,13 +4515,20 @@ export function initVariantPlayground(root: ParentNode = document) {
   function renderRegionList(): void {
     if (!regionSelect) return;
     clear(regionSelect);
+    // A placeholder first, because a `<select>` whose value does not match any option displays its
+    // FIRST one -- so with nothing traced the bar read as though a region were selected, and after
+    // a locus change it named a gene from the new locus that nothing was showing.
+    const none = document.createElement('option');
+    none.value = '';
+    none.textContent = '— none —';
+    regionSelect.append(none);
     for (const a of attribution?.anchors ?? []) {
       const o = document.createElement('option');
       o.value = `${a.binStart}:${a.binEnd}`;
       o.textContent = `${a.label} (${(a.massInside * 100).toFixed(0)}% of its mass)`;
       regionSelect.append(o);
     }
-    if (tracedBins) regionSelect.value = `${tracedBins.start}:${tracedBins.end}`;
+    regionSelect.value = tracedBins ? `${tracedBins.start}:${tracedBins.end}` : '';
     if (regionStat) {
       regionStat.textContent = attribution
         ? `${attribution.anchors.length} precomputed regions · or drag on the curve above`
@@ -3851,6 +4550,8 @@ export function initVariantPlayground(root: ParentNode = document) {
   host.querySelector('[data-vp-region-prev]')?.addEventListener('click', () => stepRegion(-1));
   host.querySelector('[data-vp-region-next]')?.addEventListener('click', () => stepRegion(1));
   regionSelect?.addEventListener('change', () => {
+    // The placeholder clears the trace rather than doing nothing, so the select can undo itself.
+    if (!regionSelect.value) { clearTrace(); return; }
     const [s, e] = regionSelect.value.split(':').map(Number);
     const a = attribution?.anchors.find((x) => x.binStart === s && x.binEnd === e);
     if (a) traceBins(a.binStart, a.binEnd, a.label);
@@ -3932,17 +4633,20 @@ export function initVariantPlayground(root: ParentNode = document) {
     });
   }
 
-  traceClear?.addEventListener('click', () => {
+  /** Drop the trace. One path, so the button, the placeholder option and a locus change agree. */
+  function clearTrace(): void {
     tracedBins = null;
     if (regionSelect) regionSelect.value = '';
     if (traceLabel) {
-      traceLabel.textContent = 'No region traced — pick one above, drag across the method strip, '
-        + 'or mark a region in the browser.';
+      traceLabel.textContent = 'No region traced — pick one above, or drag across the coverage '
+        + 'curve or the method strip.';
     }
+    renderTraceContext();
     refreshRegionViews();
     trace3d();
     renderStageDetail(flow?.selected() ?? null);
-  });
+  }
+  traceClear?.addEventListener('click', clearTrace);
 
   viewBtns.forEach((b) =>
     b.addEventListener('click', () => {
@@ -3983,6 +4687,23 @@ export function initVariantPlayground(root: ParentNode = document) {
     }),
   );
 
+  // The canvas's lane and tier toggles. They drive the DRAWING only -- the enrichment table
+  // measures every tier whatever is ticked, because the three-tier comparison is the finding.
+  host.querySelectorAll<HTMLInputElement>('[data-vp-lane]').forEach((cb) => {
+    cb.addEventListener('change', () => {
+      const id = cb.dataset.vpLane!;
+      if (cb.checked) annLanesOn.add(id); else annLanesOn.delete(id);
+      renderAnnotation();
+    });
+  });
+  host.querySelectorAll<HTMLInputElement>('[data-vp-tier]').forEach((cb) => {
+    cb.addEventListener('change', () => {
+      const id = cb.dataset.vpTier!;
+      if (cb.checked) annTiersOn.add(id); else annTiersOn.delete(id);
+      renderAnnotation();
+    });
+  });
+
   if (groupSelect) {
     clear(groupSelect);
     TRACK_GROUPS.forEach((g, i) => {
@@ -3994,6 +4715,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     });
     groupSelect.addEventListener('change', () => {
       groupIndex = Number(groupSelect.value);
+      renderTrack();
     });
   }
 
