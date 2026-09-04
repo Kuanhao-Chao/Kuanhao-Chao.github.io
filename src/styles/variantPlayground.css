@@ -603,6 +603,9 @@ html[data-theme='dark'] .vp {
 
 .gb-panel {
   flex: 0 0 15.5rem;
+  /* The pre-paint fallback only. From the first paint the controller sets an inline max-height
+     from what the canvas actually draws, so the section follows the selection instead of standing
+     at a constant 30rem however few lanes are on. */
   max-height: 30rem;
   overflow-y: auto;
   padding: 0.5rem 0.6rem;

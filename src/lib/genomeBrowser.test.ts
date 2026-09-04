@@ -8,8 +8,7 @@ import {
   encodeViewState, decodeViewState, chromOrder, romanValue,
   letterMinPx, shouldDrawLetters, pinchZoom, pointDistance, pointMidpoint,
   type Level, type ChromInfo, type LaneSpec, type SearchGene, type View,
-  laneExcluder, nativeLadder, levelsForTrack, axisFraction, axisValue, isSignedAxis, pearson, exportRows,
-} from './genomeBrowser';
+  laneExcluder, nativeLadder, levelsForTrack, axisFraction, axisValue, isSignedAxis, pearson, exportRows, laneOrder,} from './genomeBrowser';
 
 const LEVELS: Level[] = [
   { level: 0, binBp: 1, rows: 1 },
@@ -971,5 +970,59 @@ describe('laneExcluder', () => {
     const hidden = laneExcluder(' lm- , gc ');
     expect(['lm-masked', 'gc'].every(hidden)).toBe(true);
     expect(['sk-gradient', 'genes'].some(hidden)).toBe(false);
+  });
+});
+
+describe('laneOrder', () => {
+  const tracks = [
+    { id: 'lm-masked', group: 'constraint' },
+    { id: 'phastcons', group: 'comparative' },
+    { id: 'sk-rnaseq', group: 'expression' },
+    { id: 'sk-gradient', group: 'attribution' },
+    { id: 'sk-h-h3', group: 'expression' },
+    { id: 'gc', group: 'comparative' },
+    { id: 'lm-unmasked', group: 'constraint' },
+  ];
+  const ORDER = ['constraint', 'expression', 'attribution', 'comparative'];
+  const FEATURES = ['tfbs_chip', 'repeats'];
+
+  it('sorts score tracks by group, whatever order the index lists them in', () => {
+    // The shipped index interleaves the comparative lanes between the two networks -- the one
+    // arrangement that hides the contrast the panel exists to draw.
+    expect(laneOrder(tracks, ORDER, FEATURES).slice(0, 7)).toEqual([
+      'lm-masked', 'lm-unmasked',
+      'sk-rnaseq', 'sk-h-h3',
+      'sk-gradient',
+      'phastcons', 'gc',
+    ]);
+  });
+
+  it('keeps the generator order inside a group, because families sit together there', () => {
+    const many = [
+      { id: 'a', group: 'expression' }, { id: 'b', group: 'expression' },
+      { id: 'c', group: 'expression' },
+    ];
+    expect(laneOrder(many, ORDER, []).slice(0, 3)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('puts the annotation lanes last, in the order they are drawn', () => {
+    expect(laneOrder(tracks, ORDER, FEATURES).slice(-4))
+      .toEqual(['sequence', 'tfbs_chip', 'repeats', 'genes']);
+  });
+
+  it('sorts an unknown group last rather than dropping it', () => {
+    const out = laneOrder([...tracks, { id: 'mystery', group: 'nope' }], ORDER, []);
+    expect(out).toContain('mystery');
+    expect(out.indexOf('mystery')).toBeGreaterThan(out.indexOf('gc'));
+  });
+
+  it('tolerates a track with no group', () => {
+    expect(laneOrder([{ id: 'x' }], ORDER, [])).toEqual(['x', 'sequence', 'genes']);
+  });
+
+  it('is a permutation: every track appears exactly once', () => {
+    const out = laneOrder(tracks, ORDER, FEATURES);
+    expect(new Set(out).size).toBe(out.length);
+    for (const t of tracks) expect(out).toContain(t.id);
   });
 });

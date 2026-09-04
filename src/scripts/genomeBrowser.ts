@@ -39,7 +39,7 @@ import {
   levelForBpPerPixel, tilesCovering, tileStartBp, clampView, zoomAbout,
   levelsForTrack, axisFraction, axisValue, isSignedAxis, pearson, exportRows, laneExcluder,
   xOfBp as xOfBpPure, bpOfX as bpOfXPure, formatLocus, formatSpan, rulerTicks,
-  laneLayout, laneAt, brushRegion, featureDensity, searchLocus, chromOrder,
+  laneLayout, laneOrder, laneAt, brushRegion, featureDensity, searchLocus, chromOrder,
   shouldDrawLetters, pinchZoom, pointDistance, pointMidpoint,
   emptyHistory, historyPush, historyBack, historyForward, canGoBack, canGoForward,
   encodeViewState, decodeViewState,
@@ -104,6 +104,10 @@ const FEATURE_ROW_H = 11;
 const FEATURE_MAX_ROWS = 6;
 const SEQ_LANE_H = 16;
 const LANE_GAP = 9;
+/** Floor for the control panel's height, so a two-lane view still leaves it usable. */
+const PANEL_MIN_H = 260;
+/** Below this the layout stacks and the panel stops being a column. Mirrors the media query. */
+const PANEL_STACK_W = 900;
 
 /**
  * Left gutter, in CSS pixels. Responsive because it is not decoration: at 320 px a fixed 62 px
@@ -212,6 +216,8 @@ interface IndexFile {
   levels: Level[];
   /** What each track `group` means, so the panel's headings come from the generator too. */
   groupLabels?: Record<string, { label: string; hint: string }>;
+  /** The order groups stack in, panel and canvas alike. See `laneOrder`. */
+  groupOrder?: string[];
   /** What each track `family` means, so the picker's row heading comes from the generator too. */
   familyLabels?: Record<string, { label: string; hint: string }>;
   tileBins: number;
@@ -504,12 +510,9 @@ const DEFAULT_ON = ['lm-masked', 'phastcons', 'genes', 'sequence', 'tfbs_chip'];
  */
 const DEFAULT_ON_NARROW = ['lm-masked', 'genes', 'sequence'];
 
-/** Every toggleable lane id, in panel order. */
-const ALL_LANES = (index: IndexFile | null): string[] => [
-  ...(index?.tracks ?? []).map((t) => t.id),
-  'genes', 'sequence',
-  ...FEATURE_LANES.map((f) => f.id),
-];
+/** Fallback when an older index.json predates `groupOrder`. */
+const DEFAULT_GROUP_ORDER = ['constraint', 'expression', 'attribution', 'comparative'];
+
 
 export function initGenomeBrowser(host: HTMLElement): void {
   const $ = <T extends HTMLElement = HTMLElement>(sel: string) =>
@@ -589,7 +592,16 @@ export function initGenomeBrowser(host: HTMLElement): void {
    * one hidden from nothing.
    */
   const laneHidden = laneExcluder(host.dataset.gbExclude);
-  const availableLanes = (): string[] => ALL_LANES(index).filter((id) => !laneHidden(id));
+  /**
+   * Every toggleable lane, in THE order, with the excluded ones already gone.
+   *
+   * There is deliberately no unfiltered enumerator to call by mistake: `data-gb-exclude` used to
+   * be applied in this wrapper while `ALL_LANES` sat beside it returning everything, and a lane
+   * hidden from the panel but reachable from a preset or a URL is worse than one hidden nowhere.
+   */
+  const availableLanes = (): string[] =>
+    laneOrder(index?.tracks ?? [], index?.groupOrder ?? DEFAULT_GROUP_ORDER,
+      FEATURE_LANES.map((f) => f.id)).filter((id) => !laneHidden(id));
   const enabled = new Map<string, boolean>();
   const laneHeight = new Map<string, number>([
     ['lm-masked', isCompact ? 90 : 118],
@@ -597,8 +609,14 @@ export function initGenomeBrowser(host: HTMLElement): void {
     ['phastcons', isCompact ? 72 : 96],
   ]);
 
-  const scoreTracks = (): TrackSpec[] =>
-    (index?.tracks ?? []).filter((t) => enabled.get(t.id) && !laneHidden(t.id));
+  /** The enabled score lanes, in THE order -- so the statistics table and the CSV columns come
+   *  out in the same sequence the canvas draws them. */
+  const scoreTracks = (): TrackSpec[] => {
+    const byId = new Map((index?.tracks ?? []).map((t) => [t.id, t]));
+    return availableLanes()
+      .filter((id) => enabled.get(id) && byId.has(id))
+      .map((id) => byId.get(id)!);
+  };
 
   /** The level each score lane was last drawn at. Tracks differ: a 16 bp track has no L0. */
   const drawnLevels = new Map<string, Level>();
@@ -1213,33 +1231,44 @@ export function initGenomeBrowser(host: HTMLElement): void {
   }
 
   /** The lane stack for the current state, in draw order. */
+  /**
+   * The drawn stack, walked in THE order rather than re-derived here.
+   *
+   * This function used to emit scores, then sequence, then features, then genes on its own, which
+   * is where the canvas order came from and why it disagreed with the panel. It now dispatches on
+   * lane kind as it walks `availableLanes()`, so the two cannot diverge again.
+   */
   function laneSpecs(): LaneSpec[] {
     const out: LaneSpec[] = [{ id: 'ruler', kind: 'ruler', label: '', height: RULER_H }];
-    for (const t of scoreTracks()) {
-      out.push({ id: t.id, kind: 'score', label: t.label, height: laneHeight.get(t.id) ?? 110 });
-    }
     const w = Math.max(1, Math.round(trackCanvas!.clientWidth));
     const inner = Math.max(1, w - padLeft(w) - PAD_RIGHT);
-    if (shouldDrawLetters(view.end - view.start, inner) && enabled.get('sequence')) {
-      out.push({ id: 'sequence', kind: 'sequence', label: 'sequence', height: SEQ_LANE_H });
-    }
-    for (const fl of FEATURE_LANES) {
-      if (!enabled.get(fl.id)) continue;
-      // Density mode is one row by definition; detail mode is as many as the packing needs.
-      const rows = (view.end - view.start) <= FEATURE_DETAIL_BP ? laneFeatures(fl.id).nRows : 1;
-      out.push({
-        id: fl.id, kind: 'features', label: fl.label,
-        height: rows * FEATURE_ROW_H + 5,
-      });
-    }
-    if (enabled.get('genes')) {
-      const feats = geneModels(view.chrom) ?? [];
-      const pad = (view.end - view.start) * 0.1;
-      const visible = feats.filter((f) => f.txEnd > view.start - pad && f.txStart < view.end + pad);
-      // packGeneRows is what drawGeneRows itself calls, on the same input -- so the lane cannot be
-      // sized for fewer rows than get drawn.
-      const rows = Math.max(1, Math.max(...packGeneRows(visible), 0) + 1);
-      out.push({ id: 'genes', kind: 'genes', label: 'genes', height: rows * GENE_ROW_H + 6 });
+    const byId = new Map((index?.tracks ?? []).map((t) => [t.id, t]));
+    const feature = new Map(FEATURE_LANES.map((f) => [f.id, f]));
+    for (const id of availableLanes()) {
+      if (!enabled.get(id)) continue;
+      const spec = byId.get(id);
+      if (spec) {
+        out.push({ id, kind: 'score', label: spec.label, height: laneHeight.get(id) ?? 110 });
+      } else if (id === 'sequence') {
+        // The letters lane is the one that can be enabled and still not drawn: below base zoom
+        // there is nothing legible to draw.
+        if (shouldDrawLetters(view.end - view.start, inner)) {
+          out.push({ id, kind: 'sequence', label: 'sequence', height: SEQ_LANE_H });
+        }
+      } else if (feature.has(id)) {
+        // Density mode is one row by definition; detail mode is as many as the packing needs.
+        const rows = (view.end - view.start) <= FEATURE_DETAIL_BP ? laneFeatures(id).nRows : 1;
+        out.push({ id, kind: 'features', label: feature.get(id)!.label,
+          height: rows * FEATURE_ROW_H + 5 });
+      } else if (id === 'genes') {
+        const feats = geneModels(view.chrom) ?? [];
+        const pad = (view.end - view.start) * 0.1;
+        const visible = feats.filter((f) => f.txEnd > view.start - pad && f.txStart < view.end + pad);
+        // packGeneRows is what drawGeneRows itself calls, on the same input -- so the lane cannot
+        // be sized for fewer rows than get drawn.
+        const rows = Math.max(1, Math.max(...packGeneRows(visible), 0) + 1);
+        out.push({ id, kind: 'genes', label: 'genes', height: rows * GENE_ROW_H + 6 });
+      }
     }
     return out;
   }
@@ -1263,6 +1292,22 @@ export function initGenomeBrowser(host: HTMLElement): void {
     lanes = layout.lanes;
     const ctx = fit(cv, layout.total);
     if (!ctx) return;
+    // The CANVAS has always shrunk to what it draws -- `laneLayout` derives the total and `fit`
+    // writes `style.height`, so with every lane off it is 35 px. What held the section open at a
+    // constant ~480 px was the PANEL beside it: a `max-height: 30rem` column in a flex row, whose
+    // 60-odd rows overflow that on every build. Size it from what is actually drawn instead, with
+    // a floor so a two-lane view still leaves the controls usable.
+    if (panelBox) {
+      // Only while the panel is a COLUMN beside the canvas. Under 900 px the layout stacks and the
+      // panel is a full-width block below it, where an inline height from the wide layout would
+      // override the media query -- and would survive a resize back down, since nothing else
+      // clears it.
+      if (window.innerWidth > PANEL_STACK_W) {
+        panelBox.style.maxHeight = `${Math.max(PANEL_MIN_H, layout.total)}px`;
+      } else {
+        panelBox.style.removeProperty('max-height');
+      }
+    }
 
     const col = {
       ink: css('--color-ink', '#1a1a1a'),
@@ -2987,9 +3032,13 @@ export function initGenomeBrowser(host: HTMLElement): void {
     // controls come last. Insertion order alone follows `index.tracks`, which interleaves the
     // comparative lanes between the two networks -- the one arrangement that hides the contrast.
     const byGroup = new Map<string, TrackSpec[]>(
-      Object.keys(index.groupLabels ?? {}).map((g) => [g, [] as TrackSpec[]]));
-    for (const t of index.tracks) {
-      if (laneHidden(t.id)) continue;
+      (index.groupOrder ?? Object.keys(index.groupLabels ?? {})).map((g) => [g, [] as TrackSpec[]]));
+    const specById = new Map(index.tracks.map((t) => [t.id, t]));
+    // Walked through `availableLanes()` so the panel lists a group's members in exactly the
+    // sequence the canvas stacks them.
+    for (const id of availableLanes()) {
+      const t = specById.get(id);
+      if (!t) continue;
       const g = t.group ?? 'other';
       if (!byGroup.has(g)) byGroup.set(g, []);
       byGroup.get(g)!.push(t);
@@ -3055,11 +3104,15 @@ export function initGenomeBrowser(host: HTMLElement): void {
     }
 
     group('Annotation');
-    if (!laneHidden('genes')) row('genes', 'Genes', 'SGD gene models; introns are drawn as gaps');
-    if (!laneHidden('sequence')) row('sequence', 'Sequence letters', 'the reference, at base zoom');
-    for (const f of FEATURE_LANES) {
-      if (laneHidden(f.id)) continue;
-      row(f.id, f.label, f.hint, undefined, f.docs);
+    const featureById = new Map(FEATURE_LANES.map((f) => [f.id, f]));
+    for (const id of availableLanes()) {
+      if (specById.has(id)) continue;
+      if (id === 'sequence') row(id, 'Sequence letters', 'the reference, at base zoom');
+      else if (id === 'genes') row(id, 'Genes', 'SGD gene models; introns are drawn as gaps');
+      else {
+        const f = featureById.get(id);
+        if (f) row(f.id, f.label, f.hint, undefined, f.docs);
+      }
     }
   }
 

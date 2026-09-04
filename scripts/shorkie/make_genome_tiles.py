@@ -46,6 +46,7 @@ Usage:  python3 scripts/shorkie/make_genome_tiles.py
 
 from __future__ import annotations
 
+import argparse
 import json
 import shutil
 import sys
@@ -79,9 +80,16 @@ GROUP_LABELS = {
                    "hint": "predicts the SEQUENCE — tall means the context determines this base"},
     "expression": {"label": "Shorkie · expression",
                    "hint": "predicts what an ASSAY would measure — tall means transcribed"},
+    "attribution": {"label": "Shorkie · attribution",
+                    "hint": "which BASES moved the expression prediction — signed, and not a "
+                            "prediction of anything an assay could measure"},
     "comparative": {"label": "Independent checks",
                     "hint": "neither model: alignment-based conservation, and a composition control"},
 }
+# The order groups are stacked in, panel and canvas alike. Declared once here rather than left to
+# `index.tracks` insertion order, because the panel used to group by this dict while the canvas drew
+# in raw index order and `ALL_LANES` matched neither.
+GROUP_ORDER = ["constraint", "expression", "attribution", "comparative"]
 TILE_BINS = 65536                  # bins a tile holds, at every level
 BASE_IDX = {"A": 0, "C": 1, "G": 2, "T": 3}
 # FASTA name -> SGD GFF name, where the two disagree.
@@ -184,7 +192,7 @@ TRACKS = [
         "source": "Shorkie (Chao et al. 2025), fold f0, run over sacCer3 in 16,384 bp windows",
     },
     {
-        "id": "sk-gradient", "group": "expression", "laneTag": "signed", "file": "sk-gradient",
+        "id": "sk-gradient", "group": "attribution", "laneTag": "signed", "file": "sk-gradient",
         "nativeBp": 1, "space": "symlog", "axisFrom": "symmetric", "axis": None, "units": "d log2 cov",
         "label": "Shorkie · gradient x input",
         "short": "grad x in",
@@ -210,7 +218,7 @@ TRACKS = [
         "source": "Shorkie (Chao et al. 2025), fold f0; derived from the 13 timepoint means",
     },
     {
-        "id": "sk-ism", "group": "expression", "laneTag": "signed · measured · 23 windows",
+        "id": "sk-ism", "group": "attribution", "laneTag": "signed · measured · 23 windows",
         "file": "sk-ism", "nativeBp": 1, "space": "symlog", "axisFrom": "symmetric", "axis": None,
         "units": "logSED",
         "label": "Shorkie · mutagenesis (ISM)",
@@ -224,7 +232,7 @@ TRACKS = [
         "source": "Shorkie (Chao et al. 2025), fold f0; 98,304 forward passes a window, rc-averaged",
     },
     {
-        "id": "sk-ig", "group": "expression", "laneTag": "signed", "file": "sk-ig",
+        "id": "sk-ig", "group": "attribution", "laneTag": "signed", "file": "sk-ig",
         "nativeBp": 1, "space": "symlog", "axisFrom": "symmetric", "axis": None,
         "units": "d log2 cov",
         "label": "Shorkie · integrated gradients",
@@ -238,7 +246,7 @@ TRACKS = [
         "source": "Shorkie (Chao et al. 2025), fold f0; 32-step integrated gradients, rc-averaged",
     },
     {
-        "id": "sk-occl", "group": "expression", "laneTag": "signed · exact", "file": "sk-occlusion",
+        "id": "sk-occl", "group": "attribution", "laneTag": "signed · exact", "file": "sk-occlusion",
         "nativeBp": 64, "space": "symlog", "axisFrom": "symmetric", "axis": None,
         "units": "d log2 cov",
         "label": "Shorkie · occlusion",
@@ -570,7 +578,69 @@ def array_for(chrom: str, track: dict) -> Path:
     return TRACK / (f"{chrom}.npy" if not suffix else f"{chrom}-{suffix}.npy")
 
 
+def write_index_only() -> int:
+    """Rewrite index.json against the tiles already on disk.
+
+    Track METADATA -- which group a lane belongs to, how it is labelled, what its documentation
+    says -- is carried in the index and nowhere in the tiles, so changing it does not change a
+    single byte of a PNG. A full run rmtree's 5,146 tiles and rebuilds them identically, which
+    takes minutes of I/O to produce an empty diff.
+
+    The axes are the one thing that cannot be recomputed without the arrays, so they are carried
+    over from the shipped index. That is sound only because the arrays are untouched -- so this
+    refuses to run for any track that is not already in the index with an axis, which is exactly
+    the case where a real retile is needed.
+    """
+    old_p = OUT / "index.json"
+    if not old_p.exists():
+        raise SystemExit("no index.json to rewrite; run a full tiling first")
+    old = json.loads(old_p.read_text())
+    prev = {t["id"]: t for t in old["tracks"]}
+
+    present = []
+    for tr in TRACKS:
+        p = prev.get(tr["id"])
+        if p is None:
+            raise SystemExit(f"{tr['id']} is not in the shipped index -- it has no tiles. "
+                             "Run a full tiling rather than --index-only.")
+        if "axis" not in p:
+            raise SystemExit(f"{tr['id']} has no axis in the shipped index")
+        merged = {k: v for k, v in tr.items() if k not in ("file", "axisFrom")}
+        # Carried from the shipped index because they were resolved FROM THE DATA and the data has
+        # not moved. Everything else comes from this file, which is where a track's facts live.
+        for k in ("axis", "linthresh", "levels", "sparse"):
+            if k in p:
+                merged[k] = p[k]
+        merged["docs"] = TRACK_DOCS[tr["id"]]
+        present.append(merged)
+
+    index = dict(old)
+    index["groupLabels"] = GROUP_LABELS
+    index["groupOrder"] = GROUP_ORDER
+    index["familyLabels"] = FAMILY_LABELS
+    index["tracks"] = present
+    old_p.write_text(json.dumps(index, separators=(",", ":")))
+
+    import collections
+    g = collections.Counter(t.get("group", "?") for t in present)
+    print(f"  index.json rewritten: {len(present)} tracks, {old_p.stat().st_size/1e3:.0f} KB")
+    for k in GROUP_ORDER:
+        ids = [t["id"] for t in present if t.get("group") == k]
+        fams = sorted({t["family"] for t in present if t.get("group") == k and t.get("family")})
+        print(f"    {k:<12} {g[k]:>2} tracks" + (f"  families: {', '.join(fams)}" if fams else ""))
+        print(f"      {', '.join(i for i in ids if not any(t.get('family') for t in present if t['id'] == i))}")
+    return 0
+
+
 def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--index-only", action="store_true",
+                    help="rewrite index.json from the tiles already on disk; no retiling")
+    args = ap.parse_args()
+
+    if args.index_only:
+        return write_index_only()
+
     man = json.loads((TRACK / "manifest.json").read_text())
     cons_p = TRACK / "conservation.json"
     cons = json.loads(cons_p.read_text()) if cons_p.exists() else {}
@@ -635,6 +705,7 @@ def main() -> int:
         "levels": [{"level": i, "binBp": b, "rows": 1 if i == 0 else 3} for i, b in enumerate(LEVELS)],
         "rowNames": ["min", "max", "mean"],
         "groupLabels": GROUP_LABELS,
+        "groupOrder": GROUP_ORDER,
         "familyLabels": FAMILY_LABELS,
         "tileBins": TILE_BINS,
         "noDataByte": 0,
