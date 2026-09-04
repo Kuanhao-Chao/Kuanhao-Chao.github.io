@@ -40,6 +40,7 @@ const TEST_ROUTES = [
   '/chromatin',
   '/shorkie-lab',
   '/shorkie-lab/attention',
+  '/nn-lab',
   '/search',
   '/404'
 ];

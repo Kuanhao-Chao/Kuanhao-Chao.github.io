@@ -1,0 +1,1878 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Katex from '../../components/Katex.astro';
+import 'katex/dist/katex.min.css';
+import { site } from '../../data/site';
+import { buildBreadcrumbLd } from '../../lib/breadcrumbs';
+
+const title = 'NN Lab — Foundational Deep Learning & Convolution Laboratory';
+const description =
+  'Interactive convolutional neural network studio with real-time 2D spatial convolution visualizer, ' +
+  'X-Ray dot product breakdown, 1D biological sequence motif scanner, FLOPs/MACs calculator, ' +
+  'receptive field expansion ladder, and live PyTorch generator.';
+
+const webAppLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: 'NN Lab — Convolutional Neural Network Studio',
+  applicationCategory: 'EducationalApplication, DeveloperApplication, ScienceApplication',
+  operatingSystem: 'Web Browser',
+  description,
+  url: `${site.url}/nn-lab/`,
+  author: { '@id': `${site.url}/#person` },
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+};
+
+const breadcrumbLd = buildBreadcrumbLd([
+  { name: 'NN Lab', path: '/nn-lab/' },
+]);
+---
+
+<BaseLayout title={title} description={description} bare={true}>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(webAppLd)} />
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} />
+
+  <div class="nn-page-wrapper">
+    <!-- Top Navigation Bar -->
+    <header class="nn-topbar">
+      <div class="nn-brand-group">
+        <div class="nn-brand-title">
+          <span class="nn-pulse-dot" aria-hidden="true"></span>
+          <h1>NN LAB 🧠</h1>
+        </div>
+        <span class="nn-brand-sub">Foundational Deep Learning Laboratory</span>
+      </div>
+
+      <nav class="nn-nav-links" aria-label="Site Navigation">
+        <a href="/" class="nn-nav-link" title="Return to Homepage">
+          <span aria-hidden="true">←</span> Home
+        </a>
+        <a href="/shorkie-lab/" class="nn-nav-link" title="Shorkie Lab: Genomic Deep Learning">
+          <span aria-hidden="true">🧬</span> Shorkie Lab
+        </a>
+        <a href="/lab" class="nn-nav-link" title="Cell Lab: Cellular Automata">
+          <span aria-hidden="true">🔬</span> Cell Lab
+        </a>
+        <a href="/algorithms/" class="nn-nav-link" title="Interactive Algorithms & Data Structures">
+          <span aria-hidden="true">⚡</span> Algorithms
+        </a>
+      </nav>
+    </header>
+
+    <!-- Mode Switcher Tabs -->
+    <div class="nn-tabs-bar">
+      <div class="nn-tabs-container" role="tablist" aria-label="Convolution Modes">
+        <button
+          type="button"
+          class="nn-mode-tab active"
+          data-cnn-tab="2d"
+          role="tab"
+          aria-selected="true"
+        >
+          <span class="nn-tab-icon" aria-hidden="true">🖼️</span>
+          <span>2D Vision Mode</span>
+        </button>
+        <button
+          type="button"
+          class="nn-mode-tab"
+          data-cnn-tab="1d"
+          role="tab"
+          aria-selected="false"
+        >
+          <span class="nn-tab-icon" aria-hidden="true">🧬</span>
+          <span>1D Sequence Mode</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Main CNN Studio Container -->
+    <main data-cnn-studio id="cnn-studio-root" class="nn-main-content">
+      
+      <!-- ==================================================================== -->
+      <!-- 2D SPATIAL VISION PANEL                                             -->
+      <!-- ==================================================================== -->
+      <section class="nn-panel" data-cnn-panel="2d">
+        <header class="nn-panel-header">
+          <div>
+            <h2>2D Spatial Convolution & Feature Extraction</h2>
+            <p class="nn-panel-desc">
+              Interact with the discrete 2D cross-correlation kernel sliding across an input feature map.
+              Click any input cell to cycle activation values ($0 \to 4$), or select weight presets below to inspect edge detection, sharpening, and smoothing.
+            </p>
+          </div>
+          <div class="nn-math-chip">
+            <Katex
+              tex="(I * K)(i, j) = \sum_{m} \sum_{n} I(i \cdot s + m \cdot d, \; j \cdot s + n \cdot d) \cdot K(m, n) + b"
+              display={true}
+            />
+          </div>
+        </header>
+
+        <!-- Presets Bar -->
+        <div class="nn-card nn-preset-card">
+          <div class="nn-preset-row">
+            <span class="nn-preset-title">Kernel Presets:</span>
+            <div class="nn-preset-buttons">
+              <button type="button" class="nn-preset-btn active" data-cnn-preset-kernel="sobelHorizontal">
+                Sobel Horizontal
+              </button>
+              <button type="button" class="nn-preset-btn" data-cnn-preset-kernel="sobelVertical">
+                Sobel Vertical
+              </button>
+              <button type="button" class="nn-preset-btn" data-cnn-preset-kernel="laplacian">
+                Laplacian
+              </button>
+              <button type="button" class="nn-preset-btn" data-cnn-preset-kernel="sharpen">
+                Sharpen
+              </button>
+              <button type="button" class="nn-preset-btn" data-cnn-preset-kernel="gaussianBlur">
+                Gaussian Blur
+              </button>
+              <button type="button" class="nn-preset-btn" data-cnn-preset-kernel="identity">
+                Identity
+              </button>
+            </div>
+            <!-- Optional select fallback for complete controller query coverage -->
+            <select data-cnn-kernel-preset class="nn-select nn-preset-select" aria-label="Kernel Preset Dropdown">
+              <option value="sobelHorizontal" selected>Sobel Horizontal</option>
+              <option value="sobelVertical">Sobel Vertical</option>
+              <option value="laplacian">Laplacian</option>
+              <option value="sharpen">Sharpen</option>
+              <option value="gaussianBlur">Gaussian Blur</option>
+              <option value="identity">Identity</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Hyperparameters Control Bar -->
+        <div class="nn-card nn-params-card">
+          <div class="nn-params-grid">
+            <!-- Input Dimension -->
+            <div class="nn-param-item">
+              <label for="param-in-size" class="nn-param-label">
+                Input Shape: <span data-cnn-in-size-val class="nn-param-val">5 × 5</span>
+              </label>
+              <input
+                id="param-in-size"
+                type="range"
+                min="3"
+                max="9"
+                value="5"
+                step="1"
+                data-cnn-in-size
+                class="nn-range"
+              />
+            </div>
+
+            <!-- Kernel Size -->
+            <div class="nn-param-item">
+              <label for="param-kernel-size" class="nn-param-label">Kernel ($K \times K$)</label>
+              <select id="param-kernel-size" class="nn-select" data-cnn-kernel-size>
+                <option value="1">1 × 1</option>
+                <option value="3" selected>3 × 3</option>
+                <option value="5">5 × 5</option>
+              </select>
+            </div>
+
+            <!-- Stride -->
+            <div class="nn-param-item">
+              <label for="param-stride" class="nn-param-label">Stride ($S$)</label>
+              <select id="param-stride" class="nn-select" data-cnn-stride>
+                <option value="1" selected>Stride: 1</option>
+                <option value="2">Stride: 2</option>
+                <option value="3">Stride: 3</option>
+              </select>
+            </div>
+
+            <!-- Padding -->
+            <div class="nn-param-item">
+              <label for="param-padding" class="nn-param-label">Padding ($P$)</label>
+              <div class="nn-input-with-pills">
+                <select id="param-padding" class="nn-select" data-cnn-padding>
+                  <option value="0">0 (Valid)</option>
+                  <option value="1" selected>1 (Same)</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                </select>
+                <div class="nn-pad-pills">
+                  <button type="button" class="nn-pill-btn" data-cnn-pad-mode="valid">Valid</button>
+                  <button type="button" class="nn-pill-btn" data-cnn-pad-mode="same">Same</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Dilation -->
+            <div class="nn-param-item">
+              <label for="param-dilation" class="nn-param-label">Dilation ($d$)</label>
+              <select id="param-dilation" class="nn-select" data-cnn-dilation>
+                <option value="1" selected>1 (Standard)</option>
+                <option value="2">2 (Atrous)</option>
+                <option value="3">3</option>
+              </select>
+            </div>
+
+            <!-- Channels ($C_{in}$ / $C_{out}$) -->
+            <div class="nn-param-item">
+              <label class="nn-param-label">Channels (<Katex tex="C_{\text{in}} \to C_{\text{out}}" />)</label>
+              <div class="nn-dual-inputs">
+                <input
+                  type="number"
+                  min="1"
+                  max="512"
+                  value="3"
+                  data-cnn-in-channels
+                  class="nn-input-num"
+                  title="Input Channels (C_in)"
+                  aria-label="Input Channels"
+                />
+                <span class="nn-input-arrow">→</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="512"
+                  value="16"
+                  data-cnn-out-channels
+                  class="nn-input-num"
+                  title="Output Channels (C_out)"
+                  aria-label="Output Channels"
+                />
+              </div>
+            </div>
+
+            <!-- Groups & Depthwise -->
+            <div class="nn-param-item">
+              <label class="nn-param-label">Groups / Topology</label>
+              <div class="nn-groups-row">
+                <input
+                  type="number"
+                  min="1"
+                  max="3"
+                  value="1"
+                  data-cnn-groups
+                  class="nn-input-num"
+                  title="Groups"
+                  aria-label="Convolution Groups"
+                />
+                <label class="nn-toggle-label">
+                  <input type="checkbox" data-cnn-depthwise />
+                  <span>Depthwise</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Bias Parameter -->
+            <div class="nn-param-item">
+              <label class="nn-param-label">Learnable Bias ($b$)</label>
+              <div class="nn-bias-row">
+                <label class="nn-toggle-label">
+                  <input type="checkbox" data-cnn-bias-toggle checked />
+                  <span>Enabled</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  value="0"
+                  data-cnn-bias-val
+                  class="nn-input-num"
+                  title="Bias Value"
+                  aria-label="Bias Value"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3-Stage Visualizer Stage -->
+        <div class="nn-card nn-stage-card">
+          <div class="nn-grids-layout">
+            <!-- Stage 1: Input Feature Map -->
+            <div class="nn-grid-box">
+              <div class="nn-grid-header">
+                <div class="nn-grid-heading">
+                  <span class="nn-dot nn-dot--indigo"></span>
+                  <span class="nn-grid-title">Padded Input Matrix $X$</span>
+                </div>
+                <span class="nn-grid-hint">Click cell to cycle 0..4</span>
+              </div>
+              <div class="nn-grid-viewport">
+                <div class="nn-grid-container" data-cnn-input-grid></div>
+              </div>
+            </div>
+
+            <!-- Operator Symbol -->
+            <div class="nn-operator-col" aria-hidden="true">
+              <span class="nn-operator-sym">∗</span>
+            </div>
+
+            <!-- Stage 2: Weight Kernel Matrix -->
+            <div class="nn-grid-box">
+              <div class="nn-grid-header">
+                <div class="nn-grid-heading">
+                  <span class="nn-dot nn-dot--blue"></span>
+                  <span class="nn-grid-title">Kernel Filter $W$</span>
+                </div>
+                <span class="nn-grid-hint">Click to edit weight</span>
+              </div>
+              <div class="nn-grid-viewport">
+                <div class="nn-grid-container" data-cnn-kernel-grid></div>
+              </div>
+            </div>
+
+            <!-- Operator Symbol -->
+            <div class="nn-operator-col" aria-hidden="true">
+              <span class="nn-operator-sym">=</span>
+            </div>
+
+            <!-- Stage 3: Output Feature Map -->
+            <div class="nn-grid-box">
+              <div class="nn-grid-header">
+                <div class="nn-grid-heading">
+                  <span class="nn-dot nn-dot--emerald"></span>
+                  <span class="nn-grid-title">Output Feature Map $Y$</span>
+                </div>
+                <span class="nn-grid-hint">Click cell to jump</span>
+              </div>
+              <div class="nn-grid-viewport">
+                <div class="nn-grid-container" data-cnn-output-grid></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Playback Controls Toolbar -->
+          <div class="nn-playback-bar">
+            <div class="nn-playback-btns">
+              <button type="button" class="nn-btn" data-cnn-step-prev title="Previous step (← or j)">
+                <span aria-hidden="true">⏮</span> Prev
+              </button>
+              <button type="button" class="nn-btn nn-btn--primary" data-cnn-play title="Play/Pause (Space)">
+                <span aria-hidden="true">▶</span> Play
+              </button>
+              <button type="button" class="nn-btn" data-cnn-step-next title="Next step (→ or l)">
+                Next <span aria-hidden="true">⏭</span>
+              </button>
+              <button type="button" class="nn-btn" data-cnn-reset title="Reset convolution to origin (r)">
+                <span aria-hidden="true">↺</span> Reset
+              </button>
+            </div>
+
+            <div class="nn-playback-speed">
+              <label for="playback-speed-select" class="nn-label-speed">Speed:</label>
+              <select id="playback-speed-select" class="nn-select nn-select--sm" data-cnn-speed>
+                <option value="1000">1.0s (Slow)</option>
+                <option value="500" selected>0.5s (Normal)</option>
+                <option value="250">0.25s (Fast)</option>
+                <option value="100">0.1s (Turbo)</option>
+              </select>
+            </div>
+
+            <div class="nn-step-pill" data-cnn-step-info role="status" aria-live="polite">
+              Step 1 / 25
+            </div>
+
+            <div class="nn-kbd-shortcuts" aria-hidden="true">
+              <kbd>Space</kbd> Play · <kbd>←</kbd><kbd>→</kbd> Step · <kbd>R</kbd> Reset
+            </div>
+          </div>
+        </div>
+
+        <!-- Real-time X-Ray Dot Product Inspector -->
+        <div class="nn-card nn-xray-card">
+          <div class="nn-card-title-bar">
+            <span class="nn-card-icon">🔬</span>
+            <h3>Real-Time X-Ray Dot Product & Accumulation Inspector</h3>
+          </div>
+          <div class="nn-inspector-body" data-cnn-inspector>
+            <!-- Rendered dynamically by cnnStudio.ts -->
+          </div>
+        </div>
+
+        <!-- Live Mathematical Telemetry Cards -->
+        <div class="nn-stats-grid">
+          <div class="nn-stat-card">
+            <div class="nn-stat-head">
+              <span class="nn-stat-title">Output Spatial Shape</span>
+              <span class="nn-stat-badge">Dimension</span>
+            </div>
+            <div class="nn-stat-val" data-cnn-out-dim>5 × 5</div>
+            <div class="nn-stat-formula">
+              <Katex tex="O = \left\lfloor \frac{W - K + 2P - (K-1)(d-1)}{S} \right\rfloor + 1" />
+            </div>
+          </div>
+
+          <div class="nn-stat-card">
+            <div class="nn-stat-head">
+              <span class="nn-stat-title">Learnable Parameters</span>
+              <span class="nn-stat-badge">Weights + Bias</span>
+            </div>
+            <div class="nn-stat-val" data-cnn-param-count>--</div>
+            <div class="nn-stat-formula">
+              <Katex tex="\text{Params} = \frac{C_{\text{out}}}{G} \cdot C_{\text{in}} \cdot K^2 + C_{\text{out}}" />
+            </div>
+          </div>
+
+          <div class="nn-stat-card">
+            <div class="nn-stat-head">
+              <span class="nn-stat-title">Computational Cost</span>
+              <span class="nn-stat-badge">Complexity</span>
+            </div>
+            <div class="nn-stat-val" data-cnn-flops>--</div>
+            <div class="nn-stat-formula">
+              <Katex tex="\text{MACs} = H_{\text{out}} W_{\text{out}} \cdot \frac{C_{\text{in}} C_{\text{out}} K^2}{G}" />
+            </div>
+          </div>
+
+          <div class="nn-stat-card">
+            <div class="nn-stat-head">
+              <span class="nn-stat-title">Activation Memory</span>
+              <span class="nn-stat-badge">FP32 Tensor</span>
+            </div>
+            <div class="nn-stat-val" data-cnn-memory>--</div>
+            <div class="nn-stat-formula">
+              <Katex tex="\text{VRAM} = H_{\text{out}} \cdot W_{\text{out}} \cdot C_{\text{out}} \times 4\text{ B}" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================== -->
+      <!-- 1D GENOMIC SEQUENCE MOTIF SCANNER PANEL                              -->
+      <!-- ==================================================================== -->
+      <section class="nn-panel" data-cnn-panel="1d" style="display: none;">
+        <header class="nn-panel-header">
+          <div>
+            <h2>1D Genomic Sequence Scanner & Transcription Factor Motif Convolutions</h2>
+            <p class="nn-panel-desc">
+              In genomic deep learning architectures (e.g., DeepBind, SpliceAI, Borzoi, Enformer), 1D convolutional layers scan one-hot encoded DNA sequences.
+              Each 1D filter represents a learned <strong>Position Weight Matrix (PWM)</strong> calculating log-odds affinities for transcription factor binding sites (TFBS), splice junctions, or core promoter elements.
+            </p>
+          </div>
+          <div class="nn-math-chip">
+            <Katex
+              tex="S_t = \sum_{j=0}^{k-1} \sum_{c \in \{A,C,G,T\}} X_{t + j, c} \cdot W_{c, j}"
+              display={true}
+            />
+          </div>
+        </header>
+
+        <!-- 1D Motif & Sequence Toolbar -->
+        <div class="nn-card nn-seq-toolbar-card">
+          <div class="nn-seq-toolbar-grid">
+            <div class="nn-param-item">
+              <label for="motif-select-input" class="nn-param-label">Biological Motif Preset</label>
+              <select id="motif-select-input" class="nn-select" data-cnn-motif-select>
+                <option value="tataBox" selected>TATA Box Promoter (TATAAA)</option>
+                <option value="kozak">Kozak Initiation (GCCACCATGG)</option>
+                <option value="spliceDonor">Splice Donor 5' Junction (MAGGTRAGT)</option>
+                <option value="ctcf">CTCF Insulator Core (CCACTAGGTGGCAG)</option>
+              </select>
+            </div>
+
+            <div class="nn-param-item nn-param-item--grow">
+              <label for="seq-text-input" class="nn-param-label">Target DNA Sequence ($5' \to 3'$)</label>
+              <input
+                id="seq-text-input"
+                type="text"
+                data-cnn-seq-input
+                value="CCGCTATAAAAGGAGCGGCTA"
+                class="nn-seq-input"
+                spellcheck="false"
+              />
+            </div>
+
+            <div class="nn-param-item">
+              <label for="seq-stride-input" class="nn-param-label">Stride ($S$)</label>
+              <select id="seq-stride-input" class="nn-select" data-cnn-seq-stride>
+                <option value="1" selected>Stride: 1 bp</option>
+                <option value="2">Stride: 2 bp</option>
+              </select>
+            </div>
+
+            <div class="nn-param-item">
+              <label class="nn-param-label">Playback Controls</label>
+              <div class="nn-playback-btns">
+                <button type="button" class="nn-btn" data-cnn-seq-prev title="Previous scanning window">
+                  <span aria-hidden="true">⏮</span>
+                </button>
+                <button type="button" class="nn-btn nn-btn--primary" data-cnn-seq-play title="Scan sequence">
+                  <span aria-hidden="true">▶</span> Scan
+                </button>
+                <button type="button" class="nn-btn" data-cnn-seq-next title="Next scanning window">
+                  <span aria-hidden="true">⏭</span>
+                </button>
+                <button type="button" class="nn-btn" data-cnn-seq-reset title="Reset scanning window">
+                  <span aria-hidden="true">↺</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="nn-seq-status-row">
+            <div class="nn-step-pill" data-cnn-seq-step-info role="status">
+              Scanning Window: 1 / 16
+            </div>
+            <div class="nn-match-summary" data-cnn-match-summary>
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 1D Interactive Sequence Track Stage -->
+        <div class="nn-card nn-seq-track-card">
+          <div class="nn-card-title-bar">
+            <span class="nn-card-icon">🧬</span>
+            <h3>One-Hot Encoded Nucleotide Track & Sliding Window</h3>
+          </div>
+          <div class="nn-seq-track-wrapper" data-cnn-seq-track>
+            <!-- Populated dynamically by cnnStudio.ts -->
+          </div>
+        </div>
+
+        <!-- 1D Activation Score Chart -->
+        <div class="nn-card nn-chart-card">
+          <div class="nn-card-title-bar">
+            <span class="nn-card-icon">📊</span>
+            <h3>1D Convolution Activation Profile / Affinity Score Profile</h3>
+          </div>
+          <div class="nn-chart-wrapper" data-cnn-score-chart>
+            <!-- Populated dynamically by cnnStudio.ts as SVG -->
+          </div>
+        </div>
+
+        <!-- 1D X-Ray Breakdown -->
+        <div class="nn-card nn-xray-card">
+          <div class="nn-card-title-bar">
+            <span class="nn-card-icon">🔬</span>
+            <h3>1D Filter Window Position Weight Matrix (PWM) Dot Product</h3>
+          </div>
+          <div class="nn-inspector-body" data-cnn-seq-xray>
+            <!-- Populated dynamically by cnnStudio.ts -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================== -->
+      <!-- RECEPTIVE FIELD EXPANSION LADDER                                     -->
+      <!-- ==================================================================== -->
+      <section class="nn-section nn-rf-section">
+        <header class="nn-panel-header">
+          <div>
+            <h2>Receptive Field (RF) Expansion Ladder</h2>
+            <p class="nn-panel-desc">
+              Understand how input spatial context accumulates through successive convolutional operations.
+              For each layer $l$, the effective receptive field expands according to the canonical recurrence relation:
+            </p>
+          </div>
+          <div class="nn-math-chip">
+            <Katex
+              tex="RF_l = RF_{l-1} + (k_l - 1) \cdot S_{l-1}, \quad \text{where } S_{l-1} = \prod_{i=1}^{l-1} s_i"
+              display={true}
+            />
+          </div>
+        </header>
+
+        <div class="nn-card nn-rf-card">
+          <div class="nn-rf-toolbar">
+            <div class="nn-rf-toolbar-info">
+              Stack consecutive convolutional layers to witness spatial context scaling:
+            </div>
+            <div class="nn-rf-actions">
+              <button type="button" class="nn-btn nn-btn--primary" data-cnn-rf-add-layer>
+                + Add 3×3 Conv Layer
+              </button>
+              <button type="button" class="nn-btn" data-cnn-rf-reset>
+                ↺ Reset (3 Layers)
+              </button>
+            </div>
+          </div>
+
+          <div class="nn-rf-ladder-container" data-cnn-rf-ladder>
+            <!-- Populated dynamically by cnnStudio.ts -->
+          </div>
+
+          <div class="nn-vgg-callout" data-cnn-vgg-callout>
+            <!-- Populated dynamically by cnnStudio.ts -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================== -->
+      <!-- LIVE PYTORCH MODULE GENERATOR                                        -->
+      <!-- ==================================================================== -->
+      <section class="nn-section nn-pytorch-section">
+        <header class="nn-panel-header">
+          <div>
+            <h2>Production-Ready PyTorch Module Generator</h2>
+            <p class="nn-panel-desc">
+              Copy fully synchronized, production-grade PyTorch code implementing the currently configured convolution layer,
+              complete with explicit tensor dimension asserts and test execution harness.
+            </p>
+          </div>
+          <div>
+            <button type="button" class="nn-btn nn-btn--primary" data-cnn-copy-pytorch>
+              <span aria-hidden="true">📋</span> Copy PyTorch Snippet
+            </button>
+          </div>
+        </header>
+
+        <div class="nn-card nn-code-card">
+          <pre class="nn-code-pre"><code class="nn-code-block" data-cnn-pytorch-code># Initializing PyTorch module generator...</code></pre>
+        </div>
+      </section>
+
+      <!-- ==================================================================== -->
+      <!-- DEEP DIVE EDUCATIONAL ACCORDIONS                                     -->
+      <!-- ==================================================================== -->
+      <section class="nn-section nn-deepdive-section">
+        <header class="nn-panel-header">
+          <div>
+            <h2>Foundational Architectural Deep Dives</h2>
+            <p class="nn-panel-desc">
+              Rigorous mathematical formulations and systems engineering principles underpinning modern deep convolutional networks.
+            </p>
+          </div>
+        </header>
+
+        <div class="nn-accordions-group">
+          <!-- Accordion 1: BatchNorm Bias Cancellation -->
+          <article class="nn-accordion open" data-cnn-accordion>
+            <button type="button" class="nn-accordion-trigger" data-cnn-accordion-trigger>
+              <span class="nn-accordion-title">
+                <span class="nn-acc-icon">⚖️</span>
+                Why <code class="nn-code-inline">bias=False</code> Before <code class="nn-code-inline">nn.BatchNorm2d</code>? (Mathematical Cancellation Proof)
+              </span>
+              <span class="nn-accordion-chevron" aria-hidden="true">▾</span>
+            </button>
+            <div class="nn-accordion-content">
+              <p>
+                In virtually all state-of-the-art architectures (ResNet, ConvNeXt, EfficientNet), any <code>nn.Conv2d</code> immediately preceding an <code>nn.BatchNorm2d</code> sets <code>bias=False</code>.
+                Here is the complete algebraic cancellation proof demonstrating why a convolutional bias is mathematically redundant.
+              </p>
+              
+              <p>
+                Let <Katex tex="x_i" /> denote the <Katex tex="i" />-th spatial activation patch in mini-batch <Katex tex="\mathcal{B} = \{x_1, \dots, x_m\}" />, <Katex tex="W" /> the convolutional filter weights, and <Katex tex="b" /> an arbitrary additive bias scalar:
+              </p>
+              <div class="nn-equation-box">
+                <Katex tex="\hat{y}_i = W * x_i + b" display={true} />
+              </div>
+
+              <p>
+                During training, Batch Normalization computes the mini-batch sample mean <Katex tex="\mu_{\mathcal{B}}" />:
+              </p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="\mu_{\mathcal{B}} = \frac{1}{m} \sum_{i=1}^{m} \hat{y}_i = \frac{1}{m} \sum_{i=1}^{m} (W * x_i + b) = \left( \frac{1}{m} \sum_{i=1}^{m} W * x_i \right) + b"
+                  display={true}
+                />
+              </div>
+
+              <p>
+                The centering step of Batch Normalization subtracts this mini-batch mean <Katex tex="\mu_{\mathcal{B}}" /> from each activation <Katex tex="\hat{y}_i" />:
+              </p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="\hat{y}_i - \mu_{\mathcal{B}} = (W * x_i + b) - \left[ \left( \frac{1}{m} \sum_{i=1}^{m} W * x_i \right) + b \right] = W * x_i - \frac{1}{m} \sum_{i=1}^{m} W * x_i"
+                  display={true}
+                />
+              </div>
+
+              <p>
+                Notice that the constant bias term $b$ is subtracted out identically: $b - b = 0$.
+                Batch Normalization then applies its own learnable affine transformation parameters $\gamma$ (scale) and $\beta$ (shift):
+              </p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="y_i = \text{BN}_{\gamma, \beta}(\hat{y}_i) = \gamma \cdot \frac{\hat{y}_i - \mu_{\mathcal{B}}}{\sqrt{\sigma^2_{\mathcal{B}} + \epsilon}} + \beta"
+                  display={true}
+                />
+              </div>
+
+              <p class="nn-callout-text">
+                <strong>Key Takeaway:</strong> The learnable parameter $\beta$ in BatchNorm already serves as the channel bias. Including <code>bias=True</code> in the convolution wastes GPU memory, increases parameter count, and calculates gradient updates for a parameter that is cancelled out at every step.
+              </p>
+            </div>
+          </article>
+
+          <!-- Accordion 2: Memory Layout NCHW vs NHWC -->
+          <article class="nn-accordion" data-cnn-accordion>
+            <button type="button" class="nn-accordion-trigger" data-cnn-accordion-trigger>
+              <span class="nn-accordion-title">
+                <span class="nn-acc-icon">⚡</span>
+                Memory Layout: NCHW vs NHWC (Channels Last) Acceleration on Tensor Cores
+              </span>
+              <span class="nn-accordion-chevron" aria-hidden="true">▾</span>
+            </button>
+            <div class="nn-accordion-content">
+              <p>
+                The physical memory layout of 4D tensors dramatically impacts cache hit rates, memory bandwidth utilization, and Tensor Core throughput on modern NVIDIA GPUs (Ampere, Ada Lovelace, Hopper, Blackwell).
+              </p>
+
+              <div class="nn-layout-comparison">
+                <div class="nn-layout-col">
+                  <h4>1. Default PyTorch: NCHW (<code class="nn-code-inline">torch.contiguous_format</code>)</h4>
+                  <p>
+                    Values along spatial width $W$ are contiguous in memory. However, accessing all channels $C$ for a given spatial location $(h, w)$ requires strided memory loads with step size $H \times W$.
+                  </p>
+                  <p>
+                    Because GEMM convolution algorithms (via <code>im2col</code> or Winograd) assemble channel vectors into matrix rows, NCHW necessitates expensive transpose/repack operations in VRAM.
+                  </p>
+                </div>
+                <div class="nn-layout-col">
+                  <h4>2. Optimized PyTorch: NHWC (<code class="nn-code-inline">torch.channels_last</code>)</h4>
+                  <p>
+                    All channels $C$ at coordinate $(n, h, w)$ reside in contiguous memory bytes.
+                  </p>
+                  <p>
+                    NVIDIA Tensor Cores perform matrix multiply-accumulate ($D = A \cdot B + C$) on sub-matrices using 8-element or 16-element channel vectors directly. Under NHWC, 128-bit memory instructions (<code>LDG.128</code>) stream full channel vectors straight into Tensor Core registers without transposition overhead.
+                  </p>
+                </div>
+              </div>
+
+              <div class="nn-equation-box">
+                <Katex
+                  tex="\text{Speedup: } \text{Throughput}_{\text{NHWC}} \approx 1.20\times \text{ to } 2.40\times \text{ vs. } \text{NCHW on FP16/BF16 AMP}"
+                  display={true}
+                />
+              </div>
+
+              <p>
+                Activating channels-last in PyTorch requires just two lines of code before training:
+              </p>
+              <pre class="nn-code-pre"><code class="nn-code-block">model = model.to(memory_format=torch.channels_last)
+inputs = inputs.to(memory_format=torch.channels_last)</code></pre>
+            </div>
+          </article>
+
+          <!-- Accordion 3: Depthwise Separable Convolutions -->
+          <article class="nn-accordion" data-cnn-accordion>
+            <button type="button" class="nn-accordion-trigger" data-cnn-accordion-trigger>
+              <span class="nn-accordion-title">
+                <span class="nn-acc-icon">📱</span>
+                Depthwise Separable Convolutions (MobileNet Factorized Complexity)
+              </span>
+              <span class="nn-accordion-chevron" aria-hidden="true">▾</span>
+            </button>
+            <div class="nn-accordion-content">
+              <p>
+                Standard convolutions jointly map spatial relationships and cross-channel correlations in a single compute-heavy operation.
+                Depthwise Separable Convolutions (pioneered in MobileNet and Xception) factorize this computation into two separate steps:
+              </p>
+
+              <ol class="nn-ordered-list">
+                <li>
+                  <strong>Depthwise Convolution:</strong> A spatial filter applied independently to each input channel (<Katex tex="G = C_{\text{in}}" />).
+                </li>
+                <li>
+                  <strong>Pointwise Convolution:</strong> A standard <Katex tex="1 \times 1" /> convolution that computes linear combinations across all channels.
+                </li>
+              </ol>
+
+              <h4>Complexity Derivation:</h4>
+              <p>
+                For output dimensions <Katex tex="H_{\text{out}} \times W_{\text{out}}" />, kernel size <Katex tex="K \times K" />, and channels <Katex tex="C_{\text{in}} \to C_{\text{out}}" />:
+              </p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="\text{FLOPs}_{\text{standard}} = 2 \cdot H_{\text{out}} \cdot W_{\text{out}} \cdot C_{\text{in}} \cdot C_{\text{out}} \cdot K^2"
+                  display={true}
+                />
+              </div>
+
+              <p>In depthwise separable convolution:</p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="\text{FLOPs}_{\text{depthwise}} = 2 \cdot H_{\text{out}} \cdot W_{\text{out}} \cdot C_{\text{in}} \cdot K^2"
+                  display={true}
+                />
+                <Katex
+                  tex="\text{FLOPs}_{\text{pointwise}} = 2 \cdot H_{\text{out}} \cdot W_{\text{out}} \cdot C_{\text{in}} \cdot C_{\text{out}} \cdot 1^2"
+                  display={true}
+                />
+              </div>
+
+              <p>The theoretical computational reduction ratio is:</p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="\frac{\text{FLOPs}_{\text{separable}}}{\text{FLOPs}_{\text{standard}}} = \frac{C_{\text{in}} \cdot K^2 + C_{\text{in}} \cdot C_{\text{out}}}{C_{\text{in}} \cdot C_{\text{out}} \cdot K^2} = \frac{1}{C_{\text{out}}} + \frac{1}{K^2}"
+                  display={true}
+                />
+              </div>
+
+              <p class="nn-callout-text">
+                For standard <Katex tex="3 \times 3" /> convolutions (<Katex tex="K=3" />) with <Katex tex="C_{\text{out}} \ge 64" />, this represents an <strong>$\approx 8\times$ to $9\times$ reduction</strong> in compute and parameters with only marginal drops in top-1 classification accuracy!
+              </p>
+            </div>
+          </article>
+
+          <!-- Accordion 4: Dilated Convolutions & Gridding Artifacts -->
+          <article class="nn-accordion" data-cnn-accordion>
+            <button type="button" class="nn-accordion-trigger" data-cnn-accordion-trigger>
+              <span class="nn-accordion-title">
+                <span class="nn-acc-icon">🔍</span>
+                Dilated Convolutions & Gridding Artifacts in Dense Prediction
+              </span>
+              <span class="nn-accordion-chevron" aria-hidden="true">▾</span>
+            </button>
+            <div class="nn-accordion-content">
+              <p>
+                Dilated (atrous) convolutions expand the effective receptive field exponentially without downsampling (pooling) or introducing extra parameters:
+              </p>
+              <div class="nn-equation-box">
+                <Katex tex="K_{\text{eff}} = K + (K - 1)(d - 1) = d \cdot (K - 1) + 1" display={true} />
+              </div>
+
+              <p>
+                For instance, with <Katex tex="K=3" /> and dilation <Katex tex="d=4" />, the kernel spans a <Katex tex="9 \times 9" /> spatial window while executing only 9 multiply-accumulate operations.
+              </p>
+
+              <h4>The Gridding (Checkerboard) Problem:</h4>
+              <p>
+                When multiple layers with identical dilation <Katex tex="d > 1" /> are stacked sequentially (e.g., <Katex tex="d=2, 4, 8" />), the kernel samples from a disjoint, checkerboard-like grid.
+                Intermediate pixels in the receptive field are never sampled by any filter tap, resulting in high-frequency checkerboard artifacts and complete loss of local spatial consistency.
+              </p>
+
+              <h4>The Solution: Hybrid Dilated Convolution (HDC):</h4>
+              <p>
+                To eliminate gridding, dilation rates across consecutive layers must be relatively prime or follow a sawtooth sequence (e.g., <Katex tex="d = [1, 2, 5, 1, 2, 5]" />) such that the maximum distance between two sampled pixels satisfies:
+              </p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="M_i = \max(M_{i+1} - 2d_i, \; M_{i+1} - 2(M_{i+1} - d_i), \; d_i) \le K"
+                  display={true}
+                />
+              </div>
+              <p>
+                This ensures dense, continuous sampling across the entire receptive field without holes or aliasing artifacts.
+              </p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Footer Attribution -->
+    <footer class="nn-footer">
+      <div class="nn-footer-inner">
+        <div>
+          <strong>NN Lab</strong> — Interactive Foundational Deep Learning Studio · Built for educational & genomic research exploration.
+        </div>
+        <div>
+          <a href="/research/">Research</a> · <a href="/publications/">Publications</a> · <a href="/cv/">CV</a>
+        </div>
+      </div>
+    </footer>
+  </div>
+</BaseLayout>
+
+<!-- Client Controller Script -->
+<script src="../../scripts/cnnStudio.ts"></script>
+
+<style>
+  /* -------------------------------------------------------------------------- */
+  /* CSS Variables & Theme Integration                                          */
+  /* -------------------------------------------------------------------------- */
+  .nn-page-wrapper {
+    min-height: 100vh;
+    background-color: var(--color-bg, #fafaf8);
+    color: var(--color-ink, #141414);
+    font-family: var(--font-body, system-ui, sans-serif);
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100vw;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Top Navigation Bar                                                         */
+  /* -------------------------------------------------------------------------- */
+  .nn-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem 1.5rem;
+    border-bottom: 1px solid var(--color-rule, #e5e4df);
+    background-color: var(--color-surface, #ffffff);
+    flex-wrap: wrap;
+    gap: 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .nn-brand-group {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .nn-brand-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .nn-brand-title h1 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    margin: 0;
+    letter-spacing: -0.02em;
+    font-family: var(--font-display, var(--font-body, sans-serif));
+    color: var(--color-ink, #141414);
+  }
+
+  .nn-pulse-dot {
+    width: 9px;
+    height: 9px;
+    background-color: #10b981;
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    animation: nn-pulse 2s infinite;
+  }
+
+  @keyframes nn-pulse {
+    0% {
+      transform: scale(0.95);
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    }
+    70% {
+      transform: scale(1);
+      box-shadow: 0 0 0 7px rgba(16, 185, 129, 0);
+    }
+    100% {
+      transform: scale(0.95);
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+  }
+
+  .nn-brand-sub {
+    font-size: 0.85rem;
+    color: var(--color-muted, #6b6b6b);
+    font-weight: 500;
+  }
+
+  .nn-nav-links {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  .nn-nav-link {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--color-muted, #6b6b6b);
+    text-decoration: none;
+    padding: 0.35rem 0.65rem;
+    border-radius: 6px;
+    border: 1px solid var(--color-rule, #e5e4df);
+    background-color: var(--color-bg, #fafaf8);
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .nn-nav-link:hover {
+    color: var(--color-ink, #141414);
+    border-color: var(--color-accent, #2e6e5e);
+    background-color: var(--color-surface, #ffffff);
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Mode Switcher Tabs                                                         */
+  /* -------------------------------------------------------------------------- */
+  .nn-tabs-bar {
+    background-color: var(--color-surface, #ffffff);
+    border-bottom: 1px solid var(--color-rule, #e5e4df);
+    padding: 0.5rem 1.5rem;
+  }
+
+  .nn-tabs-container {
+    max-width: 1360px;
+    margin: 0 auto;
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .nn-mode-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.25rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-muted, #6b6b6b);
+    border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .nn-mode-tab:hover {
+    color: var(--color-ink, #141414);
+    background-color: rgba(0, 0, 0, 0.03);
+  }
+
+  :root[data-theme='dark'] .nn-mode-tab:hover {
+    background-color: rgba(255, 255, 255, 0.04);
+  }
+
+  .nn-mode-tab.active {
+    color: #6366f1;
+    background-color: rgba(99, 102, 241, 0.1);
+    border-color: rgba(99, 102, 241, 0.25);
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Main Container Layout                                                      */
+  /* -------------------------------------------------------------------------- */
+  .nn-main-content {
+    max-width: 1360px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 1.5rem 1.25rem 3rem;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  .nn-panel,
+  .nn-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    width: 100%;
+  }
+
+  .nn-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .nn-panel-header h2 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    margin: 0 0 0.4rem 0;
+    color: var(--color-ink, #141414);
+  }
+
+  .nn-panel-desc {
+    font-size: 0.92rem;
+    color: var(--color-muted, #6b6b6b);
+    margin: 0;
+    max-width: 800px;
+    line-height: 1.55;
+  }
+
+  .nn-math-chip {
+    padding: 0.5rem 0.9rem;
+    border-radius: 8px;
+    background-color: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-rule, #e5e4df);
+    overflow-x: auto;
+    max-width: 100%;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Cards & Surface Components                                                 */
+  /* -------------------------------------------------------------------------- */
+  .nn-card {
+    background-color: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 10px;
+    padding: 1.25rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    box-sizing: border-box;
+    width: 100%;
+  }
+
+  .nn-card-title-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.85rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--color-rule, #e5e4df);
+  }
+
+  .nn-card-title-bar h3 {
+    font-size: 0.98rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--color-ink, #141414);
+  }
+
+  .nn-card-icon {
+    font-size: 1.1rem;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Presets Bar                                                                */
+  /* -------------------------------------------------------------------------- */
+  .nn-preset-row {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    flex-wrap: wrap;
+  }
+
+  .nn-preset-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-ink, #141414);
+  }
+
+  .nn-preset-buttons {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+
+  .nn-preset-btn {
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--color-muted, #6b6b6b);
+    border: 1px solid var(--color-rule, #e5e4df);
+    background: var(--color-bg, #fafaf8);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .nn-preset-btn:hover {
+    color: var(--color-ink, #141414);
+    border-color: #6366f1;
+  }
+
+  .nn-preset-btn.active {
+    color: #ffffff;
+    background-color: #6366f1;
+    border-color: #6366f1;
+    box-shadow: 0 1px 4px rgba(99, 102, 241, 0.35);
+  }
+
+  .nn-preset-select {
+    display: none;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Hyperparameters Grid                                                       */
+  /* -------------------------------------------------------------------------- */
+  .nn-params-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+    align-items: end;
+  }
+
+  .nn-param-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+
+  .nn-param-item--grow {
+    grid-column: span 2;
+  }
+
+  @media (max-width: 768px) {
+    .nn-param-item--grow {
+      grid-column: span 1;
+    }
+  }
+
+  .nn-param-label {
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--color-muted, #6b6b6b);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .nn-param-val {
+    font-family: var(--font-mono, monospace);
+    color: #6366f1;
+    font-weight: 700;
+  }
+
+  .nn-select,
+  .nn-input-num,
+  .nn-seq-input {
+    height: 36px;
+    padding: 0 0.65rem;
+    border-radius: 6px;
+    border: 1px solid var(--color-rule, #e5e4df);
+    background-color: var(--color-bg, #fafaf8);
+    color: var(--color-ink, #141414);
+    font-size: 0.85rem;
+    font-family: inherit;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .nn-select:focus,
+  .nn-input-num:focus,
+  .nn-seq-input:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+  }
+
+  .nn-select--sm {
+    height: 30px;
+    font-size: 0.8rem;
+  }
+
+  .nn-range {
+    width: 100%;
+    accent-color: #6366f1;
+    cursor: pointer;
+  }
+
+  .nn-input-with-pills {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+  }
+
+  .nn-pad-pills {
+    display: flex;
+    gap: 0.2rem;
+  }
+
+  .nn-pill-btn {
+    padding: 0.2rem 0.5rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    border-radius: 4px;
+    border: 1px solid var(--color-rule, #e5e4df);
+    background-color: var(--color-bg, #fafaf8);
+    color: var(--color-muted, #6b6b6b);
+    cursor: pointer;
+    transition: all 0.1s ease;
+    white-space: nowrap;
+  }
+
+  .nn-pill-btn:hover {
+    color: var(--color-ink, #141414);
+    border-color: #6366f1;
+  }
+
+  .nn-dual-inputs {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .nn-input-arrow {
+    color: var(--color-muted, #6b6b6b);
+    font-size: 0.85rem;
+  }
+
+  .nn-groups-row,
+  .nn-bias-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .nn-toggle-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.78rem;
+    color: var(--color-ink, #141414);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* 3-Stage Visualizer Layout                                                  */
+  /* -------------------------------------------------------------------------- */
+  .nn-grids-layout {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: 1rem 0 1.5rem;
+    border-bottom: 1px solid var(--color-rule, #e5e4df);
+    overflow-x: auto;
+  }
+
+  .nn-grid-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 220px;
+    flex: 1 1 240px;
+  }
+
+  .nn-grid-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+  }
+
+  .nn-grid-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .nn-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .nn-dot--indigo {
+    background-color: #6366f1;
+  }
+
+  .nn-dot--blue {
+    background-color: #3b82f6;
+  }
+
+  .nn-dot--emerald {
+    background-color: #10b981;
+  }
+
+  .nn-grid-title {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--color-ink, #141414);
+  }
+
+  .nn-grid-hint {
+    font-size: 0.72rem;
+    color: var(--color-muted, #6b6b6b);
+  }
+
+  .nn-grid-viewport {
+    padding: 0.75rem;
+    border-radius: 8px;
+    background-color: var(--color-bg, #fafaf8);
+    border: 1px solid var(--color-rule, #e5e4df);
+    width: 100%;
+    max-width: 260px;
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+
+  .nn-grid-container {
+    width: 100%;
+    height: 100%;
+  }
+
+  .nn-operator-col {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+  }
+
+  .nn-operator-sym {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--color-muted, #6b6b6b);
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Playback Toolbar                                                           */
+  /* -------------------------------------------------------------------------- */
+  .nn-playback-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-top: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .nn-playback-btns {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+  }
+
+  .nn-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.45rem 0.85rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--color-rule, #e5e4df);
+    background-color: var(--color-bg, #fafaf8);
+    color: var(--color-ink, #141414);
+    transition: all 0.15s ease;
+  }
+
+  .nn-btn:hover {
+    border-color: #6366f1;
+    background-color: var(--color-surface, #ffffff);
+  }
+
+  .nn-btn--primary {
+    background-color: #6366f1;
+    color: #ffffff;
+    border-color: #6366f1;
+  }
+
+  .nn-btn--primary:hover {
+    background-color: #4f46e5;
+    border-color: #4f46e5;
+  }
+
+  .nn-playback-speed {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .nn-label-speed {
+    font-size: 0.8rem;
+    color: var(--color-muted, #6b6b6b);
+    font-weight: 500;
+  }
+
+  .nn-step-pill {
+    padding: 0.35rem 0.85rem;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    font-family: var(--font-mono, monospace);
+    background-color: rgba(99, 102, 241, 0.1);
+    color: #6366f1;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    white-space: nowrap;
+  }
+
+  .nn-kbd-shortcuts {
+    font-size: 0.75rem;
+    color: var(--color-muted, #6b6b6b);
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  kbd {
+    padding: 0.15rem 0.35rem;
+    border-radius: 4px;
+    border: 1px solid var(--color-rule, #e5e4df);
+    background: var(--color-bg, #fafaf8);
+    font-family: var(--font-mono, monospace);
+    font-size: 0.7rem;
+    color: var(--color-ink, #141414);
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* X-Ray & Inspector                                                          */
+  /* -------------------------------------------------------------------------- */
+  .nn-inspector-body {
+    min-height: 50px;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Stat Cards                                                                 */
+  /* -------------------------------------------------------------------------- */
+  .nn-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+    width: 100%;
+  }
+
+  .nn-stat-card {
+    background-color: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 8px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .nn-stat-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .nn-stat-title {
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-muted, #6b6b6b);
+  }
+
+  .nn-stat-badge {
+    font-size: 0.68rem;
+    padding: 2px 5px;
+    border-radius: 4px;
+    background-color: rgba(0, 0, 0, 0.04);
+    color: var(--color-muted, #6b6b6b);
+  }
+
+  .nn-stat-val {
+    font-size: 1.25rem;
+    font-weight: 700;
+    font-family: var(--font-mono, monospace);
+    color: var(--color-ink, #141414);
+  }
+
+  .nn-stat-formula {
+    font-size: 0.78rem;
+    color: var(--color-muted, #6b6b6b);
+    padding-top: 0.25rem;
+    border-top: 1px dashed var(--color-rule, #e5e4df);
+    overflow-x: auto;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* 1D Sequence Scanner Styles                                                 */
+  /* -------------------------------------------------------------------------- */
+  .nn-seq-toolbar-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    align-items: end;
+  }
+
+  .nn-seq-input {
+    font-family: var(--font-mono, monospace);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  .nn-seq-status-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--color-rule, #e5e4df);
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .nn-match-summary {
+    font-size: 0.85rem;
+  }
+
+  .nn-seq-track-wrapper {
+    overflow-x: auto;
+    padding: 0.5rem 0;
+  }
+
+  .nn-chart-wrapper {
+    overflow-x: auto;
+    padding: 0.5rem 0;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Receptive Field Section                                                    */
+  /* -------------------------------------------------------------------------- */
+  .nn-rf-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .nn-rf-toolbar-info {
+    font-size: 0.88rem;
+    color: var(--color-muted, #6b6b6b);
+  }
+
+  .nn-rf-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .nn-rf-ladder-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.85rem;
+    margin-bottom: 1rem;
+  }
+
+  .nn-vgg-callout {
+    margin-top: 0.5rem;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* PyTorch Snippet Section                                                    */
+  /* -------------------------------------------------------------------------- */
+  .nn-code-pre {
+    margin: 0;
+    padding: 1.25rem;
+    background-color: var(--color-bg, #fafaf8);
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--color-ink, #141414);
+  }
+
+  .nn-code-block {
+    font-family: inherit;
+    white-space: pre;
+  }
+
+  .nn-code-inline {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.85em;
+    padding: 0.15em 0.4em;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.05);
+  }
+
+  :root[data-theme='dark'] .nn-code-inline {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Deep Dive Accordions                                                       */
+  /* -------------------------------------------------------------------------- */
+  .nn-accordions-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .nn-accordion {
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 8px;
+    background-color: var(--color-surface, #ffffff);
+    overflow: hidden;
+    transition: border-color 0.15s ease;
+  }
+
+  .nn-accordion:hover {
+    border-color: rgba(99, 102, 241, 0.4);
+  }
+
+  .nn-accordion-trigger {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    gap: 1rem;
+  }
+
+  .nn-accordion-title {
+    font-size: 0.98rem;
+    font-weight: 600;
+    color: var(--color-ink, #141414);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .nn-acc-icon {
+    font-size: 1.1rem;
+  }
+
+  .nn-accordion-chevron {
+    font-size: 0.85rem;
+    color: var(--color-muted, #6b6b6b);
+    transition: transform 0.2s ease;
+  }
+
+  .nn-accordion.open .nn-accordion-chevron {
+    transform: rotate(180deg);
+  }
+
+  .nn-accordion-content {
+    display: none;
+    padding: 1.25rem;
+    border-top: 1px solid var(--color-rule, #e5e4df);
+    font-size: 0.92rem;
+    line-height: 1.65;
+    color: var(--color-ink, #141414);
+  }
+
+  .nn-accordion.open .nn-accordion-content {
+    display: block;
+  }
+
+  .nn-equation-box {
+    margin: 1rem 0;
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    background-color: var(--color-bg, #fafaf8);
+    border: 1px solid var(--color-rule, #e5e4df);
+    overflow-x: auto;
+  }
+
+  .nn-callout-text {
+    padding: 0.75rem 1rem;
+    border-left: 3px solid #10b981;
+    background-color: rgba(16, 185, 129, 0.08);
+    border-radius: 4px;
+    margin: 1rem 0 0.5rem;
+  }
+
+  .nn-layout-comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+
+  @media (max-width: 640px) {
+    .nn-layout-comparison {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .nn-layout-col {
+    padding: 0.85rem 1rem;
+    border-radius: 6px;
+    background-color: var(--color-bg, #fafaf8);
+    border: 1px solid var(--color-rule, #e5e4df);
+  }
+
+  .nn-layout-col h4 {
+    margin: 0 0 0.4rem 0;
+    font-size: 0.88rem;
+    font-weight: 600;
+  }
+
+  .nn-ordered-list {
+    margin: 0.5rem 0 1rem 1.25rem;
+    padding: 0;
+  }
+
+  .nn-ordered-list li {
+    margin-bottom: 0.35rem;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Footer                                                                     */
+  /* -------------------------------------------------------------------------- */
+  .nn-footer {
+    margin-top: auto;
+    border-top: 1px solid var(--color-rule, #e5e4df);
+    background-color: var(--color-surface, #ffffff);
+    padding: 1.25rem 1.5rem;
+  }
+
+  .nn-footer-inner {
+    max-width: 1360px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.82rem;
+    color: var(--color-muted, #6b6b6b);
+    flex-wrap: wrap;
+  }
+
+  .nn-footer-inner a {
+    color: var(--color-muted, #6b6b6b);
+    text-decoration: none;
+  }
+
+  .nn-footer-inner a:hover {
+    color: var(--color-ink, #141414);
+    text-decoration: underline;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Mobile Responsive Media Queries (375px / 320px)                            */
+  /* -------------------------------------------------------------------------- */
+  @media (max-width: 768px) {
+    .nn-topbar {
+      padding: 0.75rem 1rem;
+    }
+    .nn-main-content {
+      padding: 1rem 0.75rem 2rem;
+    }
+    .nn-card {
+      padding: 1rem;
+    }
+    .nn-grids-layout {
+      gap: 0.5rem;
+    }
+    .nn-operator-col {
+      display: none;
+    }
+    .nn-playback-bar {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.75rem;
+    }
+    .nn-playback-btns {
+      justify-content: center;
+    }
+    .nn-playback-speed {
+      justify-content: center;
+    }
+    .nn-step-pill {
+      text-align: center;
+    }
+    .nn-kbd-shortcuts {
+      display: none;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .nn-brand-sub {
+      display: none;
+    }
+    .nn-nav-links {
+      gap: 0.35rem;
+    }
+    .nn-nav-link {
+      padding: 0.25rem 0.45rem;
+      font-size: 0.75rem;
+    }
+    .nn-mode-tab {
+      padding: 0.5rem 0.85rem;
+      font-size: 0.82rem;
+    }
+    .nn-stat-val {
+      font-size: 1.05rem;
+    }
+  }
+</style>
