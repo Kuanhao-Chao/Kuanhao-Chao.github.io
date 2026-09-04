@@ -1,0 +1,2262 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Katex from '../../components/Katex.astro';
+import 'katex/dist/katex.min.css';
+import { site } from '../../data/site';
+import { buildBreadcrumbLd } from '../../lib/breadcrumbs';
+
+const title = 'Mamba Studio — Foundational Deep Learning & State Space Model Laboratory';
+const description =
+  'Interactive Mamba and State Space Model (SSM) laboratory with dual-mode recurrent inference, ' +
+  'hardware-aware parallel associative prefix scan tree, dynamic Delta gating meter, ' +
+  'X-Ray state space arithmetic inspector, ZOH discretization explorer, and linear memory scaling benchmark.';
+
+const webAppLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: 'NN Lab — Mamba & State Space Model Studio',
+  applicationCategory: 'EducationalApplication, DeveloperApplication, ScienceApplication',
+  operatingSystem: 'Web Browser',
+  description,
+  url: `${site.url}/nn-lab/mamba/`,
+  author: { '@id': `${site.url}/#person` },
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+};
+
+const breadcrumbLd = buildBreadcrumbLd([
+  { name: 'NN Lab', path: '/nn-lab/' },
+  { name: 'Mamba Studio', path: '/nn-lab/mamba/' },
+]);
+---
+
+<BaseLayout title={title} description={description} bare={true}>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(webAppLd)} />
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} />
+
+  <main class="nn-page-wrapper" data-mamba-studio id="mamba-studio-root">
+    <!-- Top Navigation Bar -->
+    <header class="nn-topbar">
+      <div class="nn-brand-group">
+        <div class="nn-brand-title">
+          <span class="nn-pulse-dot" aria-hidden="true"></span>
+          <h1>NN LAB 🧠</h1>
+        </div>
+        <span class="nn-brand-sub">Foundational Deep Learning Laboratory</span>
+      </div>
+
+      <!-- Model Studio Navigation Tabs -->
+      <nav class="nn-model-nav" aria-label="NN Lab Studios">
+        <a
+          href="/nn-lab/"
+          class="nn-model-link"
+          title="Convolutional Neural Network Studio"
+        >
+          <span class="nn-model-icon" aria-hidden="true">🖼️</span>
+          <span>CNN Studio (2D & 1D)</span>
+        </a>
+        <a
+          href="/nn-lab/transformer/"
+          class="nn-model-link"
+          title="Transformer Attention & Layer Studio"
+        >
+          <span class="nn-model-icon" aria-hidden="true">✨</span>
+          <span>Transformer Studio (Attention & Layer)</span>
+        </a>
+        <a
+          href="/nn-lab/mamba/"
+          class="nn-model-link active"
+          aria-current="page"
+          title="Mamba & State Space Model Studio"
+        >
+          <span class="nn-model-icon" aria-hidden="true">🐍</span>
+          <span>Mamba Studio (SSM & Selective Scan)</span>
+        </a>
+      </nav>
+
+      <nav class="nn-nav-links" aria-label="Site Navigation">
+        <a href="/" class="nn-nav-link" title="Return to Homepage">
+          <span aria-hidden="true">←</span> Home
+        </a>
+        <a href="/shorkie-lab/" class="nn-nav-link" title="Shorkie Lab: Genomic Deep Learning">
+          <span aria-hidden="true">🧬</span> Shorkie Lab
+        </a>
+        <a href="/lab" class="nn-nav-link" title="Cell Lab: Cellular Automata">
+          <span aria-hidden="true">🔬</span> Cell Lab
+        </a>
+        <a href="/deep_dives/" class="nn-nav-link" title="Technical Deep Dives">
+          <span aria-hidden="true">📚</span> Deep Dives
+        </a>
+        <a href="/algorithms/" class="nn-nav-link" title="Interactive Algorithms & Data Structures">
+          <span aria-hidden="true">⚡</span> Algorithms
+        </a>
+      </nav>
+    </header>
+
+    <!-- Main Studio Content -->
+    <div class="nn-main-content">
+      <!-- ==================================================================== -->
+      <!-- STUDIO HEADER & EQUATION BANNER                                      -->
+      <!-- ==================================================================== -->
+      <section class="nn-panel">
+        <header class="nn-panel-header">
+          <div>
+            <h2>Mamba & State Space Model (SSM) Studio</h2>
+            <p class="nn-panel-desc">
+              Explore the continuous-to-discrete mathematical foundations and hardware-aware mechanics of Mamba (Gu & Dao, 2023).
+              Switch between recurrent <Katex tex="O(1)" /> inference and parallel <Katex tex="O(\log T)" /> associative scan,
+              observe selective filtering via input-dependent <Katex tex="\Delta_t" /> gating, inspect exact state space arithmetic,
+              and benchmark linear memory scaling against quadratic Transformer KV caches.
+            </p>
+          </div>
+          <div class="nn-math-chip">
+            <Katex
+              tex="h_t = \bar{A}_t h_{t-1} + \bar{B}_t x_t, \quad y_t = C_t h_t + D x_t, \quad \bar{A}_t = \exp(\Delta_t A)"
+              display={true}
+            />
+          </div>
+        </header>
+
+        <!-- Mode Switcher Tabs -->
+        <div class="nn-tabs-bar">
+          <div class="nn-tabs-container" role="tablist" aria-label="Execution Modes">
+            <button
+              type="button"
+              class="nn-mode-tab active"
+              data-mamba-mode-tab="recurrent"
+              role="tab"
+              aria-selected="true"
+            >
+              <span class="nn-tab-icon" aria-hidden="true">🔄</span>
+              <span>Recurrent Inference Mode (<Katex tex="O(1)" /> Step Playback)</span>
+            </button>
+            <button
+              type="button"
+              class="nn-mode-tab"
+              data-mamba-mode-tab="parallel"
+              role="tab"
+              aria-selected="false"
+            >
+              <span class="nn-tab-icon" aria-hidden="true">⚡</span>
+              <span>Parallel Scan Mode (<Katex tex="O(\log T)" /> Associative Tree)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Presets & Sequence Input Toolbar -->
+        <div class="nn-card nn-preset-card">
+          <div class="nn-preset-row">
+            <span class="nn-preset-title">Domain Presets:</span>
+            <div class="nn-preset-buttons">
+              <button
+                type="button"
+                class="nn-preset-btn active"
+                data-mamba-preset="nlpFilter"
+              >
+                <span aria-hidden="true">💬</span> Selective Filtering (NLP)
+              </button>
+              <button
+                type="button"
+                class="nn-preset-btn"
+                data-mamba-preset="nlpRecall"
+              >
+                <span aria-hidden="true">🧠</span> Induction Recall (NLP)
+              </button>
+              <button
+                type="button"
+                class="nn-preset-btn"
+                data-mamba-preset="dnaDistal"
+              >
+                <span aria-hidden="true">🧬</span> Distal Regulation (Genomics)
+              </button>
+              <button
+                type="button"
+                class="nn-preset-btn"
+                data-mamba-preset="dnaSplice"
+              >
+                <span aria-hidden="true">✂️</span> Splice Site GT/AG (Genomics)
+              </button>
+            </div>
+          </div>
+
+          <div class="nn-custom-row">
+            <label for="mamba-custom-input" class="nn-preset-title">Custom Sequence:</label>
+            <div class="nn-custom-input-group">
+              <input
+                id="mamba-custom-input"
+                type="text"
+                class="nn-input"
+                data-mamba-custom-input
+                placeholder="Type words or DNA tokens separated by spaces..."
+                value="The movie was not terrible at all, actually quite fantastic"
+              />
+            </div>
+          </div>
+
+          <div class="nn-token-bar">
+            <span class="nn-token-bar-label">Active Sequence Tokens (Click token to jump):</span>
+            <div class="nn-token-list" data-mamba-token-list>
+              <!-- Populated dynamically by mambaStudio.ts -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================== -->
+      <!-- PANEL 1: RECURRENT INFERENCE MODE                                    -->
+      <!-- ==================================================================== -->
+      <section class="nn-panel" data-mamba-panel="recurrent">
+        <div class="nn-card nn-playback-card">
+          <div class="nn-playback-header">
+            <div class="nn-step-badge-wrap">
+              <span class="nn-badge-dot" aria-hidden="true"></span>
+              <span class="nn-step-badge" data-mamba-step-badge>Step 1 of 10: token "The"</span>
+            </div>
+            <div class="nn-speed-group">
+              <label for="mamba-speed-select" class="nn-speed-label">Playback Speed:</label>
+              <select id="mamba-speed-select" class="nn-select" data-mamba-speed>
+                <option value="1500">Slow (1.5s)</option>
+                <option value="1000" selected>Normal (1.0s)</option>
+                <option value="500">Fast (0.5s)</option>
+                <option value="250">Rapid (0.25s)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="nn-playback-bar">
+            <div class="nn-playback-btns">
+              <button
+                type="button"
+                class="nn-btn nn-btn-primary"
+                data-mamba-play
+                aria-label="Play recurrence playback"
+              >
+                ▶ Play
+              </button>
+              <button
+                type="button"
+                class="nn-btn"
+                data-mamba-prev
+                aria-label="Previous step"
+              >
+                ◀ Prev
+              </button>
+              <button
+                type="button"
+                class="nn-btn"
+                data-mamba-next
+                aria-label="Next step"
+              >
+                Next ▶
+              </button>
+              <button
+                type="button"
+                class="nn-btn"
+                data-mamba-reset
+                aria-label="Reset to step 0"
+              >
+                ↺ Reset
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Animated Delta Gate Meter & Latent State Heatmap -->
+        <div class="nn-grid-2col">
+          <div class="nn-card">
+            <h3 class="nn-card-title">
+              <span aria-hidden="true">🎚️</span> Dynamic Selection Gate (<Katex tex="\Delta_t" />)
+            </h3>
+            <p class="nn-card-desc">
+              When <Katex tex="\Delta_t" /> is large, the gate latches new input <Katex tex="x_t" /> into state while clearing ancient history (<Katex tex="\bar{A} \to 0" />).
+              When small, the gate ignores irrelevant tokens (stopwords/spacers) and retains past latent state indefinitely.
+            </p>
+            <div class="mamba-meter-wrapper" data-mamba-delta-meter>
+              <!-- Rendered dynamically by mambaStudio.ts -->
+            </div>
+          </div>
+
+          <div class="nn-card">
+            <h3 class="nn-card-title">
+              <span aria-hidden="true">📊</span> Latent Hidden State Vector (<Katex tex="h_t \in \mathbb{R}^N" />)
+            </h3>
+            <p class="nn-card-desc">
+              State vector evolution across <Katex tex="N = d_{\text{state}}" /> channels. Green indicates positive memory accumulation, red indicates negative inhibition.
+            </p>
+            <div class="mamba-state-wrapper" data-mamba-state-vector>
+              <!-- Rendered dynamically by mambaStudio.ts -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Output Trajectory Track -->
+        <div class="nn-card">
+          <h3 class="nn-card-title">
+            <span aria-hidden="true">📈</span> Projected Output Trajectory (<Katex tex="y_t = C_t h_t + D x_t" />)
+          </h3>
+          <p class="nn-card-desc">
+            The scalar output produced at each sequence step. Click any step column below to jump directly to its execution context.
+          </p>
+          <div class="mamba-output-wrapper" data-mamba-output-track>
+            <!-- Rendered dynamically by mambaStudio.ts -->
+          </div>
+        </div>
+
+        <!-- X-Ray State Space Arithmetic Inspector -->
+        <div class="nn-card" data-mamba-xray>
+          <!-- Rendered dynamically by mambaStudio.ts -->
+        </div>
+      </section>
+
+      <!-- ==================================================================== -->
+      <!-- PANEL 2: PARALLEL ASSOCIATIVE SCAN MODE                              -->
+      <!-- ==================================================================== -->
+      <section class="nn-panel hidden" data-mamba-panel="parallel" hidden style="display: none;">
+        <div class="nn-card" data-mamba-assoc-math>
+          <!-- Rendered dynamically by mambaStudio.ts -->
+        </div>
+
+        <div class="nn-card">
+          <h3 class="nn-card-title">
+            <span aria-hidden="true">🌲</span> Blelloch Parallel Prefix Scan Tree
+          </h3>
+          <p class="nn-card-desc">
+            Recursive prefix reduction combining associative pairs <Katex tex="(h_j, \bar{A}_j) \circ (h_i, \bar{A}_i)" />.
+            On modern GPU streaming multiprocessors, this collapses an <Katex tex="O(T)" /> sequential loop into <Katex tex="O(\log T)" /> parallel steps across fast shared SRAM.
+          </p>
+          <div class="mamba-tree-wrapper" data-mamba-tree-diagram>
+            <!-- Rendered dynamically by mambaStudio.ts -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================== -->
+      <!-- ZERO-ORDER HOLD (ZOH) DISCRETIZATION EXPLORER                        -->
+      <!-- ==================================================================== -->
+      <section class="nn-panel">
+        <header class="nn-panel-header">
+          <div>
+            <h3>Zero-Order Hold (ZOH) Discretization Explorer</h3>
+            <p class="nn-panel-desc">
+              Continuously parameterized state equations are discretized over sample step <Katex tex="\Delta" />.
+              Because continuous poles <Katex tex="A_n < 0" />, discrete eigenvalues satisfy <Katex tex="\bar{A}_n = \exp(\Delta A_n) \in (0, 1)" />,
+              guaranteeing spectral contraction and numerical stability.
+            </p>
+          </div>
+        </header>
+
+        <div class="nn-card">
+          <div class="nn-slider-group">
+            <div class="nn-slider-label-row">
+              <label for="zoh-delta-slider" class="nn-param-label">
+                Discretization Step Size (<Katex tex="\Delta" />):
+              </label>
+              <span class="nn-param-val" data-mamba-delta-val>0.25</span>
+            </div>
+            <input
+              id="zoh-delta-slider"
+              type="range"
+              class="nn-slider"
+              data-mamba-delta-slider
+              min="0.01"
+              max="2.0"
+              step="0.01"
+              value="0.25"
+            />
+          </div>
+
+          <div class="mamba-matrix-wrapper" data-mamba-a-bar-matrix>
+            <!-- Rendered dynamically by mambaStudio.ts -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================== -->
+      <!-- TRANSFORMER KV CACHE VS MAMBA MEMORY BENCHMARK                       -->
+      <!-- ==================================================================== -->
+      <section class="nn-panel">
+        <header class="nn-panel-header">
+          <div>
+            <h3>Transformer KV Cache vs Mamba Constant Memory Benchmark</h3>
+            <p class="nn-panel-desc">
+              During autoregressive inference, Transformers require caching all past Keys and Values, consuming <Katex tex="O(N)" /> memory that explodes with context length.
+              Mamba compresses all past context into a fixed-size latent state vector <Katex tex="h_t \in \mathbb{R}^{d_{\text{model}} \times d_{\text{state}}}" />, maintaining strict <Katex tex="O(1)" /> memory consumption.
+            </p>
+          </div>
+        </header>
+
+        <div class="nn-card">
+          <div class="nn-slider-group">
+            <div class="nn-slider-label-row">
+              <label for="mamba-benchmark-slider" class="nn-param-label">
+                Sequence Context Length (<Katex tex="N" /> tokens):
+              </label>
+              <span class="nn-param-val" data-mamba-benchmark-val>32,768 tokens (32k)</span>
+            </div>
+            <input
+              id="mamba-benchmark-slider"
+              type="range"
+              class="nn-slider"
+              data-mamba-benchmark-slider
+              min="1024"
+              max="131072"
+              step="1024"
+              value="32768"
+            />
+          </div>
+
+          <div data-mamba-benchmark-readout>
+            <!-- Rendered dynamically by mambaStudio.ts -->
+          </div>
+
+          <div class="mamba-chart-wrapper" data-mamba-kv-vs-ssm-chart>
+            <!-- Rendered dynamically by mambaStudio.ts -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================== -->
+      <!-- ARCHITECTURE HYPERPARAMETERS & STAT CARDS                            -->
+      <!-- ==================================================================== -->
+      <section class="nn-panel">
+        <header class="nn-panel-header">
+          <div>
+            <h3>Architecture Dimensions & Computational Complexity</h3>
+            <p class="nn-panel-desc">
+              Tune Mamba block hyperparameters to inspect parameter counts, FLOPs per token, and layer memory footprints in real time.
+            </p>
+          </div>
+        </header>
+
+        <div class="nn-card">
+          <div class="nn-params-grid">
+            <div class="nn-slider-group">
+              <div class="nn-slider-label-row">
+                <label for="param-d-model" class="nn-param-label">
+                  Model Dim (<Katex tex="d_{\text{model}}" />):
+                </label>
+                <span class="nn-param-val" data-mamba-d-model-val>16</span>
+              </div>
+              <input
+                id="param-d-model"
+                type="range"
+                class="nn-slider"
+                data-mamba-d-model
+                min="4"
+                max="64"
+                step="4"
+                value="16"
+              />
+            </div>
+
+            <div class="nn-slider-group">
+              <div class="nn-slider-label-row">
+                <label for="param-d-state" class="nn-param-label">
+                  SSM State Dim (<Katex tex="d_{\text{state}}" />):
+                </label>
+                <span class="nn-param-val" data-mamba-d-state-val>8</span>
+              </div>
+              <input
+                id="param-d-state"
+                type="range"
+                class="nn-slider"
+                data-mamba-d-state
+                min="2"
+                max="32"
+                step="2"
+                value="8"
+              />
+            </div>
+
+            <div class="nn-slider-group">
+              <div class="nn-slider-label-row">
+                <label for="param-d-conv" class="nn-param-label">
+                  Conv Width (<Katex tex="d_{\text{conv}}" />):
+                </label>
+                <span class="nn-param-val" data-mamba-d-conv-val>4</span>
+              </div>
+              <input
+                id="param-d-conv"
+                type="range"
+                class="nn-slider"
+                data-mamba-d-conv
+                min="1"
+                max="8"
+                step="1"
+                value="4"
+              />
+            </div>
+
+            <div class="nn-slider-group">
+              <div class="nn-slider-label-row">
+                <label for="param-expand" class="nn-param-label">
+                  Expansion Factor (<Katex tex="E" />):
+                </label>
+                <span class="nn-param-val" data-mamba-expand-val>2</span>
+              </div>
+              <input
+                id="param-expand"
+                type="range"
+                class="nn-slider"
+                data-mamba-expand
+                min="1"
+                max="4"
+                step="1"
+                value="2"
+              />
+            </div>
+          </div>
+
+          <!-- Live Stats Row -->
+          <div class="nn-stats-row">
+            <div class="nn-stat-card">
+              <span class="nn-stat-label">Model Parameters (24 Layers)</span>
+              <span class="nn-stat-val" data-mamba-params-total>--</span>
+              <span class="nn-stat-sub">Linear scaling with <Katex tex="d_{\text{model}}" /></span>
+            </div>
+            <div class="nn-stat-card">
+              <span class="nn-stat-label">Computational FLOPs</span>
+              <span class="nn-stat-val" data-mamba-flops-total>--</span>
+              <span class="nn-stat-sub"><Katex tex="O(T)" /> linear sequence FLOPs</span>
+            </div>
+            <div class="nn-stat-card">
+              <span class="nn-stat-label">Recurrent State Memory</span>
+              <span class="nn-stat-val" data-mamba-memory-total>--</span>
+              <span class="nn-stat-sub"><Katex tex="O(1)" /> constant inference memory</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================== -->
+      <!-- LIVE PYTORCH CODE GENERATOR                                          -->
+      <!-- ==================================================================== -->
+      <section class="nn-panel">
+        <header class="nn-panel-header">
+          <div>
+            <h3>Production PyTorch Implementation</h3>
+            <p class="nn-panel-desc">
+              Drop-in PyTorch module matching your exact active configuration with input-dependent projection heads, 1D causal convolution, and discretized recurrence.
+            </p>
+          </div>
+          <button
+            type="button"
+            class="nn-btn nn-btn-primary"
+            data-mamba-copy-pytorch
+            data-original-text="Copy PyTorch Code"
+          >
+            Copy PyTorch Code
+          </button>
+        </header>
+
+        <div class="nn-code-box">
+          <pre><code class="language-python" data-mamba-pytorch-code># Generating PyTorch snippet...</code></pre>
+        </div>
+      </section>
+
+      <!-- ==================================================================== -->
+      <!-- EDUCATIONAL DEEP-DIVE ACCORDIONS (4 CARDS)                           -->
+      <!-- ==================================================================== -->
+      <section class="nn-panel">
+        <header class="nn-panel-header">
+          <div>
+            <h3>Mathematical Foundations & Hardware Engineering</h3>
+            <p class="nn-panel-desc">
+              Rigorous mathematical proofs, continuous ODE derivations, and hardware acceleration principles behind modern State Space Models.
+            </p>
+          </div>
+        </header>
+
+        <div class="nn-accordions-group">
+          <!-- Card 1: The HiPPO Matrix & Optimal Polynomial Memory -->
+          <details class="nn-accordion" open>
+            <summary class="nn-accordion-trigger">
+              <span class="nn-accordion-title">
+                <span class="nn-acc-icon">🏛️</span>
+                The HiPPO Matrix & Optimal Polynomial Memory
+              </span>
+              <span class="nn-accordion-chevron" aria-hidden="true">▾</span>
+            </summary>
+            <div class="nn-accordion-content">
+              <p>
+                Recurrent neural networks (RNNs) historically suffered from either vanishing gradients (fading ancient memory) or exploding gradients.
+                The <strong>HiPPO</strong> (High-order Polynomial Projection Operators; Gu et al., NeurIPS 2020) framework solved this fundamental challenge
+                by casting online memory as optimal continuous function approximation.
+              </p>
+
+              <h4>1. Continuous History Projection onto Legendre Polynomials</h4>
+              <p>
+                Consider a continuous 1D input signal <Katex tex="u(t)" /> observed up to current time <Katex tex="t" />. We seek to maintain a degree-<Katex tex="N" /> polynomial
+                approximation <Katex tex="g^{(t)}(\tau)" /> of the history <Katex tex="u(\tau)" /> for <Katex tex="\tau \in [0, t]" /> with respect to a time-varying probability measure <Katex tex="\mu^{(t)}(\tau) = \frac{1}{t} \mathbb{I}_{[0, t]}(\tau)" />:
+              </p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="g^{(t)} = \arg\min_{g \in \mathcal{P}_N} \int_0^t \left( u(\tau) - g(\tau) \right)^2 \frac{1}{t} \, d\tau"
+                  display={true}
+                />
+              </div>
+              <p>
+                Expressing <Katex tex="g^{(t)}" /> in the orthogonal basis of shifted Legendre polynomials <Katex tex="\{P_n\}_{n=0}^{N-1}" />, the projection coefficients
+                <Katex tex="c(t) \in \mathbb{R}^N" /> satisfy a differential equation that guarantees optimal online coefficient updates without storing past values:
+              </p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="\frac{d}{dt} c(t) = -\frac{1}{t} A_{\text{HiPPO}} \, c(t) + \frac{1}{t} B_{\text{HiPPO}} \, u(t)"
+                  display={true}
+                />
+              </div>
+
+              <h4>2. Canonical HiPPO Transition Matrix</h4>
+              <p>
+                Converting this time-varying system into a time-invariant state-space representation yields the canonical continuous HiPPO-LegS matrix:
+              </p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="A_{nk} = -\begin{cases} \sqrt{2n+1}\sqrt{2k+1} & \text{if } n > k \\ n+1 & \text{if } n = k \\ 0 & \text{if } n < k \end{cases}, \qquad B_n = \sqrt{2n+1}"
+                  display={true}
+                />
+              </div>
+              <p>
+                <strong>Why this prevents memory fading:</strong> Standard RNN transition matrices <Katex tex="W_h" /> compress history through repeated unconstrained matrix multiplications,
+                causing geometric decay <Katex tex="\sim \lambda^t" />. In contrast, HiPPO projects continuous history onto orthogonal Legendre bases,
+                ensuring that ancient signals retain non-zero projection coefficients over unbounded sequence horizons. In Mamba, the continuous transition matrix is initialized via structured diagonal decomposition with negative real poles (<Katex tex="A_n = -n - 1" />) derived from the HiPPO spectrum.
+              </p>
+            </div>
+          </details>
+
+          <!-- Card 2: Zero-Order Hold (ZOH) Discretization & Spectral Stability -->
+          <details class="nn-accordion">
+            <summary class="nn-accordion-trigger">
+              <span class="nn-accordion-title">
+                <span class="nn-acc-icon">⚙️</span>
+                Zero-Order Hold (ZOH) Discretization & Spectral Stability
+              </span>
+              <span class="nn-accordion-chevron" aria-hidden="true">▾</span>
+            </summary>
+            <div class="nn-accordion-content">
+              <p>
+                State Space Models describe continuous dynamical systems governed by ordinary differential equations (ODEs):
+              </p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="\dot{h}(t) = A h(t) + B x(t), \qquad y(t) = C h(t) + D x(t)"
+                  display={true}
+                />
+              </div>
+              <p>
+                Digital computing architectures operate on discrete sequences <Katex tex="\{x_0, x_1, \dots, x_{T-1}\}" /> sampled at intervals parameterized by step size <Katex tex="\Delta" />.
+                The <strong>Zero-Order Hold (ZOH)</strong> assumption postulates that the input <Katex tex="x(t)" /> remains piecewise-constant over each sampling interval <Katex tex="[t\Delta, (t+1)\Delta)" />.
+              </p>
+
+              <h4>1. Derivation of the Discrete Transition Matrices</h4>
+              <p>
+                Solving the linear continuous ODE over <Katex tex="\tau \in [0, \Delta]" /> using the matrix exponential integrating factor:
+              </p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="h(t+\Delta) = \exp(\Delta A) h(t) + \int_0^\Delta \exp((\Delta - \tau) A) B x(t) \, d\tau"
+                  display={true}
+                />
+              </div>
+              <p>
+                Because <Katex tex="x(t)" /> is constant over the interval, we factor it out of the integral:
+              </p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="\int_0^\Delta \exp((\Delta - \tau) A) B \, d\tau = (\Delta A)^{-1} (\exp(\Delta A) - I) \cdot (\Delta B)"
+                  display={true}
+                />
+              </div>
+              <p>
+                Defining discrete transition matrices <Katex tex="\bar{A}" /> and <Katex tex="\bar{B}" />:
+              </p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="\bar{A} = \exp(\Delta A), \qquad \bar{B} = (\Delta A)^{-1} (\bar{A} - I) \cdot (\Delta B)"
+                  display={true}
+                />
+              </div>
+              <p>
+                For diagonal <Katex tex="A = \text{diag}(a_1, \dots, a_N)" />, each dimension evaluates independently as:
+              </p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="\bar{A}_{nn} = \exp(\Delta a_n), \qquad \bar{B}_{nn} = \frac{\exp(\Delta a_n) - 1}{a_n} \cdot B_n"
+                  display={true}
+                />
+              </div>
+
+              <h4>2. Proof of Spectral Stability & Contraction Mapping</h4>
+              <p>
+                Let <Katex tex="\lambda_i(A)" /> denote the continuous eigenvalues of <Katex tex="A" />. By HiPPO construction, continuous poles lie strictly in the open left half-plane:
+                <Katex tex="\text{Re}(\lambda_i(A)) < 0" />.
+              </p>
+              <p>
+                Under the exponential mapping, the eigenvalues of discrete operator <Katex tex="\bar{A}" /> are:
+              </p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="|\lambda_i(\bar{A})| = |\exp(\Delta \lambda_i(A))| = \exp(\Delta \cdot \text{Re}(\lambda_i(A))) < \exp(0) = 1 \quad \forall \Delta > 0"
+                  display={true}
+                />
+              </div>
+              <p>
+                Because all discrete eigenvalues have magnitude strictly less than 1, <Katex tex="\bar{A}" /> is a strict contraction mapping on <Katex tex="\mathbb{R}^N" />.
+                Consequently, the latent state remains strictly bounded for arbitrarily long sequence lengths (<Katex tex="\|h_t\| < \infty" /> as <Katex tex="t \to \infty" />),
+                preventing gradient explosions during training and unbounded state drift during autoregressive inference.
+              </p>
+            </div>
+          </details>
+
+          <!-- Card 3: Hardware-Aware Parallel Associative Scan vs Attention -->
+          <details class="nn-accordion">
+            <summary class="nn-accordion-trigger">
+              <span class="nn-accordion-title">
+                <span class="nn-acc-icon">🚀</span>
+                Hardware-Aware Parallel Associative Scan vs Attention
+              </span>
+              <span class="nn-accordion-chevron" aria-hidden="true">▾</span>
+            </summary>
+            <div class="nn-accordion-content">
+              <p>
+                While Transformers revolutionized deep learning by parallelizing training over time, their quadratic attention matrix <Katex tex="O(T^2)" /> creates severe memory and computational bottlenecks for long sequences.
+                Conversely, standard RNNs have linear complexity <Katex tex="O(T)" /> but failed because sequential recurrent steps cannot parallelize across modern GPU architectures.
+              </p>
+
+              <h4>1. The Modern GPU Memory Hierarchy Dilemma</h4>
+              <p>
+                Modern accelerators (e.g. Nvidia H100 SXM) have two primary memory tiers:
+              </p>
+              <ul>
+                <li><strong>High-Bandwidth Memory (HBM):</strong> Massive capacity (80–96 GB) but comparatively limited bandwidth (~3.35 TB/s).</li>
+                <li><strong>On-Chip Static RAM (SRAM):</strong> Ultra-fast bandwidth (~33 TB/s, <Katex tex="10\times" /> faster) but minimal capacity (~228 KB per SM, ~50 MB total).</li>
+              </ul>
+              <p>
+                Standard RNNs require reading and writing state vectors <Katex tex="h_t" /> between HBM and SRAM at every sequential token step <Katex tex="t" />.
+                The arithmetic intensity is negligible (<Katex tex="< 1" /> FLOP/byte), stalling tensor execution units while waiting on HBM memory transfers.
+              </p>
+
+              <h4>2. The Associative Property of Linear Recurrence</h4>
+              <p>
+                Mamba makes the critical realization that linear state space recurrence is an <strong>associative operator</strong>.
+                Consider adjacent state transitions:
+              </p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="h_t = \bar{A}_t h_{t-1} + \bar{B}_t x_t = \bar{A}_t (\bar{A}_{t-1} h_{t-2} + \bar{B}_{t-1} x_{t-1}) + \bar{B}_t x_t = (\bar{A}_t \bar{A}_{t-1}) h_{t-2} + (\bar{A}_t \bar{B}_{t-1} x_{t-1} + \bar{B}_t x_t)"
+                  display={true}
+                />
+              </div>
+              <p>
+                Defining the binary tuple operator <Katex tex="\circ" /> on elements <Katex tex="(p_i, q_i) = (\bar{A}_i, \bar{B}_i x_i)" />:
+              </p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="(a_j, b_j) \circ (a_i, b_i) = (a_j a_i, \, a_j b_i + b_j)"
+                  display={true}
+                />
+              </div>
+              <p>
+                Because matrix multiplication and addition are associative, <Katex tex="((a \circ b) \circ c) = (a \circ (b \circ c))" />.
+                This enables computing the entire sequence recurrence using the <strong>Blelloch Parallel Prefix Scan</strong> in <Katex tex="O(\log T)" /> parallel time steps across GPU threads.
+              </p>
+
+              <h4>3. Kernel Fusion in On-Chip SRAM</h4>
+              <p>
+                Mamba implements an optimized Triton/CUDA kernel that fuses discretization, causal 1D convolution, and parallel scan directly in on-chip SRAM:
+              </p>
+              <div class="nn-callout-text">
+                <strong>Memory-Bandwidth Optimization:</strong>
+                Input parameters <Katex tex="x, \Delta, B, C" /> are loaded once from HBM into SRAM.
+                Discretization <Katex tex="\bar{A}_t = \exp(\Delta_t A)" /> and the parallel scan are executed entirely in SRAM and registers.
+                Intermediate hidden states <Katex tex="h_t \in \mathbb{R}^{B \times L \times D \times N}" /> are never written to HBM; only final outputs <Katex tex="y \in \mathbb{R}^{B \times L \times D}" /> are written back,
+                reducing HBM memory traffic by over <Katex tex="10\times" />.
+              </div>
+            </div>
+          </details>
+
+          <!-- Card 4: Mamba-2 & State Space Duality (SSD) -->
+          <details class="nn-accordion">
+            <summary class="nn-accordion-trigger">
+              <span class="nn-accordion-title">
+                <span class="nn-acc-icon">🔮</span>
+                Mamba-2 & State Space Duality (SSD)
+              </span>
+              <span class="nn-accordion-chevron" aria-hidden="true">▾</span>
+            </summary>
+            <div class="nn-accordion-content">
+              <p>
+                In <em>Transformers are SSMs: Generalized Models and Efficient Algorithms Through Structured State Space Duality</em> (Dao & Gu, 2024),
+                the authors establish an exact theoretical equivalence between linear attention and structured state space models.
+              </p>
+
+              <h4>1. The 1-Semiseparable Matrix Connection</h4>
+              <p>
+                Unrolling an unforced SSM over sequence length <Katex tex="T" /> reveals that the transformation from input sequence <Katex tex="X \in \mathbb{R}^{T \times 1}" /> to output sequence <Katex tex="Y \in \mathbb{R}^{T \times 1}" /> can be expressed as multiplication by a lower-triangular structured matrix <Katex tex="M \in \mathbb{R}^{T \times T}" />:
+              </p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="M_{ij} = \begin{cases} C_i^T \left( \prod_{k=j+1}^i \bar{A}_k \right) \bar{B}_j & \text{if } i > j \\ C_i^T \bar{B}_i & \text{if } i = j \\ 0 & \text{if } i < j \end{cases}"
+                  display={true}
+                />
+              </div>
+              <p>
+                This matrix is <strong>1-semiseparable</strong>: every submatrix below the main diagonal has rank at most 1 (or rank <Katex tex="N" /> in multi-channel SSMs).
+                Linear attention computes a special case of this transformation where <Katex tex="\bar{A}_k = I" /> (no decay):
+              </p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="Y = \text{tril}(Q K^T) V"
+                  display={true}
+                />
+              </div>
+
+              <h4>2. Bridging Tensor Cores and Recurrence</h4>
+              <p>
+                In Mamba-1, general diagonal <Katex tex="A" /> required custom associative scan kernels that underutilized GPU Tensor Cores (specialized matrix multiply units).
+                Mamba-2 restricts <Katex tex="A" /> to scalar-times-identity structure (<Katex tex="A = \alpha I" />). This enables decomposing the semiseparable matrix into <strong>block matrix multiplications</strong>:
+              </p>
+              <ul>
+                <li><strong>Intra-chunk computation (e.g. 64 tokens):</strong> Evaluated using dense matrix multiplications (<Katex tex="Q K^T V" /> style) on Tensor Cores with peak compute efficiency.</li>
+                <li><strong>Inter-chunk computation:</strong> Carried across chunk boundaries via recurrent state propagation in linear time.</li>
+              </ul>
+              <p>
+                <strong>The Result:</strong> Mamba-2 matches the expressive capacity of selective SSMs while training up to <Katex tex="8\times" /> faster than Mamba-1 by computing the core recurrence directly on Tensor Cores, unifying Attention and SSM architectures into a single foundational framework.
+              </p>
+            </div>
+          </details>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="../../scripts/mambaStudio.ts"></script>
+</BaseLayout>
+
+<style>
+  /* -------------------------------------------------------------------------- */
+  /* NN Lab Layout & Topbar                                                     */
+  /* -------------------------------------------------------------------------- */
+  .nn-page-wrapper {
+    min-height: 100vh;
+    background-color: var(--color-bg, #fafaf8);
+    color: var(--color-ink, #141414);
+    font-family: var(--font-sans, system-ui, -apple-system, sans-serif);
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    width: 100%;
+  }
+
+  .nn-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem 1.5rem;
+    background-color: var(--color-surface, #ffffff);
+    border-bottom: 1px solid var(--color-rule, #e5e4df);
+    gap: 1.25rem;
+    flex-wrap: wrap;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  }
+
+  .nn-brand-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .nn-brand-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .nn-brand-title h1 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    margin: 0;
+    letter-spacing: -0.02em;
+    font-family: var(--font-display, var(--font-sans, sans-serif));
+    color: var(--color-ink, #141414);
+  }
+
+  .nn-pulse-dot {
+    width: 9px;
+    height: 9px;
+    background-color: #10b981;
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    animation: nn-pulse 2s infinite;
+  }
+
+  @keyframes nn-pulse {
+    0% {
+      transform: scale(0.95);
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    }
+    70% {
+      transform: scale(1);
+      box-shadow: 0 0 0 7px rgba(16, 185, 129, 0);
+    }
+    100% {
+      transform: scale(0.95);
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+  }
+
+  .nn-brand-sub {
+    font-size: 0.85rem;
+    color: var(--color-muted, #6b6b6b);
+    font-weight: 500;
+  }
+
+  /* Model Studio Navigation Tabs */
+  .nn-model-nav {
+    display: inline-flex;
+    align-items: center;
+    background-color: var(--color-bg, #fafaf8);
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 4px;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+
+  .nn-model-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.84rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--color-muted, #6b6b6b);
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+  }
+
+  .nn-model-link:hover {
+    color: var(--color-ink, #141414);
+    background-color: rgba(0, 0, 0, 0.04);
+  }
+
+  :root[data-theme='dark'] .nn-model-link:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+  }
+
+  .nn-model-link.active {
+    color: #059669;
+    background-color: var(--color-surface, #ffffff);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+
+  :root[data-theme='dark'] .nn-model-link.active {
+    background-color: rgba(255, 255, 255, 0.12);
+    color: #34d399;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  }
+
+  .nn-model-icon {
+    font-size: 0.95rem;
+  }
+
+  .nn-nav-links {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  .nn-nav-link {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--color-muted, #6b6b6b);
+    text-decoration: none;
+    padding: 0.35rem 0.65rem;
+    border-radius: 6px;
+    border: 1px solid var(--color-rule, #e5e4df);
+    background-color: var(--color-bg, #fafaf8);
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .nn-nav-link:hover {
+    color: var(--color-ink, #141414);
+    border-color: #10b981;
+    background-color: var(--color-surface, #ffffff);
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Main Content Layout                                                        */
+  /* -------------------------------------------------------------------------- */
+  .nn-main-content {
+    max-width: 1360px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 1.5rem 1.5rem 4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    box-sizing: border-box;
+    min-width: 0;
+  }
+
+  .nn-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .nn-panel-header h2 {
+    font-size: 1.55rem;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    margin: 0 0 0.4rem;
+    color: var(--color-ink, #141414);
+  }
+
+  .nn-panel-header h3 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin: 0 0 0.4rem;
+    color: var(--color-ink, #141414);
+  }
+
+  .nn-panel-desc {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--color-muted, #6b6b6b);
+    max-width: 780px;
+    line-height: 1.6;
+  }
+
+  .nn-math-chip {
+    padding: 0.6rem 1rem;
+    border-radius: 8px;
+    background-color: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-rule, #e5e4df);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    overflow-x: auto;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Mode Switcher Tabs */
+  .nn-tabs-bar {
+    margin-bottom: 1rem;
+  }
+
+  .nn-tabs-container {
+    display: inline-flex;
+    background-color: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 8px;
+    padding: 4px;
+    gap: 4px;
+    max-width: 100%;
+    overflow-x: auto;
+    box-sizing: border-box;
+  }
+
+  .nn-mode-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: var(--color-muted, #6b6b6b);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+
+  .nn-mode-tab:hover {
+    color: var(--color-ink, #141414);
+  }
+
+  .nn-mode-tab.active {
+    background-color: #10b981;
+    color: #ffffff;
+    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.25);
+  }
+
+  .nn-tab-icon {
+    font-size: 1rem;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Cards & Toolbars                                                           */
+  /* -------------------------------------------------------------------------- */
+  .nn-card {
+    background-color: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+    margin-bottom: 1.25rem;
+    box-sizing: border-box;
+    min-width: 0;
+  }
+
+  .nn-card-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin: 0 0 0.35rem;
+    color: var(--color-ink, #141414);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .nn-card-desc {
+    font-size: 0.88rem;
+    color: var(--color-muted, #6b6b6b);
+    margin: 0 0 1rem;
+    line-height: 1.5;
+  }
+
+  .nn-preset-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.85rem;
+  }
+
+  .nn-preset-title {
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--color-ink, #141414);
+    min-width: 140px;
+  }
+
+  .nn-preset-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .nn-preset-btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid var(--color-rule, #e5e4df);
+    background-color: var(--color-bg, #fafaf8);
+    color: var(--color-ink, #141414);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .nn-preset-btn:hover {
+    border-color: #10b981;
+    color: #059669;
+  }
+
+  .nn-preset-btn.active {
+    background-color: #10b981;
+    color: #ffffff;
+    border-color: #10b981;
+    box-shadow: 0 1px 3px rgba(16, 185, 129, 0.3);
+  }
+
+  .nn-custom-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.85rem;
+  }
+
+  .nn-custom-input-group {
+    flex: 1;
+    min-width: 260px;
+  }
+
+  .nn-input {
+    width: 100%;
+    padding: 0.5rem 0.8rem;
+    font-size: 0.88rem;
+    border-radius: 6px;
+    border: 1px solid var(--color-rule, #e5e4df);
+    background-color: var(--color-bg, #fafaf8);
+    color: var(--color-ink, #141414);
+    box-sizing: border-box;
+    font-family: inherit;
+  }
+
+  .nn-input:focus {
+    outline: none;
+    border-color: #10b981;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+  }
+
+  .nn-token-bar {
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--color-rule, #e5e4df);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .nn-token-bar-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-muted, #6b6b6b);
+  }
+
+  .nn-token-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  /* Token Badges */
+  :global(.token-badge) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.65rem;
+    border-radius: 6px;
+    border: 1px solid var(--color-rule, #e5e4df);
+    background-color: var(--color-bg, #fafaf8);
+    color: var(--color-ink, #141414);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  :global(.token-badge:hover) {
+    border-color: #10b981;
+    color: #059669;
+  }
+
+  :global(.token-badge.active) {
+    background-color: #10b981;
+    color: #ffffff;
+    border-color: #10b981;
+    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+    transform: scale(1.03);
+  }
+
+  :global(.token-badge .token-num) {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.72rem;
+    opacity: 0.75;
+  }
+
+  /* Playback Toolbar */
+  .nn-playback-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .nn-playback-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .nn-step-badge-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .nn-badge-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #10b981;
+  }
+
+  .nn-step-badge {
+    font-size: 0.96rem;
+    font-weight: 700;
+    color: var(--color-ink, #141414);
+  }
+
+  .nn-speed-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .nn-speed-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-muted, #6b6b6b);
+  }
+
+  .nn-select {
+    padding: 0.35rem 0.65rem;
+    border-radius: 6px;
+    border: 1px solid var(--color-rule, #e5e4df);
+    background-color: var(--color-bg, #fafaf8);
+    color: var(--color-ink, #141414);
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+
+  .nn-playback-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--color-rule, #e5e4df);
+  }
+
+  .nn-playback-btns {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+
+  .nn-btn {
+    padding: 0.45rem 0.9rem;
+    border-radius: 6px;
+    font-size: 0.84rem;
+    font-weight: 600;
+    border: 1px solid var(--color-rule, #e5e4df);
+    background-color: var(--color-surface, #ffffff);
+    color: var(--color-ink, #141414);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .nn-btn:hover {
+    border-color: #10b981;
+    color: #059669;
+  }
+
+  .nn-btn-primary {
+    background-color: #10b981;
+    color: #ffffff;
+    border-color: #10b981;
+  }
+
+  .nn-btn-primary:hover {
+    background-color: #059669;
+    border-color: #059669;
+    color: #ffffff;
+  }
+
+  /* 2-Column Grid Layout */
+  .nn-grid-2col {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+  }
+
+  @media (max-width: 900px) {
+    .nn-grid-2col {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Delta Gate Meter Styles (Rendered by Controller)                           */
+  /* -------------------------------------------------------------------------- */
+  :global(.mamba-delta-meter-inner) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+  }
+
+  :global(.meter-header) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  :global(.meter-label) {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--color-ink, #141414);
+  }
+
+  :global(.meter-val) {
+    font-family: var(--font-mono, monospace);
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #10b981;
+  }
+
+  :global(.meter-badge) {
+    font-size: 0.76rem;
+    font-weight: 700;
+    padding: 0.2rem 0.55rem;
+    border-radius: 9999px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  :global(.badge-latch) {
+    background-color: rgba(16, 185, 129, 0.15);
+    color: #059669;
+    border: 1px solid rgba(16, 185, 129, 0.4);
+  }
+
+  :global(.badge-filter) {
+    background-color: rgba(59, 130, 246, 0.12);
+    color: #2563eb;
+    border: 1px solid rgba(59, 130, 246, 0.35);
+  }
+
+  :global(.meter-track) {
+    height: 14px;
+    border-radius: 7px;
+    background-color: var(--color-bg, #fafaf8);
+    border: 1px solid var(--color-rule, #e5e4df);
+    overflow: hidden;
+    position: relative;
+  }
+
+  :global(.meter-bar) {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6 0%, #10b981 60%, #f59e0b 100%);
+    border-radius: 7px;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  :global(.meter-meta) {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    color: var(--color-muted, #6b6b6b);
+    font-family: var(--font-mono, monospace);
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* State Vector Heatmap                                                       */
+  /* -------------------------------------------------------------------------- */
+  :global(.mamba-state-grid) {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+  }
+
+  :global(.state-cell) {
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 6px;
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    background-color: var(--color-bg, #fafaf8);
+    position: relative;
+    overflow: hidden;
+  }
+
+  :global(.state-cell.positive) {
+    border-color: rgba(16, 185, 129, 0.4);
+    background-color: rgba(16, 185, 129, 0.08);
+  }
+
+  :global(.state-cell.negative) {
+    border-color: rgba(239, 68, 68, 0.4);
+    background-color: rgba(239, 68, 68, 0.08);
+  }
+
+  :global(.cell-label) {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.72rem;
+    color: var(--color-muted, #6b6b6b);
+  }
+
+  :global(.cell-val) {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.88rem;
+    font-weight: 700;
+  }
+
+  :global(.state-cell.positive .cell-val) {
+    color: #059669;
+  }
+
+  :global(.state-cell.negative .cell-val) {
+    color: #dc2626;
+  }
+
+  :global(.cell-bar) {
+    height: 3px;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+  }
+
+  :global(.state-cell.positive .cell-bar) {
+    background-color: #10b981;
+  }
+
+  :global(.state-cell.negative .cell-bar) {
+    background-color: #ef4444;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Output Track Styles                                                        */
+  /* -------------------------------------------------------------------------- */
+  :global(.output-track-scroll) {
+    display: flex;
+    gap: 0.6rem;
+    overflow-x: auto;
+    padding: 0.5rem 0.2rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  :global(.output-track-step) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.6rem 0.8rem;
+    border-radius: 8px;
+    border: 1px solid var(--color-rule, #e5e4df);
+    background-color: var(--color-bg, #fafaf8);
+    cursor: pointer;
+    min-width: 90px;
+    flex-shrink: 0;
+    transition: all 0.15s ease;
+  }
+
+  :global(.output-track-step:hover) {
+    border-color: #10b981;
+    background-color: var(--color-surface, #ffffff);
+  }
+
+  :global(.output-track-step.active) {
+    border-color: #10b981;
+    background-color: rgba(16, 185, 129, 0.1);
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25);
+    transform: translateY(-2px);
+  }
+
+  :global(.track-token) {
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--color-ink, #141414);
+  }
+
+  :global(.track-y) {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.78rem;
+    color: #059669;
+    font-weight: 600;
+  }
+
+  :global(.track-delta) {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.72rem;
+    color: var(--color-muted, #6b6b6b);
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* X-Ray Inspector Styles                                                     */
+  /* -------------------------------------------------------------------------- */
+  :global(.xray-container) {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  :global(.xray-header) {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--color-rule, #e5e4df);
+  }
+
+  :global(.xray-header h4) {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--color-ink, #141414);
+  }
+
+  :global(.xray-pill) {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    background-color: var(--color-bg, #fafaf8);
+    border: 1px solid var(--color-rule, #e5e4df);
+  }
+
+  :global(.xray-grid) {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+  }
+
+  :global(.xray-card) {
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 8px;
+    padding: 0.85rem;
+    background-color: var(--color-bg, #fafaf8);
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  :global(.xray-card h5) {
+    margin: 0 0 0.35rem;
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: var(--color-ink, #141414);
+    border-bottom: 1px solid var(--color-rule, #e5e4df);
+    padding-bottom: 0.35rem;
+  }
+
+  :global(.xray-item) {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.76rem;
+    line-height: 1.45;
+    word-break: break-all;
+    color: var(--color-ink, #141414);
+  }
+
+  :global(.xray-item .lbl) {
+    color: var(--color-muted, #6b6b6b);
+    font-weight: 600;
+    margin-right: 0.25rem;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Parallel Scan Tree & Associative Math                                      */
+  /* -------------------------------------------------------------------------- */
+  :global(.assoc-math-box) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  :global(.assoc-math-box h4) {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+
+  :global(.assoc-formula) {
+    padding: 0.85rem 1rem;
+    border-radius: 8px;
+    background-color: var(--color-bg, #fafaf8);
+    border: 1px solid var(--color-rule, #e5e4df);
+    overflow-x: auto;
+  }
+
+  :global(.assoc-formula code) {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #059669;
+  }
+
+  :global(.assoc-desc) {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.55;
+    color: var(--color-muted, #6b6b6b);
+  }
+
+  :global(.parallel-tree-container) {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 0.5rem 0;
+    overflow-x: auto;
+  }
+
+  :global(.tree-level-row) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.85rem;
+    border-radius: 8px;
+    background-color: var(--color-bg, #fafaf8);
+    border: 1px solid var(--color-rule, #e5e4df);
+  }
+
+  :global(.tree-level-label) {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--color-muted, #6b6b6b);
+  }
+
+  :global(.tree-nodes-row) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  :global(.tree-node) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid var(--color-rule, #e5e4df);
+    background-color: var(--color-surface, #ffffff);
+    font-family: var(--font-mono, monospace);
+    font-size: 0.76rem;
+    min-width: 80px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  }
+
+  :global(.tree-node.node-combined) {
+    border-color: #10b981;
+    background-color: rgba(16, 185, 129, 0.06);
+  }
+
+  :global(.node-span) {
+    font-weight: 700;
+    color: var(--color-ink, #141414);
+  }
+
+  :global(.node-idx) {
+    color: var(--color-muted, #6b6b6b);
+  }
+
+  :global(.node-val) {
+    color: #059669;
+    font-weight: 600;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* ZOH Matrix Explorer Styles                                                 */
+  /* -------------------------------------------------------------------------- */
+  :global(.a-bar-matrix-grid) {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 0.85rem;
+    margin-top: 1rem;
+  }
+
+  :global(.a-bar-card) {
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 8px;
+    padding: 0.85rem;
+    background-color: var(--color-bg, #fafaf8);
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  :global(.a-bar-title) {
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--color-ink, #141414);
+  }
+
+  :global(.a-bar-continuous),
+  :global(.a-bar-discrete) {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.76rem;
+    color: var(--color-muted, #6b6b6b);
+  }
+
+  :global(.a-bar-discrete) {
+    color: #059669;
+    font-weight: 700;
+  }
+
+  :global(.a-bar-progress) {
+    height: 8px;
+    border-radius: 4px;
+    background-color: var(--color-rule, #e5e4df);
+    overflow: hidden;
+    margin: 0.25rem 0;
+  }
+
+  :global(.a-bar-fill) {
+    height: 100%;
+    background-color: #10b981;
+    border-radius: 4px;
+    transition: width 0.2s ease;
+  }
+
+  :global(.a-bar-meta) {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    font-family: var(--font-mono, monospace);
+    color: var(--color-muted, #6b6b6b);
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Benchmark Readout & Chart Styles                                           */
+  /* -------------------------------------------------------------------------- */
+  :global(.benchmark-readout-grid) {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin: 1.25rem 0 1rem;
+  }
+
+  :global(.bench-stat) {
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--color-rule, #e5e4df);
+    background-color: var(--color-bg, #fafaf8);
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  :global(.bench-stat.ssm) {
+    border-color: rgba(16, 185, 129, 0.4);
+    background-color: rgba(16, 185, 129, 0.05);
+  }
+
+  :global(.bench-stat.transformer) {
+    border-color: rgba(59, 130, 246, 0.4);
+    background-color: rgba(59, 130, 246, 0.05);
+  }
+
+  :global(.bench-stat.advantage) {
+    border-color: rgba(245, 158, 11, 0.4);
+    background-color: rgba(245, 158, 11, 0.05);
+  }
+
+  :global(.bench-lbl) {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--color-muted, #6b6b6b);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  :global(.bench-val) {
+    font-family: var(--font-mono, monospace);
+    font-size: 1.35rem;
+    font-weight: 800;
+  }
+
+  :global(.bench-stat.ssm .bench-val) {
+    color: #059669;
+  }
+
+  :global(.bench-stat.transformer .bench-val) {
+    color: #2563eb;
+  }
+
+  :global(.bench-stat.advantage .bench-val) {
+    color: #d97706;
+  }
+
+  :global(.bench-badge) {
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--color-muted, #6b6b6b);
+  }
+
+  :global(.bench-chart-container) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding-top: 0.5rem;
+  }
+
+  :global(.bench-bar-group) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  :global(.bench-bar-label) {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-ink, #141414);
+    font-family: var(--font-mono, monospace);
+  }
+
+  :global(.bench-track) {
+    height: 12px;
+    border-radius: 6px;
+    background-color: var(--color-bg, #fafaf8);
+    border: 1px solid var(--color-rule, #e5e4df);
+    overflow: hidden;
+  }
+
+  :global(.bench-fill) {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  :global(.ssm-fill) {
+    background-color: #10b981;
+  }
+
+  :global(.kv-fill) {
+    background-color: #3b82f6;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Hyperparameters & Stat Cards                                              */
+  /* -------------------------------------------------------------------------- */
+  .nn-params-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .nn-slider-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .nn-slider-label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .nn-param-label {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--color-ink, #141414);
+  }
+
+  .nn-param-val {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.86rem;
+    font-weight: 700;
+    color: #10b981;
+  }
+
+  .nn-slider {
+    width: 100%;
+    accent-color: #10b981;
+    cursor: pointer;
+  }
+
+  .nn-stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-rule, #e5e4df);
+  }
+
+  .nn-stat-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    padding: 0.85rem;
+    border-radius: 8px;
+    background-color: var(--color-bg, #fafaf8);
+    border: 1px solid var(--color-rule, #e5e4df);
+  }
+
+  .nn-stat-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--color-muted, #6b6b6b);
+  }
+
+  .nn-stat-val {
+    font-family: var(--font-mono, monospace);
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--color-ink, #141414);
+  }
+
+  .nn-stat-sub {
+    font-size: 0.76rem;
+    color: var(--color-muted, #6b6b6b);
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* PyTorch Code Box                                                           */
+  /* -------------------------------------------------------------------------- */
+  .nn-code-box {
+    background-color: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 10px;
+    padding: 1.25rem;
+    overflow-x: auto;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+  }
+
+  .nn-code-box pre {
+    margin: 0;
+  }
+
+  .nn-code-box code {
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: #e2e8f0;
+    display: block;
+    white-space: pre;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Educational Accordions                                                     */
+  /* -------------------------------------------------------------------------- */
+  .nn-accordions-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .nn-accordion {
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 8px;
+    background-color: var(--color-surface, #ffffff);
+    overflow: hidden;
+    transition: border-color 0.15s ease;
+  }
+
+  .nn-accordion:hover {
+    border-color: rgba(16, 185, 129, 0.4);
+  }
+
+  .nn-accordion-trigger {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    gap: 1rem;
+    box-sizing: border-box;
+    list-style: none;
+  }
+
+  .nn-accordion-trigger::-webkit-details-marker {
+    display: none;
+  }
+
+  .nn-accordion-title {
+    font-size: 0.98rem;
+    font-weight: 600;
+    color: var(--color-ink, #141414);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .nn-acc-icon {
+    font-size: 1.1rem;
+  }
+
+  .nn-accordion-chevron {
+    font-size: 0.85rem;
+    color: var(--color-muted, #6b6b6b);
+    transition: transform 0.2s ease;
+  }
+
+  .nn-accordion[open] .nn-accordion-chevron {
+    transform: rotate(180deg);
+  }
+
+  .nn-accordion-content {
+    padding: 1.25rem;
+    border-top: 1px solid var(--color-rule, #e5e4df);
+    font-size: 0.92rem;
+    line-height: 1.65;
+    color: var(--color-ink, #141414);
+  }
+
+  .nn-accordion-content h4 {
+    margin: 1.25rem 0 0.5rem;
+    font-size: 0.96rem;
+    font-weight: 700;
+  }
+
+  .nn-accordion-content ul {
+    margin: 0.5rem 0 1rem;
+    padding-left: 1.5rem;
+  }
+
+  .nn-accordion-content li {
+    margin-bottom: 0.35rem;
+  }
+
+  .nn-equation-box {
+    margin: 1rem 0;
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    background-color: var(--color-bg, #fafaf8);
+    border: 1px solid var(--color-rule, #e5e4df);
+    overflow-x: auto;
+    box-sizing: border-box;
+  }
+
+  .nn-callout-text {
+    padding: 0.75rem 1rem;
+    border-left: 3px solid #10b981;
+    background-color: rgba(16, 185, 129, 0.08);
+    border-radius: 4px;
+    margin: 1rem 0 0.5rem;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Dark Theme Support                                                         */
+  /* -------------------------------------------------------------------------- */
+  :root[data-theme='dark'] .nn-page-wrapper {
+    background-color: #0b0f19;
+    color: #f1f5f9;
+  }
+
+  :root[data-theme='dark'] .nn-topbar,
+  :root[data-theme='dark'] .nn-card,
+  :root[data-theme='dark'] .nn-tabs-container,
+  :root[data-theme='dark'] .nn-math-chip,
+  :root[data-theme='dark'] .nn-accordion {
+    background-color: #111827;
+    border-color: #1f2937;
+  }
+
+  :root[data-theme='dark'] .nn-brand-title h1,
+  :root[data-theme='dark'] .nn-panel-header h2,
+  :root[data-theme='dark'] .nn-panel-header h3,
+  :root[data-theme='dark'] .nn-card-title,
+  :root[data-theme='dark'] .nn-preset-title,
+  :root[data-theme='dark'] .nn-step-badge,
+  :root[data-theme='dark'] .nn-param-label,
+  :root[data-theme='dark'] .nn-accordion-title,
+  :root[data-theme='dark'] .nn-accordion-content {
+    color: #f3f4f6;
+  }
+
+  :root[data-theme='dark'] .nn-panel-desc,
+  :root[data-theme='dark'] .nn-card-desc,
+  :root[data-theme='dark'] .nn-token-bar-label,
+  :root[data-theme='dark'] .nn-speed-label,
+  :root[data-theme='dark'] .nn-stat-sub,
+  :root[data-theme='dark'] :global(.assoc-desc) {
+    color: #9ca3af;
+  }
+
+  :root[data-theme='dark'] .nn-model-nav,
+  :root[data-theme='dark'] .nn-nav-link,
+  :root[data-theme='dark'] .nn-preset-btn,
+  :root[data-theme='dark'] .nn-input,
+  :root[data-theme='dark'] .nn-select,
+  :root[data-theme='dark'] .nn-btn,
+  :root[data-theme='dark'] .nn-stat-card,
+  :root[data-theme='dark'] .nn-equation-box,
+  :root[data-theme='dark'] :global(.token-badge),
+  :global(:root[data-theme='dark'] .state-cell),
+  :global(:root[data-theme='dark'] .output-track-step),
+  :global(:root[data-theme='dark'] .xray-card),
+  :global(:root[data-theme='dark'] .tree-level-row),
+  :global(:root[data-theme='dark'] .tree-node),
+  :global(:root[data-theme='dark'] .a-bar-card),
+  :global(:root[data-theme='dark'] .bench-stat),
+  :global(:root[data-theme='dark'] .assoc-formula) {
+    background-color: #1a2234;
+    border-color: #2d3748;
+    color: #e2e8f0;
+  }
+
+  :root[data-theme='dark'] .nn-btn-primary {
+    background-color: #10b981;
+    color: #ffffff;
+    border-color: #10b981;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Responsive Breakpoints & Mobile Hygiene                                    */
+  /* -------------------------------------------------------------------------- */
+  @media (max-width: 768px) {
+    .nn-main-content {
+      padding: 1rem 1rem 3rem;
+    }
+    .nn-card {
+      padding: 1rem;
+    }
+    .nn-panel-header {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .nn-math-chip {
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .nn-topbar {
+      padding: 0.6rem 0.8rem;
+    }
+    .nn-brand-sub {
+      display: none;
+    }
+    .nn-model-nav {
+      width: 100%;
+      justify-content: stretch;
+    }
+    .nn-model-link {
+      flex: 1;
+      justify-content: center;
+      padding: 0.3rem 0.4rem;
+      font-size: 0.74rem;
+    }
+    .nn-nav-links {
+      gap: 0.35rem;
+    }
+    .nn-nav-link {
+      padding: 0.25rem 0.45rem;
+      font-size: 0.75rem;
+    }
+    .nn-tabs-container {
+      width: 100%;
+    }
+    .nn-mode-tab {
+      flex: 1;
+      justify-content: center;
+      padding: 0.4rem 0.6rem;
+      font-size: 0.78rem;
+    }
+  }
+</style>
