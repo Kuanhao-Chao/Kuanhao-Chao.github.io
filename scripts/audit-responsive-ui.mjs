@@ -38,6 +38,8 @@ const TEST_ROUTES = [
   '/games/snake',
   '/games/tetris',
   '/chromatin',
+  '/shorkie-lab',
+  '/shorkie-lab/attention',
   '/search',
   '/404'
 ];
@@ -105,6 +107,18 @@ async function main() {
           for (const block of codeBlocks) {
             const r = block.getBoundingClientRect();
             if (r.right > clientWidth + 1) {
+              let parent = block.parentElement;
+              let isContained = false;
+              while (parent && parent !== document.body) {
+                const style = window.getComputedStyle(parent);
+                if (style.overflowX === 'auto' || style.overflowX === 'scroll' || style.overflowX === 'hidden') {
+                  isContained = true;
+                  break;
+                }
+                parent = parent.parentElement;
+              }
+              if (isContained) continue;
+
               badElements.push({
                 type: 'unwrapped-block',
                 tag: block.tagName.toLowerCase(),

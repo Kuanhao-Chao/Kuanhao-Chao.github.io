@@ -34,6 +34,18 @@ const itemListLd = {
       name: 'Shorkie_LM — the language model',
       url: `${site.url}/shorkie-lab/shorkie_lm/`,
     },
+    {
+      '@type': 'ListItem',
+      position: 3,
+      name: 'The whole genome',
+      url: `${site.url}/shorkie-lab/genome/`,
+    },
+    {
+      '@type': 'ListItem',
+      position: 4,
+      name: 'DNA Attention & Receptive Field Studio',
+      url: `${site.url}/shorkie-lab/attention/`,
+    },
   ],
 };
 ---
@@ -95,6 +107,19 @@ const itemListLd = {
         the genome are comparable.
       </p>
       <span class="sl-card__go">Open the genome browser →</span>
+    </a>
+
+    <a class="sl-card" href="/shorkie-lab/attention/">
+      <span class="sl-card__tag">interpretability</span>
+      <h2>Attention & Receptive Field Studio</h2>
+      <p class="sl-card__q">“How does an enhancer 10 kb upstream communicate with a TSS?”</p>
+      <p>
+        Layer-by-layer receptive field expansion from Conv Stem (15 bp) to Transformer Bottleneck
+        (16,384 bp). Dual-probe enhancer-to-TSS dependency tracer, authentic 128×128 attention
+        rollout heatmaps, empirical context convergence curves, and cross-architecture comparison
+        (Transformers vs. Dilated CNNs vs. SSM/Mamba).
+      </p>
+      <span class="sl-card__go">Open the attention studio →</span>
     </a>
   </div>
 
