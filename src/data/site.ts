@@ -140,6 +140,7 @@ export const nav: NavItem[] = [
   { label: 'Papers', href: '/papers/', footerOnly: true, group: 'labs' },
   { label: 'Cell Lab', href: '/lab', footerOnly: true, group: 'labs' },
   { label: 'Shorkie Lab', href: '/shorkie-lab/', footerOnly: true, group: 'labs' },
+  { label: 'NN Lab', href: '/nn-lab/', footerOnly: true, group: 'labs' },
   { label: 'Fun Lab', href: '/fun-lab/', footerOnly: true, group: 'labs' },
   { label: 'Terminal', href: '/terminal/', footerOnly: true, group: 'labs' },
   { label: 'Search', href: '/search/', footerOnly: true, group: 'labs' },
