@@ -736,6 +736,18 @@ html[data-theme='dark'] .vp {
 }
 .gb-panel__cascade .gb-panel__pick { width: 100%; }
 
+.gb-panel__modes {
+  display: flex;
+  gap: 0.25rem;
+  margin: 0 0 0.45rem;
+}
+.gb-panel__modes .gb-mode { flex: 1 1 0; text-align: center; }
+.gb-panel__modes .gb-mode[aria-pressed='true'] {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-bg);
+}
+
 .gb-panel__presets {
   display: flex;
   flex-wrap: wrap;

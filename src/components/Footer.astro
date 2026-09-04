@@ -2,7 +2,7 @@
 import Socials from './Socials.astro';
 import SequenceTrack from './SequenceTrack.astro';
 import ThemeSwitcher from './ThemeSwitcher.astro';
-import { site, nav } from '../data/site';
+import { site, navPages, navLabs } from '../data/site';
 const year = new Date().getFullYear();
 ---
 <footer class="site-footer">
@@ -14,16 +14,23 @@ const year = new Date().getFullYear();
       <Socials class="footer-socials" />
     </div>
 
-    <nav class="footer-nav" aria-label="Footer">
-      <p class="eyebrow">Navigate</p>
-      <ul>
-        {nav.map((item) => <li><a href={item.href}>{item.label}</a></li>)}
+    <nav class="footer-col footer-pages" aria-label="Pages navigation">
+      <p class="eyebrow">Pages</p>
+      <ul class="footer-link-grid">
+        {navPages.map((item) => <li><a href={item.href}>{item.label}</a></li>)}
       </ul>
     </nav>
 
-    <div class="footer-connect">
+    <nav class="footer-col footer-labs" aria-label="Interactive and labs">
+      <p class="eyebrow">Labs & Tools</p>
+      <ul class="footer-link-grid">
+        {navLabs.map((item) => <li><a href={item.href}>{item.label}</a></li>)}
+      </ul>
+    </nav>
+
+    <div class="footer-col footer-connect">
       <p class="eyebrow">Connect</p>
-      <ul>
+      <ul class="footer-link-grid footer-connect-grid">
         <li><a href={`mailto:${site.email}`}>{site.email}</a></li>
         <li><a href="https://calendly.com/kuanhao-chao/30min" target="_blank" rel="noopener noreferrer">Coffee chat ☕</a></li>
         <li><a href="https://scholar.google.com/citations?user=n2AvFg0AAAAJ&hl=en" target="_blank" rel="noopener noreferrer">Google Scholar</a></li>
@@ -59,7 +66,7 @@ const year = new Date().getFullYear();
     margin-top: auto;
     border-top: 1px solid var(--color-rule);
     padding-top: clamp(2rem, 3vw, 2.25rem);
-    padding-bottom: var(--space-8);
+    padding-bottom: clamp(3rem, 5vw, 4.5rem);
   }
   .footer-seq {
     margin-bottom: clamp(1.5rem, 3vw, 2.25rem);
@@ -67,8 +74,8 @@ const year = new Date().getFullYear();
   }
   .footer-grid {
     display: grid;
-    grid-template-columns: 1.6fr 1fr 1fr;
-    gap: clamp(2rem, 5vw, 4rem);
+    grid-template-columns: 1.4fr 1fr 1fr 1.1fr;
+    gap: clamp(1.75rem, 3.5vw, 3.5rem);
   }
   /* Long social rows and contact links must be allowed to wrap inside the
      responsive grid instead of expanding the page's scroll width. */
@@ -85,23 +92,28 @@ const year = new Date().getFullYear();
     margin-top: 0.2rem;
     margin-bottom: 1rem;
   }
-  .footer-nav ul,
-  .footer-connect ul {
+  .footer-col {
+    min-width: 0;
+  }
+  .footer-link-grid {
     list-style: none;
     padding: 0;
     margin: 0.75rem 0 0;
     display: flex;
     flex-direction: column;
-    gap: 0.55rem;
+    gap: 0.5rem;
   }
-  .footer-nav a,
-  .footer-connect a {
+  .footer-link-grid li {
+    min-width: 0;
+  }
+  .footer-link-grid a {
     color: var(--color-ink);
     font-size: var(--fs-small);
     overflow-wrap: anywhere;
+    display: inline-block;
+    transition: color var(--trans-fast);
   }
-  .footer-nav a:hover,
-  .footer-connect a:hover {
+  .footer-link-grid a:hover {
     color: var(--color-accent);
     text-decoration: none;
   }
@@ -110,7 +122,7 @@ const year = new Date().getFullYear();
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
+    gap: 1.25rem;
     margin-top: clamp(2rem, 4vw, 3rem);
     padding-top: var(--space-5);
     border-top: 1px solid var(--color-rule);
@@ -150,9 +162,11 @@ const year = new Date().getFullYear();
     transform: scale(1.25) rotate(12deg);
   }
 
-  @media (max-width: 768px) {
+  /* Medium screens / Tablets: Brand spans full top width, 3 link columns sit side-by-side */
+  @media (max-width: 880px) {
     .footer-grid {
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 2rem 1.5rem;
     }
     .footer-brand {
       grid-column: 1 / -1;
@@ -167,10 +181,54 @@ const year = new Date().getFullYear();
     }
   }
 
-  @media (max-width: 480px) {
+  /* Small Tablets / Large Phones: 2 columns for links */
+  @media (max-width: 700px) and (min-width: 640px) {
+    .footer-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem 1.5rem;
+    }
+    .footer-brand {
+      grid-column: 1 / -1;
+    }
+    .footer-connect {
+      grid-column: 1 / -1;
+    }
+    .footer-connect-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.5rem 1rem;
+    }
+  }
+
+  /* Mobile Phones: 2-column compact grid for link lists */
+  @media (max-width: 639px) {
     .footer-grid {
       grid-template-columns: 1fr;
-      gap: 1.5rem;
+      gap: 1.75rem;
+    }
+    .footer-link-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.45rem 1rem;
+    }
+    .footer-link-grid a {
+      display: flex;
+      align-items: center;
+      min-height: 2.1rem;
+      padding-block: 0.15rem;
+    }
+    .footer-connect-grid li:first-child {
+      grid-column: 1 / -1;
+    }
+  }
+
+  /* Very narrow mobile devices (<= 340px) */
+  @media (max-width: 340px) {
+    .footer-link-grid {
+      gap: 0.4rem 0.5rem;
+    }
+    .footer-link-grid a {
+      font-size: 0.82rem;
     }
   }
 </style>

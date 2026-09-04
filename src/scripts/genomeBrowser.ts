@@ -846,7 +846,36 @@ export function initGenomeBrowser(host: HTMLElement): void {
    * lanes -- a lane hidden from the panel but still reachable from a preset or a URL is worse than
    * one hidden from nothing.
    */
-  const laneHidden = laneExcluder(host.dataset.gbExclude);
+  /**
+   * Which network's lanes are on offer.
+   *
+   * The browser carries TWO models that share an encoder and answer opposite questions:
+   * Shorkie_LM predicts the SEQUENCE (tall = constrained) and Shorkie predicts what an ASSAY would
+   * measure on it (tall = transcribed). A gene body is high on both for unrelated reasons, and
+   * that is the single most available misreading of this page. Being able to put one model away
+   * is what makes the comparison a choice rather than a default.
+   *
+   * It filters availability, never the `enabled` map -- so switching to one model and back
+   * restores exactly the lanes that were on, rather than silently discarding them.
+   */
+  type ModelMode = 'both' | 'shorkie' | 'lm';
+  const MODEL_GROUPS: Record<ModelMode, Set<string> | null> = {
+    both: null,
+    shorkie: new Set(['expression', 'attribution', 'comparative']),
+    lm: new Set(['constraint', 'comparative']),
+  };
+  let modelMode: ModelMode = 'both';
+
+  const laneExcluded = laneExcluder(host.dataset.gbExclude);
+  const groupOf = new Map<string, string>();
+  const laneHidden = (id: string): boolean => {
+    if (laneExcluded(id)) return true;
+    const allow = MODEL_GROUPS[modelMode];
+    if (!allow) return false;
+    const g = groupOf.get(id);
+    // Annotation lanes have no group and belong to neither model, so they stay in every mode.
+    return g != null && !allow.has(g);
+  };
   /**
    * Every toggleable lane, in THE order, with the excluded ones already gone.
    *
@@ -2710,6 +2739,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     roi,
     // Only when the lane is on, so an ordinary link stays short.
     locusTrack: enabled.get(LOCUS_LANE) ? locusTrackIdx : undefined,
+    model: modelMode,
   });
 
   function setView(next: View, opts: { push?: boolean; hash?: boolean } = {}): void {
@@ -3266,6 +3296,44 @@ export function initGenomeBrowser(host: HTMLElement): void {
       if (d) panelBox.appendChild(d);
     };
 
+    // Which model's lanes are on offer, above everything else: it is the widest choice a reader
+    // makes here, since every lane below belongs to one network or the other. Only offered where
+    // both are actually present -- the analysis page's embed excludes `lm-` and would otherwise
+    // grow a control that could only take lanes away.
+    if (!laneExcluded('lm-masked') && index.tracks.some((x) => x.group === 'constraint')) {
+      const modes: { id: ModelMode; label: string; hint: string }[] = [
+        { id: 'both', label: 'Both', hint: 'every lane, for comparison' },
+        { id: 'shorkie', label: 'Shorkie', hint: 'what an assay would measure here, and what drove it' },
+        { id: 'lm', label: 'Shorkie_LM', hint: 'how constrained each base is' },
+      ];
+      const mh = document.createElement('p');
+      mh.className = 'gb-panel__head';
+      mh.textContent = 'Model';
+      panelBox.appendChild(mh);
+      const bar = document.createElement('div');
+      bar.className = 'gb-panel__modes';
+      for (const m of modes) {
+        const bn = document.createElement('button');
+        bn.type = 'button';
+        bn.className = 'gb-preset gb-mode';
+        bn.textContent = m.label;
+        bn.title = m.hint;
+        bn.dataset.gbModel = m.id;
+        bn.setAttribute('aria-pressed', modelMode === m.id ? 'true' : 'false');
+        bn.addEventListener('click', () => {
+          // Availability only. The `enabled` map is untouched, so switching away and back
+          // restores exactly the lanes that were on rather than discarding them.
+          modelMode = m.id;
+          host.dataset.gbModelOn = m.id;
+          writeHash();
+          buildPanel();
+          schedule();
+        });
+        bar.appendChild(bn);
+      }
+      panelBox.appendChild(bar);
+    }
+
     // The presets first: they are how a reader with no map gets to a useful view in one click.
     const pbar = document.createElement('div');
     pbar.className = 'gb-panel__presets';
@@ -3453,6 +3521,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
       locusSpec = locusTrackSpec();
       index.tracks.push(locusSpec);
     }
+    for (const tr of index.tracks) if (tr.group) groupOf.set(tr.id, tr.group);
 
     if (chromSel) {
       chromSel.replaceChildren();
@@ -3479,6 +3548,10 @@ export function initGenomeBrowser(host: HTMLElement): void {
     const hash = !isMinimal ? decodeViewState(window.location.hash, index.chroms) : { tracks: [], view: null, roi: null };
     // Before applyTracks, so the panel is built with the right track already selected rather than
     // built for the default and then rebuilt.
+    if (hash.model === 'shorkie' || hash.model === 'lm' || hash.model === 'both') {
+      modelMode = hash.model;
+    }
+    host.dataset.gbModelOn = modelMode;
     if (hash.locusTrack != null && hash.locusTrack >= 0 && hash.locusTrack < TRACK_NAMES.length) {
       locusTrackIdx = hash.locusTrack;
       refreshLocusSpec();
