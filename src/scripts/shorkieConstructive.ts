@@ -18,6 +18,7 @@ import receptiveData from '../data/shorkieReceptive.json';
 import giaData from '../data/shorkieGia.json';
 import spacingData from '../data/shorkieSpacing.json';
 import positionData from '../data/shorkiePosition.json';
+import cfData from '../data/shorkieCounterfactual.json';
 
 interface RecLocus {
   gene: string; full: number; radii: number[]; curve: number[];
@@ -467,9 +468,70 @@ export function initShorkieConstructive(host: HTMLElement): void {
     }
   }
 
+  // -----------------------------------------------------------------------------------------
+  // 6. What would the model build?
+  // -----------------------------------------------------------------------------------------
+  const cfCv = $<HTMLCanvasElement>('[data-cn-counterfactual]');
+
+  function drawCounterfactual(): void {
+    if (!cfCv) return;
+    const cd = cfData as unknown as {
+      loci: Record<string, { gene: string; base: number; gain: number; controlGain: number }>;
+      summary: { gainVsBaselineR: number };
+    };
+    const rows = Object.values(cd.loci);
+    const H = 240;
+    const ctx = fit(cfCv, H);
+    if (!ctx) return;
+    const w = Math.max(1, Math.round(cfCv.clientWidth));
+    const ink = css(host, '--color-ink', '#1a1a1a');
+    const muted = css(host, '--color-muted', '#6b7280');
+    const rule = css(host, '--color-rule', '#e5e7eb');
+    const acc = css(host, '--color-accent', '#2563eb');
+    const pad = { l: 42, r: 12, t: 16, b: 34 };
+    const inner = w - pad.l - pad.r;
+    const plot = H - pad.t - pad.b;
+    ctx.clearRect(0, 0, w, H);
+    const xs = rows.map((r) => r.base);
+    const lo = Math.min(...xs) - 0.6; const hi = Math.max(...xs) + 0.6;
+    const gmax = Math.max(...rows.map((r) => r.gain)) * 1.12;
+    const X = (v: number) => pad.l + (inner * (v - lo)) / (hi - lo);
+    const Y = (v: number) => pad.t + plot - (plot * v) / gmax;
+    ctx.strokeStyle = rule;
+    ctx.beginPath(); ctx.moveTo(pad.l, Y(0)); ctx.lineTo(w - pad.r, Y(0)); ctx.stroke();
+    ctx.font = '10px system-ui, sans-serif';
+    for (const r of rows) {
+      const x = X(r.base); const y = Y(r.gain);
+      ctx.fillStyle = acc;
+      ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
+      // Only the extremes are labelled: 23 names at this size is spaghetti, and the two ends are
+      // what carries the reading.
+      if (r.gain > gmax * 0.45 || r.base > 15.5) {
+        ctx.fillStyle = ink; ctx.textAlign = x > pad.l + inner * 0.7 ? 'right' : 'left';
+        ctx.fillText(r.gene, x + (ctx.textAlign === 'right' ? -7 : 7), y + 3);
+      }
+    }
+    ctx.fillStyle = muted; ctx.textAlign = 'right';
+    ctx.fillText(`+${gmax.toFixed(1)}`, pad.l - 4, pad.t + 8);
+    ctx.fillText('0', pad.l - 4, Y(0) + 3);
+    ctx.save();
+    ctx.translate(11, pad.t + plot / 2); ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center'; ctx.fillText('gain from 12 edits (log₂)', 0, 0);
+    ctx.restore();
+    ctx.textAlign = 'center';
+    for (const v of [6, 9, 12, 15]) {
+      if (v > lo && v < hi) ctx.fillText(String(v), X(v), H - 18);
+    }
+    caption(ctx, [
+      'starting predicted expression (log₂) — the more a gene is already on, the less there is to gain',
+      'starting predicted expression (log₂)',
+      'starting expression (log₂)',
+    ], pad.l + inner / 2, H - 5, inner);
+  }
+
   function drawAll(): void {
     drawReceptive(); statReceptive(); drawGia(); drawJoin();
-    drawSpacing(); statSpacing(); drawPosition();
+    drawSpacing(); statSpacing(); drawPosition(); drawCounterfactual();
   }
 
   spPick?.addEventListener('change', () => { drawSpacing(); statSpacing(); });
