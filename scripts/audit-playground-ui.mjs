@@ -23,7 +23,7 @@
 
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import process from 'node:process';
 import { chromium, webkit } from 'playwright';
 
@@ -1523,7 +1523,25 @@ const N_FIGURE_WINDOWS = JSON.parse(
 const LM_ROUTE = '/shorkie-lab/shorkie_lm/';
 const GENOME_ROUTE = '/shorkie-lab/genome/';
 const ATTN_ROUTE = '/shorkie-lab/attention/';
-const LAB_ROUTES = ['/shorkie-lab/', '/shorkie-lab/shorkie/', LM_ROUTE, GENOME_ROUTE, ATTN_ROUTE];
+
+/**
+ * Was this route actually built?
+ *
+ * A route the build did not produce is served by the preview server as the 404 page, and every
+ * assertion against it then fails in a way that describes the 404 rather than the bug: "expected 23
+ * loci options, found 0", and a prose check reporting a swallowed space in the 404 page's own
+ * copy. That is what took CI down -- this file was committed carrying a scope for a page whose
+ * three source files were still untracked, so the gate tested a route that did not exist.
+ *
+ * Skipping is announced, never silent: a gate that quietly stops testing something is worse than
+ * one that fails. When the page lands, its scope comes back with no edit here.
+ */
+const built = (route) =>
+  existsSync(new URL(`../dist${route}index.html`, import.meta.url));
+
+const ALL_LAB_ROUTES = ['/shorkie-lab/', '/shorkie-lab/shorkie/', LM_ROUTE, GENOME_ROUTE, ATTN_ROUTE];
+const LAB_ROUTES = ALL_LAB_ROUTES.filter(built);
+const SKIPPED_ROUTES = ALL_LAB_ROUTES.filter((r) => !built(r));
 
 /**
  * A newline between prose and an inline tag is DELETED by JSX, not collapsed to a space, so
@@ -3061,6 +3079,11 @@ async function main() {
 
   const want = expected();
   progress(`expecting ${want.panels} panels from source: ${want.headings.slice(0, 3).join(' / ')}…`);
+  // Loud, because a gate that quietly stops testing a route is worse than one that fails.
+  if (SKIPPED_ROUTES.length) {
+    progress(`skipping ${SKIPPED_ROUTES.length} route(s) absent from this build: `
+      + SKIPPED_ROUTES.join(', '));
+  }
 
   try {
     await waitForSite(`${baseURL}${ROUTE}`, preview);
@@ -3102,8 +3125,12 @@ async function main() {
           await captureFailure('chromium/explanations', () => auditExplanations(browser, baseURL, 'chromium/explanations'));
           progress('chromium/language-model');
           await captureFailure('chromium/language-model', () => auditLanguageModel(browser, baseURL, 'chromium/language-model'));
-          progress('chromium/attention-studio');
-          await captureFailure('chromium/attention-studio', () => auditAttentionStudio(browser, baseURL, 'chromium/attention-studio'));
+          if (built(ATTN_ROUTE)) {
+            progress('chromium/attention-studio');
+            await captureFailure('chromium/attention-studio', () => auditAttentionStudio(browser, baseURL, 'chromium/attention-studio'));
+          } else {
+            progress(`chromium/attention-studio SKIPPED — ${ATTN_ROUTE} is not in this build`);
+          }
           progress('chromium/genome (level ladder, cache bound, axis, deep links)');
           await captureFailure('chromium/genome', () => auditGenomeBrowser(browser, baseURL, 'chromium/genome'));
           progress('chromium/axis-alignment (5 widths)');
