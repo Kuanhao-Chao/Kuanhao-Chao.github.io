@@ -2342,6 +2342,120 @@ worth keeping.
   indentation survives and the next declaration gains two spaces.
 
 
+#### The two pages were split, and what that fixed
+
+`/shorkie-lab/shorkie/` embedded the genome browser as act 1 while `/shorkie-lab/genome/` embedded
+the same browser again. **The browser now lives only on `/genome/`**, and the analysis page got its
+per-locus track views back (`renderTrack`, `renderAttribution`, `renderMethods`,
+`renderAnnotation`, recovered from `71ce1db1^`). Deep links both ways replace the embed.
+
+- **The locus/region bridge was ONE-WAY, and that was the bug.** `genomeBrowser.ts` dispatches
+  `khc:gb-view`; `variantPlayground.ts`, `shorkieFrontier.ts` and `shorkieConstructive.ts` listen.
+  Nothing listened the other way, so the sticky bar's locus select moved every interpretability
+  panel and left the browser — and the species, epistasis, kinetics and receptive-field panels that
+  follow it — on the previous gene.
+- **A region cannot survive a locus change**, and `clearResults` never nulled `tracedBins` nor
+  called `renderTraceContext`. The bar kept naming the previous gene's region while every panel
+  re-rendered against the new locus at the old bin range. One `clearTrace()` now serves the button,
+  the placeholder option and the locus change.
+- **A `<select>` whose value matches no option displays its FIRST one.** With nothing traced the
+  region bar read as though a region were selected. There is a `— none —` option now.
+- **The measured-coverage overlay did not come back.** `src/data/shorkieTruth.json` is a 225-byte
+  empty stub (requester-pays bucket), so the checkbox could only ever report "no measured coverage
+  loaded".
+- **The annotation lane/tier toggles drive the DRAWING only.** `drawnAnnotations()` filters;
+  `visibleAnnotations()` stays unfiltered so the enrichment table keeps measuring every tier.
+
+#### The browser: one ordering, four groups, a model selector, and per-track resolution
+
+- **Three orderings disagreed.** The panel grouped by `groupLabels`, the canvas (`laneSpecs`) drew
+  in raw `index.tracks` order with genes last, and `ALL_LANES` matched neither *while its comment
+  said it did*. `laneOrder` in the pure module is now the single ordering and the panel, the canvas,
+  the enumerator, the statistics table and the CSV all read it. Six tests pin it.
+- **`ALL_LANES` is deleted, not fixed.** `data-gb-exclude` was applied in the `availableLanes()`
+  wrapper while the unfiltered enumerator sat beside it returning everything. There is now no
+  unfiltered enumerator to call by mistake. (CLAUDE.md's list of five exclude sites omits a sixth,
+  `familyMembers()`.)
+- **`attribution` is its own group.** `expression` held 43 tracks mixing what an assay would measure
+  with which *bases* moved that prediction. `groupOrder` is declared in the tiler beside the labels.
+- **`make_genome_tiles.py --index-only`** rewrites `index.json` against the tiles on disk. Group,
+  label and docs are metadata carried nowhere in a tile, so a full run rmtree's 5,146 PNGs to
+  rebuild them identically. It carries the axes over from the shipped index — sound only because
+  the arrays have not moved — and refuses for any track not already in the index with an axis.
+- **The "large empty box" was the PANEL, not the canvas.** `laneLayout` derives the total and `fit`
+  writes `style.height`, so the canvas is 35 px with every lane off; `.gb-panel`'s `max-height:
+  30rem` in a flex row held ~480 px open. It is sized from what is drawn now, floored at 260 px, and
+  the inline height is **removed** below 900 px where the layout stacks — otherwise it overrides the
+  media query and survives a resize back down.
+- **Per-track genome-wide selection is arithmetic, not a design choice.** A 16 bp coverage lane is
+  ~887 KB of tiles genome-wide, so all 5,215 would be **~4.7 GB** plus a **~33 MB `index.json`**
+  that blocks before the first tile. `dist` is 440 MB against a 1 GB Pages limit.
+- **But `<id>-tracks.png` is 5,215 × 896 at 16 bp, 2.15 MB, for each of the 23 windows.** The
+  `sk-locus` lane surfaces it — sparse, the way `sk-ism` already is. Net new payload: nothing. Its
+  picker is built from `trackIndex`, the same index the analysis page uses.
+- **Its axis is the loudest of all 5,215 tracks AT THAT WINDOW**, not the selected track's own
+  range, so switching track does not silently rescale. Deliberately not shared with `sk-rnaseq`,
+  whose axis tops out at 1,097.6 (the genome-wide max of a 384-track MEAN) while a single track
+  reaches 2,408 — **2,693 of the 119,945 track-locus rows would clip against it, invisibly**.
+- **A tile-less lane needs its branch INSIDE `sample` and `sampleBins`**, not at the call sites.
+  There were four (draw, correlation, statistics, CSV) and putting it at each let the **minimap** and
+  the **hover readout**, which reach `tile()` directly, 404 on `sk-locus`.
+- **The model selector filters AVAILABILITY, never the `enabled` map**, so switching away and back
+  restores exactly the lanes that were on. phastCons, GC and the annotation lanes belong to neither
+  network and stay in every mode.
+
+#### `space: "log"` means two different transforms in ONE sidecar
+
+`<id>.json` carries every plane of a locus in one object, and two of them declare `space: "log"`:
+
+| plane | quantised by | inverse |
+| --- | --- | --- |
+| `tracks` | `np.log1p` (`make_activations.py:63`) | `expm1` |
+| `ism` | `sign·log10(1+\|a\|/1e-4)` (`make_ism.py:185`) | `sign·1e-4·(10^\|v\|−1)` |
+
+`decodePackedPlane` implemented only the second, so **this repo's own rule — never hand-write a
+decode — pointed at the wrong function for coverage**, and `variantPlayground.ts` was quietly
+hand-writing the right one inline. At a byte of 255 over a row spanning [0,2] the two give 6.389 and
+0.0099. `decodePackedRows(px, spec, space)` now takes the space **explicitly from the caller**, which
+knows which plane it fetched; `decodePackedPlane` stays as the named ISM entry point.
+
+#### Four more interpretability methods
+
+| script | asks | cost |
+| --- | --- | --- |
+| `make_variation.py` | do segregating variants avoid the bases the model says matter? | seconds, **no model** |
+| `make_heads.py` | what does each attention head attend to? | seconds, **no model** |
+| `make_position.py` | *where* does a motif work, relative to the TSS? | 47,104 passes, 21 min |
+| `make_counterfactual.py` | what would the model *build*? | 5.5 min |
+
+- **The variation test is PAIRED AT THE BASE**, which is what makes it a test rather than a
+  correlation: the observed allele is compared with the two alternates at the *same* position that
+  nature did not choose, so position, context, gene and expression are held fixed and no null model
+  is needed. Observed alleles are the milder ones 55.8 / 55.4 / 54.6% of the time (missense /
+  synonymous / non-coding), sign-test z = 2.5 / 3.3 / 2.7. **A sign test because the ratios are
+  skewed** — for missense the ratio of means is 0.99 while the median per-site ratio is 0.90.
+  The reference base matched sacCer3 at **2,319 of 2,319**, which is what makes the coordinates
+  trustworthy.
+- **Heads 0 and 3 read regulatory DNA** (conserved TFBS 1.75× and 1.88×, ORegAnno 1.82× and 1.72×)
+  and are *depleted* on CDS (0.73, 0.69); **head 4 is the mirror**; **head 6 alone reads tRNA**
+  (1.50×). Widest spread within a class 4.35×. Three things make it meaningful: the mask is pooled
+  by **mean, never max** (a 7 bp site is 5% of a 128 bp cell); the null is a **circular shift**; and
+  every class records its **ceiling, 1/coverage** — genes cover 91.5% of a window so nothing can
+  exceed 1.09× on them, and reading their 1.03 as "flat" would be wrong.
+- **The positional sweep implants a SCRAMBLE at every position too.** Overwriting 8 bp of a real
+  promoter destroys what was there, and in a promoter that is exactly where the real sites are — so
+  the artefact would look like the signal. The difference cancels it. Cbf1 reaches +0.094 in the
+  500 bp upstream against −0.002 inside; Rap1 and TATA, the two GIA called not sufficient, are flat.
+  **Every curve goes flat beyond ±2 kb**, independently reproducing the receptive-field result.
+- **The counterfactual's control refutes its own headline.** The ascent invents 18 recognisable
+  motifs across 11 windows — and the identical ascent on dinucleotide-shuffled DNA builds **54 in 23
+  of 23**. Raw the control wins 3.0×; normalised by expression gained they are within 25%. What
+  survives is that the achievable gain is set by **headroom**: gain against starting expression is
+  **r = −0.873**, the five quietest genes gaining 2.80 log₂ and the five loudest 0.39.
+- **Both model-based scripts separate analysis from sweep** (`--summarise`, and `--join-only` /
+  `--reanalyse` on the earlier pair) so a confounding argument can be re-checked without re-running.
+
+
 ### Other non-obvious things
 - **Math (KaTeX)** is wired in `astro.config.mjs` (`remark-math` + `rehype-katex`) for the LaTeX-heavy reports; the report slug page imports `katex/dist/katex.min.css` so both the page and its printed PDF typeset math. Posts currently use no math.
 - **Cross-links between sections** use `relatedPosts` references in frontmatter, resolved by `src/lib/relatedPosts.ts` into "Blog" chips on publication/research entries.
