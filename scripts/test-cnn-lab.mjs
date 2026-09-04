@@ -25,7 +25,11 @@ import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
-const SCRATCH_DIR = '/Users/chaokuan-hao/.gemini/antigravity-cli/brain/7f11aa1c-5b3b-44de-bfd9-1ce4fbc93a1c/scratch';
+const SCRATCH_DIR =
+  process.env.SCRATCH_DIR ||
+  (fs.existsSync('/Users/chaokuan-hao/.gemini/antigravity-cli/brain/7f11aa1c-5b3b-44de-bfd9-1ce4fbc93a1c/scratch')
+    ? '/Users/chaokuan-hao/.gemini/antigravity-cli/brain/7f11aa1c-5b3b-44de-bfd9-1ce4fbc93a1c/scratch'
+    : path.join(ROOT, '.scratch'));
 
 const VIEWPORTS = [
   { name: 'Desktop', width: 1280, height: 800 },
