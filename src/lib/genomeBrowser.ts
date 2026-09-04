@@ -619,7 +619,10 @@ export interface ViewState {
   /** Enabled track ids, in draw order. */
   tracks: string[];
   /** A region of interest that survives navigation, or null. */
-  roi: { start: number; end: number } | null;
+  roi: { start: number; end: number
+  /** Index of the output track the per-locus lane is showing, when that lane is enabled. */
+  locusTrack?: number;
+} | null;
 }
 
 /**
@@ -633,6 +636,9 @@ export function encodeViewState(s: ViewState): string {
   const parts = [formatLocus(s.view).replace(/,/g, '')];
   if (s.tracks.length) parts.push(`t=${s.tracks.join(',')}`);
   if (s.roi) parts.push(`roi=${Math.round(s.roi.start)}-${Math.round(s.roi.end)}`);
+  // Which of the 5,215 the per-locus lane is showing. Omitted unless that lane is on, so an
+  // ordinary link stays short and an older link still decodes.
+  if (s.locusTrack != null) parts.push(`k=${s.locusTrack}`);
   return parts.join(';');
 }
 
@@ -646,6 +652,7 @@ export function decodeViewState(hash: string, chroms: ChromInfo[]): DecodedViewS
   for (const part of rest) {
     const [k, v] = part.split('=');
     if (k === 't' && v) out.tracks = v.split(',').filter(Boolean);
+    if (k === 'k' && v && Number.isFinite(Number(v))) out.locusTrack = Number(v);
     if (k === 'roi' && v) {
       const [a, b] = v.split('-').map(Number);
       if (Number.isFinite(a) && Number.isFinite(b)) {
