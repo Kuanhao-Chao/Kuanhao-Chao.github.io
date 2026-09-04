@@ -90,6 +90,7 @@ import {
   type AnnotationFeature,
   decodePackedPlane,
   motifConsensusFor,
+  decodePackedRows,
 } from './shorkieModel';
 import tracks from '../data/shorkieTracks.json';
 import trackNames from '../data/shorkieTrackNames.json';
@@ -2727,5 +2728,50 @@ describe('motifConsensusFor', () => {
 
   it('handles the non-ASCII names in the shipped dictionary', () => {
     expect(motifConsensusFor('5\u2032 splice site', dict)?.consensus).toBe('GTATGT');
+  });
+});
+
+describe('decodePackedRows: two packs, one word, two inverses', () => {
+  // A locus sidecar declares `space: "log"` for BOTH its `tracks` plane and its `ism` plane, and
+  // they are quantised by different functions -- np.log1p in make_activations.py:63, and
+  // sign*log10(1+|a|/1e-4) in make_ism.py:185. Reading the string and picking one decode is the
+  // bug this pair of tests exists to prevent.
+  const px = (bytes: number[]) => {
+    const a = new Uint8ClampedArray(bytes.length * 4);
+    bytes.forEach((b, i) => { a[i * 4] = b; });
+    return a;
+  };
+  const spec = { rows: 1, cols: 3, lo: [0], hi: [2], space: 'log' };
+
+  it('log1p undoes make_activations.py exactly', () => {
+    const out = decodePackedRows(px([0, 128, 255]), spec, 'log1p');
+    // byte -> v = b/255*2 -> expm1(v)
+    expect(out[0]).toBeCloseTo(Math.expm1(0), 6);
+    expect(out[1]).toBeCloseTo(Math.expm1((128 / 255) * 2), 6);
+    expect(out[2]).toBeCloseTo(Math.expm1(2), 6);
+  });
+
+  it('signed-log10 undoes make_ism.py exactly', () => {
+    const out = decodePackedRows(px([0, 128, 255]), spec, 'signed-log10');
+    const f = (v: number) => Math.sign(v) * 1e-4 * (10 ** Math.abs(v) - 1);
+    expect(out[0]).toBeCloseTo(f(0), 9);
+    expect(out[1]).toBeCloseTo(f((128 / 255) * 2), 9);
+    expect(out[2]).toBeCloseTo(f(2), 9);
+  });
+
+  it('the two are NOT interchangeable away from zero', () => {
+    const a = decodePackedRows(px([255]), spec, 'log1p')[0];
+    const b = decodePackedRows(px([255]), spec, 'signed-log10')[0];
+    // expm1(2) = 6.389; 1e-4*(10^2-1) = 0.0099. Three orders of magnitude apart.
+    expect(a).toBeCloseTo(6.389056, 5);
+    expect(b).toBeCloseTo(0.0099, 6);
+    expect(Math.abs(a - b)).toBeGreaterThan(6);
+  });
+
+  it('decodePackedPlane is the SIGNED one, for the mutagenesis packs', () => {
+    const viaPlane = decodePackedPlane(px([255]), spec);
+    const signed = decodePackedRows(px([255]), spec, 'signed-log10');
+    expect(viaPlane[0]).toBe(signed[0]);
+    expect(viaPlane[0]).not.toBe(decodePackedRows(px([255]), spec, 'log1p')[0]);
   });
 });

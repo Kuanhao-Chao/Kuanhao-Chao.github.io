@@ -1053,29 +1053,58 @@ export interface PackedPlaneSpec {
 }
 
 /**
+ * How a packed plane's bytes turn back into numbers.
+ *
+ * THE SIDECAR'S `space` FIELD DOES NOT DETERMINE THIS, and that is the trap. `<id>.json` carries
+ * every plane of a locus in one object, and **two of them declare `space: "log"` meaning different
+ * transforms**:
+ *
+ *   plane      quantised by                                    inverse
+ *   `tracks`   `np.log1p` (make_activations.py:63)             `expm1`
+ *   `ism`      `sign·log10(1+|a|/1e-4)` (make_ism.py:185)      `sign·1e-4·(10^|v|−1)`
+ *
+ * One is unsigned coverage, the other signed saliency, and neither inverse is close to the other
+ * away from zero. So the space is passed EXPLICITLY by the caller, which knows which plane it
+ * fetched, rather than read off a string that is ambiguous on disk.
+ */
+export type PackSpace = 'linear' | 'log1p' | 'signed-log10';
+
+/**
  * One row-quantised uint8 plane back to floats.
  *
- * EXPORTED, and every consumer must use this rather than writing the inverse again. The packs are
- * written by `quantize_rows` in `scripts/shorkie/make_ism.py` as `sign(v)·1e-4·(10^|v| − 1)` over a
- * per-row `lo`/`hi`, and a plausible-looking alternative -- `sign·expm1(|v|·log1p(m))` -- is
- * monotone and odd, so it preserves every sign and every argmax and fails no obvious check while
- * changing every correlation computed from it. That exact mistake shipped once here: it reported a
- * sign agreement of 23/23 and a median r of 0.30 where the truth was 22/23 and 0.369.
+ * EXPORTED, and every consumer must use this rather than writing the inverse again. A
+ * plausible-looking alternative to the signed form -- `sign·expm1(|v|·log1p(m))` -- is monotone and
+ * odd, so it preserves every sign and every argmax and fails no obvious check while changing every
+ * correlation computed from it. That exact mistake shipped once here: it reported a sign agreement
+ * of 23/23 and a median r of 0.30 where the truth was 22/23 and 0.369.
  *
  * `px` is RGBA from a decoded PNG; only the red channel carries data.
  */
-export function decodePackedPlane(px: Uint8ClampedArray, spec: PackedPlaneSpec): Float32Array {
+export function decodePackedRows(
+  px: Uint8ClampedArray, spec: PackedPlaneSpec, space: PackSpace,
+): Float32Array {
   const out = new Float32Array(spec.rows * spec.cols);
-  const log = spec.space === 'log';
   for (let r = 0; r < spec.rows; r += 1) {
     const lo = spec.lo[r] ?? 0;
     const range = Math.max((spec.hi[r] ?? 1) - lo, 1e-12);
     for (let c = 0; c < spec.cols; c += 1) {
       const v = (px[(r * spec.cols + c) * 4] / 255) * range + lo;
-      out[r * spec.cols + c] = log ? Math.sign(v) * 1e-4 * (10 ** Math.abs(v) - 1) : v;
+      out[r * spec.cols + c] = space === 'signed-log10'
+        ? Math.sign(v) * 1e-4 * (10 ** Math.abs(v) - 1)
+        : space === 'log1p' ? Math.expm1(v) : v;
     }
   }
   return out;
+}
+
+/**
+ * The mutagenesis pack's decoder: `space: "log"` there means the SIGNED form.
+ *
+ * Kept as its own name so the ISM call sites read as what they are, and so nothing can reach for
+ * a generic "decode this plane" and silently get the wrong one of the two.
+ */
+export function decodePackedPlane(px: Uint8ClampedArray, spec: PackedPlaneSpec): Float32Array {
+  return decodePackedRows(px, spec, spec.space === 'log' ? 'signed-log10' : 'linear');
 }
 
 export const LOGO_GLOBSCALE = 1.35;
