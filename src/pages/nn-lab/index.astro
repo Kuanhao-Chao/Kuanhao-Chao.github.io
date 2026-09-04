@@ -43,6 +43,27 @@ const breadcrumbLd = buildBreadcrumbLd([
         <span class="nn-brand-sub">Foundational Deep Learning Laboratory</span>
       </div>
 
+      <!-- Model Studio Navigation Tabs -->
+      <nav class="nn-model-nav" aria-label="NN Lab Studios">
+        <a
+          href="/nn-lab/"
+          class="nn-model-link active"
+          aria-current="page"
+          title="Convolutional Neural Network Studio"
+        >
+          <span class="nn-model-icon" aria-hidden="true">🖼️</span>
+          <span>CNN Studio (2D & 1D)</span>
+        </a>
+        <a
+          href="/nn-lab/transformer/"
+          class="nn-model-link"
+          title="Transformer Attention & Layer Studio"
+        >
+          <span class="nn-model-icon" aria-hidden="true">✨</span>
+          <span>Transformer Studio (Attention & Layer)</span>
+        </a>
+      </nav>
+
       <nav class="nn-nav-links" aria-label="Site Navigation">
         <a href="/" class="nn-nav-link" title="Return to Homepage">
           <span aria-hidden="true">←</span> Home
@@ -52,6 +73,9 @@ const breadcrumbLd = buildBreadcrumbLd([
         </a>
         <a href="/lab" class="nn-nav-link" title="Cell Lab: Cellular Automata">
           <span aria-hidden="true">🔬</span> Cell Lab
+        </a>
+        <a href="/deep_dives/" class="nn-nav-link" title="Technical Deep Dives">
+          <span aria-hidden="true">📚</span> Deep Dives
         </a>
         <a href="/algorithms/" class="nn-nav-link" title="Interactive Algorithms & Data Structures">
           <span aria-hidden="true">⚡</span> Algorithms
@@ -953,6 +977,60 @@ inputs = inputs.to(memory_format=torch.channels_last)</code></pre>
     font-size: 0.85rem;
     color: var(--color-muted, #6b6b6b);
     font-weight: 500;
+  }
+
+  /* Model Studio Navigation Tabs */
+  .nn-model-nav {
+    display: inline-flex;
+    align-items: center;
+    background-color: var(--color-bg, #fafaf8);
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 4px;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+
+  .nn-model-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.84rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--color-muted, #6b6b6b);
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+  }
+
+  .nn-model-link:hover {
+    color: var(--color-ink, #141414);
+    background-color: rgba(0, 0, 0, 0.04);
+  }
+
+  :root[data-theme='dark'] .nn-model-link:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+  }
+
+  .nn-model-link.active {
+    color: var(--color-accent, #2e6e5e);
+    background-color: var(--color-surface, #ffffff);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+
+  :root[data-theme='dark'] .nn-model-link.active {
+    background-color: rgba(255, 255, 255, 0.12);
+    color: var(--color-ink, #f5f5f4);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  }
+
+  .nn-model-icon {
+    font-size: 0.95rem;
   }
 
   .nn-nav-links {
@@ -1859,6 +1937,16 @@ inputs = inputs.to(memory_format=torch.channels_last)</code></pre>
   @media (max-width: 480px) {
     .nn-brand-sub {
       display: none;
+    }
+    .nn-model-nav {
+      width: 100%;
+      justify-content: stretch;
+    }
+    .nn-model-link {
+      flex: 1;
+      justify-content: center;
+      padding: 0.3rem 0.5rem;
+      font-size: 0.78rem;
     }
     .nn-nav-links {
       gap: 0.35rem;

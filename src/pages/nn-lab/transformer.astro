@@ -1,0 +1,2314 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Katex from '../../components/Katex.astro';
+import 'katex/dist/katex.min.css';
+import { site } from '../../data/site';
+import { buildBreadcrumbLd } from '../../lib/breadcrumbs';
+
+const title = 'Transformer Studio — Foundational Deep Learning & Attention Laboratory';
+const description =
+  'Interactive Transformer architecture laboratory with real-time scaled dot-product attention heatmap, ' +
+  'X-Ray arithmetic dot-product decomposition, Grouped-Query Attention (GQA) head visualizer, ' +
+  '8-stage forward pass execution engine, and live production PyTorch generator.';
+
+const webAppLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: 'NN Lab — Transformer Attention & Layer Studio',
+  applicationCategory: 'EducationalApplication, DeveloperApplication, ScienceApplication',
+  operatingSystem: 'Web Browser',
+  description,
+  url: `${site.url}/nn-lab/transformer/`,
+  author: { '@id': `${site.url}/#person` },
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+};
+
+const breadcrumbLd = buildBreadcrumbLd([
+  { name: 'NN Lab', path: '/nn-lab/' },
+  { name: 'Transformer Studio', path: '/nn-lab/transformer/' },
+]);
+---
+
+<BaseLayout title={title} description={description} bare={true}>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(webAppLd)} />
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} />
+
+  <main class="nn-page-wrapper" data-transformer-studio id="transformer-studio-root">
+    <!-- Top Navigation Bar -->
+    <header class="nn-topbar">
+      <div class="nn-brand-group">
+        <div class="nn-brand-title">
+          <span class="nn-pulse-dot" aria-hidden="true"></span>
+          <h1>NN LAB 🧠</h1>
+        </div>
+        <span class="nn-brand-sub">Foundational Deep Learning Laboratory</span>
+      </div>
+
+      <!-- Model Studio Navigation Tabs -->
+      <nav class="nn-model-nav" aria-label="NN Lab Studios">
+        <a
+          href="/nn-lab/"
+          class="nn-model-link"
+          title="Convolutional Neural Network Studio"
+        >
+          <span class="nn-model-icon" aria-hidden="true">🖼️</span>
+          <span>CNN Studio (2D & 1D)</span>
+        </a>
+        <a
+          href="/nn-lab/transformer/"
+          class="nn-model-link active"
+          aria-current="page"
+          title="Transformer Attention & Layer Studio"
+        >
+          <span class="nn-model-icon" aria-hidden="true">✨</span>
+          <span>Transformer Studio (Attention & Layer)</span>
+        </a>
+      </nav>
+
+      <nav class="nn-nav-links" aria-label="Site Navigation">
+        <a href="/" class="nn-nav-link" title="Return to Homepage">
+          <span aria-hidden="true">←</span> Home
+        </a>
+        <a href="/shorkie-lab/" class="nn-nav-link" title="Shorkie Lab: Genomic Deep Learning">
+          <span aria-hidden="true">🧬</span> Shorkie Lab
+        </a>
+        <a href="/lab" class="nn-nav-link" title="Cell Lab: Cellular Automata">
+          <span aria-hidden="true">🔬</span> Cell Lab
+        </a>
+        <a href="/deep_dives/" class="nn-nav-link" title="Technical Deep Dives">
+          <span aria-hidden="true">📚</span> Deep Dives
+        </a>
+        <a href="/algorithms/" class="nn-nav-link" title="Interactive Algorithms & Data Structures">
+          <span aria-hidden="true">⚡</span> Algorithms
+        </a>
+      </nav>
+    </header>
+
+    <!-- Main Studio Content -->
+    <div class="nn-main-content">
+      <!-- ==================================================================== -->
+      <!-- STUDIO HEADER & EQUATION BANNER                                      -->
+      <!-- ==================================================================== -->
+      <section class="nn-panel">
+        <header class="nn-panel-header">
+          <div>
+            <h2>Transformer Self-Attention & Layer Architecture Studio</h2>
+            <p class="nn-panel-desc">
+              Interact with the mathematical core of modern Large Language Models and genomic foundation models.
+              Explore scaled dot-product attention, multi-head projection subspaces, Grouped-Query Attention (GQA) routing,
+              and Pre-LN normalization dynamics. Click any cell in the attention heatmap to inspect its exact arithmetic trace.
+            </p>
+          </div>
+          <div class="nn-math-chip">
+            <Katex
+              tex="\text{Attention}(Q, K, V) = \text{softmax}\left( \frac{Q K^T}{\sqrt{d_k}} + M \right) V"
+              display={true}
+            />
+          </div>
+        </header>
+
+        <!-- Presets & Input Toolbar -->
+        <div class="nn-card nn-preset-card">
+          <div class="nn-arch-row">
+            <span class="nn-preset-title">Architecture Paradigm:</span>
+            <div class="nn-arch-buttons">
+              <button
+                type="button"
+                class="nn-preset-btn active"
+                data-transformer-arch-btn="modern"
+                aria-pressed="true"
+              >
+                <span aria-hidden="true">⚡</span> Modern LLM (Pre-LN · RMSNorm · RoPE · SwiGLU · GQA)
+              </button>
+              <button
+                type="button"
+                class="nn-preset-btn"
+                data-transformer-arch-btn="classical"
+                aria-pressed="false"
+              >
+                <span aria-hidden="true">📜</span> Classical (Vaswani 2017 · Post-LN · Sinusoidal · MHA)
+              </button>
+            </div>
+          </div>
+
+          <div class="nn-preset-row">
+            <span class="nn-preset-title">Domain Presets:</span>
+            <div class="nn-preset-buttons">
+              <button
+                type="button"
+                class="nn-preset-btn active"
+                data-transformer-preset="nlpWinograd"
+                aria-pressed="true"
+              >
+                Winograd Schema (NLP)
+              </button>
+              <button
+                type="button"
+                class="nn-preset-btn"
+                data-transformer-preset="nlpAttention"
+                aria-pressed="false"
+              >
+                Attention Landmark (NLP)
+              </button>
+              <button
+                type="button"
+                class="nn-preset-btn"
+                data-transformer-preset="dnaPromoter"
+                aria-pressed="false"
+              >
+                TATA Box & Splice (Genomics)
+              </button>
+              <button
+                type="button"
+                class="nn-preset-btn"
+                data-transformer-preset="dnaEnhancer"
+                aria-pressed="false"
+              >
+                Sp1 Enhancer-TSS (Genomics)
+              </button>
+            </div>
+          </div>
+
+          <div class="nn-custom-row">
+            <label for="transformer-custom-text" class="nn-param-label">Custom Prompt / Tokens:</label>
+            <input
+              id="transformer-custom-text"
+              type="text"
+              data-transformer-custom-input
+              value="The animal didn't cross the street because it was too tired"
+              class="nn-seq-input"
+              placeholder="Enter text or space-separated tokens..."
+              spellcheck="false"
+            />
+          </div>
+
+          <!-- Token Badges Strip -->
+          <div class="transformer-token-bar">
+            <span class="nn-token-bar-label">Active Tokens (<Katex tex="N" />):</span>
+            <div class="transformer-token-list" data-transformer-token-list>
+              <!-- Filled dynamically by transformerStudio.ts -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Hyperparameters & Topological Controls -->
+        <div class="nn-card nn-params-card">
+          <div class="nn-params-grid">
+            <!-- Sequence Length N -->
+            <div class="nn-param-item">
+              <label for="param-seq-len" class="nn-param-label">
+                Tokens (<Katex tex="N" />): <span data-transformer-seq-len-val class="nn-param-val">11</span>
+              </label>
+              <input
+                id="param-seq-len"
+                type="range"
+                min="2"
+                max="24"
+                value="11"
+                step="1"
+                data-transformer-seq-len
+                class="nn-range"
+              />
+            </div>
+
+            <!-- Model Dimension d_model -->
+            <div class="nn-param-item">
+              <label for="param-d-model" class="nn-param-label">
+                Model Dim (<Katex tex="d_{\text{model}}" />): <span data-transformer-d-model-val class="nn-param-val">64</span>
+              </label>
+              <input
+                id="param-d-model"
+                type="range"
+                min="16"
+                max="512"
+                value="64"
+                step="16"
+                data-transformer-d-model
+                class="nn-range"
+              />
+            </div>
+
+            <!-- Query Heads H -->
+            <div class="nn-param-item">
+              <label for="param-num-heads" class="nn-param-label">
+                Query Heads (<Katex tex="H" />): <span data-transformer-num-heads-val class="nn-param-val">4</span>
+              </label>
+              <input
+                id="param-num-heads"
+                type="range"
+                min="1"
+                max="16"
+                value="4"
+                step="1"
+                data-transformer-num-heads
+                class="nn-range"
+              />
+            </div>
+
+            <!-- KV Heads H_KV -->
+            <div class="nn-param-item">
+              <label for="param-kv-heads" class="nn-param-label">
+                KV Heads (<Katex tex="H_{\text{KV}}" />): <span data-transformer-kv-heads-val class="nn-param-val">2</span>
+              </label>
+              <input
+                id="param-kv-heads"
+                type="range"
+                min="1"
+                max="16"
+                value="2"
+                step="1"
+                data-transformer-kv-heads
+                class="nn-range"
+              />
+            </div>
+
+            <!-- FFN Dimension d_ffn -->
+            <div class="nn-param-item">
+              <label for="param-d-ffn" class="nn-param-label">
+                FFN Dim (<Katex tex="d_{\text{ffn}}" />): <span data-transformer-d-ffn-val class="nn-param-val">256</span>
+              </label>
+              <input
+                id="param-d-ffn"
+                type="range"
+                min="32"
+                max="2048"
+                value="256"
+                step="32"
+                data-transformer-d-ffn
+                class="nn-range"
+              />
+            </div>
+
+            <!-- Head Topology Mode -->
+            <div class="nn-param-item">
+              <label class="nn-param-label">Attention Head Mode</label>
+              <div class="nn-pad-pills">
+                <button type="button" class="nn-pill-btn" data-transformer-head-mode="mha">MHA (1:1)</button>
+                <button type="button" class="nn-pill-btn active" data-transformer-head-mode="gqa">GQA (Grouped)</button>
+                <button type="button" class="nn-pill-btn" data-transformer-head-mode="mqa">MQA (Single KV)</button>
+              </div>
+            </div>
+
+            <!-- Normalization Type -->
+            <div class="nn-param-item">
+              <label for="param-norm-type" class="nn-param-label">Normalization</label>
+              <select id="param-norm-type" class="nn-select" data-transformer-norm-type>
+                <option value="rmsnorm" selected>RMSNorm (Pre-LN Root-Mean-Square)</option>
+                <option value="layernorm">LayerNorm (Standard Mean & Variance)</option>
+              </select>
+            </div>
+
+            <!-- Positional Encoding -->
+            <div class="nn-param-item">
+              <label for="param-pos-encoding" class="nn-param-label">Positional Encoding</label>
+              <select id="param-pos-encoding" class="nn-select" data-transformer-pos-encoding>
+                <option value="rope" selected>RoPE (Rotary Position Embeddings)</option>
+                <option value="sinusoidal">Sinusoidal (Absolute Harmonic Waves)</option>
+                <option value="none">None / Relative</option>
+              </select>
+            </div>
+
+            <!-- Causal Attention Mask -->
+            <div class="nn-param-item">
+              <label for="param-mask-type" class="nn-param-label">Attention Mask (<Katex tex="M" />)</label>
+              <select id="param-mask-type" class="nn-select" data-transformer-mask-type>
+                <option value="causal" selected>Causal Lower-Triangular (Decoder / Autoregressive)</option>
+                <option value="none">Bidirectional / Unmasked (Encoder / BERT)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Forward Pass 8-Stage Execution Stepper & Playback Engine -->
+        <div class="nn-card nn-stage-card">
+          <div class="nn-stage-head">
+            <div class="nn-stage-badge-wrap">
+              <span class="nn-dot nn-dot--indigo"></span>
+              <span class="nn-stage-badge" data-transformer-stage-badge>1/8: Input Token Embeddings</span>
+            </div>
+            <div class="nn-kbd-shortcuts" aria-hidden="true">
+              <kbd>Space</kbd> Play · <kbd>←</kbd><kbd>→</kbd> Step · <kbd>R</kbd> Reset
+            </div>
+          </div>
+
+          <!-- Step Pills Pipeline Strip -->
+          <div class="transformer-pipeline-steps" data-transformer-pipeline-steps>
+            <!-- 8 steps rendered dynamically -->
+          </div>
+
+          <!-- Playback Toolbar -->
+          <div class="nn-playback-bar">
+            <div class="nn-playback-btns">
+              <button type="button" class="nn-btn" data-transformer-prev title="Previous Pipeline Stage">
+                <span aria-hidden="true">⏮</span> Prev
+              </button>
+              <button type="button" class="nn-btn nn-btn--primary" data-transformer-play title="Play / Pause Forward Pass">
+                <span aria-hidden="true">▶</span> Play
+              </button>
+              <button type="button" class="nn-btn" data-transformer-next title="Next Pipeline Stage">
+                Next <span aria-hidden="true">⏭</span>
+              </button>
+              <button type="button" class="nn-btn" data-transformer-reset title="Reset Forward Pass">
+                <span aria-hidden="true">↺</span> Reset
+              </button>
+            </div>
+
+            <div class="nn-playback-speed">
+              <label for="transformer-playback-speed" class="nn-label-speed">Speed:</label>
+              <select id="transformer-playback-speed" class="nn-select nn-select--sm" data-transformer-speed>
+                <option value="2000">2.0s (Slow)</option>
+                <option value="1200" selected>1.2s (Normal)</option>
+                <option value="600">0.6s (Fast)</option>
+                <option value="300">0.3s (Turbo)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Attention Heatmap & Arithmetic X-Ray Inspection Stage -->
+        <div class="nn-card nn-attention-stage-card">
+          <div class="transformer-stage-grid">
+            <!-- Left: Softmax Attention Heatmap -->
+            <div class="transformer-heatmap-box">
+              <div class="nn-grid-header">
+                <div class="nn-grid-heading">
+                  <span class="nn-dot nn-dot--blue"></span>
+                  <span class="nn-grid-title">Softmax Attention Matrix <Katex tex="A \in \mathbb{R}^{N \times N}" /></span>
+                </div>
+                <span class="nn-grid-hint">Click cell to inspect dot product arithmetic</span>
+              </div>
+              <div class="transformer-heatmap-viewport">
+                <div class="transformer-heatmap-container" data-transformer-heatmap>
+                  <!-- Populated dynamically by transformerStudio.ts -->
+                </div>
+              </div>
+              <div class="heatmap-legend">
+                <span class="legend-label">Softmax Probability:</span>
+                <div class="legend-bar">
+                  <span class="legend-stop">0%</span>
+                  <div class="legend-gradient"></div>
+                  <span class="legend-stop">100%</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right: Real-Time Arithmetic X-Ray Drawer -->
+            <div class="transformer-xray-box">
+              <div class="nn-grid-header">
+                <div class="nn-grid-heading">
+                  <span class="nn-dot nn-dot--emerald"></span>
+                  <span class="nn-grid-title">Attention Arithmetic X-Ray & Trace</span>
+                </div>
+                <span class="nn-grid-hint"><Katex tex="\mathbf{q}_i \cdot \mathbf{k}_j / \sqrt{d_k}" /></span>
+              </div>
+              <div class="transformer-xray-container" data-transformer-xray>
+                <!-- Populated dynamically by transformerStudio.ts -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Grouped-Query Attention (GQA) Head Topology Visualizer -->
+        <div class="nn-card nn-gqa-card">
+          <div class="nn-card-title-bar">
+            <span class="nn-card-icon">🔀</span>
+            <div>
+              <h3>Grouped-Query Attention (GQA) Head Topology Visualizer</h3>
+              <p class="nn-card-sub">
+                Shows how <Katex tex="H" /> Query heads share <Katex tex="H_{\text{KV}}" /> Key-Value projection heads,
+                reducing KV cache memory footprint by <Katex tex="H / H_{\text{KV}} \times" /> during autoregressive decoding.
+              </p>
+            </div>
+          </div>
+          <div class="transformer-gqa-container" data-transformer-gqa-diagram>
+            <!-- Populated dynamically by transformerStudio.ts -->
+          </div>
+        </div>
+
+        <!-- Live Mathematical Telemetry Cards -->
+        <div class="nn-stats-grid">
+          <div class="nn-stat-card">
+            <div class="nn-stat-head">
+              <span class="nn-stat-title">Learnable Parameters</span>
+              <span class="nn-stat-badge">Weights + Projections</span>
+            </div>
+            <div class="nn-stat-val" data-transformer-params-total>--</div>
+            <div class="nn-stat-formula">
+              <Katex tex="\text{Params}_{\text{layer}} = W_Q + W_K + W_V + W_O + \text{FFN} + 2 \times \text{Norm}" />
+            </div>
+          </div>
+
+          <div class="nn-stat-card">
+            <div class="nn-stat-head">
+              <span class="nn-stat-title">Computational Complexity</span>
+              <span class="nn-stat-badge">Forward FLOPs</span>
+            </div>
+            <div class="nn-stat-val" data-transformer-flops-total>--</div>
+            <div class="nn-stat-formula">
+              <Katex tex="\text{FLOPs} = 2N d_{\text{model}} (d_Q + d_K + d_V + d_O) + 4N^2 d_{\text{model}} + 2N d_{\text{model}} d_{\text{ffn}}" />
+            </div>
+          </div>
+
+          <div class="nn-stat-card">
+            <div class="nn-stat-head">
+              <span class="nn-stat-title">KV Cache Footprint</span>
+              <span class="nn-stat-badge">Autoregressive Decoding</span>
+            </div>
+            <div class="nn-stat-val" data-transformer-kv-cache>--</div>
+            <div class="nn-stat-formula">
+              <Katex tex="\text{VRAM}_{\text{KV}} = 2 \times B \times L \times H_{\text{KV}} \times S \times d_{\text{head}} \times 2\text{ B}" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================================================================== -->
+      <!-- PRODUCTION PYTORCH MODULE GENERATOR                                  -->
+      <!-- ==================================================================== -->
+      <section class="nn-section nn-pytorch-section">
+        <header class="nn-panel-header">
+          <div>
+            <h2>Production-Ready PyTorch Transformer Layer Generator</h2>
+            <p class="nn-panel-desc">
+              Copy fully synchronized, production-grade PyTorch code implementing the currently configured Transformer layer,
+              featuring RoPE rotary embeddings, RMSNorm Pre-LN residual paths, and SwiGLU gating with verification harness.
+            </p>
+          </div>
+          <div>
+            <button type="button" class="nn-btn nn-btn--primary" data-transformer-copy-pytorch>
+              <span aria-hidden="true">📋</span> Copy PyTorch Snippet
+            </button>
+          </div>
+        </header>
+
+        <div class="nn-card nn-code-card">
+          <pre class="nn-code-pre"><code class="nn-code-block" data-transformer-pytorch-code># Initializing PyTorch module generator...</code></pre>
+        </div>
+      </section>
+
+      <!-- ==================================================================== -->
+      <!-- FOUNDATIONAL EDUCATIONAL DEEP DIVES                                  -->
+      <!-- ==================================================================== -->
+      <section class="nn-section nn-deepdive-section">
+        <header class="nn-panel-header">
+          <div>
+            <h2>Foundational Architectural Deep Dives</h2>
+            <p class="nn-panel-desc">
+              Rigorous mathematical proofs and systems engineering principles underpinning state-of-the-art Transformer architectures.
+            </p>
+          </div>
+        </header>
+
+        <div class="nn-accordions-group">
+          <!-- Accordion 1: Mathematical Proof: Why scale by sqrt(d_k)? -->
+          <details class="nn-accordion" open>
+            <summary class="nn-accordion-trigger">
+              <span class="nn-accordion-title">
+                <span class="nn-acc-icon">📐</span>
+                Mathematical Proof: Why Scale Dot-Product Attention by <Katex tex="1/\sqrt{d_k}" />?
+              </span>
+              <span class="nn-accordion-chevron" aria-hidden="true">▾</span>
+            </summary>
+            <div class="nn-accordion-content">
+              <p>
+                In the seminal paper <em>Attention Is All You Need</em> (Vaswani et al. 2017), the authors note that for large values of <Katex tex="d_k" />,
+                the dot products grow large in magnitude, pushing the softmax function into regions where it has extremely small gradients.
+                Here is the complete variance stabilization proof.
+              </p>
+
+              <h4>1. Statistical Formulation of the Raw Dot Product</h4>
+              <p>
+                Let <Katex tex="\mathbf{q}, \mathbf{k} \in \mathbb{R}^{d_k}" /> be independent random query and key vectors whose components are independent and identically distributed (i.i.d.) random variables with zero mean and unit variance:
+              </p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="\mathbb{E}[q_i] = 0, \quad \text{Var}(q_i) = 1, \quad \mathbb{E}[k_i] = 0, \quad \text{Var}(k_i) = 1 \quad \forall i \in \{1, \dots, d_k\}"
+                  display={true}
+                />
+              </div>
+
+              <p>The unscaled dot product <Katex tex="S" /> is given by the sum of pairwise products:</p>
+              <div class="nn-equation-box">
+                <Katex tex="S = \mathbf{q} \cdot \mathbf{k} = \sum_{i=1}^{d_k} q_i k_i" display={true} />
+              </div>
+
+              <h4>2. Expectation and Variance of Each Component Product</h4>
+              <p>
+                For each term <Katex tex="X_i = q_i k_i" />, using the independence of <Katex tex="q_i" /> and <Katex tex="k_i" />:
+              </p>
+              <div class="nn-equation-box">
+                <Katex tex="\mathbb{E}[X_i] = \mathbb{E}[q_i k_i] = \mathbb{E}[q_i] \cdot \mathbb{E}[k_i] = 0 \cdot 0 = 0" display={true} />
+              </div>
+              <p>The variance of each individual product term is:</p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="\text{Var}(X_i) = \mathbb{E}[X_i^2] - (\mathbb{E}[X_i])^2 = \mathbb{E}[q_i^2 k_i^2] - 0 = \mathbb{E}[q_i^2] \cdot \mathbb{E}[k_i^2] = 1 \cdot 1 = 1"
+                  display={true}
+                />
+              </div>
+
+              <h4>3. Variance of the Total Sum</h4>
+              <p>
+                Because all <Katex tex="d_k" /> terms <Katex tex="X_1, \dots, X_{d_k}" /> are mutually independent, the variance of the sum is the sum of the variances:
+              </p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="\text{Var}(S) = \text{Var}\left(\sum_{i=1}^{d_k} q_i k_i\right) = \sum_{i=1}^{d_k} \text{Var}(q_i k_i) = \sum_{i=1}^{d_k} 1 = d_k"
+                  display={true}
+                />
+              </div>
+              <p>
+                Consequently, the standard deviation is <Katex tex="\sigma_S = \sqrt{d_k}" />.
+                In modern models where <Katex tex="d_k = 128" />, the standard deviation of raw scores is <Katex tex="\sqrt{128} \approx 11.31" />.
+              </p>
+
+              <h4>4. Vanishing Softmax Gradients Under High Variance</h4>
+              <p>
+                Consider the softmax function <Katex tex="p_i = \text{softmax}(\mathbf{z})_i = \frac{e^{z_i}}{\sum_{j} e^{z_j}}" />.
+                Its partial derivative with respect to any input logit <Katex tex="z_j" /> is:
+              </p>
+              <div class="nn-equation-box">
+                <Katex tex="\frac{\partial p_i}{\partial z_j} = p_i (\delta_{ij} - p_j)" display={true} />
+              </div>
+              <p>
+                When logits have large variance (<Katex tex="\sigma \approx 11.3" />), the maximum logit <Katex tex="z_{\max}" /> severely outstrips all others, causing the softmax probability distribution to saturate into a one-hot distribution:
+                <Katex tex="p_{\max} \approx 1.0" /> and <Katex tex="p_k \approx 0.0" /> for all <Katex tex="k \neq \max" />.
+                Substituting these saturated probabilities back into the derivative:
+              </p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="\frac{\partial p_{\max}}{\partial z_{\max}} = p_{\max}(1 - p_{\max}) \approx 1 \times (1 - 1) = 0, \quad \frac{\partial p_k}{\partial z_k} \approx 0 \times (1 - 0) = 0"
+                  display={true}
+                />
+              </div>
+              <p>
+                Gradients vanish entirely, and backpropagation fails to update earlier layers.
+              </p>
+
+              <h4>5. Temperature Rescaling to Unit Variance</h4>
+              <p>
+                By dividing the raw dot product by <Katex tex="\sqrt{d_k}" />, the variance of the scaled attention scores becomes:
+              </p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="\text{Var}\left(\frac{\mathbf{q} \cdot \mathbf{k}}{\sqrt{d_k}}\right) = \frac{1}{(\sqrt{d_k})^2} \text{Var}(\mathbf{q} \cdot \mathbf{k}) = \frac{1}{d_k} \cdot d_k = 1"
+                  display={true}
+                />
+              </div>
+              <p class="nn-callout-text">
+                <strong>Key Takeaway:</strong> Scaling by <Katex tex="1/\sqrt{d_k}" /> guarantees that the variance of the attention logits remains precisely <Katex tex="1.0" /> regardless of projection dimension, maintaining softmax sensitivity and preventing gradient collapse across arbitrarily deep networks.
+              </p>
+            </div>
+          </details>
+
+          <!-- Accordion 2: Pre-LN vs Post-LN & The Gradient Highway -->
+          <details class="nn-accordion">
+            <summary class="nn-accordion-trigger">
+              <span class="nn-accordion-title">
+                <span class="nn-acc-icon">🛣️</span>
+                Pre-LN vs Post-LN & The Gradient Highway (Enabling 70B+ Scale)
+              </span>
+              <span class="nn-accordion-chevron" aria-hidden="true">▾</span>
+            </summary>
+            <div class="nn-accordion-content">
+              <p>
+                The placement of normalization layers represents one of the most critical architectural evolutions between the original 2017 Transformer and modern foundation LLMs (LLaMA, Mistral, Gemma, DeepSeek).
+              </p>
+
+              <div class="nn-layout-comparison">
+                <div class="nn-layout-col">
+                  <h4>1. Classical Post-LN (Vaswani et al. 2017)</h4>
+                  <div class="nn-equation-box">
+                    <Katex tex="x_l = \text{LayerNorm}(x_{l-1} + \text{SubLayer}(x_{l-1}))" display={true} />
+                  </div>
+                  <p>
+                    The residual stream passes directly <em>through</em> the normalization operator at every single layer.
+                    By the chain rule, gradients propagating backwards from layer <Katex tex="L" /> to layer <Katex tex="0" /> are iteratively multiplied by the LayerNorm Jacobian:
+                  </p>
+                  <div class="nn-equation-box">
+                    <Katex
+                      tex="\frac{\partial x_L}{\partial x_0} = \prod_{l=1}^{L} \left[ J_{\text{LN}}(z_l) \cdot \left( I + J_{\text{SubLayer}}(x_{l-1}) \right) \right]"
+                      display={true}
+                    />
+                  </div>
+                  <p>
+                    Because LayerNorm rescales activations by <Katex tex="1/\sigma" />, gradient norms decay exponentially with depth as <Katex tex="O(1/\sqrt{L})" />.
+                    Training Post-LN models requires an ultra-delicate learning rate warmup schedule, and training often destabilizes beyond 12 layers.
+                  </p>
+                </div>
+
+                <div class="nn-layout-col">
+                  <h4>2. Modern Pre-LN (Radford et al. 2019 / LLaMA)</h4>
+                  <div class="nn-equation-box">
+                    <Katex tex="x_l = x_{l-1} + \text{SubLayer}(\text{Norm}(x_{l-1}))" display={true} />
+                  </div>
+                  <p>
+                    The residual connection is purely additive and completely bypasses the normalization step:
+                  </p>
+                  <div class="nn-equation-box">
+                    <Katex
+                      tex="x_L = x_0 + \sum_{l=1}^{L} \text{SubLayer}(\text{Norm}(x_{l-1}))"
+                      display={true}
+                    />
+                  </div>
+                  <p>
+                    Differentiating the final state <Katex tex="x_L" /> with respect to input embeddings <Katex tex="x_0" />:
+                  </p>
+                  <div class="nn-equation-box">
+                    <Katex
+                      tex="\frac{\partial x_L}{\partial x_0} = I + \sum_{l=1}^{L} \frac{\partial \text{SubLayer}(\text{Norm}(x_{l-1}))}{\partial x_0}"
+                      display={true}
+                    />
+                  </div>
+                  <p>
+                    The leading identity matrix <Katex tex="I" /> guarantees an unattenuated, clean "gradient highway" from the final loss directly to the input representations.
+                  </p>
+                </div>
+              </div>
+
+              <p class="nn-callout-text">
+                <strong>Why Modern LLMs Use Pre-RMSNorm:</strong> Pre-LN eliminates the need for delicate warmups and enables training networks with hundreds of layers (e.g. LLaMA 70B with 80 layers). Furthermore, replacing LayerNorm with RMSNorm (<Katex tex="x / \text{RMS}(x)" />) discards mean centering, saving <Katex tex="\approx 10\%" /> to <Katex tex="15\%" /> of memory bandwidth without any degradation in perplexity.
+              </p>
+            </div>
+          </details>
+
+          <!-- Accordion 3: FlashAttention-2, Tiling & Online Softmax -->
+          <details class="nn-accordion">
+            <summary class="nn-accordion-trigger">
+              <span class="nn-accordion-title">
+                <span class="nn-acc-icon">⚡</span>
+                FlashAttention-2, Tiling & Online Softmax (IO-Aware Exact Attention)
+              </span>
+              <span class="nn-accordion-chevron" aria-hidden="true">▾</span>
+            </summary>
+            <div class="nn-accordion-content">
+              <p>
+                On modern GPU hardware (NVIDIA A100, H100, B200), compute throughput (Tensor Cores) has scaled dramatically faster than memory bandwidth (HBM).
+                Consequently, standard self-attention is not compute-bound—it is strictly <strong>memory bandwidth (IO) bound</strong>.
+              </p>
+
+              <h4>1. The Memory Hierarchy Bottleneck in Standard Attention</h4>
+              <p>
+                Modern accelerators feature a multi-tier memory hierarchy:
+              </p>
+              <ul class="nn-simple-list">
+                <li><strong>High-Bandwidth Memory (HBM):</strong> Large capacity (80 GB), but relatively slow bandwidth (<Katex tex="\approx 3.35\text{ TB/s}" /> on H100 SXM).</li>
+                <li><strong>On-Chip Static RAM (SRAM):</strong> Ultra-fast (<Katex tex="\approx 33\text{ TB/s}" />, <Katex tex="10\times" /> faster), but small capacity (<Katex tex="\approx 228\text{ KB}" /> per Streaming Multiprocessor, <Katex tex="\approx 50\text{ MB}" /> total).</li>
+              </ul>
+
+              <p>Standard attention materializes intermediate matrices in HBM at each step:</p>
+              <ol class="nn-ordered-list">
+                <li>Read <Katex tex="Q, K" /> from HBM <Katex tex="\to" /> compute <Katex tex="S = Q K^T \in \mathbb{R}^{N \times N}" /> in SRAM <Katex tex="\to" /> <strong>write <Katex tex="S" /> back to HBM</strong> (<Katex tex="O(N^2)" /> memory access).</li>
+                <li>Read <Katex tex="S" /> from HBM <Katex tex="\to" /> compute <Katex tex="A = \text{softmax}(S)" /> in SRAM <Katex tex="\to" /> <strong>write <Katex tex="A" /> back to HBM</strong> (<Katex tex="O(N^2)" /> memory access).</li>
+                <li>Read <Katex tex="A, V" /> from HBM <Katex tex="\to" /> compute <Katex tex="O = A V \in \mathbb{R}^{N \times d}" /> <Katex tex="\to" /> write <Katex tex="O" /> to HBM.</li>
+              </ol>
+
+              <div class="nn-equation-box">
+                <Katex
+                  tex="\text{VRAM}_{\text{Standard}}(N = 32\text{k}, H = 32) = 32 \times (32{,}768)^2 \times 2\text{ bytes} \approx 68.7\text{ GB of intermediate storage!}"
+                  display={true}
+                />
+              </div>
+
+              <h4>2. FlashAttention Tiling & Online Softmax Algorithm</h4>
+              <p>
+                FlashAttention (Dao et al. 2022, 2023) completely avoids materializing the quadratic <Katex tex="N \times N" /> attention matrix in HBM.
+                It partitions inputs into blocks <Katex tex="Q_i \in \mathbb{R}^{B_r \times d}" /> and <Katex tex="K_j, V_j \in \mathbb{R}^{B_c \times d}" /> that fit entirely within fast on-chip SRAM.
+                To compute softmax without seeing all tokens at once, it utilizes the <strong>Online Softmax</strong> recurrence (Milakov & Gimelshein 2018):
+              </p>
+
+              <div class="nn-equation-box">
+                <Katex
+                  tex="m^{\text{new}} = \max\left(m^{(old)}, \max(x_j)\right)"
+                  display={true}
+                />
+                <Katex
+                  tex="d^{\text{new}} = d^{(old)} \cdot e^{m^{(old)} - m^{\text{new}}} + \sum_{k} e^{x_{j,k} - m^{\text{new}}}"
+                  display={true}
+                />
+                <Katex
+                  tex="O^{\text{new}} = O^{(old)} \cdot \left(\frac{d^{(old)} \cdot e^{m^{(old)} - m^{\text{new}}}}{d^{\text{new}}}\right) + \frac{\sum_k e^{x_{j,k} - m^{\text{new}}} v_{j,k}}{d^{\text{new}}}"
+                  display={true}
+                />
+              </div>
+
+              <p class="nn-callout-text">
+                <strong>Theoretical IO Complexity:</strong> FlashAttention reduces total HBM data transfers from <Katex tex="O(N^2)" /> down to <Katex tex="O(N)" /> while computing mathematically <em>exact</em> (non-approximate) attention. This yields a <Katex tex="2\times" /> to <Katex tex="4\times" /> wall-clock speedup and enables context windows of <Katex tex="128\text{k}" /> to <Katex tex="1\text{M}" /> tokens.
+              </p>
+            </div>
+          </details>
+
+          <!-- Accordion 4: MHA vs MQA vs GQA & The KV Cache Decoding Bottleneck -->
+          <details class="nn-accordion">
+            <summary class="nn-accordion-trigger">
+              <span class="nn-accordion-title">
+                <span class="nn-acc-icon">🧠</span>
+                MHA vs MQA vs GQA & The KV Cache Decoding Bottleneck
+              </span>
+              <span class="nn-accordion-chevron" aria-hidden="true">▾</span>
+            </summary>
+            <div class="nn-accordion-content">
+              <p>
+                In production LLM serving, generation takes place token-by-token in an autoregressive loop.
+                While the initial prompt processing (prefill) is compute-heavy, autoregressive generation (decoding) is strictly limited by memory bandwidth.
+              </p>
+
+              <h4>1. Arithmetic Intensity of Autoregressive Decoding</h4>
+              <p>
+                To generate token <Katex tex="t+1" />, the query is a single vector <Katex tex="\mathbf{q}_{t+1} \in \mathbb{R}^{1 \times d_{\text{model}}}" />.
+                However, to attend to all preceding context tokens, the GPU must fetch all previously computed Key and Value vectors for all layers from HBM:
+              </p>
+              <div class="nn-equation-box">
+                <Katex
+                  tex="\text{Arithmetic Intensity} = \frac{\text{Floating Point Operations (FLOPs)}}{\text{Bytes Transferred (HBM)}} \approx \frac{2 \times d_{\text{model}}}{2 \times d_{\text{model}}} \approx 1\text{ FLOP / byte}"
+                  display={true}
+                />
+              </div>
+              <p>
+                Modern Tensor Cores operate at hundreds of teraflops, yet memory bus speeds are orders of magnitude lower.
+                During generation, GPU compute cores idle for over 95% of execution time waiting for KV cache memory loads!
+              </p>
+
+              <h4>2. Memory Scaling Comparison: MHA vs MQA vs GQA</h4>
+              <p>
+                Consider serving a 70B parameter model (<Katex tex="L = 80" /> layers, <Katex tex="H = 64" /> heads, <Katex tex="d_{\text{head}} = 128" />) with sequence length <Katex tex="S = 4096" /> and batch size <Katex tex="B = 16" /> in FP16 precision (2 bytes):
+              </p>
+
+              <div class="nn-layout-comparison">
+                <div class="nn-layout-col">
+                  <h4>Multi-Head Attention (MHA)</h4>
+                  <p>Each Query head possesses its own Key and Value projection (<Katex tex="H_{\text{KV}} = H = 64" />):</p>
+                  <div class="nn-equation-box">
+                    <Katex
+                      tex="\text{VRAM}_{\text{MHA}} = 2 \times B \times L \times H \times S \times d_{\text{head}} \times 2\text{ B}"
+                      display={true}
+                    />
+                    <Katex
+                      tex="\text{VRAM} = 2 \times 16 \times 80 \times 64 \times 4096 \times 128 \times 2 \approx \mathbf{171.8\text{ GB}}"
+                      display={true}
+                    />
+                  </div>
+                  <p>Serving a single batch of 16 sequences exceeds the total capacity of two 80 GB GPUs purely for the KV cache!</p>
+                </div>
+
+                <div class="nn-layout-col">
+                  <h4>Grouped-Query Attention (GQA)</h4>
+                  <p>Multiple Query heads share a single Key/Value head (<Katex tex="H_{\text{KV}} = 8" />, an 8:1 sharing ratio):</p>
+                  <div class="nn-equation-box">
+                    <Katex
+                      tex="\text{VRAM}_{\text{GQA}} = 2 \times B \times L \times H_{\text{KV}} \times S \times d_{\text{head}} \times 2\text{ B}"
+                      display={true}
+                    />
+                    <Katex
+                      tex="\text{VRAM} = 2 \times 16 \times 80 \times 8 \times 4096 \times 128 \times 2 \approx \mathbf{21.5\text{ GB}}"
+                      display={true}
+                    />
+                  </div>
+                  <p>An <Katex tex="8\times" /> reduction in memory bandwidth and storage with near-identical modeling performance.</p>
+                </div>
+              </div>
+
+              <div class="nn-table-responsive">
+                <table class="nn-comparison-table">
+                  <thead>
+                    <tr>
+                      <th>Architecture</th>
+                      <th>Q Heads</th>
+                      <th>KV Heads</th>
+                      <th>Sharing Ratio</th>
+                      <th>70B KV Cache (B=16, S=4k)</th>
+                      <th>Throughput Relative</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>MHA</strong> (Vaswani 2017)</td>
+                      <td>64</td>
+                      <td>64</td>
+                      <td>1 : 1</td>
+                      <td>171.8 GB</td>
+                      <td>1.0× (Baseline)</td>
+                    </tr>
+                    <tr>
+                      <td><strong>GQA</strong> (Ainslie 2023 / LLaMA 3)</td>
+                      <td>64</td>
+                      <td>8</td>
+                      <td>8 : 1</td>
+                      <td>21.5 GB</td>
+                      <td><strong>4.2×</strong></td>
+                    </tr>
+                    <tr>
+                      <td><strong>MQA</strong> (Shazeer 2019)</td>
+                      <td>64</td>
+                      <td>1</td>
+                      <td>64 : 1</td>
+                      <td>2.7 GB</td>
+                      <td>5.8× (Quality Degrades)</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <p class="nn-callout-text">
+                <strong>The Architectural Verdict:</strong> While MQA achieves maximum bandwidth reduction, empirical research demonstrates quality degradation on complex reasoning and long-context retrieval tasks. GQA strikes the optimal Pareto frontier, achieving <Katex tex="95\%" /> of MQA's speed with <Katex tex="100\%" /> of MHA's quality.
+              </p>
+            </div>
+          </details>
+        </div>
+      </section>
+    </div>
+
+    <!-- Page Footer -->
+    <footer class="nn-footer">
+      <div class="nn-footer-inner">
+        <div>
+          <strong>NN Lab 🧠</strong> — Interactive Educational Foundation in Deep Learning & Neural Architectures
+        </div>
+        <div class="nn-footer-links">
+          <a href="/nn-lab/">CNN Studio</a> ·
+          <a href="/nn-lab/transformer/">Transformer Studio</a> ·
+          <a href="/shorkie-lab/">Shorkie Lab</a> ·
+          <a href="/lab">Cell Lab</a> ·
+          <a href="/algorithms/">Algorithms</a>
+        </div>
+      </div>
+    </footer>
+  </main>
+
+  <script src="../../scripts/transformerStudio.ts"></script>
+</BaseLayout>
+
+<style>
+  /* -------------------------------------------------------------------------- */
+  /* Page Layout & Container Hygiene                                            */
+  /* -------------------------------------------------------------------------- */
+  .nn-page-wrapper {
+    min-height: 100vh;
+    background-color: var(--color-bg, #fafaf8);
+    color: var(--color-ink, #141414);
+    font-family: var(--font-sans, system-ui, -apple-system, sans-serif);
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100vw;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Top Navigation Bar                                                         */
+  /* -------------------------------------------------------------------------- */
+  .nn-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem 1.5rem;
+    border-bottom: 1px solid var(--color-rule, #e5e4df);
+    background-color: var(--color-surface, #ffffff);
+    flex-wrap: wrap;
+    gap: 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .nn-brand-group {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .nn-brand-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .nn-brand-title h1 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    margin: 0;
+    letter-spacing: -0.02em;
+    font-family: var(--font-display, var(--font-sans, sans-serif));
+    color: var(--color-ink, #141414);
+  }
+
+  .nn-pulse-dot {
+    width: 9px;
+    height: 9px;
+    background-color: #3b82f6;
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+    animation: nn-pulse 2s infinite;
+  }
+
+  @keyframes nn-pulse {
+    0% {
+      transform: scale(0.95);
+      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+    }
+    70% {
+      transform: scale(1);
+      box-shadow: 0 0 0 7px rgba(59, 130, 246, 0);
+    }
+    100% {
+      transform: scale(0.95);
+      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+    }
+  }
+
+  .nn-brand-sub {
+    font-size: 0.85rem;
+    color: var(--color-muted, #6b6b6b);
+    font-weight: 500;
+  }
+
+  /* Model Studio Navigation Tabs */
+  .nn-model-nav {
+    display: inline-flex;
+    align-items: center;
+    background-color: var(--color-bg, #fafaf8);
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 4px;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+
+  .nn-model-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.84rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--color-muted, #6b6b6b);
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+  }
+
+  .nn-model-link:hover {
+    color: var(--color-ink, #141414);
+    background-color: rgba(0, 0, 0, 0.04);
+  }
+
+  :root[data-theme='dark'] .nn-model-link:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+  }
+
+  .nn-model-link.active {
+    color: #2563eb;
+    background-color: var(--color-surface, #ffffff);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+
+  :root[data-theme='dark'] .nn-model-link.active {
+    background-color: rgba(255, 255, 255, 0.12);
+    color: #60a5fa;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  }
+
+  .nn-model-icon {
+    font-size: 0.95rem;
+  }
+
+  .nn-nav-links {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  .nn-nav-link {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--color-muted, #6b6b6b);
+    text-decoration: none;
+    padding: 0.35rem 0.65rem;
+    border-radius: 6px;
+    border: 1px solid var(--color-rule, #e5e4df);
+    background-color: var(--color-bg, #fafaf8);
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .nn-nav-link:hover {
+    color: var(--color-ink, #141414);
+    border-color: #3b82f6;
+    background-color: var(--color-surface, #ffffff);
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Main Content Layout                                                        */
+  /* -------------------------------------------------------------------------- */
+  .nn-main-content {
+    max-width: 1360px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 1.5rem 1.5rem 4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    box-sizing: border-box;
+    min-width: 0;
+  }
+
+  .nn-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .nn-panel-header h2 {
+    font-size: 1.55rem;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    margin: 0 0 0.4rem;
+    color: var(--color-ink, #141414);
+  }
+
+  .nn-panel-desc {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--color-muted, #6b6b6b);
+    max-width: 780px;
+    line-height: 1.6;
+  }
+
+  .nn-math-chip {
+    padding: 0.6rem 1rem;
+    border-radius: 8px;
+    background-color: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-rule, #e5e4df);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    overflow-x: auto;
+    max-width: 100%;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Cards & Toolbars                                                           */
+  /* -------------------------------------------------------------------------- */
+  .nn-card {
+    background-color: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+    margin-bottom: 1.25rem;
+    box-sizing: border-box;
+    min-width: 0;
+  }
+
+  .nn-arch-row,
+  .nn-preset-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.85rem;
+  }
+
+  .nn-preset-title {
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--color-ink, #141414);
+    min-width: 140px;
+  }
+
+  .nn-arch-buttons,
+  .nn-preset-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .nn-preset-btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid var(--color-rule, #e5e4df);
+    background-color: var(--color-bg, #fafaf8);
+    color: var(--color-muted, #6b6b6b);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .nn-preset-btn:hover {
+    color: var(--color-ink, #141414);
+    border-color: #3b82f6;
+  }
+
+  .nn-preset-btn.active {
+    background-color: #3b82f6;
+    color: #ffffff;
+    border-color: #3b82f6;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.25);
+  }
+
+  .nn-custom-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-bottom: 1rem;
+  }
+
+  .nn-seq-input {
+    width: 100%;
+    padding: 0.65rem 0.9rem;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.92rem;
+    border-radius: 8px;
+    border: 1px solid var(--color-rule, #e5e4df);
+    background-color: var(--color-bg, #fafaf8);
+    color: var(--color-ink, #141414);
+    box-sizing: border-box;
+    transition: border-color 0.15s ease;
+  }
+
+  .nn-seq-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  }
+
+  .transformer-token-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    padding-top: 0.5rem;
+    border-top: 1px dashed var(--color-rule, #e5e4df);
+  }
+
+  .nn-token-bar-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-muted, #6b6b6b);
+  }
+
+  .transformer-token-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    align-items: center;
+  }
+
+  .transformer-token-badge {
+    padding: 0.25rem 0.55rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-family: var(--font-mono, monospace);
+    font-weight: 600;
+    border: 1px solid var(--color-rule, #e5e4df);
+    background-color: var(--color-bg, #fafaf8);
+    color: var(--color-ink, #141414);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .transformer-token-badge:hover,
+  .transformer-token-badge.active {
+    background-color: #3b82f6;
+    color: #ffffff;
+    border-color: #3b82f6;
+    transform: translateY(-1px);
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Hyperparameters Grid & Inputs                                              */
+  /* -------------------------------------------------------------------------- */
+  .nn-params-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.25rem 1.5rem;
+  }
+
+  .nn-param-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .nn-param-label {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--color-ink, #141414);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .nn-param-val {
+    font-family: var(--font-mono, monospace);
+    font-weight: 700;
+    color: #3b82f6;
+  }
+
+  .nn-range {
+    width: 100%;
+    accent-color: #3b82f6;
+    cursor: pointer;
+  }
+
+  .nn-select {
+    width: 100%;
+    padding: 0.45rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid var(--color-rule, #e5e4df);
+    background-color: var(--color-bg, #fafaf8);
+    font-size: 0.84rem;
+    font-weight: 500;
+    color: var(--color-ink, #141414);
+    cursor: pointer;
+    box-sizing: border-box;
+  }
+
+  .nn-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+  }
+
+  .nn-select--sm {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.8rem;
+    width: auto;
+  }
+
+  .nn-pad-pills {
+    display: flex;
+    gap: 0.3rem;
+  }
+
+  .nn-pill-btn {
+    flex: 1;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid var(--color-rule, #e5e4df);
+    background-color: var(--color-bg, #fafaf8);
+    color: var(--color-muted, #6b6b6b);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: center;
+  }
+
+  .nn-pill-btn:hover {
+    color: var(--color-ink, #141414);
+    border-color: #3b82f6;
+  }
+
+  .nn-pill-btn.active {
+    background-color: #3b82f6;
+    color: #ffffff;
+    border-color: #3b82f6;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Forward Pass 8-Stage Execution Stepper                                     */
+  /* -------------------------------------------------------------------------- */
+  .nn-stage-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .nn-stage-badge-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .nn-stage-badge {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--color-ink, #141414);
+  }
+
+  .transformer-pipeline-steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 0.4rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .transformer-pipeline-pill {
+    padding: 0.55rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid var(--color-rule, #e5e4df);
+    background-color: var(--color-bg, #fafaf8);
+    color: var(--color-muted, #6b6b6b);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .transformer-pipeline-pill:hover {
+    color: var(--color-ink, #141414);
+    border-color: #3b82f6;
+  }
+
+  .transformer-pipeline-pill.active {
+    background-color: #3b82f6;
+    color: #ffffff;
+    border-color: #3b82f6;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.25);
+    transform: scale(1.02);
+  }
+
+  .nn-playback-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--color-rule, #e5e4df);
+  }
+
+  .nn-playback-btns {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+
+  .nn-btn {
+    padding: 0.45rem 0.9rem;
+    border-radius: 6px;
+    font-size: 0.84rem;
+    font-weight: 600;
+    border: 1px solid var(--color-rule, #e5e4df);
+    background-color: var(--color-surface, #ffffff);
+    color: var(--color-ink, #141414);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .nn-btn:hover {
+    background-color: var(--color-bg, #fafaf8);
+    border-color: #3b82f6;
+  }
+
+  .nn-btn--primary {
+    background-color: #3b82f6;
+    color: #ffffff;
+    border-color: #3b82f6;
+  }
+
+  .nn-btn--primary:hover {
+    background-color: #2563eb;
+    border-color: #2563eb;
+  }
+
+  .nn-playback-speed {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .nn-label-speed {
+    font-size: 0.82rem;
+    color: var(--color-muted, #6b6b6b);
+    font-weight: 500;
+  }
+
+  .nn-kbd-shortcuts {
+    font-size: 0.78rem;
+    color: var(--color-muted, #6b6b6b);
+  }
+
+  kbd {
+    display: inline-block;
+    padding: 0.15rem 0.4rem;
+    font-size: 0.75rem;
+    font-family: var(--font-mono, monospace);
+    line-height: 1;
+    color: var(--color-ink, #141414);
+    background-color: var(--color-bg, #fafaf8);
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 4px;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Attention Heatmap & X-Ray Drawer Stage                                     */
+  /* -------------------------------------------------------------------------- */
+  .transformer-stage-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: stretch;
+  }
+
+  .transformer-heatmap-box,
+  .transformer-xray-box {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .nn-grid-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .nn-grid-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+
+  .nn-grid-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--color-ink, #141414);
+  }
+
+  .nn-grid-hint {
+    font-size: 0.78rem;
+    color: var(--color-muted, #6b6b6b);
+  }
+
+  .nn-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .nn-dot--indigo { background-color: #6366f1; }
+  .nn-dot--blue { background-color: #3b82f6; }
+  .nn-dot--emerald { background-color: #10b981; }
+
+  .transformer-heatmap-viewport {
+    background-color: var(--color-bg, #fafaf8);
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 8px;
+    padding: 0.85rem;
+    overflow-x: auto;
+    max-height: 480px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Dynamic Heatmap Table */
+  .transformer-heatmap-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    font-family: var(--font-mono, monospace);
+  }
+
+  .transformer-heatmap-table th,
+  .transformer-heatmap-table td {
+    padding: 0.35rem 0.4rem;
+    text-align: center;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  :root[data-theme='dark'] .transformer-heatmap-table th,
+  :root[data-theme='dark'] .transformer-heatmap-table td {
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .heatmap-corner {
+    background-color: var(--color-surface, #ffffff);
+    font-weight: 700;
+    color: var(--color-muted, #6b6b6b);
+  }
+
+  .heatmap-col-header,
+  .heatmap-row-header {
+    background-color: var(--color-surface, #ffffff);
+    color: var(--color-ink, #141414);
+    font-weight: 600;
+    max-width: 70px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .transformer-heatmap-cell {
+    cursor: pointer;
+    font-weight: 600;
+    transition: transform 0.1s ease, outline 0.1s ease;
+  }
+
+  .transformer-heatmap-cell:hover,
+  .transformer-heatmap-cell:focus {
+    outline: 2px solid #3b82f6;
+    z-index: 2;
+    transform: scale(1.08);
+  }
+
+  .transformer-heatmap-cell.selected {
+    outline: 2.5px solid #ef4444;
+    font-weight: 800;
+    z-index: 3;
+  }
+
+  .transformer-heatmap-cell.highlight-row {
+    box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.4);
+  }
+
+  .transformer-heatmap-cell.highlight-col {
+    box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.4);
+  }
+
+  .heatmap-legend {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+    font-size: 0.8rem;
+    color: var(--color-muted, #6b6b6b);
+  }
+
+  .legend-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    max-width: 260px;
+  }
+
+  .legend-gradient {
+    height: 10px;
+    flex: 1;
+    border-radius: 4px;
+    background: linear-gradient(to right, rgba(59, 130, 246, 0.05), rgba(59, 130, 246, 1));
+    border: 1px solid var(--color-rule, #e5e4df);
+  }
+
+  .legend-stop {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.75rem;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Real-Time Arithmetic X-Ray Drawer                                          */
+  /* -------------------------------------------------------------------------- */
+  .transformer-xray-container {
+    background-color: var(--color-bg, #fafaf8);
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 8px;
+    padding: 1rem;
+    overflow-y: auto;
+    max-height: 480px;
+    flex: 1;
+    font-size: 0.85rem;
+  }
+
+  .xray-placeholder {
+    color: var(--color-muted, #6b6b6b);
+    font-style: italic;
+    text-align: center;
+    padding: 2rem 1rem;
+  }
+
+  .xray-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .xray-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding-bottom: 0.65rem;
+    border-bottom: 1px solid var(--color-rule, #e5e4df);
+  }
+
+  .xray-title {
+    font-weight: 700;
+    font-size: 0.92rem;
+    color: var(--color-ink, #141414);
+  }
+
+  .xray-tokens {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.84rem;
+    flex-wrap: wrap;
+  }
+
+  .xray-q-token {
+    padding: 0.2rem 0.45rem;
+    border-radius: 4px;
+    background-color: rgba(59, 130, 246, 0.15);
+    color: #1d4ed8;
+  }
+
+  :root[data-theme='dark'] .xray-q-token {
+    background-color: rgba(59, 130, 246, 0.25);
+    color: #93c5fd;
+  }
+
+  .xray-arrow {
+    color: var(--color-muted, #6b6b6b);
+    font-size: 0.78rem;
+  }
+
+  .xray-k-token {
+    padding: 0.2rem 0.45rem;
+    border-radius: 4px;
+    background-color: rgba(16, 185, 129, 0.15);
+    color: #047857;
+  }
+
+  :root[data-theme='dark'] .xray-k-token {
+    background-color: rgba(16, 185, 129, 0.25);
+    color: #6ee7b7;
+  }
+
+  .xray-badge-weight {
+    font-size: 0.86rem;
+    font-weight: 600;
+    color: var(--color-ink, #141414);
+  }
+
+  .xray-step-card {
+    background-color: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 6px;
+    padding: 0.7rem 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .xray-step-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--color-muted, #6b6b6b);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .xray-formula {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.82rem;
+    color: var(--color-ink, #141414);
+    word-break: break-all;
+  }
+
+  .xray-mult-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.76rem;
+    font-family: var(--font-mono, monospace);
+    margin-top: 0.35rem;
+  }
+
+  .xray-mult-table th,
+  .xray-mult-table td {
+    padding: 0.2rem 0.35rem;
+    text-align: right;
+    border-bottom: 1px solid var(--color-rule, #e5e4df);
+  }
+
+  .xray-mult-table th:first-child,
+  .xray-mult-table td:first-child {
+    text-align: left;
+  }
+
+  .prod-col {
+    font-weight: 700;
+    color: #3b82f6;
+  }
+
+  .dim-ellipsis {
+    text-align: center !important;
+    color: var(--color-muted, #6b6b6b);
+    font-style: italic;
+  }
+
+  .xray-masked-note {
+    font-size: 0.82rem;
+    color: #dc2626;
+    padding: 0.4rem;
+    background-color: rgba(220, 38, 38, 0.08);
+    border-radius: 4px;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Grouped-Query Attention (GQA) Visualizer Card                              */
+  /* -------------------------------------------------------------------------- */
+  .nn-card-title-bar {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .nn-card-icon {
+    font-size: 1.4rem;
+  }
+
+  .nn-card-title-bar h3 {
+    margin: 0 0 0.2rem;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--color-ink, #141414);
+  }
+
+  .nn-card-sub {
+    margin: 0;
+    font-size: 0.86rem;
+    color: var(--color-muted, #6b6b6b);
+    line-height: 1.5;
+  }
+
+  .transformer-gqa-container {
+    background-color: var(--color-bg, #fafaf8);
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+
+  .gqa-summary {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .gqa-mode-badge {
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 0.25rem 0.55rem;
+    border-radius: 4px;
+    background-color: #3b82f6;
+    color: #ffffff;
+  }
+
+  .gqa-ratio-badge {
+    font-size: 0.82rem;
+    color: var(--color-muted, #6b6b6b);
+    font-weight: 600;
+  }
+
+  .gqa-groups-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.85rem;
+  }
+
+  .gqa-group-card {
+    background-color: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 8px;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .gqa-kv-pill {
+    padding: 0.35rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    background-color: rgba(16, 185, 129, 0.15);
+    color: #047857;
+    text-align: center;
+  }
+
+  :root[data-theme='dark'] .gqa-kv-pill {
+    background-color: rgba(16, 185, 129, 0.25);
+    color: #6ee7b7;
+  }
+
+  .gqa-group-arrow {
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--color-muted, #6b6b6b);
+  }
+
+  .gqa-q-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+  }
+
+  .gqa-q-pill {
+    flex: 1;
+    min-width: 65px;
+    padding: 0.3rem 0.45rem;
+    border-radius: 4px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    text-align: center;
+    background-color: rgba(59, 130, 246, 0.1);
+    color: #1d4ed8;
+  }
+
+  :root[data-theme='dark'] .gqa-q-pill {
+    background-color: rgba(59, 130, 246, 0.2);
+    color: #93c5fd;
+  }
+
+  .gqa-q-pill.active {
+    background-color: #3b82f6;
+    color: #ffffff;
+    font-weight: 700;
+  }
+
+  .gqa-warning-card {
+    padding: 1rem;
+    border-radius: 6px;
+    background-color: rgba(234, 179, 8, 0.12);
+    border: 1px solid rgba(234, 179, 8, 0.4);
+  }
+
+  .gqa-warning-title {
+    font-weight: 700;
+    font-size: 0.88rem;
+    color: #a16207;
+    margin-bottom: 0.3rem;
+  }
+
+  :root[data-theme='dark'] .gqa-warning-title {
+    color: #fde047;
+  }
+
+  .gqa-warning-desc {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--color-ink, #141414);
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Telemetry Stat Cards                                                       */
+  /* -------------------------------------------------------------------------- */
+  .nn-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .nn-stat-card {
+    background-color: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 10px;
+    padding: 1.15rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  }
+
+  .nn-stat-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .nn-stat-title {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--color-muted, #6b6b6b);
+  }
+
+  .nn-stat-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    background-color: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+  }
+
+  .nn-stat-val {
+    font-size: 1.45rem;
+    font-weight: 800;
+    font-family: var(--font-mono, monospace);
+    letter-spacing: -0.02em;
+    color: var(--color-ink, #141414);
+  }
+
+  .nn-stat-formula {
+    font-size: 0.76rem;
+    color: var(--color-muted, #6b6b6b);
+    padding-top: 0.4rem;
+    border-top: 1px dashed var(--color-rule, #e5e4df);
+    overflow-x: auto;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Code Snippet Box                                                           */
+  /* -------------------------------------------------------------------------- */
+  .nn-code-card {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .nn-code-pre {
+    margin: 0;
+    padding: 1.25rem;
+    background-color: #0f172a;
+    color: #e2e8f0;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.84rem;
+    line-height: 1.6;
+    overflow-x: auto;
+    max-height: 520px;
+  }
+
+  .nn-code-block {
+    font-family: inherit;
+    white-space: pre;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Educational Accordions                                                     */
+  /* -------------------------------------------------------------------------- */
+  .nn-accordions-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+
+  .nn-accordion {
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 8px;
+    background-color: var(--color-surface, #ffffff);
+    overflow: hidden;
+    transition: border-color 0.15s ease;
+  }
+
+  .nn-accordion:hover {
+    border-color: rgba(59, 130, 246, 0.4);
+  }
+
+  .nn-accordion-trigger {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    gap: 1rem;
+    box-sizing: border-box;
+    list-style: none;
+  }
+
+  .nn-accordion-trigger::-webkit-details-marker {
+    display: none;
+  }
+
+  .nn-accordion-title {
+    font-size: 0.98rem;
+    font-weight: 600;
+    color: var(--color-ink, #141414);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .nn-acc-icon {
+    font-size: 1.1rem;
+  }
+
+  .nn-accordion-chevron {
+    font-size: 0.85rem;
+    color: var(--color-muted, #6b6b6b);
+    transition: transform 0.2s ease;
+  }
+
+  .nn-accordion[open] .nn-accordion-chevron {
+    transform: rotate(180deg);
+  }
+
+  .nn-accordion-content {
+    padding: 1.25rem;
+    border-top: 1px solid var(--color-rule, #e5e4df);
+    font-size: 0.92rem;
+    line-height: 1.65;
+    color: var(--color-ink, #141414);
+  }
+
+  .nn-accordion-content h4 {
+    margin: 1.25rem 0 0.5rem;
+    font-size: 0.96rem;
+    font-weight: 700;
+  }
+
+  .nn-equation-box {
+    margin: 1rem 0;
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    background-color: var(--color-bg, #fafaf8);
+    border: 1px solid var(--color-rule, #e5e4df);
+    overflow-x: auto;
+  }
+
+  .nn-callout-text {
+    padding: 0.75rem 1rem;
+    border-left: 3px solid #3b82f6;
+    background-color: rgba(59, 130, 246, 0.08);
+    border-radius: 4px;
+    margin: 1rem 0 0.5rem;
+  }
+
+  .nn-layout-comparison {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.25rem;
+    margin: 1rem 0;
+  }
+
+  .nn-layout-col {
+    background-color: var(--color-bg, #fafaf8);
+    border: 1px solid var(--color-rule, #e5e4df);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+
+  .nn-table-responsive {
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+
+  .nn-comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.84rem;
+    text-align: left;
+  }
+
+  .nn-comparison-table th,
+  .nn-comparison-table td {
+    padding: 0.6rem 0.85rem;
+    border: 1px solid var(--color-rule, #e5e4df);
+  }
+
+  .nn-comparison-table th {
+    background-color: var(--color-bg, #fafaf8);
+    font-weight: 700;
+  }
+
+  .nn-simple-list,
+  .nn-ordered-list {
+    margin: 0.5rem 0 1rem 1.25rem;
+    padding: 0;
+  }
+
+  .nn-simple-list li,
+  .nn-ordered-list li {
+    margin-bottom: 0.4rem;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Footer                                                                     */
+  /* -------------------------------------------------------------------------- */
+  .nn-footer {
+    border-top: 1px solid var(--color-rule, #e5e4df);
+    background-color: var(--color-surface, #ffffff);
+    padding: 1.25rem 1.5rem;
+    margin-top: auto;
+  }
+
+  .nn-footer-inner {
+    max-width: 1360px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.82rem;
+    color: var(--color-muted, #6b6b6b);
+    flex-wrap: wrap;
+  }
+
+  .nn-footer-inner a {
+    color: var(--color-muted, #6b6b6b);
+    text-decoration: none;
+  }
+
+  .nn-footer-inner a:hover {
+    color: var(--color-ink, #141414);
+    text-decoration: underline;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Dark Mode Styling Overrides                                                */
+  /* -------------------------------------------------------------------------- */
+  :root[data-theme='dark'] .nn-page-wrapper {
+    background-color: #0b0f19;
+    color: #f1f5f9;
+  }
+
+  :root[data-theme='dark'] .nn-topbar,
+  :root[data-theme='dark'] .nn-card,
+  :root[data-theme='dark'] .nn-footer,
+  :root[data-theme='dark'] .nn-accordion,
+  :root[data-theme='dark'] .heatmap-corner,
+  :root[data-theme='dark'] .heatmap-col-header,
+  :root[data-theme='dark'] .heatmap-row-header,
+  :root[data-theme='dark'] .xray-step-card,
+  :root[data-theme='dark'] .gqa-group-card {
+    background-color: #111827;
+    border-color: #1f2937;
+  }
+
+  :root[data-theme='dark'] .nn-topbar {
+    background-color: rgba(17, 24, 39, 0.95);
+  }
+
+  :root[data-theme='dark'] .nn-brand-title h1,
+  :root[data-theme='dark'] .nn-panel-header h2,
+  :root[data-theme='dark'] .nn-card-title-bar h3,
+  :root[data-theme='dark'] .nn-stat-val,
+  :root[data-theme='dark'] .nn-accordion-title,
+  :root[data-theme='dark'] .nn-grid-title,
+  :root[data-theme='dark'] .xray-title,
+  :root[data-theme='dark'] .xray-badge-weight,
+  :root[data-theme='dark'] .nn-param-label {
+    color: #f8fafc;
+  }
+
+  :root[data-theme='dark'] .nn-model-nav,
+  :root[data-theme='dark'] .nn-nav-link,
+  :root[data-theme='dark'] .nn-preset-btn,
+  :root[data-theme='dark'] .nn-pill-btn,
+  :root[data-theme='dark'] .transformer-pipeline-pill,
+  :root[data-theme='dark'] .transformer-token-badge,
+  :root[data-theme='dark'] .nn-select,
+  :root[data-theme='dark'] .nn-seq-input,
+  :root[data-theme='dark'] .transformer-heatmap-viewport,
+  :root[data-theme='dark'] .transformer-xray-container,
+  :root[data-theme='dark'] .transformer-gqa-container,
+  :root[data-theme='dark'] .nn-equation-box,
+  :root[data-theme='dark'] .nn-layout-col,
+  :root[data-theme='dark'] .nn-comparison-table th,
+  :root[data-theme='dark'] .nn-btn {
+    background-color: #1a2234;
+    border-color: #2d3748;
+    color: #cbd5e1;
+  }
+
+  :root[data-theme='dark'] .nn-btn--primary {
+    background-color: #3b82f6;
+    color: #ffffff;
+    border-color: #3b82f6;
+  }
+
+  :root[data-theme='dark'] .nn-math-chip {
+    background-color: #111827;
+    border-color: #1f2937;
+  }
+
+  :root[data-theme='dark'] .nn-callout-text {
+    background-color: rgba(59, 130, 246, 0.15);
+    border-left-color: #60a5fa;
+  }
+
+  :root[data-theme='dark'] kbd {
+    background-color: #1e293b;
+    border-color: #334155;
+    color: #f1f5f9;
+  }
+
+  /* -------------------------------------------------------------------------- */
+  /* Mobile Responsive Media Queries (768px, 480px, 375px, 320px)              */
+  /* -------------------------------------------------------------------------- */
+  @media (max-width: 960px) {
+    .transformer-stage-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .nn-topbar {
+      padding: 0.75rem 1rem;
+    }
+    .nn-main-content {
+      padding: 1rem 0.75rem 2rem;
+    }
+    .nn-card {
+      padding: 1rem;
+    }
+    .nn-playback-bar {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.75rem;
+    }
+    .nn-playback-btns {
+      justify-content: center;
+    }
+    .nn-playback-speed {
+      justify-content: center;
+    }
+    .nn-kbd-shortcuts {
+      display: none;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .nn-brand-sub {
+      display: none;
+    }
+    .nn-model-nav {
+      width: 100%;
+      justify-content: stretch;
+    }
+    .nn-model-link {
+      flex: 1;
+      justify-content: center;
+      padding: 0.3rem 0.5rem;
+      font-size: 0.78rem;
+    }
+    .nn-nav-links {
+      gap: 0.35rem;
+    }
+    .nn-nav-link {
+      padding: 0.25rem 0.45rem;
+      font-size: 0.75rem;
+    }
+    .nn-stat-val {
+      font-size: 1.15rem;
+    }
+    .transformer-pipeline-steps {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+</style>

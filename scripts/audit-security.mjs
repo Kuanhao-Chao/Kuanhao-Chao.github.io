@@ -88,6 +88,7 @@ const SAFE_SET_HTML_FILES = new Set([
   'src/pages/projects.astro',
   'src/pages/fun-lab/index.astro',
   'src/pages/nn-lab/index.astro',
+  'src/pages/nn-lab/transformer.astro',
   'src/pages/shorkie-lab/attention.astro',
   'src/pages/shorkie-lab/genome.astro',
   'src/pages/shorkie-lab/index.astro',
@@ -108,6 +109,8 @@ const SAFE_INNER_HTML_FILES = new Set([
   'src/scripts/cnnStudio.ts',
   'src/scripts/cnnStudio.test.ts',
   'src/scripts/shorkieAttentionStudio.ts',
+  'src/scripts/transformerStudio.ts',
+  'src/scripts/transformerStudio.test.ts',
 ]);
 
 const PRIVATE_PUBLIC_PATTERNS = [
