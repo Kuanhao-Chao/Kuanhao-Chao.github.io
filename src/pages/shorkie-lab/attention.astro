@@ -1,0 +1,1043 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Katex from '../../components/Katex.astro';
+import 'katex/dist/katex.min.css';
+import '../../styles/variantPlayground.css';
+import { site } from '../../data/site';
+import { buildBreadcrumbLd } from '../../lib/breadcrumbs';
+import lociData from '../../data/shorkieLoci.json';
+import { SHORKIE_LAYERS } from '../../lib/shorkieAttention';
+
+const title = 'DNA Attention & Receptive Field Studio — Shorkie Lab';
+const description =
+  'Interactive layer-by-layer receptive field expansion, multi-head attention heatmaps, '
+  + 'dual-probe enhancer-to-TSS dependency tracer, and cross-architecture comparison '
+  + 'for sequence-to-function genomic deep learning.';
+
+const webAppLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: 'DNA Language Model Attention & Receptive Field Studio',
+  applicationCategory: 'DeveloperApplication, ScienceApplication',
+  operatingSystem: 'Web Browser',
+  description,
+  url: `${site.url}/shorkie-lab/attention/`,
+  author: { '@id': `${site.url}/#person` },
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+};
+
+const breadcrumbLd = buildBreadcrumbLd([
+  { name: 'Shorkie Lab', path: '/shorkie-lab/' },
+  { name: 'Attention & Receptive Field Studio', path: '/shorkie-lab/attention/' },
+]);
+---
+
+<BaseLayout title={title} description={description} bare={true}>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(webAppLd)} />
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} />
+
+  <div class="vp" data-attention-studio>
+    <header class="vp-top">
+      <h1 class="vp-title">DNA Attention & Receptive Field Studio</h1>
+      <span class="vp-sub">
+        Layer-by-layer receptive field expansion & self-attention flow · Shorkie 16,384 bp window
+      </span>
+      <span class="vp-spacer"></span>
+      <a class="vp-sub" href="/shorkie-lab/">← Shorkie Lab</a>
+      <a class="vp-sub" href="/shorkie-lab/shorkie/">Expression</a>
+      <a class="vp-sub" href="/shorkie-lab/shorkie_lm/">Language Model</a>
+      <a class="vp-sub" href="/shorkie-lab/genome/">Genome</a>
+      <a class="vp-sub" href="https://doi.org/10.1101/2025.09.19.677475" target="_blank" rel="noopener">Paper</a>
+      <a class="vp-sub" href="https://khchao.com/shorkie/" target="_blank" rel="noopener">Docs</a>
+    </header>
+
+    <div class="vp-scroll">
+      <div class="vp-body">
+
+        <!-- Toolbar & Locus Context -->
+        <section class="vp-panel as-toolbar-panel">
+          <div class="as-toolbar-row">
+            <div class="as-toolbar-group">
+              <label for="as-locus-select" class="as-label">Target Locus:</label>
+              <select id="as-locus-select" class="vp-select" data-locus-select>
+                {lociData.loci.map((loc) => (
+                  <option value={loc.id}>
+                    {loc.gene} ({loc.id}) — {loc.chrom}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div class="as-locus-badge" data-locus-badge>
+              <!-- Filled dynamically by controller -->
+            </div>
+
+            <div class="as-status-container">
+              <span class="as-status-indicator"></span>
+              <span class="as-status-text" data-studio-status>Initializing attention matrices...</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Main Interactive Track & Enhancer-TSS Dependency Tracer -->
+        <section class="vp-panel">
+          <div class="as-panel-header">
+            <div>
+              <h2>Interactive Enhancer-to-TSS Dependency Tracer</h2>
+              <p class="as-panel-sub">
+                Drag either probe along the 16,384 bp sequence track.{' '}
+                <span class="as-tag-a">Probe A (Cyan)</span> simulates a distal regulatory element (enhancer / UAS), while{' '}
+                <span class="as-tag-b">Probe B (Orange)</span> marks the promoter / transcription start site (TSS).
+                Curved bezier arcs visualize real multi-head attention flow connecting distal regions to the promoter.
+              </p>
+            </div>
+          </div>
+
+          <div class="as-canvas-wrap">
+            <canvas class="as-track-canvas" data-track-canvas></canvas>
+          </div>
+
+          <!-- Readout Metrics -->
+          <div class="as-metrics-grid">
+            <div class="as-metric-card">
+              <span class="as-metric-lbl">Genomic Distance</span>
+              <span class="as-metric-val" data-metric-distance>0 bp</span>
+              <span class="as-metric-hint">Span between Probe A & Probe B</span>
+            </div>
+
+            <div class="as-metric-card">
+              <span class="as-metric-lbl">Active Layer Connectivity</span>
+              <span class="as-metric-val" data-metric-feasibility>Connected</span>
+              <span class="as-metric-hint">Whether distance ≤ theoretical RF</span>
+            </div>
+
+            <div class="as-metric-card">
+              <span class="as-metric-lbl">Attention Weight (TSS → Distal)</span>
+              <span class="as-metric-val" data-metric-weight>0.00%</span>
+              <span class="as-metric-hint">Direct attention in active layer/rollout</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Layer-by-Layer Receptive Field Ladder -->
+        <section class="vp-panel">
+          <div class="as-panel-header">
+            <div>
+              <h2>Layer-by-Layer Receptive Field Ladder</h2>
+              <p class="as-panel-sub">
+                Track how receptive field expands stage by stage through Shorkie's 19 architectural layers.
+                Click any layer to inspect its receptive field diameter and test communication feasibility between Probe A and Probe B.
+              </p>
+            </div>
+          </div>
+
+          <div class="as-ladder-container">
+            <!-- Stage 1: Conv Stem -->
+            <div class="as-ladder-group">
+              <span class="as-group-title">Stage 1: Conv Stem</span>
+              <div class="as-ladder-buttons">
+                <button type="button" class="as-ladder-btn" data-layer-select="0">
+                  <span class="as-btn-name">Conv Stem</span>
+                  <span class="as-btn-rf">15 bp</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Stage 2: Residual Tower -->
+            <div class="as-ladder-group">
+              <span class="as-group-title">Stage 2: 7 Residual Blocks (Local Context)</span>
+              <div class="as-ladder-buttons">
+                {SHORKIE_LAYERS.slice(1, 8).map((l, i) => (
+                  <button type="button" class="as-ladder-btn" data-layer-select={i + 1}>
+                    <span class="as-btn-name">ResBlock {i + 1}</span>
+                    <span class="as-btn-rf">{l.theoreticalRfBp} bp</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <!-- Stage 3: Transformer Bottleneck -->
+            <div class="as-ladder-group">
+              <span class="as-group-title">Stage 3: 8 Transformer Layers (Global Attention)</span>
+              <div class="as-ladder-buttons">
+                {SHORKIE_LAYERS.slice(8, 16).map((_, i) => (
+                  <button type="button" class="as-ladder-btn" data-layer-select={i + 8}>
+                    <span class="as-btn-name">Transformer {i + 1}</span>
+                    <span class="as-btn-rf">16,384 bp</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <!-- Stage 4: U-Net Decoders & Head -->
+            <div class="as-ladder-group">
+              <span class="as-group-title">Stage 4: U-Net Decoders & Output Head</span>
+              <div class="as-ladder-buttons">
+                {SHORKIE_LAYERS.slice(16).map((l, i) => (
+                  <button type="button" class="as-ladder-btn" data-layer-select={i + 16}>
+                    <span class="as-btn-name">{l.name}</span>
+                    <span class="as-btn-rf">16,384 bp</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <!-- Active Layer Detail Inspector -->
+          <div class="as-active-layer-card">
+            <div class="as-active-layer-header">
+              <h3 data-active-layer-title>Transformer Layer 1</h3>
+              <span class="as-active-layer-badge" data-active-layer-rf>Receptive Field: Global (16,384 bp / 100%)</span>
+            </div>
+            <p class="as-active-layer-desc" data-active-layer-desc>
+              First multi-head self-attention layer operating on 128 bottleneck tokens. Instant O(1) communication across entire 16 kb locus.
+            </p>
+          </div>
+
+          <!-- Theoretical Receptive Cone Canvas -->
+          <div class="as-cone-section">
+            <div class="as-cone-header">
+              <span class="as-cone-title">Theoretical Receptive Cone (Input Sequence Projection)</span>
+              <span class="as-cone-hint">Centered on Probe B (TSS)</span>
+            </div>
+            <div class="as-canvas-wrap">
+              <canvas class="as-cone-canvas" data-cone-canvas></canvas>
+            </div>
+          </div>
+        </section>
+
+        <!-- Split View: Attention Matrix + Empirical Convergence vs Cross-Architecture Comparison -->
+        <div class="vp-split">
+
+          <!-- Left Column: Attention Matrix & Convergence Curve -->
+          <div class="as-col">
+
+            <!-- Panel: 128x128 Attention Heatmap -->
+            <section class="vp-panel">
+              <div class="as-panel-header">
+                <div>
+                  <h2>128 × 128 Multi-Head Attention Heatmap</h2>
+                  <p class="as-panel-sub">
+                    Precomputed attention matrices decoded from Shorkie's bottleneck weights. Each token spans exactly 128 bp.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Matrix Controls -->
+              <div class="as-matrix-controls">
+                <div class="as-btn-toggle-group">
+                  <button type="button" class="vp-btn" data-attn-mode="layer">Individual Layer</button>
+                  <button type="button" class="vp-btn" data-attn-mode="rollout">Attention Rollout</button>
+                </div>
+
+                <div class="as-attn-layer-selector">
+                  <span class="as-sub-label">Layer:</span>
+                  {[0, 1, 2, 3, 4, 5, 6, 7].map((l) => (
+                    <button type="button" class="as-num-btn" data-attn-layer={l}>
+                      L{l + 1}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <!-- Matrix Canvas & Tooltip -->
+              <div class="as-matrix-container">
+                <div class="as-matrix-canvas-wrap">
+                  <canvas class="as-matrix-canvas" data-matrix-canvas></canvas>
+                </div>
+                <div class="as-matrix-sidebar">
+                  <div class="as-matrix-tooltip" data-matrix-tooltip>
+                    <em>Hover over or click any cell in the 128×128 matrix to inspect attention weights and jump probe positions.</em>
+                  </div>
+
+                  <div class="as-matrix-legend">
+                    <span class="as-legend-lbl">Attention Weight:</span>
+                    <div class="as-legend-gradient"></div>
+                    <div class="as-legend-ticks">
+                      <span>0.0%</span>
+                      <span>Uniform (0.78%)</span>
+                      <span>5.0%+</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Panel: Empirical Convergence Curve -->
+            <section class="vp-panel">
+              <div class="as-panel-header">
+                <div>
+                  <h2>Empirical Context Convergence Plot</h2>
+                  <p class="as-panel-sub">
+                    Altschul-Erikson dinucleotide shuffle experiments: flanking context outside radius <Katex tex="r" /> is randomized to destroy regulatory motifs while preserving dinucleotide distribution. The curve measures how prediction stabilizes towards the unperturbed baseline.
+                  </p>
+                </div>
+              </div>
+
+              <div class="as-canvas-wrap">
+                <canvas class="as-conv-canvas" data-conv-canvas></canvas>
+              </div>
+              <div class="as-conv-legend">
+                <span class="as-conv-item"><span class="as-dot as-dot-blue"></span> Shuffled Context Prediction</span>
+                <span class="as-conv-item"><span class="as-dot as-dot-green"></span> 5% Full-Context Tolerance Zone</span>
+                <span class="as-conv-item"><span class="as-dot as-dot-orange"></span> Effective Context Convergence Point</span>
+              </div>
+            </section>
+
+          </div>
+
+          <!-- Right Column: Cross-Architecture Comparison Sandbox -->
+          <div class="as-col">
+
+            <section class="vp-panel">
+              <div class="as-panel-header">
+                <div>
+                  <h2>Cross-Architecture Signal Transmission Sandbox</h2>
+                  <p class="as-panel-sub">
+                    Simulate how different deep learning paradigms propagate regulatory signal across genomic distance. Adjust the slider to see how long-range enhancer-promoter communication behaves.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Distance Slider -->
+              <div class="as-slider-box">
+                <div class="as-slider-head">
+                  <label for="as-dist-slider" class="as-label">Enhancer-to-Promoter Distance:</label>
+                  <span class="as-slider-val" data-compare-dist-label>6,000 bp</span>
+                </div>
+                <input
+                  id="as-dist-slider"
+                  type="range"
+                  min="100"
+                  max="20000"
+                  step="100"
+                  value="6000"
+                  class="as-slider"
+                  data-compare-distance
+                />
+                <div class="as-slider-markers">
+                  <span>100 bp (Local)</span>
+                  <span>2.5 kb (ResNet Limit)</span>
+                  <span>10 kb</span>
+                  <span>20 kb (Ultra Distal)</span>
+                </div>
+              </div>
+
+              <!-- Comparison Cards -->
+              <div class="as-paradigm-cards">
+                <!-- Card 1: Shorkie Hybrid -->
+                <div class="as-paradigm-card" data-card-paradigm="shorkie_hybrid">
+                  <div class="as-card-top">
+                    <span class="as-card-tag as-tag-primary">Hybrid Model (Shorkie)</span>
+                    <span class="as-card-val" data-metric-signal>—</span>
+                  </div>
+                  <h3 class="as-card-title">ResNet Stem + Transformer Bottleneck</h3>
+                  <div class="as-bar-bg">
+                    <div class="as-bar-fill as-fill-primary" data-signal-bar style="width: 0%"></div>
+                  </div>
+                  <div class="as-card-meta">
+                    <div>
+                      <span class="as-meta-lbl">Routing Hops:</span>
+                      <strong data-metric-hop>1 hop (O(1))</strong>
+                    </div>
+                    <div>
+                      <span class="as-meta-lbl">Memory:</span>
+                      <strong data-metric-complexity>O(N^2) on 128 tokens</strong>
+                    </div>
+                  </div>
+                  <p class="as-card-desc" data-metric-desc>
+                    Convolution extracts high-resolution 128 bp motif tokens; multi-head self-attention enables direct O(1) pairwise routing between any two positions up to 16,384 bp.
+                  </p>
+                </div>
+
+                <!-- Card 2: Dilated ConvNet -->
+                <div class="as-paradigm-card" data-card-paradigm="dilated_convnet">
+                  <div class="as-card-top">
+                    <span class="as-card-tag as-tag-conv">Dilated ConvNet (BPNet / Basenji)</span>
+                    <span class="as-card-val" data-metric-signal>—</span>
+                  </div>
+                  <h3 class="as-card-title">Exponentially Dilated Convolutions</h3>
+                  <div class="as-bar-bg">
+                    <div class="as-bar-fill as-fill-conv" data-signal-bar style="width: 0%"></div>
+                  </div>
+                  <div class="as-card-meta">
+                    <div>
+                      <span class="as-meta-lbl">Routing Hops:</span>
+                      <strong data-metric-hop>O(log D) layers</strong>
+                    </div>
+                    <div>
+                      <span class="as-meta-lbl">Memory:</span>
+                      <strong data-metric-complexity>O(L) linear</strong>
+                    </div>
+                  </div>
+                  <p class="as-card-desc" data-metric-desc>
+                    Information cascades through exponentially dilated residual layers. Signal decays as (0.88)^hops, creating an effective receptive ceiling.
+                  </p>
+                </div>
+
+                <!-- Card 3: State Space Model -->
+                <div class="as-paradigm-card" data-card-paradigm="state_space_model">
+                  <div class="as-card-top">
+                    <span class="as-card-tag as-tag-ssm">State Space Model (Mamba / Caduceus)</span>
+                    <span class="as-card-val" data-metric-signal>—</span>
+                  </div>
+                  <h3 class="as-card-title">Selective Structured State Space</h3>
+                  <div class="as-bar-bg">
+                    <div class="as-bar-fill as-fill-ssm" data-signal-bar style="width: 0%"></div>
+                  </div>
+                  <div class="as-card-meta">
+                    <div>
+                      <span class="as-meta-lbl">Routing Hops:</span>
+                      <strong data-metric-hop>O(D) recurrent steps</strong>
+                    </div>
+                    <div>
+                      <span class="as-meta-lbl">Memory:</span>
+                      <strong data-metric-complexity>O(L) linear</strong>
+                    </div>
+                  </div>
+                  <p class="as-card-desc" data-metric-desc>
+                    Linear-time sequence model compressing history into hidden states. Excellent continuous decay, but requires bidirectional scans to prevent upstream bias.
+                  </p>
+                </div>
+              </div>
+
+            </section>
+
+            <!-- Mathematical Deep Dive Panel -->
+            <section class="vp-panel">
+              <div class="as-panel-header">
+                <div>
+                  <h2>Mathematical Framework & Architectural Principles</h2>
+                </div>
+              </div>
+
+              <div class="as-theory-content">
+                <h3>1. Convolutional Receptive Field Expansion</h3>
+                <p>
+                  For a sequential cascade of convolutional and residual layers, the theoretical receptive field <Katex tex="RF_l" /> at layer <Katex tex="l" /> expands according to the recurrence relation:
+                </p>
+                <div class="as-math-box">
+                  <Katex display={true} tex="RF_l = RF_{l-1} + (k_l - 1) \cdot S_{l-1}" />
+                </div>
+                <p>
+                  where <Katex tex="k_l" /> is the kernel size (5 bp in Shorkie's residual blocks) and <Katex tex="S_{l-1} = \prod_{i=1}^{l-1} s_i" /> is the cumulative stride up to layer <Katex tex="l-1" />.
+                  Because Shorkie performs pooling (<Katex tex="s_i = 2" />) at each residual block, the effective stride doubles at every step, causing the receptive field to expand from 15 bp in the stem to 2,555 bp by Block 7.
+                </p>
+
+                <h3>2. Attention Rollout Across Layers</h3>
+                <p>
+                  To track how information flows across multiple Transformer layers with residual skip connections, we use <strong>Attention Rollout</strong> (Abnar & Zuidema, 2020). The effective attention <Katex tex="\tilde{A}^{(l)}" /> accounting for identity shortcuts is:
+                </p>
+                <div class="as-math-box">
+                  <Katex display={true} tex="\tilde{A}^{(l)} = 0.5 A^{(l)} + 0.5 I" />
+                </div>
+                <p>
+                  Recursive matrix multiplication yields the total end-to-end information flow from input tokens to layer <Katex tex="L" />:
+                </p>
+                <div class="as-math-box">
+                  <Katex display={true} tex="R^{(L)} = \prod_{l=1}^L \tilde{A}^{(l)} = \tilde{A}^{(L)} \tilde{A}^{(L-1)} \cdots \tilde{A}^{(1)}" />
+                </div>
+
+                <h3>3. The Biological Pareto Optimum</h3>
+                <p>
+                  Why not use pure Transformers or pure ConvNets?
+                </p>
+                <ul>
+                  <li>
+                    <strong>Pure Transformers:</strong> An attention matrix on raw 16,384 bp sequence requires <Katex tex="16,384^2 \approx 2.68 \times 10^8" /> operations per head per layer, consuming enormous GPU VRAM with poor inductive bias for local DNA motifs.
+                  </li>
+                  <li>
+                    <strong>Pure Dilated ConvNets:</strong> Exponential dilation achieves large receptive fields but suffers from the <em>receptive field lottery</em> and exponential signal attenuation over 5+ kb.
+                  </li>
+                  <li>
+                    <strong>Shorkie's Hybrid Pareto:</strong> Residual CNNs pool 16,384 bp into 128 compact 128 bp tokens. The Transformer then executes attention over a lightweight <Katex tex="128 \times 128 = 16,384" /> matrix—providing instant <Katex tex="O(1)" /> global connectivity with negligible memory overhead.
+                  </li>
+                </ul>
+              </div>
+            </section>
+
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    import '../../scripts/shorkieAttentionStudio';
+  </script>
+</BaseLayout>
+
+<style>
+  /* Attention Studio Specific Styles */
+  .as-toolbar-panel {
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-rule, #ddd);
+    padding: 0.75rem 1rem;
+  }
+  .as-toolbar-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.25rem;
+    max-width: 100%;
+  }
+  .as-toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    max-width: 100%;
+    min-width: 0;
+  }
+  .as-toolbar-group select {
+    max-width: 100%;
+    min-width: 0;
+  }
+  .as-label {
+    font-size: var(--fs-small, 0.85rem);
+    font-weight: 600;
+    color: var(--color-muted, #666);
+    flex-shrink: 0;
+  }
+  .as-locus-badge {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.6rem;
+    font-size: var(--fs-small, 0.82rem);
+    max-width: 100%;
+  }
+  :global(.as-locus-badge .badge-gene) {
+    font-weight: 700;
+    color: var(--color-ink, #222);
+  }
+  :global(.as-locus-badge .badge-id),
+  :global(.as-locus-badge .badge-tss),
+  :global(.as-locus-badge .badge-conv) {
+    background: var(--color-surface-hover, rgba(120, 120, 120, 0.1));
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.78rem;
+  }
+  :global(.as-locus-badge .badge-conv) {
+    color: #27ae60;
+    font-weight: 600;
+  }
+  .as-status-container {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: var(--fs-small, 0.8rem);
+    color: var(--color-muted, #777);
+  }
+  .as-status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #2ecc71;
+    display: inline-block;
+  }
+
+  .as-panel-header {
+    margin-bottom: 0.75rem;
+  }
+  .as-panel-sub {
+    font-size: var(--fs-small, 0.84rem);
+    color: var(--color-muted, #666);
+    margin: 0.2rem 0 0;
+    line-height: 1.45;
+  }
+  .as-tag-a {
+    color: #1abc9c;
+    font-weight: 700;
+  }
+  .as-tag-b {
+    color: #e67e22;
+    font-weight: 700;
+  }
+
+  .as-canvas-wrap {
+    width: 100%;
+    background: var(--color-bg, #fafafa);
+    border: 1px solid var(--color-rule, #e0e0e0);
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+  }
+  html[data-theme='dark'] .as-canvas-wrap {
+    background: #18191d;
+    border-color: #2c2e35;
+  }
+  .as-track-canvas {
+    display: block;
+    width: 100%;
+    height: 130px;
+    cursor: crosshair;
+  }
+  .as-cone-canvas {
+    display: block;
+    width: 100%;
+    height: 140px;
+  }
+  .as-conv-canvas {
+    display: block;
+    width: 100%;
+    height: 220px;
+  }
+
+  .as-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+  }
+  .as-metric-card {
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-rule, #e5e5e5);
+    border-radius: 6px;
+    padding: 0.6rem 0.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+  .as-metric-lbl {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-muted, #888);
+  }
+  .as-metric-val {
+    font-size: 1.05rem;
+    font-weight: 700;
+    font-family: var(--font-mono, monospace);
+  }
+  :global(.text-success) { color: #27ae60 !important; }
+  :global(.text-danger) { color: #e74c3c !important; }
+  .as-metric-hint {
+    font-size: 0.72rem;
+    color: var(--color-muted, #999);
+  }
+
+  /* Ladder Container */
+  .as-ladder-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin: 0.75rem 0;
+  }
+  .as-ladder-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .as-group-title {
+    font-size: 0.76rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-muted, #777);
+  }
+  .as-ladder-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .as-ladder-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.35rem 0.6rem;
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-rule, #dcdcdc);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+  }
+  .as-ladder-btn:hover {
+    background: var(--color-surface-hover, #f0f4f8);
+    border-color: var(--vp-accent, #3976a8);
+  }
+  .as-ladder-btn.is-active {
+    background: var(--vp-accent, #3976a8);
+    border-color: var(--vp-accent, #3976a8);
+    color: #fff;
+  }
+  .as-btn-name {
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .as-btn-rf {
+    font-size: 0.7rem;
+    font-family: var(--font-mono, monospace);
+    opacity: 0.85;
+  }
+
+  .as-active-layer-card {
+    background: var(--color-surface-hover, rgba(0, 0, 0, 0.03));
+    border-left: 3px solid var(--vp-accent, #3976a8);
+    padding: 0.6rem 0.9rem;
+    border-radius: 0 6px 6px 0;
+    margin: 0.75rem 0;
+  }
+  .as-active-layer-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .as-active-layer-header h3 {
+    margin: 0;
+    font-size: 0.95rem;
+  }
+  .as-active-layer-badge {
+    font-size: 0.75rem;
+    font-family: var(--font-mono, monospace);
+    background: rgba(46, 204, 113, 0.15);
+    color: #27ae60;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+  .as-active-layer-desc {
+    margin: 0.25rem 0 0;
+    font-size: 0.82rem;
+    color: var(--color-muted, #555);
+    line-height: 1.4;
+  }
+
+  .as-cone-section {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .as-cone-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--color-muted, #777);
+  }
+  .as-cone-title {
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* Matrix Panel */
+  .as-matrix-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    max-width: 100%;
+  }
+  .as-btn-toggle-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    max-width: 100%;
+  }
+  .as-attn-layer-selector {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+    max-width: 100%;
+  }
+  .as-sub-label {
+    font-size: 0.75rem;
+    color: var(--color-muted, #666);
+    margin-right: 0.25rem;
+  }
+  .as-num-btn {
+    padding: 0.2rem 0.45rem;
+    font-size: 0.74rem;
+    font-family: var(--font-mono, monospace);
+    font-weight: 600;
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-rule, #ddd);
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .as-num-btn:hover {
+    border-color: var(--vp-accent, #3976a8);
+  }
+  .as-num-btn.is-active {
+    background: var(--vp-accent, #3976a8);
+    border-color: var(--vp-accent, #3976a8);
+    color: #fff;
+  }
+
+  .as-matrix-container {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 200px;
+    gap: 1rem;
+    align-items: start;
+  }
+  @media (max-width: 650px) {
+    .as-matrix-container {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  .as-matrix-canvas-wrap {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    max-width: 460px;
+    background: #0d1117;
+    border-radius: 6px;
+    border: 1px solid var(--color-rule, #333);
+    overflow: hidden;
+  }
+  .as-matrix-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    image-rendering: pixelated;
+    cursor: pointer;
+  }
+  .as-matrix-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .as-matrix-tooltip {
+    font-size: 0.78rem;
+    line-height: 1.45;
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-rule, #ddd);
+    padding: 0.6rem;
+    border-radius: 6px;
+  }
+  .as-matrix-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .as-legend-lbl {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--color-muted, #777);
+  }
+  .as-legend-gradient {
+    height: 10px;
+    border-radius: 3px;
+    background: linear-gradient(to right, rgb(20, 0, 160), rgb(20, 100, 100), rgb(20, 210, 80), rgb(255, 210, 20));
+  }
+  .as-legend-ticks {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.68rem;
+    font-family: var(--font-mono, monospace);
+    color: var(--color-muted, #888);
+  }
+
+  .as-conv-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 0.5rem;
+    font-size: 0.76rem;
+    color: var(--color-muted, #666);
+  }
+  .as-conv-item {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .as-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .as-dot-blue { background: #3498db; }
+  .as-dot-green { background: #2ecc71; }
+  .as-dot-orange { background: #e67e22; }
+
+  /* Architecture Sandbox Slider */
+  .as-slider-box {
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-rule, #e5e5e5);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .as-slider-head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  .as-slider-val {
+    font-size: 0.95rem;
+    font-weight: 700;
+    font-family: var(--font-mono, monospace);
+    color: var(--vp-accent, #3976a8);
+  }
+  .as-slider {
+    width: 100%;
+    cursor: pointer;
+  }
+  .as-slider-markers {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.25rem;
+    font-size: 0.68rem;
+    color: var(--color-muted, #888);
+  }
+
+  /* Paradigm Cards */
+  .as-paradigm-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+  .as-paradigm-card {
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-rule, #ddd);
+    border-radius: 6px;
+    padding: 0.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+  .as-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .as-card-tag {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+  }
+  .as-tag-primary {
+    background: rgba(57, 118, 168, 0.15);
+    color: var(--vp-accent, #3976a8);
+  }
+  .as-tag-conv {
+    background: rgba(168, 118, 42, 0.15);
+    color: #a8762a;
+  }
+  .as-tag-ssm {
+    background: rgba(47, 143, 111, 0.15);
+    color: #2f8f6f;
+  }
+  .as-card-val {
+    font-size: 1.1rem;
+    font-weight: 700;
+    font-family: var(--font-mono, monospace);
+  }
+  .as-card-title {
+    margin: 0;
+    font-size: 0.88rem;
+  }
+  .as-bar-bg {
+    width: 100%;
+    height: 6px;
+    background: var(--color-rule, #e5e5e5);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .as-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.2s ease;
+  }
+  .as-fill-primary { background: var(--vp-accent, #3976a8); }
+  .as-fill-conv { background: #a8762a; }
+  .as-fill-ssm { background: #2f8f6f; }
+
+  .as-card-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.76rem;
+    color: var(--color-muted, #666);
+  }
+  .as-meta-lbl {
+    margin-right: 0.25rem;
+  }
+  .as-card-desc {
+    margin: 0.2rem 0 0;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    color: var(--color-muted, #555);
+  }
+
+  /* Theory Content */
+  .as-theory-content {
+    font-size: 0.86rem;
+    line-height: 1.55;
+    color: var(--color-ink, #333);
+  }
+  .as-theory-content h3 {
+    font-size: 0.95rem;
+    margin: 1.1rem 0 0.4rem;
+  }
+  .as-theory-content h3:first-of-type {
+    margin-top: 0;
+  }
+  .as-theory-content p {
+    margin: 0.4rem 0;
+  }
+  .as-theory-content ul {
+    margin: 0.4rem 0 0.8rem 1.2rem;
+    padding: 0;
+  }
+  .as-theory-content li {
+    margin-bottom: 0.4rem;
+  }
+  .as-math-box {
+    background: var(--color-surface-hover, rgba(0, 0, 0, 0.03));
+    border: 1px solid var(--color-rule, #e5e5e5);
+    border-radius: 6px;
+    padding: 0.6rem 0.8rem;
+    margin: 0.5rem 0;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  :global(.as-math-box .katex-display) {
+    margin: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  :global(.as-math-box .katex) {
+    font-size: 0.95em;
+    max-width: 100%;
+  }
+
+  @media (max-width: 480px) {
+    .as-toolbar-group {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.3rem;
+      width: 100%;
+    }
+    .as-toolbar-group select {
+      width: 100%;
+    }
+    .as-matrix-controls {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+</style>
