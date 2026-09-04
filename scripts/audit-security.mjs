@@ -87,6 +87,8 @@ const SAFE_SET_HTML_FILES = new Set([
   'src/pages/posts/[...slug].astro',
   'src/pages/projects.astro',
   'src/pages/fun-lab/index.astro',
+  'src/pages/nn-lab/index.astro',
+  'src/pages/shorkie-lab/attention.astro',
   'src/pages/shorkie-lab/genome.astro',
   'src/pages/shorkie-lab/index.astro',
   'src/pages/shorkie-lab/shorkie_lm.astro',
@@ -103,6 +105,9 @@ const SAFE_INNER_HTML_FILES = new Set([
   'public/wedding/index.html',
   'src/components/WGIndexQuery.astro',
   'src/pages/search.astro',
+  'src/scripts/cnnStudio.ts',
+  'src/scripts/cnnStudio.test.ts',
+  'src/scripts/shorkieAttentionStudio.ts',
 ]);
 
 const PRIVATE_PUBLIC_PATTERNS = [
