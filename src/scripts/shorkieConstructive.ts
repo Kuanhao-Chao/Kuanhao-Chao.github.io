@@ -17,6 +17,7 @@
 import receptiveData from '../data/shorkieReceptive.json';
 import giaData from '../data/shorkieGia.json';
 import spacingData from '../data/shorkieSpacing.json';
+import positionData from '../data/shorkiePosition.json';
 
 interface RecLocus {
   gene: string; full: number; radii: number[]; curve: number[];
@@ -386,8 +387,89 @@ export function initShorkieConstructive(host: HTMLElement): void {
         : `; apparent periods ${p.topPeriods.join(', ')} bp.`);
   }
 
+  // -----------------------------------------------------------------------------------------
+  // 5. Where does a motif work?
+  // -----------------------------------------------------------------------------------------
+  const posCv = $<HTMLCanvasElement>('[data-cn-position]');
+  const posStat = $('[data-cn-position-stat]');
+
+  function drawPosition(): void {
+    if (!posCv) return;
+    const pd = positionData as unknown as {
+      motifs: Record<string, { name: string; profileEdges: number[]; profile: (number | null)[];
+                               upstream500: number; inside500: number }>;
+    };
+    const entries = Object.entries(pd.motifs);
+    const H = 230;
+    const ctx = fit(posCv, H);
+    if (!ctx) return;
+    const w = Math.max(1, Math.round(posCv.clientWidth));
+    const ink = css(host, '--color-ink', '#1a1a1a');
+    const muted = css(host, '--color-muted', '#6b7280');
+    const rule = css(host, '--color-rule', '#e5e7eb');
+    const pal = [css(host, '--color-accent', '#2563eb'), css(host, '--vp-tfbs', '#dc2626'),
+      css(host, '--vp-reg', '#059669'), css(host, '--vp-element', '#a855f7')];
+    // Legend in a right-hand margin column: dense annotation inside a plot area collides with the
+    // data at some viewport or theme, every time.
+    const pad = { l: 44, r: 74, t: 14, b: 32 };
+    const inner = w - pad.l - pad.r;
+    const plot = H - pad.t - pad.b;
+    ctx.clearRect(0, 0, w, H);
+    const edges = entries[0][1].profileEdges;
+    const lo = edges[0]; const hi = edges[edges.length - 1];
+    const all = entries.flatMap(([, m]) => m.profile.filter((v): v is number => v != null));
+    const span = Math.max(...all.map(Math.abs)) * 1.15 || 0.1;
+    const X = (bp: number) => pad.l + (inner * (bp - lo)) / Math.max(1, hi - lo);
+    const Y = (v: number) => pad.t + plot / 2 - (plot / 2) * (v / span);
+
+    // The TSS, which is what every distance on this axis is measured from.
+    ctx.strokeStyle = muted; ctx.globalAlpha = 0.45; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(X(0), pad.t); ctx.lineTo(X(0), pad.t + plot); ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+    ctx.strokeStyle = rule;
+    ctx.beginPath(); ctx.moveTo(pad.l, Y(0)); ctx.lineTo(w - pad.r, Y(0)); ctx.stroke();
+
+    ctx.font = '10px system-ui, sans-serif';
+    entries.forEach(([, m], k) => {
+      ctx.strokeStyle = pal[k % pal.length]; ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      let started = false;
+      m.profile.forEach((v, i) => {
+        if (v == null) return;
+        const x = X((edges[i] + edges[i + 1]) / 2);
+        if (started) ctx.lineTo(x, Y(v)); else { ctx.moveTo(x, Y(v)); started = true; }
+      });
+      ctx.stroke();
+      ctx.fillStyle = pal[k % pal.length]; ctx.textAlign = 'left';
+      ctx.fillText(m.name, w - pad.r + 5, pad.t + 11 + k * 13);
+    });
+
+    ctx.fillStyle = muted; ctx.textAlign = 'right';
+    ctx.fillText(`+${span.toFixed(2)}`, pad.l - 4, pad.t + 8);
+    ctx.fillText('0', pad.l - 4, Y(0) + 3);
+    ctx.fillText(`−${span.toFixed(2)}`, pad.l - 4, pad.t + plot);
+    for (const bp of [-4000, -2000, 0, 2000, 4000]) {
+      ctx.textAlign = bp === lo ? 'left' : bp === hi ? 'right' : 'center';
+      ctx.fillText(bp === 0 ? 'TSS' : `${bp > 0 ? '+' : ''}${bp / 1000}k`, X(bp), H - 16);
+    }
+    ctx.textAlign = 'center';
+    caption(ctx, [
+      'distance from the transcription start site (bp), in the gene’s own direction',
+      'distance from the TSS (bp), in the gene’s direction',
+      'distance from the TSS (bp)',
+    ], pad.l + inner / 2, H - 4, inner);
+    if (posStat) {
+      const best = entries.reduce((a, b) => (b[1].upstream500 > a[1].upstream500 ? b : a));
+      posStat.textContent = `${best[1].name} is the strongest upstream: `
+        + `${best[1].upstream500 >= 0 ? '+' : ''}${best[1].upstream500.toFixed(3)} log₂ in the `
+        + `500 bp before the TSS against `
+        + `${best[1].inside500 >= 0 ? '+' : ''}${best[1].inside500.toFixed(3)} inside the gene.`;
+    }
+  }
+
   function drawAll(): void {
-    drawReceptive(); statReceptive(); drawGia(); drawJoin(); drawSpacing(); statSpacing();
+    drawReceptive(); statReceptive(); drawGia(); drawJoin();
+    drawSpacing(); statSpacing(); drawPosition();
   }
 
   spPick?.addEventListener('change', () => { drawSpacing(); statSpacing(); });

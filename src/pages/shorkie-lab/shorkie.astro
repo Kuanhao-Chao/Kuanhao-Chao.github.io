@@ -14,6 +14,7 @@ import headsData from '../../data/shorkieHeads.json';
 import variationData from '../../data/shorkieVariation.json';
 import giaData from '../../data/shorkieGia.json';
 import spacingData from '../../data/shorkieSpacing.json';
+import positionData from '../../data/shorkiePosition.json';
 
 // Derived, not typed. Four passages here described the enrichment figure and the knockout sweep as
 // covering fourteen windows after the set had grown to 23 -- and `shorkieBiologySummary.json`, which
@@ -46,6 +47,10 @@ const giaBranch = giaData.motifs.branch;
 const giaNotSuff = (giaJoin?.rows ?? []).filter((r) => r.quadrant === 'necessary, not sufficient');
 const spBest = Object.values(spacingData.pairs).reduce((a, b) => (b.maxInteraction > a.maxInteraction ? b : a));
 const spNearHelix = Object.values(spacingData.pairs)[0].harmonicsNearHelix;
+const posEntries = Object.values(positionData.motifs);
+const posBest = posEntries.reduce((a, b) => (b.upstream500 > a.upstream500 ? b : a));
+const posFlat = posEntries.filter((m) => Math.abs(m.upstream500) < 0.03
+  && Math.abs(m.inside500) < 0.03).map((m) => m.name);
 
 // The genome-wide section's numbers come from the tiles that shipped, not from prose. `nLoci`
 // above already exists because four passages here said "fourteen" after the set had grown to 23.
@@ -1106,7 +1111,54 @@ const breadcrumbLd = buildBreadcrumbLd([
           mostly constitutive genes where a meiotic repressor has little to do.
         </p>
 
-        <h3 class="gb-stats__title" style="margin-top:1rem;">3 · Does the arrangement matter?</h3>
+        <h3 class="gb-stats__title" style="margin-top:1rem;">3 · Where does a motif work?</h3>
+        <p class="vp-notes" style="margin:0 0 0.4rem;">
+          Panel 1 asked whether a motif does anything at all, dropped into empty DNA. This asks the
+          question a promoter actually poses: the same motif walked across a <em>real</em> window
+          {positionData.stepBp} bp at a time, scored on that window's own gene, and plotted against
+          distance to the transcription start site.
+        </p>
+        <canvas class="fr-canvas" data-cn-position height="230"
+                aria-label="Effect of implanting each motif, against distance to the transcription start site"></canvas>
+        <p class="vp-stat" data-cn-position-stat></p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>The motifs that were sufficient are the motifs with a position.</strong>{' '}
+          {posBest.name} reaches <strong>{posBest.upstream500 >= 0 ? '+' : ''}{posBest.upstream500}</strong>{' '}
+          log₂ in the 500 bp before the TSS and <strong>{posBest.inside500}</strong> inside the gene
+          body — it works upstream and nowhere else, which is the same asymmetry the attribution
+          metaprofile found by a completely different route (1.40× a gene's mean base upstream
+          against 0.94× inside). Ume6 represses from both sides, more strongly inside. And{' '}
+          {posFlat.join(' and ')} — the two that panel 2 showed are necessary at their own
+          promoters but <em>not</em> sufficient in empty DNA — are flat everywhere here too. Three
+          methods, one answer.
+        </p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>And every curve goes flat beyond about ±2 kb</strong>, which is not something this
+          measurement was set up to show. It is where act 2's receptive-field sweep independently
+          put the median window's effective context —{' '}
+          ±{recData.medianConvergenceBp.toLocaleString()} bp of the ±8,192 available. Implanting a
+          strong activator outside that radius moves the prediction by nothing, because outside it
+          there is nothing left to move.
+        </p>
+        <details class="vp-how">
+          <summary>Why a scramble is implanted at every position too</summary>
+          <div class="vp-how-body">
+            <p><strong>Overwriting {positionData.stepBp === 64 ? 'eight' : 'a few'} bases of a real
+            promoter destroys whatever was there.</strong> A bare implantation curve is therefore
+            partly a map of what was DESTROYED rather than of what was added — and in a promoter
+            that is exactly where the real sites are, so the artefact would look like the signal.
+            At each position the same bases in a shuffled order are implanted as well, and the
+            plotted quantity is the difference. Both arms overwrite the same span with the same
+            composition, so the damage cancels.</p>
+            <p><strong>Aligned on the direction of transcription, never on coordinates.</strong>{' '}
+            <code>txStart</code> on the plus strand, <code>txEnd</code> on the minus, minus-strand
+            profiles reversed. Without that flip the average puts promoters against terminators and
+            flattens into something indistinguishable from a real null — a mistake this site made
+            once already, with the attribution metaprofile.</p>
+          </div>
+        </details>
+
+        <h3 class="gb-stats__title" style="margin-top:1rem;">4 · Does the arrangement matter?</h3>
         <p class="vp-notes" style="margin:0 0 0.4rem;">
           One motif anchored at the centre, a second walked away from it one base at a time in all
           four orientations. Plotted is the <strong>interaction</strong> — the pair's effect minus
