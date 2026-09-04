@@ -611,7 +611,6 @@ export function generateTransformerPyTorchSnippet(config: TransformerConfig): st
     dModel,
     numHeads,
     numKvHeads,
-    dHead,
     dFfn,
     normType,
     normPosition,
@@ -666,8 +665,8 @@ def apply_rotary_emb(x: torch.Tensor, base: float = 10000.0) -> torch.Tensor:
   const kvRepeat = isGQA
     ? `
         # Repeat KV heads for Grouped-Query Attention (GQA)
-        k = torch.repeat_interleave(k, repeats=${numHeads} // ${numKvHeads}, dim=1)
-        v = torch.repeat_interleave(v, repeats=${numHeads} // ${numKvHeads}, dim=1)`
+        k = torch.repeat_interleave(k, repeats=self.num_heads // self.num_kv_heads, dim=1)
+        v = torch.repeat_interleave(v, repeats=self.num_heads // self.num_kv_heads, dim=1)`
     : '';
 
   const ropeCall = isRoPE
@@ -685,15 +684,15 @@ def apply_rotary_emb(x: torch.Tensor, base: float = 10000.0) -> torch.Tensor:
 
         # QKV linear projections & head reshaping: (B, S, D) -> (B, H, S, d_head)
         B, S, _ = x.shape
-        q = self.q_proj(norm1).view(B, S, ${numHeads}, ${dHead}).transpose(1, 2)
-        k = self.k_proj(norm1).view(B, S, ${numKvHeads}, ${dHead}).transpose(1, 2)
-        v = self.v_proj(norm1).view(B, S, ${numKvHeads}, ${dHead}).transpose(1, 2)${ropeCall}${kvRepeat}
+        q = self.q_proj(norm1).view(B, S, self.num_heads, self.head_dim).transpose(1, 2)
+        k = self.k_proj(norm1).view(B, S, self.num_kv_heads, self.head_dim).transpose(1, 2)
+        v = self.v_proj(norm1).view(B, S, self.num_kv_heads, self.head_dim).transpose(1, 2)${ropeCall}${kvRepeat}
 
         # Scaled Dot-Product Attention (FlashAttention compatible)
         attn_out = F.scaled_dot_product_attention(
             q, k, v, is_causal=${isCausal ? 'True' : 'False'}
         )
-        attn_out = attn_out.transpose(1, 2).contiguous().view(B, S, ${numHeads * dHead})
+        attn_out = attn_out.transpose(1, 2).contiguous().view(B, S, self.num_heads * self.head_dim)
         x = x + self.out_proj(attn_out)
 
         # FFN Block with Pre-LN
@@ -704,15 +703,15 @@ ${ffnForward}
     forwardBody = `    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Post-LN Architecture (Classical Vaswani 2017 style)
         B, S, _ = x.shape
-        q = self.q_proj(x).view(B, S, ${numHeads}, ${dHead}).transpose(1, 2)
-        k = self.k_proj(x).view(B, S, ${numKvHeads}, ${dHead}).transpose(1, 2)
-        v = self.v_proj(x).view(B, S, ${numKvHeads}, ${dHead}).transpose(1, 2)${ropeCall}${kvRepeat}
+        q = self.q_proj(x).view(B, S, self.num_heads, self.head_dim).transpose(1, 2)
+        k = self.k_proj(x).view(B, S, self.num_kv_heads, self.head_dim).transpose(1, 2)
+        v = self.v_proj(x).view(B, S, self.num_kv_heads, self.head_dim).transpose(1, 2)${ropeCall}${kvRepeat}
 
         # Scaled Dot-Product Attention
         attn_out = F.scaled_dot_product_attention(
             q, k, v, is_causal=${isCausal ? 'True' : 'False'}
         )
-        attn_out = attn_out.transpose(1, 2).contiguous().view(B, S, ${numHeads * dHead})
+        attn_out = attn_out.transpose(1, 2).contiguous().view(B, S, self.num_heads * self.head_dim)
         x = self.attn_norm(x + self.out_proj(attn_out))
 
         # FFN Block with Post-LN
