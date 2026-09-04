@@ -733,8 +733,19 @@ html[data-theme='dark'] .vp {
   display: grid;
   gap: 0.2rem;
   margin: 0.25rem 0 0.1rem 1.35rem;
+  /* The row is a flex/grid child of a 15.5rem column; without an explicit minimum a select sizes
+     itself to its WIDEST OPTION -- and one of these lists 1,128 ChIP-exo targets. */
+  min-width: 0;
 }
-.gb-panel__cascade .gb-panel__pick { width: 100%; }
+.gb-panel__cascade .gb-panel__pick { width: 100%; min-width: 0; }
+
+/* A track's documentation carries source URLs, and a UCSC goldenPath path is a 60-character
+   unbreakable run: at 320px it overflowed its container by 124px and was CLIPPED, not scrolled,
+   which reads as a sentence that stops mid-word. */
+.gb-ref, .vp-how-body, .gb-docs, .gb-panel__row { overflow-wrap: anywhere; min-width: 0; }
+/* A flex item does not shrink below its content unless told to, so a lane's label held the row
+   21px wider than the 15.5rem column and the end of the name was clipped rather than wrapped. */
+.gb-panel__row > span { min-width: 0; }
 
 .gb-panel__modes {
   display: flex;
@@ -784,7 +795,10 @@ html[data-theme='dark'] .vp {
 /* Score rows wrap so the height slider gets its own full-width line: at 15.5rem a name like
    "Shorkie_LM · unmasked" and a slider on one line pushes the name onto three. */
 .gb-panel__row:has(.gb-panel__h) { flex-wrap: wrap; }
-.gb-panel__h { flex: 1 0 100%; height: 1rem; margin: 0.1rem 0 0.2rem 1.35rem; cursor: pointer; }
+/* The height slider wraps to its own line and carries a 1.35rem indent so it aligns under the
+   lane's label. A flex-basis of 100% then makes it 100% PLUS that indent -- which is exactly the
+   21px this row overflowed by. Subtract the indent from the basis. */
+.gb-panel__h { flex: 1 0 calc(100% - 1.35rem); min-width: 0; }
 .gb-panel__note { margin: 0.6rem 0 0; color: var(--color-muted); font-size: 0.82em; }
 
 /* Positioned against .gb-stage, which is the element the pointer coordinates are measured in.
