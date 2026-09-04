@@ -727,6 +727,15 @@ html[data-theme='dark'] .vp {
   font-size: var(--fs-small);
 }
 
+/* Three cascading selects for the per-locus lane. They stack, because a regulator name plus a
+   run label does not fit beside a checkbox in a 15.5rem column. */
+.gb-panel__cascade {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0.25rem 0 0.1rem 1.35rem;
+}
+.gb-panel__cascade .gb-panel__pick { width: 100%; }
+
 .gb-panel__presets {
   display: flex;
   flex-wrap: wrap;

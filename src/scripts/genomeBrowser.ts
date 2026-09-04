@@ -46,6 +46,15 @@ import {
   MIN_VIEW_BP, type Level, type ChromInfo, type View, type LaneSpec, type Lane,
   type SearchIndex, type History,
 } from '../lib/genomeBrowser';
+import trackNamesJson from '../data/shorkieTrackNames.json';
+import { decodePackedRows, trackIndex, TRACK_GROUPS } from '../lib/shorkieModel';
+
+/** The 5,215 output identifiers in the model's own channel order, and the cascading index over
+ *  them. The SAME index the analysis page's picker uses, so the two cannot disagree about which
+ *  channel `MSN2 · T30 · S1234` is. */
+const TRACK_NAMES: string[] = (trackNamesJson as { identifiers: string[] }).identifiers;
+const TRACK_IDX = trackIndex(TRACK_NAMES);
+
 import { drawGeneRows, type GeneTrackFeature } from './geneTrack';
 import {
   LOGO_COLOURS, LOGO_GLYPHS, LOGO_GLOBSCALE, packGeneRows, type Base,
@@ -560,6 +569,252 @@ export function initGenomeBrowser(host: HTMLElement): void {
     // claiming the reader is in it while almost nothing on screen belongs to it.
     return bestOverlap > (view.end - view.start) * 0.5 ? best : null;
   }
+  /* ---------------------------------------------------------------------------------------- *
+   * The per-locus lane: any one of the 5,215 output tracks, inside the 23 analysed windows.
+   *
+   * Genome-wide per-track selection is not a design choice, it is arithmetic: a 16 bp coverage
+   * lane is ~887 KB of tiles across sacCer3, so all 5,215 would be ~4.7 GB plus a ~33 MB
+   * index.json that blocks before the first tile is fetched. The four Shorkie coverage lanes are
+   * therefore pooled means -- and `sk-chip-exo` pools 1,128 tracks over 765 targets whose shape
+   * correlation is 0.82 and whose argmax sits 38 bins apart.
+   *
+   * But the complete plane already ships per locus: `public/vp-data/<id>-tracks.png` is
+   * 5,215 x 896 at 16 bp, 2.15 MB, for each of the 23 windows. So full resolution exists exactly
+   * where the analysis happens, and this lane surfaces it -- sparse, the way `sk-ism` already is
+   * (present on 3.10% of the genome, "no data" everywhere else).
+   * ---------------------------------------------------------------------------------------- */
+  const LOCUS_LANE = 'sk-locus';
+  const LOCUS_BIN_BP = 16;
+  const LOCUS_BINS = 896;
+  const LOCUS_CROP = 1024;
+  /** Which of the 5,215; the RNA-seq block's first T0 track, matching the analysis page's default. */
+  let locusTrackIdx = 1148;
+  let locusBitmap: { locus: string; bmp: ImageBitmap; lo: number[]; hi: number[] } | null = null;
+  let locusRow: { locus: string; track: number; row: Float32Array; axisTop: number } | null = null;
+  let locusLoading = false;
+
+  const locusTrackSpec = (): TrackSpec => ({
+    id: LOCUS_LANE,
+    label: `Shorkie · ${TRACK_NAMES[locusTrackIdx] ?? 'track'} (this window only)`,
+    short: 'one track',
+    group: 'expression',
+    nativeBp: LOCUS_BIN_BP,
+    space: 'log1p',
+    // The axis is the loudest of ALL 5,215 tracks at this window, not this track's own range, so
+    // switching track does not silently rescale the lane and two tracks here compare exactly.
+    // It is not shared with `sk-rnaseq`: that lane's axis tops out at 1,097.6 (the genome-wide max
+    // of a 384-track MEAN) while a single track reaches 2,408 -- 2,693 of the 119,945 track-locus
+    // rows would clip against it, invisibly.
+    axis: [0, locusRow?.axisTop ?? 100],
+    units: 'a.u.',
+    prediction: true,
+    laneTag: 'one experiment · 23 windows only',
+    detail: TRACK_NAMES[locusTrackIdx] ?? '',
+    note: 'a single output track, at the model\'s own 16 bp resolution',
+    docs: {
+      source: 'public/vp-data/<locus>-tracks.png, written by scripts/shorkie/make_activations.py: '
+        + 'the model\'s full [896 x 5,215] output for one window, uint8 per row in log1p space.',
+      measures: 'what ONE of the 5,215 assays is predicted to measure across this window — a '
+        + 'single ChIP-exo target, one regulator at one induction timepoint, or one of the 1,014 '
+        + 'sequenced strains.',
+      read: 'tall means the model expects signal for that particular experiment here. The axis is '
+        + 'the loudest track at this window, shared by every track you can select, so two '
+        + 'selections compare exactly.',
+      caveat: 'It exists only inside the 23 analysed windows — 3.1% of the genome — because the '
+        + 'complete plane is 2.15 MB a locus and all 5,215 tracks genome-wide would be ~4.7 GB. '
+        + 'Outside them the lane is blank, which means NOT COMPUTED, never zero.',
+    },
+  } as TrackSpec);
+
+  /**
+   * Three cascading selects over all 5,215 output tracks: assay block, then regulator / ChIP
+   * target / strain accession, then the individual run.
+   *
+   * `TRACK_IDX` is the SAME index the analysis page's picker is built from, so the two cannot
+   * disagree about which channel a name refers to. Two things the axis is not: the 335 regulators
+   * x 13 timepoints grid is SPARSE -- 3,037 tracks, only eight regulators carry all thirteen and
+   * most carry eight -- so the third select lists what exists rather than a rectangle with holes;
+   * and a regulator can hold several samples at one timepoint, so an option has to name both or
+   * two of them read identically.
+   */
+  function locusPicker(): HTMLElement {
+    const wrap = document.createElement('div');
+    wrap.className = 'gb-panel__cascade';
+    const parsedGroup = TRACK_IDX.byGroup.findIndex(
+      (g) => locusTrackIdx >= TRACK_GROUPS[TRACK_IDX.byGroup.indexOf(g)].start
+        && locusTrackIdx < TRACK_GROUPS[TRACK_IDX.byGroup.indexOf(g)].end);
+    let gi = parsedGroup < 0 ? 0 : parsedGroup;
+    const grp = TRACK_IDX.byGroup[gi];
+    const curKey = grp.keys.find((k) => grp.tracks.get(k)!.some((x) => x.index === locusTrackIdx))
+      ?? grp.keys[0];
+
+    const mk = (label: string, hook: string): HTMLSelectElement => {
+      const s = document.createElement('select');
+      s.className = 'vp-select gb-panel__pick';
+      s.dataset[hook] = '1';
+      s.setAttribute('aria-label', label);
+      s.addEventListener('click', (e) => e.preventDefault());
+      wrap.append(s);
+      return s;
+    };
+    const gSel = mk('Assay block', 'gbLocusGroup');
+    const kSel = mk('Regulator, target or strain', 'gbLocusKey');
+    const rSel = mk('Run', 'gbLocusRun');
+
+    TRACK_IDX.byGroup.forEach((g, i) => {
+      const o = document.createElement('option');
+      o.value = String(i);
+      o.textContent = `${TRACK_GROUPS[i].label} (${TRACK_GROUPS[i].end - TRACK_GROUPS[i].start})`;
+      gSel.append(o);
+    });
+    gSel.value = String(gi);
+
+    for (const k of grp.keys) {
+      const o = document.createElement('option');
+      o.value = k;
+      const n = grp.tracks.get(k)!.length;
+      o.textContent = n > 1 ? `${k} (${n})` : k;
+      kSel.append(o);
+    }
+    kSel.value = curKey;
+
+    const fillRuns = (key: string): void => {
+      rSel.replaceChildren();
+      const list = TRACK_IDX.byGroup[gi].tracks.get(key) ?? [];
+      for (const x of list) {
+        const o = document.createElement('option');
+        o.value = String(x.index);
+        o.textContent = x.timepoint != null
+          ? `T${x.timepoint} · S${x.replicate ?? 0}`
+          : (x.replicate != null ? `replicate ${x.replicate}` : TRACK_NAMES[x.index]);
+        rSel.append(o);
+      }
+      rSel.disabled = list.length < 2;
+      if (list.some((x) => x.index === locusTrackIdx)) rSel.value = String(locusTrackIdx);
+    };
+    fillRuns(curKey);
+
+    const pick = (idx: number): void => {
+      locusTrackIdx = idx;
+      locusRow = null;                 // force a re-read of the new row
+      refreshLocusSpec();
+      writeHash();
+      buildPanel();
+      schedule();
+    };
+    gSel.addEventListener('change', () => {
+      gi = Number(gSel.value);
+      const g = TRACK_IDX.byGroup[gi];
+      pick(g.tracks.get(g.keys[0])![0].index);
+    });
+    kSel.addEventListener('change', () => {
+      pick(TRACK_IDX.byGroup[gi].tracks.get(kSel.value)![0].index);
+    });
+    rSel.addEventListener('change', () => pick(Number(rSel.value)));
+    return wrap;
+  }
+
+  /** The per-locus lane on an arbitrary bin grid, for the statistics table and the CSV export. */
+  function locusBins(startBp: number, n: number, binBp: number): (number | null)[] {
+    const pr = primaryHere();
+    const ok = pr && locusRow && locusRow.locus === pr.id && locusRow.track === locusTrackIdx;
+    const out: (number | null)[] = new Array(n).fill(null);
+    if (!ok) return out;
+    for (let i = 0; i < n; i += 1) {
+      const lo = startBp + i * binBp;
+      const bLo = Math.floor((lo - pr!.start - LOCUS_CROP) / LOCUS_BIN_BP);
+      const bHi = Math.max(bLo + 1, Math.ceil((lo + binBp - pr!.start - LOCUS_CROP) / LOCUS_BIN_BP));
+      let sum = 0; let k = 0;
+      for (let b = bLo; b < bHi; b += 1) {
+        if (b < 0 || b >= LOCUS_BINS) continue;
+        sum += locusRow!.row[b]; k += 1;
+      }
+      out[i] = k ? sum / k : null;
+    }
+    return out;
+  }
+
+  /** The live spec inside `index.tracks`, so the label follows the selection. */
+  let locusSpec: TrackSpec | null = null;
+  const refreshLocusSpec = (): void => {
+    if (locusSpec) Object.assign(locusSpec, locusTrackSpec());
+  };
+
+  /**
+   * Fetch and decode one row of a locus's [5,215 x 896] plane.
+   *
+   * The ImageBitmap is kept per locus, so changing TRACK re-reads one row rather than re-fetching
+   * 2.15 MB — and only that row's 896 pixels are read back, not the 4.67 M in the plane.
+   */
+  async function ensureLocusData(pr: Primary): Promise<void> {
+    if (locusRow && locusRow.locus === pr.id && locusRow.track === locusTrackIdx) return;
+    if (locusLoading) return;
+    locusLoading = true;
+    try {
+      if (!locusBitmap || locusBitmap.locus !== pr.id) {
+        const [meta, blob] = await Promise.all([
+          fetch(`/vp-data/${pr.id}.json`).then((r) => (r.ok ? r.json() : null)),
+          fetch(`/vp-data/${pr.id}-tracks.png`).then((r) => (r.ok ? r.blob() : null)),
+        ]);
+        const spec = meta?.tracks;
+        if (!spec || !blob) { locusLoading = false; return; }
+        locusBitmap?.bmp.close();
+        locusBitmap = {
+          locus: pr.id, bmp: await createImageBitmap(blob), lo: spec.lo, hi: spec.hi,
+        };
+      }
+      const b = locusBitmap;
+      const r = Math.min(Math.max(0, locusTrackIdx), b.lo.length - 1);
+      const cv = document.createElement('canvas');
+      cv.width = LOCUS_BINS; cv.height = 1;
+      const cx = cv.getContext('2d', { willReadFrequently: true });
+      if (!cx) { locusLoading = false; return; }
+      cx.drawImage(b.bmp, 0, r, LOCUS_BINS, 1, 0, 0, LOCUS_BINS, 1);
+      const px = cx.getImageData(0, 0, LOCUS_BINS, 1).data;
+      // `log1p` passed explicitly: this sidecar's `ism` plane also declares `space: "log"` and
+      // means the signed form. See `PackSpace` in shorkieModel.ts.
+      const row = decodePackedRows(
+        px, { rows: 1, cols: LOCUS_BINS, lo: [b.lo[r]], hi: [b.hi[r]] }, 'log1p');
+      let axisTop = 0;
+      for (const h of b.hi) { const v = Math.expm1(h); if (v > axisTop) axisTop = v; }
+      locusRow = { locus: pr.id, track: locusTrackIdx, row, axisTop: axisTop || 100 };
+      refreshLocusSpec();
+      schedule();
+    } finally {
+      locusLoading = false;
+    }
+  }
+
+  /**
+   * Columns for the per-locus lane. Its bins are the model's own output grid: 896 bins of 16 bp
+   * starting `LOCUS_CROP` into the window, because the head crops 1,024 bp from each end.
+   */
+  function sampleLocus(inner: number): Column[] {
+    const cols: Column[] = new Array(inner);
+    const pr = primaryHere();
+    const bpPerPx = (view.end - view.start) / inner;
+    const ok = pr && locusRow && locusRow.locus === pr.id && locusRow.track === locusTrackIdx;
+    const blank: Column = { min: 0, max: 0, mean: 0, have: false };
+    for (let x = 0; x < inner; x += 1) {
+      cols[x] = blank;
+      if (!ok) continue;
+      const bpLo = view.start + x * bpPerPx;
+      const bpHi = bpLo + bpPerPx;
+      const bLo = Math.floor((bpLo - pr!.start - LOCUS_CROP) / LOCUS_BIN_BP);
+      const bHi = Math.max(bLo + 1, Math.ceil((bpHi - pr!.start - LOCUS_CROP) / LOCUS_BIN_BP));
+      let mn = Infinity; let mx = -Infinity; let sum = 0; let n = 0;
+      for (let b = bLo; b < bHi; b += 1) {
+        if (b < 0 || b >= LOCUS_BINS) continue;
+        const v = locusRow!.row[b];
+        if (v < mn) mn = v;
+        if (v > mx) mx = v;
+        sum += v; n += 1;
+      }
+      if (n) cols[x] = { min: mn, max: mx, mean: sum / n, have: true };
+    }
+    return cols;
+  }
+
   const scatterCv = $<HTMLCanvasElement>('[data-gb-scatter]');
   const hoverOut = $('[data-gb-hover]');
   const panelBox = $('[data-gb-panel]');
@@ -889,6 +1144,11 @@ export function initGenomeBrowser(host: HTMLElement): void {
   type SampleSpec = Pick<TrackSpec, 'id' | 'axis' | 'space' | 'linthresh'>;
 
   function sample(spec: SampleSpec, lvl: Level, inner: number): Column[] {
+    // The per-locus lane has no tiles -- its data is an analysis pack -- so the branch lives here
+    // rather than at the call sites. There were four of them (the draw, the correlation pair, the
+    // statistics table and the CSV export) and a fifth would have gone quietly back to requesting
+    // `/genome-data/<chrom>/sk-locus/L2/0.png`, which 404s.
+    if (spec.id === LOCUS_LANE) return sampleLocus(inner);
     const trackId = spec.id;
     const info = chromInfo(view.chrom);
     const cols: Column[] = new Array(inner);
@@ -951,6 +1211,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     spec: SampleSpec & { nativeBp?: number }, lvl: Level,
     startBp: number, n: number, binBp: number,
   ): (number | null)[] {
+    if (spec.id === LOCUS_LANE) return locusBins(startBp, n, binBp);
     const info = chromInfo(view.chrom);
     const tileBins = index?.tileBins ?? 65536;
     const nBins = info ? Math.ceil(info.length / lvl.binBp) : 0;
@@ -1288,6 +1549,12 @@ export function initGenomeBrowser(host: HTMLElement): void {
     const bpPerPx = (view.end - view.start) / inner;
     const lvl = levelForBpPerPixel(bpPerPx, index.levels);
 
+    // The lane draws what it has and an arriving row schedules another frame, exactly as a tile
+    // does -- `paintTrack` never awaits data.
+    if (enabled.get(LOCUS_LANE)) {
+      const pr = primaryHere();
+      if (pr) void ensureLocusData(pr);
+    }
     const layout = laneLayout(laneSpecs(), LANE_GAP);
     lanes = layout.lanes;
     const ctx = fit(cv, layout.total);
@@ -3051,6 +3318,10 @@ export function initGenomeBrowser(host: HTMLElement): void {
       // sits, so the panel order still follows the generator's.
       const seenFamily = new Set<string>();
       for (const t of specs) {
+        if (t.id === LOCUS_LANE) {
+          row(t.id, t.label, `${t.detail} — ${t.note}`, locusPicker(), t.docs);
+          continue;
+        }
         if (t.family) {
           if (seenFamily.has(t.family)) continue;
           seenFamily.add(t.family);
@@ -3172,6 +3443,14 @@ export function initGenomeBrowser(host: HTMLElement): void {
     // chrI, chrII, ... chrXVI, chrM -- not by length, which reads chrIV, chrXV, chrVII and makes a
     // reader hunt for chrII, and not by name, which puts chrIX before chrV.
     index.chroms.sort((a, b) => chromOrder(a.name, b.name));
+
+    // The per-locus lane is declared here rather than in the tiler because it has no tiles: its
+    // data is the analysis packs. Only offered where there are analysed windows to be inside --
+    // the home-page embed passes no `data-gb-primary`, so it never sees it.
+    if (primaries.length) {
+      locusSpec = locusTrackSpec();
+      index.tracks.push(locusSpec);
+    }
 
     if (chromSel) {
       chromSel.replaceChildren();

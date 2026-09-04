@@ -6,11 +6,9 @@ import {
   type CustomEndpoint,
 } from '../lib/bayGraph';
 import {
-  buildDynamicRealWorldGraph,
-  realWorldGraphToBayGraph,
-  type RealWorldGraph,
+  buildFullCityGraphWithEndpoints,
   type TurnManeuver,
-} from '../lib/realWorldGoogleGraph';
+} from '../lib/cityRoadGraph';
 import {
   type AlgorithmId,
   type PathfindingResult,
@@ -49,32 +47,32 @@ export const FULL_CITY_PRESETS: Record<
     goal: { name: 'Brooklyn Bridge Promenade, Brooklyn, NY', lat: 40.7061, lng: -73.9969, district: 'Brooklyn' },
   },
   'trip-golden-gate': {
-    start: { name: 'Times Square, Manhattan, NY', lat: 40.7580, lng: -73.9855, district: 'New York City' },
-    goal: { name: 'Brooklyn Bridge Promenade, Brooklyn, NY', lat: 40.7061, lng: -73.9969, district: 'Brooklyn' },
+    start: { name: 'Presidio Tunnel Tops & Main Post', lat: 37.8010, lng: -122.4580, district: 'San Francisco' },
+    goal: { name: 'H. Dana Bowers Vista Point (Marin Headlands)', lat: 37.8375, lng: -122.4800, district: 'Marin Headlands' },
   },
   trip_tokyo_shibuya: {
     start: { name: 'Shibuya Crossing, Tokyo, Japan', lat: 35.6595, lng: 139.7005, district: 'Tokyo' },
     goal: { name: 'Tokyo Tower, Minato City, Tokyo', lat: 35.6586, lng: 139.7454, district: 'Tokyo' },
   },
   'trip-silicon-valley': {
-    start: { name: 'Shibuya Crossing, Tokyo, Japan', lat: 35.6595, lng: 139.7005, district: 'Tokyo' },
-    goal: { name: 'Tokyo Tower, Minato City, Tokyo', lat: 35.6586, lng: 139.7454, district: 'Tokyo' },
+    start: { name: 'San Francisco International Airport (SFO)', lat: 37.6213, lng: -122.3790, district: 'San Mateo' },
+    goal: { name: 'Stanford University (Palm Drive)', lat: 37.4275, lng: -122.1697, district: 'Stanford' },
   },
   trip_london_thames: {
     start: { name: 'Westminster Palace (Big Ben), London', lat: 51.4994, lng: -0.1248, district: 'London' },
     goal: { name: 'Tower Bridge, London', lat: 51.5055, lng: -0.0754, district: 'London' },
   },
   'trip-dumbarton': {
-    start: { name: 'Westminster Palace (Big Ben), London', lat: 51.4994, lng: -0.1248, district: 'London' },
-    goal: { name: 'Tower Bridge, London', lat: 51.5055, lng: -0.0754, district: 'London' },
+    start: { name: 'Stanford University (Palm Drive & Main Quad)', lat: 37.4275, lng: -122.1697, district: 'Stanford' },
+    goal: { name: 'Fremont Central & Paseo Padre', lat: 37.5485, lng: -121.9886, district: 'Fremont' },
   },
   trip_taipei_101: {
     start: { name: 'Taipei 101, Xinyi District, Taipei', lat: 25.0339, lng: 121.5645, district: 'Taipei' },
     goal: { name: 'Shilin Night Market, Shilin District, Taipei', lat: 25.0881, lng: 121.5244, district: 'Taipei' },
   },
   'trip-bay-corridor': {
-    start: { name: 'Taipei 101, Xinyi District, Taipei', lat: 25.0339, lng: 121.5645, district: 'Taipei' },
-    goal: { name: 'Shilin Night Market, Shilin District, Taipei', lat: 25.0881, lng: 121.5244, district: 'Taipei' },
+    start: { name: 'Market St & Steuart St (Ferry Bldg)', lat: 37.7942, lng: -122.3955, district: 'Downtown' },
+    goal: { name: 'San Jose City Hall & Santa Clara St', lat: 37.3382, lng: -121.8863, district: 'San Jose' },
   },
   trip_sfo_to_stanford: {
     start: { name: 'San Francisco International Airport (SFO)', lat: 37.6213, lng: -122.3790, district: 'San Mateo' },
@@ -101,8 +99,7 @@ export class BayRouteVisualizer {
 
   private currentTileStyle: MapTileStyle = 'dark';
 
-  // Dynamic Real-World Google Road Graph
-  private activeRealWorldGraph: RealWorldGraph | null = null;
+  // Dynamic Full City Road Graph
   private activeBayGraph: BayGraph = { nodes: new Map(), edges: [], adjacency: new Map() };
 
   public currentStartEndpoint: CustomEndpoint;
@@ -643,13 +640,13 @@ export class BayRouteVisualizer {
       district: this.currentGoalEndpoint.city,
     };
 
-    // Dynamically build real-world road graph between Start and Goal anywhere in the world
-    if (rebuildGraph || !this.activeRealWorldGraph) {
-      this.activeRealWorldGraph = await buildDynamicRealWorldGraph(startInput, goalInput);
-      this.activeBayGraph = realWorldGraphToBayGraph(this.activeRealWorldGraph);
-      this.startId = this.activeRealWorldGraph.startId;
-      this.goalId = this.activeRealWorldGraph.goalId;
-      this.currentManeuvers = this.activeRealWorldGraph.maneuvers;
+    // Build comprehensive full-city road graph between Start and Goal
+    if (rebuildGraph || !this.activeBayGraph || this.activeBayGraph.nodes.size === 0) {
+      const cityResult = buildFullCityGraphWithEndpoints(startInput, goalInput);
+      this.activeBayGraph = cityResult.graph;
+      this.startId = cityResult.startId;
+      this.goalId = cityResult.goalId;
+      this.currentManeuvers = cityResult.maneuvers;
     }
 
     if (this.isRaceMode) {

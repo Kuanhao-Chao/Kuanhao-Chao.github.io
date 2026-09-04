@@ -3,6 +3,7 @@ import {
   buildFullCityRoadGraph,
   spliceEndpointIntoCityGraph,
   cityRoadGraphToBayGraph,
+  buildFullCityGraphWithEndpoints,
 } from './cityRoadGraph';
 import { runPathfinding } from './pathfinding';
 
@@ -147,4 +148,57 @@ describe('CityRoadGraph Engine', () => {
     expect(richmondEdge).toBeDefined();
     expect(richmondEdge!.path!.length).toBeGreaterThanOrEqual(5);
   });
+
+  it('builds and routes through the New York City full city network', () => {
+    const timesSq = { name: 'Times Square', lat: 40.7580, lng: -73.9855 };
+    const brooklyn = { name: 'Brooklyn Bridge Promenade', lat: 40.7061, lng: -73.9969 };
+
+    const res = buildFullCityGraphWithEndpoints(timesSq, brooklyn);
+    expect(res.graph.nodes.size).toBeGreaterThan(20);
+    expect(res.graph.edges.length).toBeGreaterThan(40);
+    expect(res.maneuvers.length).toBeGreaterThan(3);
+    expect(res.totalDistanceMiles).toBeGreaterThan(3);
+
+    const aStar = runPathfinding('a_star', res.graph, res.startId, res.goalId);
+    expect(aStar.found).toBe(true);
+    expect(aStar.totalDistanceMiles).toBeGreaterThan(3);
+  });
+
+  it('builds and routes through the Tokyo central city network', () => {
+    const shibuya = { name: 'Shibuya Crossing', lat: 35.6595, lng: 139.7005 };
+    const tokyoTower = { name: 'Tokyo Tower', lat: 35.6586, lng: 139.7454 };
+
+    const res = buildFullCityGraphWithEndpoints(shibuya, tokyoTower);
+    expect(res.graph.nodes.size).toBeGreaterThan(14);
+    expect(res.graph.edges.length).toBeGreaterThan(25);
+    expect(res.maneuvers.length).toBeGreaterThan(2);
+
+    const aStar = runPathfinding('a_star', res.graph, res.startId, res.goalId);
+    expect(aStar.found).toBe(true);
+  });
+
+  it('builds and routes through the London Thames city network', () => {
+    const westminster = { name: 'Westminster Palace', lat: 51.4994, lng: -0.1248 };
+    const towerBridge = { name: 'Tower Bridge', lat: 51.5055, lng: -0.0754 };
+
+    const res = buildFullCityGraphWithEndpoints(westminster, towerBridge);
+    expect(res.graph.nodes.size).toBeGreaterThan(14);
+    expect(res.graph.edges.length).toBeGreaterThan(25);
+
+    const aStar = runPathfinding('a_star', res.graph, res.startId, res.goalId);
+    expect(aStar.found).toBe(true);
+  });
+
+  it('builds and routes through the Taipei city network', () => {
+    const tpe101 = { name: 'Taipei 101', lat: 25.0339, lng: 121.5645 };
+    const shilin = { name: 'Shilin Night Market', lat: 25.0881, lng: 121.5244 };
+
+    const res = buildFullCityGraphWithEndpoints(tpe101, shilin);
+    expect(res.graph.nodes.size).toBeGreaterThan(16);
+    expect(res.graph.edges.length).toBeGreaterThan(30);
+
+    const aStar = runPathfinding('a_star', res.graph, res.startId, res.goalId);
+    expect(aStar.found).toBe(true);
+  });
 });
+
