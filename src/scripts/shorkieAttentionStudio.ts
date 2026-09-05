@@ -160,17 +160,45 @@ export class ShorkieAttentionStudio {
 
       // Compute rollout matrix across all 8 layers
       this.rolloutMatrix = computeAttentionRollout(this.attentionData, BOTTLENECK_LEN, 8);
+      this.syntheticAttention = false;
+      this.host.dataset.studioSynthetic = 'false';
       this.updateStatus(`${locus.gene} attention matrices ready.`);
     } catch (err) {
       console.warn('Could not load precomputed attention matrix:', err);
-      this.updateStatus(`Attention data unavailable (${err instanceof Error ? err.message : err})`);
-      // Fallback synthetic attention matrix centered on diagonal
+      // The fallback below is a hand-written diagonal, not weak data -- and every view drawn
+      // from it (arcs, rollout, the percentages) is indistinguishable from the real thing by
+      // eye. The flag is what makes the difference visible, and it is drawn on the matrix
+      // itself rather than left in a status line that scrolls away.
+      this.syntheticAttention = true;
+      this.host.dataset.studioSynthetic = 'true';
+      this.updateStatus(
+        `NOT MODEL DATA — the attention pack failed to load (${
+          err instanceof Error ? err.message : err
+        }), so every attention view below is a synthetic diagonal placeholder.`,
+      );
       this.attentionData = this.generateFallbackAttention();
       this.rolloutMatrix = computeAttentionRollout(this.attentionData, BOTTLENECK_LEN, 8);
     } finally {
       this.isAttentionLoading = false;
       this.render();
     }
+  }
+
+  /** True while every attention view is drawn from the synthetic placeholder, not the pack. */
+  private syntheticAttention = false;
+
+  /** Stamps the matrix so a screenshot cannot be mistaken for loaded model data. */
+  private markIfSynthetic(cx: CanvasRenderingContext2D, w: number, h: number): void {
+    if (!this.syntheticAttention) return;
+    cx.save();
+    cx.font = '600 12px ui-monospace, SFMono-Regular, Menlo, monospace';
+    cx.textAlign = 'center';
+    cx.textBaseline = 'middle';
+    cx.translate(w / 2, h / 2);
+    cx.rotate(-Math.PI / 9);
+    cx.fillStyle = 'rgba(220, 38, 38, 0.85)';
+    cx.fillText('SYNTHETIC PLACEHOLDER — NOT MODEL DATA', 0, 0);
+    cx.restore();
   }
 
   private generateFallbackAttention(): Float32Array {
@@ -611,6 +639,7 @@ export class ShorkieAttentionStudio {
     ctx.fillStyle = '#e67e22';
     ctx.font = 'bold 11px monospace';
     ctx.fillText(`Probe B: ${this.state.probeB} bp`, Math.max(5, xB - 40), axisY + 44);
+    this.markIfSynthetic(ctx, canvas.width, canvas.height);
   }
 
   private renderReceptiveCone(): void {
@@ -738,6 +767,7 @@ export class ShorkieAttentionStudio {
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 2;
     ctx.strokeRect(tokenA * step, tokenB * step, step, step);
+    this.markIfSynthetic(ctx, canvas.width, canvas.height);
   }
 
   private renderConvergencePlot(): void {

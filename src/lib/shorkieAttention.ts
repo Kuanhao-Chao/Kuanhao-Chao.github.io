@@ -29,6 +29,17 @@ export interface ShorkieLayerSpec {
 }
 
 export const SHORKIE_LAYERS: ShorkieLayerSpec[] = [
+  // Every number below is derived from the fold-f0 checkpoint rather than transcribed: the stem
+  // is an 11 bp convolution and each residual block is conv_a k=5 followed by max-pool 2/2, which
+  // gives the theoretical reach. It was then cross-checked empirically -- flip one input base and
+  // record which units change at each stage -- and the two agree to within one grid unit at every
+  // stage. The empirical span is the SMALLER of the two because a max-pool only propagates a
+  // change when the max itself moves, so it is a lower bound on the architectural reach.
+  //
+  // A previous version of this table was wrong in three columns at once. It gave the stem a 15 bp
+  // kernel, which is the paper's number and not the checkpoint's, and then seeded the whole
+  // recurrence from it; and it shifted resolution and channel width by one stage, so `block1` was
+  // described as 8,192 positions of 128 channels when the recorded activation is 16,384 of 96.
   {
     id: 'stem',
     name: 'Convolutional Stem',
@@ -37,8 +48,8 @@ export const SHORKIE_LAYERS: ShorkieLayerSpec[] = [
     resolution: 16_384,
     bpPerUnit: 1,
     channels: 96,
-    theoreticalRfBp: 15,
-    description: 'Conv1D (k=15, stride 1). Extracts elementary nucleotide patterns and core motif hexamers.',
+    theoreticalRfBp: 11,
+    description: 'Conv1D (k=11, stride 1). Extracts elementary nucleotide patterns; 11 bp is the whole of what one stem unit can see.',
     isGlobal: false,
   },
   {
@@ -46,11 +57,11 @@ export const SHORKIE_LAYERS: ShorkieLayerSpec[] = [
     name: 'Residual Block 1',
     stage: 'conv_tower',
     layerIndex: 1,
-    resolution: 8_192,
-    bpPerUnit: 2,
-    channels: 128,
-    theoreticalRfBp: 35,
-    description: 'ResBlock with stride-2 pooling. Receptive field spans ~35 bp (short transcription factor binding cores).',
+    resolution: 16_384,
+    bpPerUnit: 1,
+    channels: 96,
+    theoreticalRfBp: 15,
+    description: 'ResBlock (conv k=5 + pointwise), recorded before its max-pool. Reaches 15 bp -- elementary motif cores -- and 15 bp is measured.',
     isGlobal: false,
   },
   {
@@ -58,11 +69,11 @@ export const SHORKIE_LAYERS: ShorkieLayerSpec[] = [
     name: 'Residual Block 2',
     stage: 'conv_tower',
     layerIndex: 2,
-    resolution: 4_096,
-    bpPerUnit: 4,
-    channels: 160,
-    theoreticalRfBp: 75,
-    description: 'ResBlock with stride-2 pooling. Receptive field spans ~75 bp (paired motif half-sites).',
+    resolution: 8_192,
+    bpPerUnit: 2,
+    channels: 128,
+    theoreticalRfBp: 24,
+    description: 'ResBlock (conv k=5 + pointwise), recorded before its max-pool. Reaches 24 bp -- a short binding-site core -- and 24 bp is measured.',
     isGlobal: false,
   },
   {
@@ -70,11 +81,11 @@ export const SHORKIE_LAYERS: ShorkieLayerSpec[] = [
     name: 'Residual Block 3',
     stage: 'conv_tower',
     layerIndex: 3,
-    resolution: 2_048,
-    bpPerUnit: 8,
-    channels: 192,
-    theoreticalRfBp: 155,
-    description: 'ResBlock with stride-2 pooling. Receptive field reaches ~155 bp (~mononucleosome scale).',
+    resolution: 4_096,
+    bpPerUnit: 4,
+    channels: 160,
+    theoreticalRfBp: 42,
+    description: 'ResBlock (conv k=5 + pointwise), recorded before its max-pool. Reaches 42 bp -- paired half-sites -- and 40 bp is measured.',
     isGlobal: false,
   },
   {
@@ -82,11 +93,11 @@ export const SHORKIE_LAYERS: ShorkieLayerSpec[] = [
     name: 'Residual Block 4',
     stage: 'conv_tower',
     layerIndex: 4,
-    resolution: 1_024,
-    bpPerUnit: 16,
-    channels: 256,
-    theoreticalRfBp: 315,
-    description: 'ResBlock with stride-2 pooling. Receptive field reaches ~315 bp (di-nucleosome / promoter core).',
+    resolution: 2_048,
+    bpPerUnit: 8,
+    channels: 192,
+    theoreticalRfBp: 78,
+    description: 'ResBlock (conv k=5 + pointwise), recorded before its max-pool. Reaches 78 bp -- a promoter element with flanks -- and 80 bp is measured.',
     isGlobal: false,
   },
   {
@@ -94,11 +105,11 @@ export const SHORKIE_LAYERS: ShorkieLayerSpec[] = [
     name: 'Residual Block 5',
     stage: 'conv_tower',
     layerIndex: 5,
-    resolution: 512,
-    bpPerUnit: 32,
-    channels: 320,
-    theoreticalRfBp: 635,
-    description: 'ResBlock with stride-2 pooling. Receptive field reaches ~635 bp (proximal upstream activating sequence).',
+    resolution: 1_024,
+    bpPerUnit: 16,
+    channels: 256,
+    theoreticalRfBp: 150,
+    description: 'ResBlock (conv k=5 + pointwise), recorded before its max-pool. Reaches 150 bp -- about one nucleosome -- and 160 bp is measured.',
     isGlobal: false,
   },
   {
@@ -106,11 +117,11 @@ export const SHORKIE_LAYERS: ShorkieLayerSpec[] = [
     name: 'Residual Block 6',
     stage: 'conv_tower',
     layerIndex: 6,
-    resolution: 256,
-    bpPerUnit: 64,
-    channels: 384,
-    theoreticalRfBp: 1_275,
-    description: 'ResBlock with stride-2 pooling. Receptive field reaches ~1,275 bp (extended regulatory domain).',
+    resolution: 512,
+    bpPerUnit: 32,
+    channels: 320,
+    theoreticalRfBp: 294,
+    description: 'ResBlock (conv k=5 + pointwise), recorded before its max-pool. Reaches 294 bp -- a nucleosome pair -- and 320 bp is measured.',
     isGlobal: false,
   },
   {
@@ -118,14 +129,16 @@ export const SHORKIE_LAYERS: ShorkieLayerSpec[] = [
     name: 'Residual Block 7',
     stage: 'conv_tower',
     layerIndex: 7,
-    resolution: 128,
-    bpPerUnit: 128,
+    resolution: 256,
+    bpPerUnit: 64,
     channels: 384,
-    theoreticalRfBp: 2_555,
-    description: 'Final encoder ResBlock. Maximum purely convolutional reach is ~2,555 bp before bottleneck attention.',
+    theoreticalRfBp: 582,
+    description: 'ResBlock (conv k=5 + pointwise), recorded before its max-pool. Reaches 582 bp -- the widest purely convolutional reach -- and 640 bp is measured. Widest purely convolutional reach before the bottleneck.',
     isGlobal: false,
   },
-  // 8 Bottleneck Transformer Layers
+  // 8 bottleneck Transformer layers, 4 heads each. The browser-facing attention pack averages
+  // those four heads before export (`build_onnx.py:123`), so nothing downstream of it can speak
+  // about an individual head.
   ...Array.from({ length: 8 }, (_, idx) => ({
     id: `transformer${idx + 1}`,
     name: `Transformer Layer ${idx + 1}`,
@@ -135,10 +148,9 @@ export const SHORKIE_LAYERS: ShorkieLayerSpec[] = [
     bpPerUnit: 128,
     channels: 384,
     theoreticalRfBp: 16_384,
-    description: `Multihead relative-position attention (4 heads, d=384). Receptive field leaps to 16,384 bp (100% global context).`,
+    description: `Multihead relative-position attention (4 heads, d=384). Reach becomes the whole 16,384 bp window; verified by perturbation, every one of the 128 positions responds.`,
     isGlobal: true,
   })),
-  // U-Net Decoders
   {
     id: 'decoder1',
     name: 'U-Net Decoder 1',
@@ -146,9 +158,9 @@ export const SHORKIE_LAYERS: ShorkieLayerSpec[] = [
     layerIndex: 16,
     resolution: 256,
     bpPerUnit: 64,
-    channels: 192,
+    channels: 384,
     theoreticalRfBp: 16_384,
-    description: 'Nearest-neighbor 2x upsampling with skip connection from Residual Block 7.',
+    description: 'Nearest-neighbour 2x upsampling added to a skip from Residual Block 7. The skip is why a bottleneck-only account of this model is incomplete.',
     isGlobal: true,
   },
   {
@@ -158,9 +170,9 @@ export const SHORKIE_LAYERS: ShorkieLayerSpec[] = [
     layerIndex: 17,
     resolution: 512,
     bpPerUnit: 32,
-    channels: 160,
+    channels: 384,
     theoreticalRfBp: 16_384,
-    description: 'Nearest-neighbor 2x upsampling with skip connection from Residual Block 6.',
+    description: 'Nearest-neighbour 2x upsampling added to a skip from Residual Block 6. The skip is why a bottleneck-only account of this model is incomplete.',
     isGlobal: true,
   },
   {
@@ -170,9 +182,9 @@ export const SHORKIE_LAYERS: ShorkieLayerSpec[] = [
     layerIndex: 18,
     resolution: 1_024,
     bpPerUnit: 16,
-    channels: 128,
+    channels: 384,
     theoreticalRfBp: 16_384,
-    description: 'Nearest-neighbor 2x upsampling with skip connection from Residual Block 5, cropped by 64 bins on each edge.',
+    description: 'Nearest-neighbour 2x upsampling added to a skip from Residual Block 5. The skip is why a bottleneck-only account of this model is incomplete. Cropped by 64 bins on each edge to the 896 output bins.',
     isGlobal: true,
   },
   {
@@ -351,7 +363,13 @@ export interface ArchitectureComparisonPoint {
 }
 
 /**
- * Simulates signal transmission fidelity across distance for the three major genomic modeling paradigms.
+ * An ILLUSTRATION of how three genomic modelling paradigms differ in reach, not a measurement.
+ *
+ * Every constant below -- the decay lengths, the floors, the 4,096 bp cone -- is hand-chosen to
+ * make the qualitative contrast legible. No comparison model was run, nothing was fitted, and
+ * these numbers must never be quoted as a benchmark result or compared against a measured curve.
+ * The one quantity here that IS derived is the 582 bp threshold, which is Shorkie's real widest
+ * purely convolutional reach from SHORKIE_LAYERS.
  */
 export function simulateSignalTransmission(
   distanceBp: number,
@@ -364,7 +382,7 @@ export function simulateSignalTransmission(
       // Local convolutions down to 128 bp tokens, then all-to-all global attention.
       // Signal maintains high fidelity across the entire 16 kb window via 1-hop cross-attention!
       const attnRetention = 0.65 + 0.35 * Math.exp(-d / 12000);
-      const signal = Math.min(1.0, Math.max(0.55, attnRetention * (d < 2555 ? 0.95 : 0.82)));
+      const signal = Math.min(1.0, Math.max(0.55, attnRetention * (d < 582 ? 0.95 : 0.82)));
       return {
         distanceBp: d,
         signalTransmission: Number(signal.toFixed(4)),

@@ -15,18 +15,57 @@ describe('shorkieAttention', () => {
       expect(SHORKIE_LAYERS.length).toBeGreaterThanOrEqual(18);
       const stem = SHORKIE_LAYERS[0];
       expect(stem.id).toBe('stem');
-      expect(stem.theoreticalRfBp).toBe(15);
+      expect(stem.theoreticalRfBp).toBe(11);
       expect(stem.isGlobal).toBe(false);
 
       const block7 = SHORKIE_LAYERS.find((l) => l.id === 'block7');
       expect(block7).toBeDefined();
-      expect(block7!.theoreticalRfBp).toBe(2555);
+      expect(block7!.theoreticalRfBp).toBe(582);
       expect(block7!.isGlobal).toBe(false);
 
       const trans1 = SHORKIE_LAYERS.find((l) => l.id === 'transformer1');
       expect(trans1).toBeDefined();
       expect(trans1!.theoreticalRfBp).toBe(16384);
       expect(trans1!.isGlobal).toBe(true);
+    });
+
+    it('re-derives the convolutional ladder from the checkpoint architecture', () => {
+      // Not a restatement of the table -- a recomputation from the kernel sizes the fold-f0
+      // checkpoint actually holds: an 11 bp stem, then seven blocks of conv k=5 (the pointwise
+      // k=1 adds no reach) each followed by max-pool 2/2. The previous ladder was pinned by a
+      // test that simply repeated its numbers, which is how a 15 bp stem survived alongside a
+      // checkpoint that has an 11 bp one.
+      const STEM_K = 11;
+      const CONV_K = 5;
+      let rf = STEM_K;
+      let jump = 1;
+      expect(SHORKIE_LAYERS[0].theoreticalRfBp).toBe(rf);
+
+      for (let i = 1; i <= 7; i += 1) {
+        const blockRf = rf + (CONV_K - 1) * jump;
+        const spec = SHORKIE_LAYERS.find((l) => l.id === `block${i}`)!;
+        expect(spec.theoreticalRfBp).toBe(blockRf);
+        // A block's activation is recorded BEFORE its pool, so its position count is the
+        // resolution going in, not coming out.
+        expect(spec.resolution).toBe(16384 / 2 ** (i - 1));
+        expect(spec.bpPerUnit).toBe(2 ** (i - 1));
+        rf = blockRf + jump;      // the max-pool that follows it
+        jump *= 2;
+      }
+    });
+
+    it('gives every conv-tower stage the channel width the checkpoint holds', () => {
+      // BLOCK_FILTERS in shorkie_torch.py, and block_i's output is BLOCK_FILTERS[i-1]. The old
+      // table was off by one here too, calling block1 128-wide when it is 96.
+      const widths = [96, 128, 160, 192, 256, 320, 384];
+      expect(SHORKIE_LAYERS[0].channels).toBe(96);
+      widths.forEach((w, i) => {
+        expect(SHORKIE_LAYERS.find((l) => l.id === `block${i + 1}`)!.channels).toBe(w);
+      });
+      // Every decoder stage carries the 384-wide decoder state.
+      [1, 2, 3].forEach((i) => {
+        expect(SHORKIE_LAYERS.find((l) => l.id === `decoder${i}`)!.channels).toBe(384);
+      });
     });
   });
 
@@ -58,10 +97,16 @@ describe('shorkieAttention', () => {
 
     it('detects when regions fall inside conv receptive fields', () => {
       const block7 = SHORKIE_LAYERS.find((l) => l.id === 'block7')!;
-      // Distance of 1000 bp: inside Block 7 (RF = 2555)
-      const res = checkReceptiveFeasibility(5000, 6000, block7);
-      expect(res.distanceBp).toBe(1000);
+      // Distance of 400 bp: inside Block 7, whose real reach is 582 bp. The number this used
+      // to use, 2,555, came from a ladder seeded with the paper's 15 bp stem instead of the
+      // checkpoint's 11 bp -- so 1,000 bp read as "reachable by convolution alone" when it is
+      // more than 400 bp past the widest purely convolutional stage.
+      const res = checkReceptiveFeasibility(5000, 5400, block7);
+      expect(res.distanceBp).toBe(400);
       expect(res.isInReceptiveField).toBe(true);
+
+      const beyond = checkReceptiveFeasibility(5000, 6000, block7);
+      expect(beyond.isInReceptiveField).toBe(false);
     });
 
     it('marks any distance within window as reachable in transformer layers', () => {

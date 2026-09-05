@@ -10,7 +10,7 @@ import speciesData from '../../data/shorkieSpecies.json';
 import epistasisData from '../../data/shorkieEpistasis.json';
 import kineticsData from '../../data/shorkieKinetics.json';
 import receptiveData from '../../data/shorkieReceptive.json';
-import headsData from '../../data/shorkieHeads.json';
+import headsData from '../../data/shorkieLayers.json';
 import variationData from '../../data/shorkieVariation.json';
 import giaData from '../../data/shorkieGia.json';
 import spacingData from '../../data/shorkieSpacing.json';
@@ -20,12 +20,35 @@ import bioSummary from '../../data/shorkieBiologySummary.json';
 import patchingData from '../../data/shorkiePatching.json';
 import modiscoData from '../../data/shorkieModisco.json';
 import saeData from '../../data/shorkieSae.json';
+import foldsData from '../../data/shorkieFolds.json';
+import faithfulnessData from '../../data/shorkieFaithfulness.json';
+import referencesData from '../../data/shorkieReferences.json';
+import grammarData from '../../data/shorkieGrammar.json';
 
 // Derived, not typed. Four passages here described the enrichment figure and the knockout sweep as
 // covering fourteen windows after the set had grown to 23 -- and `shorkieBiologySummary.json`, which
 // is what both are computed from, carries 23. The two "fourteen" figures further up are deliberately
 // NOT this constant: they describe a timed benchmark run that really did cover fourteen loci.
 const nLoci = lociData.loci.length;
+
+// Act 9. Every number is read from the generated pack, never typed — the rule the rest of this
+// page follows, and the one the research frames on it broke six times in one round.
+const folds = foldsData;
+const faith = faithfulnessData;
+const refs = referencesData;
+const gram = grammarData;
+const METHOD_LABEL: Record<string, string> = {
+  oracle: 'exact mutagenesis', grad: 'gradient × input', ig: 'integrated gradients',
+  occl: 'occlusion', rollout: 'attention rollout', stem: 'conv-stem response',
+  gc: 'GC content', tssdist: 'distance to TSS', random: 'random ranking',
+};
+const ROLE_SUFFIX: Record<string, string> = { ceiling: ' — the ceiling', baseline: ' — baseline' };
+const ROLE_VERDICT: Record<string, string> = { ceiling: 'the scale', baseline: '—' };
+const REF_LABEL: Record<string, string> = {
+  zero: 'all-zero DNA', mono: 'mononucleotide shuffle', dinuc: 'dinucleotide shuffle',
+  biological: 'another real window', expected: 'expected gradients',
+};
+const MODEL_METHODS = new Set(['grad', 'ig', 'occl', 'rollout']);
 
 // The frontier panels' headline numbers, read from the generated tables rather than typed — the
 // same rule the rest of this page follows after "fourteen windows" survived in four places.
@@ -115,6 +138,14 @@ const modisco = modiscoData as {
   control: { seqlets: number; clusters: number; matched: number; bestR: number; bits: number };
   clusters: { seqlets: number; loci: number; consensus: string; bits: number;
               match: { id: string; name: string; r: number } | null; bestR: number }[];
+  // Declared, not inferred: it is `null` in the pack until `make_null_planes.py` has run, and
+  // `typeof modiscoData` would then type every field access as an error.
+  matchedNull: { source: string; shufflesPerLocus: number; clusterThreshold: number;
+                 realMedianSimilarity: number; nullMedianSimilarity: number;
+                 real: { seqlets: number; clusters: number };
+                 null: { seqletsPerDraw: number; clustersPerDraw: number;
+                         clustersPerDrawSd: number; perDraw: number[] };
+                 realBeatsNull: boolean } | null;
 };
 
 const cf = cfData.summary;
@@ -365,7 +396,7 @@ const breadcrumbLd = buildBreadcrumbLd([
              so the same base pair landed at four different x positions at every container width but
              ~1,043 px. One `laneLayout` and one `xOfBp` makes that disagreement inexpressible. -->
         <canvas class="vp-canvas vp-viewport" data-vp-viewport role="img" tabindex="0"
-                aria-label="Predicted coverage, every attribution method — as DNA logos once zoomed in — the sequence and the annotation, on one zoomable axis"></canvas>
+                aria-label="Predicted coverage; mutagenesis, gradient times input and integrated gradients, which become DNA logos once zoomed in; 64 bp occlusion and 128 bp attention rollout, which stay bands at their own resolution; the sequence and the annotation, on one zoomable axis"></canvas>
 
         <p class="vp-notes" style="margin:0.35rem 0 0.6rem;">
           <strong>Drag to pan, drag the ruler to select, scroll to zoom — and keep going.</strong>{' '}
@@ -377,7 +408,9 @@ const breadcrumbLd = buildBreadcrumbLd([
           value cannot be letters and stretching them into some would claim a resolution neither
           has. Every lane is the same base pair at the same x, so a peak can be read straight
           down against a motif and a gene. Click anywhere to trace the 16 bp bin under the pointer;
-          the shaded band is what every panel below is conditioned on. The flanks are shaded because
+          the shaded band is what the region-conditioned panels below are keyed on — gradient x input,
+          integrated gradients, occlusion and rollout, but NOT mutagenesis, which keeps its own
+          focal-gene target and is unconditional. The flanks are shaded because
           the head crops 1,024 bp from each end — the curve covers 896 bins of 16 bp and the model
           still reads the whole 16,384 bp to produce them.
         </p>
@@ -466,6 +499,16 @@ const breadcrumbLd = buildBreadcrumbLd([
       <section class="vp-act" id="act-4">
         <h2 class="vp-act__h"><span class="vp-act__n">4</span>Which bases drove it?</h2>
         <p class="vp-act__sub">One region conditions everything here. Four methods answer it and are not expected to agree: where they diverge, the divergence is the finding.</p>
+        <p class="vp-notes" style="margin:-0.4rem 0 0.9rem;">
+          <strong>Every map in this act has a spread, and it is measured.</strong> Recomputed across
+          all {folds.folds.length} released training folds,{' '}
+          <strong>{(folds.stableFractionTop * 100).toFixed(0)}%</strong> of the strongest bases keep
+          their sign and a 95% interval clear of zero — against{' '}
+          <strong>{(folds.stableFractionControl * 100).toFixed(0)}%</strong> of distance-matched
+          controls. Forward and reverse disagree by{' '}
+          <strong>{folds.strandOverFold}×</strong> more than the folds do. <a href="#act-9">Act 9</a>{' '}
+          has the per-locus table and the gates.
+        </p>
       <section class="vp-panel">
         <h3>Four attributions, and one that is not{' '}
           <span class="vp-stat" data-vp-brush-stat></span>
@@ -852,6 +895,14 @@ const breadcrumbLd = buildBreadcrumbLd([
         </p>
         <div class="vp-scroll-x"><table class="vp-enrich" data-vp-enrichment></table></div>
         <p class="vp-notes" style="margin:0.4rem 0 0;">
+          <strong>This table is computed from one checkpoint.</strong> The attribution underneath it
+          is gradient × input on fold f0, whose per-base signal survives retraining for{' '}
+          {(folds.stableFractionTop * 100).toFixed(0)}% of the strongest bases and{' '}
+          {(folds.stableFractionControl * 100).toFixed(0)}% of matched controls —{' '}
+          <a href="#act-9">act 9</a> measures it. An enrichment ratio inherits that: it is a
+          statement about where <em>this</em> training run puts its weight.
+        </p>
+        <p class="vp-notes" style="margin:0.4rem 0 0;">
           <strong>Read the negatives too.</strong> A class at 1.0× is a real answer: it says the
           model puts no more weight there than anywhere else. And a method cannot resolve a feature
           finer than its own resolution — occlusion moves in 64 bp steps and attention rollout in
@@ -894,7 +945,7 @@ const breadcrumbLd = buildBreadcrumbLd([
         <ShorkiePanelHead
           question="Is an attribution peak a real motif, or base composition?"
           method="Permute the exact bases inside each curated site — same length, same composition, only the arrangement destroyed — and measure the change over the window's own gene body, as a mean over 5 shuffles with its spread."
-          cost="5 shuffles a site, one forward pass each — around 50 sites a locus. Single strand, unlike every attribution on this page, which is why its numbers are not directly comparable with the rc-averaged ones."
+          cost="5 shuffles a site, two forward passes each — forward and reverse complement, averaged per bin before the gene body is summed — around 50 sites a locus. Same rc-averaging as every attribution on this page, so the numbers are directly comparable."
           refuted="A near-zero result is an answer about that site. A low-complexity site cannot be shuffled at all, so the sweep records how many DISTINCT permutations it achieved rather than reporting a zero spread as a measurement." />
         <p class="vp-notes" style="margin:0 0 0.5rem;">
           <strong>Not six hand-picked motifs — all of them.</strong> Every ChIP-supported binding
@@ -932,7 +983,7 @@ const breadcrumbLd = buildBreadcrumbLd([
           composition and destroys only the arrangement, so this asks whether the <em>order</em> of
           those bases matters — a different question from the occlusion map, which zeroes a stretch
           and asks whether it carries information at all. The two can disagree.{' '}
-          <strong>A low-complexity site cannot be shuffled at all</strong> — one site across the
+          <strong>A low-complexity site cannot be shuffled at all</strong> — one site across the{' '}
           {nLoci} windows is five Cs and an A, which has almost no distinct permutations — so those
           are labelled rather than reported as a null result. “Unshuffleable” and “the model ignores
           it” are different findings that produce the same number.
@@ -943,8 +994,9 @@ const breadcrumbLd = buildBreadcrumbLd([
             <p><strong>Per site:</strong> Fisher–Yates shuffle the bases inside the site, re-run the
             model, and record <code>log2(Σ coverage + 1)</code> over the gene body minus the same
             quantity on the unedited sequence. Repeat with <code>k = 5</code> independent
-            permutations and report mean ± sd. Cost is one forward pass per shuffle — 104 ms — so
-            the whole ChIP-supported tier across all {nLoci} windows is a few thousand passes.</p>
+            permutations and report mean ± sd. Cost is two forward passes per shuffle — the sequence and
+            its reverse complement, 104 ms each through onnxruntime — so the whole ChIP-supported
+            tier across all {nLoci} windows is several thousand passes.</p>
             <p><strong>Why not one shuffle.</strong> A single permutation is one draw from the
             distribution of "sequences with this composition". Two shuffles of the same site can
             differ by more than the effect being reported, so the single number the page used to
@@ -1286,20 +1338,25 @@ const breadcrumbLd = buildBreadcrumbLd([
           <code>attention.mean(dim=2)</code> in <code>build_onnx.py</code> — so what ships is eight{' '}
           <em>layer</em> matrices, not thirty-two head matrices. Every number below is therefore a
           statement about a layer with its heads already collapsed. Per-head specialisation is a
-          different and finer question, and answering it would need a pack this page does not have:
-          four times the attention payload, or a live run. This panel does not answer it, and an
-          earlier version of this text claimed it did.
+          different and finer question, and answering it would need a pack this page does not have.
+          Not a live run either: the export averages the heads before the graph is written, and the
+          browser consumes that collapsed output, so recovering the four heads needs a newly
+          instrumented pass against the raw checkpoint — four times the attention payload. This
+          panel does not answer it, and an earlier version of this text claimed it did.
         </p>
         <canvas class="fr-canvas" data-fr-heads height="240"
-                aria-label="Attention enrichment of each head on each annotation class"></canvas>
+                aria-label="Attention enrichment of each transformer layer, with its four heads averaged, on each annotation class"></canvas>
         <p class="vp-stat" data-fr-heads-stat></p>
         <p class="vp-notes" style="margin:0.35rem 0 0;">
-          <strong>The layers have divided the genome the way a biologist would.</strong> Layers 0
-          and 3 read regulatory DNA — conserved binding sites at 1.75× and 1.88×, ORegAnno regions at
-          1.82× and 1.72×, ChIP-supported sites at 1.65× and 1.52× — and are <em>depleted</em> on
-          coding sequence at 0.73 and 0.69. Layer 4 is the mirror image: CDS 1.10× and every
-          regulatory class below 0.90. Layer 6 alone reads tRNA genes, at 1.50×. Nothing in training
-          named any of these categories — and because the heads are averaged, a layer reading
+          <strong>The layers place their attention mass the way a biologist would divide the
+          genome.</strong> Layers 0 and 3 are <em>enriched</em> on regulatory DNA against the
+          shifted null — conserved binding sites at 1.75× and 1.88×, ORegAnno regions at 1.82× and
+          1.72×, ChIP-supported sites at 1.65× and 1.52× — and <em>depleted</em> on coding sequence
+          at 0.73 and 0.69. Layer 4 is the mirror image: CDS 1.10× and every regulatory class below
+          0.90. Layer 6 alone is enriched on tRNA genes, at 1.50×. Nothing in training named any of
+          these categories. Enrichment is where attention mass lands, not evidence that the layer
+          uses it: this is a descriptive alignment under one null, and it is unsigned token mixing
+          rather than attribution. And because the heads are averaged, a layer reading
           &ldquo;flat&rdquo; here could still hold one specialised head and three that cancel it.
         </p>
         <details class="vp-how">
@@ -1314,7 +1371,7 @@ const breadcrumbLd = buildBreadcrumbLd([
             positions compares against an annotation that does not resemble the real one and calls
             almost everything significant.</p>
             <p><strong>Every class carries its ceiling, 1/coverage.</strong> Genes cover 91.5% of a
-            window, so no head can exceed <strong>1.09×</strong> on them however hard it looks —
+            window, so no layer can exceed <strong>1.09×</strong> on them however hard it looks —
             reading their 1.03 as "flat" would be wrong when it is most of the way to the maximum
             the geometry allows. The same saturation makes phastCons look uncorrelated inside
             coding sequence.</p>
@@ -1625,7 +1682,7 @@ const breadcrumbLd = buildBreadcrumbLd([
           refuted="Overwriting 8 bp of a real promoter destroys what was there — in a promoter, exactly where the real sites are. Without the scramble at every position that artefact would look like the signal." />
         <p class="vp-notes" style="margin:0 0 0.4rem;">
           Panel 1 asked whether a motif does anything at all, dropped into empty DNA. This asks the
-          question a promoter actually poses: the same motif walked across a <em>real</em> window
+          question a promoter actually poses: the same motif walked across a <em>real</em> window{' '}
           {positionData.stepBp} bp at a time, scored on that window's own gene, and plotted against
           distance to the transcription start site.
         </p>
@@ -1757,6 +1814,20 @@ const breadcrumbLd = buildBreadcrumbLd([
         <canvas class="fr-canvas" data-fr-epistasis height="150"
                 aria-label="Second-order interaction field for the selected binding site"></canvas>
         <p class="vp-stat" data-fr-epistasis-stat></p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>A second derivative is not a double substitution, and act 9 now measures the
+          gap.</strong> Every pair of positions in a locked panel was mutated together —{' '}
+          {gram.pairsTotal.toLocaleString()} exact double mutants — and the residual left after
+          subtracting both single effects is what this panel is trying to predict. The Hessian{' '}
+          {(gram.hessianCalibration.medianR ?? 0) > 0.3
+            ? <>calls it at <strong>r = {gram.hessianCalibration.medianR}</strong>.</>
+            : <><strong>does not call it</strong>: median r ={' '}
+              {gram.hessianCalibration.medianR} across {gram.loci} loci, against{' '}
+              {gram.separationCalibration.medianR} for separation alone. Read this panel as the
+              local curvature map it computes, not as a prediction about what two edits do
+              together.</>}{' '}
+          <a href="#act-9">The calibration is in act 9.</a>
+        </p>
         <p class="vp-notes" style="margin:0.35rem 0 0;">
           <strong>The helical-periodicity prediction is refuted, and that is the result.</strong> If
           the model had learned B-DNA's 10.5 bp pitch, |H·v| would repeat with it. Pooled over all{' '}
@@ -1903,9 +1974,9 @@ const breadcrumbLd = buildBreadcrumbLd([
           </p>
           <p class="vp-notes" style="margin:0.4rem 0 0;">
             <strong>So the honest statement is narrow, and the second width narrows it further.</strong>{' '}
-            At a threshold strict enough that chance clustering is essentially impossible, what the
-            model's highest-attribution {modisco.width}-mers have in common is <em>base
-            composition</em> rather than motif syntax — and at {modisco.widths[1]} bp, where the
+            At a threshold set by the control arm's own 99.9th percentile, what the model's
+            highest-attribution {modisco.width}-mers have in common is <em>base composition</em>{' '}
+            rather than motif syntax — and at {modisco.widths[1]} bp, where the
             control matches the real arm pattern for pattern, there is no separation left to
             interpret at all. That is a real
             finding about where a fixed-width, single-pass clustering of 1,000 seqlets can and cannot
@@ -1921,7 +1992,47 @@ const breadcrumbLd = buildBreadcrumbLd([
               <code>{modisco.clusterThreshold.toFixed(3)}</code> — is the{' '}
               {(modisco.nullQuantile * 100).toFixed(1)}th percentile of the <em>shuffled</em> arm's
               own pairwise similarity distribution. A cluster is therefore, by definition, a set of
-              seqlets more alike than shuffled sequence essentially ever manages.</p>
+              seqlets more alike than the control arm essentially ever manages — which is a
+              statement about that arm, not about chance. An earlier version of this sentence said
+              "essentially impossible"; the arm is finite, and until the matched null below it was
+              also not a model-conditioned null at all.</p>
+            <p><strong>The control shuffled the letters, not the model's input.</strong> It reused
+              the mutagenesis planes computed on the <em>real</em> window and shuffled only the
+              sequence used for saliency projection and reference-base choice — so the model never
+              ran on the null sequence, and the two arms were not estimating the same quantity.
+              {modisco.matchedNull ? (
+                <>{' '}The <strong>matched null</strong> fixes that: contribution maps recomputed on
+                dinucleotide-shuffled <em>input</em>, the same quantity by the same route on both
+                sides, with <strong>each shuffle draw clustered separately</strong> so the two arms
+                face the same pool size — clustering is superlinear in seqlet count, and pooling
+                the draws would have handed the null a five-fold advantage that dividing by the
+                number of draws does not undo. It gives{' '}
+                <strong>{modisco.matchedNull.real.clusters}</strong> cluster
+                {modisco.matchedNull.real.clusters === 1 ? '' : 's'} on real sequence
+                ({modisco.matchedNull.real.seqlets.toLocaleString()} seqlets) against{' '}
+                <strong>{modisco.matchedNull.null.clustersPerDraw} ± {modisco.matchedNull.null.clustersPerDrawSd}</strong>{' '}
+                per draw over {modisco.matchedNull.shufflesPerLocus} draws of about{' '}
+                {Math.round(modisco.matchedNull.null.seqletsPerDraw).toLocaleString()} seqlets each.{' '}
+                {modisco.matchedNull.realBeatsNull
+                  ? 'The real arm is ahead, which the projection-only control could not have established either way.'
+                  : 'The real arm is NOT ahead — a sharper negative than the projection-only control gave.'}</>
+              ) : (
+                <>{' '}The matched null has not been generated for this build.</>
+              )}</p>
+            {modisco.matchedNull && (
+              <p><strong>Where that difference lives matters, and it is not in the bulk.</strong>{' '}
+              The two arms' own pairwise-similarity distributions are indistinguishable — median{' '}
+              {modisco.matchedNull.realMedianSimilarity.toFixed(4)} on real sequence against{' '}
+              {modisco.matchedNull.nullMedianSimilarity.toFixed(4)} on shuffled input — so the real
+              arm's seqlets do not resemble each other less on the whole. The entire difference is
+              in the tail above the threshold, over {modisco.matchedNull.shufflesPerLocus} draws.
+              That is enough to say the real arm does not <em>exceed</em> a matched null, which is
+              the claim the panel needed and did not have. It is not enough to say shuffled input
+              is genuinely richer, and the page does not say so. Note also that this arm uses
+              gradient × input, the contribution type both sides can be recomputed on; the
+              ISM-based grid above still has no valid null, so no cell of this experiment has a
+              model-conditioned null supporting a real-arm excess.</p>
+            )}
               <p><strong>The first version's PWMs were 0.00 bits.</strong> They were built as a
               softmax of the mean-centred contributions, which is near-uniform whenever the
               contributions are small — and they usually are. The "consensus" was the argmax of
@@ -2094,6 +2205,274 @@ const breadcrumbLd = buildBreadcrumbLd([
       </section>
       </section>
 
+      <!-- ============================== 9 · How much of this should you believe? ============================== -->
+      <section class="vp-act" id="act-9">
+        <h2 class="vp-act__h"><span class="vp-act__n">9</span>How much of this should you believe?</h2>
+        <p class="vp-act__sub">Every number above comes from one training fold, one baseline and a
+        method that had never been scored against an exact edit. These four panels measure that,
+        and they are the only ones on the page whose subject is the page itself.{' '}
+        {(() => {
+          const demoted = faith.scorecard.filter((r) => r.role === 'method' && !r.beatsBaselines).length;
+          const refLost = !refs.shippedIsBest;
+          const bits: string[] = [];
+          if (demoted) bits.push(`${demoted} shipped attribution method${demoted === 1 ? '' : 's'} fail${demoted === 1 ? 's' : ''} its own benchmark`);
+          if (refLost) bits.push('the default integrated-gradients baseline is not the best of five');
+          return bits.length
+            ? `${bits.join(', and ')} — both were found here rather than argued.`
+            : 'Everything measured here held up, which is also a result.';
+        })()}</p>
+
+      <section class="vp-panel" data-shorkie-reliability>
+        <h3>Does the signal survive retraining? <span class="vp-stat">{(folds.stableFractionTop * 100).toFixed(0)}% of strong bases</span></h3>
+        <ShorkiePanelHead
+          question="Would a different training run of the same architecture call the same bases important?"
+          method={`Every exact single-base effect in a locked panel per locus — the ${folds.panelPerLocus} strongest by mutagenesis plus ${folds.panelPerLocus} matched on distance to TSS — recomputed under all ${folds.folds.length} released folds and on both strands. Fold and strand are kept as separate axes and never pooled.`}
+          cost={`${folds.substitutions.toLocaleString()} substitutions × ${folds.folds.length} checkpoints × 2 strands, about an hour on an M1 Pro, plus 385 MB of checkpoints that are public and were simply never downloaded.`}
+          refuted={`The panel is chosen from f0, so f0's own agreement with it is a tautology: f0 selects and is reported separately, and every cross-fold statistic below is computed over ${folds.evidenceFolds.join(', ')} only. The matched controls are what "how many survive" is measured against.`} />
+        <p class="vp-notes" style="margin:0 0 0.5rem;">
+          <strong>The eight folds are eight different models, and this was measurable all along.</strong>{' '}
+          Both audit documents record training-fold uncertainty as <em>unestimated</em>. It is not
+          unestimable — all eight checkpoints sit at a public URL, and on one locus they predict{' '}
+          <code>g</code> across a range of a factor of 1.68 in coverage. What follows is what
+          happens to the page's own top-ranked bases when the training run changes.
+        </p>
+        <canvas class="fr-canvas" data-rl-folds height="240"
+                aria-label="Per locus, the fraction of the strongest mutagenesis bases whose sign and confidence interval survive across folds, against distance-matched control bases"></canvas>
+        <p class="vp-stat" data-rl-folds-stat></p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>{(folds.strandOverFold ?? 1) >= 1.15
+            ? 'Strand disagreement is the larger term, and it is not noise.'
+            : 0.87 >= (folds.strandOverFold ?? 1)
+              ? 'Retraining moves these effects more than reading the other strand does.'
+              : 'Strand and fold disagreement are comparable in size, and neither is noise.'}</strong>{' '}
+          The median spread across folds is <strong>{folds.medianFoldSd.toFixed(4)}</strong> against
+          a median strand deviation of <strong>{folds.medianStrandDeviation.toFixed(4)}</strong>,{' '}
+          a ratio of <strong>{folds.strandOverFold}×</strong>. The model was trained with{' '}
+          <code>augment_rc: false</code>, so forward and reverse are genuinely different states and
+          averaging them is a test-time choice, not a symmetry being exploited. Pooling the two
+          axes into one error bar would hide both.
+        </p>
+        <details class="vp-how">
+          <summary>The three gates, fixed before the run</summary>
+          <div class="vp-how-body">
+            <p><strong>Sign agreement &gt; {folds.gates.signAgreement}</strong>, measured over the
+            evidence folds only; the page's median is{' '}
+            <strong>{folds.medianSignAgreement.toFixed(3)}</strong>.{' '}
+            <strong>Top-1% overlap &gt; {folds.gates.topOverlap}</strong> between every pair of
+            evidence folds on the whole-window gradient — 164 of 16,384 bases — where the median is{' '}
+            <strong>{folds.medianTopOverlap.toFixed(3)}</strong>. And a{' '}
+            <strong>95% interval across folds excluding zero</strong>. A base is called fold-stable
+            only if it clears the first and the third; the second is a per-locus statistic.</p>
+            <p><strong>Why the panel is selected from f0 and f0 is then excluded.</strong> The
+            bases worth asking about are the ones the site's claims rest on, and those come from
+            f0's plane. Measuring f0's agreement with a panel f0 chose would report the selection
+            back to itself. So the selection and the evidence are deliberately different
+            checkpoints.</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="vp-panel">
+        <h3>Which attribution methods survive an exact edit? <span class="vp-stat">{faith.scorecard.filter((r) => r.role === 'method' && r.beatsBaselines).length} of {faith.scorecard.filter((r) => r.role === 'method').length}</span></h3>
+        <ShorkiePanelHead
+          question="Do the page's attribution maps rank bases the way exact mutagenesis does — and do they beat a baseline that knows nothing about the model?"
+          method="Rank agreement with the exact ISM planes, each method scored at its OWN native resolution with the ground truth pooled to match, plus a deletion curve: rank the bases, substitute the top-k to their worst alternative, and measure the real fall in g."
+          cost="Minutes. The exhaustive mutagenesis ground truth for all twenty-three windows was already on disk; what was missing was the interventions that score against it."
+          refuted="A method that cannot beat GC content, distance to TSS or a random ranking is demoted on this page rather than defended. Attention rollout is included knowing it is unsigned token mixing at 128 bp and has no reason to pass." />
+        <p class="vp-notes" style="margin:0 0 0.5rem;">
+          <strong>Scoring a 64 bp method per base measures its resolution, not its faithfulness.</strong>{' '}
+          Occlusion and rollout resolve 64 and 128 bp, so the mutagenesis truth is pooled to each
+          method's own grid before the ranks are compared. The deletion curve gives them no such
+          allowance — within a block it can only order bases by position, which is exactly the
+          handicap their resolution imposes on a reader.
+        </p>
+        <div class="vp-scroll-x">
+          <table class="vp-enrich">
+            <thead><tr><th>method</th><th>resolution</th><th>rank r<sub>s</sub> vs exact ISM</th><th>deletion AUC</th><th>verdict</th></tr></thead>
+            <tbody>
+              {faith.scorecard.map((r) => (
+                <tr>
+                  <td>{METHOD_LABEL[r.method] ?? r.method}{ROLE_SUFFIX[r.role] ?? ''}</td>
+                  <td>{r.resolutionBp === 1 ? 'per base' : `${r.resolutionBp} bp`}</td>
+                  <td>{r.medianRho.toFixed(3)}</td>
+                  <td>{r.deletionAuc.toFixed(3)}</td>
+                  <td>{ROLE_VERDICT[r.role] ?? (r.beatsBaselines ? 'promote' : 'demote')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p class="vp-notes" style="margin:0.5rem 0 0;">
+          <strong>The two columns measure different things, and the ceiling row shows it.</strong>{' '}
+          The oracle is ordered by how far <code>g</code> falls when each base is substituted to its
+          worst alternative — the quantity the deletion curve applies — so it bounds that column at
+          1.000. Its <em>rank</em> agreement is only{' '}
+          {faith.scorecard.find((r) => r.method === 'oracle')!.medianRho.toFixed(3)}, below{' '}
+          {METHOD_LABEL.grad}, because the ground truth for that column is the largest effect a base
+          can have in <em>either</em> direction. The two orderings part company wherever a base's
+          biggest effect is an increase. An earlier version ranked the oracle by |effect| and
+          integrated gradients scored 1.0053 against it — a ceiling a method can exceed is a
+          mislabelled competitor, not a ceiling.
+        </p>
+        <p class="vp-notes" style="margin:0.5rem 0 0;">
+          <strong>1.000 is ranking by the answer.</strong> Every curve is divided by what the exact
+          mutagenesis ranking itself achieves, so the column reads as the fraction of achievable
+          damage a method found. <strong>The bar is the strongest baseline</strong>, at{' '}
+          <strong>{faith.baselineAuc.toFixed(3)}</strong> — GC content is a real predictor of where
+          a promoter is, and distance to TSS still better, so a method that merely finds promoters
+          clears a random ranking without demonstrating anything about the model. The conv stem is
+          filed with them deliberately: it is linear and unnormalised, so its filters are a basis
+          any invertible recombination leaves unchanged.
+        </p>
+        <p class="vp-notes" style="margin:0.5rem 0 0;">
+          <strong>{(() => {
+            const demoted = faith.scorecard.filter((r) => r.role === 'method' && !r.beatsBaselines);
+            const kept = faith.scorecard.filter((r) => r.role === 'method' && r.beatsBaselines);
+            if (!demoted.length) return 'Every method under test clears the baselines.';
+            return `${demoted.map((r) => METHOD_LABEL[r.method] ?? r.method).join(' and ')} `
+              + `${demoted.length === 1 ? 'does' : 'do'} not clear the baselines.`;
+          })()}</strong>{' '}
+          {faith.scorecard.filter((r) => r.role === 'method' && !r.beatsBaselines)
+            .map((r) => `${METHOD_LABEL[r.method] ?? r.method} finds ${(r.deletionAuc * 100).toFixed(1)}% of the achievable damage`)
+            .join(', ')}
+          {faith.scorecard.some((r) => r.method === 'random')
+            ? `, against ${(faith.scorecard.find((r) => r.method === 'random')!.deletionAuc * 100).toFixed(1)}% for a random ranking.`
+            : '.'}{' '}
+          Attention rollout is unsigned token mixing at 128 bp — an architectural quantity
+          describing what the transformer <em>can</em> read, not an attribution — so this is the
+          expected result rather than a surprise, and the panel in act 6 says so on its face. It is
+          reported here because a method nobody scores is a method nobody can demote.
+        </p>
+        <details class="vp-how">
+          <summary>What a deletion curve is, and why completeness is quoted twice</summary>
+          <div class="vp-how-body">
+            <p><strong>The deletion curve is the only part of this that is an intervention.</strong>{' '}
+            Rank agreement is a correlation between two maps. The curve takes the method's own
+            ranking, substitutes the top k bases to the alternative the exact plane says is worst,
+            re-runs the model forward and reverse, and records what actually happened to{' '}
+            <code>g</code>. A map can correlate well and still rank the wrong bases first.</p>
+            <p><strong>Integrated gradients' completeness gap is{' '}
+            {faith.igCompleteness.medianAbs.toFixed(4)} absolute and{' '}
+            {faith.igCompleteness.medianRelPct.toFixed(1)}% relative</strong>, and both are quoted
+            because the relative figure is unreadable on its own: where the target gap is near zero
+            a miss of 0.04 reads as several hundred percent, which is a fact about the denominator.</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="vp-panel">
+        <h3>Is the IG baseline doing the storytelling? <span class="vp-stat">best: {REF_LABEL[refs.best] ?? refs.best}</span></h3>
+        <ShorkiePanelHead
+          question="The site ships one integrated-gradients reference — all four DNA channels zeroed. Is that choice carrying the result?"
+          method={`The same 32-step path integral under five legal reference families on the same scalar and the same loci, every one preserving the species one-hot and none assuming channel 4 is a mask. Scored by agreement with exact mutagenesis and by real deletion passes.`}
+          cost={`${refs.loci} loci × 5 families × 2 strands × ${refs.steps} steps, about ten minutes.`}
+          refuted="Shorkie_LM's own masked negative log-likelihood scores each reference: a baseline the sequence model finds impossible is one the expression model was never trained near. And strand-wise maps are compared BEFORE averaging — a family that only looks stable once the two arms are averaged has failed, not passed." />
+        <div class="vp-scroll-x">
+          <table class="vp-enrich">
+            <thead><tr><th>reference</th><th>rank r<sub>s</sub> vs ISM</th><th>deletion AUC</th><th>completeness</th><th>strand agreement</th><th>LM surprise (bits)</th></tr></thead>
+            <tbody>
+              {refs.families.map((r) => (
+                <tr>
+                  <td>{REF_LABEL[r.family] ?? r.family}{r.shipped ? ' — shipped' : ''}</td>
+                  <td>{r.medianRho.toFixed(3)}</td>
+                  <td>{r.medianDeletionAuc.toFixed(3)}</td>
+                  <td>{r.medianCompletenessAbs.toFixed(4)}</td>
+                  <td>{r.medianStrandRho.toFixed(3)}</td>
+                  <td>{r.medianLmNllBits === null ? '—' : r.medianLmNllBits.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p class="vp-notes" style="margin:0.5rem 0 0;">
+          <strong>{refs.shippedIsBest
+            ? 'The shipped baseline wins, and now that is a measurement rather than a default.'
+            : `The shipped baseline does not win — ${REF_LABEL[refs.best] ?? refs.best} does.`}</strong>{' '}
+          {refs.shippedIsBest ? '' : (() => {
+            const z = refs.families.find((r) => r.family === 'zero')!;
+            const b = refs.families.find((r) => r.family === refs.best)!;
+            return `All-zero DNA reaches ${z.medianDeletionAuc.toFixed(3)} of the achievable damage `
+              + `against ${b.medianDeletionAuc.toFixed(3)}, and its forward and reverse maps agree `
+              + `at only r = ${z.medianStrandRho.toFixed(2)} — the weakest in the table. A family `
+              + `that needs the two arms averaged before it looks stable has failed the `
+              + `transparency requirement, not passed it. `;
+          })()}
+          Integrated gradients therefore ships labelled reference-sensitive, with the menu above
+          exposed, rather than quietly defaulting to one path.
+        </p>
+        <p class="vp-notes" style="margin:0.5rem 0 0;">
+          <strong>Rank agreement and deletion damage part company here, and the shipped baseline is
+          where they part hardest.</strong> All-zero DNA has the <em>best</em> rank correlation with
+          exact mutagenesis in the table —{' '}
+          {refs.families.find((r) => r.family === 'zero')!.medianRho.toFixed(3)} — and nearly the
+          worst deletion AUC. Correlating with the ground truth and ordering the bases whose
+          mutation actually hurts are different achievements, which is the same dissociation
+          attention rollout shows one panel up. The most in-distribution reference does worst of
+          all: a real window shares so much with the sequence being explained that the path between
+          them carries little.
+        </p>
+        <p class="vp-notes" style="margin:0.5rem 0 0;">
+          <strong>Real yeast sequence costs Shorkie_LM {refs.referenceNllBits} bits a base</strong>{' '}
+          under its own masked schedule, which is the number every reference in the table should be
+          read against. An all-zero window is not merely unusual sequence — zeroing the four DNA
+          channels is literally how this model family masks a position, so that reference asks the
+          expression model to integrate a path from a fully masked window.
+        </p>
+      </section>
+
+      <section class="vp-panel" data-shorkie-reliability>
+        <h3>Does the second derivative predict a real double edit? <span class="vp-stat">{(gram.hessianCalibration.medianR ?? 0) > 0.3 ? `yes, r = ${gram.hessianCalibration.medianR}` : `no — r = ${gram.hessianCalibration.medianR}`}</span></h3>
+        <ShorkiePanelHead
+          question="The epistasis panel in act 7 is a Hessian — curvature at the reference. Does it predict what two actual substitutions do together?"
+          method={`Every double substitution over ${gram.positionsPerLocus} positions a locus — nine per pair — evaluated exactly and rc-averaged, with the inclusion–exclusion residual as the measured interaction. Singles are recomputed in the same run so both terms of the subtraction share a convention.`}
+          cost={`${gram.pairsTotal.toLocaleString()} exact double mutants across ${gram.loci} loci, about half an hour.`}
+          refuted="Additive predicts exactly zero and is the null the Hessian has to beat. Separation alone is scored too, in case proximity is all the second derivative is tracking. The recomputed singles are checked against the shipped mutagenesis planes; the worst drift is a free correctness check on the whole path." />
+        <p class="vp-notes" style="margin:0 0 0.5rem;">
+          <strong>A second derivative is not a double substitution.</strong> The Hessian is
+          curvature at the reference one-hot; a real double edit is a finite jump to another vertex
+          of the simplex, and nothing guarantees the first predicts the second. Half the positions
+          are the strongest bases and half are matched on distance to TSS, so "how much interaction
+          is there" has something to be compared against.
+        </p>
+        <canvas class="fr-canvas" data-rl-grammar height="240"
+                aria-label="Hessian-predicted pairwise interaction against the measured inclusion-exclusion residual from exact double substitutions"></canvas>
+        <p class="vp-stat" data-rl-grammar-stat></p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>{(gram.hessianCalibration.medianR ?? 0) > 0.3
+            ? 'The Hessian calls the measured interaction.'
+            : 'The Hessian does not call the measured interaction, and two trivial predictors do better.'}</strong>{' '}
+          Over {gram.pairsTotal.toLocaleString()} exact double substitutions the Hessian's median
+          correlation with the measured residual is{' '}
+          <strong>{gram.hessianCalibration.medianR}</strong>, ranging{' '}
+          {gram.hessianCalibration.minR} to {gram.hessianCalibration.maxR} and positive at only{' '}
+          {gram.perLocus.filter((r) => (r.hessianR ?? 0) > 0).length} of {gram.loci} loci. Separation
+          alone reaches <strong>{gram.separationCalibration.medianR}</strong> and is positive at
+          every locus, and the summed magnitude of the two single effects does better still. The
+          pipeline is not what failed: the singles recomputed for this benchmark reproduce the
+          shipped mutagenesis planes to <strong>{gram.maxSingleDriftVsShippedPlane}</strong>, so
+          both terms of the subtraction share a convention exactly.
+        </p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>A curvature is not an edit, and that is the whole finding.</strong> The Hessian is
+          the second derivative at the reference one-hot; a double substitution is a finite jump to
+          two other vertices of the simplex. Interactions here are real but small — a median
+          residual of <strong>{gram.medianResidualOverSingle}×</strong> a median single-base effect
+          — and the second-order term at the reference does not point at them. The act 7 panel
+          should be read as a local curvature map, which is what it computes, and not as a
+          prediction about combined edits. An earlier single-locus probe of this benchmark gave
+          r = +0.79 on 90 pairs; the full grid is {gram.pairsTotal.toLocaleString()}, and a
+          correlation from one locus is not the correlation.
+        </p>
+        <p class="vp-notes" style="margin:0.35rem 0 0;">
+          <strong>This is a calibration, not a spacing scan.</strong> The separations here are
+          wherever the strong bases happen to be, so they are not uniform and no periodicity claim
+          can be read off them. The constructive spacing sweep in act 7 is where that question
+          belongs — and it already reports no helical grammar.
+        </p>
+      </section>
+
+      </section>
+
       <!-- ============================== — · How do I read any of this? ============================== -->
       <section class="vp-act" id="act-ref">
         <h2 class="vp-act__h"><span class="vp-act__n">—</span>How do I read any of this?</h2>
@@ -2233,6 +2612,7 @@ const breadcrumbLd = buildBreadcrumbLd([
   import '../../scripts/variantPlayground';
   import '../../scripts/shorkieFrontier';
   import '../../scripts/shorkieConstructive';
+  import '../../scripts/shorkieReliability';
 </script>
 
 <style>

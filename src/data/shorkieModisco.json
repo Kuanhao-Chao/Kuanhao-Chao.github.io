@@ -1,5 +1,5 @@
 {
- "note": "TF-MoDISco in the small: seqlets pulled from the mutagenesis planes by |saliency|, clustered on their mean-centred contribution blocks over both strands, and only then matched against JASPAR. The identical pipeline on dinucleotide-shuffled sequence is the control, and it also sets the clustering threshold. Both seqlet widths were declared before the run and both are reported.",
+ "note": "TF-MoDISco in the small: seqlets pulled from the mutagenesis planes by |saliency|, clustered on their mean-centred contribution blocks over both strands, and only then matched against JASPAR. The identical pipeline on dinucleotide-shuffled sequence is the PROJECTION control, which moves the letters but leaves the model's own attributions untouched, and it also sets the clustering threshold. `matchedNull` is the stronger arm: contributions recomputed on shuffled INPUT, so both sides are the same quantity and the model actually ran on the null sequence. Both seqlet widths were declared before the run and both are reported.",
  "widths": [
   11,
   15
@@ -13,6 +13,30 @@
   {
    "width": 11,
    "clusterThreshold": 0.6794,
+   "matchedNull": {
+    "source": "gradient x input, recomputed per sequence",
+    "shufflesPerLocus": 5,
+    "clusterThreshold": 0.6648,
+    "realMedianSimilarity": 0.1051,
+    "nullMedianSimilarity": 0.1047,
+    "real": {
+     "seqlets": 1037,
+     "clusters": 0
+    },
+    "null": {
+     "seqletsPerDraw": 1114.2,
+     "clustersPerDraw": 3.0,
+     "clustersPerDrawSd": 1.0,
+     "perDraw": [
+      4,
+      2,
+      2,
+      4,
+      3
+     ]
+    },
+    "realBeatsNull": false
+   },
    "nullMedianSimilarity": 0.0993,
    "realMedianSimilarity": 0.0971,
    "real": {
@@ -531,6 +555,30 @@
   {
    "width": 15,
    "clusterThreshold": 0.6531,
+   "matchedNull": {
+    "source": "gradient x input, recomputed per sequence",
+    "shufflesPerLocus": 5,
+    "clusterThreshold": 0.6117,
+    "realMedianSimilarity": 0.0923,
+    "nullMedianSimilarity": 0.0877,
+    "real": {
+     "seqlets": 1020,
+     "clusters": 0
+    },
+    "null": {
+     "seqletsPerDraw": 1054.6,
+     "clustersPerDraw": 3.0,
+     "clustersPerDrawSd": 0.707,
+     "perDraw": [
+      2,
+      3,
+      3,
+      3,
+      4
+     ]
+    },
+    "realBeatsNull": false
+   },
    "nullMedianSimilarity": 0.0883,
    "realMedianSimilarity": 0.0889,
    "real": {
@@ -1158,6 +1206,30 @@
   "matched": 2,
   "bestR": 0.863,
   "bits": 3.912
+ },
+ "matchedNull": {
+  "source": "gradient x input, recomputed per sequence",
+  "shufflesPerLocus": 5,
+  "clusterThreshold": 0.6648,
+  "realMedianSimilarity": 0.1051,
+  "nullMedianSimilarity": 0.1047,
+  "real": {
+   "seqlets": 1037,
+   "clusters": 0
+  },
+  "null": {
+   "seqletsPerDraw": 1114.2,
+   "clustersPerDraw": 3.0,
+   "clustersPerDrawSd": 1.0,
+   "perDraw": [
+    4,
+    2,
+    2,
+    4,
+    3
+   ]
+  },
+  "realBeatsNull": false
  },
  "clusters": [
   {

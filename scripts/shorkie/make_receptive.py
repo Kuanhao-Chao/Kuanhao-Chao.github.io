@@ -50,60 +50,12 @@ SEQ_LEN = 16384
 RADII = [64, 128, 256, 512, 1024, 2048, 4096, 8192]
 
 
-def dinuc_shuffle(seq: str, rng: random.Random) -> str:
-    """Altschul-Erikson: a random Euler path through the dinucleotide graph.
-
-    Preserves every dinucleotide count exactly, which a naive shuffle does not. The last edge out
-    of each vertex is fixed to point along a spanning tree toward the final vertex; that is what
-    guarantees the walk can always finish, and is the whole of the algorithm's subtlety.
-    """
-    s = [c for c in seq.upper() if c in "ACGT"]
-    if len(s) < 3:
-        return "".join(s)
-    last = s[-1]
-    edges: dict[str, list[str]] = {b: [] for b in "ACGT"}
-    for a, b in zip(s, s[1:]):
-        edges[a].append(b)
-
-    # A spanning tree into `last`: pick, for every other vertex, one outgoing edge that leads there.
-    while True:
-        tree: dict[str, str] = {}
-        for v in "ACGT":
-            if v == last or not edges[v]:
-                continue
-            tree[v] = rng.choice(edges[v])
-        ok = True
-        for v in tree:
-            seen, cur = set(), v
-            while cur != last:
-                if cur in seen or cur not in tree:
-                    ok = False
-                    break
-                seen.add(cur)
-                cur = tree[cur]
-            if not ok:
-                break
-        if ok:
-            break
-
-    order: dict[str, list[str]] = {}
-    for v in "ACGT":
-        rest = list(edges[v])
-        if v in tree:
-            rest.remove(tree[v])
-        rng.shuffle(rest)
-        order[v] = rest + ([tree[v]] if v in tree else [])
-
-    out = [s[0]]
-    cur = s[0]
-    for _ in range(len(s) - 1):
-        if not order[cur]:
-            break
-        nxt = order[cur].pop(0)
-        out.append(nxt)
-        cur = nxt
-    return "".join(out)
-
+# `dinuc_shuffle` lives in `common.py` now. It was copied into three generators, which is three
+# chances for one of them to drift and for a composition-matched control to stop being matched --
+# and the drift would be invisible, because a shuffle that preserves the wrong thing still returns
+# a plausible sequence. The lifted version was verified byte-identical to the one that used to sit
+# here across 200 seeds before this import replaced it.
+from common import dinuc_shuffle  # noqa: E402,F401
 
 def dinuc_counts(s: str) -> dict[str, int]:
     c: dict[str, int] = {}

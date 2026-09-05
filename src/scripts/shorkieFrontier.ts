@@ -13,7 +13,7 @@ import { decodePackedPlane, type PackedPlaneSpec } from '../lib/shorkieModel';
 import speciesData from '../data/shorkieSpecies.json';
 import epistasisData from '../data/shorkieEpistasis.json';
 import kineticsData from '../data/shorkieKinetics.json';
-import headsData from '../data/shorkieHeads.json';
+import headsData from '../data/shorkieLayers.json';
 import variationData from '../data/shorkieVariation.json';
 import patchingData from '../data/shorkiePatching.json';
 
@@ -372,13 +372,13 @@ export function initShorkieFrontier(host: HTMLElement): void {
   function drawHeads(): void {
     if (!headsCv) return;
     const hd = headsData as unknown as {
-      heads: number;
+      layers: number;
       classes: { cls: string; meanCoverage: number; ceiling: number | null;
-                 byHead: number[]; best: number; bestEnrichment: number }[];
+                 byLayer: number[]; best: number; bestEnrichment: number }[];
     };
     // Only the classes with something to say: a class every head reads at 1.0 is a row of
     // identical cells, and eight of those would bury the four that separate.
-    const rows = hd.classes.filter((r) => r.bestEnrichment >= 1.1 || Math.min(...r.byHead) <= 0.9);
+    const rows = hd.classes.filter((r) => r.bestEnrichment >= 1.1 || Math.min(...r.byLayer) <= 0.9);
     const ROW = 20;
     const H = rows.length * ROW + 40;
     const ctx = fit(headsCv, H);
@@ -391,20 +391,20 @@ export function initShorkieFrontier(host: HTMLElement): void {
     ctx.clearRect(0, 0, w, H);
     ctx.font = '10px system-ui, sans-serif';
     const lab = Math.min(112, Math.max(...rows.map((r) => ctx.measureText(r.cls).width)) + 8);
-    const cell = Math.max(18, Math.min(72, (w - lab - 10) / hd.heads));
-    const gridW = cell * hd.heads;
+    const cell = Math.max(18, Math.min(72, (w - lab - 10) / hd.layers));
+    const gridW = cell * hd.layers;
     ctx.textAlign = 'center';
     ctx.fillStyle = muted;
     // `L`, not `h`: the pack is eight LAYERS with their four heads averaged away by the export
     // (`attention.mean(dim=2)`), so a column is a layer. Labelling these h0..h7 stated a
     // head-specialisation result that the data cannot carry.
-    for (let h = 0; h < hd.heads; h += 1) ctx.fillText(`L${h}`, lab + cell * (h + 0.5), 12);
+    for (let h = 0; h < hd.layers; h += 1) ctx.fillText(`L${h}`, lab + cell * (h + 0.5), 12);
     rows.forEach((r, i) => {
       const y = 20 + i * ROW;
       ctx.textAlign = 'right';
       ctx.fillStyle = ink;
       ctx.fillText(r.cls, lab - 5, y + ROW / 2 + 2);
-      r.byHead.forEach((v, h) => {
+      r.byLayer.forEach((v, h) => {
         // Diverging around 1.0, which is "this head reads the class no more than its share of the
         // sequence". A sequential ramp would draw 0.7 and 1.0 as merely different amounts of ink.
         const d = Math.max(-1, Math.min(1, (v - 1) / 0.9));
@@ -426,7 +426,7 @@ export function initShorkieFrontier(host: HTMLElement): void {
     ], lab + gridW / 2, H - 6, gridW + lab);
     if (headsStat) {
       const best = rows.reduce((a, b) => (b.bestEnrichment > a.bestEnrichment ? b : a));
-      headsStat.textContent = `${hd.heads} attention layers, heads averaged · strongest is `
+      headsStat.textContent = `${hd.layers} attention layers, heads averaged · strongest is `
         + `${best.cls} on layer ${best.best} at ${best.bestEnrichment.toFixed(2)}×`
         + (best.ceiling ? ` of ${best.ceiling.toFixed(2)}× possible` : '');
     }
