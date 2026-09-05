@@ -59,6 +59,15 @@ export interface VpLaneSpec {
    */
   target?: string;
   /**
+   * Whether this lane is one of the attribution methods.
+   *
+   * Separate from `kind` on purpose. A per-base method lane CHANGES kind as the view crosses the
+   * letter threshold -- it is a `method` drawn as bars when zoomed out and a `logo` drawn as
+   * letters when zoomed in -- so anything that means "the attribution methods" and derives it from
+   * `kind` silently loses three lanes at that threshold, while the page carries on drawing them.
+   */
+  attribution?: boolean;
+  /**
    * Set when the lane is drawing coarser than its method's best resolution, with the reason.
    *
    * Gradient x input is per base only when the traced region is exactly one of the shipped anchors;
@@ -133,75 +142,74 @@ export function viewportLanes(s: ViewportState): VpLaneSpec[] {
     });
   }
 
+  /**
+   * A per-base attribution lane becomes a LOGO rather than gaining one.
+   *
+   * A logo is not a second view of an attribution; it IS the attribution, drawn where each base has
+   * room for its own glyph. Adding a separate logo lane drew the same numbers twice -- six lanes
+   * for three methods -- so the lane changes how it draws and keeps its id, and everything
+   * downstream keeps pointing at one lane per method.
+   *
+   * The gate is `resolutionBp === 1`, not `letters` alone. Gradient x input and integrated
+   * gradients fall back to 128 bp groups whenever the traced region is not exactly a shipped
+   * anchor, and a "logo" at 128 bp would be sixteen identical glyphs claiming a resolution the
+   * pack does not have.
+   */
+  const asLogo = (resolutionBp: number) => s.letters && resolutionBp === 1;
+  const methodLane = (
+    id: string, label: string, short: string, resolutionBp: number, signed: boolean,
+    extra: Partial<VpLaneSpec> = {},
+  ): VpLaneSpec => ({
+    id,
+    kind: asLogo(resolutionBp) ? 'logo' : 'method',
+    label, short,
+    height: asLogo(resolutionBp) ? LANE_HEIGHTS.logo : LANE_HEIGHTS.method,
+    signed, resolutionBp, attribution: true, ...extra,
+  });
+
   if (s.hasIsm) {
-    push({
-      id: 'ism', kind: 'method', label: 'mutagenesis (ISM)', short: 'ISM',
-      height: LANE_HEIGHTS.method, signed: true, resolutionBp: 1,
+    push(methodLane('ism', 'mutagenesis (ISM)', 'ISM', 1, true, {
+      label: asLogo(1) && s.ismHypothetical
+        ? 'mutagenesis — all four bases'
+        : asLogo(1) ? 'mutagenesis — the base that is there' : 'mutagenesis (ISM)',
       target: "this window's own gene body",
-    });
+    }));
   }
   if (s.hasAnchor) {
-    push({
-      id: 'grad', kind: 'method', label: 'gradient x input', short: 'grad',
-      height: LANE_HEIGHTS.method, signed: true,
-      resolutionBp: s.anchorExact ? 1 : 128,
+    const r = s.anchorExact ? 1 : 128;
+    push(methodLane('grad', 'gradient x input', 'grad', r, true, {
       target: 'the traced region',
       degraded: s.anchorExact ? undefined
         : 'reconstructed from 128 bp groups — trace a whole gene for single bases',
-    });
+    }));
   }
   if (s.hasIg) {
-    push({
-      id: 'ig', kind: 'method', label: 'integrated gradients', short: 'IG',
-      height: LANE_HEIGHTS.method, signed: true,
-      resolutionBp: s.anchorExact ? 1 : 128,
+    const r = s.anchorExact ? 1 : 128;
+    push(methodLane('ig', 'integrated gradients', 'IG', r, true, {
       target: 'the traced region',
       degraded: s.anchorExact ? undefined : 'per-base IG ships only for whole-gene anchors',
-    });
+    }));
   }
+  // Occlusion and attention rollout can never become logos -- 64 bp and 128 bp a value -- so they
+  // stay bands at every zoom, labelled with their real step. A flat block IS the honest picture of
+  // a 64 bp measurement seen at 20 bp; hiding it there would make the stack look as though every
+  // method reaches single bases, which is the misreading the resolution labels exist to prevent.
   if (s.hasOccl) {
-    push({
-      id: 'occl', kind: 'method', label: 'occlusion (64 bp)', short: 'occl',
-      height: LANE_HEIGHTS.method, signed: true, resolutionBp: 64,
+    push(methodLane('occl', 'occlusion (64 bp)', 'occl', 64, true, {
       target: 'the traced region',
-    });
+    }));
   }
   if (s.hasRollout) {
-    push({
-      id: 'rollout', kind: 'method', label: 'attention rollout (128 bp)', short: 'rollout',
-      height: LANE_HEIGHTS.method, signed: false, resolutionBp: 128,
+    push(methodLane('rollout', 'attention rollout (128 bp)', 'rollout', 128, false, {
       target: 'what the transformer can read',
-    });
+    }));
   }
 
   // Letters only below here. A logo of the whole window is not a drawing that exists: 16,384 bases
-  // across ~1,280 px is 0.078 px a base.
+  // across ~1,280 px is 0.078 px a base. The three per-base attribution lanes have already BECOME
+  // logos above rather than gaining companions -- what is added here is the sequence itself, which
+  // is a different thing from an attribution and the one row that has no signal behind it.
   if (s.letters) {
-    if (s.hasIsm) {
-      push({
-        id: 'ism-logo', kind: 'logo',
-        label: s.ismHypothetical
-          ? 'mutagenesis — all four bases'
-          : 'mutagenesis — the base that is there',
-        short: 'ISM',
-        height: LANE_HEIGHTS.logo, signed: true, resolutionBp: 1,
-        target: "this window's own gene body",
-      });
-    }
-    if (s.hasAnchor && s.anchorExact) {
-      push({
-        id: 'grad-logo', kind: 'logo', label: 'gradient x input', short: 'grad',
-        height: LANE_HEIGHTS.logo, signed: true, resolutionBp: 1,
-        target: 'the traced region',
-      });
-    }
-    if (s.hasIg && s.anchorExact) {
-      push({
-        id: 'ig-logo', kind: 'logo', label: 'integrated gradients', short: 'IG',
-        height: LANE_HEIGHTS.logo, signed: true, resolutionBp: 1,
-        target: 'the traced region',
-      });
-    }
     push({
       id: 'sequence', kind: 'sequence', label: 'sequence', short: 'seq',
       height: LANE_HEIGHTS.sequence, signed: false, resolutionBp: 1,
@@ -286,7 +294,9 @@ export const scalarLogoColumns = projectedLogoColumns;
 
 /** How many letters a column of a logo can carry. The one invariant the three lanes differ on. */
 export function maxLettersPerColumn(laneId: string, ismHypothetical: boolean): number {
-  if (laneId === 'ism-logo') return ismHypothetical ? 4 : 1;
+  // Keyed on the METHOD id: a per-base attribution lane is the same lane whether it is drawing
+  // bars or letters, so there is no separate `-logo` id to key on any more.
+  if (laneId === 'ism') return ismHypothetical ? 4 : 1;
   return 1;
 }
 

@@ -1254,7 +1254,7 @@ async function auditPaperFidelity(browser, baseURL, scope) {
     const logo = await page.evaluate(() => {
       const cv = document.querySelector('[data-vp-viewport]');
       const detail = JSON.parse(cv?.dataset.vpLogoDetail ?? '[]');
-      const ism = detail.find((d) => d.id === 'ism-logo') ?? null;
+      const ism = detail.find((d) => d.id === 'ism') ?? null;
       const [wa, wb] = (cv?.dataset.vpWindow ?? '0-0').split('-').map(Number);
       return {
         letters: ism?.letters ?? 0,
@@ -1282,7 +1282,7 @@ async function auditPaperFidelity(browser, baseURL, scope) {
     // identically zero at the three bases that are not there and can never draw more than one
     // letter a column. Mutagenesis ships all four and can.
     for (const d of logo.detail) {
-      if (d.id !== 'ism-logo' && d.letters > d.columns) {
+      if (d.id !== 'ism' && d.letters > d.columns) {
         fail(scope, `${d.id} drew ${d.letters} letters over ${d.columns} columns — `
           + 'a gradient logo is zero at the three bases that are not there');
       }
@@ -3204,15 +3204,25 @@ async function auditAxisAlignment(browser, baseURL, scope) {
         fail(scope, `${width}px: 14 taps of [+] never reached the letter view (span ${z.span} bp)`);
         continue;
       }
-      for (const want of ['sequence', 'ism-logo']) {
+      for (const want of ['sequence', 'ism']) {
         if (!z.lanes.includes(want)) {
           fail(scope, `${width}px: no ${want} lane at base zoom — ${z.lanes.join('|')}`);
         }
       }
+      // A per-base attribution lane BECOMES a logo; it does not gain a companion. Six lanes for
+      // three methods, drawing the same numbers twice, is what this replaced -- and a `-logo` id
+      // reappearing is exactly how it would come back.
+      const dupes = z.lanes.filter((l) => l.endsWith('-logo'));
+      if (dupes.length) {
+        fail(scope, `${width}px: companion logo lanes are back — ${dupes.join('|')}`);
+      }
+      if (new Set(z.lanes).size !== z.lanes.length) {
+        fail(scope, `${width}px: a lane id appears twice — ${z.lanes.join('|')}`);
+      }
       const seq = await page.evaluate(() => {
         const cv = document.querySelector('[data-vp-viewport]');
         const d = JSON.parse(cv.dataset.vpLogoDetail ?? '[]');
-        return d.find((x) => x.id === 'ism-logo')?.columns ?? 0;
+        return d.find((x) => x.id === 'ism')?.columns ?? 0;
       });
       // One column per base in view, which is what ties the letters to the coordinate system.
       if (Math.abs(seq - z.span) > 2) {

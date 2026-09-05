@@ -310,7 +310,9 @@ const breadcrumbLd = buildBreadcrumbLd([
       <!-- ============================== 3 · What does it predict? ============================== -->
       <section class="vp-act" id="act-3">
         <h2 class="vp-act__h"><span class="vp-act__n">3</span>What does it predict?</h2>
-        <p class="vp-act__sub">The prediction itself, on one zoomable axis with everything that explains it. Zoom until the lanes grow letters; every lane is the same base pair at the same x.</p>
+        <p class="vp-act__sub">The prediction itself, on one zoomable axis with everything that
+        explains it. Zoom in far enough and the per-base attribution lanes turn into DNA logos in
+        place; every lane is the same base pair at the same x.</p>
       <section class="vp-panel">
         <h3>Predicted coverage — the full model{' '}
           <span class="vp-stat">this window, 16,384 bp</span>
@@ -363,12 +365,17 @@ const breadcrumbLd = buildBreadcrumbLd([
              so the same base pair landed at four different x positions at every container width but
              ~1,043 px. One `laneLayout` and one `xOfBp` makes that disagreement inexpressible. -->
         <canvas class="vp-canvas vp-viewport" data-vp-viewport role="img" tabindex="0"
-                aria-label="Predicted coverage, every attribution method, the DNA logos, the sequence and the annotation, on one zoomable axis"></canvas>
+                aria-label="Predicted coverage, every attribution method — as DNA logos once zoomed in — the sequence and the annotation, on one zoomable axis"></canvas>
 
         <p class="vp-notes" style="margin:0.35rem 0 0.6rem;">
           <strong>Drag to pan, drag the ruler to select, scroll to zoom — and keep going.</strong>{' '}
-          Past about seven pixels a base the lanes grow letters: three DNA logos and the sequence
-          itself. Every lane is the same base pair at the same x, so a peak can be read straight
+          Past about seven pixels a base the three per-base attribution lanes stop being bars and{' '}
+          <em>become</em> DNA logos — mutagenesis, gradient × input and integrated gradients, each
+          in place, each still the same lane — and the sequence appears beneath them. Nothing new
+          pops up: the same three measurements are simply drawn where every base has room for its
+          own letter. Occlusion and attention rollout stay as bands, because 64 bp and 128 bp a
+          value cannot be letters and stretching them into some would claim a resolution neither
+          has. Every lane is the same base pair at the same x, so a peak can be read straight
           down against a motif and a gene. Click anywhere to trace the 16 bp bin under the pointer;
           the shaded band is what every panel below is conditioned on. The flanks are shaded because
           the head crops 1,024 bp from each end — the curve covers 896 bins of 16 bp and the model

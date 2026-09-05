@@ -43,13 +43,20 @@ describe('viewportLanes', () => {
     expect(order.indexOf('track')).toBeLessThan(order.indexOf('ism'));
   });
 
-  it('draws no logo and no sequence until the view is zoomed far enough', () => {
+  it('draws no letters until the view is zoomed far enough', () => {
     const zoomedOut = ids(base({ letters: false }));
     expect(zoomedOut).not.toContain('sequence');
-    expect(zoomedOut.filter((i) => i.endsWith('-logo'))).toEqual([]);
     const zoomedIn = ids(base({ letters: true }));
     expect(zoomedIn).toContain('sequence');
-    expect(zoomedIn).toEqual(expect.arrayContaining(['ism-logo', 'grad-logo', 'ig-logo']));
+  });
+
+  it('NEVER adds a companion logo lane — the attribution lane becomes one', () => {
+    // Six lanes for three methods, drawing the same numbers twice, is what this replaced.
+    for (const letters of [false, true]) {
+      const l = ids(base({ letters }));
+      expect(l.filter((i) => i.endsWith('-logo'))).toEqual([]);
+      expect(new Set(l).size).toBe(l.length);          // and no id appears twice
+    }
   });
 
   it('keeps the sequence directly above the genes it annotates', () => {
@@ -69,14 +76,49 @@ describe('resolution honesty', () => {
     expect(loose.degraded).toMatch(/128 bp/);
   });
 
-  it('drops the gradient logos when the region is not an anchor, rather than drawing 128 bp letters',
-    () => {
-      const l = ids(base({ anchorExact: false, letters: true }));
-      expect(l).toContain('ism-logo');       // mutagenesis is unconditional and always per base
-      expect(l).not.toContain('grad-logo');
-      expect(l).not.toContain('ig-logo');
-      expect(l).toContain('sequence');
-    });
+  it('keeps gradient lanes as BARS when the region is not an anchor, even zoomed in', () => {
+    // A "logo" at 128 bp would be sixteen identical glyphs claiming a resolution the pack lacks.
+    const lanes = viewportLanes(base({ anchorExact: false, letters: true }));
+    const by = Object.fromEntries(lanes.map((l) => [l.id, l]));
+    expect(by.ism.kind).toBe('logo');       // mutagenesis is unconditional and always per base
+    expect(by.grad.kind).toBe('method');
+    expect(by.ig.kind).toBe('method');
+    expect(by.grad.resolutionBp).toBe(128);
+    expect(ids(base({ anchorExact: false, letters: true }))).toContain('sequence');
+  });
+
+  it('turns a per-base attribution lane into a logo IN PLACE, same id, more height', () => {
+    const outL = viewportLanes(base({ letters: false }));
+    const inL = viewportLanes(base({ letters: true }));
+    for (const id of ['ism', 'grad', 'ig']) {
+      const a = outL.find((l) => l.id === id)!;
+      const b = inL.find((l) => l.id === id)!;
+      expect(a.kind).toBe('method');
+      expect(b.kind).toBe('logo');
+      expect(b.height).toBeGreaterThan(a.height);
+      expect(b.id).toBe(a.id);              // the id is what keeps consumers pointing at one lane
+    }
+  });
+
+  it('never turns occlusion or rollout into a logo — they cannot resolve a base', () => {
+    for (const letters of [false, true]) {
+      const lanes = viewportLanes(base({ letters, hasRollout: true }));
+      const by = Object.fromEntries(lanes.map((l) => [l.id, l]));
+      expect(by.occl.kind).toBe('method');
+      expect(by.rollout.kind).toBe('method');
+      expect(by.occl.height).toBe(LANE_HEIGHTS.method);
+    }
+  });
+
+  it('marks every attribution lane, so a consumer does not derive them from kind', () => {
+    // `kind` flips at the letter threshold; `attribution` does not. Deriving "the methods" from
+    // kind loses three lanes at exactly the zoom where the page is still drawing them.
+    for (const letters of [false, true]) {
+      const lanes = viewportLanes(base({ letters, hasRollout: true }));
+      const marked = lanes.filter((l) => l.attribution).map((l) => l.id).sort();
+      expect(marked).toEqual(['grad', 'ig', 'ism', 'occl', 'rollout']);
+    }
+  });
 
   it('never lets a method lane claim finer than its own step', () => {
     const lanes = viewportLanes(base({ hasRollout: true }));
@@ -99,9 +141,7 @@ describe('resolution honesty', () => {
   it('marks exactly the lanes that grow both ways from a zero rule', () => {
     const signed = viewportLanes(base({ hasRollout: true, letters: true }))
       .filter((l) => l.signed).map((l) => l.id).sort();
-    expect(signed).toEqual(
-      ['grad', 'grad-logo', 'ig', 'ig-logo', 'ism', 'ism-logo', 'occl'],
-    );
+    expect(signed).toEqual(['grad', 'ig', 'ism', 'occl']);
   });
 
   it('gives every lane a short name for the gutter', () => {
@@ -154,10 +194,10 @@ describe('logo columns — the one invariant the three lanes differ on', () => {
   });
 
   it('reports how many letters each lane can carry', () => {
-    expect(maxLettersPerColumn('ism-logo', true)).toBe(4);
-    expect(maxLettersPerColumn('ism-logo', false)).toBe(1);
-    expect(maxLettersPerColumn('grad-logo', true)).toBe(1);
-    expect(maxLettersPerColumn('ig-logo', false)).toBe(1);
+    expect(maxLettersPerColumn('ism', true)).toBe(4);
+    expect(maxLettersPerColumn('ism', false)).toBe(1);
+    expect(maxLettersPerColumn('grad', true)).toBe(1);
+    expect(maxLettersPerColumn('ig', false)).toBe(1);
   });
 
   it('feeds logoColumn, which never emits more letters than the column has non-zeros', () => {
@@ -256,9 +296,18 @@ describe('stacking, through the shared layout', () => {
     expect(hit?.short).toBe('seq');
   });
 
-  it('grows when a logo appears, which is what makes the panel height dynamic', () => {
-    const out = laneLayout(viewportLanes(base({ letters: false })), 8).total;
-    const inn = laneLayout(viewportLanes(base({ letters: true })), 8).total;
-    expect(inn - out).toBe(3 * (LANE_HEIGHTS.logo + 8) + LANE_HEIGHTS.sequence + 8);
+  it('grows only by what letters actually add, because the lanes convert rather than duplicate', () => {
+    const outL = viewportLanes(base({ letters: false }));
+    const inL = viewportLanes(base({ letters: true }));
+    // Same number of lanes plus ONE -- the sequence. Not four more.
+    expect(inL.length).toBe(outL.length + 1);
+    const out = laneLayout(outL, 8).total;
+    const inn = laneLayout(inL, 8).total;
+    // Three lanes gain (logo - method) each, and the sequence lane is added with its gap.
+    expect(inn - out).toBe(
+      3 * (LANE_HEIGHTS.logo - LANE_HEIGHTS.method) + LANE_HEIGHTS.sequence + 8,
+    );
+    // The old design added three whole logo lanes on top; this is strictly less tall than that.
+    expect(inn - out).toBeLessThan(3 * (LANE_HEIGHTS.logo + 8) + LANE_HEIGHTS.sequence + 8);
   });
 });

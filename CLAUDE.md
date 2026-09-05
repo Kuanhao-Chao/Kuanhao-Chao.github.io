@@ -2483,6 +2483,31 @@ and non-trivial on every panel outside the reference act.
     raw 384 channels put through the identical test. Saying so beats a gallery of hand-picked
     features.
 
+#### A logo is not a second view of an attribution — it IS one
+
+The viewport first shipped drawing the three per-base methods as bar lanes at every zoom and then
+ADDING `ism-logo`, `grad-logo` and `ig-logo` past the letter threshold: six lanes for three methods,
+the same numbers drawn twice, and the panel jumping taller exactly when it got denser.
+
+A per-base attribution lane now **becomes** a logo in place — same id, `kind` flipping from `method`
+to `logo`, height 40 → 66 — so zooming converts three lanes rather than adding three. Measured, the
+panel is **shorter** zoomed in (614 px) than out (681 px).
+
+- **The gate is `resolutionBp === 1`, not `letters`.** Gradient x input and IG fall back to 128 bp
+  groups whenever the traced region is not exactly a shipped anchor; a "logo" there would be sixteen
+  identical glyphs claiming a resolution the pack does not have. Those stay bars.
+- **Occlusion (64 bp) and rollout (128 bp) never convert.** A flat block is the honest picture of a
+  64 bp measurement seen at 35 bp — and hiding a lane the moment it stops resolving would make the
+  stack look as though every method reaches single bases, which is the misreading the resolution
+  labels exist to prevent.
+- **`attribution` is a separate flag from `kind`, and that is load-bearing.** A per-base lane's
+  `kind` now CHANGES at the letter threshold, so anything meaning "the attribution methods" that
+  derives it from `kind` silently loses three lanes at exactly the zoom where the page is still
+  drawing them. `data-vp-methods` reads `ism|grad|ig|occl|rollout` at every zoom because it filters
+  on `attribution`.
+- The gate asserts **no lane id ends in `-logo` and no id appears twice** at base zoom, so the
+  duplicate lanes cannot come back quietly.
+
 #### The attention panel was measuring layers and calling them heads
 
 `build_onnx.py:123` is `attention = acts["attention"].mean(dim=2)  # mean over heads`. The shipped
