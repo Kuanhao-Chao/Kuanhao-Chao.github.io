@@ -2651,15 +2651,18 @@ export function initVariantPlayground(root: ParentNode = document) {
           const from = Math.max(0, Math.floor(vpView.start));
           const n = Math.min(LOCUS_LEN - from, Math.ceil(vpView.end) - from);
           let cols: Float64Array[] | null = null;
-          if (lane.id === 'ism-logo' && ism) {
+          // Keyed on the METHOD id. A per-base attribution lane is the same lane whether it is
+          // drawing bars or letters, so there is no `-logo` id any more -- which is exactly what
+          // stops the same numbers being drawn twice in two lanes.
+          if (lane.id === 'ism' && ism) {
             cols = vpHypothetical
               ? hypotheticalLogoColumns(ism.plane, ism.width, from - ism.start, n)
               : projectedLogoColumns(
                 ismSaliency(ism.plane, ism.width, locus.sequence, ism.start),
                 locus.sequence, from, n,
               );
-          } else if (lane.id === 'grad-logo' || lane.id === 'ig-logo') {
-            const tr = byId.get(lane.id === 'grad-logo' ? 'grad' : 'ig');
+          } else if (lane.id === 'grad' || lane.id === 'ig') {
+            const tr = byId.get(lane.id);
             if (tr) {
               const vals = new Float64Array(LOCUS_LEN);
               for (let bp = from; bp < from + n; bp += 1) vals[bp] = tr.at(bp) ?? 0;
@@ -2674,7 +2677,7 @@ export function initVariantPlayground(root: ParentNode = document) {
           logoLetters.push(`${lane.id}=${drawn.letters}`);
           logoDetail.push({ id: lane.id, ...drawn });
           drawLaneNote(c, lane, [
-            lane.id === 'ism-logo' && vpHypothetical ? 'all four bases' : 'the reference base',
+            lane.id === 'ism' && vpHypothetical ? 'all four bases' : 'the reference base',
             lane.target ?? '',
           ].filter(Boolean));
           break;
@@ -2726,7 +2729,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     // so the checks the SVG logo used to carry -- one letter a column when projected, the
     // paper's four colours and nothing else, heights that vary -- come back as data here.
     viewportCanvas.dataset.vpLogoDetail = JSON.stringify(logoDetail);
-    const methodLanes = (lanes as VpLane[]).filter((l) => l.kind === 'method');
+    const methodLanes = (lanes as VpLane[]).filter((l) => l.attribution);
     viewportCanvas.dataset.vpMethods = methodLanes.map((l) => l.id).join('|');
     // The ids are what the code calls a lane; the labels are what a reader sees, and it is the
     // labels that have to say "mutagenesis" rather than "ism".
@@ -2751,7 +2754,7 @@ export function initVariantPlayground(root: ParentNode = document) {
         .map(([k, v]) => `${v} ${NAMES[k] ?? k}`).join(' · ') || 'no annotation loaded';
     }
     if (brushStat) {
-      const perBase = (lanes as VpLane[]).filter((l) => l.kind === 'method' && l.resolutionBp === 1);
+      const perBase = (lanes as VpLane[]).filter((l) => l.attribution && l.resolutionBp === 1);
       brushStat.textContent = `${tracks.length} methods · ${perBase.length} at single-base`
         + (anchorExact ? '' : ' · trace a whole gene for per-base gradients');
     }
