@@ -708,6 +708,36 @@ def verify_new_methods() -> None:
           "the published reconstruction gain is the difference of the two FVUs",
           f"{sa['reconstructionGain']:.4f}")
 
+    # --- the grounding, and the control that could have killed it -------------------------------
+    g = sa["grounding"]
+    check(g["featuresScored"] == g["channelsScored"] == g["matchedCandidates"],
+          "the dictionary and the raw basis were scored on MATCHED candidate counts",
+          f"{g['featuresScored']} vs {g['channelsScored']}")
+    # A max over more candidates wins on candidate count alone; equal counts is what makes the
+    # comparison a comparison. The verdict must follow the medians, not be asserted separately.
+    check(g["dictionaryWins"] == (g["saeMedianBestRatio"] > g["rawMedianBestRatio"]),
+          "the published verdict follows the two medians",
+          f"{g['saeMedianBestRatio']} vs {g['rawMedianBestRatio']}")
+    feats = sa["features"]
+    check(len(feats) > 0, "features were interpreted, not just counted", f"{len(feats)}")
+    bad_p = [f for f in feats if f["best"] and not (0 < f["best"]["p"] <= 1)]
+    check(not bad_p, "every feature enrichment carries a usable p", f"{len(feats)} features")
+    # A feature that fires nowhere cannot be enriched anywhere; a ratio without cells is a bug.
+    bad_cells = [f for f in feats if f["best"] and f["cells"] <= 0]
+    check(not bad_cells, "every grounded feature actually fires somewhere",
+          f"min {min((f['cells'] for f in feats), default=0):,} cells")
+    check(all(len(f["kmers"]) <= 3 for f in feats),
+          "k-mer signatures are capped as documented",
+          f"max {max((len(f['kmers']) for f in feats), default=0)} per feature")
+
+    # --- motif discovery: the pre-registered grid must be complete -------------------------------
+    md2 = json.loads((ROOT / "src" / "data" / "shorkieModisco.json").read_text())
+    check(len(md2.get("grid", [])) == len(md2.get("widths", [])),
+          "every pre-registered seqlet width is reported",
+          f"widths {md2.get('widths')} -> {len(md2.get('grid', []))} cells")
+    check(any(cell["width"] == md2["width"] for cell in md2.get("grid", [])),
+          "the width the page leads with is one of the reported cells", f"w={md2['width']}")
+
 
 def main() -> int:
     import torch

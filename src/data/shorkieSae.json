@@ -15,7 +15,7 @@
   "steps": 4000
  },
  "control": {
-  "fvu": 0.372,
+  "fvu": 0.3733,
   "alive": 6144,
   "dead": 0,
   "meanL0": 32.0,
@@ -24,5 +24,1838 @@
   "k": 32,
   "steps": 4000
  },
- "reconstructionGain": 0.3526
+ "reconstructionGain": 0.3539,
+ "kmer": 6,
+ "topCells": 48,
+ "shifts": 256,
+ "classes": [
+  "ars",
+  "ars_consensus",
+  "centromere",
+  "conserved_element",
+  "ltr",
+  "ncrna",
+  "pseudogene",
+  "regulatory",
+  "repeat",
+  "rrna",
+  "snorna",
+  "snrna",
+  "telomere",
+  "tfbs_chip",
+  "tfbs_conserved",
+  "tfbs_pwm",
+  "transposon",
+  "trna",
+  "uorf",
+  "utr_intron",
+  "variant_missense",
+  "variant_noncoding",
+  "variant_synonymous"
+ ],
+ "features": [
+  {
+   "index": 5736,
+   "cells": 11560,
+   "kmers": [
+    {
+     "kmer": "ACCCGG",
+     "enrichment": 20.19,
+     "count": 7
+    },
+    {
+     "kmer": "TACCCG",
+     "enrichment": 18.27,
+     "count": 10
+    },
+    {
+     "kmer": "ACGCGT",
+     "enrichment": 13.52,
+     "count": 4
+    }
+   ],
+   "best": {
+    "ratio": 13.078,
+    "nullMean": 0.996,
+    "nullSd": 0.203,
+    "p": 0.0039,
+    "cls": "trna"
+   }
+  },
+  {
+   "index": 3243,
+   "cells": 33290,
+   "kmers": [
+    {
+     "kmer": "ACCGAC",
+     "enrichment": 13.46,
+     "count": 7
+    },
+    {
+     "kmer": "GCTGGG",
+     "enrichment": 13.46,
+     "count": 7
+    },
+    {
+     "kmer": "CAGCGT",
+     "enrichment": 12.73,
+     "count": 9
+    }
+   ],
+   "best": {
+    "ratio": 2.357,
+    "nullMean": 1.003,
+    "nullSd": 0.468,
+    "p": 0.0078,
+    "cls": "utr_intron"
+   }
+  },
+  {
+   "index": 2327,
+   "cells": 10902,
+   "kmers": [
+    {
+     "kmer": "ACCCGG",
+     "enrichment": 14.42,
+     "count": 5
+    },
+    {
+     "kmer": "CACGTG",
+     "enrichment": 13.46,
+     "count": 7
+    },
+    {
+     "kmer": "TACCCG",
+     "enrichment": 10.96,
+     "count": 6
+    }
+   ],
+   "best": {
+    "ratio": 18.864,
+    "nullMean": 0.993,
+    "nullSd": 0.212,
+    "p": 0.0039,
+    "cls": "trna"
+   }
+  },
+  {
+   "index": 5949,
+   "cells": 8518,
+   "kmers": [
+    {
+     "kmer": "CCGGGT",
+     "enrichment": 12.93,
+     "count": 4
+    },
+    {
+     "kmer": "TACCCG",
+     "enrichment": 12.79,
+     "count": 7
+    },
+    {
+     "kmer": "CGGGTA",
+     "enrichment": 12.61,
+     "count": 6
+    }
+   ],
+   "best": {
+    "ratio": 11.058,
+    "nullMean": 0.996,
+    "nullSd": 0.221,
+    "p": 0.0039,
+    "cls": "trna"
+   }
+  },
+  {
+   "index": 3361,
+   "cells": 8182,
+   "kmers": [
+    {
+     "kmer": "TACTAG",
+     "enrichment": 13.72,
+     "count": 16
+    },
+    {
+     "kmer": "GCTAGG",
+     "enrichment": 13.13,
+     "count": 5
+    },
+    {
+     "kmer": "CGCGGA",
+     "enrichment": 12.26,
+     "count": 4
+    }
+   ],
+   "best": {
+    "ratio": 18.73,
+    "nullMean": 0.988,
+    "nullSd": 0.275,
+    "p": 0.0039,
+    "cls": "ltr"
+   }
+  },
+  {
+   "index": 4309,
+   "cells": 23956,
+   "kmers": [
+    {
+     "kmer": "CTCGCA",
+     "enrichment": 8.4,
+     "count": 4
+    },
+    {
+     "kmer": "TCTCGC",
+     "enrichment": 6.84,
+     "count": 4
+    },
+    {
+     "kmer": "TGTGTA",
+     "enrichment": 5.58,
+     "count": 8
+    }
+   ],
+   "best": {
+    "ratio": 1.431,
+    "nullMean": 1.001,
+    "nullSd": 0.029,
+    "p": 0.0039,
+    "cls": "variant_synonymous"
+   }
+  },
+  {
+   "index": 5863,
+   "cells": 21500,
+   "kmers": [
+    {
+     "kmer": "GTAGGT",
+     "enrichment": 10.22,
+     "count": 9
+    },
+    {
+     "kmer": "GCGGAT",
+     "enrichment": 9.49,
+     "count": 5
+    },
+    {
+     "kmer": "GGGACG",
+     "enrichment": 9.49,
+     "count": 4
+    }
+   ],
+   "best": {
+    "ratio": 5.047,
+    "nullMean": 0.976,
+    "nullSd": 0.441,
+    "p": 0.0039,
+    "cls": "telomere"
+   }
+  },
+  {
+   "index": 2341,
+   "cells": 21496,
+   "kmers": [
+    {
+     "kmer": "CAGACG",
+     "enrichment": 7.87,
+     "count": 5
+    },
+    {
+     "kmer": "AGGAGG",
+     "enrichment": 6.59,
+     "count": 6
+    },
+    {
+     "kmer": "AGTCGA",
+     "enrichment": 6.31,
+     "count": 5
+    }
+   ],
+   "best": {
+    "ratio": 1.622,
+    "nullMean": 0.959,
+    "nullSd": 0.566,
+    "p": 0.1479,
+    "cls": "pseudogene"
+   }
+  },
+  {
+   "index": 5821,
+   "cells": 24200,
+   "kmers": [
+    {
+     "kmer": "CGGGTT",
+     "enrichment": 12.17,
+     "count": 6
+    },
+    {
+     "kmer": "GTTCAC",
+     "enrichment": 5.22,
+     "count": 5
+    },
+    {
+     "kmer": "GGTTAC",
+     "enrichment": 4.41,
+     "count": 4
+    }
+   ],
+   "best": {
+    "ratio": 1.456,
+    "nullMean": 0.999,
+    "nullSd": 0.024,
+    "p": 0.0039,
+    "cls": "variant_synonymous"
+   }
+  },
+  {
+   "index": 4747,
+   "cells": 19365,
+   "kmers": [
+    {
+     "kmer": "GGCGTC",
+     "enrichment": 11.14,
+     "count": 5
+    },
+    {
+     "kmer": "AGGCGT",
+     "enrichment": 9.37,
+     "count": 5
+    },
+    {
+     "kmer": "GGGCTA",
+     "enrichment": 8.6,
+     "count": 5
+    }
+   ],
+   "best": {
+    "ratio": 1.383,
+    "nullMean": 0.999,
+    "nullSd": 0.028,
+    "p": 0.0039,
+    "cls": "variant_synonymous"
+   }
+  },
+  {
+   "index": 4585,
+   "cells": 7271,
+   "kmers": [
+    {
+     "kmer": "CGGTCC",
+     "enrichment": 17.05,
+     "count": 4
+    },
+    {
+     "kmer": "GCTCGG",
+     "enrichment": 13.68,
+     "count": 4
+    },
+    {
+     "kmer": "ACGGTC",
+     "enrichment": 13.55,
+     "count": 7
+    }
+   ],
+   "best": {
+    "ratio": 20.514,
+    "nullMean": 1.005,
+    "nullSd": 0.514,
+    "p": 0.0039,
+    "cls": "transposon"
+   }
+  },
+  {
+   "index": 5254,
+   "cells": 14617,
+   "kmers": [
+    {
+     "kmer": "GCTAAG",
+     "enrichment": 15.78,
+     "count": 14
+    },
+    {
+     "kmer": "CTAAGG",
+     "enrichment": 13.96,
+     "count": 13
+    },
+    {
+     "kmer": "GGTAAG",
+     "enrichment": 13.6,
+     "count": 16
+    }
+   ],
+   "best": {
+    "ratio": 3.789,
+    "nullMean": 1.023,
+    "nullSd": 0.658,
+    "p": 0.0078,
+    "cls": "utr_intron"
+   }
+  },
+  {
+   "index": 186,
+   "cells": 9354,
+   "kmers": [
+    {
+     "kmer": "CGTACT",
+     "enrichment": 7.62,
+     "count": 5
+    },
+    {
+     "kmer": "GGCGGC",
+     "enrichment": 7.17,
+     "count": 4
+    },
+    {
+     "kmer": "GCGGCT",
+     "enrichment": 6.92,
+     "count": 4
+    }
+   ],
+   "best": {
+    "ratio": 9.231,
+    "nullMean": 0.889,
+    "nullSd": 0.836,
+    "p": 0.0039,
+    "cls": "centromere"
+   }
+  },
+  {
+   "index": 238,
+   "cells": 17530,
+   "kmers": [
+    {
+     "kmer": "CCGGCG",
+     "enrichment": 14.53,
+     "count": 4
+    },
+    {
+     "kmer": "GGCTCG",
+     "enrichment": 11.31,
+     "count": 4
+    },
+    {
+     "kmer": "TCGTCC",
+     "enrichment": 8.69,
+     "count": 6
+    }
+   ],
+   "best": {
+    "ratio": 1.357,
+    "nullMean": 1.002,
+    "nullSd": 0.029,
+    "p": 0.0039,
+    "cls": "variant_synonymous"
+   }
+  },
+  {
+   "index": 5613,
+   "cells": 6356,
+   "kmers": [
+    {
+     "kmer": "AGTCGC",
+     "enrichment": 8.85,
+     "count": 4
+    },
+    {
+     "kmer": "ATAGCT",
+     "enrichment": 6.03,
+     "count": 8
+    },
+    {
+     "kmer": "TAGTCG",
+     "enrichment": 5.91,
+     "count": 4
+    }
+   ],
+   "best": {
+    "ratio": 8.85,
+    "nullMean": 1.039,
+    "nullSd": 1.699,
+    "p": 0.0078,
+    "cls": "uorf"
+   }
+  },
+  {
+   "index": 801,
+   "cells": 8690,
+   "kmers": [
+    {
+     "kmer": "GGGGGG",
+     "enrichment": 16.71,
+     "count": 5
+    },
+    {
+     "kmer": "TCCGGG",
+     "enrichment": 10.06,
+     "count": 4
+    },
+    {
+     "kmer": "GGGCTA",
+     "enrichment": 8.6,
+     "count": 5
+    }
+   ],
+   "best": {
+    "ratio": 30.867,
+    "nullMean": 0.888,
+    "nullSd": 0.885,
+    "p": 0.0039,
+    "cls": "centromere"
+   }
+  },
+  {
+   "index": 4256,
+   "cells": 5693,
+   "kmers": [
+    {
+     "kmer": "GCTGCC",
+     "enrichment": 6.51,
+     "count": 5
+    },
+    {
+     "kmer": "CCGTCT",
+     "enrichment": 6.33,
+     "count": 4
+    },
+    {
+     "kmer": "TCGCCT",
+     "enrichment": 6.23,
+     "count": 4
+    }
+   ],
+   "best": {
+    "ratio": 4.384,
+    "nullMean": 1.002,
+    "nullSd": 0.05,
+    "p": 0.0039,
+    "cls": "tfbs_conserved"
+   }
+  },
+  {
+   "index": 1694,
+   "cells": 5152,
+   "kmers": [
+    {
+     "kmer": "CGGAGT",
+     "enrichment": 7.95,
+     "count": 4
+    },
+    {
+     "kmer": "AAGCGT",
+     "enrichment": 6.11,
+     "count": 6
+    },
+    {
+     "kmer": "TTAAGC",
+     "enrichment": 5.92,
+     "count": 6
+    }
+   ],
+   "best": {
+    "ratio": 8.965,
+    "nullMean": 0.996,
+    "nullSd": 0.4,
+    "p": 0.0039,
+    "cls": "ars_consensus"
+   }
+  },
+  {
+   "index": 2593,
+   "cells": 5128,
+   "kmers": [
+    {
+     "kmer": "CCCCCC",
+     "enrichment": 34.42,
+     "count": 11
+    },
+    {
+     "kmer": "CCGCGG",
+     "enrichment": 26.34,
+     "count": 6
+    },
+    {
+     "kmer": "CGCGCC",
+     "enrichment": 26.15,
+     "count": 4
+    }
+   ],
+   "best": {
+    "ratio": 9.684,
+    "nullMean": 1.001,
+    "nullSd": 0.104,
+    "p": 0.0039,
+    "cls": "tfbs_chip"
+   }
+  },
+  {
+   "index": 4901,
+   "cells": 5169,
+   "kmers": [
+    {
+     "kmer": "GTACAT",
+     "enrichment": 5.4,
+     "count": 7
+    },
+    {
+     "kmer": "AATGCG",
+     "enrichment": 4.74,
+     "count": 4
+    },
+    {
+     "kmer": "TTTATA",
+     "enrichment": 4.71,
+     "count": 19
+    }
+   ],
+   "best": {
+    "ratio": 7.155,
+    "nullMean": 1.002,
+    "nullSd": 0.422,
+    "p": 0.0039,
+    "cls": "ars_consensus"
+   }
+  },
+  {
+   "index": 2631,
+   "cells": 3094,
+   "kmers": [
+    {
+     "kmer": "CTTAGC",
+     "enrichment": 13.83,
+     "count": 11
+    },
+    {
+     "kmer": "GCTGGG",
+     "enrichment": 13.46,
+     "count": 7
+    },
+    {
+     "kmer": "ACCGAC",
+     "enrichment": 13.46,
+     "count": 7
+    }
+   ],
+   "best": {
+    "ratio": 8.972,
+    "nullMean": 1.083,
+    "nullSd": 1.861,
+    "p": 0.0195,
+    "cls": "utr_intron"
+   }
+  },
+  {
+   "index": 3454,
+   "cells": 9107,
+   "kmers": [
+    {
+     "kmer": "GCCTCC",
+     "enrichment": 9.44,
+     "count": 6
+    },
+    {
+     "kmer": "GCAGGC",
+     "enrichment": 8.78,
+     "count": 4
+    },
+    {
+     "kmer": "CAGGCG",
+     "enrichment": 7.9,
+     "count": 4
+    }
+   ],
+   "best": {
+    "ratio": 5.605,
+    "nullMean": 1.043,
+    "nullSd": 1.368,
+    "p": 0.0078,
+    "cls": "uorf"
+   }
+  },
+  {
+   "index": 2557,
+   "cells": 2215,
+   "kmers": [
+    {
+     "kmer": "GCTAAC",
+     "enrichment": 6.45,
+     "count": 5
+    },
+    {
+     "kmer": "TAGCTA",
+     "enrichment": 6.15,
+     "count": 5
+    },
+    {
+     "kmer": "CTGAGC",
+     "enrichment": 6.1,
+     "count": 4
+    }
+   ],
+   "best": {
+    "ratio": 90.25,
+    "nullMean": 0.955,
+    "nullSd": 0.531,
+    "p": 0.0039,
+    "cls": "trna"
+   }
+  },
+  {
+   "index": 1356,
+   "cells": 4103,
+   "kmers": [
+    {
+     "kmer": "CGGGTA",
+     "enrichment": 10.51,
+     "count": 5
+    },
+    {
+     "kmer": "CTCTCT",
+     "enrichment": 9.28,
+     "count": 14
+    },
+    {
+     "kmer": "TCTCTC",
+     "enrichment": 7.89,
+     "count": 11
+    }
+   ],
+   "best": {
+    "ratio": 7.165,
+    "nullMean": 1.002,
+    "nullSd": 0.847,
+    "p": 0.0039,
+    "cls": "utr_intron"
+   }
+  },
+  {
+   "index": 5865,
+   "cells": 9428,
+   "kmers": [
+    {
+     "kmer": "GTCGGA",
+     "enrichment": 13.9,
+     "count": 6
+    },
+    {
+     "kmer": "GAGTCG",
+     "enrichment": 13.64,
+     "count": 7
+    },
+    {
+     "kmer": "GCTAGA",
+     "enrichment": 12.3,
+     "count": 12
+    }
+   ],
+   "best": {
+    "ratio": 1.303,
+    "nullMean": 1.0,
+    "nullSd": 0.012,
+    "p": 0.0039,
+    "cls": "conserved_element"
+   }
+  },
+  {
+   "index": 4650,
+   "cells": 11703,
+   "kmers": [
+    {
+     "kmer": "TCCGGC",
+     "enrichment": 9.89,
+     "count": 4
+    },
+    {
+     "kmer": "CTCCGT",
+     "enrichment": 9.81,
+     "count": 5
+    },
+    {
+     "kmer": "CGTCTC",
+     "enrichment": 7.17,
+     "count": 4
+    }
+   ],
+   "best": {
+    "ratio": 1.462,
+    "nullMean": 1.005,
+    "nullSd": 0.042,
+    "p": 0.0039,
+    "cls": "variant_synonymous"
+   }
+  },
+  {
+   "index": 3382,
+   "cells": 2887,
+   "kmers": [
+    {
+     "kmer": "CGCGCT",
+     "enrichment": 16.12,
+     "count": 4
+    },
+    {
+     "kmer": "TACCCG",
+     "enrichment": 9.14,
+     "count": 5
+    },
+    {
+     "kmer": "GTAGGG",
+     "enrichment": 8.17,
+     "count": 4
+    }
+   ],
+   "best": {
+    "ratio": 42.557,
+    "nullMean": 0.978,
+    "nullSd": 0.366,
+    "p": 0.0039,
+    "cls": "trna"
+   }
+  },
+  {
+   "index": 2355,
+   "cells": 9307,
+   "kmers": [
+    {
+     "kmer": "AGAGCC",
+     "enrichment": 6.87,
+     "count": 6
+    },
+    {
+     "kmer": "CGTCTG",
+     "enrichment": 6.54,
+     "count": 4
+    },
+    {
+     "kmer": "CCGTCT",
+     "enrichment": 6.33,
+     "count": 4
+    }
+   ],
+   "best": {
+    "ratio": 1.476,
+    "nullMean": 1.001,
+    "nullSd": 0.048,
+    "p": 0.0039,
+    "cls": "variant_missense"
+   }
+  },
+  {
+   "index": 2938,
+   "cells": 3821,
+   "kmers": [
+    {
+     "kmer": "CCGGGC",
+     "enrichment": 19.94,
+     "count": 4
+    },
+    {
+     "kmer": "ACGTGT",
+     "enrichment": 6.36,
+     "count": 4
+    },
+    {
+     "kmer": "GCTCTC",
+     "enrichment": 6.26,
+     "count": 5
+    }
+   ],
+   "best": {
+    "ratio": 6.081,
+    "nullMean": 1.01,
+    "nullSd": 0.094,
+    "p": 0.0039,
+    "cls": "regulatory"
+   }
+  },
+  {
+   "index": 799,
+   "cells": 11345,
+   "kmers": [
+    {
+     "kmer": "CTCGGA",
+     "enrichment": 7.79,
+     "count": 4
+    },
+    {
+     "kmer": "GCGACT",
+     "enrichment": 7.59,
+     "count": 4
+    },
+    {
+     "kmer": "CAGGTC",
+     "enrichment": 7.47,
+     "count": 5
+    }
+   ],
+   "best": {
+    "ratio": 1.467,
+    "nullMean": 1.001,
+    "nullSd": 0.024,
+    "p": 0.0039,
+    "cls": "variant_synonymous"
+   }
+  },
+  {
+   "index": 2298,
+   "cells": 11641,
+   "kmers": [
+    {
+     "kmer": "CGTCCT",
+     "enrichment": 7.5,
+     "count": 5
+    },
+    {
+     "kmer": "CTGATC",
+     "enrichment": 6.15,
+     "count": 6
+    },
+    {
+     "kmer": "GTAACC",
+     "enrichment": 5.35,
+     "count": 5
+    }
+   ],
+   "best": {
+    "ratio": 1.445,
+    "nullMean": 1.0,
+    "nullSd": 0.024,
+    "p": 0.0039,
+    "cls": "variant_synonymous"
+   }
+  },
+  {
+   "index": 842,
+   "cells": 4521,
+   "kmers": [
+    {
+     "kmer": "GCTCGT",
+     "enrichment": 7.0,
+     "count": 4
+    },
+    {
+     "kmer": "GGTGCA",
+     "enrichment": 6.42,
+     "count": 5
+    },
+    {
+     "kmer": "CAGCTA",
+     "enrichment": 5.61,
+     "count": 5
+    }
+   ],
+   "best": {
+    "ratio": 30.896,
+    "nullMean": 0.851,
+    "nullSd": 1.053,
+    "p": 0.0039,
+    "cls": "centromere"
+   }
+  },
+  {
+   "index": 6020,
+   "cells": 1563,
+   "kmers": [
+    {
+     "kmer": "CTAGGG",
+     "enrichment": 10.89,
+     "count": 4
+    },
+    {
+     "kmer": "AACCCG",
+     "enrichment": 10.66,
+     "count": 5
+    },
+    {
+     "kmer": "GCTAGG",
+     "enrichment": 10.51,
+     "count": 4
+    }
+   ],
+   "best": {
+    "ratio": 64.544,
+    "nullMean": 0.986,
+    "nullSd": 0.494,
+    "p": 0.0039,
+    "cls": "ltr"
+   }
+  },
+  {
+   "index": 1786,
+   "cells": 10875,
+   "kmers": [
+    {
+     "kmer": "GAGGCT",
+     "enrichment": 6.18,
+     "count": 5
+    },
+    {
+     "kmer": "GTCCCT",
+     "enrichment": 6.16,
+     "count": 4
+    },
+    {
+     "kmer": "CGCTTC",
+     "enrichment": 5.86,
+     "count": 5
+    }
+   ],
+   "best": {
+    "ratio": 1.321,
+    "nullMean": 0.999,
+    "nullSd": 0.063,
+    "p": 0.0039,
+    "cls": "variant_missense"
+   }
+  },
+  {
+   "index": 1931,
+   "cells": 8507,
+   "kmers": [
+    {
+     "kmer": "CGCAGA",
+     "enrichment": 5.88,
+     "count": 4
+    },
+    {
+     "kmer": "GGGACA",
+     "enrichment": 5.8,
+     "count": 4
+    },
+    {
+     "kmer": "ATGGTC",
+     "enrichment": 5.19,
+     "count": 6
+    }
+   ],
+   "best": {
+    "ratio": 4.731,
+    "nullMean": 1.032,
+    "nullSd": 1.352,
+    "p": 0.035,
+    "cls": "uorf"
+   }
+  },
+  {
+   "index": 702,
+   "cells": 7013,
+   "kmers": [
+    {
+     "kmer": "TGCGAG",
+     "enrichment": 9.12,
+     "count": 4
+    },
+    {
+     "kmer": "GGCCCT",
+     "enrichment": 7.35,
+     "count": 4
+    },
+    {
+     "kmer": "GTACCC",
+     "enrichment": 7.31,
+     "count": 4
+    }
+   ],
+   "best": {
+    "ratio": 1.367,
+    "nullMean": 1.004,
+    "nullSd": 0.042,
+    "p": 0.0039,
+    "cls": "variant_synonymous"
+   }
+  },
+  {
+   "index": 637,
+   "cells": 7823,
+   "kmers": [
+    {
+     "kmer": "GTTGTT",
+     "enrichment": 9.84,
+     "count": 27
+    },
+    {
+     "kmer": "TAGCCC",
+     "enrichment": 9.61,
+     "count": 5
+    },
+    {
+     "kmer": "TGTTGT",
+     "enrichment": 9.36,
+     "count": 26
+    }
+   ],
+   "best": {
+    "ratio": 1.428,
+    "nullMean": 1.003,
+    "nullSd": 0.042,
+    "p": 0.0039,
+    "cls": "variant_synonymous"
+   }
+  },
+  {
+   "index": 2804,
+   "cells": 6570,
+   "kmers": [
+    {
+     "kmer": "CGGGCG",
+     "enrichment": 24.11,
+     "count": 5
+    },
+    {
+     "kmer": "GCGGGC",
+     "enrichment": 20.15,
+     "count": 5
+    },
+    {
+     "kmer": "CGGGCT",
+     "enrichment": 14.71,
+     "count": 4
+    }
+   ],
+   "best": {
+    "ratio": 1.339,
+    "nullMean": 1.002,
+    "nullSd": 0.05,
+    "p": 0.0039,
+    "cls": "variant_missense"
+   }
+  },
+  {
+   "index": 3380,
+   "cells": 10581,
+   "kmers": [
+    {
+     "kmer": "CTTACG",
+     "enrichment": 7.38,
+     "count": 6
+    },
+    {
+     "kmer": "ACCTAG",
+     "enrichment": 7.0,
+     "count": 4
+    },
+    {
+     "kmer": "GGTGCC",
+     "enrichment": 6.66,
+     "count": 5
+    }
+   ],
+   "best": {
+    "ratio": 1.402,
+    "nullMean": 0.998,
+    "nullSd": 0.024,
+    "p": 0.0039,
+    "cls": "variant_synonymous"
+   }
+  },
+  {
+   "index": 4028,
+   "cells": 10544,
+   "kmers": [
+    {
+     "kmer": "CCCTGA",
+     "enrichment": 11.71,
+     "count": 8
+    },
+    {
+     "kmer": "ACGGGT",
+     "enrichment": 9.57,
+     "count": 4
+    },
+    {
+     "kmer": "CTACGG",
+     "enrichment": 8.08,
+     "count": 5
+    }
+   ],
+   "best": {
+    "ratio": 1.456,
+    "nullMean": 0.998,
+    "nullSd": 0.026,
+    "p": 0.0039,
+    "cls": "variant_synonymous"
+   }
+  },
+  {
+   "index": 545,
+   "cells": 3219,
+   "kmers": [
+    {
+     "kmer": "ACGCGC",
+     "enrichment": 19.88,
+     "count": 5
+    },
+    {
+     "kmer": "GGCGGG",
+     "enrichment": 14.35,
+     "count": 4
+    },
+    {
+     "kmer": "CGGGTA",
+     "enrichment": 10.51,
+     "count": 5
+    }
+   ],
+   "best": {
+    "ratio": 7.482,
+    "nullMean": 1.005,
+    "nullSd": 0.106,
+    "p": 0.0039,
+    "cls": "tfbs_chip"
+   }
+  },
+  {
+   "index": 1301,
+   "cells": 1502,
+   "kmers": [
+    {
+     "kmer": "GGAATC",
+     "enrichment": 16.05,
+     "count": 24
+    },
+    {
+     "kmer": "CTAGGG",
+     "enrichment": 13.62,
+     "count": 5
+    },
+    {
+     "kmer": "GCTAGG",
+     "enrichment": 13.13,
+     "count": 5
+    }
+   ],
+   "best": {
+    "ratio": 76.899,
+    "nullMean": 0.988,
+    "nullSd": 0.505,
+    "p": 0.0039,
+    "cls": "ltr"
+   }
+  },
+  {
+   "index": 5519,
+   "cells": 5380,
+   "kmers": [
+    {
+     "kmer": "CCGGCG",
+     "enrichment": 18.16,
+     "count": 5
+    },
+    {
+     "kmer": "CGGCGT",
+     "enrichment": 11.77,
+     "count": 4
+    },
+    {
+     "kmer": "GTTAGT",
+     "enrichment": 10.14,
+     "count": 13
+    }
+   ],
+   "best": {
+    "ratio": 1.243,
+    "nullMean": 1.004,
+    "nullSd": 0.056,
+    "p": 0.0039,
+    "cls": "variant_missense"
+   }
+  },
+  {
+   "index": 729,
+   "cells": 2977,
+   "kmers": [
+    {
+     "kmer": "TATATA",
+     "enrichment": 10.29,
+     "count": 62
+    },
+    {
+     "kmer": "TATACA",
+     "enrichment": 8.9,
+     "count": 21
+    },
+    {
+     "kmer": "TACATA",
+     "enrichment": 7.35,
+     "count": 15
+    }
+   ],
+   "best": {
+    "ratio": 3.728,
+    "nullMean": 1.013,
+    "nullSd": 0.532,
+    "p": 0.0039,
+    "cls": "ars_consensus"
+   }
+  },
+  {
+   "index": 3832,
+   "cells": 6757,
+   "kmers": [
+    {
+     "kmer": "CGTGAA",
+     "enrichment": 7.2,
+     "count": 7
+    },
+    {
+     "kmer": "ACGAGC",
+     "enrichment": 7.13,
+     "count": 4
+    },
+    {
+     "kmer": "GTCGGT",
+     "enrichment": 6.96,
+     "count": 4
+    }
+   ],
+   "best": {
+    "ratio": 1.15,
+    "nullMean": 1.0,
+    "nullSd": 0.059,
+    "p": 0.0233,
+    "cls": "variant_missense"
+   }
+  },
+  {
+   "index": 1248,
+   "cells": 7387,
+   "kmers": [
+    {
+     "kmer": "GAGGGC",
+     "enrichment": 7.95,
+     "count": 4
+    },
+    {
+     "kmer": "GGAGGG",
+     "enrichment": 6.36,
+     "count": 4
+    },
+    {
+     "kmer": "GATCCT",
+     "enrichment": 6.15,
+     "count": 6
+    }
+   ],
+   "best": {
+    "ratio": 2.148,
+    "nullMean": 0.918,
+    "nullSd": 1.231,
+    "p": 0.1479,
+    "cls": "uorf"
+   }
+  },
+  {
+   "index": 5309,
+   "cells": 847,
+   "kmers": [
+    {
+     "kmer": "CCCGCG",
+     "enrichment": 31.52,
+     "count": 6
+    },
+    {
+     "kmer": "CGAACC",
+     "enrichment": 29.71,
+     "count": 20
+    },
+    {
+     "kmer": "TCGAAC",
+     "enrichment": 27.01,
+     "count": 27
+    }
+   ],
+   "best": {
+    "ratio": 174.679,
+    "nullMean": 0.939,
+    "nullSd": 0.741,
+    "p": 0.0039,
+    "cls": "trna"
+   }
+  },
+  {
+   "index": 3539,
+   "cells": 3858,
+   "kmers": [
+    {
+     "kmer": "GCGTGA",
+     "enrichment": 8.85,
+     "count": 4
+    },
+    {
+     "kmer": "TCTCCG",
+     "enrichment": 7.28,
+     "count": 5
+    },
+    {
+     "kmer": "CGTGAT",
+     "enrichment": 6.08,
+     "count": 5
+    }
+   ],
+   "best": {
+    "ratio": 3.557,
+    "nullMean": 0.973,
+    "nullSd": 0.396,
+    "p": 0.0039,
+    "cls": "ars_consensus"
+   }
+  },
+  {
+   "index": 3685,
+   "cells": 4377,
+   "kmers": [
+    {
+     "kmer": "GTAACC",
+     "enrichment": 11.77,
+     "count": 11
+    },
+    {
+     "kmer": "CGACAC",
+     "enrichment": 11.17,
+     "count": 6
+    },
+    {
+     "kmer": "ACCGGC",
+     "enrichment": 11.14,
+     "count": 5
+    }
+   ],
+   "best": {
+    "ratio": 10.79,
+    "nullMean": 1.031,
+    "nullSd": 1.152,
+    "p": 0.0039,
+    "cls": "utr_intron"
+   }
+  },
+  {
+   "index": 894,
+   "cells": 829,
+   "kmers": [
+    {
+     "kmer": "CCGGGG",
+     "enrichment": 20.29,
+     "count": 4
+    },
+    {
+     "kmer": "GCCCCC",
+     "enrichment": 20.15,
+     "count": 5
+    },
+    {
+     "kmer": "GTTCGA",
+     "enrichment": 18.45,
+     "count": 17
+    }
+   ],
+   "best": {
+    "ratio": 169.827,
+    "nullMean": 0.935,
+    "nullSd": 0.727,
+    "p": 0.0039,
+    "cls": "trna"
+   }
+  },
+  {
+   "index": 4932,
+   "cells": 2678,
+   "kmers": [
+    {
+     "kmer": "TCGCGT",
+     "enrichment": 12.39,
+     "count": 4
+    },
+    {
+     "kmer": "TTCGCG",
+     "enrichment": 10.7,
+     "count": 4
+    },
+    {
+     "kmer": "GCGATG",
+     "enrichment": 6.76,
+     "count": 6
+    }
+   ],
+   "best": {
+    "ratio": 8.13,
+    "nullMean": 1.157,
+    "nullSd": 2.613,
+    "p": 0.0428,
+    "cls": "uorf"
+   }
+  },
+  {
+   "index": 534,
+   "cells": 1770,
+   "kmers": [
+    {
+     "kmer": "CTAGGA",
+     "enrichment": 7.59,
+     "count": 4
+    },
+    {
+     "kmer": "AGTGTG",
+     "enrichment": 5.18,
+     "count": 4
+    },
+    {
+     "kmer": "CCATGC",
+     "enrichment": 4.63,
+     "count": 4
+    }
+   ],
+   "best": {
+    "ratio": 54.924,
+    "nullMean": 0.955,
+    "nullSd": 0.579,
+    "p": 0.0039,
+    "cls": "trna"
+   }
+  },
+  {
+   "index": 2106,
+   "cells": 2411,
+   "kmers": [
+    {
+     "kmer": "CCGGGT",
+     "enrichment": 16.16,
+     "count": 5
+    },
+    {
+     "kmer": "CGGGTA",
+     "enrichment": 12.61,
+     "count": 6
+    },
+    {
+     "kmer": "GTCCCT",
+     "enrichment": 7.7,
+     "count": 5
+    }
+   ],
+   "best": {
+    "ratio": 5.712,
+    "nullMean": 1.004,
+    "nullSd": 0.073,
+    "p": 0.0039,
+    "cls": "tfbs_conserved"
+   }
+  },
+  {
+   "index": 4464,
+   "cells": 1838,
+   "kmers": [
+    {
+     "kmer": "CCGTAC",
+     "enrichment": 7.35,
+     "count": 4
+    },
+    {
+     "kmer": "ATCGCA",
+     "enrichment": 6.37,
+     "count": 6
+    },
+    {
+     "kmer": "TACGCA",
+     "enrichment": 5.63,
+     "count": 4
+    }
+   ],
+   "best": {
+    "ratio": 110.641,
+    "nullMean": 0.939,
+    "nullSd": 2.899,
+    "p": 0.0039,
+    "cls": "snrna"
+   }
+  },
+  {
+   "index": 1124,
+   "cells": 5794,
+   "kmers": [
+    {
+     "kmer": "ACGGCG",
+     "enrichment": 9.26,
+     "count": 4
+    },
+    {
+     "kmer": "TGCGAG",
+     "enrichment": 9.12,
+     "count": 4
+    },
+    {
+     "kmer": "GCCAGG",
+     "enrichment": 9.08,
+     "count": 5
+    }
+   ],
+   "best": {
+    "ratio": 1.774,
+    "nullMean": 0.958,
+    "nullSd": 1.521,
+    "p": 0.1868,
+    "cls": "uorf"
+   }
+  },
+  {
+   "index": 1959,
+   "cells": 1935,
+   "kmers": [
+    {
+     "kmer": "CGGGTA",
+     "enrichment": 12.61,
+     "count": 6
+    },
+    {
+     "kmer": "ACCCGG",
+     "enrichment": 11.54,
+     "count": 4
+    },
+    {
+     "kmer": "TTCGCG",
+     "enrichment": 10.7,
+     "count": 4
+    }
+   ],
+   "best": {
+    "ratio": 6.268,
+    "nullMean": 1.0,
+    "nullSd": 0.086,
+    "p": 0.0039,
+    "cls": "tfbs_conserved"
+   }
+  },
+  {
+   "index": 2248,
+   "cells": 5392,
+   "kmers": [
+    {
+     "kmer": "AGCGCC",
+     "enrichment": 7.9,
+     "count": 4
+    },
+    {
+     "kmer": "GCGCCA",
+     "enrichment": 7.82,
+     "count": 5
+    },
+    {
+     "kmer": "CCTGAC",
+     "enrichment": 6.5,
+     "count": 4
+    }
+   ],
+   "best": {
+    "ratio": 1.976,
+    "nullMean": 1.013,
+    "nullSd": 0.507,
+    "p": 0.0506,
+    "cls": "ncrna"
+   }
+  },
+  {
+   "index": 2783,
+   "cells": 2689,
+   "kmers": [
+    {
+     "kmer": "GCCGAG",
+     "enrichment": 15.16,
+     "count": 5
+    },
+    {
+     "kmer": "CCGAGT",
+     "enrichment": 14.71,
+     "count": 5
+    },
+    {
+     "kmer": "GGGGGG",
+     "enrichment": 13.37,
+     "count": 4
+    }
+   ],
+   "best": {
+    "ratio": 44.111,
+    "nullMean": 0.996,
+    "nullSd": 0.382,
+    "p": 0.0039,
+    "cls": "trna"
+   }
+  },
+  {
+   "index": 6105,
+   "cells": 4317,
+   "kmers": [
+    {
+     "kmer": "GCCGCT",
+     "enrichment": 9.0,
+     "count": 6
+    },
+    {
+     "kmer": "GACTAC",
+     "enrichment": 8.8,
+     "count": 7
+    },
+    {
+     "kmer": "CGACGA",
+     "enrichment": 8.17,
+     "count": 6
+    }
+   ],
+   "best": {
+    "ratio": 1.36,
+    "nullMean": 1.003,
+    "nullSd": 0.067,
+    "p": 0.0039,
+    "cls": "variant_synonymous"
+   }
+  },
+  {
+   "index": 4716,
+   "cells": 5271,
+   "kmers": [
+    {
+     "kmer": "AGGACG",
+     "enrichment": 7.11,
+     "count": 5
+    },
+    {
+     "kmer": "ACGACG",
+     "enrichment": 7.07,
+     "count": 5
+    },
+    {
+     "kmer": "GACGAG",
+     "enrichment": 7.04,
+     "count": 5
+    }
+   ],
+   "best": {
+    "ratio": 1.979,
+    "nullMean": 1.013,
+    "nullSd": 0.572,
+    "p": 0.07,
+    "cls": "snorna"
+   }
+  },
+  {
+   "index": 2301,
+   "cells": 6241,
+   "kmers": [
+    {
+     "kmer": "GCGGAT",
+     "enrichment": 7.59,
+     "count": 4
+    },
+    {
+     "kmer": "CGTCGA",
+     "enrichment": 7.59,
+     "count": 4
+    },
+    {
+     "kmer": "TGCCGC",
+     "enrichment": 7.35,
+     "count": 5
+    }
+   ],
+   "best": {
+    "ratio": 1.576,
+    "nullMean": 0.996,
+    "nullSd": 0.046,
+    "p": 0.0039,
+    "cls": "variant_synonymous"
+   }
+  },
+  {
+   "index": 1495,
+   "cells": 6089,
+   "kmers": [
+    {
+     "kmer": "GCCTAG",
+     "enrichment": 11.89,
+     "count": 4
+    },
+    {
+     "kmer": "TGCCTA",
+     "enrichment": 6.1,
+     "count": 5
+    },
+    {
+     "kmer": "CAGGAC",
+     "enrichment": 6.0,
+     "count": 4
+    }
+   ],
+   "best": {
+    "ratio": 1.427,
+    "nullMean": 1.005,
+    "nullSd": 0.049,
+    "p": 0.0039,
+    "cls": "variant_synonymous"
+   }
+  },
+  {
+   "index": 4427,
+   "cells": 5887,
+   "kmers": [
+    {
+     "kmer": "GTTACG",
+     "enrichment": 6.8,
+     "count": 4
+    },
+    {
+     "kmer": "AACACG",
+     "enrichment": 5.8,
+     "count": 4
+    },
+    {
+     "kmer": "TAGACT",
+     "enrichment": 4.8,
+     "count": 4
+    }
+   ],
+   "best": {
+    "ratio": 5.401,
+    "nullMean": 1.026,
+    "nullSd": 1.054,
+    "p": 0.0039,
+    "cls": "pseudogene"
+   }
+  },
+  {
+   "index": 3002,
+   "cells": 3173,
+   "kmers": [
+    {
+     "kmer": "GGGATG",
+     "enrichment": 7.17,
+     "count": 6
+    },
+    {
+     "kmer": "GAGTAC",
+     "enrichment": 6.17,
+     "count": 6
+    },
+    {
+     "kmer": "GTACCG",
+     "enrichment": 6.03,
+     "count": 4
+    }
+   ],
+   "best": {
+    "ratio": 1.721,
+    "nullMean": 0.991,
+    "nullSd": 0.211,
+    "p": 0.0039,
+    "cls": "ars"
+   }
+  }
+ ],
+ "grounding": {
+  "matchedCandidates": 384,
+  "shifts": 64,
+  "saeMedianBestRatio": 5.977,
+  "saeMaxBestRatio": 204.042,
+  "rawMedianBestRatio": 4.715,
+  "rawMaxBestRatio": 13.642,
+  "featuresScored": 384,
+  "channelsScored": 384,
+  "dictionaryWins": true
+ }
 }

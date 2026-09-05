@@ -2483,6 +2483,90 @@ and non-trivial on every panel outside the reference act.
     raw 384 channels put through the identical test. Saying so beats a gallery of hand-picked
     features.
 
+#### The attention panel was measuring layers and calling them heads
+
+`build_onnx.py:123` is `attention = acts["attention"].mean(dim=2)  # mean over heads`. The shipped
+`attn` pack is therefore **8 × 128 × 128 — eight LAYERS with their four heads averaged away** — and
+the panel titled *"Which head reads what?"* was making a head-specialisation claim from data that
+has no heads in it. The model has 8 layers × 4 heads = **32** heads; the page said it had eight.
+
+- The collapse table had it right all along (`[8 × 4 heads × 128 × 128]` → *mean over heads*), which
+  is what made the contradiction findable: one panel said eight heads, the reference table said
+  eight layers of four. **When two places on a page disagree about a shape, the one next to the
+  tensor is usually right.**
+- `make_heads.py` calls the axis `N_HEADS = 8`, which is a misnomer for layers and is what the
+  wrong label was read from. The generator's own docstring says `[8 x 128 x 128]`.
+- Renamed throughout: the panel, its frame, the column labels (`L0..L7`, not `h0..h7`) and the
+  readout. The finding survives — layers 0 and 3 read regulatory DNA, layer 4 is the mirror, layer 6
+  alone reads tRNA — but it is a statement about layers.
+- **And averaging costs the question its edge**: a layer reading flat can hold one specialised head
+  and three that cancel it, so "no specialisation" is not a conclusion this pack can support. Per
+  head would need four times the attention payload or a live run; the panel now says so instead of
+  implying it already did that.
+
+#### Finishing the three methods, and what the frames got wrong
+
+The previous round shipped the SAE as reconstruction statistics only and MoDISco at one of its two
+pre-registered widths. Both are finished now, and the finishing changed both readings.
+
+- **The sparse dictionary grounds better than the basis it replaces — and the control is what makes
+  that a claim.** Genome-wide over 94,970 bottleneck cells: FVU **0.0194** against a
+  column-shuffled **0.3733**. Then every feature is scored against the genome-wide annotation with
+  the page's circular-shift null, and **the raw 384 channels are put through the identical test at
+  matched candidate count and matched shifts** — median best enrichment **5.977× against 4.715×**.
+  Without matching both, the comparison is rigged: a max over 6,144 features beats a max over 384 on
+  candidate count alone, and a null with fewer shifts has a different p floor.
+  - **Read the classes before the ratios.** The biggest numbers (tRNA 175×, snRNA 111×, LTR 77×) land
+    on classes with distinctive base composition, which a feature can find without learning anything
+    about regulation — the k-mer column shows the tRNA features are simply GC-rich. Five of 64
+    features ground best on a *binding-site* tier, strongest at 9.7×. That is the harder claim and
+    the smaller number.
+  - **A k-mer signature, not a PWM.** A feature fires at 128 bp resolution, and a PWM built from
+    128 bp windows is near-uniform however it is built — while still matching a database at high
+    Pearson, because correlation normalises amplitude away. That is exactly the 0.00-bit failure
+    MoDISco shipped first. Count k-mers: it says what a cell *contains* without claiming to know
+    where.
+  - **Persist the weights.** The first version trained, reported FVU and threw them away, so every
+    interpretive question meant an eleven-minute retrain. `_scratch/sae.npz` now holds them with the
+    coordinates, the same reason `make_ism.py --repack` keeps its raw plane.
+  - **Keep the training set on the CPU and batch the statistics pass.** Both OOMed on a shared GPU.
+    And the grounding must be **batched as a matmul**: candidate-by-candidate it is 1,032,192 rolls
+    of a 95,000-element array (98e9 element-ops); rolling the weight once per shift and multiplying
+    into every candidate at once is the same 98 GFLOP as one BLAS call per (class, shift).
+
+- **MoDISco's second pre-registered width made the negative sharper, which is why it had to be
+  run.** At w = 11 the real planes give 3 patterns and the shuffled control 2; at **w = 15 the
+  control ties exactly, 3 against 3, all matched**. Both cells are published. Running a second width
+  after a weak first result is only defensible because the grid was declared in advance and nothing
+  is dropped afterwards — and no third width was added.
+
+- **Every numeric error found this round was in a research frame, and every one was TYPED.** The
+  page's own frontmatter rule is to read numbers from the generated tables; the frames I added did
+  not follow it, and an independent audit caught six: 113 genes where the data says 198, 40 edits
+  where it says 12, 53 sites a locus where it is 18.7, "a few hundred" passes where it is 40,
+  84,392 variants where 2,319 fall in the windows, five Yarrowia strains where the data ships eight.
+  **All six are now derived from the JSON.** A frame is prose that looks like metadata, which is
+  precisely why it needs the same rule the tables have.
+
+- **`clearResults()` never repainted the viewport.** It nulls every pack and repaints the heatmap,
+  the single track, the motifs and the stage detail — so between a locus change and the new pack
+  arriving, six lanes drew the previous gene under the new gene's name, and stayed there if the
+  fetch failed. Verified **pre-existing** (byte-identical before the viewport commit), but the blast
+  radius grew from four separate panels to one canvas. `auditStaleState` is `--full`-only and exists
+  to catch exactly this, which is why running only `:ci` let it through.
+
+- **`data-vp-view` was a name collision I introduced, and it was LATENT rather than live.**
+  `viewportCanvas.dataset.vpView` writes an attribute the flow panel's `2d`/`3d` toggle already
+  owns, read by `querySelectorAll('[data-vp-view]')`. It stayed harmless only because that returns
+  a **static NodeList captured at init**, before the first render writes the attribute. Renamed to
+  `vpWindow`. The sweep's other six hits are same-element (a script stamping its own hook) and the
+  seventh is `host.dataset.vpView`, which `host.querySelectorAll` never matches — so **a name
+  overlap is not automatically a collision; what matters is whether two different ELEMENTS share
+  the name.**
+
+- **Two hand-rolled dequantisers survived the last round's trap list** in `loadAttribution` and
+  `loadOccl`. Both now go through `decodePackedRows` with the space passed by the caller.
+
 #### The two pages were split, and what that fixed
 
 `/shorkie-lab/shorkie/` embedded the genome browser as act 1 while `/shorkie-lab/genome/` embedded
@@ -2577,7 +2661,9 @@ knows which plane it fetched; `decodePackedPlane` stays as the named ISM entry p
   skewed** — for missense the ratio of means is 0.99 while the median per-site ratio is 0.90.
   The reference base matched sacCer3 at **2,319 of 2,319**, which is what makes the coordinates
   trustworthy.
-- **Heads 0 and 3 read regulatory DNA** (conserved TFBS 1.75× and 1.88×, ORegAnno 1.82× and 1.72×)
+- **Attention LAYERS 0 and 3 read regulatory DNA** (the shipped `attn` pack is
+  `attention.mean(dim=2)` — eight layers with their four heads averaged, so this was recorded as a
+  head result and is a LAYER result) (conserved TFBS 1.75× and 1.88×, ORegAnno 1.82× and 1.72×)
   and are *depleted* on CDS (0.73, 0.69); **head 4 is the mirror**; **head 6 alone reads tRNA**
   (1.50×). Widest spread within a class 4.35×. Three things make it meaningful: the mask is pooled
   by **mean, never max** (a 7 bp site is 5% of a 128 bp cell); the null is a **circular shift**; and

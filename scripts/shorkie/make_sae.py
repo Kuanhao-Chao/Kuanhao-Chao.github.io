@@ -66,6 +66,10 @@ D_MODEL = 384
 # The residual stream after the last transformer layer: the deepest point at which the
 # representation is still positional, and the one the decoder reads.
 LAYER = "attn_out8"
+POS_BP = SEQ_LEN // BOTTLENECK          # 128 bp a bottleneck position
+TOP_CELLS = 48                          # top-activating cells kept per feature
+KMER = 6
+SHIFTS = 256
 
 
 def collect(model, torch, dev, species: int, chroms: dict[str, str], cap: int):
@@ -76,8 +80,14 @@ def collect(model, torch, dev, species: int, chroms: dict[str, str], cap: int):
     rather than windows.
     """
     rows = []
+    # Where each kept vector came from, so a feature's top activations can be turned back into
+    # sequence and scored against the annotation. Discarding this is what made the first version
+    # of this script able to report a reconstruction and nothing else.
+    coords: list[tuple[int, int]] = []
+    names = list(chroms)
     total = 0
-    for chrom, seq in chroms.items():
+    for ci, chrom in enumerate(names):
+        seq = chroms[chrom]
         for wstart, c0, c1 in plan_windows(len(seq)):
             if total >= cap:
                 break
@@ -91,10 +101,12 @@ def collect(model, torch, dev, species: int, chroms: dict[str, str], cap: int):
             lo = max(0, (c0 - wstart) * BOTTLENECK // SEQ_LEN)
             hi = min(BOTTLENECK, max(lo + 1, (c1 - wstart) * BOTTLENECK // SEQ_LEN))
             rows.append(h[lo:hi].detach().to("cpu").numpy().astype(np.float32))
+            for j in range(lo, hi):
+                coords.append((ci, wstart + j * POS_BP))
             total += hi - lo
         if total >= cap:
             break
-    return np.concatenate(rows, axis=0)
+    return np.concatenate(rows, axis=0), np.array(coords, dtype=np.int64), names
 
 
 def train_sae(torch, acts: np.ndarray, n_features: int, k: int, steps: int, dev: str, seed: int):
@@ -169,6 +181,169 @@ def train_sae(torch, acts: np.ndarray, n_features: int, k: int, steps: int, dev:
         "meanL0": round(l0, 2), "vectors": int(n), "features": n_features, "k": k, "steps": steps}
 
 
+# ------------------------------------------------------------------------------------------------
+# Interpretation: what does a feature respond to, and does it correspond to anything biological?
+# ------------------------------------------------------------------------------------------------
+
+def encode_all(torch, sae, acts, dev, k, batch=4096):
+    """Feature activations for every collected vector, batched. Returns a CPU float32 [n, D]."""
+    Xn = (torch.from_numpy(acts) - sae["mean"]) / sae["scale"]
+    out = torch.empty((Xn.shape[0], sae["W_enc"].shape[1]), dtype=torch.float32)
+    with torch.no_grad():
+        for i0 in range(0, Xn.shape[0], batch):
+            h = Xn[i0:i0 + batch].to(dev)
+            pre = (h - sae["b_dec"]) @ sae["W_enc"] + sae["b_enc"]
+            vals, ind = torch.topk(pre, k, dim=-1)
+            z = torch.zeros_like(pre).scatter_(-1, ind, torch.relu(vals))
+            out[i0:i0 + batch] = z.to("cpu")
+    return out.numpy()
+
+
+def kmer_signature(seqs: list[str], background: dict[str, float], k: int, top: int = 3):
+    """The k-mers a feature's top cells are enriched for, over a genome-wide background.
+
+    NOT a position weight matrix. A bottleneck cell is 128 bp, and a PWM over 128 bp of sequence is
+    near-uniform whichever way it is built -- the same failure that produced 0.00-bit "motifs" in
+    the first motif-discovery run, which still matched JASPAR at r = 0.93 because Pearson normalises
+    amplitude away. A k-mer count is the honest summary at this resolution: it says what the cell
+    CONTAINS without claiming to know where.
+    """
+    counts: dict[str, int] = {}
+    total = 0
+    for s in seqs:
+        for i in range(len(s) - k + 1):
+            km = s[i:i + k]
+            if "N" in km:
+                continue
+            counts[km] = counts.get(km, 0) + 1
+            total += 1
+    if total == 0:
+        return []
+    out = []
+    for km, c in counts.items():
+        bg = background.get(km, 0.0)
+        if bg <= 0 or c < 4:
+            continue
+        out.append((km, (c / total) / bg, c))
+    out.sort(key=lambda r: -r[1])
+    return [{"kmer": m, "enrichment": round(e, 2), "count": n} for m, e, n in out[:top]]
+
+
+def enrichment(signal: np.ndarray, weight: np.ndarray, shifts: int = SHIFTS):
+    """The page's own statistic: mean |signal| on `weight` over mean |signal| everywhere.
+
+    Reimplemented in Python because the signal here is 94,970 positions x 6,144 features and cannot
+    be computed in a browser -- `make_lm_summary.py` is the precedent for the same trade.
+
+    The offsets are IDENTICAL to the TypeScript `circularShiftOffsets`, and that is checked rather
+    than assumed (see `assert_offsets_agree`): the divisor is `shifts + 1 = 257`, which is prime and
+    divides neither array length in use, so `i*n/257` always reduces to an odd denominator and can
+    never be exactly one half -- there is nothing for JavaScript's round-half-up and Python's
+    round-half-to-even to disagree about.
+    """
+    n = min(len(signal), len(weight))
+    s = np.abs(signal[:n]).astype(np.float64)
+    w = weight[:n].astype(np.float64)
+    if w.sum() <= 0 or s.sum() <= 0:
+        return None
+    background = s.sum() / n
+    obs = float((s * w).sum() / w.sum()) / background
+    offs = [int(round(i * n / (shifts + 1))) % n for i in range(1, shifts + 1)]
+    offs = [o for o in offs if o != 0]
+    null = np.empty(len(offs))
+    for j, o in enumerate(offs):
+        null[j] = float((s * np.roll(w, o)).sum() / w.sum()) / background
+    ge = int((null >= obs).sum())
+    return {"ratio": round(obs, 3), "nullMean": round(float(null.mean()), 3),
+            "nullSd": round(float(null.std()), 3), "p": round((ge + 1) / (len(offs) + 1), 4)}
+
+
+def enrichment_batch(signals: np.ndarray, weight: np.ndarray, shifts: int):
+    """`enrichment` for many candidates at once: ratio and empirical p per column of `signals`.
+
+    Same statistic, restructured so the null is a matmul. Done candidate by candidate it is
+    `candidates x classes x shifts` rolls of a 95,000-element array -- 98 billion element operations,
+    minutes to hours. Rolling the WEIGHT once per shift and multiplying it into every candidate at
+    once makes it one BLAS matvec per (class, shift): the same 98 GFLOP, but as a matmul.
+    """
+    n = min(signals.shape[0], len(weight))
+    s = np.abs(signals[:n]).astype(np.float64)                 # [n, C]
+    w = weight[:n].astype(np.float64)
+    wsum = w.sum()
+    if wsum <= 0:
+        return None
+    background = s.sum(axis=0) / n                             # [C]
+    ok = background > 0
+    obs = np.zeros(s.shape[1])
+    obs[ok] = (w @ s)[ok] / wsum / background[ok]
+    offs = [int(round(i * n / (shifts + 1))) % n for i in range(1, shifts + 1)]
+    offs = [o for o in offs if o != 0]
+    ge = np.zeros(s.shape[1], dtype=np.int64)
+    for o in offs:
+        null = np.zeros(s.shape[1])
+        null[ok] = (np.roll(w, o) @ s)[ok] / wsum / background[ok]
+        ge += (null >= obs)
+    return obs, (ge + 1) / (len(offs) + 1)
+
+
+def assert_offsets_agree(n: int, shifts: int = SHIFTS) -> None:
+    """No exact halves, so Python and JavaScript produce the same circular shifts.
+
+    CLAUDE.md requires this be RE-CHECKED whenever either constant moves, not inherited from the
+    16,384-length case it was first established for.
+    """
+    from fractions import Fraction
+    d = shifts + 1
+    halves = [i for i in range(1, shifts + 1) if Fraction(i * n, d) % 1 == Fraction(1, 2)]
+    if halves:
+        raise SystemExit(
+            f"circular-shift offsets would differ between Python and JavaScript at n={n:,}: "
+            f"{len(halves)} exact halves (first at i={halves[0]}). The published enrichment would "
+            f"not be reproducible from the browser implementation.")
+
+
+def class_masks(coords: np.ndarray, names: list[str], chroms: dict[str, str]):
+    """A per-class coverage weight for every collected bottleneck cell.
+
+    Pooled by MEAN, never max: a cell is 128 bp and a 7 bp binding site covers 5% of it. A max marks
+    the whole cell annotated and makes every class look identical once pooled -- numbers that mean
+    nothing while looking exactly like numbers that do.
+    """
+    gd = ROOT / "public" / "genome-data"
+    out: dict[str, np.ndarray] = {}
+    per_chrom: dict[int, dict[str, np.ndarray]] = {}
+    for ci, chrom in enumerate(names):
+        f = gd / chrom / "features.json"
+        if not f.exists():
+            continue
+        data = json.loads(f.read_text())
+        n = len(chroms[chrom])
+        per_chrom[ci] = {}
+        for cls, rows in data.get("classes", {}).items():
+            cov = np.zeros((n + POS_BP) // POS_BP + 1, dtype=np.float64)
+            for r in rows:
+                start, length = int(r[0]), int(r[1])
+                a, b = start, start + max(1, length)
+                # Spread the feature's coverage across the cells it touches, in bases.
+                for cell in range(a // POS_BP, min(len(cov) - 1, b // POS_BP + 1)):
+                    lo, hi = cell * POS_BP, (cell + 1) * POS_BP
+                    cov[cell] += max(0, min(b, hi) - max(a, lo))
+            per_chrom[ci][cls] = np.clip(cov / POS_BP, 0.0, 1.0)
+    classes = sorted({c for m in per_chrom.values() for c in m})
+    for cls in classes:
+        w = np.zeros(len(coords), dtype=np.float64)
+        for i, (ci, bp) in enumerate(coords):
+            m = per_chrom.get(int(ci), {}).get(cls)
+            if m is None:
+                continue
+            cell = int(bp) // POS_BP
+            if 0 <= cell < len(m):
+                w[i] = m[cell]
+        if w.sum() > 0:
+            out[cls] = w
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("checkpoint")
@@ -176,6 +351,8 @@ def main() -> int:
     ap.add_argument("--k", type=int, default=32)
     ap.add_argument("--steps", type=int, default=4000)
     ap.add_argument("--cap", type=int, default=190_000, help="bottleneck vectors to collect")
+    ap.add_argument("--top-features", type=int, default=64,
+                    help="features to interpret in depth (all are scored against annotation)")
     ap.add_argument("--device", default=None)
     args = ap.parse_args()
 
@@ -197,9 +374,12 @@ def main() -> int:
     model.eval().to(dev)
 
     t0 = time.time()
-    acts = collect(model, torch, dev, loci["speciesIndex"], chroms, args.cap)
+    acts, coords, names = collect(model, torch, dev, loci["speciesIndex"], chroms, args.cap)
     print(f"  collected {acts.shape[0]:,} x {acts.shape[1]} bottleneck vectors "
           f"in {time.time() - t0:.0f}s")
+    # Re-checked here, not inherited: the enrichment below is computed in Python and published as
+    # if the browser could reproduce it.
+    assert_offsets_agree(acts.shape[0])
 
     sae, stats = train_sae(torch, acts, args.features, args.k, args.steps, dev, seed=0)
     print(f"  SAE: FVU {stats['fvu']:.4f}, {stats['alive']:,} of {args.features:,} features alive, "
@@ -217,6 +397,111 @@ def main() -> int:
     print(f"  control (shuffled activations): FVU {ctl_stats['fvu']:.4f}, "
           f"{ctl_stats['alive']:,} alive, mean L0 {ctl_stats['meanL0']}")
 
+    # ---------------------------------------------------------------------------------------
+    # Interpretation. Everything below needs the trained weights, which the first version of this
+    # script threw away -- so they are saved first, and re-running the analysis costs seconds
+    # rather than an eleven-minute retrain. Same reason `make_ism.py --repack` keeps its raw plane.
+    # ---------------------------------------------------------------------------------------
+    SCRATCH.mkdir(exist_ok=True)
+    np.savez(SCRATCH / "sae.npz",
+             **{k: v.to("cpu").numpy() for k, v in sae.items()}, coords=coords,
+             names=np.array(names))
+
+    z = encode_all(torch, sae, acts, dev, args.k)
+    print(f"  encoded {z.shape[0]:,} positions x {z.shape[1]:,} features")
+
+    # A genome-wide k-mer background, so a feature's k-mers are enriched against something.
+    bg_counts: dict[str, int] = {}
+    bg_total = 0
+    for chrom in names:
+        s = chroms[chrom]
+        for i in range(0, len(s) - KMER + 1, 7):        # strided: a background, not a census
+            km = s[i:i + KMER]
+            if "N" in km:
+                continue
+            bg_counts[km] = bg_counts.get(km, 0) + 1
+            bg_total += 1
+    background = {k: v / bg_total for k, v in bg_counts.items()}
+
+    masks = class_masks(coords, names, chroms)
+    print(f"  {len(masks)} annotation classes over the collected cells")
+
+    # Rank features by how much total activation they carry, and interpret the top ones. All 6,144
+    # are scored against the annotation; only the loudest get a k-mer signature, because that is a
+    # per-feature sequence scan and the tail is mostly silent.
+    strength = z.sum(axis=0)
+    order = np.argsort(-strength)
+    features = []
+    for fi in order[:args.top_features]:
+        col = z[:, fi]
+        top = np.argsort(-col)[:TOP_CELLS]
+        seqs = []
+        for r in top:
+            if col[r] <= 0:
+                continue
+            ci, bp = coords[r]
+            s = chroms[names[int(ci)]][int(bp):int(bp) + POS_BP]
+            if s:
+                seqs.append(s)
+        best = None
+        for cls, w in masks.items():
+            e = enrichment(col, w)
+            if e and (best is None or e["ratio"] > best["ratio"]):
+                best = {**e, "cls": cls}
+        features.append({
+            "index": int(fi),
+            "cells": int((col > 0).sum()),
+            "kmers": kmer_signature(seqs, background, KMER),
+            "best": best,
+        })
+
+    # ---------------------------------------------------------------------------------------
+    # The control that can come out negative: the SAME scoring on the RAW 384 channels. If the raw
+    # basis grounds as well as the dictionary does, the dictionary bought nothing -- and that is
+    # published either way, the way the counterfactual panel publishes the control that refutes it.
+    # ---------------------------------------------------------------------------------------
+    # MATCHED candidate counts and MATCHED nulls, or the comparison is rigged. There are 6,144
+    # features and 384 channels, so a max over the dictionary is a max over sixteen times as many
+    # candidates and would win on that alone; and a null with fewer shifts has a different p floor.
+    # So the dictionary is represented by its strongest `dModel` features -- the same number as
+    # there are channels -- and both arms use the same shift count.
+    n_match = acts.shape[1]
+    ctl_shifts = 64
+
+    def best_over_classes(signals: np.ndarray):
+        """Each candidate's best enrichment ratio over the annotation classes."""
+        best = np.zeros(signals.shape[1])
+        for w in masks.values():
+            r = enrichment_batch(signals, w, ctl_shifts)
+            if r is None:
+                continue
+            best = np.maximum(best, r[0])
+        return best
+
+    raw_best = list(best_over_classes(acts[:, :n_match].astype(np.float64)))
+    sae_best = list(best_over_classes(z[:, order[:n_match]].astype(np.float64)))
+    verdict = {
+        "matchedCandidates": n_match,
+        "shifts": ctl_shifts,
+        "saeMedianBestRatio": round(float(np.median(sae_best)), 3) if sae_best else None,
+        "saeMaxBestRatio": round(float(max(sae_best)), 3) if sae_best else None,
+        "rawMedianBestRatio": round(float(np.median(raw_best)), 3) if raw_best else None,
+        "rawMaxBestRatio": round(float(max(raw_best)), 3) if raw_best else None,
+        "featuresScored": len(sae_best),
+        "channelsScored": len(raw_best),
+        # The honest headline: does the dictionary ground BETTER than the basis it replaced?
+        "dictionaryWins": bool(sae_best and raw_best
+                               and float(np.median(sae_best)) > float(np.median(raw_best))),
+    }
+    print(f"  grounding (matched at {n_match} candidates, {ctl_shifts} shifts):")
+    print(f"    SAE features  median best {verdict['saeMedianBestRatio']}, "
+          f"max {verdict['saeMaxBestRatio']}")
+    print(f"    raw channels  median best {verdict['rawMedianBestRatio']}, "
+          f"max {verdict['rawMaxBestRatio']}")
+    print(f"    -> the dictionary "
+          f"{'grounds better than' if verdict['dictionaryWins'] else 'does NOT beat'} "
+          f"the raw basis")
+
     payload = {
         "note": ("A TopK sparse autoencoder on the bottleneck residual stream. The dictionary is "
                  "overcomplete and the sparsity is a hard count, so each direction is under "
@@ -231,6 +516,12 @@ def main() -> int:
         "real": stats,
         "control": ctl_stats,
         "reconstructionGain": round(ctl_stats["fvu"] - stats["fvu"], 4),
+        "kmer": KMER,
+        "topCells": TOP_CELLS,
+        "shifts": SHIFTS,
+        "classes": sorted(masks),
+        "features": features,
+        "grounding": verdict,
     }
     dest = ROOT / "src" / "data" / "shorkieSae.json"
     dest.write_text(json.dumps(payload, indent=1) + "\n")

@@ -193,7 +193,7 @@ async function auditPage(page, scope, want) {
     return {
       peak: Number(cv?.dataset.vpPeak ?? '0'),
       lanes: (cv?.dataset.vpLanes ?? '').split('|').filter(Boolean),
-      title: cv?.dataset.vpView ?? '',
+      title: cv?.dataset.vpWindow ?? '',
       single: Number(document.querySelector('[data-vp-single]')?.dataset.peak ?? '0'),
       source: document.querySelector('[data-vp]').dataset.vpResultSource ?? '',
       packFailed: document.querySelector('[data-vp]').dataset.vpPackFailed === 'true',
@@ -328,7 +328,10 @@ async function auditStaleState(browser, baseURL, scope) {
     if (Math.abs(peak - 400.52) > 0.01) {
       fail(scope, `after switching to PGK1 the coverage peak is ${peak}, expected its precomputed 400.52`);
     }
-    if (!/precomputed/.test(after.track) && !/predicted/.test(after.track)) {
+    // No string check here: the coverage caption is drawn on the canvas, so there is no text node
+    // to read. The peak assertion above IS the content check -- it pins the new locus's own
+    // precomputed value, which a stale view could not produce.
+    if (!(Number(after.track) > 0)) {
       fail(scope, `no prediction after the locus change: "${after.track}"`);
     }
   } finally {
@@ -369,8 +372,28 @@ async function auditInkDistribution(browser, baseURL, scope) {
         for (let i = 0; i < d.length; i += 4) {
           if (d[i + 3] > 8) { n += 1; cols.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]); }
         }
+        // Measured over the RASTER, not the canvas, and the denominator took two attempts to get
+        // right. The canvas carries a channel-axis gutter and a right margin that are correctly
+        // unpainted (measured: 27 of 1,392 columns), so a whole-canvas figure tops out near 96%
+        // however well the heatmap is drawn. Counting any column with SOME ink then still read
+        // 97.9%, because an axis-label column has ink only where a glyph is and is transparent for
+        // the rest of its height. The heatmap is a solid block, so the columns that carry it are
+        // the ones inked nearly all the way down; those are the denominator.
+        const solid = [];
+        for (let x = 0; x < c.width; x += 1) {
+          let m = 0;
+          for (let y = 0; y < rows; y += 1) if (d[((y * c.width) + x) * 4 + 3] > 8) m += 1;
+          if (m > rows * 0.9) solid.push(x);
+        }
+        let painted = 0;
+        for (const x of solid) {
+          for (let y = 0; y < rows; y += 1) {
+            if (d[((y * c.width) + x) * 4 + 3] > 8) painted += 1;
+          }
+        }
         return {
-          pct: (100 * n) / (c.width * rows),
+          rasterCols: solid.length,
+          pct: (100 * painted) / Math.max(1, solid.length * rows),
           colours: cols.size,
           title: document.querySelector('[data-vp-stage-title]')?.textContent ?? '',
           legend: document.querySelector('[data-vp-legend]')?.textContent ?? '',
@@ -378,6 +401,7 @@ async function auditInkDistribution(browser, baseURL, scope) {
       });
       // A painted heatmap: every cell coloured, and many distinct colours rather than one flat
       // wash. Skipping quiet cells is what made rasters 7.6% drawn and mostly white.
+      if (r.rasterCols < 100) fail(scope, `${r.title}: only ${r.rasterCols} raster columns found`);
       if (r.pct < 99) fail(scope, `${r.title}: only ${r.pct.toFixed(1)}% of the raster is painted`);
       if (r.colours < 50) fail(scope, `${r.title}: only ${r.colours} distinct colours (a flat wash)`);
       if (!r.legend) fail(scope, `${r.title}: no colour legend`);
@@ -579,9 +603,15 @@ async function auditFullModel(browser, baseURL, scope) {
       await page.waitForTimeout(400);
       const note = await page.locator('[data-vp-knockout]').textContent();
       if (!/scrambled/.test(note ?? '')) fail(scope, `knockout produced no readout: "${note}"`);
-      const now = await page.evaluate(() =>
-        Number(document.querySelector('[data-vp-viewport]')?.dataset.vpPeak ?? '0'));
-      if (now === before) fail(scope, 'knocking out a splice site changed nothing at all');
+      // Judged on the readout, which reports the peak over the window's OWN gene. The viewport's
+      // `vpPeak` is the global maximum of the coverage curve, and on a 16 kb yeast window that is
+      // usually a different gene entirely -- measuring it reported 0.4% for a real knockout once.
+      const pct = /([-+]?\d+(?:\.\d+)?)%/.exec(note ?? '');
+      if (!pct) fail(scope, `knockout readout states no effect size: "${note}"`);
+      else if (Number(pct[1]) === 0) {
+        fail(scope, `knocking out a splice site changed nothing at all: "${note}"`);
+      }
+      void before;
     } else {
       fail(scope, "DTD1 has no 5' splice site button");
     }
@@ -639,7 +669,7 @@ async function auditCoordinates(browser, baseURL, scope) {
       return {
         backing: cv.width / (window.devicePixelRatio || 1),
         box: b.width,
-        view: cv.dataset.vpView ?? '',
+        view: cv.dataset.vpWindow ?? '',
         rows: Number(cv.dataset.vpGeneRows ?? '0'),
         lanes: (cv.dataset.vpLanes ?? '').split('|').filter(Boolean),
         readout: document.querySelector('[data-vp-view-read]')?.textContent ?? '',
@@ -720,7 +750,7 @@ async function auditTraceback(browser, baseURL, scope) {
           .reduce((n, part) => n + Number(part.split('=')[1] || 0), 0);
         const methods = (cv?.dataset.vpMethods ?? '').split('|').filter(Boolean).length;
         return { letters, methods,
-                 sig: (cv?.dataset.vpView ?? '') + '/' + (cv?.dataset.vpMethods ?? '')
+                 sig: (cv?.dataset.vpWindow ?? '') + '/' + (cv?.dataset.vpMethods ?? '')
                       + '/' + (document.querySelector('[data-vp-trace-label]')?.textContent ?? ''),
                  label: document.querySelector('[data-vp-trace-label]')?.textContent ?? '' };
       })()`);
@@ -860,7 +890,7 @@ async function auditExplanations(browser, baseURL, scope) {
       // There is ONE letter view now, so "do they agree about the window" is answered by
       // construction rather than by comparison. What is still worth asserting is that the view
       // exists and is a real range.
-      windows: [document.querySelector('[data-vp-viewport]')?.dataset.vpView ?? null],
+      windows: [document.querySelector('[data-vp-viewport]')?.dataset.vpWindow ?? null],
       ismOption: !!document.querySelector('[data-vp-logo-source] option[value="ism"]'),
       ismDefault: document.querySelector('[data-vp-logo-source]')?.value ?? '',
     }));
@@ -907,7 +937,7 @@ async function auditExplanations(browser, baseURL, scope) {
       await page.mouse.up();
       await page.waitForTimeout(500);
       const after = await page.evaluate(() =>
-        [document.querySelector('[data-vp-viewport]')?.dataset.vpView ?? null]);
+        [document.querySelector('[data-vp-viewport]')?.dataset.vpWindow ?? null]);
       const afterUniq = [...new Set(after.filter(Boolean))];
       if (afterUniq.length !== 1) fail(scope, `after brushing, logo views disagree: ${afterUniq.join(' vs ')}`);
       else if (afterUniq[0] === before) fail(scope, 'brushing the method strip did not move the logo window');
@@ -1225,7 +1255,7 @@ async function auditPaperFidelity(browser, baseURL, scope) {
       const cv = document.querySelector('[data-vp-viewport]');
       const detail = JSON.parse(cv?.dataset.vpLogoDetail ?? '[]');
       const ism = detail.find((d) => d.id === 'ism-logo') ?? null;
-      const [wa, wb] = (cv?.dataset.vpView ?? '0-0').split('-').map(Number);
+      const [wa, wb] = (cv?.dataset.vpWindow ?? '0-0').split('-').map(Number);
       return {
         letters: ism?.letters ?? 0,
         columns: ism?.columns ?? 0,
@@ -1349,7 +1379,7 @@ async function auditInterpretation(browser, baseURL, scope) {
       // selection, and per-base gradients appear only at an exact anchor.
       letters: (document.querySelector('[data-vp-viewport]')?.dataset.vpMethods ?? '')
         .split('|').filter(Boolean).length,
-      logoWindow: document.querySelector('[data-vp-viewport]')?.dataset.vpView ?? '',
+      logoWindow: document.querySelector('[data-vp-viewport]')?.dataset.vpWindow ?? '',
       trace: document.querySelector('[data-vp-trace-label]')?.textContent ?? '',
     }));
 
@@ -3136,15 +3166,15 @@ async function auditAxisAlignment(browser, baseURL, scope) {
         const dpr = window.devicePixelRatio || 1;
         const b = cv.getBoundingClientRect();
         const ob = ov.getBoundingClientRect();
-        const [a0, a1] = (cv.dataset.vpView ?? '0-0').split('-').map(Number);
+        const [a0, a1] = (cv.dataset.vpWindow ?? '0-0').split('-').map(Number);
         return {
           backing: cv.width / dpr, box: b.width,
           ovBacking: ov.width / dpr, ovBox: ob.width,
           span: a1 - a0,
           letters: cv.dataset.vpLetters === 'true',
           lanes: (cv.dataset.vpLanes ?? '').split('|').filter(Boolean),
-          ovView: ov.dataset.vpView ?? '',
-          view: cv.dataset.vpView ?? '',
+          ovView: ov.dataset.vpWindow ?? '',
+          view: cv.dataset.vpWindow ?? '',
         };
       });
 
@@ -3187,6 +3217,42 @@ async function auditAxisAlignment(browser, baseURL, scope) {
       // One column per base in view, which is what ties the letters to the coordinate system.
       if (Math.abs(seq - z.span) > 2) {
         fail(scope, `${width}px: the logo drew ${seq} columns over a ${z.span} bp view`);
+      }
+
+      // A signed lane grows BOTH ways from its zero rule. Filling from the lane floor instead
+      // draws -0.8 and +0.2 as bars of the same sign, which inverts the one thing these lanes
+      // report -- and nothing else can see it, because the lane is still fully inked either way.
+      const sides = await page.evaluate(() => {
+        const cv = document.querySelector('[data-vp-viewport]');
+        const dpr = window.devicePixelRatio || 1;
+        const lanes = (cv.dataset.vpLanes ?? '').split('|').filter(Boolean);
+        const i = lanes.indexOf('ism');
+        if (i < 0) return null;
+        // Lane geometry mirrors `laneLayout`: 8 px gap, then each lane's own height.
+        const H = { ruler: 26, coverage: 84, track: 62, method: 40, logo: 66, sequence: 20,
+                    genes: 46 };
+        const kind = (id) => (id === 'ruler' ? 'ruler' : id === 'coverage' ? 'coverage'
+          : id === 'track' ? 'track' : id === 'sequence' ? 'sequence' : id === 'genes' ? 'genes'
+          : id === 'annotation' ? null : id.endsWith('-logo') ? 'logo' : 'method');
+        let y = 0;
+        for (const id of lanes.slice(0, i)) {
+          const k = kind(id);
+          y += (k ? H[k] : 60) + 8;
+        }
+        const top = (y + 8) * dpr;
+        const h = H.method * dpr;
+        const d = cv.getContext('2d').getImageData(0, top, cv.width, h).data;
+        let above = 0, below = 0;
+        for (let py = 0; py < h; py += 1) {
+          for (let px = 0; px < cv.width; px += 1) {
+            if (d[(py * cv.width + px) * 4 + 3] > 8) (py < h / 2 ? above++ : below++);
+          }
+        }
+        return { above, below };
+      });
+      if (sides && (sides.above < 20 || sides.below < 20)) {
+        fail(scope, `${width}px: the mutagenesis lane inked ${sides.above} above and `
+          + `${sides.below} below its zero rule — a signed lane must grow both ways`);
       }
     } finally {
       await context.close();
