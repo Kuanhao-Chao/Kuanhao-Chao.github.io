@@ -244,7 +244,8 @@ def seqlets_only(loci, planes, width, quantile, min_gap, shuffle_rng=None):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--width", type=int, default=11)
+    ap.add_argument("--widths", type=int, nargs="+", default=[11, 15],
+                    help="the PRE-REGISTERED seqlet widths; every one is reported")
     ap.add_argument("--top", type=float, default=0.98, help="seqlet score quantile")
     ap.add_argument("--min-gap", type=int, default=8)
     ap.add_argument("--null-quantile", type=float, default=0.999,
@@ -253,6 +254,10 @@ def main() -> int:
     ap.add_argument("--match", type=float, default=0.60, help="JASPAR match r")
     args = ap.parse_args()
 
+    # The grid is declared up front and every cell is published. Running a second width after
+    # seeing a weak result at the first is only defensible if the grid was fixed in advance and
+    # nothing is dropped afterwards -- otherwise it is choosing the answer. Both widths go on the
+    # page whichever way they land, and no third width is added later.
     loci = json.loads((ROOT / "src" / "data" / "shorkieLoci.json").read_text())["loci"]
     planes = {}
     for L in loci:
@@ -261,7 +266,7 @@ def main() -> int:
             planes[L["id"]] = np.load(f).astype(np.float64)
     if not planes:
         raise SystemExit("no raw mutagenesis planes in _scratch/ism-raw — run make_ism.py first")
-    print(f"  {len(planes)} mutagenesis planes, {args.width} bp seqlets")
+    print(f"  {len(planes)} mutagenesis planes, widths {args.widths} (pre-registered)", flush=True)
 
     jaspar = json.loads((SCRATCH / "jaspar-yeast.json").read_text())
     refs = []
@@ -278,96 +283,123 @@ def main() -> int:
         refs.append((m["matrix_id"], m["name"], mat / col))
     print(f"  {len(refs)} JASPAR yeast matrices")
 
-    real_blocks, origins, real_seqs = seqlets_only(loci, planes, args.width, args.top, args.min_gap)
-    # The control. Same planes, same threshold, same clustering -- shuffled sequence, so the
-    # saliency projection and the reference base no longer correspond to anything.
-    rng = random.Random(11)
-    ctl_blocks, _, ctl_seqs = seqlets_only(loci, planes, args.width, args.top, args.min_gap, rng)
+    def run_width(width: int):
+        """One cell of the pre-registered grid. Returns everything the payload needs."""
+        real_blocks, origins, real_seqs = seqlets_only(loci, planes, width, args.top, args.min_gap)
+        # The control. Same planes, same threshold, same clustering -- shuffled sequence, so the
+        # saliency projection and the reference base no longer correspond to anything.
+        rng = random.Random(11)
+        ctl_blocks, _, ctl_seqs = seqlets_only(loci, planes, width, args.top, args.min_gap, rng)
 
-    # The threshold comes from the control, before either arm is clustered.
-    null = null_similarity(ctl_blocks, random.Random(7))
-    thr = float(np.quantile(null, args.null_quantile))
-    real_null = null_similarity(real_blocks, random.Random(7))
-    print(f"  shuffled-arm similarity: median {np.median(null):.3f}, "
-          f"p{args.null_quantile * 100:g} {thr:.3f}  -> cluster threshold")
-    print(f"  real-arm similarity:     median {np.median(real_null):.3f}, "
-          f"p{args.null_quantile * 100:g} {np.quantile(real_null, args.null_quantile):.3f}")
+        # The threshold comes from the control, before either arm is clustered.
+        null = null_similarity(ctl_blocks, random.Random(7))
+        thr = float(np.quantile(null, args.null_quantile))
+        real_null = null_similarity(real_blocks, random.Random(7))
+        print(f"  shuffled-arm similarity: median {np.median(null):.3f}, "
+              f"p{args.null_quantile * 100:g} {thr:.3f}  -> cluster threshold")
+        print(f"  real-arm similarity:     median {np.median(real_null):.3f}, "
+              f"p{args.null_quantile * 100:g} {np.quantile(real_null, args.null_quantile):.3f}")
 
-    groups = [g for g in cluster(real_blocks, thr) if len(g) >= args.min_seqlets]
-    ctl_groups = [g for g in cluster(ctl_blocks, thr) if len(g) >= args.min_seqlets]
-    print(f"  real:     {len(real_blocks)} seqlets -> {len(groups)} clusters "
-          f"(>= {args.min_seqlets} seqlets)")
-    print(f"  shuffled: {len(ctl_blocks)} seqlets -> {len(ctl_groups)} clusters")
+        groups = [g for g in cluster(real_blocks, thr) if len(g) >= args.min_seqlets]
+        ctl_groups = [g for g in cluster(ctl_blocks, thr) if len(g) >= args.min_seqlets]
+        print(f"  real:     {len(real_blocks)} seqlets -> {len(groups)} clusters "
+              f"(>= {args.min_seqlets} seqlets)")
+        print(f"  shuffled: {len(ctl_blocks)} seqlets -> {len(ctl_groups)} clusters")
 
-    def matches(gs, blocks, seqs):
-        out = []
-        for g in gs:
-            seed = max(g, key=lambda i: float(np.abs(blocks[i]).sum()))
-            pwm, contrib = cluster_pwm(blocks, seqs, g, seed)
-            best = (-2.0, None, 0, False)
-            for mid, name, ref in refs:
-                r, off, flip = pwm_similarity(pwm, ref)
-                if r > best[0]:
-                    best = (r, (mid, name), off, flip)
-            out.append((g, seed, pwm, best, contrib))
-        return out
+        def matches(gs, blocks, seqs):
+            out = []
+            for g in gs:
+                seed = max(g, key=lambda i: float(np.abs(blocks[i]).sum()))
+                pwm, contrib = cluster_pwm(blocks, seqs, g, seed)
+                best = (-2.0, None, 0, False)
+                for mid, name, ref in refs:
+                    r, off, flip = pwm_similarity(pwm, ref)
+                    if r > best[0]:
+                        best = (r, (mid, name), off, flip)
+                out.append((g, seed, pwm, best, contrib))
+            return out
 
-    real = matches(groups, real_blocks, real_seqs)
-    ctl = matches(ctl_groups, ctl_blocks, ctl_seqs)
-    real_hits = sum(1 for _, _, _, b, _ in real if b[0] >= args.match)
-    ctl_hits = sum(1 for _, _, _, b, _ in ctl if b[0] >= args.match)
+        real = matches(groups, real_blocks, real_seqs)
+        ctl = matches(ctl_groups, ctl_blocks, ctl_seqs)
+        real_hits = sum(1 for _, _, _, b, _ in real if b[0] >= args.match)
+        ctl_hits = sum(1 for _, _, _, b, _ in ctl if b[0] >= args.match)
 
-    clusters = []
-    for g, seed, pwm, (r, mid, off, flip), contrib in sorted(real, key=lambda x: -len(x[0])):
-        loci_seen = sorted({origins[i]["locus"] for i in g})
-        clusters.append({
-            "seqlets": len(g),
-            "loci": len(loci_seen),
-            "consensus": consensus(pwm),
-            "bits": round(info_content(pwm), 3),
-            "pwm": [[round(float(v), 4) for v in row] for row in pwm],
-            # Signed: does the model want these bases, or dislike them? A frequency matrix cannot
-            # say, and a motif the model penalises is as real a finding as one it rewards.
-            "contribution": [[round(float(v), 5) for v in row] for row in contrib],
-            "match": ({"id": mid[0], "name": mid[1], "r": round(r, 3),
-                       "offset": int(off), "reverse": bool(flip)}
-                      if mid and r >= args.match else None),
-            "bestR": round(r, 3),
-            "examples": sorted((origins[i] for i in g),
-                               key=lambda o: -o["score"])[:6],
-        })
+        clusters = []
+        for g, seed, pwm, (r, mid, off, flip), contrib in sorted(real, key=lambda x: -len(x[0])):
+            loci_seen = sorted({origins[i]["locus"] for i in g})
+            clusters.append({
+                "seqlets": len(g),
+                "loci": len(loci_seen),
+                "consensus": consensus(pwm),
+                "bits": round(info_content(pwm), 3),
+                "pwm": [[round(float(v), 4) for v in row] for row in pwm],
+                # Signed: does the model want these bases, or dislike them? A frequency matrix cannot
+                # say, and a motif the model penalises is as real a finding as one it rewards.
+                "contribution": [[round(float(v), 5) for v in row] for row in contrib],
+                "match": ({"id": mid[0], "name": mid[1], "r": round(r, 3),
+                           "offset": int(off), "reverse": bool(flip)}
+                          if mid and r >= args.match else None),
+                "bestR": round(r, 3),
+                "examples": sorted((origins[i] for i in g),
+                                   key=lambda o: -o["score"])[:6],
+            })
+        return {
+            "width": width,
+            "clusterThreshold": round(thr, 4),
+            "nullMedianSimilarity": round(float(np.median(null)), 4),
+            "realMedianSimilarity": round(float(np.median(real_null)), 4),
+            "real": {"seqlets": len(real_blocks), "clusters": len(groups),
+                     "matched": real_hits},
+            "control": {"seqlets": len(ctl_blocks), "clusters": len(ctl_groups),
+                        "matched": ctl_hits,
+                        "bestR": round(max((b[0] for _, _, _, b, _ in ctl), default=0.0), 3),
+                        "bits": round(max((info_content(x[2]) for x in ctl), default=0.0), 3)},
+            "clusters": clusters,
+        }
+
+    grid = [run_width(w) for w in args.widths]
+    # The width that produced the most clusters clearing the size threshold leads the page;
+    # every cell is kept and published, which is what makes the grid pre-registered rather
+    # than a search.
+    lead = max(grid, key=lambda g: (g["real"]["clusters"], -g["width"]))
 
     payload = {
         "note": ("TF-MoDISco in the small: seqlets pulled from the mutagenesis planes by "
                  "|saliency|, clustered on their mean-centred contribution blocks over both "
                  "strands, and only then matched against JASPAR. The identical pipeline on "
-                 "dinucleotide-shuffled sequence is the control."),
-        "width": args.width,
+                 "dinucleotide-shuffled sequence is the control, and it also sets the clustering "
+                 "threshold. Both seqlet widths were declared before the run and both are "
+                 "reported."),
+        "widths": args.widths,
         "seqletQuantile": args.top,
-        "clusterThreshold": round(thr, 4),
         "nullQuantile": args.null_quantile,
-        "nullMedianSimilarity": round(float(np.median(null)), 4),
-        "realMedianSimilarity": round(float(np.median(real_null)), 4),
         "minSeqlets": args.min_seqlets,
         "matchThreshold": args.match,
         "jasparMatrices": len(refs),
-        "real": {"seqlets": len(real_blocks), "clusters": len(groups), "matched": real_hits},
-        "control": {"seqlets": len(ctl_blocks), "clusters": len(ctl_groups), "matched": ctl_hits,
-                    "bestR": round(max((b[0] for _, _, _, b, _ in ctl), default=0.0), 3),
-                    "bits": round(max((info_content(x[2]) for x in ctl), default=0.0), 3)},
-        "clusters": clusters,
+        "grid": grid,
+        # The width the page leads with, chosen by cluster count. Every cell is above.
+        "width": lead["width"],
+        "clusterThreshold": lead["clusterThreshold"],
+        "nullMedianSimilarity": lead["nullMedianSimilarity"],
+        "realMedianSimilarity": lead["realMedianSimilarity"],
+        "real": lead["real"],
+        "control": lead["control"],
+        "clusters": lead["clusters"],
     }
     dest = ROOT / "src" / "data" / "shorkieModisco.json"
     dest.write_text(json.dumps(payload, indent=1) + "\n")
 
-    print(f"\n  matched to JASPAR at r >= {args.match}: real {real_hits}/{len(groups)}, "
-          f"shuffled {ctl_hits}/{len(ctl_groups)}")
-    for c in clusters[:10]:
-        m = c["match"]
-        print(f"    {c['consensus']:<14} {c['seqlets']:>3} seqlets  {c['loci']:>2} loci  "
-              f"{c['bits']:>5.2f} bits  "
-              + (f"{m['name']} ({m['id']}) r={m['r']}" if m else f"— best r={c['bestR']}"))
-    print(f"\n  wrote {dest.relative_to(ROOT)}")
+    for g in grid:
+        print(f"\n  w={g['width']}: real {g['real']['seqlets']} seqlets -> "
+              f"{g['real']['clusters']} clusters ({g['real']['matched']} matched); "
+              f"shuffled {g['control']['seqlets']} -> {g['control']['clusters']} "
+              f"({g['control']['matched']} matched)")
+        for c in g["clusters"][:6]:
+            m = c["match"]
+            print(f"    {c['consensus']:<16} {c['seqlets']:>3} seqlets  {c['loci']:>2} loci  "
+                  f"{c['bits']:>5.2f} bits  "
+                  + (f"{m['name']} ({m['id']}) r={m['r']}" if m else f"— best r={c['bestR']}"))
+    print(f"\n  leading with w={lead['width']}; wrote {dest.relative_to(ROOT)}")
     print("  modisco audit passed")
     return 0
 

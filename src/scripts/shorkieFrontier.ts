@@ -395,7 +395,10 @@ export function initShorkieFrontier(host: HTMLElement): void {
     const gridW = cell * hd.heads;
     ctx.textAlign = 'center';
     ctx.fillStyle = muted;
-    for (let h = 0; h < hd.heads; h += 1) ctx.fillText(`h${h}`, lab + cell * (h + 0.5), 12);
+    // `L`, not `h`: the pack is eight LAYERS with their four heads averaged away by the export
+    // (`attention.mean(dim=2)`), so a column is a layer. Labelling these h0..h7 stated a
+    // head-specialisation result that the data cannot carry.
+    for (let h = 0; h < hd.heads; h += 1) ctx.fillText(`L${h}`, lab + cell * (h + 0.5), 12);
     rows.forEach((r, i) => {
       const y = 20 + i * ROW;
       ctx.textAlign = 'right';
@@ -417,14 +420,14 @@ export function initShorkieFrontier(host: HTMLElement): void {
     ctx.fillStyle = muted;
     ctx.textAlign = 'center';
     caption(ctx, [
-      'attention mass on each class against a circular-shift null · 1.00 = no preference',
+      'attention mass per LAYER (heads averaged) against a circular-shift null · 1.00 = no preference',
       'vs a circular-shift null · 1.00 = no preference',
       '1.00 = no preference',
     ], lab + gridW / 2, H - 6, gridW + lab);
     if (headsStat) {
       const best = rows.reduce((a, b) => (b.bestEnrichment > a.bestEnrichment ? b : a));
-      headsStat.textContent = `${hd.heads} heads · strongest is ${best.cls} on head `
-        + `${best.best} at ${best.bestEnrichment.toFixed(2)}×`
+      headsStat.textContent = `${hd.heads} attention layers, heads averaged · strongest is `
+        + `${best.cls} on layer ${best.best} at ${best.bestEnrichment.toFixed(2)}×`
         + (best.ceiling ? ` of ${best.ceiling.toFixed(2)}× possible` : '');
     }
   }

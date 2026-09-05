@@ -31,7 +31,10 @@ import {
   lettersVisible, defaultView, zoomReadout, binsForRange, LOCUS_LEN,
   type ViewportState,
 } from '../lib/shorkieViewport';
-import { laneLayout, zoomAbout, brushRegion, type View } from '../lib/genomeBrowser';
+import {
+  laneLayout, zoomAbout, brushRegion, pinchZoom, pointDistance, pointMidpoint,
+  type View,
+} from '../lib/genomeBrowser';
 import {
   createFlow,
   FLOW_STAGES,
@@ -1089,6 +1092,13 @@ export function initVariantPlayground(root: ParentNode = document) {
     renderHeatmap();
     renderSingleTrack();
     renderMotifs();
+    // The viewport too. Invalidating a result must invalidate every VIEW of it, together -- the
+    // rule this page learned once when a locus change left the flow canvas and the layer detail
+    // holding the previous gene's activations under the new gene's name. Without this the six
+    // lanes keep drawing the old locus between `clearResults` and the new pack arriving, and stay
+    // that way indefinitely if the fetch fails. Pre-existing: the four separate renderers this
+    // canvas replaced were equally absent from here.
+    renderViewport();
   }
 
   /** Mark the run button busy so a 17 s inference does not look like a frozen page. */
@@ -1552,14 +1562,11 @@ export function initVariantPlayground(root: ParentNode = document) {
       cx.drawImage(bitmap, 0, 0);
       bitmap.close();
       const px = cx.getImageData(0, 0, spec.cols, spec.rows).data;
-      const out = new Float32Array(spec.rows * spec.cols);
-      for (let r = 0; r < spec.rows; r += 1) {
-        const lo = spec.lo[r];
-        const range = Math.max(spec.hi[r] - lo, 1e-12);
-        for (let c = 0; c < spec.cols; c += 1) {
-          out[r * spec.cols + c] = (px[(r * spec.cols + c) * 4] / 255) * range + lo;
-        }
-      }
+      // Through the shared decoder, never a second copy of the arithmetic. These planes are
+      // LINEAR -- the space is passed explicitly because the caller is the only thing that knows
+      // which plane it fetched, and one sidecar in this repo already carries two different
+      // transforms both labelled `space: "log"`.
+      const out = decodePackedRows(px, spec, 'linear');
       return out;
     }));
     // `positions` and `ig` arrived after the first three, so a pack written by the older
@@ -1620,14 +1627,8 @@ export function initVariantPlayground(root: ParentNode = document) {
     cx.drawImage(bitmap, 0, 0);
     bitmap.close();
     const px = cx.getImageData(0, 0, spec.cols, spec.rows).data;
-    const plane = new Float32Array(spec.rows * spec.cols);
-    for (let r = 0; r < spec.rows; r += 1) {
-      const lo = spec.lo[r];
-      const range = Math.max(spec.hi[r] - lo, 1e-12);
-      for (let c = 0; c < spec.cols; c += 1) {
-        plane[r * spec.cols + c] = (px[(r * spec.cols + c) * 4] / 255) * range + lo;
-      }
-    }
+    // Same shared decoder. `occl` is linear; `decodePackedPlane` would read it as signed-log10.
+    const plane = decodePackedRows(px, spec, 'linear');
     return { plane, rows: spec.rows, cols: spec.cols, win: spec.win };
   }
 
@@ -2637,6 +2638,10 @@ export function initVariantPlayground(root: ParentNode = document) {
           drawMethodLane(c, lane, tr.at, tr.peak);
           drawLaneNote(c, lane, [
             lane.resolutionBp === 1 ? 'single base' : `${lane.resolutionBp} bp`,
+            // Announced, because it is not a shared axis. Each method is in its own units and
+            // scales to its own peak, which is per locus AND per region -- so heights compare
+            // WITHIN a lane and never across them, and the same lane at two regions is two scales.
+            'scaled to its own peak',
             lane.degraded ?? lane.target ?? '',
           ].filter(Boolean));
           break;
@@ -2711,7 +2716,7 @@ export function initVariantPlayground(root: ParentNode = document) {
       `${span.toLocaleString()} bp`,
     ]);
 
-    viewportCanvas.dataset.vpView = `${vpView.start}-${vpView.end}`;
+    viewportCanvas.dataset.vpWindow = `${vpView.start}-${vpView.end}`;
     viewportCanvas.dataset.vpLanes = (lanes as VpLane[]).map((l) => l.id).join('|');
     viewportCanvas.dataset.vpLetters = String(vpLettersOn);
     viewportCanvas.dataset.vpLogoLetters = logoLetters.join('|');
@@ -2782,7 +2787,7 @@ export function initVariantPlayground(root: ParentNode = document) {
     overviewCanvas.style.height = `${cssH}px`;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     drawOverview(ctx, cssW, cssH, vpView, vpTheme(), vpCoverage());
-    overviewCanvas.dataset.vpView = `${vpView.start}-${vpView.end}`;
+    overviewCanvas.dataset.vpWindow = `${vpView.start}-${vpView.end}`;
   }
 
   /**
@@ -2877,6 +2882,48 @@ export function initVariantPlayground(root: ParentNode = document) {
     viewportCanvas.addEventListener('pointercancel', () => {
       anchor = null; selecting = false; tracing = false;
     });
+
+    // Pinch, for touch. Tracked separately from the drag state: a second finger landing must
+    // CANCEL an in-progress pan rather than leaving `anchor` set, or lifting one finger resumes a
+    // drag from a stale anchor and the view jumps.
+    const touches = new Map<number, { x: number; y: number }>();
+    let pinchStart: { dist: number; view: View } | null = null;
+    viewportCanvas.addEventListener('pointerdown', (e) => {
+      const ev = e as PointerEvent;
+      if (ev.pointerType !== 'touch') return;
+      touches.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+      if (touches.size === 2) {
+        anchor = null;
+        selecting = false;
+        tracing = false;
+        const [a, b] = [...touches.values()];
+        pinchStart = { dist: pointDistance(a.x, a.y, b.x, b.y), view: vpView };
+      }
+    });
+    viewportCanvas.addEventListener('pointermove', (e) => {
+      const ev = e as PointerEvent;
+      if (ev.pointerType !== 'touch' || !touches.has(ev.pointerId)) return;
+      touches.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+      if (touches.size !== 2 || !pinchStart) return;
+      ev.preventDefault();
+      const [a, b] = [...touches.values()];
+      const f = pinchZoom(pinchStart.dist, pointDistance(a.x, a.y, b.x, b.y));
+      if (f === null) return;
+      const r = viewportCanvas!.getBoundingClientRect();
+      const mid = pointMidpoint(a.x, a.y, b.x, b.y);
+      const at = vpView.start
+        + ((mid.x - r.left - VP_PLOT.left) / Math.max(1, r.width - VP_PLOT.left - VP_PLOT.right))
+          * (pinchStart.view.end - pinchStart.view.start);
+      const z = zoomAbout(pinchStart.view.start, pinchStart.view.end, f, at, LOCUS_LEN);
+      setVpView(z.start, z.end);
+    }, { passive: false });
+    const endTouch = (e: Event) => {
+      const ev = e as PointerEvent;
+      touches.delete(ev.pointerId);
+      if (touches.size < 2) pinchStart = null;
+    };
+    viewportCanvas.addEventListener('pointerup', endTouch);
+    viewportCanvas.addEventListener('pointercancel', endTouch);
 
     viewportCanvas.addEventListener('wheel', (e) => {
       const ev = e as WheelEvent;

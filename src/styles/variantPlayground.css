@@ -994,3 +994,15 @@ html[data-theme='dark'] .vp {
   overflow-x: auto;
 }
 .vp-target code { font-size: 0.92rem; }
+
+/* A sub-heading inside a panel, for the one or two panels that carry two distinct questions.
+   Not an <h4> in the document outline sense the acts use -- panels are h3, so this is their
+   child -- and deliberately quieter than a panel title so the act > panel hierarchy still reads. */
+.vp-subhead {
+  margin: 1rem 0 0.35rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-muted, #6b7280);
+  font-weight: 600;
+}

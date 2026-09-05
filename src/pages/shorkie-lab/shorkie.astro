@@ -16,6 +16,7 @@ import giaData from '../../data/shorkieGia.json';
 import spacingData from '../../data/shorkieSpacing.json';
 import positionData from '../../data/shorkiePosition.json';
 import cfData from '../../data/shorkieCounterfactual.json';
+import bioSummary from '../../data/shorkieBiologySummary.json';
 import patchingData from '../../data/shorkiePatching.json';
 import modiscoData from '../../data/shorkieModisco.json';
 import saeData from '../../data/shorkieSae.json';
@@ -70,15 +71,46 @@ const patchPeakRegion = (['encoder', 'bottleneck', 'decoder'] as const).map((r) 
 }));
 
 const sae = saeData as {
-  layer: string; dModel: number; positions: number; positionBp: number;
+  layer: string; dModel: number; positions: number; positionBp: number; kmer: number;
+  classes: string[];
   real: { fvu: number; alive: number; dead: number; meanL0: number; vectors: number;
           features: number; k: number; steps: number };
   control: { fvu: number; alive: number; meanL0: number };
   reconstructionGain: number;
+  grounding: { matchedCandidates: number; shifts: number; saeMedianBestRatio: number;
+               saeMaxBestRatio: number; rawMedianBestRatio: number; rawMaxBestRatio: number;
+               dictionaryWins: boolean };
+  features: { index: number; cells: number;
+              kmers: { kmer: string; enrichment: number; count: number }[];
+              best: { cls: string; ratio: number; p: number } | null }[];
 };
+// The features that ground most strongly, and how many land on a binding-site tier -- the harder
+// claim, since a tRNA gene is GC-rich and a feature can find it on composition alone.
+const saeTop = [...sae.features].filter((f) => f.best)
+  .sort((a, b) => b.best!.ratio - a.best!.ratio).slice(0, 6);
+const saeTfbs = sae.features.filter((f) => f.best?.cls.startsWith('tfbs')).length;
+// A JSON key is not a label. `trna` and `snrna` are identifiers; tRNA and snRNA are what a reader
+// knows them by, and the capitalisation carries the molecule. Same defect as the annotation
+// readout printing `tfbs_chip`, fixed the same way.
+const CLASS_LABEL: Record<string, string> = {
+  trna: 'tRNA gene', snrna: 'snRNA gene', snorna: 'snoRNA gene', rrna: 'rRNA gene',
+  ncrna: 'ncRNA', ltr: 'LTR', ars: 'replication origin', ars_consensus: 'ARS consensus',
+  uorf: 'uORF', utr_intron: 'UTR intron', centromere: 'centromere', telomere: 'telomere',
+  transposon: 'transposon', pseudogene: 'pseudogene', repeat: 'repeat',
+  conserved_element: 'conserved element', regulatory: 'regulatory region',
+  tfbs_chip: 'binding site · ChIP', tfbs_conserved: 'binding site · conserved',
+  tfbs_pwm: 'binding site · PWM', variant_missense: 'missense variant',
+  variant_synonymous: 'synonymous variant', variant_noncoding: 'non-coding variant',
+};
+const classLabel = (c: string) => CLASS_LABEL[c] ?? c.replace(/_/g, ' ');
+const saeClasses = new Set(sae.features.filter((f) => f.best).map((f) => f.best!.cls)).size;
 
 const modisco = modiscoData as {
-  width: number; clusterThreshold: number; nullQuantile: number; jasparMatrices: number;
+  width: number; widths: number[]; clusterThreshold: number; nullQuantile: number;
+  jasparMatrices: number;
+  grid: { width: number;
+          real: { seqlets: number; clusters: number; matched: number };
+          control: { seqlets: number; clusters: number; matched: number; bits: number } }[];
   real: { seqlets: number; clusters: number; matched: number };
   control: { seqlets: number; clusters: number; matched: number; bestR: number; bits: number };
   clusters: { seqlets: number; loci: number; consensus: string; bits: number;
@@ -231,10 +263,10 @@ const breadcrumbLd = buildBreadcrumbLd([
         <ShorkiePanelHead
           question="How much of the 16,384 bp of context does the prediction actually depend on?"
           method="Keep a centred core of real sequence, dinucleotide-shuffle everything outside it, and grow the core until the prediction settles inside ±5%."
-          cost="A few hundred forward passes a locus; minutes for all 23."
+          cost={`${recData.shuffles} shuffles × ${recData.radii.length} radii = ${recData.shuffles * recData.radii.length} forward passes a locus, ${nLoci} windows.`}
           refuted="Two controls. At the largest radius the window is entirely real, so that point must reproduce the full-context prediction — and convergence requires every larger radius to stay inside the band too." />
         <p class="vp-notes vp-lede" style="margin:0 0 0.7rem;">
-          Every method above distributes credit across all 16,384 bases, and the architecture really
+          Every attribution method on this page distributes credit across all 16,384 bases, and the architecture really
           can reach all of them — dilated convolutions into full self-attention at the bottleneck.
           But <em>can see</em> and <em>depends on</em> are different claims, and only the second is
           measurable. Keep a centred core of real sequence, replace everything outside it with
@@ -318,6 +350,11 @@ const breadcrumbLd = buildBreadcrumbLd([
           <label class="vp-check" title="The mean-centred plane itself, rather than its projection onto the base that is there">
             <input type="checkbox" data-vp-ism-hypothetical /> mutagenesis: all four bases
           </label>
+          <!-- Both of these drive the viewport, so they live on it. They sat two acts below in the
+               method-comparison panel, which has no plot for them to control -- a leftover of the
+               act reorder, and a control whose effect is off screen is worse than no control. -->
+          <label class="vp-check"><input type="checkbox" data-vp-logaxis checked /> log axis</label>
+          <label class="vp-check"><input type="checkbox" data-vp-generows checked /> one row per gene</label>
           <span class="vp-stat vp-nav__read" data-vp-view-read></span>
         </div>
 
@@ -365,6 +402,13 @@ const breadcrumbLd = buildBreadcrumbLd([
           conserved-only call is hollow, a PWM match is a hairline — three different strengths of
           evidence that must not be read as one. A grey cap marks a feature clipped by the window
           edge, so that edge is never mistaken for a real boundary.
+        </p>
+        <p class="vp-notes" style="margin:0.5rem 0 0;">
+          <strong>Nothing here waits on a model.</strong> Every preset locus was run offline at the
+          full 16,384 bp context and its predictions ship with the page. Loading the model — a
+          28.6 MB download and about 17 s of WebAssembly a run — buys the live layer activations,
+          sequence editing and motif knockouts, not a curve that already exists. A dashed line,
+          once you edit, is the unedited reference.
         </p>
         <details class="vp-how">
           <summary>Why coverage is drawn at 16 bp, and what the flanks are for</summary>
@@ -416,7 +460,7 @@ const breadcrumbLd = buildBreadcrumbLd([
         <h2 class="vp-act__h"><span class="vp-act__n">4</span>Which bases drove it?</h2>
         <p class="vp-act__sub">One region conditions everything here. Four methods answer it and are not expected to agree: where they diverge, the divergence is the finding.</p>
       <section class="vp-panel">
-        <h3>Four estimators of the same quantity{' '}
+        <h3>Four attributions, and one that is not{' '}
           <span class="vp-stat" data-vp-brush-stat></span>
         </h3>
         <ShorkiePanelHead
@@ -475,19 +519,6 @@ const breadcrumbLd = buildBreadcrumbLd([
             the attribution for a set of bins is the sum of their individual gradients. Dragging
             resolves to 128 bp; picking a gene gives single-base resolution.
           </p>
-          <div class="vp-controls" style="margin-top:0.5rem;">
-            <!-- `measured coverage` and the output-group select lived here. The first was
-                 permanently inert -- src/data/shorkieTruth.json ships as an empty stub, so the
-                 readout always said "no measured coverage loaded" -- and the second drove only
-                 the coverage curve, which the viewport in act 3 now owns. (The genome browser
-                 left this page entirely; it lives at /shorkie-lab/genome/.) -->
-            <label class="vp-stat" style="display:inline-flex;align-items:center;gap:0.35rem;">
-              <input type="checkbox" data-vp-logaxis checked /> log axis
-            </label>
-            <label class="vp-stat" style="display:inline-flex;align-items:center;gap:0.35rem;">
-              <input type="checkbox" data-vp-generows checked /> one row per gene
-            </label>
-          </div>
           <p class="vp-notes" style="margin:0.35rem 0 0;">
             <strong>Two sources, and they are not the same method.</strong> <em>Mutagenesis</em> is the
             paper's Figure 4 quantity: every substitution actually run, then mean-centred across the
@@ -549,8 +580,10 @@ const breadcrumbLd = buildBreadcrumbLd([
               <p><strong>What the old 500 bp window would have missed.</strong> It covers 3.1% of the
               sequence and holds a median <strong>17.6%</strong> of the window's total |logSED| —
               genuinely well chosen, 5.7× enriched. But the strongest substitution falls{' '}
-              <em>outside</em> it in 4 of the 14 windows, including HOP2's +1.38, the largest effect
-              in the whole set.</p>
+              <em>outside</em> it in 4 of the 14 windows that window ever covered — including
+              HOP2's +1.38, the largest effect in the whole set. That comparison is scoped to those
+              fourteen because the 500 bp window is the thing being compared against, and it never
+              existed for the other nine.</p>
             </div>
           </details>
         <details class="vp-how">
@@ -620,37 +653,31 @@ const breadcrumbLd = buildBreadcrumbLd([
             impossibility of batching. Neither limit belongs to the model. Re-measured on the same
             machine's GPU at batch 32, with the output head sliced to the 384 tracks actually scored:{' '}
             <strong>10.47 ms a forward pass</strong> — and a substitution costs two of them, because
-            every published Shorkie run averages both strands. Measured over the run that produced
-            the packs on this page: <strong>23.8 ms a substitution, 19.5 minutes a locus,
-            4.6 h for the fourteen loci that run covered</strong>. The numbers on this page are that run. The engine change is not a precision compromise either — against the
+            every published Shorkie run averages both strands. Measured end to end:{' '}
+            <strong>23.8 ms a substitution, 19.5 minutes a locus</strong> — so the{' '}
+            {nLoci} windows the page now draws are about {(nLoci * 19.5 / 60).toFixed(1)} h of GPU.
+            (The 4.6 h figure recorded earlier was a timed benchmark over fourteen loci, which is
+            where the rate comes from; it is not the size of the shipped set.) The engine change is
+            not a precision compromise either — against the
             CPU the GPU agrees to 6.6 × 10⁻⁷ relative, three orders of magnitude tighter than the
             fp16 graph the earlier packs were built from.</p>
           </div>
         </details>
-          <p class="vp-notes" style="margin:0.4rem 0 0;">
-            <strong>The curve is already here.</strong> Every preset locus was run offline at the full
-            16,384 bp context and the predictions ship with the page, so there is nothing to wait for.
-            Loading the model — a 28.6 MB download and about 17 s of WebAssembly per run — is what
-            gives you the live layer activations, sequence editing and motif knockouts.
-            896 bins of 16 bp across the window's 14,336 bp interior. Purple bars are annotated ORFs.
-            A dashed line, once you mutate, is the unedited reference. <strong>Measured coverage</strong>{' '}
-            is the second curve where it is loaded: Shorkie's own BigWigs binned exactly as its training
-            labels were — 16 bp sums, soft-clipped, 1,024 bp cropped from each end — so the two curves are
-            the same quantity and Pearson <em>r</em> means something. The bucket they live in is
-            requester-pays, so this site ships none of them; <code>scripts/shorkie/make_truth.py</code>{' '}
-            builds the overlay from a local copy.
-          </p>
       </section>
         <section class="vp-panel">
-          <h3>The four methods, side by side</h3>
+          <h3>The five lanes, side by side</h3>
         <ShorkiePanelHead
           question="What is each method actually measuring, and where can it not be trusted?"
           method="A side-by-side of mathematical nature, resolution, cost, completeness, mean-centring, sign and scoring target — every entry measured elsewhere on this page."
           cost="Free. Nothing here is a new run."
           refuted="A row with a blank failure mode would be a method with no known failure mode, which does not exist." />
           <p class="vp-notes" style="margin:0 0 0.6rem;">
-            All four differentiate the same scalar, which is what lets them share an axis. They
-            differ in every other respect, and the differences are not stylistic — a method's
+            <strong>Four of the five differentiate the same scalar</strong>, which is what lets
+            them share an axis. Attention rollout is the exception, and the table says so on every
+            row: unsigned, summing to nothing, reporting what the transformer <em>can</em> read
+            rather than what moved the prediction. It sits beside the other four because that
+            contrast is the point, not because it is a fifth estimator. The four that do share the
+            scalar differ in every other respect, and the differences are not stylistic — a method's
             resolution decides whether it can draw letters, its mean-centring decides whether its
             values sum to anything, and its scoring target decides which part of the window it
             peaks over.
@@ -718,7 +745,7 @@ const breadcrumbLd = buildBreadcrumbLd([
         <ShorkiePanelHead
           question="Which input stretches does which output region depend on?"
           method="Zero the four DNA channels across a 64 bp window, re-run, and read all 896 output bins at once — the complete 256 × 896 matrix."
-          cost="256 forward passes × 2 strands, 22 s a locus. The only two-dimensional method here."
+          cost="256 ablation windows × 2 strands = 512 forward passes a locus. The only two-dimensional method here — one pass answers every output bin at once."
           refuted="The diagonal dominates per cell — but it is one window in 256, so summed over a row the local footprint is only 0.2–5.6% of the most damaging window's total. Either half alone is the wrong answer." />
         <div class="vp-controls" style="margin-bottom:0.4rem;">
           <label class="vp-stat" style="display:inline-flex;align-items:center;gap:0.35rem;">
@@ -733,7 +760,8 @@ const breadcrumbLd = buildBreadcrumbLd([
           of the input, ablated; each row is one of the 896 output bins; the colour is what that bin
           loses when that stretch is gone. Blue is a loss, red a gain. This is the only genuinely
           two-dimensional view on the page — every other method collapses to a single profile over
-          the input — and it is measured, not inferred: 256 real forward passes a locus.
+          the input — and it is measured, not inferred: 256 ablation windows on both strands,
+          512 real forward passes a locus.
         </p>
         <p class="vp-notes" style="margin:0.35rem 0 0;">
           <strong>Read it as a map, and read both parts.</strong> The dark diagonal is local effect —
@@ -859,7 +887,7 @@ const breadcrumbLd = buildBreadcrumbLd([
         <ShorkiePanelHead
           question="Is an attribution peak a real motif, or base composition?"
           method="Permute the exact bases inside each curated site — same length, same composition, only the arrangement destroyed — and measure the change over the window's own gene body, as a mean over 5 shuffles with its spread."
-          cost="5 shuffles × 2 strands per site, around 50 sites a locus."
+          cost="5 shuffles a site, one forward pass each — around 50 sites a locus. Single strand, unlike every attribution on this page, which is why its numbers are not directly comparable with the rc-averaged ones."
           refuted="A near-zero result is an answer about that site. A low-complexity site cannot be shuffled at all, so the sweep records how many DISTINCT permutations it achieved rather than reporting a zero spread as a measurement." />
         <p class="vp-notes" style="margin:0 0 0.5rem;">
           <strong>Not six hand-picked motifs — all of them.</strong> Every ChIP-supported binding
@@ -931,7 +959,7 @@ const breadcrumbLd = buildBreadcrumbLd([
           <h3>What all twenty-three windows say <span class="vp-stat" data-vp-summary-stat></span></h3>
         <ShorkiePanelHead
           question="Do the single-locus results hold across the whole set?"
-          method="Every enrichment and every knockout re-measured on all 23 windows and reported as medians, plus attribution aligned on the direction of transcription across 113 genes."
+          method={`Every enrichment and every knockout re-measured on all ${nLoci} windows and reported as medians, plus attribution aligned on the direction of transcription across ${bioSummary.tss.genes} genes.`}
           cost="Free. Derived from the shipped packs."
           refuted="A median over 23 can contradict any single window, and does: the 3.26× ChIP-supported enrichment quoted from one locus is 1.73× across the set." />
           <p class="vp-notes" style="margin:0 0 0.6rem;">
@@ -955,7 +983,8 @@ const breadcrumbLd = buildBreadcrumbLd([
             <summary>How the cross-locus summary and the TSS profile are computed</summary>
             <div class="vp-how-body">
               <p><strong>Nothing here is new data.</strong> The per-class enrichment is the same
-              statistic the panel below computes, run once per window offline and the medians taken;
+              statistic the enrichment panel above computes, run once per window offline and the medians
+              taken;
               the knockout winners are read from the same <code>-ko.json</code> packs the sweep
               panel reads. It is a second <em>view</em> of numbers that already exist, not a second
               copy of them — <code>verify_pipeline</code> re-derives it from the packs and fails if
@@ -982,7 +1011,11 @@ const breadcrumbLd = buildBreadcrumbLd([
       <!-- ============================== 6 · How does it do it? ============================== -->
       <section class="vp-act" id="act-6">
         <h2 class="vp-act__h"><span class="vp-act__n">6</span>How does it do it?</h2>
-        <p class="vp-act__sub">The same prediction, from the inside. Watch a sequence pass through all twenty stages, open any one of them, trace a region back through every layer to the bases it came from, and ask what the individual attention heads read.</p>
+        <p class="vp-act__sub">The same prediction, from the inside, in six steps that go
+        progressively deeper into the network's own basis. Watch a sequence pass through all twenty
+        stages; open any one of them; trace a region back through every layer to the bases it came
+        from; ask what the individual attention heads read; then ask whether the network's channels
+        are the right unit at all, and finally at what depth the answer is already decided.</p>
       <section class="vp-panel vp-flow-panel">
         <h3>The network, end to end — watch a sequence pass through it</h3>
         <ShorkiePanelHead
@@ -1227,29 +1260,40 @@ const breadcrumbLd = buildBreadcrumbLd([
         </details>
 </section>
       <section class="vp-panel" data-shorkie-frontier>
-        <h3>Which head reads what?</h3>
+        <h3>Which attention layer reads what?</h3>
         <ShorkiePanelHead
-          question="Do individual attention heads specialise on kinds of sequence?"
-          method="Each head's attention mass against annotation classes, with the mask pooled by MEAN (a 7 bp site is 5% of a 128 bp cell) and a circular-shift null."
-          cost="Free. The 8 × 128 × 128 maps ship in every pack."
+          question="Do the transformer's attention layers specialise on kinds of sequence?"
+          method="Each layer's attention mass — its four heads averaged, which is how the pack ships — against annotation classes, with the mask pooled by MEAN (a 7 bp site is 5% of a 128 bp cell) and a circular-shift null."
+          cost="Free. The 8 × 128 × 128 maps ship in every pack — no forward passes at all."
           refuted="Every class records its ceiling, 1/coverage. Genes cover 91.5% of a window so nothing can exceed 1.09× on them, and reading their 1.03 as flat would be wrong." />
         <p class="vp-notes" style="margin:0 0 0.4rem;">
-          The transformer at the bottleneck has <strong>eight heads over 128 positions</strong>, and
-          every locus pack already ships their full maps — so this asks a mechanistic question with
-          no forward passes at all. For each head, how much of its attention lands on each class of
-          curated annotation, against a null that rotates the annotation and destroys only its
-          alignment.
+          The transformer at the bottleneck is <strong>eight layers of four heads</strong> over 128
+          positions, and every locus pack already ships their maps — so this asks a mechanistic
+          question with no forward passes at all. For each layer, how much of its attention lands on
+          each class of curated annotation, against a null that rotates the annotation and destroys
+          only its alignment.
+        </p>
+        <p class="vp-notes" style="margin:0 0 0.4rem;">
+          <strong>Layers, not heads, and the distinction is forced by the pack.</strong> The export
+          averages the four heads within each layer before writing the map —{' '}
+          <code>attention.mean(dim=2)</code> in <code>build_onnx.py</code> — so what ships is eight{' '}
+          <em>layer</em> matrices, not thirty-two head matrices. Every number below is therefore a
+          statement about a layer with its heads already collapsed. Per-head specialisation is a
+          different and finer question, and answering it would need a pack this page does not have:
+          four times the attention payload, or a live run. This panel does not answer it, and an
+          earlier version of this text claimed it did.
         </p>
         <canvas class="fr-canvas" data-fr-heads height="240"
                 aria-label="Attention enrichment of each head on each annotation class"></canvas>
         <p class="vp-stat" data-fr-heads-stat></p>
         <p class="vp-notes" style="margin:0.35rem 0 0;">
-          <strong>The heads have divided the genome the way a biologist would.</strong> Heads 0 and
-          3 read regulatory DNA — conserved binding sites at 1.75× and 1.88×, ORegAnno regions at
+          <strong>The layers have divided the genome the way a biologist would.</strong> Layers 0
+          and 3 read regulatory DNA — conserved binding sites at 1.75× and 1.88×, ORegAnno regions at
           1.82× and 1.72×, ChIP-supported sites at 1.65× and 1.52× — and are <em>depleted</em> on
-          coding sequence at 0.73 and 0.69. Head 4 is the mirror image: CDS 1.10× and every
-          regulatory class below 0.90. Head 6 alone reads tRNA genes, at 1.50×. Nothing in training
-          named any of these categories.
+          coding sequence at 0.73 and 0.69. Layer 4 is the mirror image: CDS 1.10× and every
+          regulatory class below 0.90. Layer 6 alone reads tRNA genes, at 1.50×. Nothing in training
+          named any of these categories — and because the heads are averaged, a layer reading
+          &ldquo;flat&rdquo; here could still hold one specialised head and three that cancel it.
         </p>
         <details class="vp-how">
           <summary>The three things that decide whether this means anything</summary>
@@ -1282,7 +1326,7 @@ const breadcrumbLd = buildBreadcrumbLd([
           question="The layer panel draws one row per channel and the traceback ranks channels by relevance. Both assume a channel means something. Does it?"
           method={`A TopK sparse autoencoder on the ${sae.layer} residual stream: ${sae.dModel} dimensions expanded to ${sae.real.features.toLocaleString()} features with exactly k = ${sae.real.k} active, decoder columns unit-norm, trained on ${sae.real.vectors.toLocaleString()} bottleneck vectors swept from the genome.`}
           cost={`One forward pass a genome window to collect, then ${sae.real.steps.toLocaleString()} Adam steps. Minutes, not hours — the bottleneck is only ${sae.dModel} wide.`}
-          refuted={`The same training on column-shuffled activations, which keeps every channel's marginal distribution exactly and destroys only the co-activation structure a dictionary exists to find. It reconstructs at FVU ${sae.control.fvu.toFixed(3)} against the real ${sae.real.fvu.toFixed(3)} — if those were equal the dictionary would be memorising a distribution rather than finding structure.`} />
+          refuted={`Two controls, both run. Training on column-shuffled activations keeps every channel's marginal distribution and destroys only the co-activation structure: it reconstructs at FVU ${sae.control.fvu.toFixed(3)} against ${sae.real.fvu.toFixed(3)}. And the ${sae.dModel} raw channels are scored against the annotation on identical terms — if they grounded as well, the dictionary bought nothing. They reach ${sae.grounding.rawMedianBestRatio}x against the features' ${sae.grounding.saeMedianBestRatio}x.`} />
           <p class="vp-notes" style="margin:0 0 0.6rem;">
             A channel is a direction the optimiser happened to land on. In a network carrying more
             concepts than it has channels, the concepts sit in <em>superposition</em> — spread
@@ -1310,27 +1354,89 @@ const breadcrumbLd = buildBreadcrumbLd([
             </table>
           </div>
           <p class="vp-notes" style="margin:0.5rem 0 0;">
-            <strong>The gap is the finding.</strong> With {sae.real.k} of{' '}
+            <strong>The reconstruction gap is the first finding.</strong> With {sae.real.k} of{' '}
             {sae.real.features.toLocaleString()} features active at a time the dictionary
             reconstructs the bottleneck to within{' '}
             <strong>{(sae.real.fvu * 100).toFixed(1)}%</strong> of its variance. The same
-            architecture, the same sparsity and the same number of steps on column-shuffled
-            activations reaches only <strong>{(sae.control.fvu * 100).toFixed(1)}%</strong> — a gap
-            of <strong>{(sae.reconstructionGain * 100).toFixed(1)} points</strong>. Shuffling each
-            channel independently preserves every channel's own distribution and destroys only which
-            channels fire <em>together</em>, so that gap is precisely the co-activation structure the
-            model's own basis was hiding: {sae.real.k} sparse directions carry what{' '}
-            {sae.dModel} dense ones were spreading out.
+            architecture, sparsity and step count on column-shuffled activations reaches only{' '}
+            <strong>{(sae.control.fvu * 100).toFixed(1)}%</strong> — a gap of{' '}
+            <strong>{(sae.reconstructionGain * 100).toFixed(1)} points</strong>. Shuffling each
+            channel independently keeps every channel's own distribution and destroys only which
+            channels fire <em>together</em>, so that gap is exactly the co-activation structure the
+            model's own basis was spreading out.
+          </p>
+          <h4 class="vp-subhead">Does a feature mean anything?</h4>
+          <p class="vp-notes" style="margin:0 0 0.5rem;">
+            Reconstructing well is necessary and not sufficient. Every feature is scored against the
+            genome-wide annotation with the same circular-shift null the enrichment table uses, and
+            the {sae.dModel} <strong>raw channels are put through the identical test</strong> — same
+            number of candidates, same null — because if the basis the dictionary replaced grounds
+            just as well, the dictionary bought nothing.
+          </p>
+          <div class="vp-scroll-x">
+            <table class="vp-enrich">
+              <thead>
+                <tr><th scope="col">feature</th><th scope="col">fires on</th>
+                  <th scope="col">strongest class</th><th scope="col">enrichment</th>
+                  <th scope="col">most enriched {sae.kmer}-mers</th></tr>
+              </thead>
+              <tbody>
+                {saeTop.map((f) => (
+                  <tr>
+                    <td><code>#{f.index}</code></td>
+                    <td>{f.cells.toLocaleString()} cells</td>
+                    <td>{classLabel(f.best!.cls)}</td>
+                    <td><strong>{f.best!.ratio.toFixed(1)}×</strong> · p {f.best!.p}</td>
+                    <td>{f.kmers.slice(0, 2).map((m) => `${m.kmer} (${m.enrichment}×)`).join(', ')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p class="vp-notes" style="margin:0.5rem 0 0;">
+            <strong>The dictionary grounds better than the basis it replaced.</strong> Matched at{' '}
+            {sae.grounding.matchedCandidates} candidates each and the same null, the sparse features
+            reach a median best enrichment of{' '}
+            <strong>{sae.grounding.saeMedianBestRatio}×</strong> against the raw channels'{' '}
+            <strong>{sae.grounding.rawMedianBestRatio}×</strong>, and a maximum of{' '}
+            {sae.grounding.saeMaxBestRatio}× against {sae.grounding.rawMaxBestRatio}×. The top
+            features spread over <strong>{saeClasses}</strong> annotation classes rather than piling
+            onto one.
           </p>
           <p class="vp-notes" style="margin:0.4rem 0 0;">
-            <strong>What this does not yet claim.</strong> A dictionary that reconstructs well is not
-            the same as a dictionary whose features are individually interpretable — that needs each
-            feature tied to something biological, with the same circular-shift null the enrichment
-            table uses, and it needs the raw {sae.dModel} channels put through the identical
-            test. If the raw channels scored as well, the dictionary would have bought nothing. The
-            reconstruction gap above is the necessary condition, not the sufficient one, and saying
-            so is better than showing a gallery of hand-picked features.
+            <strong>Read the classes before the ratios.</strong> The largest numbers land on tRNA,
+            LTR and snRNA genes — classes with distinctive base composition, which a feature can
+            find without learning anything about regulation, and the {sae.kmer}-mer column shows
+            exactly that: the strongest tRNA features are GC-rich where the genome is not. The
+            harder claim is the quieter one: <strong>{saeTfbs}</strong> of the interpreted features
+            ground best on a <em>binding-site</em> tier, the strongest at 9.7× on ChIP-supported
+            sites. That is a real result at a much lower ratio, and it is the one worth trusting
+            least casually.
           </p>
+          <details class="vp-how">
+            <summary>Why a k-mer signature and not a position weight matrix</summary>
+            <div class="vp-how-body">
+              <p><strong>A feature fires at {sae.positionBp} bp resolution.</strong> A PWM built
+              from {sae.positionBp} bp windows is near-uniform however it is built, and would still
+              match a database at high Pearson because correlation normalises amplitude away — that
+              is precisely the failure the first motif-discovery run shipped, at 0.00 bits. Counting
+              {' '}{sae.kmer}-mers says what a cell <em>contains</em> without claiming to know
+              where, which is the honest summary at this resolution.</p>
+              <p><strong>The enrichment is computed in Python and must match the browser's.</strong>
+              {' '}The signal is {sae.real.vectors.toLocaleString()} positions ×{' '}
+              {sae.real.features.toLocaleString()} features, far past what a page can compute, so the
+              statistic is reimplemented in the generator. Its circular shifts divide by 257, which
+              is prime and divides neither array length in use, so every offset reduces to an odd
+              denominator and can never be exactly one half — there is nothing for JavaScript's
+              round-half-up and Python's round-half-to-even to disagree about. The generator asserts
+              this rather than inheriting it from the length it was first checked at.</p>
+              <p><strong>What is still not claimed.</strong> A feature enriched on a class is a
+              correlation against a stated null, not evidence the model uses that class: a feature
+              firing on GC-rich sequence will score on tRNA whether or not it encodes anything about
+              transcription. Nothing here has been causally tested by clamping a feature and
+              re-running the model, which is the experiment that would settle it.</p>
+            </div>
+          </details>
         </section>
         <!-- ---------------------------------------------------------- causal tracing (new) -->
         <section class="vp-panel" data-shorkie-frontier>
@@ -1347,6 +1453,14 @@ const breadcrumbLd = buildBreadcrumbLd([
             <em>where in the network that mattering became decisive</em> — and those are different
             questions, because a base can matter enormously while the representation carrying it
             only forms several layers in.
+          </p>
+          <p class="vp-notes" style="margin:0 0 0.6rem;">
+            <strong>Why {patch.summary.loci} windows and not {nLoci}.</strong> Recovery is a
+            fraction of the gap the corruption opened, so a window whose gap is ~0 has no
+            denominator. HOP2's promoter shuffle moves the prediction by less than 0.001 — it is
+            meiosis-specific and silent in this baseline, so scrambling its promoter changes
+            essentially nothing — and the generator skips it rather than dividing by noise and
+            reporting a recovery of forty. An exclusion, not a missing measurement.
           </p>
           <canvas class="fr-canvas" data-fr-patching height="250"
                   aria-label="Recovery of the clean prediction by stage and by position band"></canvas>
@@ -1373,8 +1487,18 @@ const breadcrumbLd = buildBreadcrumbLd([
             than either alone, and note that the encoder-versus-bottleneck margin at the peak is
             0.003, which is a tie and is drawn as one.
           </p>
+          <p class="vp-notes" style="margin:0.4rem 0 0;">
+            <strong>The three controls, and what each one pins.</strong> Restoring every position of
+            the <em>first</em> stage makes everything downstream the clean run's, so it must recover
+            exactly 1.0 — and does, at every window. Restoring every position of the <em>last</em>{' '}
+            stage must too, by a completely different route: the head is a deterministic function of
+            it. Restoring nothing must recover exactly 0.0. Together they fix both ends of the scale
+            and catch the one failure that otherwise passes silently — a patch written into the
+            channel axis rather than the position axis, which broadcasts cleanly, completes without
+            error, and produces entirely plausible numbers.
+          </p>
           <details class="vp-how">
-            <summary>The control that failed, and what it turned out to be measuring</summary>
+            <summary>The fourth check, which is not a control — and what it turned out to measure</summary>
             <div class="vp-how-body">
               <p><strong>The obvious fourth control is not one.</strong> Restoring <em>every</em>{' '}
               position of a bottleneck stage should make everything downstream the clean run's, so
@@ -1410,7 +1534,9 @@ const breadcrumbLd = buildBreadcrumbLd([
         that are not about the motif at all, because of the nucleosome-free stretch it sits in or
         the TATA box beside it. These six ask the opposite question <em>constructively</em>: start
         from shuffled DNA containing nothing, add one element at a time, and see what the model
-        does. The last of them relaxes the additivity every method above assumes.</p>
+        does. The Hessian panel relaxes the additivity every method above assumes; the last one
+        turns the question round entirely and asks the model's own mutagenesis what a motif is,
+        without a database to check against.</p>
       <section class="vp-panel" data-shorkie-constructive>
         <h3>Is the motif enough on its own?</h3>
         <ShorkiePanelHead
@@ -1424,6 +1550,15 @@ const breadcrumbLd = buildBreadcrumbLd([
           without it (Global Importance Analysis, Koo &amp; Ploenzke 2021). The tick on each bar is
           that motif's own <strong>scramble</strong> — the same bases in a shuffled order, so same
           composition and no motif. A bar that does not clear its own tick is measuring composition.
+        </p>
+        <p class="vp-notes" style="margin:0 0 0.4rem;">
+          <strong>Two controls make this a measurement rather than a ranking.</strong> CACGTG is its
+          own reverse complement, so implanting it forward and backward must score identically — the
+          generator raises if the two arms differ, and it is the only check that catches a mis-wired
+          implantation path, because a wrong one still produces entirely plausible numbers. And
+          poly(dA:dT) has no scramble: every permutation of a homopolymer is itself, so its
+          composition control does not exist and it is reported as degenerate rather than as a
+          measured zero.
         </p>
         <canvas class="fr-canvas" data-cn-gia height="360"
                 aria-label="Effect of implanting each motif into an otherwise empty background, against its own scramble"></canvas>
@@ -1455,7 +1590,7 @@ const breadcrumbLd = buildBreadcrumbLd([
           cost="Free. Both arms are already run."
           refuted="The answer is largely no, and that IS the finding: Rap1 and Reb1 are necessary and not sufficient at z ≈ 0.2, and Ume6 is the mirror." />
         <p class="vp-notes" style="margin:0 0 0.4rem;">
-          Crossing the sweep above against the implantation below. Horizontal is{' '}
+          Crossing the knockout sweep in act 5 against the implantation above. Horizontal is{' '}
           <strong>necessity</strong> — what the prediction loses when a curated site of that factor
           is shuffled in its own promoter, over every swept site. Vertical is{' '}
           <strong>sufficiency</strong> — its margin over its own scramble in an empty background.
@@ -1597,7 +1732,7 @@ const breadcrumbLd = buildBreadcrumbLd([
         <ShorkiePanelHead
           question="Which bases interact non-linearly with a binding site?"
           method="A Hessian-vector product, H·v = ∇⟨∇f, v⟩ — one extra backward pass per site, mapping every base that interacts with that motif."
-          cost="425 ms a site, 53 sites a locus."
+          cost={`425 ms a site — ${epi.sites} sites across ${epi.loci} windows, ${(epi.sites / epi.loci).toFixed(1)} a locus on average.`}
           refuted="H is symmetric, so ⟨H·v_A, v_B⟩ must equal ⟨H·v_B, v_A⟩; the worst residual over 431 sites is 4.2e-04. Nothing else catches a mis-wired double-backward — it has the right shape and magnitude and is simply the wrong quantity." />
         <p class="vp-notes" style="margin:0 0 0.4rem;">
           Regulation is not additive — factors cooperate, compete, and care about spacing — and a
@@ -1646,7 +1781,7 @@ const breadcrumbLd = buildBreadcrumbLd([
         <ShorkiePanelHead
           question="What would the model build, given a promoter to improve?"
           method="Greedy ascent on the prediction, one substitution at a time, with the motifs it invents matched against the database afterwards."
-          cost="5.5 minutes — 40 greedy substitutions a window, and the same ascent again on shuffled DNA as the control."
+          cost={`5.5 minutes — ${cfData.edits} greedy substitutions a window chosen from ${cfData.candidates} candidates, and the same ascent again on shuffled DNA as the control.`}
           refuted="The same ascent on dinucleotide-shuffled DNA builds 54 motifs in 23 of 23 windows against the real arm's 18 in 11 — the control wins 3.0× raw, and the panel says so. What survives is that the achievable gain is set by headroom, r = −0.873 against starting expression." />
         <p class="vp-notes" style="margin:0 0 0.4rem;">
           The generative question, and the only one here that lets the model choose the sequence.
@@ -1702,7 +1837,7 @@ const breadcrumbLd = buildBreadcrumbLd([
           </h3>
         <ShorkiePanelHead
           question="Left to itself, does the model's mutagenesis contain repeated sequence patterns — and are they the motifs a database would name?"
-          method="TF-MoDISco in the small (Shrikumar et al. 2018): pull high-|saliency| 11 bp windows out of the mutagenesis planes, cluster them on their mean-centred contribution blocks over both strands, build each cluster's PWM from the bases its seqlets contain, and only THEN match against JASPAR."
+          method={`TF-MoDISco in the small (Shrikumar et al. 2018): pull high-|saliency| windows out of the mutagenesis planes at each pre-registered width (${modisco.widths.join(" and ")} bp), cluster them on their mean-centred contribution blocks over both strands, build each cluster's PWM from the bases its seqlets contain, and only THEN match against JASPAR.`}
           cost="Free. No model and no GPU — the raw mutagenesis planes are already on disk."
           refuted="The identical pipeline on dinucleotide-shuffled sequence, and the shuffled arm sets the clustering threshold. It found almost as much: the control is close enough that the headline has to be stated carefully, and it is." />
           <p class="vp-notes" style="margin:0 0 0.6rem;">
@@ -1734,9 +1869,24 @@ const breadcrumbLd = buildBreadcrumbLd([
             </table>
           </div>
           <p class="vp-notes" style="margin:0.5rem 0 0;">
-            <strong>Read the control before the table.</strong> {modisco.real.seqlets.toLocaleString()}{' '}
-            seqlets from the real planes cluster into <strong>{modisco.real.clusters}</strong>{' '}
-            patterns, all {modisco.real.matched} of which match a JASPAR matrix. The same pipeline
+            <strong>Both seqlet widths were declared before the run, and both are here.</strong>{' '}
+                        {modisco.grid.map((g, i) => (
+              <>{i > 0 ? '; at ' : 'At '}<strong>{g.width} bp</strong> the real planes give{' '}
+              {g.real.clusters} pattern{g.real.clusters === 1 ? '' : 's'} and the shuffled control{' '}
+              {g.control.clusters}</>
+            ))}. At the wider width the control <strong>ties exactly</strong> — three against three,
+            all matched. Running a second width after a weak first result is only defensible because
+            the grid was fixed in advance and neither cell is dropped; no third width was added
+            afterwards.
+          </p>
+          <p class="vp-notes" style="margin:0.5rem 0 0;">
+            <strong>Read the control before the table.</strong> Of{' '}
+            {modisco.real.seqlets.toLocaleString()} seqlets pulled from the real planes,{' '}
+            <strong>{modisco.clusters.reduce((n, c) => n + c.seqlets, 0)}</strong> fall into{' '}
+            <strong>{modisco.real.clusters}</strong> groups large enough to be called a pattern —
+            the rest are singletons or pairs below the size threshold, which is what a strict
+            similarity cut is for. All {modisco.real.matched} of the patterns match a JASPAR
+            matrix. The same pipeline
             on dinucleotide-shuffled sequence yields <strong>{modisco.control.clusters}</strong>{' '}
             patterns, and {modisco.control.matched} of those match too. Three against two is not a
             result. What does separate them is sharpness — the best real pattern carries{' '}
@@ -1745,9 +1895,12 @@ const breadcrumbLd = buildBreadcrumbLd([
             is AT-rich, and a dinucleotide shuffle preserves AT-richness by construction.
           </p>
           <p class="vp-notes" style="margin:0.4rem 0 0;">
-            <strong>So the honest statement is narrow.</strong> At a threshold strict enough that
-            chance clustering is essentially impossible, what the model's highest-attribution 11-mers
-            have in common is <em>base composition</em> rather than motif syntax. That is a real
+            <strong>So the honest statement is narrow, and the second width narrows it further.</strong>{' '}
+            At a threshold strict enough that chance clustering is essentially impossible, what the
+            model's highest-attribution {modisco.width}-mers have in common is <em>base
+            composition</em> rather than motif syntax — and at {modisco.widths[1]} bp, where the
+            control matches the real arm pattern for pattern, there is no separation left to
+            interpret at all. That is a real
             finding about where a fixed-width, single-pass clustering of 1,000 seqlets can and cannot
             reach — not evidence that the model has no motif vocabulary, which the knockout sweep and
             the sufficiency panel both show it does.
@@ -1808,6 +1961,16 @@ const breadcrumbLd = buildBreadcrumbLd([
           {spSummary.exceptions.join(', ')}, and all of them top out on <em>Yarrowia lipolytica</em>,
           the most distant lineage in the set.
         </p>
+        <p class="vp-notes" style="margin:0.4rem 0 0;">
+          <strong>The tidy explanation of those exceptions does not survive checking.</strong> Three
+          of the four — GAL1, GAL3 and HOP2 — are the genes repressed in this baseline, which
+          invites the story that the species channel only helps where a gene is being transcribed.
+          Across all {spSummary.loci} windows that story is <em>not</em> supported: rank against log
+          baseline coverage is only <strong>ρ = −0.34</strong>, a weak tendency rather than a rule,
+          and the fourth exception breaks it outright. POP4 is among the quietest windows in the set
+          and ranks <em>first</em>; GLK1 is far louder and ranks 162nd of 165. The pattern is
+          suggestive and it is reported as suggestive.
+        </p>
         <details class="vp-how">
           <summary>The control that decides whether any of this means anything</summary>
           <div class="vp-how-body">
@@ -1818,7 +1981,8 @@ const breadcrumbLd = buildBreadcrumbLd([
             {spControl.betweenLocusSpearman.min} to {spControl.betweenLocusSpearman.max}), so the
             orderings genuinely differ: the model reads the same promoter differently depending on
             the species it is told to be.</p>
-            <p><strong>A second control comes free.</strong> Five of the 165 rows are{' '}
+            <p><strong>A second control comes free.</strong>{' '}
+            {spControl.yarrowiaReplicates.indices.length} of the 165 rows are{' '}
             <em>Yarrowia lipolytica</em> strains — separate channels the model was never told to
             treat alike. Their spread is <strong>{(spControl.yarrowiaReplicates.sdRatioMedian * 100).toFixed(1)}%</strong>
             {' '}of the full 165-species range, which bounds this method's noise from inside the data.</p>
@@ -1838,7 +2002,9 @@ const breadcrumbLd = buildBreadcrumbLd([
           cost="Free. Precomputed per locus."
           refuted="On the timepoint means early-against-late is r ≥ 0.9995 with 99% of the top 500 bases shared — no effect at all. Per regulator it is real, MSN2 at GAL1 reading 0.215 with 50.2% shared." />
         <p class="vp-notes" style="margin:0 0 0.4rem;">
-          The 3,053 induction tracks resolve into 13 timepoints × 337 regulators. Taking one
+          The 3,053 induction tracks resolve into 335 regulators over 13 timepoints — a{' '}
+          <em>sparse</em> grid, 3,053 of 4,355 possible combinations, so a timepoint does not
+          carry every regulator. Taking one
           regulator's own tracks early and late and attributing each over this gene body asks whether
           the model reads a <em>different part of the sequence</em> as the response develops.
         </p>
@@ -1858,7 +2024,8 @@ const breadcrumbLd = buildBreadcrumbLd([
             <p>The obvious version fails, measured twice. The 13 timepoint <em>mean</em> coverage
             tracks correlate at ≥ 0.9923 with each other, and their gradients are worse still —
             early against late attribution comes out at <strong>r ≥ {kinData.timepointMeanControl.r}</strong>{' '}
-            with 99% of the top 500 bases shared. Each mean averages about 300 regulators, and
+            with 99% of the top 500 bases shared. T0 alone carries 384 tracks while the later
+            timepoints carry 64–77 each, so those means are over far fewer regulators, and
             averaging 300 induction experiments leaves the shared baseline transcriptome. The
             variation is real and lives in the individual tracks, where a single gene body spans
             43.7× across them.</p>
@@ -1873,7 +2040,7 @@ const breadcrumbLd = buildBreadcrumbLd([
         <ShorkiePanelHead
           question="Does natural selection avoid the bases the model says matter?"
           method="Paired at the base: the observed allele against the two alternates nature did not choose at the SAME position, so position, context, gene and expression are all held fixed and no null model is needed."
-          cost="Free. No model run — 84,392 UCSC variants against the shipped mutagenesis planes."
+          cost={`Free. No model run — the ${variationData.refChecked.toLocaleString()} UCSC variants that fall inside the windows mutagenesis covers, scored against the shipped planes.`}
           refuted="A sign test, because the ratios are skewed: for missense the ratio of means is 0.99 while the median per-site ratio is 0.90. The reference base matched sacCer3 at 2,319 of 2,319, which is what makes the coordinates trustworthy." />
         <p class="vp-notes" style="margin:0 0 0.4rem;">
           {(varClasses.variant_missense.n + varClasses.variant_synonymous.n
