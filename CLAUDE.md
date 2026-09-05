@@ -2707,6 +2707,171 @@ knows which plane it fetched; `decodePackedPlane` stays as the named ISM entry p
 - **Both model-based scripts separate analysis from sweep** (`--summarise`, and `--join-only` /
   `--reanalyse` on the earlier pair) so a confounding argument can be re-checked without re-running.
 
+#### Act 9, the reliability foundation — five methods from the frontier portfolio
+
+`docs/sequence_to_function_interpretability_frontier_and_ideas.md` is a twelve-card research
+portfolio and `docs/shorkie_existing_interpretability_methods.md` is its audit of what actually
+ships. Their joint verdict was that the page has a rich interpretability surface and almost no
+evidence about whether any of it is reliable: one training fold, one baseline, and no method ever
+scored against an exact edit. Act 9 is Group A of the portfolio's own dependency graph — P1 fold
+uncertainty, P2 reference-aware attribution, P4 the faithfulness benchmark — plus P11 (exact
+grammar) and P3 (a valid MoDISco null). Generators are `make_folds.py`, `make_faithfulness.py`,
+`make_references.py`, `make_grammar.py` and `make_null_planes.py`; `common.py` is the shared spine
+they all import.
+
+- **What the five methods measured.** Fold ledger: **85.1%** of the strongest
+  bases are fold-stable against **53.7%** of distance-matched controls, over
+  17,664 exact substitutions × 8 checkpoints × 2 strands; median sign agreement
+  1.000 and top-1% overlap 0.485, both clearing their preregistered
+  gates. Faithfulness: gradient × input **0.858**, IG **0.897**, occlusion
+  **0.286** of the achievable deletion damage against a best baseline of 0.166 —
+  and **attention rollout 0.040, below a random ordering**, while still correlating with
+  the ground truth at ρ = 0.529. References: the shipped all-zero baseline places
+  **4th of five** at 0.899 against 0.955 for the dinucleotide shuffle, with the
+  worst strand agreement in the table (0.358 against 0.738). Matched MoDISco null:
+  real **0** clusters against **3.0 ± 1.0** per size-matched shuffled-input draw.
+
+- **Rank agreement and deletion damage dissociate, three times, in the same direction.** Attention
+  rollout correlates with exact mutagenesis at ρ = 0.529 and finds 4.0% of the achievable
+  damage; distance-to-TSS at ρ = 0.555 finds 11.7%; the all-zero IG reference has the *best*
+  rank correlation of the five families and nearly the worst deletion AUC. Correlating with the
+  ground truth and ordering the bases whose mutation actually hurts are different achievements, and
+  a panel that reports only the first is reporting the easier one.
+
+- **Two metric errors, both found by running rather than by reasoning, both of which would have
+  shipped a confident wrong ranking.** Normalising each deletion curve by its OWN endpoint measures
+  curve shape, not damage — under it a distance-to-TSS baseline outranked a method correlating at
+  ρ = 0.73. And an oracle ranked by `max |effect|` does not bound a deletion that applies the
+  *worst* substitution, so IG scored **1.0053** against the "ceiling". Use one denominator across
+  methods, make it the ranking that is optimal *for the task being scored*, and have the verifier
+  fail if anything exceeds it.
+
+- **Clustering is superlinear in pool size, so a null with more draws is not a harder null.** The
+  first matched MoDISco null pooled five shuffles per locus — 5,571 seqlets against the real arm's
+  1,037 — and reported 11.0 clusters per draw against 1, which is a fact about the pool. Cluster
+  each draw separately. Size-matched the answer inverts to 0 against 3.0, and the two arms'
+  bulk similarity distributions turn out indistinguishable (0.1051 against 0.1047), so the
+  difference is entirely in the tail — enough to say the real arm does not *exceed* the null, not
+  enough to say the null is richer.
+
+- **All eight fold checkpoints are public, and "fold uncertainty is unestimated" was one `curl`
+  away from being false.** `https://storage.googleapis.com/seqnn-share/shorkie_models/shorkie/f<n>/model_best.h5`
+  for `n` in 0–7, 57,571,980 bytes each, and they are genuinely different models — distinct weight
+  bytes at the same offset, and on TDH3 they predict `g` from 14.98 to 15.73, a factor of 1.68 in
+  coverage. All eight load through `build()` with exactly 14,253,567 parameters and every tensor
+  consumed. Both audit documents recorded this axis as unestimable; **check whether an artefact is
+  actually unavailable before recording it as a limitation.**
+
+- **f0 selects the panel and is then excluded from the evidence.** The bases worth asking about are
+  the ones the site's claims rest on, and those come from f0's mutagenesis plane — so measuring
+  f0's agreement with a panel f0 chose reports the selection back to itself. Every cross-fold
+  statistic is computed over f1–f7 only, and f0 gets its own column. This is the single error that
+  would have manufactured the headline result.
+
+- **Fold and strand are separate axes and must never be pooled.** The card says so and this is the
+  one place the substitution is now avoidable. `augment_rc: false`, so a forward/reverse difference
+  is a fact about the model rather than Monte-Carlo noise — and it is the LARGER of the two terms.
+  One error bar covering both would hide both.
+
+- **`shorkie_torch.forward` returns a TUPLE, `(out, acts)`, always** — not a tensor when
+  `want_intermediates` is False. A helper that writes `self.model(t).cpu()` dies with
+  `'tuple' object has no attribute 'cpu'` at the first call.
+
+- **Rank agreement must be scored at each method's OWN native resolution**, with the exact ISM
+  ground truth pooled to match. Scoring 64 bp occlusion or 128 bp rollout per base measures their
+  resolution and would rank every coarse method last for a reason that has nothing to do with
+  whether it is right. The deletion curve deliberately gives no such allowance — within a block it
+  can only order bases by position, which is the handicap a reader actually suffers.
+
+- **Cascading parameter randomization reads differently in a U-Net, and must be reported per
+  branch.** Randomizing the bottleneck leaves the three decoder skips intact, so an attribution
+  that survives may be reading the skips rather than failing the sanity check.
+
+- **The MoDISco control shuffled the PROJECTION, not the input.** `seqlets_only(..., shuffle_rng=)`
+  dinucleotide-shuffles the sequence string used for saliency projection and reference-base choice
+  while `planes[pid]` stays the plane computed on the *real* window — so the model never ran on the
+  null sequence and the two arms do not estimate the same quantity. `make_null_planes.py`
+  recomputes contribution planes on shuffled INPUT (gradient-based, one fwd+bwd per sequence, with
+  an exhaustive-ISM bridge on a promoter slice), and `make_modisco.py` reports it as `matchedNull`
+  beside the retained projection control. The stored grad plane uses the mutagenesis convention —
+  `plane[b, i] = dg/dx[i, b] − dg/dx[i, ref]`, reference row zero — so `saliency`, `centred` and
+  `extract_seqlets` are drop-in.
+
+- **The receptive-field ladder in `src/lib/shorkieAttention.ts` was wrong in THREE columns**, and a
+  test was pinning all three because it restated the table instead of re-deriving it. The stem was
+  15 bp (the paper's number; the checkpoint's is 11) and the whole ladder is `rf' = 2·rf + 5` seeded
+  from it, so every conv entry was wrong; and `resolution` and `channels` were both shifted one
+  stage, describing `block1` as 8,192 positions of 128 channels when the recorded activation is
+  16,384 of 96. The correct ladder is 11 / 15 / 24 / 42 / 78 / 150 / 294 / 582 bp over
+  16,384 / 16,384 / 8,192 / … / 256 positions of 96 / 96 / 128 / 160 / 192 / 256 / 320 / 384
+  channels. **The test now recomputes it from the kernel sizes**; the old one was evidence of
+  nothing. The stale 15 and 2,555 had also reached `attention.astro` twice, `shorkie-lab/index.astro`
+  and a threshold constant inside the transmission heuristic.
+
+- **The empirical receptive field is a LOWER bound on the architectural one, because max-pool only
+  propagates when the max moves.** Flip one input base and record which units change: measured
+  11 / 15 / 24 / 40 / 80 / 160 / 320 / 640 bp against a theoretical 11 / 15 / 24 / 42 / 78 / 150 /
+  294 / 582. They agree to within one grid unit everywhere, which is the check — but publish the
+  theoretical value, since the empirical one depends on the input.
+
+- **A stage's position axis depends on the stage.** Conv stages and decoders are `[C, L]`; the
+  transformer residual stream is `[T, C]`. Sniffing which axis is longer works until `block7`,
+  where `C = 384 > L = 256`, and then the measurement silently reports channels as positions.
+
+- **Renaming a JSON key silently breaks a consumer behind `as unknown as`.** `shorkieHeads.json` →
+  `shorkieLayers.json` with `heads`/`byHead` → `layers`/`byLayer` was the honest fix (the pack is
+  eight layers with four heads averaged away by `build_onnx.py:123`), but `shorkieFrontier.ts` read
+  `hd.heads` through a double cast that defeats type checking — so `astro check` passed and the
+  drawing would have divided by `undefined`. **After re-keying a pack, grep the consumers for every
+  old key name, not just the one you renamed in the type.**
+
+- **The Attention Studio's synthetic fallback is now stamped on the canvas.** On a failed pack load
+  it installs hand-written diagonal matrices and keeps rendering arcs, rollout and percentages that
+  are indistinguishable from real data by eye; the status line saying so scrolls away. There is a
+  `syntheticAttention` flag, a `data-studio-synthetic` attribute and a red watermark drawn into
+  both canvases. Its "signal transmission" comparison curves are also hand-chosen constants and now
+  say so in the docstring — no comparison model was ever run.
+
+- **A placeholder pack must fail loudly.** Act 9 was written against stub JSON so the page could be
+  built before the sweeps finished. Each stub carries `"placeholder": true`;
+  `verify_pipeline.verify_reliability` fails on it, and the gate independently fails if more than
+  half the numbers in act 9's tables are exactly zero. Verified by watching both fire.
+
+- **`verify_pipeline` §3i–3k re-derive every headline from `perLocus` rather than trusting it** —
+  §3g earned that rule. The strongest of them is the grammar section's: the doubles run recomputes
+  every single-base effect, so it must reproduce the shipped ISM planes, and a drift there means
+  the two arms of the inclusion–exclusion residual do not share a convention.
+
+- **`typeof someData.json` types an optional field from whichever run is on disk.** Twice in one
+  round: the grammar scatter's `hess` inferred as `null` because the last smoke run used
+  `--no-hessian`, and `matchedNull` inferred as `null` because `make_null_planes.py` had not run
+  yet — so the same source compiled or did not depending on a CLI flag used hours earlier. Declare
+  the shape of any field a generator can legitimately leave null (`Omit<typeof d, 'k'> & { k: T }`
+  for a whole pack, or an explicit `as { … }` assertion), and never reach for `as number` on it:
+  `astro check` rejects a `null`-to-`number` cast, which is the only reason either was caught.
+
+- **A newline before a JSX EXPRESSION swallows a space exactly as a newline before a tag does, and
+  nothing was checking for it.** `across the\n{nLoci} windows` renders **"across the23 windows"**.
+  The rendered gate looks for a word butted against an inline *tag*, so it never saw this; the
+  source checker only looked for tags either, and the defect was caught only when a new one of my
+  own broke the tag rule. Widening the source check to expressions immediately found **three real
+  shipping bugs** — two on `/shorkie-lab/shorkie/` and one on `/shorkie-lab/shorkie_lm/` — that had
+  been live for an unknown time. It now lives at **`scripts/check-jsx-spacing.py`** (not in
+  gitignored scratch, where it would have been lost) and `audit:playground` runs it over all three
+  lab routes before it opens a browser. Three shapes are legitimately exempt and are recognised:
+  an expression whose first emitted content is `{' '}`, a pluraliser whose branches are both short
+  quoted strings, and an expression whose first emitted character is punctuation. Repo-wide there
+  are ~120 more on pages this round did not touch, matching the pre-existing count already
+  recorded here.
+
+- **A bare `<=` inside a JSX expression is read as a tag.** `{(x ?? 1) <= 0.87 ? a : b}` fails with
+  `Unable to assign attributes when using <> Fragment shorthand syntax`, naming a fragment that
+  does not exist. Put the constant on the left and use `>=`.
+
+- **`dinuc_shuffle` now has exactly one implementation.** It had been copied into three generators;
+  `common.py` owns it and `make_receptive.py` re-exports, verified byte-identical over 200 seeds
+  before the copy was removed. A drifted shuffle is invisible — it still returns a plausible
+  sequence, just one that preserves the wrong thing.
 
 ### Other non-obvious things
 - **Math (KaTeX)** is wired in `astro.config.mjs` (`remark-math` + `rehype-katex`) for the LaTeX-heavy reports; the report slug page imports `katex/dist/katex.min.css` so both the page and its printed PDF typeset math. Posts currently use no math.

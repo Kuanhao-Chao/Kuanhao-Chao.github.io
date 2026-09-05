@@ -138,7 +138,7 @@ const breadcrumbLd = buildBreadcrumbLd([
               <div class="as-ladder-buttons">
                 <button type="button" class="as-ladder-btn" data-layer-select="0">
                   <span class="as-btn-name">Conv Stem</span>
-                  <span class="as-btn-rf">15 bp</span>
+                  <span class="as-btn-rf">11 bp</span>
                 </button>
               </div>
             </div>
@@ -421,7 +421,7 @@ const breadcrumbLd = buildBreadcrumbLd([
                 </div>
                 <p>
                   where <Katex tex="k_l" /> is the kernel size (5 bp in Shorkie's residual blocks) and <Katex tex="S_{l-1} = \prod_{i=1}^{l-1} s_i" /> is the cumulative stride up to layer <Katex tex="l-1" />.
-                  Because Shorkie performs pooling (<Katex tex="s_i = 2" />) at each residual block, the effective stride doubles at every step, causing the receptive field to expand from 15 bp in the stem to 2,555 bp by Block 7.
+                  Because Shorkie performs pooling (<Katex tex="s_i = 2" />) at each residual block, the effective stride doubles at every step, causing the receptive field to expand from 11 bp in the stem to 582 bp by Block 7 — the widest reach any purely convolutional stage has before the bottleneck. Both ends are derived from the checkpoint's own kernels rather than the paper's, which gives the stem as 15 bp.
                 </p>
 
                 <h3>2. Attention Rollout Across Layers</h3>

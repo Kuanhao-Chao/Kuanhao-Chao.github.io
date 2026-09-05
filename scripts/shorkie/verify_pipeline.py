@@ -739,6 +739,171 @@ def verify_new_methods() -> None:
           "the width the page leads with is one of the reported cells", f"w={md2['width']}")
 
 
+def verify_reliability() -> None:
+    """The four reliability packs, re-derived from their own contents rather than trusted.
+
+    Section 3g earned this rule the hard way: the page computed a TSS ratio with `250 / 40 = 6.25`
+    bins, sliced six elements, divided by 6.25 and printed 1.54x where whole-bin arithmetic gives
+    1.40x. A summary is a VIEW of numbers that exist per locus, and the view is where the error
+    lives. So every headline below is recomputed from `perLocus` and compared.
+
+    It also refuses to let a placeholder ship. Act 9 was written against stub packs so the page
+    could be built before the sweeps finished; a stub carries `placeholder: true`, and a generator
+    that never ran must fail loudly rather than render zeros as a measurement.
+    """
+    data = ROOT / "src" / "data"
+    packs = {name: data / f"shorkie{name}.json"
+             for name in ("Folds", "Faithfulness", "References", "Grammar")}
+    for name, path in packs.items():
+        if not path.exists():
+            check(False, f"shorkie{name}.json exists", "missing -- run its generator")
+            return
+    loaded = {k: json.loads(v.read_text()) for k, v in packs.items()}
+
+    stubs = [k for k, v in loaded.items() if v.get("placeholder")]
+    check(not stubs, "no reliability pack is a placeholder",
+          "all four carry real measurements" if not stubs
+          else f"STUBS STILL SHIPPING: {', '.join(stubs)}")
+    if stubs:
+        return
+
+    # ---- 3i. the fold ledger -----------------------------------------------------------------
+    f = loaded["Folds"]
+    check("f0" not in f["evidenceFolds"] and len(f["evidenceFolds"]) >= 2,
+          "f0 excluded from the evidence folds",
+          f"{len(f['evidenceFolds'])} evidence folds: {','.join(f['evidenceFolds'])}")
+    check(len(f["perLocus"]) == f["loci"] and f["loci"] > 0,
+          "fold ledger locus count agrees", f"{f['loci']} loci")
+    # The headline pools substitutions while perLocus averages within a locus, so they agree only
+    # approximately -- panels can differ in size where a top base and a control coincide.
+    for key, per in (("stableFractionTop", "stableTop"), ("stableFractionControl", "stableControl")):
+        want = float(np.mean([r[per] for r in f["perLocus"]]))
+        check(abs(want - f[key]) < 0.05, f"{key} re-derives from perLocus",
+              f"pack {f[key]:.4f} vs per-locus mean {want:.4f}")
+    check(f["medianFoldSd"] > 0 and f["medianStrandDeviation"] > 0
+          and f["strandOverFold"] is not None,
+          "fold and strand are reported as separate axes",
+          f"fold sd {f['medianFoldSd']:.5f}, strand deviation {f['medianStrandDeviation']:.5f} "
+          f"({f['strandOverFold']}x)")
+    check(f["gates"]["signAgreement"] == 0.80 and f["gates"]["topOverlap"] == 0.40,
+          "the preregistered gates are unchanged",
+          f"sign {f['gates']['signAgreement']}, overlap {f['gates']['topOverlap']}")
+    check(f["stableFractionTop"] > f["stableFractionControl"],
+          "strong bases outlast their matched controls",
+          f"{f['stableFractionTop'] * 100:.1f}% vs {f['stableFractionControl'] * 100:.1f}%")
+
+    # The strongest check available, when the sweep caches are still on disk: recompute one
+    # locus's fold statistics straight from the raw per-fold arrays, written from the definition
+    # rather than by calling the summariser's own code. A summary that agrees with itself proves
+    # nothing; this is the one comparison where the two sides are independent.
+    cache = Path(__file__).resolve().parent / "_scratch" / "folds" / "sweep"
+    if cache.exists() and f["perLocus"]:
+        import sys as _sys
+        _sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import common as _c
+        lid = f["perLocus"][0]["id"]
+        ev = [q for q in f["evidenceFolds"] if (cache / f"{q}-{lid}.npz").exists()]
+        if len(ev) >= 2:
+            arr = {q: np.load(cache / f"{q}-{lid}.npz") for q in ev}
+            pos = arr[ev[0]]["positions"]
+            seq = next(x for x in _c.loci_pack()["loci"] if x["id"] == lid)["sequence"].upper()
+            eff = np.stack([0.5 * (arr[q]["fwd"] + arr[q]["rev"]) for q in ev])
+            msk = np.zeros(eff.shape[1:], dtype=bool)
+            for k, i in enumerate(pos):
+                for b in range(4):
+                    if b != _c.BASE_IDX[seq[int(i)]]:
+                        msk[k, b] = True
+            S = eff[:, msk]
+            sg = np.sign(S)
+            agree = np.maximum((sg > 0).sum(0), (sg < 0).sum(0)) / len(ev)
+            want = float(np.median(agree))
+            got = f["perLocus"][0]["signAgreement"]
+            check(abs(want - got) < 5e-3, f"{lid} sign agreement re-derives from the raw sweep",
+                  f"independent {want:.4f} vs pack {got:.4f} over {len(ev)} folds")
+            sd = S.std(0, ddof=1)
+            check(abs(float(np.median(sd)) - f["perLocus"][0]["medianFoldSd"]) < 5e-4,
+                  f"{lid} cross-fold spread re-derives", f"{float(np.median(sd)):.5f}")
+    else:
+        print("  ....  fold sweep caches absent; the raw re-derivation was skipped")
+
+    # ---- 3j. the faithfulness scorecard ------------------------------------------------------
+    fa = loaded["Faithfulness"]
+    # Read the baseline roster from the pack rather than restating it. It changed once already,
+    # when the conv-stem response was moved in with the baselines -- the stem is linear and
+    # unnormalised, so its filters are an arbitrary basis and it is a motif-scan baseline, not a
+    # model explanation -- and a hardcoded set here silently graded against the wrong bar.
+    base_methods = set(fa.get("baselines") or ["gc", "tssdist", "random"])
+    want_base = max(r["deletionAuc"] for r in fa["scorecard"] if r["method"] in base_methods)
+    check(abs(want_base - fa["baselineAuc"]) < 1e-9, "the bar is the best non-model baseline",
+          f"{fa['baselineAuc']:.4f}")
+    # Three roles, not two. The oracle is the SCALE -- it reads 1.000 by construction and is
+    # neither promoted nor demoted -- and the baselines are the bar, so neither can carry a
+    # verdict. Only a method under test does.
+    roles = {r["method"]: r.get("role", "method") for r in fa["scorecard"]}
+    bad = [r["method"] for r in fa["scorecard"]
+           if r["beatsBaselines"] != (roles[r["method"]] == "method"
+                                      and r["deletionAuc"] > fa["baselineAuc"])]
+    check(not bad, "every promote/demote verdict follows from its own AUC",
+          "consistent" if not bad else f"inconsistent: {bad}")
+    check(roles.get("oracle") == "ceiling"
+          and abs(next(r["deletionAuc"] for r in fa["scorecard"] if r["method"] == "oracle") - 1.0) < 1e-9,
+          "the exact-mutagenesis oracle is the scale and reads 1.000",
+          "every deletion AUC is a fraction of the achievable damage")
+    # A ceiling a method can exceed is not a ceiling. Integrated gradients once scored 1.0053
+    # against it, because the oracle had been ranked by max |effect| while the deletion applies
+    # the WORST substitution -- two different orderings, and only the second bounds the task.
+    over = [(r["method"], r["deletionAuc"]) for r in fa["scorecard"]
+            if r["method"] != "oracle" and r["deletionAuc"] > 1.0 + 1e-6]
+    check(not over, "no method exceeds the exact-mutagenesis ceiling",
+          "none do" if not over else f"ABOVE THE CEILING: {over}")
+    demoted = [r["method"] for r in fa["scorecard"]
+               if roles[r["method"]] == "method" and not r["beatsBaselines"]]
+    check(True, "methods that failed their own benchmark",
+          ", ".join(demoted) if demoted else "none -- every method cleared the baselines")
+    # Re-derive each method's median rank agreement from the per-locus rows.
+    drift = 0.0
+    for r in fa["scorecard"]:
+        vals = [q[r["method"]]["rho"] for q in fa["perLocus"] if q.get(r["method"])]
+        if vals:
+            drift = max(drift, abs(float(np.median(vals)) - r["medianRho"]))
+    check(drift < 5e-4, "scorecard medians re-derive from perLocus", f"worst drift {drift:.2e}")
+    coarse = {r["method"]: r["resolutionBp"] for r in fa["scorecard"]}
+    check(coarse.get("occl") == 64 and coarse.get("rollout") == 128,
+          "coarse methods declare their real resolution",
+          f"occlusion {coarse.get('occl')} bp, rollout {coarse.get('rollout')} bp")
+
+    # ---- 3k. references and exact grammar ----------------------------------------------------
+    rf = loaded["References"]
+    best = max(rf["families"], key=lambda r: r["medianDeletionAuc"])["family"]
+    check(best == rf["best"], "the best reference family is the one with the best AUC",
+          f"{rf['best']}")
+    check(rf["shippedIsBest"] == (rf["best"] == "zero"),
+          "the shipped-default claim matches the ranking",
+          "all-zero DNA wins" if rf["shippedIsBest"] else f"all-zero DNA loses to {rf['best']}")
+    fams = {r["family"] for r in rf["families"]}
+    check(fams == {"zero", "mono", "dinuc", "biological", "expected"},
+          "all five reference families were run", f"{len(fams)} families")
+    check(all(r["medianCompletenessAbs"] is not None
+              and r["medianCompletenessRelPct"] is not None for r in rf["families"]),
+          "completeness is quoted absolutely AND relatively",
+          "both, so a near-zero target gap cannot masquerade as a large error")
+
+    g = loaded["Grammar"]
+    hs = [r["hessianR"] for r in g["perLocus"] if r["hessianR"] is not None]
+    if hs:
+        check(abs(float(np.median(hs)) - g["hessianCalibration"]["medianR"]) < 5e-4,
+              "Hessian calibration re-derives from perLocus",
+              f"median r {g['hessianCalibration']['medianR']}")
+    # The strongest check in this section: the doubles run recomputes every single-base effect, so
+    # it must reproduce the shipped mutagenesis planes. A drift here means the two arms of the
+    # inclusion-exclusion residual do not share a convention, and the residual is then meaningless.
+    check(g["maxSingleDriftVsShippedPlane"] < 1e-3,
+          "recomputed singles reproduce the shipped ISM planes",
+          f"worst drift {g['maxSingleDriftVsShippedPlane']:.2e}")
+    check(g["pairsTotal"] > 0 and g["loci"] > 0,
+          "the exact double-substitution grid ran", f"{g['pairsTotal']:,} pairs over {g['loci']} loci")
+
+
 def main() -> int:
     import torch
     import onnx
@@ -787,6 +952,9 @@ def main() -> int:
 
     section("3g. the cross-locus biology summary")
     verify_biology_summary()
+
+    section("3i-3k. folds, faithfulness, references and exact grammar")
+    verify_reliability()
 
     if ckpt is None:
         print("\n  no checkpoint given -- sections 4-9 need <ckpt.h5> and were skipped.")

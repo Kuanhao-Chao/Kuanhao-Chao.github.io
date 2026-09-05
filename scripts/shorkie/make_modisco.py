@@ -31,7 +31,7 @@ Needs no model and no GPU: the raw mutagenesis planes are already on disk from `
 Output:
     src/data/shorkieModisco.json     clusters, their PWMs, their JASPAR matches, and the control
 
-Usage:  python3 scripts/shorkie/make_modisco.py [--width 11] [--top 0.995] [--min-seqlets 12]
+Usage:  python3 scripts/shorkie/make_modisco.py [--widths 11,15] [--top 0.995] [--min-seqlets 12]
 """
 
 from __future__ import annotations
@@ -48,6 +48,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).parent))
 
 from make_receptive import dinuc_shuffle                 # noqa: E402
+from make_null_planes import NULL_DIR                    # noqa: E402
 
 SCRATCH = Path(__file__).resolve().parent / "_scratch"
 BASES = "ACGT"
@@ -224,14 +225,24 @@ def null_similarity(blocks: list[np.ndarray], rng: random.Random, pairs: int = 4
     return out
 
 
-def seqlets_only(loci, planes, width, quantile, min_gap, shuffle_rng=None):
-    """Extract seqlets without clustering, so both arms can be pooled before a threshold is set."""
+def seqlets_only(loci, planes, width, quantile, min_gap, shuffle_rng=None, seqs_override=None):
+    """Extract seqlets without clustering, so both arms can be pooled before a threshold is set.
+
+    `shuffle_rng` gives the PROJECTION-ONLY control: the plane stays the one computed on the real
+    window and only the letters move. That arm is retained because it is what the site shipped and
+    because it is still a real stress test of the reference-assignment step -- but it is NOT a
+    model-conditioned null, because the model never ran on the shuffled sequence.
+
+    `seqs_override` is the matched arm: pass planes RECOMPUTED on shuffled input together with the
+    sequences they were computed from, and both arms then estimate the same quantity under two
+    conditions.
+    """
     blocks, origins, seqs = [], [], []
     for L in loci:
         pid = L["id"]
         if pid not in planes:
             continue
-        seq = L["sequence"][:planes[pid].shape[1]]
+        seq = (seqs_override[pid] if seqs_override else L["sequence"])[:planes[pid].shape[1]]
         if shuffle_rng is not None:
             seq = dinuc_shuffle(seq, shuffle_rng)
         for pos, blk, sc, txt in extract_seqlets(planes[pid], seq, width, quantile, min_gap):
@@ -343,9 +354,87 @@ def main() -> int:
                 "examples": sorted((origins[i] for i in g),
                                    key=lambda o: -o["score"])[:6],
             })
+        # ---- the matched, model-conditioned null ------------------------------------------
+        # `make_null_planes.py` recomputes gradient-based contribution planes on the real window
+        # AND on dinucleotide shuffles of it. Both arms below are the same quantity computed the
+        # same way; only the sequence the model saw differs. That is what the projection-only
+        # control above cannot claim.
+        matched = None
+        gp_real, gs_real, gp_null, gs_null = {}, {}, {}, {}
+        for L in loci:
+            pid = L["id"]
+            rp = NULL_DIR / f"{pid}-grad-real.npy"
+            if not rp.exists():
+                continue
+            gp_real[pid] = np.load(rp)
+            gs_real[pid] = L["sequence"]
+            k = 0
+            while (NULL_DIR / f"{pid}-grad-s{k}.npy").exists():
+                key = f"{pid}#s{k}"
+                gp_null[key] = np.load(NULL_DIR / f"{pid}-grad-s{k}.npy")
+                gs_null[key] = (np.load(NULL_DIR / f"{pid}-grad-s{k}.seq.npy")
+                                .tobytes().decode())
+                k += 1
+        if gp_real and gp_null:
+            m_real, _, mrs = seqlets_only(loci, gp_real, width, args.top, args.min_gap,
+                                          seqs_override=gs_real)
+            # EACH SHUFFLE DRAW IS CLUSTERED SEPARATELY, and this is not a detail. Pooling five
+            # draws gives the null arm five times the seqlets, and clustering is superlinear in
+            # pool size: more seqlets means more chances for any group to reach the size threshold.
+            # Dividing the pooled cluster count by the number of draws does NOT correct for that,
+            # and the first version of this comparison reported 11.0 null clusters per draw against
+            # 1 real -- an artefact of a pool five times larger, not a property of the sequence.
+            # Each draw is now its own arm with its own ~1,000 seqlets, matched to the real one.
+            draws = sorted({key.split("#s")[1] for key in gp_null})
+            per_draw = []
+            for k in draws:
+                sel = {key: v for key, v in gp_null.items() if key.endswith(f"#s{k}")}
+                shadow = [{"id": key, "gene": key.split("#")[0]} for key in sel]
+                blocks, _, _ = seqlets_only(shadow, sel, width, args.top, args.min_gap,
+                                            seqs_override=gs_null)
+                per_draw.append(blocks)
+            if len(m_real) >= 3 and all(len(b) >= 3 for b in per_draw) and per_draw:
+                # The threshold comes from the null side, as everywhere else here, using the draw
+                # whose seqlet count is closest to the real arm's.
+                ref_draw = min(per_draw, key=lambda b: abs(len(b) - len(m_real)))
+                m_thr = float(np.quantile(null_similarity(ref_draw, random.Random(7)),
+                                          args.null_quantile))
+                mg = [g for g in cluster(m_real, m_thr) if len(g) >= args.min_seqlets]
+                counts = [len([g for g in cluster(b, m_thr) if len(g) >= args.min_seqlets])
+                          for b in per_draw]
+                sizes = [len(b) for b in per_draw]
+                # Is a zero real-arm count a property of the contributions or of the threshold?
+                # Comparing the two arms' own pairwise-similarity distributions separates them: if
+                # the real arm's median similarity is BELOW the null's, its seqlets genuinely
+                # resemble each other less, and the count is not a thresholding artefact.
+                real_sim = float(np.median(null_similarity(m_real, random.Random(7))))
+                null_sim = float(np.median(null_similarity(ref_draw, random.Random(7))))
+                matched = {
+                    "source": "gradient x input, recomputed per sequence",
+                    "shufflesPerLocus": len(draws),
+                    "clusterThreshold": round(m_thr, 4),
+                    "realMedianSimilarity": round(real_sim, 4),
+                    "nullMedianSimilarity": round(null_sim, 4),
+                    "real": {"seqlets": len(m_real), "clusters": len(mg)},
+                    "null": {"seqletsPerDraw": round(float(np.mean(sizes)), 1),
+                             "clustersPerDraw": round(float(np.mean(counts)), 3),
+                             "clustersPerDrawSd": round(float(np.std(counts, ddof=1)), 3)
+                             if len(counts) > 1 else 0.0,
+                             "perDraw": counts},
+                    "realBeatsNull": bool(len(mg) > float(np.mean(counts))),
+                }
+                print(f"  matched null (model-conditioned, each draw clustered separately): "
+                      f"real {len(m_real)} seqlets -> {len(mg)} clusters; "
+                      f"{len(draws)} shuffled-input draws of ~{np.mean(sizes):.0f} seqlets -> "
+                      f"{np.mean(counts):.1f} +/- {np.std(counts, ddof=1) if len(counts) > 1 else 0:.1f} "
+                      f"clusters each {counts}")
+        else:
+            print("  matched null: SKIPPED — run make_null_planes.py first")
+
         return {
             "width": width,
             "clusterThreshold": round(thr, 4),
+            "matchedNull": matched,
             "nullMedianSimilarity": round(float(np.median(null)), 4),
             "realMedianSimilarity": round(float(np.median(real_null)), 4),
             "real": {"seqlets": len(real_blocks), "clusters": len(groups),
@@ -367,9 +456,12 @@ def main() -> int:
         "note": ("TF-MoDISco in the small: seqlets pulled from the mutagenesis planes by "
                  "|saliency|, clustered on their mean-centred contribution blocks over both "
                  "strands, and only then matched against JASPAR. The identical pipeline on "
-                 "dinucleotide-shuffled sequence is the control, and it also sets the clustering "
-                 "threshold. Both seqlet widths were declared before the run and both are "
-                 "reported."),
+                 "dinucleotide-shuffled sequence is the PROJECTION control, which moves the "
+                 "letters but leaves the model's own attributions untouched, and it also sets the "
+                 "clustering threshold. `matchedNull` is the stronger arm: contributions "
+                 "recomputed on shuffled INPUT, so both sides are the same quantity and the model "
+                 "actually ran on the null sequence. Both seqlet widths were declared before the "
+                 "run and both are reported."),
         "widths": args.widths,
         "seqletQuantile": args.top,
         "nullQuantile": args.null_quantile,
@@ -384,6 +476,7 @@ def main() -> int:
         "realMedianSimilarity": lead["realMedianSimilarity"],
         "real": lead["real"],
         "control": lead["control"],
+        "matchedNull": lead.get("matchedNull"),
         "clusters": lead["clusters"],
     }
     dest = ROOT / "src" / "data" / "shorkieModisco.json"

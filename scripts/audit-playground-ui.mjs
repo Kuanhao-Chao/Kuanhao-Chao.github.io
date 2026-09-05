@@ -21,7 +21,8 @@
  *   node scripts/audit-playground-ui.mjs --full      # adds one real inference + knockout
  */
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:net';
 import { existsSync, readFileSync } from 'node:fs';
 import process from 'node:process';
@@ -959,17 +960,19 @@ async function auditExplanations(browser, baseURL, scope) {
         navSticky: getComputedStyle(document.querySelector('.vp-nav')).position,
       };
     });
-    // Eight numbered acts and one reference appendix. Asserted by CONTENT rather than by count,
+    // Nine numbered acts and one reference appendix. Asserted by CONTENT rather than by count,
     // because a count says nothing about whether the page still reads as a research plan: define
     // the system -> scope it -> predict -> attribute -> validate -> open the model -> go beyond
-    // first order -> check it against biology outside the model.
-    if (spine.acts.length !== 9) {
-      fail(scope, `${spine.acts.length} act headings, expected 8 acts and a reference`);
+    // first order -> check it against biology outside the model -> ask how much of it to believe.
+    // The last one is the only act whose subject is the page itself, and it belongs last: it
+    // grades everything above it and demotes some of it.
+    if (spine.acts.length !== 10) {
+      fail(scope, `${spine.acts.length} act headings, expected 9 acts and a reference`);
     }
     const spineWants = [
       /system and the question/i, /see at all/i, /predict/i, /bases drove it/i,
       /attribution real/i, /how does it do it/i, /grammar/i, /outside the model/i,
-      /read any of this/i,
+      /should you believe/i, /read any of this/i,
     ];
     spineWants.forEach((re, i) => {
       if (!re.test(spine.acts[i] ?? '')) {
@@ -1659,7 +1662,29 @@ const SKIPPED_ROUTES = ALL_LAB_ROUTES.filter((r) => !built(r));
  * still let 12 through, because it ran only on the playground and the hub and the language-model
  * page are different documents. A per-route check does not protect a subtree.
  */
+/** The SOURCE-level half of the swallowed-space check, run before the browser one.
+ *
+ * The rendered check below walks the DOM for a word butted against an inline TAG. That misses the
+ * other half of the same defect: a newline before a JSX EXPRESSION swallows identically, and
+ * `{nLoci}` on its own line rendered "across the23 windows" and "not a23-window result" on two
+ * shipped pages for an unknown length of time because nothing looked for it. The source form knows
+ * where the expression boundary is, costs milliseconds, and reports a file and line rather than a
+ * fragment of prose. */
+function auditSourceSpacing(scope) {
+  const files = ['shorkie', 'shorkie_lm', 'genome']
+    .map((n) => fileURLToPath(new URL(`../src/pages/shorkie-lab/${n}.astro`, import.meta.url)));
+  const out = spawnSync('python3', [
+    fileURLToPath(new URL('../scripts/check-jsx-spacing.py', import.meta.url)), ...files,
+  ], { encoding: 'utf8' });
+  if (out.error) { console.log(`[playground-ui] ${scope}: python3 unavailable, source check skipped`); return; }
+  if (out.status !== 0) {
+    const lines = (out.stdout || '').trim().split('\n').filter((l) => l.includes(':'));
+    for (const l of lines) fail(scope, `source spacing: ${l.trim()}`);
+  }
+}
+
 async function auditSwallowedSpaces(browser, baseURL, scope) {
+  auditSourceSpacing(scope);
   const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1000 } });
   const page = await context.newPage();
   try {
@@ -1734,6 +1759,69 @@ async function auditSwallowedSpaces(browser, baseURL, scope) {
  * canvas always has -- it draws nothing, it draws the same thing whatever you do to it, or it
  * draws a signed quantity on one side of its own zero rule.
  */
+async function auditReliability(browser, baseURL, scope) {
+  // Act 9 grades the rest of the page, so it is the one act where a silently empty panel would be
+  // worst: a fold ledger that drew nothing reads as "nothing was measured", which is the opposite
+  // of the finding. Both of its canvases must ink, its two tables must have real rows, and the
+  // packs behind them must not be the placeholders act 9 was written against.
+  const page = await browser.newPage();
+  try {
+    await page.goto(`${baseURL}/shorkie-lab/shorkie/`, { waitUntil: 'networkidle' });
+    await page.waitForSelector('[data-shorkie-reliability][data-reliability-ready="1"]', { timeout: 20_000 });
+
+    for (const sel of ['[data-rl-folds]', '[data-rl-grammar]']) {
+      const inked = await page.evaluate((s) => {
+        const c = document.querySelector(s);
+        if (!c) return -1;
+        const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+        let k = 0;
+        for (let i = 3; i < d.length; i += 4) if (d[i] > 8) k += 1;
+        return k / (d.length / 4);
+      }, sel);
+      if (inked < 0) throw new Error(`${scope}: ${sel} is missing`);
+      if (inked < 0.004) throw new Error(`${scope}: ${sel} drew almost nothing (${(inked * 100).toFixed(2)}%)`);
+      if (inked > 0.85) throw new Error(`${scope}: ${sel} is a wash (${(inked * 100).toFixed(1)}%)`);
+    }
+
+    // The two stat lines carry the headline numbers. An empty one means the pack loaded but the
+    // controller never reached the end of its draw.
+    const stats = await page.evaluate(() => [...document.querySelectorAll('[data-rl-folds-stat], [data-rl-grammar-stat]')]
+      .map((e) => e.textContent.trim()));
+    if (stats.length !== 2) throw new Error(`${scope}: expected 2 reliability stat lines, found ${stats.length}`);
+    for (const s of stats) {
+      if (s.length < 40) throw new Error(`${scope}: a reliability stat line is near-empty: "${s}"`);
+    }
+
+    // The scorecard and the reference menu are real tables, and both must carry more rows than the
+    // model methods alone -- the baselines are the whole point of the comparison.
+    const tables = await page.evaluate(() => {
+      const act = document.querySelector('#act-9');
+      return [...(act?.querySelectorAll('table') ?? [])].map((tb) => ({
+        rows: tb.querySelectorAll('tbody tr').length,
+        text: tb.textContent.replace(/\s+/g, ' ').slice(0, 400),
+      }));
+    });
+    if (tables.length !== 2) throw new Error(`${scope}: expected 2 tables in act 9, found ${tables.length}`);
+    if (tables[0].rows < 6) throw new Error(`${scope}: the method scorecard has ${tables[0].rows} rows; the baselines are missing`);
+    if (tables[1].rows !== 5) throw new Error(`${scope}: the reference menu has ${tables[1].rows} rows, expected 5 families`);
+    if (!/baseline/i.test(tables[0].text)) throw new Error(`${scope}: the scorecard does not mark its baselines`);
+
+    // A placeholder pack renders as a wall of zeros. Nothing else on the page would notice.
+    const zeros = await page.evaluate(() => {
+      const act = document.querySelector('#act-9');
+      const cells = [...(act?.querySelectorAll('tbody td') ?? [])].map((c) => c.textContent.trim());
+      const num = cells.filter((c) => /^-?\d+\.\d+$/.test(c));
+      return { num: num.length, zero: num.filter((c) => Number(c) === 0).length };
+    });
+    if (zeros.num < 10) throw new Error(`${scope}: act 9 tables carry only ${zeros.num} numbers`);
+    if (zeros.zero > zeros.num * 0.5) {
+      throw new Error(`${scope}: ${zeros.zero}/${zeros.num} act-9 table numbers are exactly zero — a placeholder pack is shipping`);
+    }
+  } finally {
+    await page.close();
+  }
+}
+
 async function auditConstructive(browser, baseURL, scope) {
   const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1400 } });
   const page = await context.newPage();
@@ -3355,6 +3443,8 @@ async function main() {
           await captureFailure('chromium/interpretation', () => auditInterpretation(browser, baseURL, 'chromium/interpretation'));
           progress('chromium/constructive (receptive field, sufficiency, spacing)');
           await captureFailure('chromium/constructive', () => auditConstructive(browser, baseURL, 'chromium/constructive'));
+          progress('chromium/reliability (act 9: folds, scorecard, references, grammar)');
+          await captureFailure('chromium/reliability', () => auditReliability(browser, baseURL, 'chromium/reliability'));
           progress('chromium/volume');
           await captureFailure('chromium/volume', () => auditVolume(browser, baseURL, 'chromium/volume'));
           await captureFailure('chromium/volume-still', () => auditVolumeStill(browser, baseURL, 'chromium/volume-still'));

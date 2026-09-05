@@ -1,10 +1,20 @@
 """
-What does each of the eight attention heads look at?
+Where does each attention LAYER place its mass?
 
-The transformer at Shorkie's bottleneck has 8 heads over 128 positions, and every locus pack
-already ships their full [8 x 128 x 128] maps -- so this asks a mechanistic question with no
-forward passes at all. For each head, how much of its attention lands on each class of curated
-annotation, against a null that destroys only the alignment.
+The transformer at Shorkie's bottleneck has 8 layers of 4 heads over 128 positions -- 32 heads.
+What every locus pack ships is NOT those: `build_onnx.py:123` is
+`attention = acts["attention"].mean(dim=2)`, so the [8 x 128 x 128] pack is eight layers with
+their four heads already averaged away. This file was called `make_layers.py` and its output keys
+said `heads`, which is how a panel came to make a head-specialisation claim from data that has no
+heads in it.
+
+So: for each LAYER, how much of its attention mass lands on each class of curated annotation,
+against a null that destroys only the alignment. No forward passes at all.
+
+A layer reading flat here can still hold one specialised head and three that cancel it, so "no
+specialisation" is not a conclusion this pack can support. Recovering the heads needs a newly
+instrumented run against the raw checkpoint -- not the live browser route, which consumes the
+same collapsed export.
 
 Three things decide whether the answer means anything:
 
@@ -23,9 +33,9 @@ Three things decide whether the answer means anything:
 The binding-site tiers stay separate for the same reason they do everywhere else here:
 ChIP-supported, conserved-only and PWM-scan are three different strengths of claim.
 
-Output: src/data/shorkieHeads.json
+Output: src/data/shorkieLayers.json
 
-Usage:  python3 scripts/shorkie/make_heads.py [--shifts 256]
+Usage:  python3 scripts/shorkie/make_layers.py [--shifts 256]
 """
 
 from __future__ import annotations
@@ -42,7 +52,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).parent))
 
 SEQ_LEN = 16384
-N_HEADS = 8
+N_LAYERS = 8
 N_POS = 128
 POS_BP = SEQ_LEN // N_POS          # 128 bp a bottleneck position
 
@@ -55,7 +65,7 @@ def tier(f: dict) -> str:
 
 
 def load_attention(locus_id: str) -> np.ndarray | None:
-    """[8 x 128 x 128], rows already normalised by the model's own softmax."""
+    """[8 layers x 128 x 128], four heads already averaged, rows softmax-normalised."""
     side = ROOT / "public" / "vp-data" / f"{locus_id}.json"
     png = ROOT / "public" / "vp-data" / f"{locus_id}-attn.png"
     if not side.exists() or not png.exists():
@@ -67,7 +77,7 @@ def load_attention(locus_id: str) -> np.ndarray | None:
     lo = np.array(spec["lo"], dtype=np.float64)[:, None]
     hi = np.array(spec["hi"], dtype=np.float64)[:, None]
     v = q / 255.0 * np.maximum(hi - lo, 1e-9) + lo
-    return v.reshape(N_HEADS, N_POS, N_POS)
+    return v.reshape(N_LAYERS, N_POS, N_POS)
 
 
 def main() -> int:
@@ -108,17 +118,17 @@ def main() -> int:
             pooled = m.reshape(N_POS, POS_BP).mean(axis=1)          # MEAN, never max
             cover.setdefault(cls, []).append(float(pooled.mean()))
             o = att @ pooled                                        # [heads x queries]
-            obs.setdefault(cls, np.zeros(N_HEADS))
+            obs.setdefault(cls, np.zeros(N_LAYERS))
             obs[cls] += o.mean(axis=1)
             # The null: the same profile, rotated. Deterministic offsets, evenly spaced, zero
             # excluded, so a published ratio is reproducible.
-            acc = np.zeros(N_HEADS)
+            acc = np.zeros(N_LAYERS)
             for k in range(1, args.shifts + 1):
                 s = (k * N_POS) // (args.shifts + 1)
                 if s == 0:
                     s = k % N_POS or 1
                 acc += (att @ np.roll(pooled, s)).mean(axis=1)
-            nul.setdefault(cls, np.zeros(N_HEADS))
+            nul.setdefault(cls, np.zeros(N_LAYERS))
             nul[cls] += acc / args.shifts
 
     if not used:
@@ -137,29 +147,29 @@ def main() -> int:
             # wrong -- it is most of the way to the maximum the geometry allows. Same trap
             # as phastCons saturating inside CDS.
             "ceiling": round(1.0 / cov, 2) if cov > 0 else None,
-            "byHead": [round(float(v), 4) for v in enr],
+            "byLayer": [round(float(v), 4) for v in enr],
             "best": int(np.argmax(enr)), "bestEnrichment": round(float(np.max(enr)), 4),
             "spread": round(float(np.max(enr) / max(np.min(enr), 1e-12)), 3),
         })
 
-    print(f"  {used} windows, {N_HEADS} heads, {args.shifts} circular shifts\n")
-    print(f"  {'class':<18}{'cover':>7}  " + "".join(f"h{h}".rjust(7) for h in range(N_HEADS))
+    print(f"  {used} windows, {N_LAYERS} layers (4 heads averaged within each), {args.shifts} circular shifts\n")
+    print(f"  {'class':<18}{'cover':>7}  " + "".join(f"L{h}".rjust(7) for h in range(N_LAYERS))
           + "   best")
     for r in rows:
         print(f"  {r['cls']:<18}{r['meanCoverage']:>7.3f}  "
-              + "".join(f"{v:>7.2f}" for v in r["byHead"])
+              + "".join(f"{v:>7.2f}" for v in r["byLayer"])
               + f"   h{r['best']} at {r['bestEnrichment']:.2f}x"
               + (f" of {r['ceiling']:.2f}x possible" if r["ceiling"] and r["ceiling"] < 3 else ""))
 
     spread = max(r["spread"] for r in rows)
-    (ROOT / "src" / "data" / "shorkieHeads.json").write_text(json.dumps({
-        "note": "Attention mass each head places on each annotation class, against a circular-shift "
-                "null. 1.0 means the head reads that class no more than its share of the sequence. "
+    (ROOT / "src" / "data" / "shorkieLayers.json").write_text(json.dumps({
+        "note": "Attention mass each transformer LAYER places on each annotation class, with its four heads averaged before export, against a circular-shift "
+                "null. 1.0 means the layer places no more mass on that class than its share of the sequence. "
                 "The mask is pooled to the bottleneck's 128 positions by MEAN: a 7 bp site is 5% of "
                 "a 128 bp cell, and a max would mark the whole cell annotated.",
-        "heads": N_HEADS, "positions": N_POS, "positionBp": POS_BP,
+        "layers": N_LAYERS, "positions": N_POS, "positionBp": POS_BP,
         "shifts": args.shifts, "windows": used,
-        "maxSpreadAcrossHeads": round(spread, 3),
+        "maxSpreadAcrossLayers": round(spread, 3),
         "classes": rows,
     }, separators=(",", ":")))
     print(f"\n  widest spread across heads within a class: {spread:.2f}x")
