@@ -491,6 +491,8 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
 }
 .vp-nav__read { font-variant-numeric: tabular-nums; }
 .vp-btn--icon { padding: 0.15rem 0.45rem; line-height: 1.1; }
+/* Used by the gene card, where four controls share a 320px-wide box. */
+.vp-btn--sm { padding: 0.2rem 0.5rem; font-size: 0.85em; }
 
 /* An act is a question the panels beneath it answer. */
 /* An act is a real <section> with a real <h2> now, so the document outline reads
@@ -1003,11 +1005,20 @@ html[data-theme='dark'] .vp {
   box-shadow: 0 4px 14px rgb(0 0 0 / 0.16);
 }
 .gb-motif[hidden] { display: none; }
-.gb-motif__head { display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.35rem; }
+.gb-motif__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem 0.5rem; margin-bottom: 0.35rem; }
+.gb-motif__head .vp-stat { flex: 1 1 100%; order: 3; }
 .gb-motif__head strong { font-size: 1.02em; }
 .gb-motif__head .vp-btn { margin-left: auto; }
 .gb-motif__logo { width: 100%; display: block; }
 .gb-motif__meta { margin: 0.35rem 0 0; font-size: 0.8em; }
+
+/* The gene card's link and action rows. `flex-wrap` because four controls do not fit a 320px
+   card in one line, and a clipped "copy sequence" reads as a different control. */
+.gb-card__links { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.35rem 0 0; }
+.gb-card__links .vp-btn { text-decoration: none; }
+/* The copy confirmation is on the button itself, so it must not resize the row when the label
+   grows from "copy sequence" to "copied 1,102 bp" and shove its neighbour. */
+.gb-card__links .vp-btn[data-gb-copied] { min-width: 0; }
 
 /* One block per track in the reference section. */
 .gb-ref { margin: 0.9rem 0; padding-left: 0.7rem; border-left: 2px solid var(--color-rule); }

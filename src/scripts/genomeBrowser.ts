@@ -1498,7 +1498,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     // Three decimals, not one: this hook exists so a gate can assert the strip is to scale, and on
     // a phone chrM is 1.6 px -- rounding it to 0.1 px is a 3% error in a ratio the layout computes
     // exactly, which would make the gate fail on its own rounding.
-    ideoCanvas.dataset.gbIdeo = ideoBars.map((b) => `${b.name}:${b.w.toFixed(3)}`).join(',');
+    ideoCanvas.dataset.gbIdeoBars = ideoBars.map((b) => `${b.name}:${b.w.toFixed(3)}`).join(',');
     ideoCanvas.dataset.gbIdeoChrom = view.chrom;
   }
 
@@ -1851,7 +1851,12 @@ export function initGenomeBrowser(host: HTMLElement): void {
         deepLink.title = `${p.gene} (${p.id}) is one of the ${primaries.length} windows analysed `
           + 'base by base: mutagenesis, four attribution methods, motif knockouts and layer traces.';
       }
-      cv.dataset.gbPrimary = p ? p.id : '';
+      // NOT `gbPrimary`: the HOST element carries `data-gb-primary` as the JSON list of the 23
+    // analysed windows, and this canvas is inside it. Sharing the name means any
+    // `host.querySelector('[data-gb-primary]')` resolves to whichever comes first in document
+    // order and hands a bare locus id to something expecting a JSON array. It worked only because
+    // the one reader uses `host.dataset` directly -- the same latent shape as the `gbRoi` shadow.
+    cv.dataset.gbPrimaryHere = p ? p.id : '';
     }
 
     cv.dataset.gbLevel = String(lvl.binBp);
@@ -1863,6 +1868,10 @@ export function initGenomeBrowser(host: HTMLElement): void {
     cv.dataset.gbBoxesSolid = String(solidTally);
     cv.dataset.gbBoxList = boxTally ? JSON.stringify(boxList) : '';
     cv.dataset.gbLanes = JSON.stringify(lanes.map((l) => l.id));
+    // Where each lane actually IS, so a gate can click one rather than guess at a y. `gbLanes`
+    // stays ids-only because other checks parse it as a flat array of strings.
+    cv.dataset.gbLaneBox = JSON.stringify(
+      lanes.map((l) => ({ id: l.id, kind: l.kind, top: Math.round(l.top), h: Math.round(l.height) })));
     cv.dataset.gbScoreTracks = String(scoreTracks().length);
     cv.dataset.gbFeatures = JSON.stringify(featureCounts);
     cv.dataset.gbFeatureMode =
@@ -2697,12 +2706,201 @@ export function initGenomeBrowser(host: HTMLElement): void {
    * The glyphs go through `LOGO_GLYPHS` and the canonical transform, like every other logo on this
    * site: `fillText` with a scaled font size scales width with height and stops being a logo.
    */
+  /**
+   * Every base of a range, from the sequence pyramid, awaiting whatever tiles are not cached.
+   *
+   * `sequence()` is view-bound and capped at 20 kb because it exists to draw letters. A gene can
+   * extend past the view -- clicking one at 200 kb zoom is the normal case -- so copying its
+   * sequence has to read the range itself. Yeast's longest ORF is under 15 kb and a tile is 65,536
+   * bases, so this is one or two tiles that are usually already cached.
+   */
+  async function sequenceRange(chrom: string, start: number, end: number): Promise<string | null> {
+    const tileBins = index?.tileBins ?? 65536;
+    const span = end - start;
+    if (span <= 0 || span > 200000) return null;
+    const letters = ['A', 'C', 'G', 'T'];
+    const out = new Array<string>(span).fill('N');
+    let any = false;
+    for (const ti of tilesCovering(start, end, 1, tileBins)) {
+      const key = `${chrom}/seq/${ti}`;
+      // `tile` returns null while a fetch is in flight, which is right for a paint and wrong here.
+      const got = tile(key) ?? await (inflight.get(key) ?? Promise.resolve(null));
+      if (!got) continue;
+      any = true;
+      const base = tileStartBp(ti, 1, tileBins);
+      for (let i = 0; i < span; i += 1) {
+        const c = start + i - base;
+        if (c < 0 || c >= got.cols) continue;
+        const v = got.data[c];
+        out[i] = v < 4 ? letters[v] : 'N';
+      }
+    }
+    return any ? out.join('') : null;
+  }
+
+  const RC: Record<string, string> = { A: 'T', C: 'G', G: 'C', T: 'A', N: 'N' };
+
+  /**
+   * Copy to the clipboard from a real user gesture, and SAY SO on the button that was pressed.
+   *
+   * A copy that silently succeeds is indistinguishable from one that silently failed, and
+   * `navigator.clipboard` is absent outside a secure context -- so the fallback matters and so does
+   * the confirmation. The button's own label carries it; a toast would be a second mechanism for
+   * one message.
+   */
+  async function copyToClipboard(text: string, btn: HTMLButtonElement, what: string): Promise<void> {
+    const was = btn.textContent ?? '';
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    } catch {
+      // execCommand is deprecated and is the only thing that works without a secure context.
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none';
+      document.body.appendChild(ta);
+      ta.select();
+      try { ok = document.execCommand('copy'); } catch { ok = false; }
+      ta.remove();
+    }
+    btn.textContent = ok ? `copied ${what}` : 'copy failed';
+    btn.dataset.gbCopied = ok ? '1' : '0';
+    window.setTimeout(() => { btn.textContent = was; delete btn.dataset.gbCopied; }, 1800);
+  }
+
+  /**
+   * What is known about a gene, and the two places that know more.
+   *
+   * It shares the one card slot with the motif popup deliberately: they occupy the same position,
+   * and two cards that can both be open would overlap. `data-gb-card` says which is showing.
+   *
+   * The coordinates are the CDS, and the card says so, because `genes.json` and `search.json`
+   * carry DIFFERENT spans for the same gene and the field names invite reading one as the other.
+   * `txStart`/`txEnd` here are the CDS extent (`add_loci.py` derives them that way); the SGD gene
+   * record, which includes UTRs and is what the search box frames, is in the search index. For
+   * TDH3 that is 999 bp against 2,749 -- so a card labelling the CDS "the gene record" would be a
+   * wrong sentence around a right number, which no test that checks the number can see.
+   */
+  function showGene(f: GeneTrackFeature & { gene?: string }): void {
+    const box = $('[data-gb-motif]');
+    if (!box) return;
+    box.textContent = '';
+    box.removeAttribute('hidden');
+    box.dataset.gbCard = 'gene';
+    box.dataset.gbGeneFor = f.name;
+    delete box.dataset.gbMotifFor;
+
+    const common = f.gene && f.gene !== f.name ? f.gene : null;
+    const span = f.txEnd - f.txStart;
+    const introns = Math.max(0, (f.exons?.length ?? 1) - 1);
+    const locus = `${view.chrom}:${(f.txStart + 1).toLocaleString()}–${f.txEnd.toLocaleString()}`;
+
+    const head = document.createElement('div');
+    head.className = 'gb-motif__head';
+    const title = document.createElement('strong');
+    title.textContent = common ? `${common} (${f.name})` : f.name;
+    const sub = document.createElement('span');
+    sub.className = 'vp-stat';
+    sub.textContent = `${locus} · ${f.strand === '-' ? '−' : '+'} · ${span.toLocaleString()} bp`
+      + ` · ${f.exons?.length ?? 1} exon${(f.exons?.length ?? 1) === 1 ? '' : 's'}`
+      + (introns ? `, ${introns} intron${introns === 1 ? '' : 's'}` : '');
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'vp-btn vp-btn--icon';
+    close.setAttribute('aria-label', 'Close');
+    close.textContent = '×';
+    close.addEventListener('click', () => { box.setAttribute('hidden', ''); });
+    head.append(title, sub, close);
+    box.appendChild(head);
+
+    const cdsNote = document.createElement('p');
+    cdsNote.className = 'vp-notes';
+    cdsNote.style.margin = '0.3rem 0 0.45rem';
+    // The SGD gene record, from the search index -- a different and usually longer span than the
+    // CDS above it, because it carries the UTRs and any isoform that extends past the coding
+    // sequence. Both are shown because the search box frames the record while this lane draws the
+    // CDS, and a reader comparing the two would otherwise find them silently disagreeing.
+    const rec = searchIndex?.genes.find((g) => g[0] === f.name);
+    cdsNote.textContent = 'Coordinates above are the CODING span.'
+      + (rec && (rec[2] !== f.txStart || rec[3] !== f.txEnd)
+        ? ` SGD's gene record runs ${(rec[2] + 1).toLocaleString()}–${rec[3].toLocaleString()}`
+          + ` (${(rec[3] - rec[2]).toLocaleString()} bp), which is what a search for this gene`
+          + ' frames: it includes the UTRs.'
+        : '');
+    box.appendChild(cdsNote);
+
+    const links = document.createElement('div');
+    links.className = 'gb-card__links';
+    // The systematic id is what both databases key on; a common name resolves at SGD and not at
+    // UCSC, so using it would give one working link and one that lands on a search page.
+    for (const [label, href] of [
+      ['SGD', `https://www.yeastgenome.org/locus/${encodeURIComponent(f.name)}`],
+      ['UCSC', 'https://genome.ucsc.edu/cgi-bin/hgTracks?db=sacCer3&position='
+        + encodeURIComponent(`${view.chrom}:${f.txStart + 1}-${f.txEnd}`)],
+    ] as const) {
+      const a = document.createElement('a');
+      a.className = 'vp-btn vp-btn--sm';
+      a.href = href;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.textContent = label;
+      links.appendChild(a);
+    }
+    box.appendChild(links);
+
+    const acts = document.createElement('div');
+    acts.className = 'gb-card__links';
+    const region = document.createElement('button');
+    region.type = 'button';
+    region.className = 'vp-btn vp-btn--sm';
+    region.dataset.gbCopyRegion = '';
+    region.textContent = 'copy region';
+    region.addEventListener('click', () => {
+      void copyToClipboard(`${view.chrom}:${f.txStart + 1}-${f.txEnd}`, region, 'region');
+    });
+    const seqBtn = document.createElement('button');
+    seqBtn.type = 'button';
+    seqBtn.className = 'vp-btn vp-btn--sm';
+    seqBtn.dataset.gbCopySeq = '';
+    seqBtn.textContent = 'copy sequence';
+    seqBtn.addEventListener('click', () => {
+      void (async () => {
+        const seq = await sequenceRange(view.chrom, f.txStart, f.txEnd);
+        if (!seq) { seqBtn.textContent = 'sequence unavailable'; return; }
+        // On the minus strand a gene READS the other way, so copying the plus strand under a
+        // header naming a minus-strand gene hands over the reverse complement of what was asked
+        // for -- silently, since both are valid DNA.
+        const out = f.strand === '-'
+          ? seq.split('').reverse().map((c) => RC[c] ?? 'N').join('')
+          : seq;
+        const name = common ? `${common} ${f.name}` : f.name;
+        await copyToClipboard(
+          `>${name} ${view.chrom}:${f.txStart + 1}-${f.txEnd} ${f.strand} ${span} bp\n`
+            + (out.match(/.{1,60}/g) ?? []).join('\n') + '\n',
+          seqBtn, `${span.toLocaleString()} bp`);
+      })();
+    });
+    acts.append(region, seqBtn);
+    box.appendChild(acts);
+
+    const strandNote = document.createElement('p');
+    strandNote.className = 'vp-notes';
+    strandNote.style.margin = '0.4rem 0 0';
+    strandNote.textContent = f.strand === '-'
+      ? 'Sequence is copied as FASTA, reverse-complemented to the gene\'s own reading direction.'
+      : 'Sequence is copied as FASTA, plus strand, 60 bases a line.';
+    box.appendChild(strandNote);
+  }
+
   function showMotif(name: string, start: number, end: number): void {
     const box = $('[data-gb-motif]');
     if (!box) return;
     const entry = motifs?.factors[name];
     box.textContent = '';
     box.removeAttribute('hidden');
+    box.dataset.gbCard = 'motif';
+    delete box.dataset.gbGeneFor;
 
     const head = document.createElement('div');
     head.className = 'gb-motif__head';
@@ -3098,6 +3296,16 @@ export function initGenomeBrowser(host: HTMLElement): void {
           const i = items.findIndex((f, k) => bp >= f.start && bp < f.end && rows[k] === row);
           const j = i >= 0 ? i : items.findIndex((f) => bp >= f.start && bp < f.end);
           if (j >= 0) showMotif(items[j].name, items[j].start, items[j].end);
+        } else if (lane?.kind === 'genes') {
+          // The gene lane is the first thing anyone tries to click, and until now it was the only
+          // drawn thing that did nothing. Smallest first, so clicking a short gene nested inside a
+          // long one -- which happens in eight of the shipped windows -- selects the short one; the
+          // large gene remains reachable everywhere it is not overlapped.
+          const bp = bpOfX(e.clientX - rect.left, w);
+          const hits = (genes.get(view.chrom) ?? [])
+            .filter((g) => bp >= g.txStart && bp <= g.txEnd)
+            .sort((p1, p2) => (p1.txEnd - p1.txStart) - (p2.txEnd - p2.txStart));
+          if (hits.length) showGene(hits[0]);
         }
       }
       history = historyPush(history, view);

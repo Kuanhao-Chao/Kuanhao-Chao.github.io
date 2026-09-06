@@ -2030,11 +2030,11 @@ async function auditPanelReachable(page, scope, label) {
 async function auditIdeogram(page, scope, label) {
   const cv = await page.$('[data-gb-ideo]');
   if (!cv) { fail(scope, `${label}: no ideogram canvas`); return; }
-  await page.waitForFunction(() => document.querySelector('[data-gb-ideo]')?.dataset.gbIdeo,
+  await page.waitForFunction(() => document.querySelector('[data-gb-ideo]')?.dataset.gbIdeoBars,
                              null, { timeout: 15000 }).catch(() => {});
 
   const bars = await page.evaluate(() => Object.fromEntries(
-    (document.querySelector('[data-gb-ideo]').dataset.gbIdeo || '').split(',')
+    (document.querySelector('[data-gb-ideo]').dataset.gbIdeoBars || '').split(',')
       .filter(Boolean).map((s) => { const [n, v] = s.split(':'); return [n, Number(v)]; })));
   const names = Object.keys(bars);
   if (names.length !== 17) fail(scope, `${label}: ideogram laid out ${names.length} chromosomes, want 17`);
@@ -2085,7 +2085,7 @@ async function auditIdeogram(page, scope, label) {
     const w = Math.round(cv.clientWidth);
     const left = w < 380 ? 22 : w < 560 ? 34 : 62;
     const gap = w < 560 ? 2 : 3;
-    const bars = (cv.dataset.gbIdeo || '').split(',').filter(Boolean)
+    const bars = (cv.dataset.gbIdeoBars || '').split(',').filter(Boolean)
       .map((s) => { const [n, v] = s.split(':'); return { n, w: Number(v) }; });
     let x = 0;
     for (const b of bars) { if (b.n === 'chrM') break; x += b.w + gap; }
@@ -2100,8 +2100,109 @@ async function auditIdeogram(page, scope, label) {
   }
 }
 
+/**
+ * The gene card: the gene lane was the first thing anyone tries to click and the only drawn thing
+ * that did nothing.
+ *
+ * The assertion that matters is the LAST one. TDH3 is on the minus strand, so a copy that hands
+ * over the plus strand under a header naming a minus-strand gene is silently wrong -- both are
+ * valid DNA and nothing about the length, the alphabet or the FASTA wrapping would differ. What
+ * separates them is that the gene's own reading direction starts ATG.
+ */
+async function auditGeneCard(page, scope) {
+  await page.fill('[data-gb-locus]', 'TDH3');
+  await page.click('[data-gb-go]');
+  await page.waitForTimeout(1500);
+
+  const pt = await page.evaluate(() => {
+    const cv = document.querySelector('[data-gb-track]');
+    const r = cv.getBoundingClientRect();
+    const g = JSON.parse(cv.dataset.gbLaneBox || '[]').find((l) => l.kind === 'genes');
+    return g ? { x: r.left + r.width / 2, y: r.top + g.top + g.h / 2 } : null;
+  });
+  if (!pt) { fail(scope, 'gene card: no gene lane in data-gb-lane-box'); return; }
+  await page.mouse.click(pt.x, pt.y);
+  await page.waitForTimeout(600);
+
+  const card = await page.evaluate(() => {
+    const b = document.querySelector('[data-gb-motif]');
+    if (!b || b.hasAttribute('hidden')) return null;
+    return {
+      kind: b.dataset.gbCard, gene: b.dataset.gbGeneFor,
+      title: b.querySelector('strong')?.textContent || '',
+      links: [...b.querySelectorAll('.gb-card__links a')]
+        .map((a) => ({ t: a.textContent, href: a.href, rel: a.rel, target: a.target })),
+      text: b.textContent || '',
+    };
+  });
+  if (!card) { fail(scope, 'gene card: clicking a gene opened nothing'); return; }
+  if (card.kind !== 'gene') fail(scope, `gene card: data-gb-card is "${card.kind}"`);
+  if (!/TDH3/.test(card.title) || !/YGR192C/.test(card.title)) {
+    fail(scope, `gene card: titled "${card.title}", want both the common and systematic name`);
+  }
+  // The card must say these coordinates are the CODING span. `genes.json` and `search.json` carry
+  // different spans for the same gene -- 999 bp against 2,749 for TDH3 -- and calling the CDS "the
+  // gene record" is a wrong sentence around a right number, which no numeric check can see.
+  if (!/CODING span/.test(card.text)) {
+    fail(scope, 'gene card: does not say the coordinates are the coding span');
+  }
+  const sgd = card.links.find((l) => l.t === 'SGD');
+  const ucsc = card.links.find((l) => l.t === 'UCSC');
+  if (!sgd || !/yeastgenome\.org\/locus\/Y/.test(sgd.href)) {
+    fail(scope, `gene card: SGD link is "${sgd?.href}" — it must key on the systematic id`);
+  }
+  if (!ucsc || !/genome\.ucsc\.edu.*db=sacCer3.*position=chr/.test(ucsc.href)) {
+    fail(scope, `gene card: UCSC link is "${ucsc?.href}"`);
+  }
+  for (const l of card.links) {
+    if (l.target !== '_blank' || !/noopener/.test(l.rel)) {
+      fail(scope, `gene card: ${l.t} link is target=${l.target} rel="${l.rel}"`);
+    }
+  }
+
+  const clip = await page.evaluate(() => navigator.clipboard?.readText?.() ?? null).catch(() => null);
+  if (clip === null) {
+    progress('  genome: clipboard unavailable in this context, copy checks skipped');
+    return;
+  }
+  await page.click('[data-gb-copy-region]');
+  await page.waitForTimeout(400);
+  const region = await page.evaluate(() => navigator.clipboard.readText());
+  if (!/^chr[IVXM]+:\d+-\d+$/.test(region)) {
+    fail(scope, `gene card: copy region gave "${region}"`);
+  }
+  const confirmed = await page.$eval('[data-gb-copy-region]', (x) => x.textContent || '');
+  if (!/copied/.test(confirmed)) {
+    fail(scope, `gene card: the copy button did not confirm ("${confirmed}") — a silent success `
+      + 'is indistinguishable from a silent failure');
+  }
+
+  await page.click('[data-gb-copy-seq]');
+  await page.waitForTimeout(1600);
+  const fa = await page.evaluate(() => navigator.clipboard.readText());
+  const lines = fa.split('\n');
+  const seq = lines.slice(1).join('');
+  const m = /:(\d+)-(\d+)/.exec(lines[0] || '');
+  if (!lines[0]?.startsWith('>')) fail(scope, `gene card: copy sequence is not FASTA ("${lines[0]}")`);
+  if (!/^[ACGTN]+$/.test(seq)) fail(scope, 'gene card: copied sequence is not DNA');
+  if (m && seq.length !== Number(m[2]) - Number(m[1]) + 1) {
+    fail(scope, `gene card: copied ${seq.length} bp for a ${Number(m[2]) - Number(m[1]) + 1} bp header span`);
+  }
+  if (!seq.startsWith('ATG')) {
+    fail(scope, `gene card: TDH3 is on the MINUS strand and its FASTA starts "${seq.slice(0, 9)}" — `
+      + 'it must be reverse-complemented to the gene\'s own reading direction, which starts ATG');
+  }
+  progress(`  genome/gene card: ${card.title}, ${seq.length} bp copied, starts ${seq.slice(0, 6)}`);
+}
+
 async function auditGenomeBrowser(browser, baseURL, scope) {
-  const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 950 } });
+  const context = await browser.newContext({
+    baseURL,
+    viewport: { width: 1440, height: 950 },
+    // Without these the gene card's copy checks fall into their skip branch and pass by not
+    // running, which is the shape of a check that quietly stops testing anything.
+    permissions: ['clipboard-read', 'clipboard-write'],
+  });
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
@@ -2124,6 +2225,7 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
 
     await auditPanelReachable(page, scope, 'desktop');
     await auditIdeogram(page, scope, 'desktop');
+    await auditGeneCard(page, scope);
     // Back where the rest of the audit expects to start: the ideogram check leaves the view on
     // chrM, and every locus assertion below names its own chromosome but the load-state ones
     // above do not.
