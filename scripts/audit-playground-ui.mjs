@@ -2193,6 +2193,10 @@ async function auditGeneCard(page, scope) {
       + 'it must be reverse-complemented to the gene\'s own reading direction, which starts ATG');
   }
   progress(`  genome/gene card: ${card.title}, ${seq.length} bp copied, starts ${seq.slice(0, 6)}`);
+  // The card is 24rem wide and right-aligned over the stage, so leaving it open swallows clicks
+  // meant for the overview strip beneath it.
+  await page.click('[data-gb-motif] .vp-btn--icon').catch(() => {});
+  await page.waitForTimeout(200);
 }
 
 /**
@@ -2244,16 +2248,17 @@ async function auditSequenceSearch(page, scope) {
   const drawn = Number(await page.$eval('[data-gb-track]', (c) => c.dataset.gbSearchDrawn || '0'));
   if (!(drawn > 0)) fail(scope, 'search: the lane drew no hits in a view centred on one');
 
-  const at1 = await page.$eval('[data-gb-readout]', (e) => (e.textContent || '').trim());
+  // On the HIT INDEX, never the readout: `clampView` pins a view to the chromosome, so two hits
+  // inside the first kilobase both render as "chrI:1-2,000" and watching the readout concludes
+  // stepping is broken when it is working.
+  const atIdx = () => page.$eval('[data-genome-browser]', (h) => h.dataset.gbSearchAt);
+  const at1 = await atIdx();
   await page.click('[data-gb-find-next]');
   await page.waitForTimeout(500);
-  const at2 = await page.$eval('[data-gb-readout]', (e) => (e.textContent || '').trim());
-  if (at1 === at2) fail(scope, `search: next did not move (${at1})`);
+  if ((await atIdx()) === at1) fail(scope, `search: next did not move (still hit ${at1})`);
   await page.click('[data-gb-find-prev]');
   await page.waitForTimeout(500);
-  if ((await page.$eval('[data-gb-readout]', (e) => (e.textContent || '').trim())) !== at1) {
-    fail(scope, 'search: prev did not return to the previous hit');
-  }
+  if ((await atIdx()) !== at1) fail(scope, 'search: prev did not return to the previous hit');
 
   await page.fill('[data-gb-find-seq]', 'GGZZ');
   await page.click('[data-gb-find-go]');
@@ -2285,6 +2290,106 @@ async function auditSequenceSearch(page, scope) {
   await page.keyboard.press('Escape');
   await page.selectOption('[data-gb-chrom]', 'chrIV');
   await page.waitForTimeout(600);
+}
+
+/**
+ * Every score track, alone, at three zooms in its own model mode.
+ *
+ * Three things nothing else checks. A lane can be enabled and draw NOTHING -- a 404 pyramid, a
+ * `nativeBp` that divides no level -- and the panel still shows it ticked. A lane can draw at a
+ * level its own ladder does not contain, which is the browser claiming a resolution the model does
+ * not have. And a lane drawn coarser than the view's headline level must SAY so, or the readout's
+ * "per base" covers a 16 bp track.
+ *
+ * The level is read from `data-gb-drawn-levels`, per track, NOT from `data-gb-level`: that is the
+ * level a per-base track would use, so asserting against it reports every 16 bp track as broken at
+ * base zoom -- which is the browser working correctly.
+ */
+async function auditAllTracks(page, scope, index) {
+  const MODEL_OF = { constraint: 'lm', expression: 'shorkie', attribution: 'shorkie', comparative: 'both' };
+  // chrVII around TDH3, so the window-sparse lanes have data at the tightest zoom.
+  const ZOOMS = [['chr', 'chrVII:1-1090940'], ['100kb', 'chrVII:840000-940000'],
+                 ['2kb', 'chrVII:882800-884800']];
+  let empty = 0;
+  for (const tr of index.tracks) {
+    const model = MODEL_OF[tr.group] ?? 'both';
+    const own = (tr.levels || []).map((l) => l.binBp);
+    let anyInk = false;
+    for (const [label, locus] of ZOOMS) {
+      await page.evaluate((h) => { window.location.hash = h; }, `${locus};t=${tr.id};m=${model}`);
+      await page.waitForTimeout(700);
+      const r = await page.evaluate((id) => {
+        const cv = document.querySelector('[data-gb-track]');
+        const lane = JSON.parse(cv.dataset.gbLaneBox || '[]').find((l) => l.id === id);
+        if (!lane) return { lane: null };
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const c = document.createElement('canvas');
+        c.width = cv.width; c.height = Math.max(1, Math.round(lane.h * dpr));
+        const x = c.getContext('2d');
+        x.drawImage(cv, 0, -Math.round(lane.top * dpr));
+        const d = x.getImageData(0, 0, c.width, c.height).data;
+        let n = 0;
+        for (let i = 3; i < d.length; i += 4) if (d[i] > 8) n += 1;
+        return { lane, ink: n / (c.width * c.height),
+                 level: (JSON.parse(cv.dataset.gbDrawnLevels || '{}'))[id] ?? null,
+                 viewLevel: Number(cv.dataset.gbLevel),
+                 readout: document.querySelector('[data-gb-level-out]')?.textContent || '' };
+      }, tr.id);
+      if (!r.lane) { fail(scope, `tracks: ${tr.id} did not appear as a lane at ${label}`); continue; }
+      if (r.level == null) { fail(scope, `tracks: ${tr.id} published no drawn level at ${label}`); continue; }
+      if (own.length && !own.includes(Number(r.level))) {
+        fail(scope, `tracks: ${tr.id} drew at ${r.level} bp at ${label}, but its ladder is ${own.join('/')}`);
+      }
+      if (Number(r.level) > r.viewLevel && !/floor/i.test(r.readout)) {
+        fail(scope, `tracks: ${tr.id} drew at ${r.level} bp under a "${r.viewLevel} bp" readout `
+          + 'that does not name it as pinned at its floor');
+      }
+      if (r.ink > 0.005) anyInk = true;
+    }
+    // sk-ism is measured in 23 windows and sk-locus has no pyramid at all; both are legitimately
+    // blank outside them, and `auditSparseLane` checks they SAY so rather than drawing zero.
+    if (!anyInk && !/sk-ism|sk-locus/.test(tr.id)) {
+      empty += 1;
+      fail(scope, `tracks: ${tr.id} drew nothing at any of the three zooms`);
+    }
+  }
+  progress(`  genome/tracks: ${index.tracks.length} score tracks x ${ZOOMS.length} zooms`
+    + (empty ? `, ${empty} EMPTY` : ', all draw'));
+}
+
+/**
+ * A gap must mean "not measured" and say why, never "zero".
+ *
+ * The reason is per track and there are at least four of them here -- no alignment, the head crop,
+ * a measurement made only in 23 windows, an effect too small for a ratio. The hover used to report
+ * phastCons's reason for all of them.
+ */
+async function auditSparseLane(page, scope) {
+  const at = async (locus) => {
+    await page.evaluate((h) => { window.location.hash = h; }, `${locus};t=sk-ism;m=shorkie`);
+    await page.waitForTimeout(1400);
+    const box = await page.$eval('[data-gb-track]', (c) => {
+      const r = c.getBoundingClientRect();
+      const lane = JSON.parse(c.dataset.gbLaneBox || '[]').find((l) => l.id === 'sk-ism');
+      return lane ? { x: r.left + r.width / 2, y: r.top + lane.top + lane.h / 2 } : null;
+    });
+    if (!box) return null;
+    await page.mouse.move(box.x, box.y);
+    await page.waitForTimeout(400);
+    return page.$eval('[data-gb-hover]', (e) => (e.textContent || '').trim());
+  };
+  const inside = await at('chrVII:882800-884800');
+  const outside = await at('chrXII:500000-502000');
+  if (!inside || !/ISM\s+-?[\d.]/.test(inside)) {
+    fail(scope, `sparse: sk-ism inside an analysed window reads "${inside}", want a value`);
+  }
+  if (!outside || !/no data/.test(outside)) {
+    fail(scope, `sparse: sk-ism outside every analysed window reads "${outside}", want a no-data reason`);
+  } else if (!/23 analysed windows/.test(outside)) {
+    fail(scope, `sparse: sk-ism's no-data reason is "${outside}" — it must give ITS OWN reason, `
+      + 'not the generic one (phastCons\'s "not aligned" was reported for every track for a round)');
+  }
+  progress(`  genome/sparse: inside "${inside}" · outside "${(outside || '').slice(0, 60)}…"`);
 }
 
 async function auditGenomeBrowser(browser, baseURL, scope) {
@@ -2319,6 +2424,21 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     await auditIdeogram(page, scope, 'desktop');
     await auditGeneCard(page, scope);
     await auditSequenceSearch(page, scope);
+    await auditSparseLane(page, scope);
+    if (FULL) {
+      // 48 tracks x 3 zooms is ~100s of navigation. Cheap enough to run before a release and too
+      // slow for every run, so it lives behind --full alongside the other exhaustive checks.
+      const gIndex = await page.evaluate(
+        () => fetch('/genome-data/index.json').then((r) => r.json()));
+      await auditAllTracks(page, scope, gIndex);
+    }
+    // Back to the default view AND the default track set. A hash with no `t=` deliberately leaves
+    // the track set alone -- which is right for an old link and wrong here: the checks above enable
+    // one lane at a time, and six later checks failed on the leftovers before this named them.
+    await page.evaluate(() => {
+      window.location.hash = 'chrIV:1-200000;t=lm-masked,phastcons,genes,sequence,tfbs_chip;m=both';
+    });
+    await page.waitForTimeout(900);
     // Back where the rest of the audit expects to start: the ideogram check leaves the view on
     // chrM, and every locus assertion below names its own chromosome but the load-state ones
     // above do not.
@@ -2885,8 +3005,12 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
         // The phone is where the to-scale rule is hardest and where the nearest-centre hit test
         // earns its keep: chrM draws at 1.6 px here, so a containment test would make the
         // mitochondrial chromosome unreachable on every phone.
-        await ph.click('[data-gb-panel-toggle]').catch(() => {});
-        await ph.waitForTimeout(300);
+        // CLOSE the drawer rather than toggle it: it covers the stage, and toggling from an
+        // unknown state opens it half the time, which made the chrM click land on the panel.
+        if (await ph.$eval('[data-genome-browser]', (h) => h.dataset.gbPanelOpen === '1')) {
+          await ph.click('[data-gb-panel-toggle]');
+          await ph.waitForTimeout(400);
+        }
         await auditIdeogram(ph, scope, 'phone');
         progress(`  genome/phone: ${taps} taps to letters, pinch `
           + `${beforePinch}->${afterPinch} bp, nav ${layout.navH}px, track top ${layout.trackTop}`);
