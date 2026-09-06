@@ -757,3 +757,71 @@ export const pointDistance = (
 export const pointMidpoint = (
   ax: number, ay: number, bx: number, by: number,
 ): { x: number; y: number } => ({ x: (ax + bx) / 2, y: (ay + by) / 2 });
+
+
+// ------------------------------------------------------------------------------------------------
+// Ideogram
+// ------------------------------------------------------------------------------------------------
+
+export interface IdeogramBar {
+  name: string;
+  /** Left edge, in px from the strip's left inset. */
+  x: number;
+  /** Drawn width, in px. STRICTLY proportional to length -- see the note on `ideogramLayout`. */
+  w: number;
+  length: number;
+  /** Centre, in px. The hit test resolves to the nearest of these. */
+  cx: number;
+}
+
+/**
+ * All 17 chromosomes laid out side by side, STRICTLY to scale.
+ *
+ * The point of a genome-level strip is that chrM really is 5.6% of chrIV, so a minimum bar width --
+ * the obvious fix for "chrM is too small to click" -- would be the same lie as a bar chart drawn
+ * from a non-zero baseline: it distorts the one channel a bar is read by, and the reader has no way
+ * to know which bars were widened. So nothing is widened. Clickability is solved separately, by
+ * `ideogramHit` resolving to the nearest centre rather than requiring a hit inside the bar, which
+ * is the rule the flow canvas on /shorkie-lab/shorkie/ already uses for the same reason.
+ *
+ * `gap` is fixed rather than proportional: it is inter-chromosome whitespace, not sequence, and
+ * scaling it with the bars would make the gaps read as intergenic distance.
+ */
+export function ideogramLayout(
+  chroms: { name: string; length: number }[], width: number, gap = 3,
+): IdeogramBar[] {
+  const ordered = [...chroms].sort((a, b) => chromOrder(a.name, b.name));
+  if (!ordered.length || !(width > 0)) return [];
+  const total = ordered.reduce((s, c) => s + Math.max(0, c.length), 0);
+  if (!(total > 0)) return [];
+  // Gaps come out of the width before anything is scaled, so the bars still sum to exactly the
+  // sequence available to them and the strip cannot overflow its canvas.
+  const g = ordered.length > 1 ? Math.max(0, Math.min(gap, (width * 0.5) / (ordered.length - 1))) : 0;
+  const usable = Math.max(1, width - g * (ordered.length - 1));
+  let x = 0;
+  const out: IdeogramBar[] = [];
+  for (const c of ordered) {
+    const w = (Math.max(0, c.length) / total) * usable;
+    out.push({ name: c.name, x, w, length: c.length, cx: x + w / 2 });
+    x += w + g;
+  }
+  return out;
+}
+
+/**
+ * Which chromosome a click at `px` means: the NEAREST bar centre, never a containment test.
+ *
+ * chrM is 8 px wide on a 1,200 px strip and 2 px on a phone, so requiring the pointer to land
+ * inside the bar makes the smallest chromosomes unreachable -- and, worse, makes a click in a gap
+ * do nothing, which reads as a broken control rather than as a missed target.
+ */
+export function ideogramHit(bars: IdeogramBar[], px: number): string | null {
+  if (!bars.length) return null;
+  let best = bars[0];
+  let bestD = Math.abs(px - best.cx);
+  for (const b of bars) {
+    const d = Math.abs(px - b.cx);
+    if (d < bestD) { best = b; bestD = d; }
+  }
+  return best.name;
+}

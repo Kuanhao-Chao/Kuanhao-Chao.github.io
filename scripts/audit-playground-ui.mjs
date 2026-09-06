@@ -2019,6 +2019,87 @@ async function auditPanelReachable(page, scope, label) {
   if (modes.includes('both')) { await page.click('[data-gb-model="both"]'); await page.waitForTimeout(500); }
 }
 
+/**
+ * The genome-level ideogram: to scale, drawn, and clickable at its smallest chromosome.
+ *
+ * The scale assertion is the one that matters and its tolerance is DERIVED from the hook's own
+ * precision rather than picked: `data-gb-ideo` publishes widths at three decimals, and on a phone
+ * chrM is 1.6 px, where 0.0005 px of rounding is 3e-4 relative. A hardcoded epsilon here would be a
+ * number tuned until it passed.
+ */
+async function auditIdeogram(page, scope, label) {
+  const cv = await page.$('[data-gb-ideo]');
+  if (!cv) { fail(scope, `${label}: no ideogram canvas`); return; }
+  await page.waitForFunction(() => document.querySelector('[data-gb-ideo]')?.dataset.gbIdeo,
+                             null, { timeout: 15000 }).catch(() => {});
+
+  const bars = await page.evaluate(() => Object.fromEntries(
+    (document.querySelector('[data-gb-ideo]').dataset.gbIdeo || '').split(',')
+      .filter(Boolean).map((s) => { const [n, v] = s.split(':'); return [n, Number(v)]; })));
+  const names = Object.keys(bars);
+  if (names.length !== 17) fail(scope, `${label}: ideogram laid out ${names.length} chromosomes, want 17`);
+  if (names[0] !== 'chrI' || names[16] !== 'chrM') {
+    fail(scope, `${label}: ideogram order is ${names[0]}..${names[16]}, want chrI..chrM`);
+  }
+  if (bars.chrM && bars.chrIV) {
+    // STRICTLY to scale: a minimum bar width would distort the one channel a bar is read by, and
+    // would be invisible to every other check here.
+    const want = 85779 / 1531933;
+    const got = bars.chrM / bars.chrIV;
+    const tol = want * (0.0005 / bars.chrM + 0.0005 / bars.chrIV) * 1.5;
+    if (Math.abs(got - want) > tol) {
+      fail(scope, `${label}: ideogram is not to scale — chrM/chrIV = ${got.toFixed(6)}, `
+        + `want ${want.toFixed(6)} (a minimum bar width would look exactly like this)`);
+    }
+  }
+
+  const geom = await page.evaluate(() => {
+    const c = document.querySelector('[data-gb-ideo]');
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    return { css: Math.round(c.clientWidth), store: Math.round(c.width / dpr), h: c.clientHeight };
+  });
+  if (geom.css !== geom.store) {
+    fail(scope, `${label}: ideogram backing store ${geom.store} vs box ${geom.css} css px — `
+      + 'every x on the strip is off by that ratio');
+  }
+
+  const ink = await page.evaluate(() => {
+    const cv = document.querySelector('[data-gb-ideo]');
+    const c = document.createElement('canvas');
+    c.width = cv.width; c.height = cv.height;
+    const x = c.getContext('2d');
+    x.drawImage(cv, 0, 0);
+    const d = x.getImageData(0, 0, c.width, c.height).data;
+    let n = 0;
+    for (let i = 3; i < d.length; i += 4) if (d[i] > 8) n += 1;
+    return n / (c.width * c.height);
+  });
+  if (!(ink > 0.02)) fail(scope, `${label}: ideogram drew nothing (${(ink * 100).toFixed(1)}% inked)`);
+
+  // Click chrM: the whole reason the hit test resolves to the nearest centre instead of requiring
+  // a hit inside the bar. At 1440 it is 7 px and on a phone 1.6 px.
+  const before = await page.$eval('[data-gb-ideo]', (c) => c.dataset.gbIdeoChrom);
+  const pt = await page.evaluate(() => {
+    const cv = document.querySelector('[data-gb-ideo]');
+    const r = cv.getBoundingClientRect();
+    const w = Math.round(cv.clientWidth);
+    const left = w < 380 ? 22 : w < 560 ? 34 : 62;
+    const gap = w < 560 ? 2 : 3;
+    const bars = (cv.dataset.gbIdeo || '').split(',').filter(Boolean)
+      .map((s) => { const [n, v] = s.split(':'); return { n, w: Number(v) }; });
+    let x = 0;
+    for (const b of bars) { if (b.n === 'chrM') break; x += b.w + gap; }
+    const m = bars[bars.length - 1];
+    return { x: r.left + left + x + m.w / 2, y: r.top + r.height / 2, w: m.w };
+  });
+  await page.mouse.click(pt.x, pt.y);
+  await page.waitForTimeout(600);
+  const after = await page.$eval('[data-gb-ideo]', (c) => c.dataset.gbIdeoChrom);
+  if (after !== 'chrM') {
+    fail(scope, `${label}: clicking the ${pt.w.toFixed(1)}px chrM went ${before} -> ${after}`);
+  }
+}
+
 async function auditGenomeBrowser(browser, baseURL, scope) {
   const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 950 } });
   const page = await context.newPage();
@@ -2042,6 +2123,12 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     await page.waitForTimeout(1200);
 
     await auditPanelReachable(page, scope, 'desktop');
+    await auditIdeogram(page, scope, 'desktop');
+    // Back where the rest of the audit expects to start: the ideogram check leaves the view on
+    // chrM, and every locus assertion below names its own chromosome but the load-state ones
+    // above do not.
+    await page.selectOption('[data-gb-chrom]', 'chrIV').catch(() => {});
+    await page.waitForTimeout(500);
 
     // `document.querySelectorAll` rather than a Playwright selector: the selector engine pierces
     // open shadow roots and would also count the dev toolbar's four headings.
@@ -2599,6 +2686,13 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
         if (clipped.length) {
           fail(scope, `phone: content clipped rather than scrollable — ${clipped.join('; ')}`);
         }
+
+        // The phone is where the to-scale rule is hardest and where the nearest-centre hit test
+        // earns its keep: chrM draws at 1.6 px here, so a containment test would make the
+        // mitochondrial chromosome unreachable on every phone.
+        await ph.click('[data-gb-panel-toggle]').catch(() => {});
+        await ph.waitForTimeout(300);
+        await auditIdeogram(ph, scope, 'phone');
         progress(`  genome/phone: ${taps} taps to letters, pinch `
           + `${beforePinch}->${afterPinch} bp, nav ${layout.navH}px, track top ${layout.trackTop}`);
       } catch (error) {

@@ -8,7 +8,8 @@ import {
   encodeViewState, decodeViewState, chromOrder, romanValue,
   letterMinPx, shouldDrawLetters, pinchZoom, pointDistance, pointMidpoint,
   type Level, type ChromInfo, type LaneSpec, type SearchGene, type View,
-  laneExcluder, nativeLadder, levelsForTrack, axisFraction, axisValue, isSignedAxis, pearson, exportRows, laneOrder,} from './genomeBrowser';
+  laneExcluder, nativeLadder, levelsForTrack, axisFraction, axisValue, isSignedAxis, pearson, exportRows, laneOrder,
+  ideogramLayout, ideogramHit,} from './genomeBrowser';
 
 const LEVELS: Level[] = [
   { level: 0, binBp: 1, rows: 1 },
@@ -1024,5 +1025,118 @@ describe('laneOrder', () => {
     const out = laneOrder(tracks, ORDER, FEATURES);
     expect(new Set(out).size).toBe(out.length);
     for (const t of tracks) expect(out).toContain(t.id);
+  });
+});
+
+// ------------------------------------------------------------------------------------------------
+// Ideogram
+// ------------------------------------------------------------------------------------------------
+
+// The real sacCer3 lengths, so the scale assertions below are about this genome and not a fixture.
+const SAC: { name: string; length: number }[] = [
+  { name: 'chrI', length: 230218 }, { name: 'chrII', length: 813184 },
+  { name: 'chrIII', length: 316620 }, { name: 'chrIV', length: 1531933 },
+  { name: 'chrV', length: 576874 }, { name: 'chrVI', length: 270161 },
+  { name: 'chrVII', length: 1090940 }, { name: 'chrVIII', length: 562643 },
+  { name: 'chrIX', length: 439888 }, { name: 'chrX', length: 745751 },
+  { name: 'chrXI', length: 666816 }, { name: 'chrXII', length: 1078177 },
+  { name: 'chrXIII', length: 924431 }, { name: 'chrXIV', length: 784333 },
+  { name: 'chrXV', length: 1091291 }, { name: 'chrXVI', length: 948066 },
+  { name: 'chrM', length: 85779 },
+];
+
+describe('ideogramLayout', () => {
+  it('orders chrI..chrXVI then chrM, whatever order it is given', () => {
+    const shuffled = [...SAC].reverse();
+    expect(ideogramLayout(shuffled, 1200).map((b) => b.name))
+      .toEqual(['chrI', 'chrII', 'chrIII', 'chrIV', 'chrV', 'chrVI', 'chrVII', 'chrVIII',
+                'chrIX', 'chrX', 'chrXI', 'chrXII', 'chrXIII', 'chrXIV', 'chrXV', 'chrXVI', 'chrM']);
+  });
+
+  // AT EVERY WIDTH, and the narrow ones are the point. A first version of this test checked only
+  // 1200 px, where chrM draws at 7.2 px -- so a 6 px minimum-width floor did not bind and the test
+  // passed against exactly the regression it exists to catch. A floor is added to make small
+  // chromosomes clickable, so it is small, so it only binds on a phone.
+  it.each([1440, 1200, 760, 390, 320, 200])('is STRICTLY to scale at %ipx -- no minimum width', (w) => {
+    const by = Object.fromEntries(ideogramLayout(SAC, w, 3).map((b) => [b.name, b]));
+    // chrM is 5.60% of chrIV, and must draw at 5.60% of chrIV. A minimum-width floor is the same
+    // distortion as a bar chart from a non-zero baseline and is what this layout refuses.
+    expect(by.chrM.w / by.chrIV.w).toBeCloseTo(85779 / 1531933, 6);
+    expect(by.chrI.w / by.chrXV.w).toBeCloseTo(230218 / 1091291, 6);
+    // And the widths must sum to the sequence available, so no bar was quietly padded.
+    const gaps = 3 * (SAC.length - 1);
+    const drawn = ideogramLayout(SAC, w, 3).reduce((s, b) => s + b.w, 0);
+    expect(drawn).toBeCloseTo(Math.max(1, w - Math.min(gaps, w * 0.5)), 6);
+  });
+
+  it('never overflows the width it is given, gaps included', () => {
+    for (const w of [1440, 1200, 760, 390, 320, 120]) {
+      const bars = ideogramLayout(SAC, w, 3);
+      const last = bars[bars.length - 1];
+      expect(last.x + last.w).toBeLessThanOrEqual(w + 1e-9);
+      expect(bars[0].x).toBe(0);
+    }
+  });
+
+  it('keeps the gap fixed rather than proportional, so a gap is not read as distance', () => {
+    const bars = ideogramLayout(SAC, 1200, 3);
+    const gaps = bars.slice(1).map((b, i) => b.x - (bars[i].x + bars[i].w));
+    for (const g of gaps) expect(g).toBeCloseTo(3, 6);
+  });
+
+  it('shrinks the gap rather than the sequence when the strip is tiny', () => {
+    // 16 gaps of 3 px is 48 px, which would leave nothing for the bars at 60 px wide.
+    const bars = ideogramLayout(SAC, 60, 3);
+    const drawn = bars.reduce((s, b) => s + b.w, 0);
+    expect(drawn).toBeGreaterThan(0);
+    expect(bars[bars.length - 1].x + bars[bars.length - 1].w).toBeLessThanOrEqual(60 + 1e-9);
+  });
+
+  it('centres are inside their own bars', () => {
+    for (const b of ideogramLayout(SAC, 1200)) {
+      expect(b.cx).toBeGreaterThanOrEqual(b.x);
+      expect(b.cx).toBeLessThanOrEqual(b.x + b.w);
+    }
+  });
+
+  it('returns nothing for an empty genome or a zero width', () => {
+    expect(ideogramLayout([], 1200)).toEqual([]);
+    expect(ideogramLayout(SAC, 0)).toEqual([]);
+    expect(ideogramLayout([{ name: 'chrI', length: 0 }], 1200)).toEqual([]);
+  });
+
+  it('handles a single chromosome with no gap to distribute', () => {
+    const bars = ideogramLayout([{ name: 'chrI', length: 100 }], 500, 3);
+    expect(bars).toHaveLength(1);
+    expect(bars[0].w).toBeCloseTo(500, 6);
+  });
+});
+
+describe('ideogramHit', () => {
+  const bars = ideogramLayout(SAC, 1200, 3);
+
+  it('resolves every chromosome from a click at its own centre', () => {
+    for (const b of bars) expect(ideogramHit(bars, b.cx)).toBe(b.name);
+  });
+
+  it('reaches chrM, which is 8 px wide and unreachable by containment', () => {
+    const m = bars.find((b) => b.name === 'chrM')!;
+    expect(m.w).toBeLessThan(12);
+    // A click 2 px past chrM's right edge is outside every bar. Nearest-centre still answers.
+    expect(ideogramHit(bars, m.x + m.w + 2)).toBe('chrM');
+  });
+
+  it('never returns null for a click anywhere across the strip', () => {
+    for (let x = -20; x <= 1220; x += 1) expect(ideogramHit(bars, x)).not.toBeNull();
+  });
+
+  it('answers a click in a gap with one of the two chromosomes it separates', () => {
+    const i = bars.findIndex((b) => b.name === 'chrV');
+    const gapX = bars[i].x + bars[i].w + 1.5;
+    expect(['chrV', 'chrVI']).toContain(ideogramHit(bars, gapX));
+  });
+
+  it('returns null only when there is nothing to hit', () => {
+    expect(ideogramHit([], 100)).toBeNull();
   });
 });
