@@ -195,6 +195,11 @@ const breadcrumbLd = buildBreadcrumbLd([
 
         <div class="gb-layout">
           <div class="gb-stage">
+            <!-- All 17 chromosomes, strictly to scale. Yeast has no cytobands, so this is a
+                 POSITION INDICATOR and not a banding figure -- the caption says so, because an
+                 ideogram is a shape a reader arrives already knowing how to misread. -->
+            <canvas class="vp-canvas gb-ideo" data-gb-ideo
+                    aria-label="All 17 chromosomes to scale; click one to jump to it"></canvas>
             <canvas class="vp-canvas gb-mini" data-gb-mini
                     aria-label="Whole-chromosome overview with the current viewport marked"></canvas>
             <canvas class="vp-canvas gb-track" tabindex="0" data-gb-track
@@ -216,11 +221,17 @@ const breadcrumbLd = buildBreadcrumbLd([
 
         <p class="vp-notes gb-caption">
           <span class="gb-caption__short">
-            <strong>Pinch to zoom</strong>, drag to pan, tap the strip to jump, and{' '}
+            <strong>Tap a chromosome</strong> in the top strip to jump to it,{' '}
+            <strong>pinch to zoom</strong>, drag to pan, tap the strip below to jump, and{' '}
             <strong>tracks</strong> to choose what is drawn. Every score lane keeps a fixed axis at
             every zoom unless you press <strong>autoscale</strong>, and prints its own units.
           </span>
-          <span class="gb-caption__full"><strong>Drag the ruler to select a region</strong> (or shift-drag anywhere); drag a track
+          <span class="gb-caption__full"><strong>The top strip is all 17 chromosomes, drawn strictly to scale</strong> — chrM
+          really is 5.6% of chrIV, and nothing is widened to a minimum, because a floor would
+          distort the one channel a bar is read by. It carries <em>no bands</em>: yeast has no
+          Giemsa banding, so this is a position indicator and not an ideogram in the cytogenetic
+          sense. Click anywhere along it to jump — the nearest chromosome answers, so the 8 px chrM
+          is reachable. <strong>Drag the ruler to select a region</strong> (or shift-drag anywhere); drag a track
           to pan, scroll to zoom, click the overview strip to jump. Every score lane keeps a{' '}
           <em>fixed</em> axis at every zoom, so any two positions are read against the same ruler —
           and each lane prints its own range, because {index.tracks[0].units} and a 0–1 posterior

@@ -40,6 +40,7 @@ import {
   levelsForTrack, axisFraction, axisValue, isSignedAxis, pearson, exportRows, laneExcluder,
   xOfBp as xOfBpPure, bpOfX as bpOfXPure, formatLocus, formatSpan, rulerTicks,
   laneLayout, laneOrder, laneAt, brushRegion, featureDensity, searchLocus, chromOrder,
+  ideogramLayout, ideogramHit, type IdeogramBar,
   shouldDrawLetters, pinchZoom, pointDistance, pointMidpoint,
   emptyHistory, historyPush, historyBack, historyForward, canGoBack, canGoForward,
   encodeViewState, decodeViewState,
@@ -106,6 +107,12 @@ const FEATURE_DETAIL_BP = 60_000;
 const PAD_RIGHT = 14;
 const RULER_H = 26;
 const MINIMAP_H = 30;
+/**
+ * Full height of the genome-level ideogram strip. Short on purpose: it is a locator for 17
+ * chromosomes, not a data lane, and giving it a data lane's height invites reading the bar heights
+ * as a quantity when the only quantity encoded is WIDTH.
+ */
+const IDEO_H = 26;
 const GENE_ROW_H = 12;
 const FEATURE_ROW_H = 11;
 /** Rows a feature lane may stack to before it wraps. Enough for a dense promoter, bounded so one
@@ -536,6 +543,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
 
   const trackCanvas = $<HTMLCanvasElement>('[data-gb-track]');
   const miniCanvas = $<HTMLCanvasElement>('[data-gb-mini]');
+  const ideoCanvas = $<HTMLCanvasElement>('[data-gb-ideo]');
   const chromSel = $<HTMLSelectElement>('[data-gb-chrom]');
   const regionSel = $<HTMLSelectElement>('[data-gb-region]');
   const locusInput = $<HTMLInputElement>('[data-gb-locus]');
@@ -1412,6 +1420,87 @@ export function initGenomeBrowser(host: HTMLElement): void {
 
   const xOfBp = (bp: number, width: number) => xOfBpPure(bp, view, width, padLeft(width), PAD_RIGHT);
   const bpOfX = (x: number, width: number) => bpOfXPure(x, view, width, padLeft(width), PAD_RIGHT);
+
+  /** The bars as last laid out, so the pointer handlers hit-test what is actually on screen. */
+  let ideoBars: IdeogramBar[] = [];
+
+  /**
+   * All 17 chromosomes to scale, the current one marked, and the viewport marked inside it.
+   *
+   * Three deliberate restraints. Yeast has NO CYTOBANDS -- there is no Giemsa banding for a 12 Mb
+   * genome -- so this draws no bands, and the caption says it is a position indicator rather than a
+   * banding figure, because an ideogram is a shape readers arrive already knowing how to misread.
+   * Nothing is widened to a minimum (see `ideogramLayout`). And bar HEIGHT is constant: width is
+   * the only channel carrying length, so varying height too would double-encode one quantity and
+   * make the eye read area.
+   */
+  function paintIdeo(): void {
+    if (!ideoCanvas || !index) return;
+    const ctx = fit(ideoCanvas, IDEO_H);
+    if (!ctx) return;
+    const w = Math.max(1, Math.round(ideoCanvas.clientWidth));
+    const left = padLeft(w);
+    const inner = Math.max(1, w - left - PAD_RIGHT);
+    ideoBars = ideogramLayout(index.chroms, inner, w < 560 ? 2 : 3);
+    if (!ideoBars.length) return;
+
+    const ink = css('--color-ink', '#1a1a1a');
+    const muted = css('--color-muted', '#6b7280');
+    const rule = css('--color-rule', '#d8d8d8');
+    const accent = css('--color-accent', '#3d6ea8');
+    const top = 4;
+    const h = 10;
+
+    ctx.font = '9px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    for (const b of ideoBars) {
+      const x = left + b.x;
+      const here = b.name === view.chrom;
+      // A rounded cap is the ideogram convention and costs nothing; below ~4 px the radius would
+      // exceed the half-width and the shape would invert, so a thin chromosome stays a rectangle.
+      ctx.fillStyle = here ? accent : rule;
+      const r = Math.min(h / 2, b.w / 2);
+      if (r > 1) {
+        ctx.beginPath();
+        ctx.roundRect(x, top, Math.max(1, b.w), h, r);
+        ctx.fill();
+      } else {
+        ctx.fillRect(x, top, Math.max(1, b.w), h);
+      }
+      if (here) {
+        // Where in this chromosome the view is. At whole-genome scale a 2 kb view is far under a
+        // pixel, so it is drawn at a minimum of 2 px -- a locator mark, not a measurement, which is
+        // why it sits ON the bar rather than being reported as a width.
+        const info = chromInfo(view.chrom);
+        if (info && info.length > 0) {
+          const vx = x + (view.start / info.length) * b.w;
+          const vw = Math.max(2, ((view.end - view.start) / info.length) * b.w);
+          ctx.fillStyle = ink;
+          ctx.fillRect(Math.min(vx, x + b.w - vw), top - 2, vw, h + 4);
+        }
+      }
+      // Only the labels that FIT: 17 names across a phone is spaghetti, and a clipped "chrXII"
+      // reads as a different chromosome rather than as a truncated one. The current chromosome is
+      // always named, in the readout below if not here.
+      const label = b.name.replace(/^chr/, '');
+      if (ctx.measureText(label).width <= b.w - 1) {
+        ctx.fillStyle = here ? ink : muted;
+        ctx.fillText(label, x + b.w / 2, top + h + 9);
+      }
+    }
+
+    if (left >= 34) {
+      ctx.fillStyle = muted;
+      ctx.textAlign = 'right';
+      ctx.fillText('genome', left - 8, top + h);
+    }
+    // Three decimals, not one: this hook exists so a gate can assert the strip is to scale, and on
+    // a phone chrM is 1.6 px -- rounding it to 0.1 px is a 3% error in a ratio the layout computes
+    // exactly, which would make the gate fail on its own rounding.
+    ideoCanvas.dataset.gbIdeo = ideoBars.map((b) => `${b.name}:${b.w.toFixed(3)}`).join(',');
+    ideoCanvas.dataset.gbIdeoChrom = view.chrom;
+  }
 
   function paintMini(): void {
     const info = chromInfo(view.chrom);
@@ -2759,6 +2848,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     queued = true;
     requestAnimationFrame(() => {
       queued = false;
+      paintIdeo();
       paintMini();
       paintTrack();
     });
@@ -3095,6 +3185,37 @@ export function initGenomeBrowser(host: HTMLElement): void {
   };
   miniCanvas.addEventListener('pointerup', endMini);
   miniCanvas.addEventListener('pointercancel', () => { miniDown = false; miniBrush = null; schedule(); });
+
+  // -------------------------------------------------------------------------------------------
+  // The ideogram: click a chromosome to jump to it
+  // -------------------------------------------------------------------------------------------
+  if (ideoCanvas) {
+    const ideoAt = (clientX: number): string | null => {
+      const r = ideoCanvas.getBoundingClientRect();
+      const w = Math.max(1, Math.round(ideoCanvas.clientWidth));
+      // The bars are laid out in the strip's INNER coordinates, so the gutter comes off first --
+      // reading the raw client offset would shift every hit by padLeft, which at 62 px is more
+      // than three chromosomes wide.
+      return ideogramHit(ideoBars, clientX - r.left - padLeft(w));
+    };
+    ideoCanvas.addEventListener('click', (e) => {
+      const name = ideoAt(e.clientX);
+      const info = name ? chromInfo(name) : null;
+      if (!info) return;
+      // A whole chromosome, which is what clicking a chromosome should mean. Keeping the current
+      // span would land the reader at an arbitrary offset into a sequence they have not seen.
+      setView({ chrom: name!, start: 0, end: info.length });
+    });
+    ideoCanvas.addEventListener('pointermove', (e) => {
+      const name = ideoAt(e.clientX);
+      const info = name ? chromInfo(name) : null;
+      // The label under a bar is suppressed when it does not fit, so on a phone most bars are
+      // unnamed; the hover readout is where that name goes rather than nowhere.
+      ideoCanvas.title = info ? `${name} · ${formatSpan(info.length)}` : '';
+      ideoCanvas.style.cursor = info ? 'pointer' : '';
+    });
+    ideoCanvas.addEventListener('pointerleave', () => { ideoCanvas.title = ''; });
+  }
 
   // -------------------------------------------------------------------------------------------
   // Controls

@@ -604,6 +604,9 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
 .gb-hover { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; min-width: 12ch; text-align: right; }
 
 .gb-mini { width: 100%; display: block; cursor: pointer; }
+/* The genome-level strip. `display: block` matters: an inline canvas gets a baseline gap under it,
+   which on a 26 px element reads as a misaligned strip rather than as line-height. */
+.gb-ideo { width: 100%; display: block; cursor: pointer; }
 /* `grab` rather than `default`: the track is the pan surface, and nothing else says so. */
 .gb-track { width: 100%; display: block; cursor: grab; touch-action: none; }
 .gb-track:focus-visible { outline: 2px solid var(--color-accent, #3d6ea8); outline-offset: 2px; }
