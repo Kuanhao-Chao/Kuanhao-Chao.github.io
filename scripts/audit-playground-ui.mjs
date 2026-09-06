@@ -2397,6 +2397,87 @@ async function auditSparseLane(page, scope) {
   progress(`  genome/sparse: inside "${inside}" · outside "${(outside || '').slice(0, 60)}…"`);
 }
 
+/**
+ * Every letter-mode lane draws its glyphs on the SAME baseline it draws its zero rule.
+ *
+ * This is the check that was missing when the logo shipped misaligned. The glyphs were placed on a
+ * linear `logoRange` over the visible window while the gridlines, the tick labels, the zero rule
+ * and the bar baseline all used the track's symlog axis, whose zero is exactly mid-lane. The two
+ * agree only when the window happens to be symmetric about zero, so the logo sat off its own rule
+ * by however asymmetric the window was, in EITHER direction -- measured before the fix: 15.5 px
+ * ABOVE the rule on chrI and 25.4 px below it on TDH3's promoter. Nothing else could see it: the
+ * lane drew, at the right level, with the right letters, in the right colours.
+ *
+ * A canvas has no elements, so this reads what was painted. Each glyph's transform `f` is its
+ * baseline; the zero rule is the only full-width stroke drawn at globalAlpha 0.55.
+ */
+async function auditLogoBaseline(page, scope) {
+  await page.evaluate(() => {
+    if (window.__gbLogoProbe) return;
+    window.__gbLogoProbe = true;
+    const C = CanvasRenderingContext2D.prototype;
+    window.__gbEv = [];
+    const oFill = C.fill;
+    C.fill = function (...a) {
+      if (a[0] instanceof Path2D) { const m = this.getTransform(); window.__gbEv.push({ t: 'glyph', y: m.f }); }
+      return oFill.apply(this, a);
+    };
+    let lm = null;
+    const oMove = C.moveTo;
+    C.moveTo = function (x, y) { lm = { x, y }; return oMove.apply(this, [x, y]); };
+    const oStroke = C.stroke;
+    C.stroke = function (...a) {
+      if (lm && this.globalAlpha > 0.5 && this.globalAlpha < 0.6) window.__gbEv.push({ t: 'zero', y: lm.y });
+      return oStroke.apply(this, a);
+    };
+  });
+
+  // Three windows, because the sign of the error depends on which extreme dominates the view and a
+  // single locus can be accidentally symmetric.
+  const LOCI = ['chrVII:883700-883820', 'chrIV:1000000-1000120', 'chrI:60000-60120'];
+  const TRACKS = 'lm-masked,sk-gradient,sk-ig,sk-ism';
+  let checked = 0;
+  for (const locus of LOCI) {
+    const [chrom, range] = locus.split(':');
+    const [s, e] = range.split('-').map(Number);
+    await page.evaluate((h) => { window.location.hash = h; }, `${locus};t=${TRACKS};m=both`);
+    await page.waitForTimeout(2200);
+    await page.evaluate(() => { window.__gbEv = []; });
+    // One clean repaint, one base over, so only the final frame is examined.
+    await page.evaluate((h) => { window.location.hash = h; },
+      `${chrom}:${s + 1}-${e + 1};t=${TRACKS};m=both`);
+    await page.waitForTimeout(1800);
+    const { ev, lanes } = await page.evaluate(() => ({
+      ev: window.__gbEv,
+      lanes: JSON.parse(document.querySelector('[data-gb-track]').dataset.gbLaneBox || '[]'),
+    }));
+    for (const l of lanes.filter((x) => x.kind === 'score')) {
+      const lo = l.top - 6;
+      const hi = l.top + l.h + 6;
+      const glyphs = ev.filter((x) => x.t === 'glyph' && x.y >= lo && x.y <= hi);
+      const zeros = ev.filter((x) => x.t === 'zero' && x.y >= lo && x.y <= hi);
+      if (!glyphs.length || !zeros.length) continue;          // not letter mode, or unsigned
+      const bases = [...new Set(glyphs.map((g) => Math.round(g.y * 100) / 100))];
+      if (bases.length !== 1) {
+        fail(scope, `logo: ${l.id} at ${locus} drew ${bases.length} different glyph baselines`);
+        continue;
+      }
+      const d = Math.abs(bases[0] - zeros[0].y);
+      checked += 1;
+      if (d > 1.2) {
+        fail(scope, `logo: ${l.id} at ${locus} draws its letters ${d.toFixed(1)} px from its own `
+          + `zero rule (baseline ${bases[0]}, rule ${zeros[0].y}) — a reader reading a sign off `
+          + 'that logo reads it wrong');
+      }
+    }
+  }
+  if (checked < 4) {
+    fail(scope, `logo: only ${checked} letter-mode lane(s) were checked across 3 loci — the probe `
+      + 'is not reaching the logos it exists to check');
+  }
+  progress(`  genome/logo: ${checked} letter-mode lanes, glyph baseline == zero rule`);
+}
+
 async function auditGenomeBrowser(browser, baseURL, scope) {
   const context = await browser.newContext({
     baseURL,
@@ -2429,6 +2510,7 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     await auditIdeogram(page, scope, 'desktop');
     await auditGeneCard(page, scope);
     await auditSequenceSearch(page, scope);
+    await auditLogoBaseline(page, scope);
     await auditSparseLane(page, scope);
     if (FULL) {
       // 48 tracks x 3 zooms is ~100s of navigation. Cheap enough to run before a release and too
