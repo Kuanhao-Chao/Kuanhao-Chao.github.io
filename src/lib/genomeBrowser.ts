@@ -380,7 +380,7 @@ export function rulerTicks(view: View, target = 8): number[] {
 // ------------------------------------------------------------------------------------------------
 
 /** What a lane draws. The controller switches on this; the layout does not care. */
-export type LaneKind = 'ruler' | 'score' | 'sequence' | 'genes' | 'features';
+export type LaneKind = 'ruler' | 'score' | 'sequence' | 'genes' | 'features' | 'motif';
 
 export interface LaneSpec {
   id: string;
@@ -824,4 +824,128 @@ export function ideogramHit(bars: IdeogramBar[], px: number): string | null {
     if (d < bestD) { best = b; bestD = d; }
   }
   return best.name;
+}
+
+
+// ------------------------------------------------------------------------------------------------
+// Sequence search
+// ------------------------------------------------------------------------------------------------
+
+/**
+ * IUPAC codes as 4-bit masks over A,C,G,T (bit 0 = A, 1 = C, 2 = G, 3 = T).
+ *
+ * A mask rather than a character class because matching then costs one AND per position, and
+ * because the reverse complement of a degenerate code falls out of reversing the bits rather than
+ * needing a second lookup table that could disagree with this one.
+ */
+const IUPAC: Record<string, number> = {
+  A: 0b0001, C: 0b0010, G: 0b0100, T: 0b1000, U: 0b1000,
+  R: 0b0101, Y: 0b1010, S: 0b0110, W: 0b1001, K: 0b1100, M: 0b0011,
+  B: 0b1110, D: 0b1101, H: 0b1011, V: 0b0111, N: 0b1111,
+};
+
+/** Base letters in mask-bit order, so `BASE_BIT[c]` is the bit `c` sets. */
+const BASE_BIT: Record<string, number> = { A: 0b0001, C: 0b0010, G: 0b0100, T: 0b1000 };
+
+/** A pattern to per-position masks, or null if it contains anything that is not IUPAC. */
+export function parseMotif(pattern: string): number[] | null {
+  const p = pattern.trim().toUpperCase().replace(/[\s\-.]/g, '');
+  if (!p) return null;
+  const out: number[] = [];
+  for (const c of p) {
+    const m = IUPAC[c];
+    if (m === undefined) return null;
+    out.push(m);
+  }
+  return out;
+}
+
+/**
+ * The reverse complement of a MASK pattern: reverse the order, and swap A<->T and C<->G within
+ * each mask.
+ *
+ * Done on the masks rather than on the letters because a degenerate code's complement is another
+ * degenerate code (R->Y, K->M, B->V) and a second lookup table for that is a second place to be
+ * wrong. Swapping bits 0<->3 and 1<->2 is the same operation and cannot disagree with `IUPAC`.
+ */
+export function rcMasks(masks: number[]): number[] {
+  const out: number[] = [];
+  for (let i = masks.length - 1; i >= 0; i -= 1) {
+    const m = masks[i];
+    out.push(((m & 0b0001) << 3) | ((m & 0b1000) >> 3) | ((m & 0b0010) << 1) | ((m & 0b0100) >> 1));
+  }
+  return out;
+}
+
+export interface MotifHit {
+  /** 0-based, inclusive. */
+  start: number;
+  /** 0-based, exclusive. */
+  end: number;
+  strand: '+' | '-';
+}
+
+/**
+ * Every position where `masks` matches `seq`, optionally on both strands.
+ *
+ * `seq` is plain ACGT/N text. A base that is not ACGT matches NOTHING, not even N in the pattern:
+ * an unknown base is an absence of information, and reporting a hit over it would be claiming a
+ * match to sequence nobody has. Overlapping hits are all reported -- a tandem repeat genuinely
+ * contains overlapping copies, and reporting only the first would undercount it.
+ *
+ * A palindromic motif matches identically on both strands at the same position. Those are reported
+ * ONCE, as '+', because two entries for one piece of DNA would double every count of a
+ * restriction site -- and most restriction sites are palindromes.
+ */
+export function findMotif(seq: string, masks: number[], bothStrands = true): MotifHit[] {
+  const n = masks.length;
+  const out: MotifHit[] = [];
+  if (!n || seq.length < n) return out;
+  const rc = bothStrands ? rcMasks(masks) : null;
+  const same = rc ? rc.every((m, i) => m === masks[i]) : false;
+  for (let i = 0; i + n <= seq.length; i += 1) {
+    let fwd = true;
+    let rev = rc != null && !same;
+    for (let j = 0; j < n && (fwd || rev); j += 1) {
+      const bit = BASE_BIT[seq[i + j]] ?? 0;
+      if (fwd && !(masks[j] & bit)) fwd = false;
+      if (rev && !(rc![j] & bit)) rev = false;
+    }
+    if (fwd) out.push({ start: i, end: i + n, strand: '+' });
+    else if (rev) out.push({ start: i, end: i + n, strand: '-' });
+  }
+  return out;
+}
+
+/** How many distinct sequences a pattern matches -- the number a reader needs to judge a hit count. */
+export function motifDegeneracy(masks: number[]): number {
+  let n = 1;
+  for (const m of masks) {
+    n *= (m & 1) + ((m >> 1) & 1) + ((m >> 2) & 1) + ((m >> 3) & 1);
+    if (n > 1e12) return Infinity;
+  }
+  return n;
+}
+
+/**
+ * Roughly how many hits a pattern is EXPECTED to have by chance in `bases` of sequence.
+ *
+ * Printed beside the real count, because a hit count alone cannot be judged: 6 bp of exact sequence
+ * occurs ~2,970 times in this genome by chance on two strands, and a reader who does not know that
+ * reads 3,000 hits as a finding. Uses a uniform base composition, which for a 38.1% GC genome is
+ * close enough to set the order of magnitude and is stated rather than hidden.
+ */
+export function expectedHits(masks: number[], bases: number, bothStrands = true): number {
+  let p = 1;
+  for (const m of masks) {
+    p *= ((m & 1) + ((m >> 1) & 1) + ((m >> 2) & 1) + ((m >> 3) & 1)) / 4;
+  }
+  const span = Math.max(0, bases - masks.length + 1);
+  // A SELF-COMPLEMENTARY pattern must not be doubled. Every plus-strand match of a palindrome is
+  // also a minus-strand match AT THE SAME POSITION, and `findMotif` reports it once -- so doubling
+  // would put the expectation at twice the count for exactly the patterns people search most,
+  // since most restriction sites are palindromes. GAATTC in this genome: 2,968 expected, not 5,936.
+  const rc = rcMasks(masks);
+  const palindrome = rc.every((m, i) => m === masks[i]);
+  return p * span * (bothStrands && !palindrome ? 2 : 1);
 }

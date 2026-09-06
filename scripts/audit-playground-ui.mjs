@@ -2195,6 +2195,98 @@ async function auditGeneCard(page, scope) {
   progress(`  genome/gene card: ${card.title}, ${seq.length} bp copied, starts ${seq.slice(0, 6)}`);
 }
 
+/**
+ * Sequence search, against counts computed independently from the sacCer3 FASTA.
+ *
+ * The reference numbers are the point: chrI holds 79 EcoRI sites and 156 GTRAGT matches, and the
+ * genome holds 4,378 EcoRI sites, counted with a Python regex over the reference rather than by
+ * re-running the same matcher this asserts. A check that recomputes the answer the same way agrees
+ * with a mistake in it.
+ *
+ * NOTE the explicit polling. `waitForFunction(...).catch(() => {})` here would turn any error into
+ * "carry on with stale state", and every assertion after it then fails for the wrong reason --
+ * which is exactly how this check spent three rounds blaming the feature for a bad wait.
+ */
+async function auditSequenceSearch(page, scope) {
+  const hasBox = await page.$('[data-gb-find-seq]');
+  if (!hasBox) { fail(scope, 'search: no sequence box'); return; }
+  await page.selectOption('[data-gb-chrom]', 'chrI');
+  await page.waitForTimeout(900);
+
+  const settle = async (wantScope) => {
+    for (let i = 0; i < 60; i += 1) {
+      await page.waitForTimeout(1000);
+      const ok = await page.$eval('[data-genome-browser]', (h, s) =>
+        h.dataset.gbSearchScope === s && !!h.dataset.gbSearchHits, wantScope);
+      if (ok) return true;
+    }
+    return false;
+  };
+  const run = async (pat) => {
+    await page.fill('[data-gb-find-seq]', pat);
+    await page.click('[data-gb-find-go]');
+    await settle('chrom');
+    return Number(await page.$eval('[data-genome-browser]', (h) => h.dataset.gbSearchHits || '-1'));
+  };
+
+  const eco = await run('GAATTC');
+  if (eco !== 79) fail(scope, `search: EcoRI on chrI gave ${eco}, the reference says 79`);
+  const deg = await run('GTRAGT');
+  if (deg !== 156) fail(scope, `search: GTRAGT on chrI gave ${deg}, the reference says 156`);
+
+  const out = await page.$eval('[data-gb-find-out]', (e) => e.textContent || '');
+  if (!/expected by chance/.test(out)) {
+    fail(scope, 'search: no chance expectation beside the count — 3,000 hits of a 6-mer is what '
+      + 'chance predicts, and a count without it reads as a finding');
+  }
+  const lanes = JSON.parse(await page.$eval('[data-gb-track]', (c) => c.dataset.gbLaneBox || '[]'));
+  if (!lanes.some((l) => l.kind === 'motif')) fail(scope, 'search: no search lane appeared');
+  const drawn = Number(await page.$eval('[data-gb-track]', (c) => c.dataset.gbSearchDrawn || '0'));
+  if (!(drawn > 0)) fail(scope, 'search: the lane drew no hits in a view centred on one');
+
+  const at1 = await page.$eval('[data-gb-readout]', (e) => (e.textContent || '').trim());
+  await page.click('[data-gb-find-next]');
+  await page.waitForTimeout(500);
+  const at2 = await page.$eval('[data-gb-readout]', (e) => (e.textContent || '').trim());
+  if (at1 === at2) fail(scope, `search: next did not move (${at1})`);
+  await page.click('[data-gb-find-prev]');
+  await page.waitForTimeout(500);
+  if ((await page.$eval('[data-gb-readout]', (e) => (e.textContent || '').trim())) !== at1) {
+    fail(scope, 'search: prev did not return to the previous hit');
+  }
+
+  await page.fill('[data-gb-find-seq]', 'GGZZ');
+  await page.click('[data-gb-find-go]');
+  await page.waitForTimeout(500);
+  if (await page.$eval('[data-gb-find-seq]', (e) => e.getAttribute('aria-invalid')) !== 'true') {
+    fail(scope, 'search: an invalid pattern was not marked invalid');
+  }
+
+  await page.fill('[data-gb-find-seq]', 'GAATTC');
+  await page.click('[data-gb-find-go]');
+  await settle('chrom');
+  await page.click('[data-gb-find-scope]');
+  if (!(await settle('genome'))) {
+    fail(scope, 'search: the genome-wide scan did not finish in 60s');
+    return;
+  }
+  const gw = Number(await page.$eval('[data-genome-browser]', (h) => h.dataset.gbSearchHits || '-1'));
+  if (gw !== 4378) fail(scope, `search: EcoRI genome-wide gave ${gw}, the reference says 4378`);
+  const c1 = (await page.$eval('[data-gb-readout]', (e) => e.textContent || '')).split(':')[0].trim();
+  for (let i = 0; i < 85; i += 1) await page.click('[data-gb-find-next]');
+  await page.waitForTimeout(600);
+  const c2 = (await page.$eval('[data-gb-readout]', (e) => e.textContent || '')).split(':')[0].trim();
+  if (c1 === c2) fail(scope, `search: stepping past chrI's 79 hits stayed on ${c1}`);
+  progress(`  genome/search: chrI EcoRI ${eco}, GTRAGT ${deg}, genome-wide ${gw}, ${c1} -> ${c2}`);
+
+  // Leave the browser as the rest of the audit expects it.
+  await page.click('[data-gb-find-scope]');
+  await page.fill('[data-gb-find-seq]', '');
+  await page.keyboard.press('Escape');
+  await page.selectOption('[data-gb-chrom]', 'chrIV');
+  await page.waitForTimeout(600);
+}
+
 async function auditGenomeBrowser(browser, baseURL, scope) {
   const context = await browser.newContext({
     baseURL,
@@ -2226,6 +2318,7 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     await auditPanelReachable(page, scope, 'desktop');
     await auditIdeogram(page, scope, 'desktop');
     await auditGeneCard(page, scope);
+    await auditSequenceSearch(page, scope);
     // Back where the rest of the audit expects to start: the ideogram check leaves the view on
     // chrM, and every locus assertion below names its own chromosome but the load-state ones
     // above do not.

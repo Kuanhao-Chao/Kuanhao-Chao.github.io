@@ -9,7 +9,8 @@ import {
   letterMinPx, shouldDrawLetters, pinchZoom, pointDistance, pointMidpoint,
   type Level, type ChromInfo, type LaneSpec, type SearchGene, type View,
   laneExcluder, nativeLadder, levelsForTrack, axisFraction, axisValue, isSignedAxis, pearson, exportRows, laneOrder,
-  ideogramLayout, ideogramHit,} from './genomeBrowser';
+  ideogramLayout, ideogramHit,
+  parseMotif, rcMasks, findMotif, motifDegeneracy, expectedHits,} from './genomeBrowser';
 
 const LEVELS: Level[] = [
   { level: 0, binBp: 1, rows: 1 },
@@ -1138,5 +1139,165 @@ describe('ideogramHit', () => {
 
   it('returns null only when there is nothing to hit', () => {
     expect(ideogramHit([], 100)).toBeNull();
+  });
+});
+
+// ------------------------------------------------------------------------------------------------
+// Sequence search
+// ------------------------------------------------------------------------------------------------
+
+const M = (s: string) => parseMotif(s)!;
+const hits = (seq: string, pat: string, both = true) => findMotif(seq, M(pat), both);
+
+describe('parseMotif', () => {
+  it('accepts all 15 IUPAC codes plus U', () => {
+    for (const c of 'ACGTURYSWKMBDHVN') expect(parseMotif(c)).toHaveLength(1);
+  });
+
+  it('is case-insensitive and ignores spaces, dashes and dots', () => {
+    expect(parseMotif('g gt-a.t')).toEqual(parseMotif('GGTAT'));
+  });
+
+  it('rejects anything that is not IUPAC, rather than silently dropping it', () => {
+    // A dropped character would shift every downstream position and still return hits.
+    for (const bad of ['GGT!AT', 'GGTZ', 'GG*T', 'ACGT?']) expect(parseMotif(bad)).toBeNull();
+  });
+
+  it('rejects an empty pattern', () => {
+    expect(parseMotif('')).toBeNull();
+    expect(parseMotif('   ')).toBeNull();
+  });
+});
+
+describe('rcMasks', () => {
+  it('complements the unambiguous bases', () => {
+    expect(rcMasks(M('ACGT'))).toEqual(M('ACGT'));       // ACGT is its own reverse complement
+    expect(rcMasks(M('AAAA'))).toEqual(M('TTTT'));
+    expect(rcMasks(M('GGTAT'))).toEqual(M('ATACC'));
+  });
+
+  it('complements the DEGENERATE codes, which is where a second lookup table would be wrong', () => {
+    expect(rcMasks(M('R'))).toEqual(M('Y'));
+    expect(rcMasks(M('K'))).toEqual(M('M'));
+    expect(rcMasks(M('B'))).toEqual(M('V'));
+    expect(rcMasks(M('D'))).toEqual(M('H'));
+    expect(rcMasks(M('S'))).toEqual(M('S'));
+    expect(rcMasks(M('W'))).toEqual(M('W'));
+    expect(rcMasks(M('N'))).toEqual(M('N'));
+  });
+
+  it('is an involution: rc(rc(x)) === x, for every code', () => {
+    for (const c of 'ACGTRYSWKMBDHVN') expect(rcMasks(rcMasks(M(c)))).toEqual(M(c));
+  });
+});
+
+describe('findMotif', () => {
+  it('finds an exact match on the plus strand', () => {
+    expect(hits('AAGGTATAA', 'GGTAT')).toEqual([{ start: 2, end: 7, strand: '+' }]);
+  });
+
+  it('finds a match on the minus strand and labels it', () => {
+    // ATACC is the reverse complement of GGTAT.
+    expect(hits('AAATACCAA', 'GGTAT')).toEqual([{ start: 2, end: 7, strand: '-' }]);
+  });
+
+  it('does not search the minus strand when told not to', () => {
+    expect(hits('AAATACCAA', 'GGTAT', false)).toEqual([]);
+  });
+
+  it('reports a PALINDROME once, not twice', () => {
+    // GAATTC (EcoRI) is its own reverse complement. Two entries for one piece of DNA would double
+    // every count of a restriction site, and most restriction sites are palindromes.
+    expect(hits('TTGAATTCTT', 'GAATTC')).toEqual([{ start: 2, end: 8, strand: '+' }]);
+    expect(hits('TTGAATTCTT', 'GAATTC')).toHaveLength(1);
+  });
+
+  it('reports OVERLAPPING hits, because a tandem repeat contains them', () => {
+    expect(hits('AAAAAA', 'AAA', false).map((h) => h.start)).toEqual([0, 1, 2, 3]);
+  });
+
+  it('matches degenerate codes', () => {
+    expect(hits('CACGTG', 'CACGTG', false)).toHaveLength(1);   // Cbf1 E-box
+    expect(hits('AAGGTAAGTT', 'GTRAGT', false).map((h) => h.start)).toEqual([3]);
+    expect(hits('AAGGTGAGTT', 'GTRAGT', false).map((h) => h.start)).toEqual([3]);
+  });
+
+  it('never matches over an N, even when the pattern says N', () => {
+    // An unknown base is an ABSENCE of information; a hit over it claims a match to sequence
+    // nobody has. This is the one place where N-in-pattern and N-in-sequence differ.
+    expect(hits('AANTT', 'NNNNN', false)).toEqual([]);
+    expect(hits('AAGTT', 'NNNNN', false)).toHaveLength(1);
+  });
+
+  it('returns nothing for a pattern longer than the sequence, or an empty pattern', () => {
+    expect(hits('ACGT', 'ACGTACGT')).toEqual([]);
+    expect(findMotif('ACGTACGT', [], true)).toEqual([]);
+  });
+
+  it('finds a hit flush against either end', () => {
+    expect(hits('GGTATAAAA', 'GGTAT', false).map((h) => h.start)).toEqual([0]);
+    expect(hits('AAAAGGTAT', 'GGTAT', false).map((h) => h.start)).toEqual([4]);
+  });
+
+  it('prefers the plus strand when a non-palindrome somehow matches both', () => {
+    // Only reachable through degeneracy: N matches both ways at every position.
+    const h = hits('ACGTA', 'NNNNN');
+    expect(h).toHaveLength(1);
+    expect(h[0].strand).toBe('+');
+  });
+});
+
+describe('motifDegeneracy and expectedHits', () => {
+  it('counts the sequences a pattern matches', () => {
+    expect(motifDegeneracy(M('GAATTC'))).toBe(1);
+    expect(motifDegeneracy(M('GTRAGT'))).toBe(2);
+    expect(motifDegeneracy(M('NNN'))).toBe(64);
+  });
+
+  it('expects ~2,968 chance hits for EcoRI in this genome', () => {
+    // The number a reader needs in order to judge a hit count at all: 3,000 hits of a 6-mer is
+    // exactly what chance predicts, not a finding. 12,157,105 / 4^6 = 2,968.
+    const e = expectedHits(M('GAATTC'), 12157105, true);
+    expect(e).toBeGreaterThan(2900);
+    expect(e).toBeLessThan(3000);
+  });
+
+  it('does NOT double a palindrome for the second strand', () => {
+    // GAATTC is its own reverse complement, so both strands match the same positions and
+    // `findMotif` reports each once. Doubling would put the expectation at twice the count for
+    // exactly the patterns people search most.
+    expect(expectedHits(M('GAATTC'), 1e6, true)).toBeCloseTo(expectedHits(M('GAATTC'), 1e6, false), 6);
+    // GGTACC (KpnI) too, and CACGTG, the E-box the model's own analysis turns up.
+    expect(expectedHits(M('GGTACC'), 1e6, true)).toBeCloseTo(expectedHits(M('GGTACC'), 1e6, false), 6);
+    expect(expectedHits(M('CACGTG'), 1e6, true)).toBeCloseTo(expectedHits(M('CACGTG'), 1e6, false), 6);
+  });
+
+  it('DOES double a non-palindrome, and scales with degeneracy', () => {
+    expect(expectedHits(M('GGTATC'), 1e6, true))
+      .toBeCloseTo(2 * expectedHits(M('GGTATC'), 1e6, false), 6);
+    expect(expectedHits(M('GTRAGT'), 1e6, false))
+      .toBeCloseTo(2 * expectedHits(M('GTGAGT'), 1e6, false), 6);
+  });
+
+  // The check that ties the formula to the matcher: run BOTH on the same random sequence. A
+  // palindrome and a non-palindrome, because the two take different branches and an expectation
+  // that is 2x out on palindromes would pass a non-palindrome test.
+  it.each(['GAATTC', 'GGTATC'])('agrees with a real count on random sequence (%s)', (pat) => {
+    // mulberry32 via Math.imul. The obvious `s * 1103515245` LCG is WRONG in JavaScript: the
+    // product exceeds 2^53 after one step, so it loses integer precision and the sequence stops
+    // being uniform -- measured, it produced 154 EcoRI sites where 98 are expected, which reads
+    // exactly like a bug in the formula being tested.
+    let s = 0x9e3779b9;
+    const rnd = () => {
+      s = (s + 0x6d2b79f5) | 0;
+      let x = Math.imul(s ^ (s >>> 15), 1 | s);
+      x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x;
+      return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+    };
+    const seq = Array.from({ length: 400000 }, () => 'ACGT'[Math.floor(rnd() * 4)]).join('');
+    const got = findMotif(seq, M(pat), true).length;
+    const want = expectedHits(M(pat), seq.length, true);
+    expect(got).toBeGreaterThan(want * 0.7);
+    expect(got).toBeLessThan(want * 1.3);
   });
 });

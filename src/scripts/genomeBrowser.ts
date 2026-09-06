@@ -41,6 +41,7 @@ import {
   xOfBp as xOfBpPure, bpOfX as bpOfXPure, formatLocus, formatSpan, rulerTicks,
   laneLayout, laneOrder, laneAt, brushRegion, featureDensity, searchLocus, chromOrder,
   ideogramLayout, ideogramHit, type IdeogramBar,
+  parseMotif, findMotif, motifDegeneracy, expectedHits, type MotifHit,
   shouldDrawLetters, pinchZoom, pointDistance, pointMidpoint,
   emptyHistory, historyPush, historyBack, historyForward, canGoBack, canGoForward,
   encodeViewState, decodeViewState,
@@ -119,6 +120,8 @@ const FEATURE_ROW_H = 11;
  *  lane cannot push the score tracks off the screen. */
 const FEATURE_MAX_ROWS = 6;
 const SEQ_LANE_H = 16;
+/** The sequence-search lane. One row: hits do not stack, they are all the same motif. */
+const MOTIF_LANE_H = 14;
 const LANE_GAP = 9;
 /** Floor for the control panel's height, so a two-lane view still leaves it usable. */
 const PANEL_MIN_H = 260;
@@ -1663,6 +1666,16 @@ export function initGenomeBrowser(host: HTMLElement): void {
         out.push({ id, kind: 'genes', label: 'genes', height: rows * GENE_ROW_H + 6 });
       }
     }
+    // The search lane is not in `availableLanes()` on purpose: that list drives the track panel,
+    // and a search result is not a dataset a reader turns on. It exists exactly while there are
+    // hits on this chromosome, and sits directly above the genes so a hit can be read against
+    // what it lands in.
+    if (motifHits.some((h) => h.chrom === view.chrom)) {
+      const at = out.findIndex((l) => l.kind === 'genes');
+      const lane: LaneSpec = { id: 'motif', kind: 'motif', label: motifPattern || 'search',
+                               height: MOTIF_LANE_H };
+      if (at >= 0) out.splice(at, 0, lane); else out.push(lane);
+    }
     return out;
   }
 
@@ -1725,6 +1738,10 @@ export function initGenomeBrowser(host: HTMLElement): void {
       accent: css('--color-accent', '#3d6ea8'),
       surface: css('--color-surface', '#ffffff'),
       bg: css('--color-bg', '#ffffff'),
+      // Shared with the binding-site boxes deliberately: a search hit and a curated call are both
+      // "a place in the sequence matching a pattern", and giving them different colours would
+      // imply a distinction the lane does not make.
+      motif: css('--gb-motif', '#d1495b'),
     };
 
     // The region of interest sits BEHIND everything, across the whole stack, so it reads as a
@@ -1741,6 +1758,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     let drawn = 0;
     drawnLevels.clear();
     let geneTally: Record<string, unknown> = {};
+    let motifDrawn = 0;
     let letters = 0;
     // Glyphs drawn by a SCORE lane (an information-content or signed-attribution logo), as opposed
     // to `letters`, which counts only the dedicated sequence lane. Without this the resolution
@@ -1779,6 +1797,14 @@ export function initGenomeBrowser(host: HTMLElement): void {
         featureCounts[lane.id] = drawFeatures(ctx, lane, w, inner, col);
         ctx.restore();
         drawFeatureGutter(ctx, lane, w, col);
+      } else if (lane.kind === 'motif') {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(padLeft(w), lane.boxTop, inner, lane.boxHeight);
+        ctx.clip();
+        motifDrawn = drawMotifLane(ctx, lane, w, inner, col);
+        ctx.restore();
+        drawLaneName(ctx, 'search', w, lane.top + lane.height - 3, col, 9);
       }
     }
 
@@ -1870,6 +1896,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     cv.dataset.gbLanes = JSON.stringify(lanes.map((l) => l.id));
     // Where each lane actually IS, so a gate can click one rather than guess at a y. `gbLanes`
     // stays ids-only because other checks parse it as a flat array of strings.
+    cv.dataset.gbSearchDrawn = String(motifDrawn);
     cv.dataset.gbLaneBox = JSON.stringify(
       lanes.map((l) => ({ id: l.id, kind: l.kind, top: Math.round(l.top), h: Math.round(l.height) })));
     cv.dataset.gbScoreTracks = String(scoreTracks().length);
@@ -2539,6 +2566,46 @@ export function initGenomeBrowser(host: HTMLElement): void {
     drawLaneName(ctx, 'genes', w, lane.top + GENE_ROW_H / 2 + 3, col, 10);
   }
 
+  /**
+   * The sequence-search hits, as marks on their own row.
+   *
+   * A hit is a MOTIF-length box, but at chromosome zoom a 6 bp box is a hundredth of a pixel, so a
+   * minimum width of 2 px applies -- and unlike the ideogram, that is right here: this lane encodes
+   * POSITION, not extent, and a mark that vanishes reports "no hits" where there are 900. The lane
+   * says nothing about size, so widening one cannot be misread as claiming size.
+   *
+   * The current hit is drawn in the accent colour and taller, so stepping through with next/prev
+   * shows which of the marks on screen is the one being visited.
+   */
+  function drawMotifLane(
+    ctx: CanvasRenderingContext2D, lane: Lane, w: number, inner: number,
+    col: Record<string, string>,
+  ): number {
+    const y = lane.top + 2;
+    const h = lane.height - 6;
+    let n = 0;
+    for (let i = 0; i < motifHits.length; i += 1) {
+      const hit = motifHits[i];
+      if (hit.chrom !== view.chrom || hit.end < view.start || hit.start > view.end) continue;
+      const x0 = xOfBp(hit.start, w);
+      const x1 = xOfBp(hit.end, w);
+      const cur = i === motifIdx;
+      ctx.fillStyle = cur ? col.accent : col.motif;
+      ctx.globalAlpha = cur ? 1 : 0.72;
+      ctx.fillRect(x0, cur ? y - 2 : y, Math.max(2, x1 - x0), cur ? h + 4 : h);
+      ctx.globalAlpha = 1;
+      // Strand, once there is room for it to mean anything. Below that the tick would be wider
+      // than the hit and would read as part of the mark.
+      if (x1 - x0 > 9) {
+        ctx.fillStyle = col.bg;
+        const tx = hit.strand === '+' ? x1 - 3 : x0 + 1;
+        ctx.fillRect(tx, y + h / 2 - 0.5, 2, 1);
+      }
+      n += 1;
+    }
+    return n;
+  }
+
   function drawFeatureGutter(
     ctx: CanvasRenderingContext2D, lane: Lane, w: number, col: Record<string, string>,
   ): void {
@@ -2714,10 +2781,16 @@ export function initGenomeBrowser(host: HTMLElement): void {
    * sequence has to read the range itself. Yeast's longest ORF is under 15 kb and a tile is 65,536
    * bases, so this is one or two tiles that are usually already cached.
    */
-  async function sequenceRange(chrom: string, start: number, end: number): Promise<string | null> {
+  async function sequenceRange(
+    chrom: string, start: number, end: number, maxSpan = 200000,
+  ): Promise<string | null> {
     const tileBins = index?.tileBins ?? 65536;
     const span = end - start;
-    if (span <= 0 || span > 200000) return null;
+    // The default cap belongs to the gene-copy path, where 200 kb is already forty times the
+    // longest yeast ORF and a larger request means something has gone wrong. The sequence search
+    // passes a chromosome length -- chrIV is 1.53 Mb -- and silently returning null under the
+    // default is what made every search report zero hits.
+    if (span <= 0 || span > maxSpan) return null;
     const letters = ['A', 'C', 'G', 'T'];
     const out = new Array<string>(span).fill('N');
     let any = false;
@@ -2728,17 +2801,161 @@ export function initGenomeBrowser(host: HTMLElement): void {
       if (!got) continue;
       any = true;
       const base = tileStartBp(ti, 1, tileBins);
-      for (let i = 0; i < span; i += 1) {
-        const c = start + i - base;
-        if (c < 0 || c >= got.cols) continue;
-        const v = got.data[c];
-        out[i] = v < 4 ? letters[v] : 'N';
+      // Walk only the OVERLAP of this tile with the range. Walking the whole span inside each tile
+      // -- which is what `sequence()` does, harmlessly, because it is capped at 20 kb -- makes this
+      // O(span x tiles): genome-wide that is ~134 million iterations for 12 million bases, and it
+      // turned a genome search into something that never finished.
+      const from = Math.max(start, base);
+      const to = Math.min(end, base + got.cols);
+      for (let bp = from; bp < to; bp += 1) {
+        const v = got.data[bp - base];
+        out[bp - start] = v < 4 ? letters[v] : 'N';
       }
     }
     return any ? out.join('') : null;
   }
 
   const RC: Record<string, string> = { A: 'T', C: 'G', G: 'C', T: 'A', N: 'N' };
+
+  // -------------------------------------------------------------------------------------------
+  // Sequence search
+  // -------------------------------------------------------------------------------------------
+  /**
+   * Search results, per chromosome, for the pattern currently in the box.
+   *
+   * It searches the SEQUENCE TILES THIS BROWSER ALREADY SHIPS -- one byte a base, PNG-deflated,
+   * 3.9 MB for the whole genome -- rather than a packed 2-bit copy. A 2-bit pack would be 3.04 MB
+   * raw, so the entire saving is 0.9 MB in exchange for shipping the genome twice and writing a
+   * second decoder; and per chromosome, which is the default, only that chromosome is fetched.
+   */
+  let motifPattern = '';
+  let motifMasks: number[] | null = null;
+  /** Each hit carries its chromosome, so genome scope can step across sequences. */
+  let motifHits: (MotifHit & { chrom: string })[] = [];
+  let motifChrom = '';
+  let motifIdx = -1;
+  let motifScanning = false;
+  let motifGenome = false;
+  let motifScanned = 0;
+
+  function clearMotif(): void {
+    motifPattern = '';
+    motifMasks = null;
+    motifHits = [];
+    motifChrom = '';
+    motifIdx = -1;
+    motifScanned = 0;
+    renderMotifOut();
+    schedule();
+  }
+
+  /**
+   * The search readout, plus two hooks a gate reads.
+   *
+   * The hooks are `gbSearchHits`/`gbSearchScope` and NOT `gbFind*`, which is what they were called
+   * for one round. Writing `gbFindScope` onto the host produces the attribute `data-gb-find-scope`
+   * there, and the host is an ANCESTOR of the button that already carries that name -- so the host
+   * comes first in document order and `querySelector` returns the whole browser container instead
+   * of the control. The listener still bound, because it was attached before the first search
+   * wrote the attribute, so the feature worked by hand while every scripted click landed on the
+   * wrong element and the toggle silently never fired.
+   */
+  function renderMotifOut(): void {
+    const out = $('[data-gb-find-out]');
+    const host2 = host as HTMLElement;
+    if (!out) return;
+    if (motifScanning) {
+      out.textContent = motifGenome ? `searching… ${motifScanned}/17` : 'searching…';
+      host2.dataset.gbSearchHits = '';
+      return;
+    }
+    if (!motifMasks) { out.textContent = ''; host2.dataset.gbSearchHits = ''; return; }
+    const bases = motifGenome
+      ? (index?.chroms ?? []).reduce((s, c) => s + c.length, 0)
+      : chromInfo(motifChrom)?.length ?? 0;
+    const exp = expectedHits(motifMasks, bases, true);
+    const deg = motifDegeneracy(motifMasks);
+    const here = motifHits.filter((h) => h.chrom === view.chrom).length;
+    // The count alone cannot be judged: a 6-mer occurs ~3,000 times in this genome BY CHANCE, and
+    // a reader who does not know that reads 3,000 hits as a finding. The expectation is a uniform
+    // -composition estimate and says so -- real counts run 0.3-1.5x it on yeast's 38.1% GC.
+    out.textContent = `${motifHits.length.toLocaleString()} `
+      + (motifGenome ? `genome-wide (${here.toLocaleString()} on ${view.chrom})` : `on ${motifChrom}`)
+      + (motifIdx >= 0 ? ` · at ${motifIdx + 1}` : '')
+      + ` · ~${Math.round(exp).toLocaleString()} expected by chance`
+      + (deg > 1 ? ` · ${deg} sequences` : '');
+    out.title = 'Expected count assumes uniform base composition; sacCer3 is 38.1% GC, so real '
+      + 'counts run roughly 0.3-1.5x this depending on the pattern.';
+    host2.dataset.gbSearchHits = String(motifHits.length);
+    host2.dataset.gbSearchScope = motifGenome ? 'genome' : 'chrom';
+  }
+
+  async function runMotifSearch(pattern: string): Promise<void> {
+    const box = $<HTMLInputElement>('[data-gb-find-seq]');
+    const masks = parseMotif(pattern);
+    if (!masks) {
+      box?.setAttribute('aria-invalid', 'true');
+      clearMotif();
+      return;
+    }
+    box?.removeAttribute('aria-invalid');
+    motifPattern = pattern;
+    motifMasks = masks;
+    motifChrom = view.chrom;
+    motifScanning = true;
+    motifScanned = 0;
+    motifHits = [];
+    renderMotifOut();
+
+    // In chromosome order, so stepping through genome-wide hits walks the genome rather than
+    // whichever sequence's tiles happened to arrive first.
+    const targets = motifGenome
+      ? [...(index?.chroms ?? [])].sort((x, y) => chromOrder(x.name, y.name)).map((c) => c.name)
+      : [view.chrom];
+    const found: (MotifHit & { chrom: string })[] = [];
+    let done = 0;
+    for (const c of targets) {
+      const len = chromInfo(c)?.length ?? 0;
+      const seq = await sequenceRange(c, 0, len, len);
+      // Per RUN, not shared: two overlapping searches -- which is what toggling scope while one is
+      // in flight produces -- both incremented the shared counter and the progress read "19/17".
+      done += 1;
+      motifScanned = done;
+      if (motifScanning) renderMotifOut();
+      if (!seq) continue;
+      for (const h of findMotif(seq, masks, true)) found.push({ ...h, chrom: c });
+    }
+    motifScanning = false;
+    // The reader may have started another search, or changed chromosome under a chromosome-scoped
+    // one, while the tiles were arriving. Reporting chrIV's hits under a chrII heading is worse
+    // than reporting none.
+    if (motifMasks !== masks || (!motifGenome && motifChrom !== view.chrom)) {
+      renderMotifOut();
+      return;
+    }
+    motifHits = found;
+    motifIdx = -1;
+    renderMotifOut();
+    schedule();
+    if (motifHits.length) gotoMotif(0);
+  }
+
+  function gotoMotif(i: number): void {
+    if (!motifHits.length) return;
+    // Wrap rather than stop: a reader stepping through 900 sites should not have to notice which
+    // end they are at.
+    motifIdx = ((i % motifHits.length) + motifHits.length) % motifHits.length;
+    const h = motifHits[motifIdx];
+    const mid = (h.start + h.end) / 2;
+    // A genome-wide search steps ACROSS chromosomes, so the view's chromosome follows the hit.
+    motifChrom = h.chrom;
+    // Keep the current span if it is already tight enough to see the hit, so stepping does not
+    // fight a zoom the reader chose. 200 bp otherwise -- wide enough for context, tight enough
+    // that the letters are drawn.
+    const span = Math.min(Math.max(view.end - view.start, 60), 2000);
+    setView({ chrom: h.chrom, start: mid - span / 2, end: mid + span / 2 });
+    renderMotifOut();
+  }
 
   /**
    * Copy to the clipboard from a real user gesture, and SAY SO on the button that was pressed.
@@ -3548,6 +3765,35 @@ export function initGenomeBrowser(host: HTMLElement): void {
       const info = chromInfo(chromSel.value);
       if (info) setView({ chrom: chromSel.value, start: 0, end: info.length });
     });
+  }
+
+  // -------------------------------------------------------------------------------------------
+  // Sequence search controls
+  // -------------------------------------------------------------------------------------------
+  {
+    const findBox = $<HTMLInputElement>('[data-gb-find-seq]');
+    const run = () => {
+      const v = (findBox?.value ?? '').trim();
+      if (!v) { clearMotif(); findBox?.removeAttribute('aria-invalid'); return; }
+      void runMotifSearch(v);
+    };
+    findBox?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); run(); }
+      // Escape clears rather than blurs: the lane is a result, and leaving it on screen with an
+      // empty box would make it unclear what is drawn.
+      if (e.key === 'Escape') { findBox.value = ''; clearMotif(); }
+    });
+    $('[data-gb-find-go]')?.addEventListener('click', run);
+    const scopeBtn = $<HTMLButtonElement>('[data-gb-find-scope]');
+    scopeBtn?.addEventListener('click', () => {
+      motifGenome = !motifGenome;
+      scopeBtn.setAttribute('aria-pressed', String(motifGenome));
+      // Re-run rather than reinterpret: the previous result covers a different set of sequences,
+      // and relabelling it would be a claim about sequence that was never searched.
+      if (findBox?.value.trim()) run(); else renderMotifOut();
+    });
+    $('[data-gb-find-prev]')?.addEventListener('click', () => gotoMotif(motifIdx - 1));
+    $('[data-gb-find-next]')?.addEventListener('click', () => gotoMotif(motifIdx + 1));
   }
 
   regionSel?.addEventListener('change', () => {

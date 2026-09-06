@@ -152,6 +152,21 @@ const breadcrumbLd = buildBreadcrumbLd([
             {regions.map((r) => <option value={r.locus}>{r.label}</option>)}
           </select>
         </span>
+        <span class="vp-nav__group" role="group" aria-label="Find a sequence">
+          <label class="vp-nav__label" for="gb-find-seq">SEQUENCE</label>
+          <input class="vp-input gb-find" id="gb-find-seq" data-gb-find-seq
+                 placeholder="GAATTC · GTRAGT" autocomplete="off" spellcheck="false"
+                 title="A DNA pattern, IUPAC codes allowed (R Y S W K M B D H V N). Both strands
+                        are searched; a palindrome is reported once." />
+          <button type="button" class="vp-btn" data-gb-find-go>find</button>
+          <button type="button" class="vp-btn" data-gb-find-scope aria-pressed="false"
+                  title="Search every chromosome instead of this one. Fetches the whole reference
+                         sequence — 3.9 MB, the same tiles this browser already draws from.">genome</button>
+          <button type="button" class="vp-btn vp-btn--icon" data-gb-find-prev
+                  aria-label="Previous hit" title="Previous hit">‹</button>
+          <button type="button" class="vp-btn vp-btn--icon" data-gb-find-next
+                  aria-label="Next hit" title="Next hit">›</button>
+        </span>
         <span class="vp-spacer"></span>
         <span class="vp-nav__group" role="group" aria-label="History">
           <button type="button" class="vp-btn vp-btn--icon" data-gb-back
@@ -189,6 +204,7 @@ const breadcrumbLd = buildBreadcrumbLd([
           <span class="vp-stat" data-gb-level-out></span>
           <span class="vp-stat gb-roi" data-gb-roi></span>
           <span class="vp-stat gb-corr" data-gb-corr></span>
+          <span class="vp-stat gb-find-out" data-gb-find-out></span>
           <span class="vp-spacer"></span>
           <span class="vp-stat gb-hover" data-gb-hover></span>
         </div>
