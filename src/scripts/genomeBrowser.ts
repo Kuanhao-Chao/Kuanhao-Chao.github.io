@@ -47,6 +47,7 @@ import {
   encodeViewState, decodeViewState,
   MIN_VIEW_BP, type Level, type ChromInfo, type View, type LaneSpec, type Lane,
   type SearchIndex, type History,
+  type ScaleSpace,
 } from '../lib/genomeBrowser';
 import trackNamesJson from '../data/shorkieTrackNames.json';
 import { decodePackedRows, trackIndex, TRACK_GROUPS } from '../lib/shorkieModel';
@@ -2174,35 +2175,10 @@ export function initGenomeBrowser(host: HTMLElement): void {
     const h = lane.height - 12;
     const top = lane.top;
     const cols = sample(spec, lvl, inner);
-    // Sampled BEFORE the axis is chosen, because autoscale reads the visible data. `linthresh` is
-    // scaled with the axis so a symlog lane keeps the same shape when it zooms in, rather than
-    // flattening as its range shrinks toward the turnover value.
-    const axis = laneAxis(spec, cols);
-    const lin = (spec.linthresh ?? 1)
-      * (axis === spec.axis ? 1 : Math.max(1e-6, axis[1] / Math.max(spec.axis[1], 1e-12)));
 
-    // A LETTER lane is scaled linearly over the window's own range, where a BAR lane is symlog.
-    // These are not in conflict: a bar exists so two places on the genome compare, and the
-    // quantity is heavy-tailed across a genome, so symlog is right there. Letters are a
-    // within-window reading, and the whole convention of a sequence logo is that height is
-    // PROPORTIONAL to the value -- symlog silently breaks that. `logoRange` is the same +-5% of
-    // peak the paper's own logo uses.
-    const letterRange = () => {
-      const vals: number[] = [];
-      for (const c of cols) if (c.have) vals.push(c.mean);
-      const r = logoRange(vals);
-      return [r.lo, r.hi] as [number, number];
-    };
-    // Everything positional goes through the track's own space, so a gridline, a tick label, a bar
-    // and the tooltip cannot disagree about where a value sits.
-    const fracOf = (v: number) => axisFraction(v, axis, space, lin);
-    const yOf = (v: number) => top + h - fracOf(v) * h;
-    const yOfFrac = (f: number) => top + h - f * h;
-    // Letters for an information-content lane, and now for a SIGNED attribution lane too: an
+    // Letters for an information-content lane, and for a SIGNED attribution lane too: an
     // attribution's whole subject is which BASE is doing the work, and a bar chart of it withholds
-    // exactly that. The signed geometry below assumes the zero rule sits mid-lane, which is what
-    // symlog gives; a signed linear track would need `fracOf(0)` handled the same way but is not
-    // something this browser ships.
+    // exactly that.
     // ...but ONLY where the lane genuinely resolves single bases. Occlusion is signed too, and its
     // bins are 64 bp, so a letter view of it would draw sixty-four identical glyphs in a row --
     // the browser claiming a resolution the measurement does not have, in the one rendering where
@@ -2210,7 +2186,46 @@ export function initGenomeBrowser(host: HTMLElement): void {
     const asLetters = (spec.units === 'bits' || signed) && lvl.binBp === 1;
     const seq = asLetters && shouldDrawLetters(view.end - view.start, inner)
       ? sequence() : null;
+
+    // A LETTER lane is scaled linearly over the window's own range, where a BAR lane is symlog.
+    // These are not in conflict: a bar exists so two places on the genome compare, and the
+    // quantity is heavy-tailed across a genome, so symlog is right there. Letters are a
+    // within-window reading, and the whole convention of a sequence logo is that height is
+    // PROPORTIONAL to the value -- symlog silently breaks that. `logoRange` is the same +-5% of
+    // peak the paper's own logo uses, and it pads min and max SEPARATELY, so the range is
+    // asymmetric about zero unless the data happens to be symmetric.
+    const letterRange = (): [number, number] => {
+      const vals: number[] = [];
+      for (const c of cols) if (c.have) vals.push(c.mean);
+      const r = logoRange(vals);
+      return [r.lo, r.hi];
+    };
     const lAxis: [number, number] | null = seq && signed ? letterRange() : null;
+
+    // ONE vertical mapping for the whole lane, chosen here and used by everything below.
+    //
+    // This is the fix for a real defect and the reason it is written this way. The glyphs used to
+    // be placed on the linear `logoRange` while the gridlines, the tick labels, the zero rule and
+    // the bar baseline all used the track's symlog axis, whose zero is exactly mid-lane. The two
+    // agree only when the visible window happens to be symmetric about zero -- so the logo sat off
+    // its own zero rule by however asymmetric the window was, in EITHER direction: measured, 15.5
+    // px above the rule on one chrI window and 25.4 px below it on TDH3's promoter. A reader
+    // reading a sign off that drawing reads it wrong. `axis` and `axSpace` are now the only two
+    // things a letter lane changes, and everything positional derives from them.
+    const axis = lAxis ?? laneAxis(spec, cols);
+    const axSpace: ScaleSpace = lAxis ? 'linear' : space;
+    // `linthresh` is scaled with the axis so a symlog lane keeps the same shape when it zooms in,
+    // rather than flattening as its range shrinks toward the turnover value. Unused on a linear
+    // letter axis, and deliberately not computed from one -- `axis[1]` there is a window extreme,
+    // not a fraction of the track's range.
+    const lin = lAxis ? 1 : (spec.linthresh ?? 1)
+      * (axis === spec.axis ? 1 : Math.max(1e-6, axis[1] / Math.max(spec.axis[1], 1e-12)));
+
+    // Everything positional goes through that one mapping, so a gridline, a tick label, a bar, a
+    // glyph and the tooltip cannot disagree about where a value sits.
+    const fracOf = (v: number) => axisFraction(v, axis, axSpace, lin);
+    const yOf = (v: number) => top + h - fracOf(v) * h;
+    const yOfFrac = (f: number) => top + h - f * h;
 
     // Gridlines and the axis, per lane: every score lane prints its OWN range and units, because
     // 0-2 bits, a 0-1 posterior and a log coverage axis are not the same ruler and a shared axis
@@ -2233,9 +2248,15 @@ export function initGenomeBrowser(host: HTMLElement): void {
     const label = (v: number) => (Math.abs(v) >= 100 ? v.toFixed(0)
       : Math.abs(v) >= 1 ? v.toFixed(1)
         : v === 0 ? '0' : v.toFixed(3));
+    // On a signed LETTER lane the midpoint tick is dropped in favour of the zero label below:
+    // zero is the one line such a lane is read against, the two sit ~8 px apart when the window is
+    // nearly symmetric, and a suppressed zero would cost the reader the sign. Every other lane
+    // keeps its three evenly spaced ticks.
+    const midTick = !(lAxis && signed);
     for (let g = 0; g <= gridCount; g += 2) {
+      if (g === 2 && !midTick) continue;
       const f = g / gridCount;
-      ctx.fillText(label(axisValue(f, axis, space, lin)), padLeft(w) - 5, yOfFrac(f) + 3);
+      ctx.fillText(label(axisValue(f, axis, axSpace, lin)), padLeft(w) - 5, yOfFrac(f) + 3);
     }
     // The zero rule. A signed lane without one is unreadable: a bar is then a magnitude with no
     // baseline, and the sign -- the whole point of the track -- is not on the screen at all.
@@ -2247,6 +2268,17 @@ export function initGenomeBrowser(host: HTMLElement): void {
       ctx.lineTo(padLeft(w) + inner, Math.round(yOf(0)) + 0.5);
       ctx.stroke();
       ctx.globalAlpha = 1;
+      // On symlog the ticks are at 0, 0.5 and 1 and the middle one IS zero, so it is already
+      // labelled. On a linear letter axis zero falls wherever the window's asymmetry puts it and
+      // no tick lands on it -- leaving the one line a reader needs to judge a sign unlabelled.
+      // Skipped when it would overprint a tick that is already there.
+      const zy = yOf(0);
+      if (lAxis) {
+        ctx.fillStyle = col.muted;
+        ctx.font = '9px system-ui, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText('0', padLeft(w) - 5, zy + 3);
+      }
     }
 
     const tone = spec.id === 'phastcons' ? css('--gb-cons', '#8a6d3b')
@@ -2261,27 +2293,34 @@ export function initGenomeBrowser(host: HTMLElement): void {
       // site. `fillText` with a scaled font size is not a logo twice over: font-size scales width
       // with height, and a monospace T stretched 13:1 renders as a lollipop.
       const bw = inner / (view.end - view.start);
-      // An unsigned lane grows from its floor; a signed one from its zero rule, and its height is
-      // the SIGNED half-fraction. `baseY` and `sy` are the only two things that differ.
-      // Letters use the linear window range where one exists; bars and the bits lanes keep theirs.
-      const lFrac = lAxis
-        ? (v: number) => Math.max(0, Math.min(1, (v - lAxis[0]) / Math.max(lAxis[1] - lAxis[0], 1e-12)))
-        : fracOf;
-      const zeroF = signed ? lFrac(0) : 0;
-      const baseY = signed ? top + h - zeroF * h : top + h;
+      // An unsigned lane grows from its floor; a signed one from its ZERO RULE -- `yOf(0)`, the
+      // same expression that drew the rule twenty lines above and that the bar path uses. It was
+      // once a second, independent computation over a different axis, which is exactly how the
+      // glyphs came to sit off the line they are read against.
+      const zeroF = signed ? fracOf(0) : 0;
+      const baseY = signed ? yOf(0) : top + h;
+      // Clipped to the plot area, like every other lane kind here. `LOGO_GLOBSCALE` is 1.35
+      // against a cap height of 0.729-0.742, so a full-range letter paints ~0.985 of its range and
+      // should not escape -- but a clip is two lines and `shorkieViewport.drawLogoLane` already
+      // takes it. The gutter tick labels and the lane's name chip are drawn OUTSIDE this block and
+      // must stay outside it.
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(padLeft(w), top, inner, h);
+      ctx.clip();
       for (let i = 0; i < seq.length; i += 1) {
         const b = seq[i];
         const c = cols[Math.min(cols.length - 1, Math.floor(i * bw))];
         if (!b || !c?.have) continue;
-        const sy = (lFrac(c.mean) - zeroF) * h * LOGO_GLOBSCALE;
+        const sy = (fracOf(c.mean) - zeroF) * h * LOGO_GLOBSCALE;
         if (Math.abs(sy) < 0.12) continue;
         ctx.save();
         ctx.translate(xOfBp(view.start + i + 0.5, w), baseY);
-        // `-sy` for both signs, which is exactly what `drawLogo` in variantPlayground.ts does:
-        // with sy < 0 the glyph is not flipped, so a negative letter hangs MIRRORED below the
-        // rule. That is this site's and the paper's convention -- positives up, negatives
-        // mirrored below -- and the two logo renderers sit next to each other on the page, so
-        // they must not disagree about what a negative letter looks like.
+        // `-sy` for both signs, which is what `drawLogoLane` in shorkieViewport.ts does: with
+        // sy < 0 the glyph is not flipped, so a negative letter hangs MIRRORED below the rule.
+        // That is this site's and the paper's convention -- positives up, negatives mirrored
+        // below -- and the same window is drawn by both renderers on the two lab pages, so they
+        // must not disagree about what a negative letter looks like.
         ctx.scale(bw * LOGO_GLOBSCALE, -sy);
         ctx.fillStyle = LOGO_COLOURS[b];
         ctx.fill(new Path2D(LOGO_GLYPHS[b]));
@@ -2289,6 +2328,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
         drawn += 1;
         scoreGlyphs += 1;
       }
+      ctx.restore();
 
       // The overlay, over the glyphs it describes.
       const boxes = annotationBoxes(view.start, view.end, seq);
@@ -2384,11 +2424,15 @@ export function initGenomeBrowser(host: HTMLElement): void {
       // Autoscale is announced ON THE LANE, with the range it became. A rescaled axis that does not
       // say so is the same defect as a bar chart from a non-zero baseline: the drawing is a
       // different claim from the one the reader thinks they are looking at.
-      + (axis !== spec.axis
+      // `&& !lAxis` because a letter lane sets `axis` itself and announces it as a LOCAL AXIS
+      // below. Without the guard the lane printed its range twice, once under each name.
+      + (axis !== spec.axis && !lAxis
         ? ` · AUTOSCALED ${label(axis[0])}–${label(axis[1])}` : '')
       // A logo's height is proportional to its value, which symlog is not -- so a letter lane says
-      // it has switched, or a reader would compare glyph heights on the wrong scale.
-      + (lAxis ? ` · letters linear ${label(lAxis[0])}–${label(lAxis[1])}` : '')
+      // it has switched, AND that the range it switched to is this window's own. Without the
+      // second half a reader compares glyph heights between two positions on a ruler that changed
+      // underneath them, which is the same trick as an unannounced autoscale.
+      + (lAxis ? ` · LOCAL AXIS ${label(lAxis[0])}–${label(lAxis[1])} · this view only` : '')
       + (missing > inner * 0.02 ? ` · ${Math.round((missing / inner) * 100)}% no data` : '');
     // A chip behind it, because phastCons saturates at 1.0 through a whole gene and a bare label
     // at the top of the plot lands on the data rather than above it.
