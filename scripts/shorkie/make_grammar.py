@@ -81,6 +81,8 @@ def main() -> int:
     ap.add_argument("--only", default=None)
     ap.add_argument("--fold", default="f0")
     ap.add_argument("--no-hessian", action="store_true")
+    ap.add_argument("--out", default=None,
+                    help="write here instead of the shipped pack, for a per-fold sweep")
     args = ap.parse_args()
 
     import torch
@@ -271,12 +273,14 @@ def main() -> int:
                                                   default=0.0), 6),
         "perLocus": rows,
     }
-    OUT.write_text(json.dumps(out, separators=(",", ":")) + "\n")
+    dest = Path(args.out) if args.out else OUT
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(json.dumps(out, separators=(",", ":")) + "\n")
     print(f"\n  median |residual| / |single effect|   {out['medianResidualOverSingle']}")
     print(f"  Hessian calibration, median r         {out['hessianCalibration']['medianR']}")
     print(f"  separation-only, median r             {out['separationCalibration']['medianR']}")
     print(f"  singles vs shipped plane, worst drift {out['maxSingleDriftVsShippedPlane']:.2e}")
-    print(f"  elapsed {(time.time() - t_all) / 60:.1f} min\nwrote {OUT.relative_to(ROOT)}")
+    print(f"  elapsed {(time.time() - t_all) / 60:.1f} min\nwrote {dest}")
     return 0
 
 

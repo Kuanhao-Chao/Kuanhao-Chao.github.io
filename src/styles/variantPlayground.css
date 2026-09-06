@@ -955,6 +955,35 @@ html[data-theme='dark'] .vp {
    it. Four short lines, in a two-column grid that collapses to one on a phone. Deliberately quiet
    -- it is scaffolding for the result below it, not the result.
    ------------------------------------------------------------------------------------------------ */
+/* "What the answer tells us" — one per analysis panel.
+   The frame above a panel states the question and the method; this states what the result means,
+   which the page previously left to the reader on 31 of 32 panels. Set apart from the surrounding
+   notes with a rule rather than a box, so it reads as a conclusion and not as another caveat. */
+.vp-reading {
+  margin: 0.9rem 0 0;
+  padding: 0.5rem 0 0 0.75rem;
+  border-left: 3px solid var(--color-accent, #2563eb);
+  font-size: var(--fs-meta);
+  line-height: 1.5;
+}
+.vp-reading > strong:first-child {
+  display: block;
+  font-size: 0.78em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  margin-bottom: 0.15rem;
+}
+
+/* A sub-heading inside a panel. Act 9's fold panel carries three views of one question, and
+   without a heading between them a reader cannot tell where one ends and the next begins. */
+.vp-sub-h {
+  margin: 1.1rem 0 0.3rem;
+  font-size: 0.9rem;
+  font-weight: 650;
+  color: var(--color-ink);
+}
+
 .vp-frame {
   margin: 0 0 0.75rem;
   padding: 0.5rem 0.6rem;

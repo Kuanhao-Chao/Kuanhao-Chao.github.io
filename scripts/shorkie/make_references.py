@@ -141,6 +141,8 @@ def main() -> int:
     ap.add_argument("--only", default=None)
     ap.add_argument("--fold", default="f0")
     ap.add_argument("--no-lm", action="store_true")
+    ap.add_argument("--out", default=None,
+                    help="write here instead of the shipped pack, for a per-fold sweep")
     args = ap.parse_args()
 
     import torch
@@ -252,7 +254,9 @@ def main() -> int:
         "families": summary,
         "perLocus": rows,
     }
-    OUT.write_text(json.dumps(out, separators=(",", ":")) + "\n")
+    dest = Path(args.out) if args.out else OUT
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(json.dumps(out, separators=(",", ":")) + "\n")
     print(f"\n  {'family':12s} {'rho':>7s} {'delAUC':>8s} {'compl abs':>10s} {'compl %':>9s} "
           f"{'strand r':>9s} {'LM NLL':>8s}")
     for r in summary:
@@ -264,7 +268,7 @@ def main() -> int:
     print(f"\n  real sequence LM NLL: {out['referenceNllBits']} bits")
     print(f"  best by deletion AUC: {best}"
           f"{'  (the shipped default)' if out['shippedIsBest'] else '  -- NOT the shipped default'}")
-    print(f"  elapsed {(time.time() - t_all) / 60:.1f} min\nwrote {OUT.relative_to(ROOT)}")
+    print(f"  elapsed {(time.time() - t_all) / 60:.1f} min\nwrote {dest}")
     return 0
 
 
