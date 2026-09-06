@@ -35,6 +35,13 @@ const nLoci = lociData.loci.length;
 // page follows, and the one the research frames on it broke six times in one round.
 const folds = foldsData;
 const faith = faithfulnessData;
+// The randomization rows the table draws, resolved HERE rather than in the markup. A type predicate
+// (`r is NonNullable<typeof r>`) inside a JSX expression is read by the parser as an opening tag --
+// same family as the bare `<=` this page has already tripped over -- and it fails at `astro check`
+// with four spurious "Cannot find name 'r'" errors above the one line that says what is wrong.
+const RANDOMIZATION_ROWS = ['head', 'decoder1', 'attn_out8', 'attn_out1', 'block7', 'stem']
+  .map((s) => faith.randomization?.find((r) => r.stage === s))
+  .filter((r): r is NonNullable<typeof r> => Boolean(r));
 const refs = referencesData;
 const gram = grammarData;
 const METHOD_LABEL: Record<string, string> = {
@@ -2638,12 +2645,9 @@ const breadcrumbLd = buildBreadcrumbLd([
               <table class="vp-enrich">
                 <thead><tr><th>randomized through</th><th>branch</th><th>|r<sub>s</sub>| vs intact</th></tr></thead>
                 <tbody>
-                  {['head', 'decoder1', 'attn_out8', 'attn_out1', 'block7', 'stem']
-                    .map((s) => faith.randomization!.find((r) => r.stage === s))
-                    .filter((r): r is NonNullable<typeof r> => Boolean(r))
-                    .map((r) => (
-                      <tr><td>{r.stage}</td><td>{r.branch}</td><td>{r.medianAbsRho.toFixed(3)}</td></tr>
-                    ))}
+                  {RANDOMIZATION_ROWS.map((r) => (
+                    <tr><td>{r.stage}</td><td>{r.branch}</td><td>{r.medianAbsRho.toFixed(3)}</td></tr>
+                  ))}
                 </tbody>
               </table>
             </div>

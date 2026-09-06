@@ -415,6 +415,70 @@ def main() -> int:
             print(f"    {name:<10} {n:>3} bp bins, rc-averaged {rec.get('rcAveraged')}, "
                   f"{len(rec.get('chroms', {}))} chromosomes")
 
+    print("\n=== 6. the fold-disagreement lane ===")
+    fd_meta_p = TRACK / "folddis.json"
+    if not fd_meta_p.exists():
+        print("    no folddis.json -- run make_fold_disagreement.py")
+    else:
+        fd = json.loads(fd_meta_p.read_text())
+        folds = fd["folds"]
+
+        # The fold list has to be the same eight the analysis page's ledger reports. If the browser
+        # lane were built from a subset, the page and the browser would be making different claims
+        # about the same word.
+        ledger_p = ROOT / "src" / "data" / "shorkieFolds.json"
+        if ledger_p.exists():
+            ledger = json.loads(ledger_p.read_text())
+            check(list(folds) == list(ledger["folds"]),
+                  "the lane's folds are the ledger's folds",
+                  f"lane {folds} vs ledger {ledger['folds']}")
+
+        arrs = {c: np.load(TRACK / f"{c}-sk-folddis.npy") for c in chroms
+                if (TRACK / f"{c}-sk-folddis.npy").exists()}
+        check(len(arrs) == len(chroms), "every chromosome has a lane array",
+              f"{len(arrs)} of {len(chroms)}")
+        bad = [c for c, v in arrs.items() if len(v) != chroms[c]["length"]]
+        check(not bad, "each lane array matches its manifest length", f"{bad[:3] or 'all match'}")
+
+        # RE-DERIVED from the eight gradient arrays rather than re-read from the sidecar. A check
+        # that recomputes the statistic the generator's own way would agree with a mistake in it.
+        def gp(c, f):
+            return TRACK / (f"{c}-sk-gradient.npy" if f == "f0" else f"{c}-sk-gradient-{f}.npy")
+
+        c0 = max(arrs, key=lambda c: chroms[c]["length"])
+        st = np.stack([np.load(gp(c0, f)).astype(np.float64) for f in folds])
+        mag = np.abs(st).mean(axis=0)
+        sd = st.std(axis=0, ddof=1)
+        keep = mag >= fd["maskThreshold"]
+        want = np.full(mag.shape, np.nan)
+        want[keep] = sd[keep] / mag[keep]
+        got = arrs[c0]
+        same_mask = np.array_equal(np.isfinite(got), np.isfinite(want))
+        check(same_mask, f"{c0}: the mask is exactly mean|g| >= the stated threshold")
+        if same_mask:
+            e = float(np.abs(got[keep] - want[keep]).max()) if keep.any() else 0.0
+            check(e < 1e-5, f"{c0}: re-derived from the eight gradients", f"max |diff| {e:.2e}")
+
+        # THE PROPERTY THE DESIGN RESTS ON. The first version of this lane normalised by
+        # (mean|g| + eps) with eps at the genome median, which INVERTED it into a loudness copy
+        # (+0.56 with |g| where the statistic itself runs -0.26). Nothing else here would notice:
+        # the arrays would be the right length, the mask the right size and the tiles would decode.
+        pooled_dis, pooled_mag = [], []
+        for c in arrs:
+            m = np.mean([np.abs(np.load(gp(c, f))) for f in folds], axis=0)
+            v = arrs[c]
+            ok = np.isfinite(v)
+            pooled_dis.append(v[ok]); pooled_mag.append(m[ok])
+        d = np.concatenate(pooled_dis); m = np.concatenate(pooled_mag)
+        rng = np.random.default_rng(0)
+        s = rng.choice(d.size, min(300_000, d.size), replace=False)
+        rank = lambda a: np.argsort(np.argsort(a)).astype(np.float64)
+        rho = float(np.corrcoef(rank(d[s]), rank(m[s]))[0, 1])
+        check(rho < 0, "the lane reports DISAGREEMENT, not loudness",
+              f"Spearman vs mean|g| = {rho:+.4f} (must be negative; the rejected eps form gave +0.56)")
+        print(f"    {100 * d.size / sum(len(v) for v in arrs.values()):.1f}% of the genome scored, "
+              f"median {np.median(d):.4f}, p99 {np.quantile(d, 0.99):.4f}")
+
     short = sum(m["shortFlankBases"] for m in chroms.values())
     print(f"\n  {short:,} bases had a flank cut short by a chromosome end "
           f"({short / total * 100:.2f}% of the genome), recorded in the manifest")
