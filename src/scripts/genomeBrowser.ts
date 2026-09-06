@@ -3878,13 +3878,17 @@ export function initGenomeBrowser(host: HTMLElement): void {
      * inside without being opened -- which is what the IGV and JBrowse track selectors do and what
      * makes a list this long navigable at all.
      */
-    const group = (title: string, hint?: string, key?: string) => {
+    const group = (title: string, hint?: string, key?: string, hasOn = true) => {
       const gk = key ?? title;
       const det = document.createElement('details');
       det.className = 'gb-group';
-      // Default open, so nothing is hidden from a reader who has never used the panel; closing is
-      // then a choice they make and it is remembered.
-      det.open = panelOpen.get(gk) ?? true;
+      // Open by default only when the group HOLDS AN ENABLED LANE. With every group open, 48 tracks
+      // are ~2,500 px of controls in a ~750 px box, so the panel opens on a long scroll in which
+      // the reader cannot see which lanes are actually on -- the header says "7 lanes on" and one
+      // of them is visible. Collapsed, each group still states its own count and how many are on,
+      // which is what the IGV and JBrowse selectors do. A reader's own toggle is remembered for
+      // the session and wins over this.
+      det.open = panelOpen.get(gk) ?? hasOn;
       det.addEventListener('toggle', () => panelOpen.set(gk, det.open));
       const sum = document.createElement('summary');
       sum.className = 'gb-group__sum';
@@ -4096,7 +4100,8 @@ export function initGenomeBrowser(host: HTMLElement): void {
     for (const [g, list] of [...byGroup]) if (!list.length) byGroup.delete(g);
     for (const [gid, specs] of byGroup) {
       const gl = index.groupLabels?.[gid];
-      group(gl?.label ?? 'Score tracks', gl?.hint);
+      group(gl?.label ?? 'Score tracks', gl?.hint, undefined,
+            specs.some((s) => enabled.get(s.id)));
       // Families collapse to one row. `seenFamily` keeps the row where the family's FIRST member
       // sits, so the panel order still follows the generator's.
       const seenFamily = new Set<string>();
@@ -4157,7 +4162,9 @@ export function initGenomeBrowser(host: HTMLElement): void {
       }
     }
 
-    group('Annotation');
+    // The annotation group holds `sequence` and `genes`, which are on by default, so it opens.
+    group('Annotation', undefined, undefined,
+          availableLanes().some((id) => !specById.has(id) && enabled.get(id)));
     const featureById = new Map(FEATURE_LANES.map((f) => [f.id, f]));
     for (const id of availableLanes()) {
       if (specById.has(id)) continue;

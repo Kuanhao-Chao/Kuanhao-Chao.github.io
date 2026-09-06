@@ -1184,6 +1184,120 @@ browser through `data-gb-minimal` / `data-gb-no-hash` / `data-gb-tracks`.
   now walks every horizontally-scrollable region and fails anything wider than its container that
   cannot scroll.
 
+- **The control panel shipped with 30 of 30 lane controls unclickable, and no check could see it.**
+  The inline `max-height` went to `[data-gb-panel]`, the inner div, whose `overflow` is `visible`;
+  the `overflow-y: auto` lives on the `.gb-panel` **aside** that wraps it. So 1,422 px of controls
+  (2,543 in Shorkie mode) were crammed into a 330 px box that neither clipped nor scrolled, and the
+  overflow painted over everything below. "Clicking Shorkie_LM shows no channels" was those controls
+  rendering underneath the panel note. `auditPanelReachable` now walks every `.gb-panel label` in
+  every model mode and requires `elementFromPoint` at the control's own position to resolve inside
+  it — **after `scrollIntoView`**, because a control below the fold of a scrolling panel is
+  perfectly reachable and testing without scrolling flags a working panel. Proven both ways: 3
+  unreachable with the bug reintroduced, 0 with the fix.
+  - **Groups collapse unless they hold an enabled lane**, because 48 tracks with everything open is
+    2,174 px of content in a 566 px box and the header saying "7 lanes on" shows one of them. That
+    change quietly weakened the gate: a label inside a closed `<details>` has zero height, so the
+    "legitimately hidden" guard skipped it and the 8 expression lanes stopped being checked. The
+    check opens every group first now. **A gate that quietly tests less is worse than one that fails.**
+  - The filter matches the four **doc** fields, not just the label. A reader searching "nucleosome"
+    wants ChIP-MNase and the histone lanes, and that word appears only in `docs.measures`, on ten
+    tracks — searching labels returned nothing for it, which is a filter answering "no such track"
+    about a track that is right there.
+
+- **`host.dataset.gbX = …` shadows a `data-gb-x` control INSIDE the host, and this is the variant
+  the earlier notes miss.** They warn about two sibling elements; this is an ANCESTOR shadowing a
+  descendant, which is worse because the host wraps every control. `host.dataset.gbFindScope` wrote
+  `data-gb-find-scope` onto the host, `querySelector` then returned the whole browser container
+  instead of the button, and the listener still bound — it attached before the first search wrote
+  the attribute — so the feature worked by hand while every scripted click landed on the container
+  and the toggle silently never fired. Two more were found by sweeping: `data-gb-primary`
+  (**pre-existing** — the host carries the JSON list of the 23 windows, the canvas was writing a
+  bare locus id to the same name, safe only because the one reader uses `host.dataset` rather than a
+  query) and the ideogram's own payload. **Sweep before naming a hook, and strip comments first**:
+  the sweep's first run reported a false positive on the doc comment describing the trap, exactly as
+  `audit:security` matches its own banned token inside a comment explaining it.
+
+- **`sk-folddis` is the one lane no other genome browser has**: all eight released checkpoints run
+  genome-wide, reduced per base to `sd(g_f0..f7) / mean|g|`. Genome-wide median **0.775** — a
+  typical scored base carries an across-fold spread three quarters the size of its own attribution,
+  which is the honest bound on trusting a single-checkpoint track at base resolution, and it agrees
+  with the locked-panel ledger where sign is stable and top-1% ranking overlaps only 41–55%.
+  - **The normalisation is the whole design and the first version inverted it.** Raw spread is a
+    loudness lane (Pearson **+0.8141** with mean|g|). Dividing by the base's own magnitude fixes
+    that — but the epsilon added to stop the quiet genome exploding was the genome median, which is
+    at or above the denominator for the entire lower half. By loudness decile the epsilon form
+    *rises* 0.183 → 0.556 while the statistic itself *falls* 1.160 → 0.555, and it lands at
+    Spearman **+0.56** with loudness: precisely the loudness copy the normalisation exists to avoid.
+    **A guard large enough to tame the quiet half is large enough to become the lane.** There is no
+    epsilon; the louder half carries it and the quieter half is NO DATA.
+  - `verify_genome_track.py` §6 re-derives it from the eight gradient arrays (max |diff| 1.16e-07)
+    rather than from the sidecar, and asserts Spearman-vs-loudness is **negative**. Proven both
+    ways: the epsilon form written back over all 17 chromosomes fails it at +0.5620.
+
+- **`check_axes` refuses an index whose axis silently clips its own data** unless a doc field says
+  it clips and by how much. `quant` clamps, so a lane whose data exceeds its axis draws a flat band
+  at full height — indistinguishable from a saturated measurement and invisible to every rendering
+  check. `sk-induction` reaches 2.494 against a hardcoded 0–2 axis: 99 bins of 758,738 (0.013%, 12
+  runs). Keeping the round axis is right — 1.0 means the spread equals the mean — but it has to be
+  *stated*. The comparison needs a tolerance, because `trackStats` rounds to five decimals while an
+  axis resolved from data carries six, so a stat legitimately rounds up past its own axis.
+
+- **`noData` is per track, because a byte of 0 has at least four different causes here** — no
+  alignment, the 1,024-base head crop, a measurement made only in 23 windows, an effect too small
+  for a ratio — and the hover reported phastCons's "not aligned" for all of them.
+
+- **`data-gb-drawn-levels` is per track; `data-gb-level` is the view's.** The latter is the level a
+  *per-base* track would use, so asserting a lane draws at a level its own ladder contains has to
+  read the former — 40 of the first 48 sweep failures were this, all of them the browser working
+  correctly. The sweep drives every score track alone at three zooms in its own model mode and also
+  asserts that a lane drawn coarser than the headline level is **named** as pinned at its floor.
+
+- **The genome-level ideogram is strictly to scale and nothing is widened.** chrM is 5.6% of chrIV
+  and draws at 5.6% — 7.2 px at 1440, 1.6 px on a phone — because a minimum bar width distorts the
+  one channel a bar is read by, exactly as a non-zero baseline does. Clickability is solved by
+  `ideogramHit` resolving to the NEAREST centre, the rule the flow canvas already uses, which also
+  makes a click in a gap answer instead of doing nothing. Yeast has no Giemsa banding, so it draws
+  no bands and says it is a position indicator.
+  - **The scale test was weaker than it looked**: it checked 1200 px only, where chrM draws at
+    7.2 px, so a reintroduced 6 px floor did not bind and the test PASSED against the regression it
+    exists to catch. A floor is added to make small chromosomes clickable, so it is small, so it
+    only binds on a phone. Six widths now, and the gate runs in the phone scope as well as desktop.
+
+- **Clicking a gene opens a card, and `genes.json`'s `txStart`/`txEnd` are the CDS.** `search.json`
+  carries the SGD gene RECORD — for TDH3, 999 bp against 2,749 — so a card labelling the CDS "the
+  gene record" is a wrong sentence around a right number that no numeric test can see. It states the
+  coding span and prints the record beside it. Copy sequence is FASTA and reverse-complements a
+  minus-strand gene: a plus-strand copy has the same length, alphabet and wrapping, and the only
+  thing separating them is that the gene's own direction starts ATG (TDH3 → `ATGGTTAGAGTT`).
+  **The card closes on a chromosome change** — it is 24 rem wide and right-aligned over the stage,
+  so it also swallowed clicks meant for the overview strip beneath it, which is how that was found.
+
+- **Sequence search reads the tiles that already ship.** The plan was a 2-bit packed genome, ~3.0 MB
+  fetched on first use; the seq tiles are **3.9 MB** for the whole genome, so a pack saves 0.9 MB in
+  exchange for shipping the reference twice and writing a second decoder. Net new payload: nothing.
+  Verified against counts computed independently from the FASTA — chrI holds 79 EcoRI sites and 156
+  GTRAGT matches, the genome holds 4,378 — not by re-running the matcher under test.
+  - **`expectedHits` must not double a palindrome.** Both strands match the same positions and the
+    matcher reports one, so the expectation was 2× out for exactly the patterns people search: most
+    restriction sites are palindromes. Confirmed on the reference — the non-palindrome GGTATC sits
+    at 4,830 against a 5,936 two-strand expectation while palindromes sit against 2,968. The
+    0.32–1.48 spread across examples is yeast's 38.1% GC against a uniform model, and is stated.
+  - **`sequenceRange` had both traps at once**: a 200 kb cap right for the gene-copy path and
+    silently null for every chromosome, and a loop over the whole span *inside each tile* (copied
+    from `sequence()`, harmless there because it is capped at 20 kb) — ~134 million iterations
+    genome-wide.
+
+- **Two harness traps that each looked like a product bug.** `waitForFunction(...).catch(() => {})`
+  turns any error into "carry on with stale state", so every assertion after it fails for the wrong
+  reason; it cost three rounds of blaming a working feature. And the obvious `s * 1103515245` LCG
+  loses integer precision in JavaScript after one step — it produced 154 EcoRI sites in random
+  sequence where 98 are expected, which reads exactly like a bug in the formula under test. Use
+  `Math.imul`.
+
+- **A hash with no `t=` deliberately leaves the track set alone**, so "reset to the default view"
+  between audit checks resets nothing. Six later checks failed on lanes an earlier sweep had left
+  disabled before the reset named the default set explicitly.
+
 - **Nucleosome occupancy was researched and is not feasible**, so it is not missing by oversight:
   the canonical chemical map (Brogaard 2012, GSE36063) is published only as raw reads — the smallest
   supplementary file is 238 MB and the archive is 5.8 GB — with no processed track on UCSC or SGD.

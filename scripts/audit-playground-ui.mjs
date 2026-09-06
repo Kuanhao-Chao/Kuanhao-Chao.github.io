@@ -1992,6 +1992,11 @@ async function auditPanelReachable(page, scope, label) {
     }
     const bad = await page.evaluate(() => {
       const out = [];
+      // OPEN every group first. A group is collapsed when it holds no enabled lane, and a label
+      // inside a closed <details> has zero height -- so the "legitimately hidden" guard below would
+      // skip it, and this check would silently stop examining the 8 expression lanes the moment
+      // collapsing-by-default shipped. A gate that quietly tests less is worse than one that fails.
+      for (const d of document.querySelectorAll('.gb-group')) d.open = true;
       for (const l of document.querySelectorAll('.gb-panel label')) {
         if (l.getBoundingClientRect().height < 1) continue;   // legitimately hidden
         // SCROLL IT INTO VIEW FIRST. A control below the fold of a scrolling panel is not at its
