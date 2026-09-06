@@ -2579,6 +2579,18 @@ const breadcrumbLd = buildBreadcrumbLd([
         </p>
         {faith.byFold && (
           <p class="vp-notes" style="margin:0.5rem 0 0;">
+            <strong>Every fold is scored against fold {faith.byFold.truthFold}'s exact
+            mutagenesis, not its own.</strong> That is the only exhaustive mutagenesis that exists —
+            per-fold planes would be about 52 GPU-hours — so the fold arm asks a specific question:
+            do the page's {faith.byFold.truthFold}-derived conclusions transfer to another
+            checkpoint? The page's claims are {faith.byFold.truthFold}-derived, so that is the right
+            question, but it is not "each checkpoint against its own ground truth", and one
+            consequence shows in the numbers: the oracle is a strict ceiling only for{' '}
+            {faith.byFold.truthFold}, and another fold's ranking can edge past it.
+          </p>
+        )}
+        {faith.byFold && (
+          <p class="vp-notes" style="margin:0.5rem 0 0;">
             <strong>The verdicts hold across the eight training folds, which is what makes them
             verdicts.</strong> The whole benchmark was re-run under every released checkpoint:{' '}
             {faith.byFold.alwaysPromoted.length > 0 && (
@@ -2718,17 +2730,25 @@ const breadcrumbLd = buildBreadcrumbLd([
         </p>
         {refs.byFold && (
           <p class="vp-notes" style="margin:0.5rem 0 0;">
-            <strong>The ranking was re-measured under every checkpoint.</strong>{' '}
-            {refs.byFold.winnerUnanimous
-              ? <>All {refs.byFold.folds.length} folds pick the same winner
-                ({REF_LABEL[refs.byFold.modalWinner] ?? refs.byFold.modalWinner}), and the shipped
-                all-zero default wins in <strong>{refs.byFold.zeroWinsInFolds}</strong> of them —
-                so this is a property of the reference family rather than of one training run.</>
-              : <>The winner is {REF_LABEL[refs.byFold.modalWinner] ?? refs.byFold.modalWinner} in
-                most folds but not all ({refs.byFold.winnerPerFold.join(', ')}), and the shipped
-                all-zero default wins in <strong>{refs.byFold.zeroWinsInFolds}</strong> of{' '}
-                {refs.byFold.folds.length}. A ranking that moves with the checkpoint is a weaker
-                object than one that does not, and the page says so rather than quoting f0.</>}
+            <strong>Across all {refs.byFold.folds.length} checkpoints, one thing is robust and one
+            is not.</strong> The shipped all-zero default wins in{' '}
+            <strong>{refs.byFold.zeroWinsInFolds} of {refs.byFold.folds.length}</strong> folds —
+            every shuffle-based family beats it under every checkpoint, so "the default is not the
+            best" is a property of the reference rather than of one training run.{' '}
+            {!refs.byFold.winnerUnanimous && (
+              <>Which family <em>is</em> best is not robust: the winner moves between{' '}
+              {[...new Set(refs.byFold.winnerPerFold)].map((w) => REF_LABEL[w] ?? w).join(', ')}{' '}
+              across folds ({refs.byFold.winnerPerFold.join(', ')}), and their medians sit within{' '}
+              {(() => {
+                const meds = Object.entries(refs.byFold!.aucByFamily)
+                  .filter(([k]) => k !== 'zero' && k !== 'biological')
+                  .map(([, a]) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)]);
+                return (Math.max(...meds) - Math.min(...meds)).toFixed(3);
+              })()} of each other. So this panel recommends moving OFF the all-zero baseline, and
+              does not recommend a specific replacement.</>
+            )}{' '}
+            The single-fold result named a different winner from the eight-fold median, which is
+            the clearest argument on this page for why the fold axis was worth the compute.
           </p>
         )}
         <p class="vp-notes" style="margin:0.5rem 0 0;">

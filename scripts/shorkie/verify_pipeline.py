@@ -934,6 +934,23 @@ def verify_reliability() -> None:
             nll = {json.loads(q.read_text()).get("referenceNllBits") for q in refs_runs}
             check(len(nll) == 1, "the LM reference score does not vary with the expression fold",
                   f"{nll.pop() if len(nll) == 1 else sorted(nll)} bits over {len(refs_runs)} folds")
+        # Everything is scored against the truth fold's mutagenesis, so the oracle bounds only
+        # that fold. Another checkpoint's ranking can edge past it, and DOES -- but only slightly;
+        # a large excess would mean the deletion or the normalisation had come apart rather than
+        # that a different model found different bases.
+        for pack_key, label in (("References", "reference family"), ("Faithfulness", "method")):
+            bf = loaded[pack_key].get("byFold")
+            if not bf:
+                continue
+            tf = bf.get("truthFold")
+            check(tf in ("f0",), f"the {pack_key} fold arm names its truth fold", f"{tf}")
+            vals = (sum(bf["aucByFamily"].values(), []) if pack_key == "References"
+                    else [v for r in bf["methods"] if r["role"] == "method" for v in r["auc"]])
+            worst = max(vals)
+            check(worst < 1.05,
+                  f"no {label} exceeds the cross-fold ceiling by more than 5%",
+                  f"worst {worst:.4f}; the oracle is strict only for {tf}")
+
         faith_runs = sorted(cross.glob("faith-f*.json"))
         if len(faith_runs) >= 2:
             # Every fold scores against ITS OWN oracle, so the ceiling must read 1.000 in each --

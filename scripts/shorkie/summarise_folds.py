@@ -8,6 +8,17 @@ The headline stays f0 -- it is the fold the paper's own Figure 4 uses, which the
 explains -- and this adds the column that says whether the VERDICT survives retraining. A verdict
 that holds in eight of eight is a different object from one that holds in five.
 
+WHAT THE FOLD ARM ACTUALLY COMPARES, which is not quite what it looks like. `ism_truth` reads
+`_scratch/ism-raw/<id>-ism.npy`, and those planes are **fold f0's** exhaustive mutagenesis -- the
+only exhaustive mutagenesis that exists, because computing it per fold is 19.5 min a locus x 23 loci
+x 7 folds, about 52 GPU-hours. So every fold is scored against f0's exact edits, not its own.
+
+That makes the fold arm a test of a specific and defensible question -- *do the page's f0-derived
+conclusions transfer to another checkpoint?* -- and the page's claims are f0-derived, so it is the
+right question. It is NOT "each checkpoint against its own ground truth", and one consequence is
+visible in the numbers: the oracle is only a strict ceiling for f0, and a different fold's ranking
+can exceed it slightly. Each block records `truthFold` so the comparison cannot be misread.
+
 Reads:   _scratch/foldcross/{faith,refs,gram}-f<n>.json
 Writes:  a `byFold` block into shorkieFaithfulness.json, shorkieReferences.json, shorkieGrammar.json
 
@@ -27,6 +38,8 @@ import common  # noqa: E402
 from common import ROOT, SCRATCH  # noqa: E402
 
 CROSS = SCRATCH / "foldcross"
+# The only exhaustive mutagenesis that exists. Every fold is scored against it.
+TRUTH_FOLD = "f0"
 PACKS = {
     "faith": ("shorkieFaithfulness.json", "Faithfulness"),
     "refs": ("shorkieReferences.json", "References"),
@@ -71,6 +84,7 @@ def faith_block(runs: dict[str, dict]) -> dict:
         "folds": sorted(runs),
         "methods": rows,
         # The claim that survives, stated as a count rather than as a single-fold verdict.
+        "truthFold": TRUTH_FOLD,
         "unanimous": all(r["promotedInFolds"] in (0, len(runs)) for r in tested),
         "alwaysPromoted": [r["method"] for r in tested if r["promotedInFolds"] == len(runs)],
         "neverPromoted": [r["method"] for r in tested if r["promotedInFolds"] == 0],
@@ -89,6 +103,7 @@ def refs_block(runs: dict[str, dict]) -> dict:
     return {
         "folds": sorted(runs),
         "aucByFamily": per_fam,
+        "truthFold": TRUTH_FOLD,
         "winnerPerFold": winners,
         "zeroWinsInFolds": sum(1 for w in winners if w == "zero"),
         "winnerUnanimous": len(set(winners)) == 1,
@@ -108,6 +123,7 @@ def gram_block(runs: dict[str, dict]) -> dict:
         "positionsPerLocus": min(sizes),
         "pairsPerFold": min(pairs),
         "reducedPanel": len(sizes) == 1,
+        "truthFold": TRUTH_FOLD,
         "hessianR": r,
         "separationR": sep,
         "hessianPositiveInFolds": sum(1 for v in r if v is not None and v > 0),
