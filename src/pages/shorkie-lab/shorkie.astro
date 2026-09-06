@@ -2802,7 +2802,16 @@ const breadcrumbLd = buildBreadcrumbLd([
             and separation alone beats it in{' '}
             <strong>{gram.byFold.separationBeatsHessianInFolds} of {gram.byFold.folds.length}</strong>.
             A predictor that a trivial baseline outperforms under most checkpoints is not a
-            predictor of this quantity.
+            predictor of this quantity.{' '}
+            {gram.byFold.positionsPerLocus < gram.positionsPerLocus && (
+              <>The fold arm uses a smaller panel than the headline —{' '}
+              {gram.byFold.positionsPerLocus} positions a locus against{' '}
+              {gram.positionsPerLocus}, so {gram.byFold.pairsPerFold.toLocaleString()} pairs a fold
+              rather than {Math.round(gram.pairsTotal / gram.loci).toLocaleString()} — because the
+              fold question is whether the calibration's <em>sign</em> survives retraining, which a
+              smaller panel answers at a quarter of the cost. The headline above is the full panel
+              on f0.</>
+            )}
           </p>
         )}
         <p class="vp-notes" style="margin:0.35rem 0 0;">

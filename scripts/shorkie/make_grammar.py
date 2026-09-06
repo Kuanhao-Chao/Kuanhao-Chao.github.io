@@ -76,7 +76,9 @@ def select_positions(plane, seq, tss, k):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--positions", type=int, default=10, help="strong bases per locus; as many controls")
-    ap.add_argument("--batch", type=int, default=32)
+    # 2 x [B, 16384, 170] float32 resident = ~22 MB a row. 32 was fine alone and is not on a
+    # machine that is also running a second session; the forward pass dominates either way.
+    ap.add_argument("--batch", type=int, default=16)
     ap.add_argument("--device", default=None)
     ap.add_argument("--only", default=None)
     ap.add_argument("--fold", default="f0")
@@ -213,6 +215,12 @@ def main() -> int:
                 return None
             return round(float(np.corrcoef(u[m], v[m])[0, 1]), 4)
 
+        # A shared machine is a shared machine: this sweep was killed once at 8.8 GB of
+        # swap with a concurrent session on the same GPU. Release the per-locus batches
+        # rather than waiting for the allocator to notice.
+        del fwd, rev
+        if hasattr(torch, "mps") and torch.backends.mps.is_available():
+            torch.mps.empty_cache()
         rows.append({
             "id": lid,
             "pairs": len(pair_key),

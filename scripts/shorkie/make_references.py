@@ -221,6 +221,8 @@ def main() -> int:
                 if lm else None,
             }
         row["lmNllReference"] = round(lm.nll(x), 4) if lm else None
+        if hasattr(torch, "mps") and torch.backends.mps.is_available():
+            torch.mps.empty_cache()
         rows.append(row)
         print(f"  {lid:10s} {time.time() - t0:5.1f}s  " +
               "  ".join(f"{f}:rho={row[f]['rho']:+.3f}" for f in FAMILIES), flush=True)

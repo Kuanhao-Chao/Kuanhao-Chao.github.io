@@ -99,8 +99,15 @@ def refs_block(runs: dict[str, dict]) -> dict:
 def gram_block(runs: dict[str, dict]) -> dict:
     r = [runs[f]["hessianCalibration"]["medianR"] for f in sorted(runs)]
     sep = [runs[f]["separationCalibration"]["medianR"] for f in sorted(runs)]
+    # The fold arm runs a smaller position panel than the headline, so the panel size travels with
+    # the numbers rather than depending on someone remembering to write it into the prose.
+    sizes = {runs[f]["positionsPerLocus"] for f in runs}
+    pairs = {runs[f]["pairsTotal"] for f in runs}
     return {
         "folds": sorted(runs),
+        "positionsPerLocus": min(sizes),
+        "pairsPerFold": min(pairs),
+        "reducedPanel": len(sizes) == 1,
         "hessianR": r,
         "separationR": sep,
         "hessianPositiveInFolds": sum(1 for v in r if v is not None and v > 0),
