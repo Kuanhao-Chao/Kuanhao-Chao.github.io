@@ -1896,6 +1896,12 @@ export function initGenomeBrowser(host: HTMLElement): void {
     cv.dataset.gbLanes = JSON.stringify(lanes.map((l) => l.id));
     // Where each lane actually IS, so a gate can click one rather than guess at a y. `gbLanes`
     // stays ids-only because other checks parse it as a flat array of strings.
+    // The level EACH track was drawn at, which is not `gbLevel`: that is the level a per-base
+    // track would use, and a 16 bp track legitimately draws coarser. Without this there is no way
+    // to check that a lane draws at a level its own ladder actually contains -- the readout names
+    // tracks pinned at their floor, but only in prose.
+    cv.dataset.gbDrawnLevels = JSON.stringify(
+      Object.fromEntries([...drawnLevels].map(([id, l]) => [id, l.binBp])));
     cv.dataset.gbSearchDrawn = String(motifDrawn);
     cv.dataset.gbLaneBox = JSON.stringify(
       lanes.map((l) => ({ id: l.id, kind: l.kind, top: Math.round(l.top), h: Math.round(l.height) })));
@@ -2888,6 +2894,10 @@ export function initGenomeBrowser(host: HTMLElement): void {
       + 'counts run roughly 0.3-1.5x this depending on the pattern.';
     host2.dataset.gbSearchHits = String(motifHits.length);
     host2.dataset.gbSearchScope = motifGenome ? 'genome' : 'chrom';
+    // Which hit is current. `clampView` pins a view to the chromosome, so two hits within the
+    // first kilobase both render as "chrI:1-2,000" and a check that watches the readout concludes
+    // stepping is broken when it is working.
+    host2.dataset.gbSearchAt = motifIdx >= 0 ? String(motifIdx) : '';
   }
 
   async function runMotifSearch(pattern: string): Promise<void> {
@@ -3285,6 +3295,13 @@ export function initGenomeBrowser(host: HTMLElement): void {
     const info = chromInfo(next.chrom);
     if (!info) return;
     const v = clampView(next.start, next.end, info.length);
+    // A gene or motif card describes something on THIS chromosome. Leaving it open across a
+    // chromosome change pins a description of chrVII over a view of chrXII -- the same stale-view
+    // failure as a locus change that keeps its canvases. It also sits over the right third of the
+    // stage, so it swallows clicks meant for the overview strip beneath it; that is how this was
+    // found. A pan within one chromosome leaves it alone, because a reader may well be panning to
+    // look at the gene it names.
+    if (next.chrom !== view.chrom) $('[data-gb-motif]')?.setAttribute('hidden', '');
     view = { chrom: next.chrom, ...v };
     if (opts.push !== false) history = historyPush(history, view);
     if (chromSel && chromSel.value !== view.chrom) chromSel.value = view.chrom;

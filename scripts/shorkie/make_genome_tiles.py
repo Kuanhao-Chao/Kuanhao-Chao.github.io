@@ -365,7 +365,7 @@ TRACK_DOCS = {
     'sk-induction': {
         'source': 'Derived, not predicted separately: the 3,053 TF-induction RNA-seq tracks resolve into 13 timepoints (0-180 min) x 337 regulators, and this is the spread across those 13 timepoint means, (max - min) / (mean + 1), per 16 bp bin. Shorkie (Chao et al. 2025), fold f0.',
         'measures': "How much the model expects a position's expression to move across the induction timecourse — condition-DEPENDENCE, not condition. A gene pinned at its maximum in every condition scores near zero however loudly it is transcribed; a gene that is silent in one state and active in another scores high however quiet it is on average.",
-        'read': 'Against the coverage lane above it, not on its own. High here and low there is a regulated gene caught in its off state; low here and high there is a constitutive one. Over their own gene bodies the ordering is HOP2 0.455 (meiosis-specific, silent in vegetative growth), MMS2 0.352, POP4 0.302 and GAL3 0.297 (glucose-repressed) at the top, and the glycolytic enzymes at the bottom — PDC1 0.066, ADH1 0.081, FBA1 0.082, TDH3 0.083. A tenfold separation from a quantity nothing was tuned on.',
+        'read': 'Against the coverage lane above it, not on its own. High here and low there is a regulated gene caught in its off state; low here and high there is a constitutive one. Over their own gene bodies the ordering is HOP2 0.455 (meiosis-specific, silent in vegetative growth), MMS2 0.352, POP4 0.302 and GAL3 0.297 (glucose-repressed) at the top, and the glycolytic enzymes at the bottom — PDC1 0.066, ADH1 0.081, FBA1 0.082, TDH3 0.083. A tenfold separation from a quantity nothing was tuned on. The axis is fixed at 0-2 rather than at the data maximum, because 1.0 has a meaning here — the spread across timepoints equals the mean — and a round axis is what lets two places on the genome be compared. 99 bins of 758,738 (0.013%, in 12 runs, maximum 2.494) exceed 2.0 and draw at full height.',
         'caveat': "This lane exists BECAUSE the obvious alternative failed a measurement. The plan was 13 genome-wide timepoint lanes so a reader could pick a condition; they are indistinguishable — the lowest pairwise correlation among all 13 is 0.9923 and T5 against T0 is 1.0000 — because each averages ~300 regulators and averaging 300 induction experiments washes out every individual induction. The variation is real and lives in the INDIVIDUAL tracks: over GAL1's gene body the 3,053 of them span 43.7x. Those cannot ship genome-wide (337 regulators would be 276 MB), so individual conditions are available inside the 23 analysed windows and nowhere else. Second caveat: a spread of thirteen means is a floor on the true condition-dependence, never a measurement of it.",
     },
     'sk-ism': {
@@ -602,6 +602,42 @@ def array_for(chrom: str, track: dict) -> Path:
     return TRACK / (f"{chrom}.npy" if not suffix else f"{chrom}-{suffix}.npy")
 
 
+def check_axes(index: dict) -> None:
+    """Refuse an index whose axis silently clips its own data.
+
+    Values outside a track's axis are clamped by `quant`, so a lane whose data exceeds its axis
+    draws a flat band at full height where the real values keep rising -- indistinguishable from a
+    saturated measurement, and invisible to every rendering check because the lane looks fine. A
+    clip is sometimes the right call (a round axis is what lets two places on the genome be
+    compared), so this does not forbid it: it requires the track's own documentation to SAY it
+    clips and by how much, which is what makes it a decision rather than an accident.
+
+    The comparison carries a tolerance because `trackStats` rounds to five decimals while an axis
+    resolved from the data carries six, so a stat can legitimately round up past its own axis.
+    """
+    TOL = 5e-6
+    bad = []
+    for tr in index["tracks"]:
+        lo, hi = tr["axis"]
+        mn = mx = None
+        for c in index["chroms"]:
+            s = (c.get("tracks") or {}).get(tr["id"])
+            if not s or s.get("min") is None:
+                continue
+            mn = s["min"] if mn is None else min(mn, s["min"])
+            mx = s["max"] if mx is None else max(mx, s["max"])
+        if mn is None:
+            continue
+        if mn < lo - TOL or mx > hi + TOL:
+            blob = " ".join((tr.get("docs") or {}).values()).lower()
+            declared = "%" in blob and ("clip" in blob or "full height" in blob)
+            if not declared:
+                bad.append(f"{tr['id']}: data [{mn}, {mx}] escapes axis [{lo}, {hi}] and no doc "
+                           "field says it clips or by how much")
+    if bad:
+        raise SystemExit("axis check failed:\n  " + "\n  ".join(bad))
+
+
 def write_index_only() -> int:
     """Rewrite index.json against the tiles already on disk.
 
@@ -643,6 +679,7 @@ def write_index_only() -> int:
     index["groupOrder"] = GROUP_ORDER
     index["familyLabels"] = FAMILY_LABELS
     index["tracks"] = present
+    check_axes(index)
     old_p.write_text(json.dumps(index, separators=(",", ":")))
 
     import collections
@@ -839,6 +876,7 @@ def main() -> int:
         print(f"  {chrom:8s} {len(seq):>9,} bp  {len(genes):>4d} genes  "
               f"{sum(len(v) for v in levels_meta.values()):>2d} level-sets  {used/1e6:6.2f} MB")
 
+    check_axes(index)
     (OUT / "index.json").write_text(json.dumps(index, separators=(",", ":")))
     total_bytes += (OUT / "index.json").stat().st_size
     print(f"\n  {len(index['chroms'])} chromosomes, {len(tracks_present)} score tracks, "
