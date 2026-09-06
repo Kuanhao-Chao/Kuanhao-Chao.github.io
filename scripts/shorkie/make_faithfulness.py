@@ -251,12 +251,104 @@ def deletion_curve(runner, locus, species, order, worst, lo, hi, rc_lo, rc_hi, b
     return ks, list(ref - 0.5 * (gf + gr))
 
 
+# --------------------------------------------------------------- cascading randomization
+
+def stage_modules(model, stage: str):
+    """The parameter-holding modules of one named stage, head-first ordering elsewhere."""
+    if stage == "head":
+        return [model.head]
+    if stage.startswith("decoder"):
+        i = int(stage[-1]) - 1
+        return [model.dec_bn_main[i], model.dec_bn_skip[i], model.dec_main[i],
+                model.dec_skip[i], model.dec_sep[i]]
+    if stage.startswith("attn_out"):
+        i = int(stage[-1]) - 1
+        return [model.ln_attn[i], model.attn[i], model.ln_ff[i], model.ff1[i], model.ff2[i]]
+    if stage.startswith("block"):
+        i = int(stage[-1]) - 1
+        return [model.bn_a[i], model.conv_a[i], model.bn_b[i], model.conv_b[i]]
+    if stage == "stem":
+        return [model.stem]
+    raise ValueError(stage)
+
+
+def randomize_(torch, modules, gen) -> None:
+    """PERMUTE each tensor's own values rather than resampling them.
+
+    A permutation preserves every parameter's exact marginal distribution -- mean, variance, every
+    moment -- and destroys only the arrangement, so a collapse cannot be dismissed as a change of
+    scale. Resampling from a guessed init distribution confounds "the weights no longer mean
+    anything" with "the weights are now the wrong size".
+    """
+    for m in modules:
+        for p in m.parameters(recurse=True):
+            if p.numel() > 1:
+                flat = p.data.reshape(-1)
+                # The permutation is drawn on the CPU and moved: a seeded generator is bound to a
+                # device, and asking an MPS tensor to index with a CPU generator throws. Drawing on
+                # the CPU also keeps the sweep reproducible whichever device the run uses.
+                perm = torch.randperm(flat.numel(), generator=gen).to(flat.device)
+                p.data.copy_(flat[perm].reshape(p.shape))
+
+
+# Head-first: the check is whether an attribution decays as the network beneath it is destroyed.
+# The U-Net makes the ORDER matter, because randomizing the transformer leaves the three decoder
+# skips -- fed by block5, block6 and block7 -- carrying real signal around it.
+RANDOMIZE_ORDER = (["head"] + [f"decoder{i}" for i in (3, 2, 1)]
+                   + [f"attn_out{i}" for i in range(8, 0, -1)]
+                   + [f"block{i}" for i in range(7, 0, -1)] + ["stem"])
+SKIP_SOURCES = {"block5", "block6", "block7"}
+
+
+def branch_of(stage: str) -> str:
+    if stage == "head" or stage.startswith("decoder"):
+        return "decoder"
+    if stage.startswith("attn_out"):
+        return "bottleneck (skips bypass it)"
+    if stage in SKIP_SOURCES:
+        return "encoder, feeds a skip"
+    return "encoder, below every skip"
+
+
+def randomization_sweep(runner, pack, species, loci, n_loci: int):
+    """Adebayo et al. 2018, cascading: destroy the model from the head down and watch the map go.
+
+    An attribution that survives randomization is not reading the model. But in a skip-connected
+    architecture one pooled number would be misleading: randomizing the bottleneck leaves block5-7
+    feeding the decoder directly, so a map that survives THAT may be reading the skips rather than
+    failing the check. Every row therefore carries the branch it destroyed.
+    """
+    torch = runner.torch
+    gen = torch.Generator(device="cpu").manual_seed(20260905)
+    subset = loci[:n_loci]
+    intact = {}
+    for L in subset:
+        x = common.encode(L["sequence"].upper(), species)
+        lo, hi = common.gene_body_bins(L["features"], L["id"])
+        intact[L["id"]] = (x, lo, hi, N_BINS - hi, N_BINS - lo,
+                           grad_x_input(runner, x, lo, hi, N_BINS - hi, N_BINS - lo))
+    rows = []
+    for stage in RANDOMIZE_ORDER:
+        randomize_(torch, stage_modules(runner.model, stage), gen)
+        rhos = []
+        for lid, (x, lo, hi, rlo, rhi, ref) in intact.items():
+            now = grad_x_input(runner, x, lo, hi, rlo, rhi)
+            rhos.append(abs(spearman(np.abs(now), np.abs(ref))))
+        rows.append({"stage": stage, "branch": branch_of(stage),
+                     "medianAbsRho": round(float(np.median(rhos)), 4)})
+        print(f"    randomized through {stage:11s} ({branch_of(stage):28s}) "
+              f"|rho| vs intact = {rows[-1]['medianAbsRho']:.4f}", flush=True)
+    return rows
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--device", default=None)
     ap.add_argument("--only", default=None)
     ap.add_argument("--fold", default="f0")
     ap.add_argument("--skip-randomization", action="store_true")
+    ap.add_argument("--out", default=None,
+                    help="write here instead of the shipped pack, for a per-fold sweep")
     args = ap.parse_args()
 
     import torch
@@ -267,6 +359,7 @@ def main() -> int:
     runner = common.Runner(common.fold_checkpoint(args.fold), device)
     print(f"device: {device}  fold: {args.fold}  loci: {len(loci)}")
 
+    randomization = None
     rows, curves, t_start = [], {}, time.time()
     for L in loci:
         lid = L["id"]
@@ -385,6 +478,10 @@ def main() -> int:
         r["role"] = ("ceiling" if r["method"] == "oracle"
                      else "baseline" if r["method"] in BASELINES else "method")
 
+    if not args.skip_randomization:
+        print("  cascading parameter randomization (Adebayo et al. 2018), head first:")
+        randomization = randomization_sweep(runner, pack, species, loci, RANDOMIZE_LOCI)
+
     out = {
         "note": ("Every shipped attribution scored against the exact single-base mutagenesis "
                  "planes: rank agreement at each method's own native resolution, and a deletion "
@@ -404,9 +501,13 @@ def main() -> int:
             "note": ("Reported absolutely as well as relatively: where the target gap is near "
                      "zero a 0.04 miss reads as a several-hundred-percent error."),
         },
+        "randomization": randomization,
+        "randomizationLoci": RANDOMIZE_LOCI if randomization else 0,
         "perLocus": rows,
     }
-    OUT.write_text(json.dumps(out, separators=(",", ":")) + "\n")
+    dest = Path(args.out) if args.out else OUT
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(json.dumps(out, separators=(",", ":")) + "\n")
     print(f"\n  {'method':10s} {'res':>5s} {'median rho':>11s} {'deletion AUC':>13s}  verdict")
     for r in scorecard:
         verdict = ({"ceiling": "— (the scale)", "baseline": "— (baseline)"}
@@ -414,7 +515,7 @@ def main() -> int:
         print(f"  {r['method']:10s} {r['resolutionBp']:4d}b {r['medianRho']:+11.3f} "
               f"{r['deletionAuc']:13.4f}  {verdict}")
     print(f"\n  elapsed {(time.time() - t_start) / 60:.1f} min")
-    print(f"wrote {OUT.relative_to(ROOT)}")
+    print(f"wrote {dest}")
     return 0
 
 

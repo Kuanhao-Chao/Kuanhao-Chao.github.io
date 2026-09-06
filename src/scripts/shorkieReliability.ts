@@ -48,6 +48,9 @@ export function initShorkieReliability(host: HTMLElement): void {
   host.dataset.rlBound = '1';
 
   const foldsCv = host.querySelector<HTMLCanvasElement>('[data-rl-folds]');
+  const perFoldCv = host.querySelector<HTMLCanvasElement>('[data-rl-perfold]');
+  const agreeCv = host.querySelector<HTMLCanvasElement>('[data-rl-agree]');
+  const perFoldStat = host.querySelector<HTMLElement>('[data-rl-perfold-stat]');
   const grammarCv = host.querySelector<HTMLCanvasElement>('[data-rl-grammar]');
   const foldsStat = host.querySelector<HTMLElement>('[data-rl-folds-stat]');
   const grammarStat = host.querySelector<HTMLElement>('[data-rl-grammar-stat]');
@@ -133,6 +136,139 @@ export function initShorkieReliability(host: HTMLElement): void {
         + `${(fd.stableFractionControl * 100).toFixed(1)}% of matched controls · `
         + `strand deviation is ${fd.strandOverFold ?? '—'}× the cross-fold sd`;
     }
+  }
+
+  /** All eight checkpoints at once: rows are folds, columns are loci, and a cell is that fold's
+   *  own predicted g as a deviation from the across-fold mean at that locus.
+   *
+   *  The pack used to ship medians only, so "recomputed under all eight folds" was a sentence a
+   *  reader had to take on trust. Deviation rather than absolute g because the loci span 8 to 15
+   *  log2 units: on an absolute scale every column would be one flat colour and the between-fold
+   *  differences -- the entire subject -- would be invisible. */
+  function drawPerFold(): void {
+    if (!perFoldCv) return;
+    const fd = foldsData as unknown as Folds;
+    const rows = fd.perFold ?? [];
+    const loci = fd.locusOrder ?? [];
+    if (!rows.length || !loci.length) return;
+    const ROW = 20;
+    const H = rows.length * ROW + 46;
+    const ctx = fit(perFoldCv, H);
+    if (!ctx) return;
+    const w = Math.max(1, Math.round(perFoldCv.clientWidth));
+    const ink = css(host, '--color-ink', '#1a1a1a');
+    const muted = css(host, '--color-muted', '#6b7280');
+    const up = css(host, '--color-accent', '#2563eb');
+    const dn = css(host, '--vp-tfbs', '#dc2626');
+    const bg = css(host, '--color-bg', '#fff');
+    ctx.clearRect(0, 0, w, H);
+    ctx.font = '10px system-ui, sans-serif';
+
+    const lab = 30;
+    const right = 96;
+    const cell = Math.max(3, (w - lab - right) / loci.length);
+    // Deviation from each locus's own across-fold mean, and one shared scale so a strong row
+    // reads as a strong row rather than as a locus with a wide column.
+    const mean = loci.map((_, j) => rows.reduce((s, r) => s + r.g[j], 0) / rows.length);
+    let span = 1e-9;
+    rows.forEach((r) => r.g.forEach((v, j) => { span = Math.max(span, Math.abs(v - mean[j])); }));
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = muted;
+    ctx.fillText(`${loci.length} loci, in the order of the table above`, lab + (cell * loci.length) / 2, 11);
+
+    rows.forEach((r, i) => {
+      const y = 18 + i * ROW;
+      ctx.textAlign = 'right';
+      ctx.fillStyle = ink;
+      ctx.fillText(r.fold + (r.selectsPanel ? '*' : ''), lab - 4, y + ROW / 2 + 1);
+      r.g.forEach((v, j) => {
+        const d = (v - mean[j]) / span;
+        ctx.fillStyle = d >= 0 ? up : dn;
+        ctx.globalAlpha = Math.min(1, Math.abs(d)) * 0.9;
+        ctx.fillRect(lab + cell * j, y + 2, Math.max(1, cell - 0.5), ROW - 6);
+        ctx.globalAlpha = 1;
+      });
+      ctx.textAlign = 'left';
+      ctx.fillStyle = muted;
+      ctx.fillText(`${r.majorityAgreement.toFixed(2)} · ${r.medianAbsEffect.toFixed(4)}`,
+                   lab + cell * loci.length + 5, y + ROW / 2 + 1);
+    });
+    ctx.fillStyle = muted;
+    ctx.textAlign = 'left';
+    caption(ctx, [
+      `* f0 selected the locked panel, so it is excluded from every cross-fold statistic. Right: majority agreement · median |effect|. Colour is deviation from each locus's across-fold mean, ±${span.toFixed(3)}.`,
+      `* f0 selected the panel and is excluded from the statistics. Right: majority agreement · median |effect|. Colour is deviation, ±${span.toFixed(3)}.`,
+      '* f0 selected the panel. Colour is deviation from each locus mean.',
+      '* f0 selected the panel',
+    ], lab, H - 8, w - lab - 4);
+    // A canvas has no rows to count from the outside, so the count is published. Eight is the
+    // whole point of the view and a silent regression to one fold would just look shorter.
+    perFoldCv.dataset.rlFoldRows = String(rows.length);
+    if (perFoldStat) {
+      const g = rows.map((r) => r.majorityAgreement);
+      perFoldStat.textContent =
+        `${rows.length} checkpoints × ${loci.length} loci · every fold sides with the majority on `
+        + `${(Math.min(...g) * 100).toFixed(0)}–${(Math.max(...g) * 100).toFixed(0)}% of substitutions`;
+    }
+  }
+
+  /** The 8×8 pairwise overlap. "The folds are eight different models" is a claim; this is it
+   *  measured, on the statistic the fold gate itself uses. */
+  function drawAgreement(): void {
+    if (!agreeCv) return;
+    const fd = foldsData as unknown as Folds;
+    const order = fd.foldOrder ?? [];
+    const m = fd.foldAgreement ?? [];
+    if (!order.length || !m.length) return;
+    const w = Math.max(1, Math.round(agreeCv.clientWidth));
+    const labW = 26;
+    const cell = Math.max(16, Math.min(46, (w - labW - 6) / order.length));
+    // Centre the block. The cell size is capped so the squares stay square and legible, which on a
+    // wide container leaves the matrix stranded in the left third with two thirds of dead canvas.
+    const lab = labW + Math.max(0, (w - labW - cell * order.length - 6) / 2);
+    const H = order.length * cell + 40;
+    const ctx = fit(agreeCv, H);
+    if (!ctx) return;
+    const ink = css(host, '--color-ink', '#1a1a1a');
+    const muted = css(host, '--color-muted', '#6b7280');
+    const acc = css(host, '--color-accent', '#2563eb');
+    const bg = css(host, '--color-bg', '#fff');
+    ctx.clearRect(0, 0, w, H);
+    ctx.font = '10px system-ui, sans-serif';
+    // Scale from the smallest OFF-diagonal value, not from zero: the diagonal is 1.0 by
+    // construction and would otherwise set the range and flatten every real comparison.
+    let lo = 1;
+    m.forEach((row, i) => row.forEach((v, j) => { if (i !== j) lo = Math.min(lo, v); }));
+    ctx.textAlign = 'center';
+    ctx.fillStyle = muted;
+    order.forEach((f, j) => ctx.fillText(f, lab + cell * (j + 0.5), 11));
+    m.forEach((row, i) => {
+      const y = 16 + i * cell;
+      ctx.textAlign = 'right';
+      ctx.fillStyle = ink;
+      ctx.fillText(order[i], lab - 4, y + cell / 2 + 3);
+      row.forEach((v, j) => {
+        const d = i === j ? 1 : Math.max(0, (v - lo) / Math.max(1e-9, 1 - lo));
+        ctx.fillStyle = acc;
+        ctx.globalAlpha = 0.15 + d * 0.75;
+        ctx.fillRect(lab + cell * j + 1, y + 1, cell - 2, cell - 2);
+        ctx.globalAlpha = 1;
+        if (cell >= 30) {
+          ctx.fillStyle = d > 0.6 ? bg : muted;
+          ctx.textAlign = 'center';
+          ctx.fillText(i === j ? '—' : v.toFixed(2), lab + cell * (j + 0.5), y + cell / 2 + 3);
+        }
+      });
+    });
+    ctx.fillStyle = muted;
+    ctx.textAlign = 'left';
+    caption(ctx, [
+      'Share of each pair\u2019s top 1% of bases that is the same base. The diagonal is 1.0 by construction and is left blank.',
+      'Share of each pair\u2019s top 1% of bases that coincides. Diagonal blank.',
+      'shared top-1% bases between each pair',
+      'pairwise top-1% overlap',
+    ], lab, H - 8, w - lab - 4);
   }
 
   function drawGrammar(): void {
@@ -223,11 +359,13 @@ export function initShorkieReliability(host: HTMLElement): void {
   }
 
   drawFolds();
+  drawPerFold();
+  drawAgreement();
   drawGrammar();
   host.dataset.reliabilityReady = '1';
 
   // Canvases read CSS custom properties, so a theme change repaints or they keep the old palette.
-  const onTheme = () => { drawFolds(); drawGrammar(); };
+  const onTheme = () => { drawFolds(); drawPerFold(); drawAgreement(); drawGrammar(); };
   document.addEventListener('khc:theme-change', () => { if (host.isConnected) onTheme(); });
   let t: number | undefined;
   let lastW = host.clientWidth;

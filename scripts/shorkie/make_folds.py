@@ -252,6 +252,12 @@ def main() -> int:
 
     per_locus, rows = [], []
     overlap_pairs, strand_gaps, fold_sds = [], [], []
+    # PER-FOLD, not just the aggregate. The first version of this pack shipped medians only, so
+    # "eight folds" was a sentence rather than something a reader could see. These are recovered
+    # from the same caches with no model run: each fold's own scalar at each locus, its own median
+    # effect size, and how often it sides with the majority.
+    per_fold = {f: {"g": {}, "absEffect": [], "agree": []} for f in have}
+    grad_by_fold = {f: [] for f in have}
     for L in loci:
         lid = L["id"]
         if lid not in panels:
@@ -271,6 +277,14 @@ def main() -> int:
                 if b != BASE_IDX[seq[int(i)]]:
                     mask[n, b] = True
 
+        for f in have:
+            d = data[f]
+            # The rc-averaged locus scalar, in the convention every other panel uses.
+            per_fold[f]["g"][lid] = round(0.5 * (float(np.log2(1 + d["ref_f"]))
+                                                 + float(np.log2(1 + d["ref_r"]))), 4)
+            per_fold[f]["absEffect"].append(float(np.median(np.abs(eff[f][mask]))))
+            grad_by_fold[f].append(np.abs(d["grad"]))
+
         stack = np.stack([eff[f][mask] for f in evidence])           # [F, S]
         sign = np.sign(stack)
         agree = np.maximum((sign > 0).sum(axis=0), (sign < 0).sum(axis=0)) / len(evidence)
@@ -282,6 +296,13 @@ def main() -> int:
 
         # which substitutions belong to a top base vs a matched control
         which_top = np.repeat(is_top[:, None], 4, axis=1)[mask]
+
+        # Which fold sides with the majority, per fold. A fold that dissents often is a fold
+        # whose disagreement the aggregate is averaging away.
+        maj = np.sign(np.median(stack, axis=0))
+        for f in have:
+            s = np.sign(eff[f][mask])
+            per_fold[f]["agree"].append(float(np.mean(s == maj)))
 
         # top-1% overlap on the whole-window gradient, between every evidence fold pair
         k = max(1, int(TOP_FRACTION * SEQ_LEN))
@@ -321,6 +342,29 @@ def main() -> int:
     fold_component = float(np.median(allsd))
     strand_component = float(np.median(allgap) / 2.0)   # |f - r| / 2 is the deviation of each arm
 
+    # The 8x8 pairwise agreement matrix, over ALL folds including f0 -- f0 is excluded from the
+    # cross-fold statistics because it selected the panel, but a reader comparing checkpoints
+    # should still see where it sits relative to the other seven.
+    kk = max(1, int(TOP_FRACTION * SEQ_LEN))
+    tops = {f: [set(np.argsort(-g)[:kk].tolist()) for g in grad_by_fold[f]] for f in have}
+    agreement = [[round(float(np.mean([len(a & b) / kk for a, b in zip(tops[fi], tops[fj])])), 4)
+                  for fj in have] for fi in have]
+
+    # Sort ONCE, here, and build both the locus rows and the per-fold arrays from the same
+    # ordered list. `perLocus` used to be sorted inside the payload literal while the per-fold
+    # arrays were built from the unsorted list, which would have labelled every fold's values with
+    # the wrong locus -- silently, since both are just arrays of 23 numbers.
+    per_locus = sorted(per_locus, key=lambda r: -r["stableTop"])
+    locus_order = [r["id"] for r in per_locus]
+
+    fold_rows = [{
+        "fold": f,
+        "selectsPanel": f == "f0",
+        "g": [per_fold[f]["g"][lid] for lid in locus_order],
+        "medianAbsEffect": round(float(np.median(per_fold[f]["absEffect"])), 5),
+        "majorityAgreement": round(float(np.mean(per_fold[f]["agree"])), 4),
+    } for f in have]
+
     summary = {
         "note": ("Every exact single-base effect in a locked panel, recomputed under all eight "
                  "released training folds and on both strands. The panel is selected from f0, so "
@@ -343,7 +387,14 @@ def main() -> int:
         "medianAbsEffect": round(float(np.median(np.abs(allmean))), 5),
         "passesSignGate": bool(np.median(allagree) > GATE_SIGN),
         "passesOverlapGate": bool(np.median(overlap_pairs) > GATE_OVERLAP),
-        "perLocus": sorted(per_locus, key=lambda r: -r["stableTop"]),
+        "perLocus": per_locus,
+        "locusOrder": locus_order,
+        # Every fold's own numbers, in the locus order of `perLocus` -- same list, sorted once.
+        "perFold": fold_rows,
+        "foldOrder": have,
+        "foldAgreement": agreement,
+        "agreementNote": ("Mean top-1% overlap of the whole-window gradient x input between each "
+                          "pair of checkpoints, over the 23 loci. 1.0 would be identical models."),
     }
     OUT.write_text(json.dumps(summary, separators=(",", ":")) + "\n")
 

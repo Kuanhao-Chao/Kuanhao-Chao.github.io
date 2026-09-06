@@ -826,6 +826,38 @@ def verify_reliability() -> None:
     else:
         print("  ....  fold sweep caches absent; the raw re-derivation was skipped")
 
+    # The per-fold arrays are the half of this pack a reader can actually see. They must agree with
+    # the aggregate that was computed from the same caches, and they must be aligned to the SAME
+    # locus order -- `perLocus` is sorted and the arrays are not sorted independently, which is
+    # exactly the kind of misalignment that produces 23 plausible numbers against the wrong labels.
+    if f.get("perFold"):
+        pf = f["perFold"]
+        check(len(pf) == len(f["folds"]),
+              "every fold has its own row", f"{len(pf)} rows for {len(f['folds'])} folds")
+        check(len(f.get("locusOrder", [])) == f["loci"]
+              and all(len(r["g"]) == f["loci"] for r in pf),
+              "per-fold arrays are one value per locus",
+              f"{f['loci']} loci, arrays of {len(pf[0]['g'])}")
+        check([r["id"] for r in f["perLocus"]] == f["locusOrder"],
+              "the per-fold arrays share perLocus's locus order",
+              "same list, sorted once")
+        check(sum(1 for r in pf if r["selectsPanel"]) == 1
+              and next(r["fold"] for r in pf if r["selectsPanel"]) == "f0",
+              "exactly one fold is marked as the panel selector", "f0")
+        agree = f.get("foldAgreement") or []
+        off = [v for i, row in enumerate(agree) for j, v in enumerate(row) if i != j]
+        check(len(agree) == len(pf) and all(abs(agree[i][i] - 1.0) < 1e-9 for i in range(len(agree))),
+              "the agreement matrix is square with a unit diagonal", f"{len(agree)}x{len(agree)}")
+        check(all(abs(agree[i][j] - agree[j][i]) < 1e-9
+                  for i in range(len(agree)) for j in range(len(agree))),
+              "the agreement matrix is symmetric", "overlap is a symmetric statistic")
+        check(bool(off) and max(off) < 0.95,
+              "no two folds are near-identical models",
+              f"strongest pair overlaps {max(off):.3f} of its top 1%")
+    else:
+        check(False, "the fold pack carries per-fold arrays",
+              "MISSING -- re-run make_folds.py --summarise")
+
     # ---- 3j. the faithfulness scorecard ------------------------------------------------------
     fa = loaded["Faithfulness"]
     # Read the baseline roster from the pack rather than restating it. It changed once already,

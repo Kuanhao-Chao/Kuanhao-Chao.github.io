@@ -981,11 +981,14 @@ async function auditExplanations(browser, baseURL, scope) {
     });
     if (new Set(spine.acts).size !== spine.acts.length) fail(scope, 'a duplicate act heading');
 
-    // Every analysis panel opens with the same four-term frame: question, method, cost, and what
-    // would refute it. That is the page's spine as a research plan, and the fourth term is the one
-    // that matters -- without it a reader cannot tell a claim carrying a control from one without,
-    // and the page's best material is exactly the claims that survived a control. The reference act
-    // opts out: a table of tensor collapses is not a question.
+    // Every analysis panel opens with the same six-term frame: question, why it matters, method,
+    // intuition, cost, and what would refute it -- then closes with what the answer tells us.
+    //
+    // The last two of the six and the closing reading were added because the page described
+    // mechanism without reasoning: a reader could follow what was computed and still not know what
+    // problem it solved, why that design measures it, or what the result meant. Before that, ONE of
+    // 32 panels contained an explicit interpretation. The reference act opts out of all of it: a
+    // table of tensor collapses is not a question.
     const frames = await page.evaluate(() => {
       const ref = document.querySelector('#act-ref');
       return [...document.querySelectorAll('.vp-panel')]
@@ -994,11 +997,14 @@ async function auditExplanations(browser, baseURL, scope) {
           const dl = s.querySelector('.vp-frame');
           const terms = [...(dl?.querySelectorAll('dt') ?? [])].map((d) => d.textContent.trim());
           const vals = [...(dl?.querySelectorAll('dd') ?? [])].map((d) => d.textContent.trim());
+          const reading = s.querySelector('.vp-reading');
           return { title: s.querySelector('h3')?.textContent.trim().slice(0, 44) ?? '?',
-                   terms, vals };
+                   terms, vals,
+                   reading: reading ? reading.textContent.replace(/\s+/g, ' ').trim() : null };
         });
     });
-    const WANT = ['Question', 'Method', 'Cost', 'What would refute it'];
+    const WANT = ['Question', 'Why this matters', 'Method', 'Intuition', 'Cost',
+                  'What would refute it'];
     for (const f of frames) {
       if (f.terms.join('|') !== WANT.join('|')) {
         fail(scope, `panel "${f.title}" has terms ${f.terms.join('|') || '(none)'}`);
@@ -1006,6 +1012,17 @@ async function auditExplanations(browser, baseURL, scope) {
         // A padded field is worse than a missing one: it looks like the question was answered.
         fail(scope, `panel "${f.title}" has a frame field under 20 characters: `
           + f.vals.map((v, i) => `${WANT[i]}=${v.length}`).join(' '));
+      }
+      // The closing reading is what turns a measurement into a statement. A short one is padding,
+      // and padding here is worse than nothing: it looks like the panel drew a conclusion.
+      if (!f.reading) {
+        fail(scope, `panel "${f.title}" has no closing "what the answer tells us" reading`);
+      } else if (f.reading.length < 90) {
+        fail(scope, `panel "${f.title}" has a ${f.reading.length}-character reading, too short to `
+          + 'be an interpretation');
+      } else if (!/^what the answer tells us/i.test(f.reading)) {
+        fail(scope, `panel "${f.title}" reading does not open with its label: `
+          + `"${f.reading.slice(0, 40)}"`);
       }
     }
     if (frames.length < 20) fail(scope, `only ${frames.length} framed panels outside the reference`);
@@ -1769,7 +1786,10 @@ async function auditReliability(browser, baseURL, scope) {
     await page.goto(`${baseURL}/shorkie-lab/shorkie/`, { waitUntil: 'networkidle' });
     await page.waitForSelector('[data-shorkie-reliability][data-reliability-ready="1"]', { timeout: 20_000 });
 
-    for (const sel of ['[data-rl-folds]', '[data-rl-grammar]']) {
+    // The per-fold grid and the agreement matrix exist because the pack used to ship medians only,
+    // so "recomputed under all eight folds" was a sentence a reader had to take on trust. A blank
+    // canvas here would put it straight back to that.
+    for (const sel of ['[data-rl-folds]', '[data-rl-grammar]', '[data-rl-perfold]', '[data-rl-agree]']) {
       const inked = await page.evaluate((s) => {
         const c = document.querySelector(s);
         if (!c) return -1;
@@ -1785,26 +1805,52 @@ async function auditReliability(browser, baseURL, scope) {
 
     // The two stat lines carry the headline numbers. An empty one means the pack loaded but the
     // controller never reached the end of its draw.
-    const stats = await page.evaluate(() => [...document.querySelectorAll('[data-rl-folds-stat], [data-rl-grammar-stat]')]
+    const stats = await page.evaluate(() => [...document.querySelectorAll('[data-rl-folds-stat], [data-rl-grammar-stat], [data-rl-perfold-stat]')]
       .map((e) => e.textContent.trim()));
-    if (stats.length !== 2) throw new Error(`${scope}: expected 2 reliability stat lines, found ${stats.length}`);
+    if (stats.length !== 3) throw new Error(`${scope}: expected 3 reliability stat lines, found ${stats.length}`);
+
+    // Eight rows, one per released checkpoint -- the whole point of the view, and a silent
+    // regression to a single fold would otherwise look like a drawing that got shorter.
+    const folds = await page.evaluate(() => {
+      const el = document.querySelector('[data-rl-perfold]');
+      return el ? Number(el.getAttribute('data-rl-fold-rows') || 0) : -1;
+    });
+    if (folds !== 8) throw new Error(`${scope}: the per-fold grid reports ${folds} rows, expected 8`);
     for (const s of stats) {
       if (s.length < 40) throw new Error(`${scope}: a reliability stat line is near-empty: "${s}"`);
     }
 
     // The scorecard and the reference menu are real tables, and both must carry more rows than the
     // model methods alone -- the baselines are the whole point of the comparison.
+    // Identified by their own header text, not by position. This assertion was written when act 9
+    // had two tables and broke the moment the randomization table landed between them -- a count is
+    // a second copy of a fact, which this repo has shipped the consequences of before.
     const tables = await page.evaluate(() => {
       const act = document.querySelector('#act-9');
       return [...(act?.querySelectorAll('table') ?? [])].map((tb) => ({
+        head: [...tb.querySelectorAll('thead th')].map((h) => h.textContent.trim().toLowerCase()).join('|'),
         rows: tb.querySelectorAll('tbody tr').length,
         text: tb.textContent.replace(/\s+/g, ' ').slice(0, 400),
       }));
     });
-    if (tables.length !== 2) throw new Error(`${scope}: expected 2 tables in act 9, found ${tables.length}`);
-    if (tables[0].rows < 6) throw new Error(`${scope}: the method scorecard has ${tables[0].rows} rows; the baselines are missing`);
-    if (tables[1].rows !== 5) throw new Error(`${scope}: the reference menu has ${tables[1].rows} rows, expected 5 families`);
-    if (!/baseline/i.test(tables[0].text)) throw new Error(`${scope}: the scorecard does not mark its baselines`);
+    const find = (needle) => tables.find((tb) => tb.head.includes(needle));
+    // Keys that appear in exactly one header. 'deletion auc' is in both the scorecard and the
+    // reference menu, so matching on it works only by document order -- which is the kind of
+    // accident that survives until someone reorders the panels.
+    const scorecard = find('verdict');
+    const menu = find('lm surprise');
+    const random = find('randomized through');
+    if (!scorecard) throw new Error(`${scope}: no method scorecard in act 9 (heads: ${tables.map((x) => x.head).join(' / ')})`);
+    if (!menu) throw new Error(`${scope}: no reference menu in act 9`);
+    if (scorecard.rows < 6) throw new Error(`${scope}: the method scorecard has ${scorecard.rows} rows; the baselines are missing`);
+    if (menu.rows !== 5) throw new Error(`${scope}: the reference menu has ${menu.rows} rows, expected 5 families`);
+    if (!/baseline/i.test(scorecard.text)) throw new Error(`${scope}: the scorecard does not mark its baselines`);
+    // The randomization table is optional only because the pack can be generated without it; when
+    // it is present it must name the branch, which is the column that stops one pooled number from
+    // reading a U-Net's skips as the sanity check failing.
+    if (random && !/skips bypass it/i.test(random.text)) {
+      throw new Error(`${scope}: the randomization table does not report the branch it destroyed`);
+    }
 
     // A placeholder pack renders as a wall of zeros. Nothing else on the page would notice.
     const zeros = await page.evaluate(() => {

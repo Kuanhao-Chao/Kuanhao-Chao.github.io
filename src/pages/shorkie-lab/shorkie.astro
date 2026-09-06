@@ -187,7 +187,8 @@ const breadcrumbLd = buildBreadcrumbLd([
   <div class="vp" data-vp>
     <header class="vp-top">
       <h1 class="vp-title">The Live Variant Playground</h1>
-      <span class="vp-sub">Shorkie · Chao et al. 2025 · fold f0, 14,253,567 parameters</span>
+      <span class="vp-sub">Shorkie · Chao et al. 2025 · fold f0, 14,253,567 parameters ·{' '}
+        <a href="#act-9">act 9 crosses all {folds.folds.length}</a></span>
       <span class="vp-spacer"></span>
       <a class="vp-sub" href="/shorkie-lab/shorkie_lm/">Language model →</a>
       <a class="vp-sub" href="/shorkie-lab/">Lab</a>
@@ -228,14 +229,25 @@ const breadcrumbLd = buildBreadcrumbLd([
       <!-- ============================== 1 · The system and the question ============================== -->
       <section class="vp-act" id="act-1">
         <h2 class="vp-act__h"><span class="vp-act__n">1</span>The system and the question</h2>
-        <p class="vp-act__sub">A 16,384 bp window in; coverage over 896 bins and 5,215 tracks out. Everything below shares one set of coordinates and one scalar — pick a locus and a region in the bar above, then read straight down.</p>
+        <p class="vp-act__sub">A model with 5,215 outputs has no single "prediction", and an
+        interpretability page that never says which one it explains can contradict itself without
+        any of its numbers being wrong. So this act fixes the object: one 16,384 bp window, one
+        gene's own output bins, one track subset, one scalar. Everything below differentiates,
+        perturbs or ranks against that number — pick a locus and a region in the bar above and read
+        straight down.</p>
         <section class="vp-panel">
           <h3>The window, and the one number every method differentiates</h3>
         <ShorkiePanelHead
           question="What does the model take in, and what single scalar does every method on this page differentiate?"
+          why="Every panel below differentiates, perturbs or ranks against one number. If that number is not fixed and stated, two panels can disagree because they were quietly explaining different quantities — the commonest way an interpretability page contradicts itself."
           method="A 16,384 bp window centred on one gene. f(x) = log2( Σ over that gene's bins of the mean over the 384 T0 RNA-seq tracks, + 1 ) — the paper's own logSED target, ensemble.py:97-104."
+          intuition="A model with 5,215 outputs has no single 'prediction'. Scalarising to one gene's own bins over one declared track subset is what makes 'which bases drove it' a well-posed question at all."
           cost="Free. The sequence and the gene models ship with the page."
           refuted="Nothing here is a claim; it is the definition everything below is measured against." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          Nothing is claimed here; this is the definition. Its value is that every number below is a change in this one quantity, so where two panels disagree they are disagreeing about the model and not about what was measured.
+        </p>
           <div class="vp-motifs" data-vp-motifs hidden>
             <p class="vp-notes" style="margin:0 0 0.35rem;">
               <strong>Figure 4 motifs.</strong> Database consensus matches found in this window on
@@ -293,9 +305,15 @@ const breadcrumbLd = buildBreadcrumbLd([
         </h3>
         <ShorkiePanelHead
           question="How much of the 16,384 bp of context does the prediction actually depend on?"
+          why="Every attribution below is scoped by what the model actually uses. If a prediction is settled by the nearest kilobase, an attribution peak six kilobases away is noise — and a method that reports one is wrong rather than interesting."
           method="Keep a centred core of real sequence, dinucleotide-shuffle everything outside it, and grow the core until the prediction settles inside ±5%."
+          intuition="Architectural reach and dependence are different claims: the transformer connects the whole window, but 'can see' is not 'uses'. Shuffling a flank while preserving its dinucleotide composition removes the information without removing the sequence."
           cost={`${recData.shuffles} shuffles × ${recData.radii.length} radii = ${recData.shuffles * recData.radii.length} forward passes a locus, ${nLoci} windows.`}
           refuted="Two controls. At the largest radius the window is entirely real, so that point must reproduce the full-context prediction — and convergence requires every larger radius to stay inside the band too." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          This is the practical scope of every attribution on the page. A peak outside the radius that settles a locus is not a long-range dependency — it is a base the prediction does not use, and reading it as regulatory would be reading the method.
+        </p>
         <p class="vp-notes vp-lede" style="margin:0 0 0.7rem;">
           Every attribution method on this page distributes credit across all 16,384 bases, and the architecture really
           can reach all of them — dilated convolutions into full self-attention at the bottleneck.
@@ -341,7 +359,9 @@ const breadcrumbLd = buildBreadcrumbLd([
       <!-- ============================== 3 · What does it predict? ============================== -->
       <section class="vp-act" id="act-3">
         <h2 class="vp-act__h"><span class="vp-act__n">3</span>What does it predict?</h2>
-        <p class="vp-act__sub">The prediction itself, on one zoomable axis with everything that
+        <p class="vp-act__sub">Before any explanation is worth reading, the thing being explained has to
+        be visible and comparable. This act draws the prediction itself and every lane that explains
+        it on one zoomable axis with everything that
         explains it. Zoom in far enough and the per-base attribution lanes turn into DNA logos in
         place; every lane is the same base pair at the same x.</p>
       <section class="vp-panel">
@@ -350,9 +370,15 @@ const breadcrumbLd = buildBreadcrumbLd([
         </h3>
         <ShorkiePanelHead
           question="What does the model predict across this window, what drove it, and what is actually annotated there?"
+          why="This view replaced four stacked panels that each computed their own left inset, so one base pair sat at four different x positions and no two lanes could be compared by eye. A shared axis is what makes 'these methods disagree here' a statement about the methods."
           method="One forward pass for the curve (896 bins × 16 bp); every attribution lane rc-averaged and drawn at its own real step; annotation from SGD, ORegAnno, Harbison/MacIsaac and a JASPAR scan."
+          intuition="Every lane answers a different question about the same coordinates. Drawing them on one axis at each method's own real resolution lets a divergence be read directly instead of inferred across two figures at different scales."
           cost="Free. Every locus was run offline and the packs ship with the page."
           refuted="This is a drawing, not a claim. Its correctness condition is that one base pair lands at one x in every lane — which one canvas makes true by construction rather than by assertion." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          Where the lanes part company is the finding, and on one axis it is readable directly rather than inferred. A method drawing a peak no other method draws is either resolving something the others cannot, or reporting its own estimator.
+        </p>
         <p class="vp-notes vp-lede" style="margin:0 0 0.7rem;">
           Everything on this page is about ONE window at a time — the locus in the bar above. This
           is what the model predicts across it, what drove that prediction, and what is actually
@@ -471,9 +497,15 @@ const breadcrumbLd = buildBreadcrumbLd([
         <h3>Every output track <span class="vp-stat" data-vp-heat-stat></span></h3>
         <ShorkiePanelHead
           question="Is the curve above representative, or an artefact of averaging thousands of experiments?"
+          why="The headline curve is a mean over thousands of experiments, and a mean can be shaped by a handful of loud tracks. If it is, every attribution built on it is explaining an artefact of averaging."
           method="All 5,215 predicted tracks as one row each, in the released targets sheet's order, with any single one plotted on the shared axis."
+          intuition="A summary statistic cannot report on its own adequacy. Drawing all 5,215 rows shows structure within a block if the group mean is unrepresentative, and a uniform block if it is not."
           cost="Free. The 5,215 × 896 plane ships per locus, 2.15 MB."
           refuted="If the four assay blocks did not read as bands the track ordering would be wrong — which it was once, and the curve labelled RNA-seq was mostly ChIP-exo." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          Where a block is uniform the group mean is a fair summary and every attribution built on it inherits that. Where it is not, the mean is the wrong object and the single-track view is the honest one.
+        </p>
         <canvas class="vp-canvas vp-heat" data-vp-heat role="img"
                 aria-label="All 5,215 predicted output tracks, one row each, grouped by assay"></canvas>
         <div class="vp-controls" style="margin-top:0.5rem;">
@@ -498,16 +530,21 @@ const breadcrumbLd = buildBreadcrumbLd([
       <!-- ============================== 4 · Which bases drove it? ============================== -->
       <section class="vp-act" id="act-4">
         <h2 class="vp-act__h"><span class="vp-act__n">4</span>Which bases drove it?</h2>
-        <p class="vp-act__sub">One region conditions everything here. Four methods answer it and are not expected to agree: where they diverge, the divergence is the finding.</p>
+        <p class="vp-act__sub">"Which bases mattered" has no single estimator. A derivative, a path
+        integral, a finite difference and an ablation measure different mathematical objects, and a
+        page that shows one of them shows a choice it has not justified. This act shows four over
+        the region you trace and treats their disagreement as data: where they agree the model is
+        locally linear, and where they part it is not.</p>
         <p class="vp-notes" style="margin:-0.4rem 0 0.9rem;">
           <strong>Every map in this act has a spread, and it is measured.</strong> Recomputed across
           all {folds.folds.length} released training folds,{' '}
           <strong>{(folds.stableFractionTop * 100).toFixed(0)}%</strong> of the strongest bases keep
           their sign and a 95% interval clear of zero — against{' '}
           <strong>{(folds.stableFractionControl * 100).toFixed(0)}%</strong> of distance-matched
-          controls. Forward and reverse disagree by{' '}
-          <strong>{folds.strandOverFold}×</strong> more than the folds do. <a href="#act-9">Act 9</a>{' '}
-          has the per-locus table and the gates.
+          controls. Reading the other strand moves an effect{' '}
+          <strong>{folds.strandOverFold}×</strong> as much as retraining does — comparably, and
+          neither is noise. <a href="#act-9">Act 9</a> has all eight checkpoints, the per-locus
+          table and the gates.
         </p>
       <section class="vp-panel">
         <h3>Four attributions, and one that is not{' '}
@@ -515,9 +552,15 @@ const breadcrumbLd = buildBreadcrumbLd([
         </h3>
         <ShorkiePanelHead
           question="Which bases drove the prediction over the region you traced?"
+          why="Attribution methods are routinely presented as interchangeable views of one truth. They estimate different mathematical objects, and treating a disagreement as noise hides that one of them may be answering a different question."
           method="Four estimators of the same scalar, all rc-averaged: a finite difference (mutagenesis), a local derivative (gradient × input), a path integral (integrated gradients) and a window ablation (occlusion)."
+          intuition="A local derivative, a path integral, a finite difference and an ablation must agree where the model is locally linear and must part where it is not. Where they part is where the model is doing something a first-order method cannot express."
           cost="Mutagenesis 23.8 ms a substitution → 19.5 min a locus; IG 32 forward+backward passes; occlusion 512 passes; gradient × input one backward pass."
           refuted="They are not expected to agree. On TDH3's gene body grad × input against IG is r = 0.874, against occlusion 0.901, IG against occlusion 0.856 — and against mutagenesis per base, 0.658, which is the gap between a slope and a finite jump." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          Agreement between estimators of different mathematical type is evidence about the model; disagreement is evidence about where the model stops being locally linear. Neither is noise, which is why the page draws all four rather than averaging them.
+        </p>
           <p class="vp-notes vp-lede" style="margin:0 0 0.7rem;">
             <strong>The lanes themselves are in the viewport above</strong> — every method on one
             zoomable axis, becoming letters once a base is wide enough to be a letter. What is here
@@ -718,9 +761,15 @@ const breadcrumbLd = buildBreadcrumbLd([
           <h3>The five lanes, side by side</h3>
         <ShorkiePanelHead
           question="What is each method actually measuring, and where can it not be trusted?"
+          why="A reader comparing lanes needs to know which differences are findings and which are properties of the estimator. Resolution, sign convention and scoring target all differ, and any of them can masquerade as disagreement."
           method="A side-by-side of mathematical nature, resolution, cost, completeness, mean-centring, sign and scoring target — every entry measured elsewhere on this page."
+          intuition="Tabulating each estimator's own properties separates 'these methods disagree about this locus' from 'these methods cannot agree, because one resolves 64 bp and the other resolves one base'."
           cost="Free. Nothing here is a new run."
           refuted="A row with a blank failure mode would be a method with no known failure mode, which does not exist." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          Read any divergence against this table before reading it as biology. Two lanes that cannot resolve the same feature are not in conflict; two that can and still differ are.
+        </p>
           <p class="vp-notes" style="margin:0 0 0.6rem;">
             <strong>Four of the five differentiate the same scalar</strong>, which is what lets
             them share an axis. Attention rollout is the exception, and the table says so on every
@@ -794,9 +843,15 @@ const breadcrumbLd = buildBreadcrumbLd([
         <h3>What drives what <span class="vp-stat" data-vp-occl-stat></span></h3>
         <ShorkiePanelHead
           question="Which input stretches does which output region depend on?"
+          why="Every other method here collapses the output axis to one scalar, which discards where in the gene an input stretch acts. Local and long-range effects then look identical."
           method="Zero the four DNA channels across a 64 bp window, re-run, and read all 896 output bins at once — the complete 256 × 896 matrix."
+          intuition="One ablation answers all 896 output bins at once, so the complete input-region by output-region matrix costs no more than a single-scalar sweep. Two dimensions are affordable here and nowhere else on this page."
           cost="256 ablation windows × 2 strands = 512 forward passes a locus. The only two-dimensional method here — one pass answers every output bin at once."
           refuted="The diagonal dominates per cell — but it is one window in 256, so summed over a row the local footprint is only 0.2–5.6% of the most damaging window's total. Either half alone is the wrong answer." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          A narrow diagonal says the model is local, and the mass off it says how much of an effect travels. Reporting only one would make Shorkie look either purely local or purely long-range, and it is neither.
+        </p>
         <div class="vp-controls" style="margin-bottom:0.4rem;">
           <label class="vp-stat" style="display:inline-flex;align-items:center;gap:0.35rem;">
             <input type="checkbox" data-vp-occl-norm /> scale each output bin to its own range
@@ -874,14 +929,24 @@ const breadcrumbLd = buildBreadcrumbLd([
       <!-- ============================== 5 · Is the attribution real? ============================== -->
       <section class="vp-act" id="act-5">
         <h2 class="vp-act__h"><span class="vp-act__n">5</span>Is the attribution real?</h2>
-        <p class="vp-act__sub">The tests that can come out negative — attribution scored against annotation the model never saw, every curated site knocked out and measured, and both re-checked across all twenty-three windows rather than the one on screen.</p>
+        <p class="vp-act__sub">An attribution map always looks like something. Nothing in act 4 could
+        have come out empty, so nothing in act 4 is yet evidence that the model found anything real.
+        These are the tests that can come out negative: attribution scored against annotation the
+        model was never shown, every curated site knocked out and measured, and both re-checked on
+        all twenty-three windows rather than the one on screen.</p>
       <section class="vp-panel">
         <h3>Does the attribution land on real biology? <span class="vp-stat" data-vp-enrich-stat></span></h3>
         <ShorkiePanelHead
           question="Does the attribution land on features the model was never shown?"
+          why="An attribution map is a claim about the model, not about biology. Without an external reference it cannot be distinguished from a smooth function of position, and every peak looks meaningful."
           method="Mean |attribution| inside a feature class over the mean across the window, against a null of 256 deterministic circular shifts of the annotation — which preserves feature count, length and gap structure and destroys only alignment."
+          intuition="The annotation was never shown to the model, so alignment with it is evidence the model found something real. The null must destroy alignment and nothing else — a circular shift keeps the feature count, every length and every gap, so it cannot be beaten by geometry alone."
           cost="Free. Both the annotation and the packs ship."
           refuted="A class at 1.00× says the model puts no more weight there than anywhere else. Every class it can measure is shown, not the ones that came out well." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          Alignment with an annotation the model never saw is the first evidence here that an attribution is about sequence function rather than about the estimator. It remains an association under one null, not a demonstration that the model uses the feature.
+        </p>
         <p class="vp-notes" style="margin:0 0 0.5rem;">
           <strong>One number per method, per annotation class.</strong> For each class, the mean
           |attribution| on the bases that class covers, divided by the mean across the whole
@@ -944,9 +1009,15 @@ const breadcrumbLd = buildBreadcrumbLd([
         <h3>Every curated site, knocked out <span class="vp-stat" data-vp-ko-stat></span></h3>
         <ShorkiePanelHead
           question="Is an attribution peak a real motif, or base composition?"
+          why="A peak on a binding site could be its arrangement or merely its base composition — poly-A tracts and GC-rich stretches draw attention for reasons that are not regulatory."
           method="Permute the exact bases inside each curated site — same length, same composition, only the arrangement destroyed — and measure the change over the window's own gene body, as a mean over 5 shuffles with its spread."
+          intuition="Permuting bases inside the site holds length and composition exactly and destroys only the order. An effect that survives the permutation was never about the motif."
           cost="5 shuffles a site, two forward passes each — forward and reverse complement, averaged per bin before the gene body is summed — around 50 sites a locus. Same rc-averaging as every attribution on this page, so the numbers are directly comparable."
           refuted="A near-zero result is an answer about that site. A low-complexity site cannot be shuffled at all, so the sweep records how many DISTINCT permutations it achieved rather than reporting a zero spread as a measurement." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          An effect that survives a composition-preserving permutation was never about the motif's arrangement. A near-zero result is therefore an answer about that site rather than a failed measurement — provided the site had distinct permutations to draw from at all.
+        </p>
         <p class="vp-notes" style="margin:0 0 0.5rem;">
           <strong>Not six hand-picked motifs — all of them.</strong> Every ChIP-supported binding
           site in this window was shuffled and the model re-run, five times per site, and what is
@@ -1018,9 +1089,15 @@ const breadcrumbLd = buildBreadcrumbLd([
           <h3>What all twenty-three windows say <span class="vp-stat" data-vp-summary-stat></span></h3>
         <ShorkiePanelHead
           question="Do the single-locus results hold across the whole set?"
+          why="The page's strongest claims — that evidence tier predicts attribution, that introns are enriched — would be anecdotes if they rested on whichever window happens to be on screen."
           method={`Every enrichment and every knockout re-measured on all ${nLoci} windows and reported as medians, plus attribution aligned on the direction of transcription across ${bioSummary.tss.genes} genes.`}
+          intuition="A median across every window is robust to one locus behaving oddly, and reporting the spread beside it shows whether a claim is a tendency or something that holds everywhere."
           cost="Free. Derived from the shipped packs."
           refuted="A median over 23 can contradict any single window, and does: the 3.26× ChIP-supported enrichment quoted from one locus is 1.73× across the set." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          The medians here are the page's cross-locus claims; any single-locus figure beside them is an illustration. Where the two disagree, the median is the claim and the locus is the anecdote.
+        </p>
           <p class="vp-notes" style="margin:0 0 0.6rem;">
             Every other panel in this act shows one window at a time. This one is the pattern across
             all twenty-three, computed once from the same packs and the same null those panels use — so
@@ -1070,7 +1147,10 @@ const breadcrumbLd = buildBreadcrumbLd([
       <!-- ============================== 6 · How does it do it? ============================== -->
       <section class="vp-act" id="act-6">
         <h2 class="vp-act__h"><span class="vp-act__n">6</span>How does it do it?</h2>
-        <p class="vp-act__sub">The same prediction, from the inside, in six steps that go
+        <p class="vp-act__sub">An attribution says which bases mattered and nothing about how. Between
+        the sequence and the prediction sit twenty stages, and whether the answer is decided early,
+        at the bottleneck, or on the way back out is a different question with a different kind of
+        evidence. This act opens the model in six steps that go
         progressively deeper into the network's own basis. Watch a sequence pass through all twenty
         stages; open any one of them; trace a region back through every layer to the bases it came
         from; ask what the individual attention heads read; then ask whether the network's channels
@@ -1079,9 +1159,15 @@ const breadcrumbLd = buildBreadcrumbLd([
         <h3>The network, end to end — watch a sequence pass through it</h3>
         <ShorkiePanelHead
           question="What shape is the computation between the sequence and the prediction?"
+          why="The architecture is usually described in prose, where 'a U-Net over a transformer' conveys nothing about the sizes involved. Which stage compresses what is the fact every internal panel below depends on."
           method="All 20 stages at their true tensor sizes — height is positions, width is channels, both log-scaled over the range actually present so the U is visible."
+          intuition="Drawing each stage at its true tensor size on log axes makes the U visible and makes a skip horizontal — a skip joins two stages of equal resolution, which is exactly why it can carry information around the bottleneck."
           cost="Free. The per-stage maps come from the same forward pass as the prediction."
           refuted="Not a measurement: this is the architecture, checked against the checkpoint's own tensor shapes." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          The shape decides which later panels are even possible: a bottleneck at 128 positions is why attention resolves 128 bp, and the three skips are why a bottleneck-only account of this model is incomplete before any measurement is taken.
+        </p>
         <div class="vp-controls" style="margin-bottom:0.45rem;">
           <button type="button" class="vp-btn" data-vp-view="2d" aria-pressed="true">flat</button>
           <button type="button" class="vp-btn" data-vp-view="3d" aria-pressed="false">volume</button>
@@ -1122,9 +1208,15 @@ const breadcrumbLd = buildBreadcrumbLd([
           ></canvas></h3>
         <ShorkiePanelHead
           question="What is one stage actually computing?"
+          why="A stage summary — a norm, a mean — cannot tell a layer where one channel does everything from one where the work is spread over hundreds. Those are different mechanisms with the same summary."
           method="Every channel of the selected stage as one row, on a diverging scale centred at zero, normalised by percentile rather than by min–max."
+          intuition="One row per channel on a diverging scale centred at zero, so a neuron doing nothing leaves its cell empty. Percentile rather than min-max normalisation because these tensors are heavy-tailed and a few outliers otherwise set the whole range."
           cost="Free. Precomputed per locus."
           refuted="A uniformly inked raster encodes sign rather than activity — which the p1–p99 ramp did, putting 90–96% of cells above the ink floor on 15 of the 20 stages." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          A stage where a few channels carry the signal is one a sparse decomposition might improve on; a stage where it is spread evenly is one where per-channel readings mean little. The raster says which kind each stage is.
+        </p>
         <div class="vp-controls">
           <button type="button" class="vp-btn" data-vp-tab="activation" aria-pressed="true">activation</button>
           <button type="button" class="vp-btn" data-vp-tab="attention" aria-pressed="false" hidden>attention</button>
@@ -1140,9 +1232,15 @@ const breadcrumbLd = buildBreadcrumbLd([
         <h3>Trace a region — layer by layer, back to the sequence</h3>
         <ShorkiePanelHead
           question="For the region you traced: which stages, which neurons, and back to which bases?"
+          why="Knowing that a region matters does not say how. Without a path from the region back through the stages to the sequence, an internal panel is a picture of activity rather than an account of the computation."
           method="Per-channel and per-position relevance margins, both exact and both superposing, with the interior reconstructed as their outer product under independence."
+          intuition="Both margins are exact and superpose, because gradients are linear in which outputs you select — so an arbitrary region needs no new model run. Only the interior is reconstructed, and it says so."
           cost="Free for any region — gradients are linear in which outputs you select, so an arbitrary contiguous region is exact with no model run."
           refuted="The earlier estimate weighted the channel margin by activation and is essentially uncorrelated with the exact answer (r −0.08 to 0.23, argmax positions disagreeing entirely). The reconstruction is checked against its own margins rather than assumed." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          The exact margins say which stages and channels carry a region; the reconstructed interior says roughly where within them. Reading the interior as a measured neuron-by-position map would claim more than the computation supports.
+        </p>
         <p class="vp-context" data-vp-trace-context></p>
         <p class="vp-notes vp-lede">
           Five questions, in order. Each one narrows the last: <strong>which stages</strong> carry
@@ -1322,9 +1420,15 @@ const breadcrumbLd = buildBreadcrumbLd([
         <h3>Which attention layer reads what?</h3>
         <ShorkiePanelHead
           question="Do the transformer's attention layers specialise on kinds of sequence?"
+          why="Attention maps are the most over-read object in interpretability. Establishing what this one can and cannot support is worth more than another visualisation of it."
           method="Each layer's attention mass — its four heads averaged, which is how the pack ships — against annotation classes, with the mask pooled by MEAN (a 7 bp site is 5% of a 128 bp cell) and a circular-shift null."
+          intuition="Attention is a distribution over keys, so a row's mass on annotated positions asks what fraction of what a layer reads is annotated — a quantity a merely loud layer cannot inflate."
           cost="Free. The 8 × 128 × 128 maps ship in every pack — no forward passes at all."
           refuted="Every class records its ceiling, 1/coverage. Genes cover 91.5% of a window so nothing can exceed 1.09× on them, and reading their 1.03 as flat would be wrong." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          Enrichment says where a layer's attention mass falls under one null. It does not say the layer uses what it attends to, and with the four heads averaged before export it cannot speak about specialisation within a layer at all.
+        </p>
         <p class="vp-notes" style="margin:0 0 0.4rem;">
           The transformer at the bottleneck is <strong>eight layers of four heads</strong> over 128
           positions, and every locus pack already ships their maps — so this asks a mechanistic
@@ -1388,9 +1492,15 @@ const breadcrumbLd = buildBreadcrumbLd([
           </h3>
         <ShorkiePanelHead
           question="The layer panel draws one row per channel and the traceback ranks channels by relevance. Both assume a channel means something. Does it?"
+          why="Two panels above rank channels and draw one row per channel. Both assume a channel is a meaningful unit; if the model's features are spread across channels, those panels are reading an arbitrary basis."
           method={`A TopK sparse autoencoder on the ${sae.layer} residual stream: ${sae.dModel} dimensions expanded to ${sae.real.features.toLocaleString()} features with exactly k = ${sae.real.k} active, decoder columns unit-norm, trained on ${sae.real.vectors.toLocaleString()} bottleneck vectors swept from the genome.`}
+          intuition="If a sparse overcomplete dictionary reconstructs the same activations far better than the identical architecture trained on column-shuffled activations, the structure it found was in the co-activation and not in the marginals."
           cost={`One forward pass a genome window to collect, then ${sae.real.steps.toLocaleString()} Adam steps. Minutes, not hours — the bottleneck is only ${sae.dModel} wide.`}
           refuted={`Two controls, both run. Training on column-shuffled activations keeps every channel's marginal distribution and destroys only the co-activation structure: it reconstructs at FVU ${sae.control.fvu.toFixed(3)} against ${sae.real.fvu.toFixed(3)}. And the ${sae.dModel} raw channels are scored against the annotation on identical terms — if they grounded as well, the dictionary bought nothing. They reach ${sae.grounding.rawMedianBestRatio}x against the features' ${sae.grounding.saeMedianBestRatio}x.`} />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          If the dictionary beats a composition-matched control, the structure is in the co-activation rather than in the model's own channel basis — and the two panels above, which rank and draw channels, are reading a basis rather than a set of features.
+        </p>
           <p class="vp-notes" style="margin:0 0 0.6rem;">
             A channel is a direction the optimiser happened to land on. In a network carrying more
             concepts than it has channels, the concepts sit in <em>superposition</em> — spread
@@ -1509,9 +1619,15 @@ const breadcrumbLd = buildBreadcrumbLd([
           </h3>
         <ShorkiePanelHead
           question="Where in the network — at what depth, and at which positions — does the promoter's information become sufficient to reconstruct the prediction?"
+          why="Attribution says which bases matter, not where in the network their information becomes sufficient. In a skip-connected model 'the bottleneck decides it' and 'the skips carry it' predict different things."
           method="Causal tracing (Meng et al. 2022). Corrupt the promoter by dinucleotide shuffle, then restore the CLEAN activations at one stage and one 512 bp band, and measure how much of the clean prediction returns."
+          intuition="Restoring a whole stage is degenerate — everything downstream simply inherits the clean run. Restoring one spatial band at one stage is what makes depth and position separable at all."
           cost={`${patch.stages.length} stages × ${patch.bands} bands × ${patch.summary.loci} windows — 608 forward passes a locus, 346 s for the set.`}
           refuted="Three controls, asserted per locus. Restoring every position of the first stage must recover exactly 1.0, restoring every position of the last stage must too by an independent route, and restoring nothing must recover exactly 0.0. Together they catch a patch written into the channel axis, which broadcasts cleanly and produces entirely plausible numbers." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          Where recovery concentrates is where the promoter's information becomes sufficient. A bottleneck that does not fully recover is not a defect but the skips measured, and it bounds how much of this model any bottleneck-only story can explain.
+        </p>
           <p class="vp-notes" style="margin:0 0 0.6rem;">
             Every attribution above answers <em>which bases mattered</em>. None of them answers{' '}
             <em>where in the network that mattering became decisive</em> — and those are different
@@ -1605,9 +1721,15 @@ const breadcrumbLd = buildBreadcrumbLd([
         <h3>Is the motif enough on its own?</h3>
         <ShorkiePanelHead
           question="Is a motif enough on its own to move the prediction?"
+          why="The knockout sweep can only report necessity in the context a motif already sits in. A site can be necessary because of what surrounds it and carry nothing on its own."
           method="Implant the consensus into 200 dinucleotide-shuffled backgrounds and compare with its own scramble in the SAME background — paired, so the error bar is the sd of per-background differences rather than sd/√n."
+          intuition="A neutralised background removes the context, so what remains is the motif's own contribution. Pairing each arm against its own scramble in the SAME background makes the error bar the sd of per-background differences rather than of two separate means."
           cost="11,600 forward passes, minutes."
           refuted="CACGTG is its own reverse complement, so the forward and reverse arms must score identically and the script raises if they do not. Poly(dA:dT) has no scramble at all and is reported as degenerate rather than as a measurement." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          Sufficiency in a neutral background and necessity in context are different properties, and a motif can have either without the other. What this arm alone establishes is what a motif carries when nothing else is present.
+        </p>
         <p class="vp-notes" style="margin:0 0 0.4rem;">
           Each consensus from the paper's dictionary implanted at the centre of{' '}
           {giaData.backgrounds} dinucleotide-shuffled backgrounds, paired against the same background
@@ -1650,9 +1772,15 @@ const breadcrumbLd = buildBreadcrumbLd([
         <h3>Necessary and sufficient are different claims</h3>
         <ShorkiePanelHead
           question="Are the motifs the knockout sweep calls necessary the same ones implantation calls sufficient?"
+          why="Necessity and sufficiency are routinely collapsed into one word, 'important', and the motifs where they part are the informative ones."
           method="The two-by-two of in-context necessity against in-background sufficiency, from the two arms measured above."
+          intuition="Crossing the two arms puts every motif in one of four cells. A general regulatory factor should come out necessary and NOT sufficient — it works through the promoter around it — which makes that expectation testable rather than assertable."
           cost="Free. Both arms are already run."
           refuted="The answer is largely no, and that IS the finding: Rap1 and Reb1 are necessary and not sufficient at z ≈ 0.2, and Ume6 is the mirror." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          The off-diagonal cells are the informative ones. A factor that is necessary and not sufficient is working through the promoter around it — which is what a general regulatory factor should look like, and what a single importance score would have hidden.
+        </p>
         <p class="vp-notes" style="margin:0 0 0.4rem;">
           Crossing the knockout sweep in act 5 against the implantation above. Horizontal is{' '}
           <strong>necessity</strong> — what the prediction loses when a curated site of that factor
@@ -1677,9 +1805,15 @@ const breadcrumbLd = buildBreadcrumbLd([
         <h3>Where does a motif work?</h3>
         <ShorkiePanelHead
           question="Does a motif work anywhere, or only in a particular place?"
+          why="A motif's effect is usually quoted as a single number, which presumes position does not matter. For a promoter element that presumption is precisely what is in question."
           method="Implant at every position across the window and subtract a SCRAMBLE implanted at the same position."
+          intuition="Overwriting real sequence destroys whatever was there, and in a promoter that is exactly where the real sites are — so the artefact would look like the signal. Subtracting a scramble implanted at the same position cancels it."
           cost="47,104 forward passes, 21 minutes."
           refuted="Overwriting 8 bp of a real promoter destroys what was there — in a promoter, exactly where the real sites are. Without the scramble at every position that artefact would look like the signal." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          A motif whose effect depends on where it sits is a positional element and not merely a sequence one; a flat curve says the opposite. Both are answers, and the same-position scramble subtraction is what makes either trustworthy.
+        </p>
         <p class="vp-notes" style="margin:0 0 0.4rem;">
           Panel 1 asked whether a motif does anything at all, dropped into empty DNA. This asks the
           question a promoter actually poses: the same motif walked across a <em>real</em> window{' '}
@@ -1730,9 +1864,15 @@ const breadcrumbLd = buildBreadcrumbLd([
         <h3>Does the arrangement matter?</h3>
         <ShorkiePanelHead
           question="Does the arrangement of two motifs matter, and is there helical phasing?"
+          why="Grammar claims — that two sites cooperate at a helical spacing — are among the most attractive and least tested in regulatory genomics, and a periodogram will always return periods."
           method="Walk a motif pair 4–200 bp apart in four orientations, re-measuring the moving motif's SOLO effect at every separation so its positional dependence is not folded into the interaction."
+          intuition="The interaction is the pair minus each motif alone, so the solo effect has to be re-measured at every separation; using one number folds the motif's own positional dependence into the 'interaction' and manufactures the structure being looked for."
           cost="25,448 forward passes."
           refuted="The explicit in-phase against anti-phase contrast is the primary reading, because a 61-point periodogram cannot separate 10.5 bp from its own sixth harmonic (n/6 = 10.17 bp). Measured ratio 1.094 — no helical grammar." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          A helical grammar would show as a periodicity surviving the solo-effect subtraction. Its absence, with short-range unphased interaction present, says this model has learned proximity rather than phasing.
+        </p>
         <p class="vp-notes" style="margin:0 0 0.4rem;">
           One motif anchored at the centre, a second walked away from it one base at a time in all
           four orientations. Plotted is the <strong>interaction</strong> — the pair's effect minus
@@ -1795,9 +1935,15 @@ const breadcrumbLd = buildBreadcrumbLd([
         <h3>Which bases interact with a binding site</h3>
         <ShorkiePanelHead
           question="Which bases interact non-linearly with a binding site?"
+          why="Everything else on this page is first order, scoring each base on its own. A first-order method cannot express a pair of bases that only matter together."
           method="A Hessian-vector product, H·v = ∇⟨∇f, v⟩ — one extra backward pass per site, mapping every base that interacts with that motif."
+          intuition="The second derivative at the reference is the cheapest object that can carry an interaction — one extra backward pass. Its symmetry is the only available check that the double-backward is wired correctly, since a mis-wired one has the right shape and magnitude."
           cost={`425 ms a site — ${epi.sites} sites across ${epi.loci} windows, ${(epi.sites / epi.loci).toFixed(1)} a locus on average.`}
           refuted="H is symmetric, so ⟨H·v_A, v_B⟩ must equal ⟨H·v_B, v_A⟩; the worst residual over 431 sites is 4.2e-04. Nothing else catches a mis-wired double-backward — it has the right shape and magnitude and is simply the wrong quantity." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          A base that interacts with a site is one no first-order map can score correctly, which is the gap this panel exists to fill. Whether these particular second-order values predict real double edits is a separate question, and act 9 measures it.
+        </p>
         <p class="vp-notes" style="margin:0 0 0.4rem;">
           Regulation is not additive — factors cooperate, compete, and care about spacing — and a
           first-order method cannot see any of that by construction. For a motif spanning{' '}
@@ -1858,9 +2004,15 @@ const breadcrumbLd = buildBreadcrumbLd([
         <h3>What would the model build?</h3>
         <ShorkiePanelHead
           question="What would the model build, given a promoter to improve?"
+          why="Reading what a model finds important is a weaker test than asking it to construct. A model can attribute sensibly and still hold no usable notion of what makes a promoter strong."
           method="Greedy ascent on the prediction, one substitution at a time, with the motifs it invents matched against the database afterwards."
+          intuition="Greedy ascent verified by real forward passes turns the question into a construction. The control decides what it means: the same ascent on shuffled DNA says whether the motifs it builds are about yeast or about the search."
           cost={`5.5 minutes — ${cfData.edits} greedy substitutions a window chosen from ${cfData.candidates} candidates, and the same ascent again on shuffled DNA as the control.`}
           refuted="The same ascent on dinucleotide-shuffled DNA builds 54 motifs in 23 of 23 windows against the real arm's 18 in 11 — the control wins 3.0× raw, and the panel says so. What survives is that the achievable gain is set by headroom, r = −0.873 against starting expression." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          What the model builds is a statement about what it takes to make a promoter strong. The control decides whether that statement is about yeast: if shuffled DNA yields as many motifs, the ascent is finding the structure of the search rather than of the genome.
+        </p>
         <p class="vp-notes" style="margin:0 0 0.4rem;">
           The generative question, and the only one here that lets the model choose the sequence.
           Starting from each real window, the {cfData.edits} single-base edits that most raise its
@@ -1915,9 +2067,15 @@ const breadcrumbLd = buildBreadcrumbLd([
           </h3>
         <ShorkiePanelHead
           question="Left to itself, does the model's mutagenesis contain repeated sequence patterns — and are they the motifs a database would name?"
+          why="Every motif on this page so far was supplied — from a database or from the paper's figure. Whether the model's own attributions contain repeated patterns is a different and harder question."
           method={`TF-MoDISco in the small (Shrikumar et al. 2018): pull high-|saliency| windows out of the mutagenesis planes at each pre-registered width (${modisco.widths.join(" and ")} bp), cluster them on their mean-centred contribution blocks over both strands, build each cluster's PWM from the bases its seqlets contain, and only THEN match against JASPAR.`}
+          intuition="Any clustering returns clusters and a lower threshold returns more, so the threshold has to come from the control before either arm is clustered — and the control has to perturb the model's input, not only the projection."
           cost="Free. No model and no GPU — the raw mutagenesis planes are already on disk."
           refuted="The identical pipeline on dinucleotide-shuffled sequence, and the shuffled arm sets the clustering threshold. It found almost as much: the control is close enough that the headline has to be stated carefully, and it is." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          Repeated patterns in the model's own attributions would be motifs it discovered rather than motifs it was handed. Whether they clear a null that recomputes the model on shuffled input is settled below in this same panel, and until they do the clusters describe the clustering rather than the sequence.
+        </p>
           <p class="vp-notes" style="margin:0 0 0.6rem;">
             Every other panel on this page starts from an annotation and asks whether the model
             agrees with it. That is the right way round for validation and the wrong way round for
@@ -2052,14 +2210,24 @@ const breadcrumbLd = buildBreadcrumbLd([
       <!-- ============================== 8 · Does it agree with biology outside the model? ============================== -->
       <section class="vp-act" id="act-8">
         <h2 class="vp-act__h"><span class="vp-act__n">8</span>Does it agree with biology outside the model?</h2>
-        <p class="vp-act__sub">Three questions the model cannot answer about itself: whether its species channel carries phylogeny, whether its drivers move with a response over time, and whether natural selection agrees with what it calls important.</p>
+        <p class="vp-act__sub">Everything up to here is a statement about a frozen model. A model can be
+        internally coherent, survive every control on this page, and still have learned something
+        that has no counterpart in a cell. These three ask whether it lines up with evidence it was
+        never given: phylogeny in the species channel, condition-dependence over an induction time
+        course, and purifying selection in segregating yeast variation.</p>
       <section class="vp-panel" data-shorkie-frontier>
         <h3>Tell the model it is a different fungus</h3>
         <ShorkiePanelHead
           question="Does the species channel carry anything, with the DNA held byte for byte?"
+          why="The model takes a 165-way species one-hot the paper never explains. Whether it encodes anything, or is a nuisance input the network learned to ignore, changes how every other result here should be read."
           method="Sweep all 165 species one-hots on a fixed S. cerevisiae promoter and rank the prediction."
+          intuition="Holding the DNA byte for byte and changing only the label isolates the channel. The control that decides whether it means anything is between-locus rank correlation — a per-species bias would produce the same ordering everywhere."
           cost="165 forward passes a locus, 1.6 min for the set."
           refuted="The between-locus rank correlation is the control: median 0.33, so the orderings genuinely differ and this is not a per-species bias. The tidy story that the exceptions are the repressed genes is NOT supported — rank against log baseline coverage is only ρ = −0.34." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          A channel that reorders predictions carries information; one that only scales them is a gain. The between-locus control separates the two, and only the first would license reading the channel as phylogeny.
+        </p>
         <p class="vp-notes" style="margin:0 0 0.4rem;">
           Shorkie's input carries a <strong>165-dimensional one-hot</strong> naming which{' '}
           <em>Saccharomycetales</em> genome a sequence came from — an architecture no other
@@ -2116,9 +2284,15 @@ const breadcrumbLd = buildBreadcrumbLd([
         <h3>Do the drivers change as the response unfolds?</h3>
         <ShorkiePanelHead
           question="Do the sequence drivers change as an induction response unfolds?"
+          why="The model predicts a time course, and it is natural to read that axis as mechanism. Whether the sequence drivers actually move along it has to be measured rather than assumed."
           method="Attribution at early and late timepoints, per REGULATOR rather than on the timepoint means."
+          intuition="Timepoint means average over hundreds of regulators and are near-identical by construction, so a per-regulator contrast is the only level at which a real change could show."
           cost="Free. Precomputed per locus."
           refuted="On the timepoint means early-against-late is r ≥ 0.9995 with 99% of the top 500 bases shared — no effect at all. Per regulator it is real, MSN2 at GAL1 reading 0.215 with 50.2% shared." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          A driver that moves between timepoints is a sequence element whose relevance is condition-dependent. On the timepoint means the question is unanswerable because those means are near-identical, so the per-regulator level is where any real dynamics has to appear.
+        </p>
         <p class="vp-notes" style="margin:0 0 0.4rem;">
           The 3,053 induction tracks resolve into 335 regulators over 13 timepoints — a{' '}
           <em>sparse</em> grid, 3,053 of 4,355 possible combinations, so a timepoint does not
@@ -2157,9 +2331,15 @@ const breadcrumbLd = buildBreadcrumbLd([
         <h3>Does selection agree with the model?</h3>
         <ShorkiePanelHead
           question="Does natural selection avoid the bases the model says matter?"
+          why="Every result above is about the model. Whether any of it corresponds to selection in real yeast populations needs evidence from outside it."
           method="Paired at the base: the observed allele against the two alternates nature did not choose at the SAME position, so position, context, gene and expression are all held fixed and no null model is needed."
+          intuition="Comparing the observed allele against the alternates nature did not choose at the SAME base holds position, context, gene and expression fixed — so the comparison needs no null model at all."
           cost={`Free. No model run — the ${variationData.refChecked.toLocaleString()} UCSC variants that fall inside the windows mutagenesis covers, scored against the shipped planes.`}
           refuted="A sign test, because the ratios are skewed: for missense the ratio of means is 0.99 while the median per-site ratio is 0.90. The reference base matched sacCer3 at 2,319 of 2,319, which is what makes the coordinates trustworthy." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          This is the only evidence on the page from outside the model. It is an alignment with selection, not a demonstration that the model has captured the mechanism selection acts on.
+        </p>
         <p class="vp-notes" style="margin:0 0 0.4rem;">
           {(varClasses.variant_missense.n + varClasses.variant_synonymous.n
             + varClasses.variant_noncoding.n).toLocaleString()} real segregating variants from
@@ -2226,9 +2406,21 @@ const breadcrumbLd = buildBreadcrumbLd([
         <h3>Does the signal survive retraining? <span class="vp-stat">{(folds.stableFractionTop * 100).toFixed(0)}% of strong bases</span></h3>
         <ShorkiePanelHead
           question="Would a different training run of the same architecture call the same bases important?"
+          why="Every headline on this page comes from one checkpoint. If a different training run of the same architecture ranks different bases, the page is reporting a property of one optimisation rather than of the architecture or the data."
           method={`Every exact single-base effect in a locked panel per locus — the ${folds.panelPerLocus} strongest by mutagenesis plus ${folds.panelPerLocus} matched on distance to TSS — recomputed under all ${folds.folds.length} released folds and on both strands. Fold and strand are kept as separate axes and never pooled.`}
+          intuition="Eight released folds are eight draws from one training procedure, so their disagreement estimates training variance directly. The panel must be selected on one fold and scored on the others, or the selection is being reported back to itself."
           cost={`${folds.substitutions.toLocaleString()} substitutions × ${folds.folds.length} checkpoints × 2 strands, about an hour on an M1 Pro, plus 385 MB of checkpoints that are public and were simply never downloaded.`}
           refuted={`The panel is chosen from f0, so f0's own agreement with it is a tautology: f0 selects and is reported separately, and every cross-fold statistic below is computed over ${folds.evidenceFolds.join(', ')} only. The matched controls are what "how many survive" is measured against.`} />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          A base that keeps its sign across eight independent training runs is a property of the
+          architecture and the data; one that does not is a property of a single optimisation. The
+          matched controls set the scale —{' '}
+          <strong>{(folds.stableFractionControl * 100).toFixed(0)}%</strong> survive by
+          construction, so <strong>{(folds.stableFractionTop * 100).toFixed(0)}%</strong> is what
+          selecting on mutagenesis actually bought. The pairwise overlap adds the caveat that the
+          headline cannot: direction is stable, ranking much less so.
+        </p>
         <p class="vp-notes" style="margin:0 0 0.5rem;">
           <strong>The eight folds are eight different models, and this was measurable all along.</strong>{' '}
           Both audit documents record training-fold uncertainty as <em>unestimated</em>. It is not
@@ -2239,6 +2431,36 @@ const breadcrumbLd = buildBreadcrumbLd([
         <canvas class="fr-canvas" data-rl-folds height="240"
                 aria-label="Per locus, the fraction of the strongest mutagenesis bases whose sign and confidence interval survive across folds, against distance-matched control bases"></canvas>
         <p class="vp-stat" data-rl-folds-stat></p>
+
+        <h4 class="vp-sub-h">All eight checkpoints, one row each</h4>
+        <p class="vp-notes" style="margin:0 0 0.4rem;">
+          <strong>The summary above is a median over these.</strong> Each row is one released
+          training run and each column one locus, coloured by how far that fold's own prediction
+          sits from the across-fold mean for that locus. Deviation rather than the raw score
+          because the loci span {Math.min(...folds.perFold[0].g).toFixed(1)} to{' '}
+          {Math.max(...folds.perFold[0].g).toFixed(1)} log₂ units — on an absolute scale every
+          column would be one flat colour and the differences between checkpoints, which are the
+          whole subject, would be invisible.
+        </p>
+        <canvas class="fr-canvas" data-rl-perfold height="200"
+                aria-label="Eight rows, one per training fold, each showing that fold's predicted expression at every locus as a deviation from the across-fold mean"></canvas>
+        <p class="vp-stat" data-rl-perfold-stat></p>
+
+        <h4 class="vp-sub-h">How much do two checkpoints agree?</h4>
+        <p class="vp-notes" style="margin:0 0 0.4rem;">
+          <strong>Sign is stable; ranking is much less so, and the two are easy to conflate.</strong>{' '}
+          The headline above says {(folds.stableFractionTop * 100).toFixed(0)}% of the strongest
+          bases keep their <em>direction</em> across folds. But asking which bases each checkpoint
+          puts in its top 1% is a different question, and the answer is{' '}
+          <strong>{(() => {
+            const off = folds.foldAgreement.flatMap((r, i) => r.filter((_, j) => i !== j));
+            return `${(Math.min(...off) * 100).toFixed(0)}–${(Math.max(...off) * 100).toFixed(0)}%`;
+          })()}</strong>. Two checkpoints trained on the same data agree about roughly half of what
+          matters most. A single-fold ranking is therefore a weaker object than a single-fold sign.
+        </p>
+        <canvas class="fr-canvas" data-rl-agree height="240"
+                aria-label="Eight by eight matrix of the share of top-ranked bases two training folds have in common"></canvas>
+
         <p class="vp-notes" style="margin:0.35rem 0 0;">
           <strong>{(folds.strandOverFold ?? 1) >= 1.15
             ? 'Strand disagreement is the larger term, and it is not noise.'
@@ -2276,9 +2498,21 @@ const breadcrumbLd = buildBreadcrumbLd([
         <h3>Which attribution methods survive an exact edit? <span class="vp-stat">{faith.scorecard.filter((r) => r.role === 'method' && r.beatsBaselines).length} of {faith.scorecard.filter((r) => r.role === 'method').length}</span></h3>
         <ShorkiePanelHead
           question="Do the page's attribution maps rank bases the way exact mutagenesis does — and do they beat a baseline that knows nothing about the model?"
+          why="The site shipped five attribution surfaces and had never scored one against an exact edit. Without that, choosing between them is an aesthetic judgement."
           method="Rank agreement with the exact ISM planes, each method scored at its OWN native resolution with the ground truth pooled to match, plus a deletion curve: rank the bases, substitute the top-k to their worst alternative, and measure the real fall in g."
+          intuition="Exhaustive mutagenesis is the finite-difference contrast every other method approximates, so it is the natural reference. Rank agreement alone is not enough: a map can correlate well and still order the wrong bases first, which only an intervention reveals."
           cost="Minutes. The exhaustive mutagenesis ground truth for all twenty-three windows was already on disk; what was missing was the interventions that score against it."
           refuted="A method that cannot beat GC content, distance to TSS or a random ranking is demoted on this page rather than defended. Attention rollout is included knowing it is unsigned token mixing at 128 bp and has no reason to pass." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          A method that clears the baselines has earned the right to be read as an attribution; one that
+          does not is a picture. This is the verdict act 6's copy now defers to, and it is why
+          attention rollout is described there as token mixing rather than importance — it finds{' '}
+          <strong>{(faith.scorecard.find((r) => r.method === 'rollout')!.deletionAuc * 100).toFixed(1)}%</strong>{' '}
+          of the achievable damage against{' '}
+          <strong>{(faith.scorecard.find((r) => r.method === 'random')!.deletionAuc * 100).toFixed(1)}%</strong>{' '}
+          for a random ordering.
+        </p>
         <p class="vp-notes" style="margin:0 0 0.5rem;">
           <strong>Scoring a 64 bp method per base measures its resolution, not its faithfulness.</strong>{' '}
           Occlusion and rollout resolve 64 and 128 bp, so the mutagenesis truth is pooled to each
@@ -2343,6 +2577,65 @@ const breadcrumbLd = buildBreadcrumbLd([
           expected result rather than a surprise, and the panel in act 6 says so on its face. It is
           reported here because a method nobody scores is a method nobody can demote.
         </p>
+        {faith.byFold && (
+          <p class="vp-notes" style="margin:0.5rem 0 0;">
+            <strong>The verdicts hold across the eight training folds, which is what makes them
+            verdicts.</strong> The whole benchmark was re-run under every released checkpoint:{' '}
+            {faith.byFold.alwaysPromoted.length > 0 && (
+              <>{faith.byFold.alwaysPromoted.map((m) => METHOD_LABEL[m] ?? m).join(', ')}{' '}
+              clear the baselines in <strong>{faith.byFold.folds.length} of {faith.byFold.folds.length}</strong>;{' '}</>
+            )}
+            {faith.byFold.neverPromoted.length > 0 && (
+              <>{faith.byFold.neverPromoted.map((m) => METHOD_LABEL[m] ?? m).join(', ')}{' '}
+              in <strong>none</strong>.{' '}</>
+            )}
+            {faith.byFold.split.length > 0
+              ? <>{faith.byFold.split.map((m) => METHOD_LABEL[m] ?? m).join(', ')} split across
+                folds, so those are single-checkpoint results and are labelled as such.</>
+              : <>No method is split across folds, so no verdict here rests on which checkpoint was
+                used.</>}
+          </p>
+        )}
+        {faith.randomization && (
+          <>
+            <h4 class="vp-sub-h">Does the map read the model, or the input?</h4>
+            <p class="vp-notes" style="margin:0 0 0.4rem;">
+              <strong>An attribution that survives having the network destroyed is not reading the
+              network.</strong> This is the Adebayo sanity check: randomize the weights from the
+              head backwards, stage by stage — permuting each tensor's own values, so every
+              parameter keeps its exact distribution and only the arrangement is lost — and watch
+              the map decorrelate from its intact self. Gradient × input falls from{' '}
+              <strong>{faith.randomization[0].medianAbsRho.toFixed(2)}</strong> with only the head
+              destroyed to <strong>{faith.randomization[faith.randomization.length - 1].medianAbsRho.toFixed(2)}</strong>{' '}
+              with the whole network destroyed, over {faith.randomizationLoci} loci.
+            </p>
+            <div class="vp-scroll-x">
+              <table class="vp-enrich">
+                <thead><tr><th>randomized through</th><th>branch</th><th>|r<sub>s</sub>| vs intact</th></tr></thead>
+                <tbody>
+                  {['head', 'decoder1', 'attn_out8', 'attn_out1', 'block7', 'stem']
+                    .map((s) => faith.randomization!.find((r) => r.stage === s))
+                    .filter((r): r is NonNullable<typeof r> => Boolean(r))
+                    .map((r) => (
+                      <tr><td>{r.stage}</td><td>{r.branch}</td><td>{r.medianAbsRho.toFixed(3)}</td></tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+            <p class="vp-notes" style="margin:0.45rem 0 0;">
+              <strong>The branch column is why one number would have misled.</strong> Destroying the
+              entire transformer takes the map only from{' '}
+              {faith.randomization.find((r) => r.stage === 'decoder1')!.medianAbsRho.toFixed(2)} to{' '}
+              {faith.randomization.find((r) => r.stage === 'attn_out1')!.medianAbsRho.toFixed(2)} — not to zero — because the three
+              decoder skips are fed by block5, block6 and block7 and carry real signal around the
+              bottleneck. A pooled score would have read that architectural fact as the check
+              failing. It does not settle at zero either: gradient × input on a fully randomized
+              network still shares{' '}
+              {faith.randomization[faith.randomization.length - 1].medianAbsRho.toFixed(2)} with the
+              intact map, which is what the one-hot input geometry contributes before any learning.
+            </p>
+          </>
+        )}
         <details class="vp-how">
           <summary>What a deletion curve is, and why completeness is quoted twice</summary>
           <div class="vp-how-body">
@@ -2364,9 +2657,19 @@ const breadcrumbLd = buildBreadcrumbLd([
         <h3>Is the IG baseline doing the storytelling? <span class="vp-stat">best: {REF_LABEL[refs.best] ?? refs.best}</span></h3>
         <ShorkiePanelHead
           question="The site ships one integrated-gradients reference — all four DNA channels zeroed. Is that choice carrying the result?"
+          why="A path method integrates from a reference, and that reference is a modelling choice usually made for convenience. If the choice carries the result, the map describes the baseline rather than the sequence."
           method={`The same 32-step path integral under five legal reference families on the same scalar and the same loci, every one preserving the species one-hot and none assuming channel 4 is a mask. Scored by agreement with exact mutagenesis and by real deletion passes.`}
+          intuition="Every family is scored on the same scalar and the same loci, so none gets an easier target. A reference the sequence model finds impossible is one the expression model was never trained near, which makes plausibility measurable instead of arguable."
           cost={`${refs.loci} loci × 5 families × 2 strands × ${refs.steps} steps, about ten minutes.`}
           refuted="Shorkie_LM's own masked negative log-likelihood scores each reference: a baseline the sequence model finds impossible is one the expression model was never trained near. And strand-wise maps are compared BEFORE averaging — a family that only looks stable once the two arms are averaged has failed, not passed." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          A path attribution inherits its reference, so this decides how the integrated-gradients lane
+          may be read.{' '}
+          {refs.shippedIsBest
+            ? 'The shipped default wins, which makes it a measurement rather than a convention.'
+            : 'The shipped default does not win and has the weakest strand agreement in the table, so integrated gradients ships here labelled reference-sensitive rather than as the map.'}
+        </p>
         <div class="vp-scroll-x">
           <table class="vp-enrich">
             <thead><tr><th>reference</th><th>rank r<sub>s</sub> vs ISM</th><th>deletion AUC</th><th>completeness</th><th>strand agreement</th><th>LM surprise (bits)</th></tr></thead>
@@ -2400,6 +2703,21 @@ const breadcrumbLd = buildBreadcrumbLd([
           Integrated gradients therefore ships labelled reference-sensitive, with the menu above
           exposed, rather than quietly defaulting to one path.
         </p>
+        {refs.byFold && (
+          <p class="vp-notes" style="margin:0.5rem 0 0;">
+            <strong>The ranking was re-measured under every checkpoint.</strong>{' '}
+            {refs.byFold.winnerUnanimous
+              ? <>All {refs.byFold.folds.length} folds pick the same winner
+                ({REF_LABEL[refs.byFold.modalWinner] ?? refs.byFold.modalWinner}), and the shipped
+                all-zero default wins in <strong>{refs.byFold.zeroWinsInFolds}</strong> of them —
+                so this is a property of the reference family rather than of one training run.</>
+              : <>The winner is {REF_LABEL[refs.byFold.modalWinner] ?? refs.byFold.modalWinner} in
+                most folds but not all ({refs.byFold.winnerPerFold.join(', ')}), and the shipped
+                all-zero default wins in <strong>{refs.byFold.zeroWinsInFolds}</strong> of{' '}
+                {refs.byFold.folds.length}. A ranking that moves with the checkpoint is a weaker
+                object than one that does not, and the page says so rather than quoting f0.</>}
+          </p>
+        )}
         <p class="vp-notes" style="margin:0.5rem 0 0;">
           <strong>Rank agreement and deletion damage part company here, and the shipped baseline is
           where they part hardest.</strong> All-zero DNA has the <em>best</em> rank correlation with
@@ -2424,9 +2742,19 @@ const breadcrumbLd = buildBreadcrumbLd([
         <h3>Does the second derivative predict a real double edit? <span class="vp-stat">{(gram.hessianCalibration.medianR ?? 0) > 0.3 ? `yes, r = ${gram.hessianCalibration.medianR}` : `no — r = ${gram.hessianCalibration.medianR}`}</span></h3>
         <ShorkiePanelHead
           question="The epistasis panel in act 7 is a Hessian — curvature at the reference. Does it predict what two actual substitutions do together?"
+          why="Act 7's interaction panel is a second derivative. Whether curvature at a point predicts what two discrete edits do together is an assumption this page had never tested."
           method={`Every double substitution over ${gram.positionsPerLocus} positions a locus — nine per pair — evaluated exactly and rc-averaged, with the inclusion–exclusion residual as the measured interaction. Singles are recomputed in the same run so both terms of the subtraction share a convention.`}
+          intuition="A Hessian is the limit of an infinitesimal perturbation; a substitution is a finite jump to another vertex of the simplex. Recomputing the singles in the same run is what makes the subtraction meaningful, since both terms must share one convention."
           cost={`${gram.pairsTotal.toLocaleString()} exact double mutants across ${gram.loci} loci, about half an hour.`}
           refuted="Additive predicts exactly zero and is the null the Hessian has to beat. Separation alone is scored too, in case proximity is all the second derivative is tracking. The recomputed singles are checked against the shipped mutagenesis planes; the worst drift is a free correctness check on the whole path." />
+        <p class="vp-reading">
+          <strong>What the answer tells us</strong>{' '}
+          Whether curvature at the reference predicts real double edits decides how act 7's interaction
+          panel may be read. At r = <strong>{gram.hessianCalibration.medianR}</strong> it does not,
+          so that panel is a local curvature map. The interactions are real — a median residual of{' '}
+          <strong>{gram.medianResidualOverSingle}×</strong> a single-base effect — but which pairs
+          interact has to be measured, not inferred from a second derivative.
+        </p>
         <p class="vp-notes" style="margin:0 0 0.5rem;">
           <strong>A second derivative is not a double substitution.</strong> The Hessian is
           curvature at the reference one-hot; a real double edit is a finite jump to another vertex
@@ -2452,6 +2780,18 @@ const breadcrumbLd = buildBreadcrumbLd([
           shipped mutagenesis planes to <strong>{gram.maxSingleDriftVsShippedPlane}</strong>, so
           both terms of the subtraction share a convention exactly.
         </p>
+        {gram.byFold && (
+          <p class="vp-notes" style="margin:0.35rem 0 0;">
+            <strong>Re-measured under every checkpoint, the failure is not a property of one
+            training run.</strong> The Hessian's correlation with the measured residual is positive
+            in <strong>{gram.byFold.hessianPositiveInFolds} of {gram.byFold.folds.length}</strong>{' '}
+            folds ({gram.byFold.hessianR.map((v) => (v === null ? '—' : v.toFixed(2))).join(', ')}),
+            and separation alone beats it in{' '}
+            <strong>{gram.byFold.separationBeatsHessianInFolds} of {gram.byFold.folds.length}</strong>.
+            A predictor that a trivial baseline outperforms under most checkpoints is not a
+            predictor of this quantity.
+          </p>
+        )}
         <p class="vp-notes" style="margin:0.35rem 0 0;">
           <strong>A curvature is not an edit, and that is the whole finding.</strong> The Hessian is
           the second derivative at the reference one-hot; a double substitution is a finite jump to
@@ -2476,7 +2816,11 @@ const breadcrumbLd = buildBreadcrumbLd([
       <!-- ============================== — · How do I read any of this? ============================== -->
       <section class="vp-act" id="act-ref">
         <h2 class="vp-act__h"><span class="vp-act__n">—</span>How do I read any of this?</h2>
-        <p class="vp-act__sub">Every panel collapses a multi-dimensional tensor to something drawable, and they do not all collapse the same axis the same way. The layer list and the paper-vs-checkpoint notes are here too.</p>
+        <p class="vp-act__sub">Every panel above collapses a multi-dimensional tensor to something
+        drawable, and they do not all collapse the same axis the same way — a difference that is
+        invisible in the drawings and changes what a comparison between two of them means. This
+        appendix states each collapse, the layer shapes, and where the checkpoint and the paper
+        disagree.</p>
       <section class="vp-panel">
         <h3>Every dimension this page collapses</h3>
         <p class="vp-notes" style="margin:0 0 0.5rem;">
