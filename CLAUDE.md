@@ -2842,6 +2842,23 @@ they all import.
   every single-base effect, so it must reproduce the shipped ISM planes, and a drift there means
   the two arms of the inclusion–exclusion residual do not share a convention.
 
+- **A multi-run sweep needs per-RUN resume, and a first attempt is where you find out.** The
+  24-run fold sweep was killed at 8.8 GB of swap with 11 runs finished and no way to skip them; the
+  restart would have spent two hours reproducing files already on disk. The chain now skips any
+  `--out` target that already exists, so an interruption costs the one run in flight. This is the
+  same lesson `make_ism.py` already carries at the locus level — **resumability has to match the
+  granularity of the interruption** — one level up.
+
+- **A shared machine is shared, and the failure is a kill rather than a slowdown.** 17 GB of RAM
+  with a concurrent session, a browser and an IDE on it leaves less than a torch/MPS sweep assumes.
+  Three mitigations, in order of effect: halve the resident batch (grammar holds two
+  `[B, 16384, 170]` float32 tensors, ~22 MB a row), call `torch.mps.empty_cache()` between loci
+  rather than waiting for the allocator, and run a REDUCED panel on the axis that only needs a sign
+  — the fold arm of the grammar benchmark uses 5 positions against the headline's 10, a quarter of
+  the pairs and of the Hessian-vector products. **Record the reduced panel in the pack**, not in
+  the prose: `byFold.positionsPerLocus` travels with the numbers, so the page states the provenance
+  without anyone having to remember.
+
 - **A pack that ships only aggregates cannot show what it summarises, and nobody notices.** The
   fold pack recorded `folds: [f0…f7]` and shipped medians and fractions and *no per-fold numbers at
   all*, so "recomputed under all eight folds" was a sentence a reader had to take on trust — the
