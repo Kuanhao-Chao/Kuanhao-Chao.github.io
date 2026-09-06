@@ -1971,6 +1971,54 @@ async function auditConstructive(browser, baseURL, scope) {
   }
 }
 
+/** Every lane control must be CLICKABLE, in every model mode.
+ *
+ * This is the check that was missing, and its absence let a completely broken panel ship: the
+ * controller set an inline `max-height` on `[data-gb-panel]`, whose overflow is `visible`, while
+ * the `overflow-y: auto` lives on the `.gb-panel` aside wrapping it. 1,422 px of controls were
+ * crammed into a 330 px box that neither clipped nor scrolled, so they painted over the note, over
+ * the statistics table, and off the end of the document. Seventeen of eighteen lane controls could
+ * not be clicked. Nothing failed: the checkboxes existed, the panel rendered, the canvas drew.
+ *
+ * A count of controls would not have caught it, and neither would a screenshot of the top of the
+ * panel. What catches it is asking the document what is actually at each control's own position.
+ */
+async function auditPanelReachable(page, scope, label) {
+  const modes = await page.$$eval('[data-gb-model]', (b) => b.map((x) => x.dataset.gbModel));
+  for (const mode of modes.length ? modes : [null]) {
+    if (mode) {
+      await page.click(`[data-gb-model="${mode}"]`);
+      await page.waitForTimeout(700);
+    }
+    const bad = await page.evaluate(() => {
+      const out = [];
+      for (const l of document.querySelectorAll('.gb-panel label')) {
+        if (l.getBoundingClientRect().height < 1) continue;   // legitimately hidden
+        // SCROLL IT INTO VIEW FIRST. A control below the fold of a scrolling panel is not at its
+        // own position and is still perfectly reachable -- that is what a scroll container is for.
+        // Testing without scrolling would flag a working panel and, worse, would keep flagging it
+        // after a real fix, which is how a check gets deleted instead of believed.
+        l.scrollIntoView({ block: 'center', inline: 'nearest' });
+        const b = l.getBoundingClientRect();
+        if (b.width < 1 || b.height < 1) continue;
+        // The control's own left edge, vertically centred: where a reader aims for a checkbox.
+        const top = document.elementFromPoint(b.x + 8, b.y + b.height / 2);
+        if (!top || !(l === top || l.contains(top))) {
+          out.push(`${(l.textContent || '').trim().slice(0, 30)} @y=${Math.round(b.y)} -> `
+            + (top ? (top.className || top.tagName).toString().slice(0, 24) : 'nothing'));
+        }
+      }
+      return out;
+    });
+    if (bad.length) {
+      fail(scope, `${label}${mode ? ` [${mode}]` : ''}: ${bad.length} lane control(s) cannot be `
+        + `clicked at their own position — ${bad.slice(0, 3).join('; ')}`);
+    }
+  }
+  // Leave the panel as we found it.
+  if (modes.includes('both')) { await page.click('[data-gb-model="both"]'); await page.waitForTimeout(500); }
+}
+
 async function auditGenomeBrowser(browser, baseURL, scope) {
   const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 950 } });
   const page = await context.newPage();
@@ -1992,6 +2040,8 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     await page.goto(GENOME_ROUTE, { waitUntil: 'networkidle' });
     await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 20000 });
     await page.waitForTimeout(1200);
+
+    await auditPanelReachable(page, scope, 'desktop');
 
     // `document.querySelectorAll` rather than a Playwright selector: the selector engine pierces
     // open shadow roots and would also count the dev toolbar's four headings.

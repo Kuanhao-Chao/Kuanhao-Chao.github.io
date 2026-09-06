@@ -828,6 +828,68 @@ html[data-theme='dark'] .vp {
    lane's label. A flex-basis of 100% then makes it 100% PLUS that indent -- which is exactly the
    21px this row overflowed by. Subtract the indent from the basis. */
 .gb-panel__h { flex: 1 0 calc(100% - 1.35rem); min-width: 0; }
+/* The panel's sticky header. 47 tracks is 2,500 px of column: the lane count is the only feedback
+   that a click did anything when the lane it enabled is below the fold, and the filter is the only
+   way to reach one track without scrolling past forty. Both must stay put. */
+.gb-panel__sticky {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: -0.5rem -0.6rem 0.5rem;
+  padding: 0.45rem 0.6rem 0.5rem;
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-rule);
+}
+.gb-panel__stickytop { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.gb-panel__on { font-size: 0.82em; color: var(--color-muted); font-variant-numeric: tabular-nums; }
+.gb-panel__clear { padding: 0.1rem 0.45rem; font-size: 0.78em; }
+.gb-panel__clear[disabled] { opacity: 0.45; cursor: default; }
+.gb-panel__find {
+  width: 100%;
+  min-width: 0;
+  padding: 0.25rem 0.4rem;
+  font: inherit;
+  font-size: 0.86em;
+  color: var(--color-ink);
+  background: var(--color-bg);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius, 6px);
+}
+
+/* A collapsible track group. The summary carries the count and how many are on, so a reader can
+   skip a closed group without opening it -- which is the whole point of closing it. */
+.gb-group { margin: 0 0 0.15rem; }
+.gb-group__sum {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.22rem 0;
+  cursor: pointer;
+  list-style: none;
+}
+.gb-group__sum::-webkit-details-marker { display: none; }
+.gb-group__sum::before {
+  content: '▸';
+  margin-right: 0.3rem;
+  font-size: 0.8em;
+  color: var(--color-muted);
+  transition: transform 0.12s ease;
+}
+.gb-group[open] > .gb-group__sum::before { transform: rotate(90deg); display: inline-block; }
+.gb-group__title { flex: 1 1 auto; font-weight: 650; font-size: 0.88em; }
+.gb-group__count {
+  flex: 0 0 auto;
+  font-size: 0.78em;
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+}
+.gb-group__count.is-on { color: var(--color-accent); font-weight: 600; }
+.gb-group__body { padding-left: 0.15rem; }
+
 .gb-panel__note { margin: 0.6rem 0 0; color: var(--color-muted); font-size: 0.82em; }
 
 /* Positioned against .gb-stage, which is the element the pointer coordinates are measured in.
