@@ -2593,7 +2593,20 @@ const breadcrumbLd = buildBreadcrumbLd([
               ? <>{faith.byFold.split.map((m) => METHOD_LABEL[m] ?? m).join(', ')} split across
                 folds, so those are single-checkpoint results and are labelled as such.</>
               : <>No method is split across folds, so no verdict here rests on which checkpoint was
-                used.</>}
+                used.</>}{' '}
+            {(() => {
+              const tested = faith.byFold!.methods.filter((r) => r.role === 'method');
+              const widest = tested.reduce((a, b) =>
+                (b.maxAuc - b.minAuc > a.maxAuc - a.minAuc ? b : a));
+              const tightest = tested.reduce((a, b) =>
+                (b.maxAuc - b.minAuc < a.maxAuc - a.minAuc ? b : a));
+              return `The spread across checkpoints differs by method: `
+                + `${METHOD_LABEL[widest.method] ?? widest.method} ranges `
+                + `${widest.minAuc.toFixed(3)}–${widest.maxAuc.toFixed(3)} while `
+                + `${METHOD_LABEL[tightest.method] ?? tightest.method} ranges `
+                + `${tightest.minAuc.toFixed(3)}–${tightest.maxAuc.toFixed(3)}, so how much a `
+                + `method's score depends on the training run is itself a property of the method.`;
+            })()}
           </p>
         )}
         {faith.randomization && (
