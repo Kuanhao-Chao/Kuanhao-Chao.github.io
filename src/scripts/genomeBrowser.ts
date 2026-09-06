@@ -216,6 +216,13 @@ interface TrackSpec {
   familyLabel?: string;
   /** Short qualifier drawn on the lane. Empty for the one track that IS a prediction. */
   laneTag?: string;
+  /**
+   * WHY this track has a gap, in the track's own terms. There are at least four different reasons
+   * a byte is 0 in this browser -- no alignment, the head crop, a measurement that was only run in
+   * 23 windows, an effect too small for a ratio to mean anything -- and the hover readout used to
+   * report phastCons's reason for all of them.
+   */
+  noData?: string;
   /** Written in `make_genome_tiles.py`, which refuses to build without all four fields. */
   docs?: LaneDocs;
 }
@@ -2576,7 +2583,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     if (c < 0 || c >= t.cols) return null;
     // Byte 0 is no data, and saying so is the point of reserving it.
     const byte = t.rows === 1 ? t.data[c] : t.data[2 * t.cols + c];
-    if (byte === 0) return `${spec.short}: no data (not aligned)`;
+    if (byte === 0) return `${spec.short}: no data (${spec.noData ?? 'not scored here'})`;
     const raw = dequant(byte, spec);
     // Coverage runs to four figures and an attribution to four decimals; one fixed precision
     // prints either "1097.560" or "0.000".

@@ -121,7 +121,7 @@ TRACKS = [
         "source": "Shorkie_LM (Chao et al. 2025), run over sacCer3 in 16,384 bp windows",
     },
     {
-        "id": "phastcons", "group": "comparative", "laneTag": "alignment-based", "file": "phastcons", "axis": [0.0, 1.0], "units": "posterior",
+        "id": "phastcons", "noData": "no alignment here, which is not the same as unconserved", "group": "comparative", "laneTag": "alignment-based", "file": "phastcons", "axis": [0.0, 1.0], "units": "posterior",
         "label": "phastCons · 7 yeasts",
         "short": "phastCons",
         "detail": "posterior probability that a base lies in a conserved element",
@@ -147,7 +147,7 @@ TRACKS = [
     # predicts assay coverage from sequence, where Shorkie_LM predicts the sequence itself. Its head
     # emits 896 bins of 16 bp, so `nativeBp` is 16 and no finer level is written.
     {
-        "id": "sk-rnaseq", "group": "expression", "laneTag": "", "file": "sk-cov-baseline",
+        "id": "sk-rnaseq", "noData": "outside the scored interior — the head crops 1,024 bases from each chromosome end", "group": "expression", "laneTag": "", "file": "sk-cov-baseline",
         "nativeBp": 16, "space": "log1p", "axisFrom": "max", "axis": None, "units": "a.u.",
         "label": "Shorkie · predicted RNA-seq",
         "short": "RNA-seq",
@@ -159,7 +159,7 @@ TRACKS = [
         "source": "Shorkie (Chao et al. 2025), fold f0, run over sacCer3 in 16,384 bp windows",
     },
     {
-        "id": "sk-chip-exo", "group": "expression", "laneTag": "", "file": "sk-cov-chip_exo",
+        "id": "sk-chip-exo", "noData": "outside the scored interior — the head crops 1,024 bases from each chromosome end", "group": "expression", "laneTag": "", "file": "sk-cov-chip_exo",
         "nativeBp": 16, "space": "log1p", "axisFrom": "max", "axis": None, "units": "a.u.",
         "label": "Shorkie · predicted ChIP-exo",
         "short": "ChIP-exo",
@@ -170,7 +170,7 @@ TRACKS = [
         "source": "Shorkie (Chao et al. 2025), fold f0, run over sacCer3 in 16,384 bp windows",
     },
     {
-        "id": "sk-chip-mnase", "group": "expression", "laneTag": "", "file": "sk-cov-chip_mnase",
+        "id": "sk-chip-mnase", "noData": "outside the scored interior — the head crops 1,024 bases from each chromosome end", "group": "expression", "laneTag": "", "file": "sk-cov-chip_mnase",
         "nativeBp": 16, "space": "log1p", "axisFrom": "max", "axis": None, "units": "a.u.",
         "label": "Shorkie · predicted ChIP-MNase",
         "short": "MNase",
@@ -181,7 +181,7 @@ TRACKS = [
         "source": "Shorkie (Chao et al. 2025), fold f0, run over sacCer3 in 16,384 bp windows",
     },
     {
-        "id": "sk-strain", "group": "expression", "laneTag": "", "file": "sk-cov-rnaseq_strain",
+        "id": "sk-strain", "noData": "outside the scored interior — the head crops 1,024 bases from each chromosome end", "group": "expression", "laneTag": "", "file": "sk-cov-rnaseq_strain",
         "nativeBp": 16, "space": "log1p", "axisFrom": "max", "axis": None, "units": "a.u.",
         "label": "Shorkie · predicted 1,000-strain RNA-seq",
         "short": "strain",
@@ -192,7 +192,7 @@ TRACKS = [
         "source": "Shorkie (Chao et al. 2025), fold f0, run over sacCer3 in 16,384 bp windows",
     },
     {
-        "id": "sk-gradient", "group": "attribution", "laneTag": "signed", "file": "sk-gradient",
+        "id": "sk-gradient", "noData": "outside the scored interior — the head crops 1,024 bases from each chromosome end", "group": "attribution", "laneTag": "signed", "file": "sk-gradient",
         "nativeBp": 1, "space": "symlog", "axisFrom": "symmetric", "axis": None, "units": "d log2 cov",
         "label": "Shorkie · gradient x input",
         "short": "grad x in",
@@ -206,7 +206,25 @@ TRACKS = [
                   "rc-averaged",
     },
     {
-        "id": "sk-induction", "group": "expression", "laneTag": "derived", "file": "sk-induction",
+        # The one lane no other genome browser has: not what the model says, but how much EIGHT
+        # independently trained copies of it disagree about saying that. Unsigned, so it has no zero
+        # rule; masked to the louder half of the genome, because a coefficient of variation over
+        # eight values that are all at the noise floor is not a trust statement about anything.
+        "id": "sk-folddis", "group": "attribution", "laneTag": "8 folds · louder half",
+        "file": "sk-folddis", "nativeBp": 1, "space": "linear", "axis": [0.0, 2.0],
+        "units": "sd / mean|g|",
+        "label": "Shorkie · fold disagreement",
+        "short": "fold disagr",
+        "detail": "spread across the 8 released checkpoints, over the mean effect",
+        "prediction": False,
+        "noData": "the effect is below the genome median, too small for a spread to mean anything",
+        "note": "Mid-lane is the reference: at 1.0 the across-fold spread EQUALS the mean effect. "
+                "Blank on the quieter half of the genome by construction, not by omission.",
+        "source": "Shorkie (Chao et al. 2025), all eight released folds f0-f7; sd over the eight "
+                  "rc-averaged gradient x input values, divided by their mean magnitude",
+    },
+    {
+        "id": "sk-induction", "noData": "outside the scored interior — the head crops 1,024 bases from each chromosome end", "group": "expression", "laneTag": "derived", "file": "sk-induction",
         "nativeBp": 16, "space": "linear", "axis": [0.0, 2.0], "units": "fraction",
         "label": "Shorkie · condition-dependence",
         "short": "induction",
@@ -218,7 +236,7 @@ TRACKS = [
         "source": "Shorkie (Chao et al. 2025), fold f0; derived from the 13 timepoint means",
     },
     {
-        "id": "sk-ism", "group": "attribution", "laneTag": "signed · measured · 23 windows",
+        "id": "sk-ism", "noData": "outside the 23 analysed windows — full mutagenesis is 1,231 hours genome-wide", "group": "attribution", "laneTag": "signed · measured · 23 windows",
         "file": "sk-ism", "nativeBp": 1, "space": "symlog", "axisFrom": "symmetric", "axis": None,
         "units": "logSED",
         "label": "Shorkie · mutagenesis (ISM)",
@@ -232,7 +250,7 @@ TRACKS = [
         "source": "Shorkie (Chao et al. 2025), fold f0; 98,304 forward passes a window, rc-averaged",
     },
     {
-        "id": "sk-ig", "group": "attribution", "laneTag": "signed", "file": "sk-ig",
+        "id": "sk-ig", "noData": "outside the scored interior — the head crops 1,024 bases from each chromosome end", "group": "attribution", "laneTag": "signed", "file": "sk-ig",
         "nativeBp": 1, "space": "symlog", "axisFrom": "symmetric", "axis": None,
         "units": "d log2 cov",
         "label": "Shorkie · integrated gradients",
@@ -246,7 +264,7 @@ TRACKS = [
         "source": "Shorkie (Chao et al. 2025), fold f0; 32-step integrated gradients, rc-averaged",
     },
     {
-        "id": "sk-occl", "group": "attribution", "laneTag": "signed · exact", "file": "sk-occlusion",
+        "id": "sk-occl", "noData": "outside the scored interior — the head crops 1,024 bases from each chromosome end", "group": "attribution", "laneTag": "signed · exact", "file": "sk-occlusion",
         "nativeBp": 64, "space": "symlog", "axisFrom": "symmetric", "axis": None,
         "units": "d log2 cov",
         "label": "Shorkie · occlusion",
@@ -397,6 +415,12 @@ TRACK_DOCS = {
         'measures': "How much each individual base contributes to the model's predicted log2 RNA-seq coverage — d log2(sum of T0 coverage + 1) / d input, multiplied by the input. Because the input is one-hot, this keeps the reference base's own contribution and is exactly zero at the three bases that are not there; that is the correct rendering of the quantity, not a simplification of it. Averaged over both strands, which is a test-time augmentation the paper adopts and not a symmetry: the model is not reverse-complement equivariant.",
         'read': 'SIGNED, so the lane has a zero rule in its middle. A bar UP is a base whose presence raises the predicted expression of its window; a bar DOWN is one that lowers it. The axis is symmetric and logarithmic in both directions because the quantity is heavy-tailed: the median base reads |0.0008| against a maximum of 1.34, so a linear axis would draw a typical base at 2.5% of half-height.',
         'caveat': "This is NOT the attribution shown on /shorkie-lab/shorkie/, and it will not reproduce those figures. There, a reader picks a gene and the gradient is taken of that gene's predicted coverage. Genome-wide there is no chosen gene, so the target is each window's whole cropped interior — the only definition that exists at every base. Gradients superpose, so this is the sum of the per-gene attributions of everything in view. Second: a gradient is a LOCAL linear sensitivity, not the effect of actually changing the base. Against the shipped mutagenesis planes it agrees about DIRECTION and much less about magnitude: at 22 of 23 loci the single strongest substitution points the same way, and base by base the median correlation is 0.369 (range 0.05-0.65). The one exception is instructive rather than troubling — at GAL3 the gradient reads +0.0013 at the base mutagenesis calls strongest, which is essentially zero against a genome-wide median |gradient| of 0.0008. That is gradient SATURATION, the documented failure mode of a local derivative, and the reason mutagenesis and integrated gradients are on this page beside it. Full in-silico mutagenesis is the honest answer to 'what if this base changed', and it is not affordable genome-wide: measured, 1,231 hours.",
+    },
+    'sk-folddis': {
+        'source': "All EIGHT released Shorkie checkpoints (Chao et al. 2025, bioRxiv 2025.09.19.677475), folds f0-f7, each fetched from the paper's own storage bucket, each verified at 14,253,567 parameters and each byte-distinct from the others. Every one was run over the whole of sacCer3 in the same 1,493 windows on the same 8,192 bp cores as every other lane here, producing eight complete genome-wide gradient x input tracks; this lane is their per-base standard deviation divided by their per-base mean magnitude. Every other attribution lane in this browser comes from f0 alone.",
+        'measures': "How much the eight training runs DISAGREE about a base, relative to how much they claim it matters. A coefficient of variation: 1.0 means the spread across the checkpoints is as large as the effect they average to, 0.3 means they broadly agree about its size. This is a statement about the LANES ABOVE IT, not about the sequence — it is the only track here that measures the method rather than the genome.",
+        'read': "Against sk-gradient directly, position by position. A tall bar under a tall attribution bar is a base one checkpoint found and the others did not, and the per-base claim there should not be leaned on; a low bar under a tall one is a base all eight agree about. The genome-wide median is 0.775, so a typical scored base carries a spread about three quarters the size of its own effect — which is the honest summary of how much a single-checkpoint attribution track can be trusted at base resolution, and it agrees with the locked-panel result on /shorkie-lab/shorkie/, where the sign of a strong effect is stable across folds while the RANKING overlaps only 41-55% between any two. Mildly ANTI-correlated with loudness (Spearman -0.26 within the scored half): the folds agree relatively better where the effect is large, which is the reassuring direction. The axis is fixed at 0-2 so that mid-lane is exactly the 1.0 reference; 0.05% of scored bases exceed 2.0 and draw at full height.",
+        'caveat': "OPTIMISATION VARIANCE, NOT UNCERTAINTY. The eight folds share an architecture, a training corpus and a recipe, differing only in the cross-validation split and the run of the optimiser. So this bounds how much of a single checkpoint's attribution is an accident of training — it says nothing about whether the architecture is right, and a base where all eight agree is not thereby correct, only reproducibly claimed. Second: it is BLANK on half the genome, and that is by construction. Below the genome-wide median effect size, a ratio of two quantities both at the noise floor is not a trust statement, and the first version of this lane guarded that with an epsilon large enough to invert the reading — measured, the epsilon form ran +0.56 with loudness while the underlying ratio runs -0.26. A gap here means 'the attribution lane is not claiming much here', never 'the folds agree'. Third: the folds are compared on gradient x input, the cheapest of the four attribution methods and the one most exposed to saturation; a disagreement here is not automatically a disagreement about the mutagenesis lane.",
     },
     "lm-masked": {
         "source": "Shorkie_LM (Chao et al. 2025, bioRxiv 2025.09.19.677475), the fold-f0 checkpoint, run over sacCer3 in 16,384 bp windows. Not a published track.",
