@@ -89,9 +89,14 @@ GROUPS = [("chip_exo", 0, 1128), ("chip_mnase", 1128, 1148),
           ("rnaseq_tf", 1148, 4201), ("rnaseq_strain", 4201, 5215)]
 
 
+# Set from --tag. Without it every fold's run writes the SAME filename, so a per-fold sweep would
+# silently overwrite itself and the last checkpoint to finish would masquerade as all eight.
+TAG = ""
+
+
 def array_for(chrom: str, which: str, group: str | None = None) -> Path:
-    return OUT / (f"{chrom}-sk-cov-{group}.npy" if which == "coverage"
-                  else f"{chrom}-sk-{which}.npy")
+    stem = (f"{chrom}-sk-cov-{group}" if which == "coverage" else f"{chrom}-sk-{which}")
+    return OUT / f"{stem}{TAG}.npy"
 
 
 def main() -> int:
@@ -104,7 +109,11 @@ def main() -> int:
     ap.add_argument("--steps", type=int, default=32, help="integrated-gradients steps")
     ap.add_argument("--win", type=int, default=64, help="occlusion ablation window, bp")
     ap.add_argument("--device", default=None)
+    ap.add_argument("--tag", default="",
+                    help="suffix for the output arrays, e.g. --tag -f3 for a per-fold sweep")
     args = ap.parse_args()
+    global TAG
+    TAG = args.tag
 
     import torch
     from shorkie_torch import build

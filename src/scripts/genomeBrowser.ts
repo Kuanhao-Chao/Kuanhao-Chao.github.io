@@ -865,6 +865,10 @@ export function initGenomeBrowser(host: HTMLElement): void {
     lm: new Set(['constraint', 'comparative']),
   };
   let modelMode: ModelMode = 'both';
+  /** Panel state that must survive `buildPanel()`, which rebuilds from scratch on every toggle.
+   *  Without this, typing into the filter or opening a group would be undone by the next click. */
+  let panelFilter = '';
+  const panelOpen = new Map<string, boolean>();
 
   const laneExcluded = laneExcluder(host.dataset.gbExclude);
   const groupOf = new Map<string, string>();
@@ -1596,17 +1600,27 @@ export function initGenomeBrowser(host: HTMLElement): void {
     // constant ~480 px was the PANEL beside it: a `max-height: 30rem` column in a flex row, whose
     // 60-odd rows overflow that on every build. Size it from what is actually drawn instead, with
     // a floor so a two-lane view still leaves the controls usable.
-    if (panelBox) {
+    // THE ASIDE, not the div inside it. `.gb-panel` is what carries `overflow-y: auto`; its child
+    // `[data-gb-panel]` has `overflow: visible`, so capping the CHILD's height does not clip or
+    // scroll anything -- it just lets the content paint over whatever follows. That is exactly what
+    // shipped: 1,422 px of controls in a 330 px box, painting over the note, over the statistics
+    // table and off the end of the document, leaving 30 of 30 lane controls unclickable in the
+    // default view. The comment here already said "the PANEL beside it"; the style went to its
+    // child. `audit:playground` now asks the document what is actually at each control's position.
+    const panelAside = panelBox?.closest<HTMLElement>('.gb-panel') ?? null;
+    if (panelAside) {
       // Only while the panel is a COLUMN beside the canvas. Under 900 px the layout stacks and the
       // panel is a full-width block below it, where an inline height from the wide layout would
       // override the media query -- and would survive a resize back down, since nothing else
       // clears it.
       if (window.innerWidth > PANEL_STACK_W) {
-        panelBox.style.maxHeight = `${Math.max(PANEL_MIN_H, layout.total)}px`;
+        panelAside.style.maxHeight = `${Math.max(PANEL_MIN_H, layout.total)}px`;
       } else {
-        panelBox.style.removeProperty('max-height');
+        panelAside.style.removeProperty('max-height');
       }
     }
+    // Any inline height a previous build left on the child is cleared, or it would keep clipping.
+    panelBox?.style.removeProperty('max-height');
 
     const col = {
       ink: css('--color-ink', '#1a1a1a'),
@@ -3251,19 +3265,51 @@ export function initGenomeBrowser(host: HTMLElement): void {
   function buildPanel(): void {
     if (!panelBox || !index) return;
     panelBox.textContent = '';
-    const group = (title: string, hint?: string) => {
-      const h = document.createElement('p');
-      h.className = 'gb-panel__head';
-      h.textContent = title;
-      panelBox.appendChild(h);
+    // Where `row()` appends. A group opens a collapsible body and points this at it; before the
+    // first group, and for anything outside one, rows still land directly in the panel.
+    let bin: HTMLElement = panelBox;
+    const groups: { det: HTMLDetailsElement; body: HTMLElement; count: HTMLElement; key: string }[] = [];
+
+    /**
+     * A collapsible group, carrying how many lanes it holds and how many are on.
+     *
+     * 47 tracks in one flat column is 2,543 px of controls: everything below the third group is
+     * reachable only by scrolling past everything above it, and a reader looking for one lane has
+     * no way to skip. Groups collapse, remember their state for the session, and say what is
+     * inside without being opened -- which is what the IGV and JBrowse track selectors do and what
+     * makes a list this long navigable at all.
+     */
+    const group = (title: string, hint?: string, key?: string) => {
+      const gk = key ?? title;
+      const det = document.createElement('details');
+      det.className = 'gb-group';
+      // Default open, so nothing is hidden from a reader who has never used the panel; closing is
+      // then a choice they make and it is remembered.
+      det.open = panelOpen.get(gk) ?? true;
+      det.addEventListener('toggle', () => panelOpen.set(gk, det.open));
+      const sum = document.createElement('summary');
+      sum.className = 'gb-group__sum';
+      const ttl = document.createElement('span');
+      ttl.className = 'gb-group__title';
+      ttl.textContent = title;
+      const cnt = document.createElement('span');
+      cnt.className = 'gb-group__count';
+      sum.append(ttl, cnt);
+      det.appendChild(sum);
+      const body = document.createElement('div');
+      body.className = 'gb-group__body';
       if (hint) {
         // The heading carries a MODEL NAME, which must stay cased and unabbreviated; the
         // explanation goes on its own line rather than making the heading a three-line sentence.
         const s = document.createElement('p');
         s.className = 'gb-panel__hint';
         s.textContent = hint;
-        panelBox.appendChild(s);
+        body.appendChild(s);
       }
+      det.appendChild(body);
+      panelBox.appendChild(det);
+      bin = body;
+      groups.push({ det, body, count: cnt, key: gk });
     };
     const docsBlock = (d: LaneDocs | undefined): HTMLElement | null => {
       if (!d) return null;
@@ -3287,6 +3333,15 @@ export function initGenomeBrowser(host: HTMLElement): void {
 
     const row = (id: string, label: string, hint: string, extra?: HTMLElement,
                  docs?: LaneDocs) => {
+      // Matches the visible name, the hint AND the four documentation fields. A reader searching
+      // "nucleosome" is looking for ChIP-MNase and the histone lanes -- and that word appears only
+      // in `docs.measures`, on ten tracks. Searching the label alone returned nothing for it, which
+      // is a filter that answers "no such track" when the track is right there.
+      if (panelFilter) {
+        const hay = [label, hint, docs?.source, docs?.measures, docs?.read, docs?.caveat]
+          .filter(Boolean).join(' ').toLowerCase();
+        if (!hay.includes(panelFilter)) return;
+      }
       const l = document.createElement('label');
       l.className = 'gb-panel__row';
       const cb = document.createElement('input');
@@ -3304,10 +3359,56 @@ export function initGenomeBrowser(host: HTMLElement): void {
       l.append(cb, span);
       if (hint) l.title = hint;
       if (extra) l.appendChild(extra);
-      panelBox.appendChild(l);
+      bin.appendChild(l);
       const d = docsBlock(docs);
-      if (d) panelBox.appendChild(d);
+      if (d) bin.appendChild(d);
     };
+
+    // A sticky header carrying the two things a reader needs at any scroll position: how many
+    // lanes are on, and a way to clear them. Everything else in this panel scrolls away; with 47
+    // tracks the count is the only feedback that a click did anything at all when the lane it
+    // enabled is below the fold.
+    {
+      const bar = document.createElement('div');
+      bar.className = 'gb-panel__sticky';
+      const onNow = availableLanes().filter((id) => enabled.get(id)).length;
+      const cnt = document.createElement('span');
+      cnt.className = 'gb-panel__on';
+      cnt.dataset.gbOnCount = String(onNow);
+      cnt.textContent = `${onNow} lane${onNow === 1 ? '' : 's'} on`;
+      const clear = document.createElement('button');
+      clear.type = 'button';
+      clear.className = 'gb-preset gb-panel__clear';
+      clear.textContent = 'Clear';
+      clear.dataset.gbClear = '1';
+      clear.title = 'Turn every lane off';
+      clear.disabled = onNow === 0;
+      clear.addEventListener('click', () => { applyTracks([]); writeHash(); schedule(); });
+
+      const find = document.createElement('input');
+      find.type = 'search';
+      find.className = 'gb-panel__find';
+      // "lanes", not "tracks": `availableLanes()` counts the 47 score tracks PLUS the annotation
+      // lanes, and families collapse to one row each, so no single number is both true and useful
+      // here. The word the rest of this panel uses is lane.
+      find.placeholder = 'Filter lanes…';
+      find.value = panelFilter;
+      find.dataset.gbFind = '1';
+      find.setAttribute('aria-label', 'Filter tracks by name');
+      find.addEventListener('input', () => {
+        panelFilter = find.value.trim().toLowerCase();
+        buildPanel();
+        // Rebuilding replaces the input, so the caret has to be put back or typing a second
+        // character would lose focus after every keystroke.
+        const again = panelBox.querySelector<HTMLInputElement>('[data-gb-find]');
+        if (again) { again.focus(); again.setSelectionRange(again.value.length, again.value.length); }
+      });
+      const top = document.createElement('div');
+      top.className = 'gb-panel__stickytop';
+      top.append(cnt, clear);
+      bar.append(top, find);
+      panelBox.appendChild(bar);
+    }
 
     // Which model's lanes are on offer, above everything else: it is the widest choice a reader
     // makes here, since every lane below belongs to one network or the other. Only offered where
@@ -3467,6 +3568,25 @@ export function initGenomeBrowser(host: HTMLElement): void {
         const f = featureById.get(id);
         if (f) row(f.id, f.label, f.hint, undefined, f.docs);
       }
+    }
+
+    // Tally each group and drop the ones the filter emptied. A group heading over nothing reads as
+    // a group whose tracks failed to load, which is the opposite of what an empty filter result
+    // means -- and the counts are what let a reader skip a collapsed group with confidence.
+    for (const g of groups) {
+      const boxes = [...g.body.querySelectorAll<HTMLInputElement>('input[type=checkbox]')];
+      if (!boxes.length) { g.det.remove(); continue; }
+      const on = boxes.filter((b) => b.checked).length;
+      g.count.textContent = on ? `${boxes.length} · ${on} on` : `${boxes.length}`;
+      g.count.classList.toggle('is-on', on > 0);
+      // A filter that matches inside a collapsed group would hide its own results.
+      if (panelFilter) g.det.open = true;
+    }
+    if (panelFilter && !groups.some((g) => g.det.isConnected)) {
+      const none = document.createElement('p');
+      none.className = 'gb-panel__hint';
+      none.textContent = `No track matches “${panelFilter}”.`;
+      panelBox.appendChild(none);
     }
   }
 
