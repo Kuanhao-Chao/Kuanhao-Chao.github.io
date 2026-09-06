@@ -2478,6 +2478,76 @@ async function auditLogoBaseline(page, scope) {
   progress(`  genome/logo: ${checked} letter-mode lanes, glyph baseline == zero rule`);
 }
 
+/**
+ * Each model mode opens on its own default set, and switching modes never loses a selection.
+ *
+ * Read from the hash's `t=`, which is written from `availableLanes().filter(enabled)` -- the
+ * ENABLED set. `data-gb-lane-box` is what is DRAWN, and `sequence` is enabled at every zoom while
+ * only drawing past the letter threshold, so comparing the drawn lanes against a default set
+ * reports a working browser as broken.
+ */
+async function auditModeDefaults(page, scope) {
+  const WANT = {
+    both: ['sk-rnaseq', 'lm-masked', 'lm-unmasked', 'sk-gradient', 'sk-ig', 'sk-ism',
+      'phastcons', 'genes', 'sequence'],
+    shorkie: ['sk-rnaseq', 'sk-gradient', 'sk-ig', 'sk-ism', 'phastcons', 'genes', 'sequence'],
+    lm: ['lm-masked', 'lm-unmasked', 'phastcons', 'genes', 'sequence'],
+  };
+  const on = () => page.evaluate(() => {
+    const m = /[#;]t=([^;]+)/.exec(window.location.hash);
+    return m ? m[1].split(',').filter(Boolean) : [];
+  });
+  const same = (a, w) => JSON.stringify([...a].sort()) === JSON.stringify([...w].sort());
+  const mode = async (m) => { await page.click(`[data-gb-model="${m}"]`); await page.waitForTimeout(900); };
+
+  // A fresh load, so the per-mode memory starts empty and each mode is seeded from its default.
+  await page.goto(GENOME_ROUTE, { waitUntil: 'networkidle' });
+  await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 20000 });
+  await page.waitForTimeout(1500);
+
+  for (const m of ['both', 'shorkie', 'lm']) {
+    if (m !== 'both') await mode(m);
+    const got = await on();
+    if (!same(got, WANT[m])) {
+      fail(scope, `modes: ${m} opened on [${got.join(',')}], want [${WANT[m].join(',')}]`);
+    }
+  }
+
+  // Seeded once, then REMEMBERED: an edit in a mode survives a round trip through another.
+  await page.evaluate(() => document.querySelector('[data-gb-toggle="lm-unmasked"]')?.click());
+  await page.waitForTimeout(700);
+  const edited = await on();
+  if (edited.includes('lm-unmasked')) {
+    fail(scope, 'modes: could not turn a lane off in lm mode');
+  } else {
+    await mode('both');
+    await mode('lm');
+    const back = await on();
+    if (!same(back, edited)) {
+      fail(scope, `modes: lm did not restore the reader's own set — [${back.join(',')}] vs `
+        + `[${edited.join(',')}]; a mode that re-applies its default every time discards work`);
+    }
+  }
+
+  // The guarantee that predates per-mode defaults, restated here because per-mode memory is
+  // exactly where it would break.
+  await mode('both');
+  const b1 = await on();
+  await mode('shorkie');
+  await mode('both');
+  const b2 = await on();
+  if (!same(b1, b2)) fail(scope, `modes: both -> shorkie -> both lost lanes (${b1.length} -> ${b2.length})`);
+
+  await page.evaluate(() => { window.location.hash = 'chrIV:1-200000;t=gc,genes;m=both'; });
+  await page.waitForTimeout(1100);
+  const hashed = await on();
+  if (!same(hashed, ['gc', 'genes'])) {
+    fail(scope, `modes: an explicit t= no longer beats the defaults ([${hashed.join(',')}])`);
+  }
+  progress(`  genome/modes: both ${WANT.both.length}, shorkie ${WANT.shorkie.length}, `
+    + `lm ${WANT.lm.length} lanes; per-mode memory survives a round trip`);
+}
+
 async function auditGenomeBrowser(browser, baseURL, scope) {
   const context = await browser.newContext({
     baseURL,
@@ -2510,6 +2580,7 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     await auditIdeogram(page, scope, 'desktop');
     await auditGeneCard(page, scope);
     await auditSequenceSearch(page, scope);
+    await auditModeDefaults(page, scope);
     await auditLogoBaseline(page, scope);
     await auditSparseLane(page, scope);
     if (FULL) {
@@ -2523,7 +2594,7 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     // the track set alone -- which is right for an old link and wrong here: the checks above enable
     // one lane at a time, and six later checks failed on the leftovers before this named them.
     await page.evaluate(() => {
-      window.location.hash = 'chrIV:1-200000;t=lm-masked,phastcons,genes,sequence,tfbs_chip;m=both';
+      window.location.hash = 'chrIV:1-200000;t=sk-rnaseq,lm-masked,lm-unmasked,sk-gradient,sk-ig,sk-ism,phastcons,genes,sequence;m=both';
     });
     await page.waitForTimeout(900);
     // Back where the rest of the audit expects to start: the ideogram check leaves the view on
