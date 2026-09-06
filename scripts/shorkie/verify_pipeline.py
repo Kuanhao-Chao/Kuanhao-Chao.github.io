@@ -920,6 +920,30 @@ def verify_reliability() -> None:
           "completeness is quoted absolutely AND relatively",
           "both, so a near-zero target gap cannot masquerade as a large error")
 
+    # Cross-fold invariants for the benchmarks, when the per-fold runs are still on disk. These are
+    # the checks that catch a fold sweep having silently measured the wrong thing.
+    cross = Path(__file__).resolve().parent / "_scratch" / "foldcross"
+    if cross.exists():
+        refs_runs = sorted(cross.glob("refs-f*.json"))
+        if len(refs_runs) >= 2:
+            # The reference SEQUENCES are generated from a locus-indexed seed and never from the
+            # checkpoint, so Shorkie_LM's surprise at them is a property of the sequence alone. If
+            # this varies with the expression fold, either reference generation has become
+            # fold-dependent or the LM pass is not deterministic -- and neither would show up in
+            # any headline number.
+            nll = {json.loads(q.read_text()).get("referenceNllBits") for q in refs_runs}
+            check(len(nll) == 1, "the LM reference score does not vary with the expression fold",
+                  f"{nll.pop() if len(nll) == 1 else sorted(nll)} bits over {len(refs_runs)} folds")
+        faith_runs = sorted(cross.glob("faith-f*.json"))
+        if len(faith_runs) >= 2:
+            # Every fold scores against ITS OWN oracle, so the ceiling must read 1.000 in each --
+            # a fold whose oracle drifted would be reporting fractions of a different denominator.
+            oc = [next(r["deletionAuc"] for r in json.loads(q.read_text())["scorecard"]
+                       if r["method"] == "oracle") for q in faith_runs]
+            check(all(abs(v - 1.0) < 1e-9 for v in oc),
+                  "every fold's scorecard is scaled to its own oracle",
+                  f"{len(oc)} folds all at 1.000")
+
     g = loaded["Grammar"]
     hs = [r["hessianR"] for r in g["perLocus"] if r["hessianR"] is not None]
     if hs:
