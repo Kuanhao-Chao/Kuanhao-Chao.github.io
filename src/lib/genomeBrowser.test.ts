@@ -10,7 +10,8 @@ import {
   type Level, type ChromInfo, type LaneSpec, type SearchGene, type View,
   laneExcluder, nativeLadder, levelsForTrack, axisFraction, axisValue, isSignedAxis, pearson, exportRows, laneOrder,
   ideogramLayout, ideogramHit,
-  parseMotif, rcMasks, findMotif, motifDegeneracy, expectedHits,} from './genomeBrowser';
+  parseMotif, rcMasks, findMotif, motifDegeneracy, expectedHits,
+  MODEL_DEFAULT_TRACKS, MODEL_DEFAULT_TRACKS_NARROW, defaultTracksFor, type ModelMode,} from './genomeBrowser';
 
 const LEVELS: Level[] = [
   { level: 0, binBp: 1, rows: 1 },
@@ -1299,5 +1300,81 @@ describe('motifDegeneracy and expectedHits', () => {
     const want = expectedHits(M(pat), seq.length, true);
     expect(got).toBeGreaterThan(want * 0.7);
     expect(got).toBeLessThan(want * 1.3);
+  });
+});
+
+// ------------------------------------------------------------------------------------------------
+// Per-mode default track sets
+// ------------------------------------------------------------------------------------------------
+
+describe('defaultTracksFor', () => {
+  const MODES: ModelMode[] = ['both', 'shorkie', 'lm'];
+  // Neither model owns these, so `laneHidden` never hides them and they must be in every mode --
+  // they are the independent check and the coordinates everything else is read against.
+  const NEUTRAL = ['phastcons', 'genes', 'sequence'];
+
+  it('opens each mode on the lanes that answer its question', () => {
+    expect(MODEL_DEFAULT_TRACKS.both).toContain('sk-rnaseq');
+    expect(MODEL_DEFAULT_TRACKS.both).toContain('lm-masked');
+    expect(MODEL_DEFAULT_TRACKS.both).toContain('lm-unmasked');
+    for (const m of ['sk-gradient', 'sk-ig', 'sk-ism']) {
+      expect(MODEL_DEFAULT_TRACKS.both).toContain(m);
+      expect(MODEL_DEFAULT_TRACKS.shorkie).toContain(m);
+      // An attribution lane is Shorkie's; asking the language model for one is a category error.
+      expect(MODEL_DEFAULT_TRACKS.lm).not.toContain(m);
+    }
+    expect(MODEL_DEFAULT_TRACKS.lm).toEqual(expect.arrayContaining(['lm-masked', 'lm-unmasked']));
+    expect(MODEL_DEFAULT_TRACKS.shorkie).not.toContain('lm-masked');
+  });
+
+  it('keeps the model-agnostic lanes in every mode', () => {
+    for (const m of MODES) {
+      for (const id of NEUTRAL) expect(MODEL_DEFAULT_TRACKS[m]).toContain(id);
+    }
+  });
+
+  it('narrow is FEWER lanes, not different ones', () => {
+    // The rule the narrow default has always carried. A phone showing a lane the laptop does not
+    // would be a second design nobody maintains.
+    for (const m of MODES) {
+      const wide = new Set(MODEL_DEFAULT_TRACKS[m]);
+      expect(MODEL_DEFAULT_TRACKS_NARROW[m].length).toBeLessThan(wide.size);
+      for (const id of MODEL_DEFAULT_TRACKS_NARROW[m]) expect(wide.has(id)).toBe(true);
+    }
+  });
+
+  it('has no duplicates in any set', () => {
+    for (const table of [MODEL_DEFAULT_TRACKS, MODEL_DEFAULT_TRACKS_NARROW]) {
+      for (const m of MODES) expect(new Set(table[m]).size).toBe(table[m].length);
+    }
+  });
+
+  it('every mode-specific lane belongs to a group that mode admits', () => {
+    // `MODEL_GROUPS` in the controller: shorkie admits expression/attribution/comparative, lm
+    // admits constraint/comparative. A default naming a lane its own mode hides would open on a
+    // set the panel cannot show.
+    const group: Record<string, string> = {
+      'sk-rnaseq': 'expression', 'sk-gradient': 'attribution', 'sk-ig': 'attribution',
+      'sk-ism': 'attribution', 'lm-masked': 'constraint', 'lm-unmasked': 'constraint',
+      phastcons: 'comparative',
+    };
+    const allow: Record<ModelMode, Set<string> | null> = {
+      both: null,
+      shorkie: new Set(['expression', 'attribution', 'comparative']),
+      lm: new Set(['constraint', 'comparative']),
+    };
+    for (const m of MODES) {
+      for (const id of MODEL_DEFAULT_TRACKS[m]) {
+        const g = group[id];
+        if (!g || !allow[m]) continue;
+        expect(allow[m]!.has(g)).toBe(true);
+      }
+    }
+  });
+
+  it('resolves by mode and width', () => {
+    expect(defaultTracksFor('lm', false)).toEqual(MODEL_DEFAULT_TRACKS.lm);
+    expect(defaultTracksFor('lm', true)).toEqual(MODEL_DEFAULT_TRACKS_NARROW.lm);
+    expect(defaultTracksFor('shorkie', false)).toEqual(MODEL_DEFAULT_TRACKS.shorkie);
   });
 });

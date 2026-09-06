@@ -949,3 +949,49 @@ export function expectedHits(masks: number[], bases: number, bothStrands = true)
   const palindrome = rc.every((m, i) => m === masks[i]);
   return p * span * (bothStrands && !palindrome ? 2 : 1);
 }
+
+
+// ------------------------------------------------------------------------------------------------
+// Default track sets, per model mode
+// ------------------------------------------------------------------------------------------------
+
+export type ModelMode = 'both' | 'shorkie' | 'lm';
+
+/**
+ * What each model mode opens with.
+ *
+ * A mode is a question, and its default answer is the set of lanes that answers it. "Shorkie" asks
+ * what an assay would measure and which bases drove it, so it opens with the prediction and all
+ * three attribution methods; "Shorkie_LM" asks how constrained a base is, so it opens with both
+ * passes; "Both" is the comparison and opens with all six.
+ *
+ * phastCons, the gene models and the sequence belong to NEITHER model — they are the independent
+ * check and the coordinates everything else is read against — so they are in every mode. That is
+ * also why they survive a mode switch: `laneHidden` only hides a lane whose `group` the mode
+ * excludes, and these have no model group at all.
+ */
+export const MODEL_DEFAULT_TRACKS: Record<ModelMode, string[]> = {
+  both: ['sk-rnaseq', 'lm-masked', 'lm-unmasked', 'sk-gradient', 'sk-ig', 'sk-ism',
+    'phastcons', 'genes', 'sequence'],
+  shorkie: ['sk-rnaseq', 'sk-gradient', 'sk-ig', 'sk-ism', 'phastcons', 'genes', 'sequence'],
+  lm: ['lm-masked', 'lm-unmasked', 'phastcons', 'genes', 'sequence'],
+};
+
+/**
+ * The narrow defaults. FEWER LANES, NOT DIFFERENT ONES — each is a strict subset of its wide
+ * counterpart, which `genomeBrowser.test.ts` asserts.
+ *
+ * Nine lanes is roughly 920 px of canvas. On a 664 px phone viewport that puts the track below the
+ * fold before a single base is visible, so the phone opens on one lane per question: the
+ * prediction, the exact attribution, and the constraint pass.
+ */
+export const MODEL_DEFAULT_TRACKS_NARROW: Record<ModelMode, string[]> = {
+  both: ['lm-masked', 'sk-rnaseq', 'sk-ism', 'genes', 'sequence'],
+  shorkie: ['sk-rnaseq', 'sk-ism', 'genes', 'sequence'],
+  lm: ['lm-masked', 'genes', 'sequence'],
+};
+
+/** The lanes a mode opens with, at this width. */
+export function defaultTracksFor(mode: ModelMode, narrow: boolean): string[] {
+  return (narrow ? MODEL_DEFAULT_TRACKS_NARROW : MODEL_DEFAULT_TRACKS)[mode] ?? [];
+}

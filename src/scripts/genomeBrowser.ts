@@ -47,7 +47,7 @@ import {
   encodeViewState, decodeViewState,
   MIN_VIEW_BP, type Level, type ChromInfo, type View, type LaneSpec, type Lane,
   type SearchIndex, type History,
-  type ScaleSpace,
+  type ScaleSpace, defaultTracksFor,
 } from '../lib/genomeBrowser';
 import trackNamesJson from '../data/shorkieTrackNames.json';
 import { decodePackedRows, trackIndex, TRACK_GROUPS } from '../lib/shorkieModel';
@@ -528,14 +528,12 @@ const FEATURE_LANES: {
   },
 ];
 
-/** Tracks on by default: one model pass, conservation, genes, and the strongest TFBS tier. */
-const DEFAULT_ON = ['lm-masked', 'phastcons', 'genes', 'sequence', 'tfbs_chip'];
 /**
- * The narrow default. Fewer lanes, not different ones: the model, its genes and the sequence.
- * A default rather than a restriction -- every lane is one tap away in the panel, and a shared
- * link's `t=` list always wins over both of these.
+ * The default lane set is PER MODEL MODE and lives in the pure layer (`defaultTracksFor`), because
+ * a mode is a question and its default is the set of lanes that answers it. A default rather than
+ * a restriction -- every lane is one tap away in the panel, and a shared link's `t=` list always
+ * wins over all of them.
  */
-const DEFAULT_ON_NARROW = ['lm-masked', 'genes', 'sequence'];
 
 /** Fallback when an older index.json predates `groupOrder`. */
 const DEFAULT_GROUP_ORDER = ['constraint', 'expression', 'attribution', 'comparative'];
@@ -884,6 +882,17 @@ export function initGenomeBrowser(host: HTMLElement): void {
     lm: new Set(['constraint', 'comparative']),
   };
   let modelMode: ModelMode = 'both';
+  /**
+   * The lanes last enabled in each mode.
+   *
+   * Seeded from `defaultTracksFor` the first time a mode is entered, and thereafter it is whatever
+   * the reader left there. That keeps the guarantee this browser already made -- switching away
+   * and back restores exactly the lanes that were on -- while letting each mode open on an answer
+   * to its own question rather than on one set for all three.
+   */
+  const modeTracks = new Map<ModelMode, string[]>();
+  /** Set at boot from the canvas width; the phone opens on fewer lanes, never different ones. */
+  let narrowLayout = false;
   /** Panel state that must survive `buildPanel()`, which rebuilds from scratch on every toggle.
    *  Without this, typing into the filter or opening a group would be undone by the next click. */
   let panelFilter = '';
@@ -2248,6 +2257,23 @@ export function initGenomeBrowser(host: HTMLElement): void {
     const label = (v: number) => (Math.abs(v) >= 100 ? v.toFixed(0)
       : Math.abs(v) >= 1 ? v.toFixed(1)
         : v === 0 ? '0' : v.toFixed(3));
+    /**
+     * The axis label, shortened until it FITS ITS GUTTER.
+     *
+     * The gutter is 22 px on a phone and `1098` is ~23 px at 9 px, so it was drawn from x = -5 and
+     * rendered as `098` -- which reads as a different number rather than as a clipped one, the
+     * same failure as a ruler tick cut off at the edge. Falls back through fewer decimals to an
+     * SI-style `1.1k`, and only then gives up.
+     */
+    const fitLabel = (v: number) => {
+      const room = padLeft(w) - 8;
+      const forms = [label(v)];
+      if (Math.abs(v) >= 1000) forms.push(`${(v / 1000).toFixed(1)}k`, `${(v / 1000).toFixed(0)}k`);
+      else if (Math.abs(v) >= 1) forms.push(v.toFixed(0));
+      else if (v !== 0) forms.push(v.toFixed(2), v.toFixed(1), v.toFixed(1).replace(/^(-?)0\./, '$1.'));
+      for (const s of forms) if (ctx.measureText(s).width <= room) return s;
+      return forms[forms.length - 1];
+    };
     // On a signed LETTER lane the midpoint tick is dropped in favour of the zero label below:
     // zero is the one line such a lane is read against, the two sit ~8 px apart when the window is
     // nearly symmetric, and a suppressed zero would cost the reader the sign. Every other lane
@@ -2256,7 +2282,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     for (let g = 0; g <= gridCount; g += 2) {
       if (g === 2 && !midTick) continue;
       const f = g / gridCount;
-      ctx.fillText(label(axisValue(f, axis, axSpace, lin)), padLeft(w) - 5, yOfFrac(f) + 3);
+      ctx.fillText(fitLabel(axisValue(f, axis, axSpace, lin)), padLeft(w) - 5, yOfFrac(f) + 3);
     }
     // The zero rule. A signed lane without one is unreadable: a bar is then a magnitude with no
     // baseline, and the sign -- the whole point of the track -- is not on the screen at all.
@@ -4082,13 +4108,8 @@ export function initGenomeBrowser(host: HTMLElement): void {
         bn.dataset.gbModel = m.id;
         bn.setAttribute('aria-pressed', modelMode === m.id ? 'true' : 'false');
         bn.addEventListener('click', () => {
-          // Availability only. The `enabled` map is untouched, so switching away and back
-          // restores exactly the lanes that were on rather than discarding them.
-          modelMode = m.id;
-          host.dataset.gbModelOn = m.id;
-          writeHash();
-          buildPanel();
-          schedule();
+          if (modelMode === m.id) return;
+          enterMode(m.id);
         });
         bar.appendChild(bn);
       }
@@ -4245,6 +4266,25 @@ export function initGenomeBrowser(host: HTMLElement): void {
     buildPanel();
   }
 
+  /**
+   * Switch model mode: remember what the outgoing mode had, restore or seed the incoming one.
+   *
+   * Two things this must not do. It must not discard a selection -- `both -> shorkie -> both` has
+   * to give back the reader's own `both` set, which is the guarantee the audit has asserted since
+   * the modes existed. And it must not reach a lane the new mode hides: `applyTracks` walks
+   * `availableLanes()`, which is already filtered by the mode set on the line above it, so lanes
+   * belonging to the other model keep their state untouched rather than being switched off and
+   * lost.
+   */
+  function enterMode(m: ModelMode): void {
+    modeTracks.set(modelMode, availableLanes().filter((id) => enabled.get(id)));
+    modelMode = m;
+    host.dataset.gbModelOn = m;
+    applyTracks(modeTracks.get(m) ?? defaultTracksFor(m, narrowLayout));
+    writeHash();
+    schedule();
+  }
+
   // -------------------------------------------------------------------------------------------
   // Repaints that are not navigation
   // -------------------------------------------------------------------------------------------
@@ -4321,20 +4361,22 @@ export function initGenomeBrowser(host: HTMLElement): void {
     // set depends on how much room there is: the laptop set stacks to ~340 px of canvas, which on
     // a 664 px phone viewport pushes the track below the fold before a single base is visible.
     const narrow = (trackCanvas.clientWidth || window.innerWidth) < PHONE_W;
+    narrowLayout = narrow;
     host.dataset.gbNarrow = narrow ? '1' : '0';
-    const initialTracks = host.dataset.gbTracks
-      ? host.dataset.gbTracks.split(',').map((s) => s.trim()).filter(Boolean)
-      : (narrow ? DEFAULT_ON_NARROW : DEFAULT_ON);
-
-    for (const id of initialTracks) if (!laneHidden(id)) enabled.set(id, true);
 
     const hash = !isMinimal ? decodeViewState(window.location.hash, index.chroms) : { tracks: [], view: null, roi: null };
-    // Before applyTracks, so the panel is built with the right track already selected rather than
-    // built for the default and then rebuilt.
+    // The mode is resolved BEFORE the defaults, because the default set now depends on it: landing
+    // on a `m=lm` link must open the language model's lanes, not Both's and then a rebuild.
     if (hash.model === 'shorkie' || hash.model === 'lm' || hash.model === 'both') {
       modelMode = hash.model;
     }
     host.dataset.gbModelOn = modelMode;
+
+    // A host that names its own tracks (the homepage showcase) always wins over every default.
+    const initialTracks = host.dataset.gbTracks
+      ? host.dataset.gbTracks.split(',').map((s) => s.trim()).filter(Boolean)
+      : defaultTracksFor(modelMode, narrow);
+    for (const id of initialTracks) if (!laneHidden(id)) enabled.set(id, true);
     if (hash.locusTrack != null && hash.locusTrack >= 0 && hash.locusTrack < TRACK_NAMES.length) {
       locusTrackIdx = hash.locusTrack;
       refreshLocusSpec();
