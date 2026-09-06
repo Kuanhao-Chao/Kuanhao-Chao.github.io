@@ -198,6 +198,25 @@ Earlier revisions of this document recorded fold uncertainty as unestimable beca
 
 Fold and strand are separate axes throughout and must not be pooled. The model was trained with `augment_rc: false`, so a forward/reverse difference is a property of the checkpoint rather than sampling noise, and the two terms are of comparable size here — pooling them into one error bar would conceal both. The safe claim is that a large majority of the strongest per-base effects are stable across the released training runs, at roughly 1.6× the rate of composition- and position-matched controls; it is not a claim about biological reproducibility.
 
+### Direction is stable across folds; ranking is much less so
+
+The fold pack originally shipped medians only, so "recomputed under all eight folds" was a statement a reader had to take on trust. It now carries every fold's own scalar at every locus, its median |effect|, its agreement with the majority, and the **8×8 pairwise overlap** between checkpoints — all recovered from the same caches with no model run.
+
+That matrix separates two claims the aggregate had merged. Sign agreement across folds is **85.1%** on the strongest bases, but any two checkpoints share only **41–55%** of their top 1% of bases (mean off-diagonal 0.488). The *direction* of a strong effect is a stable property; *which* bases rank highest is substantially a property of the individual training run. A single-fold ranking is therefore a weaker object than a single-fold sign, and released surfaces that present a ranking — the logos, the top-k tables, the seqlet extraction that feeds the motif panel — inherit that weakness rather than the 85% figure.
+
+Safe claim: a large majority of the strongest per-base effects keep their sign and a 95% interval clear of zero across the eight released training runs, at roughly 1.6× the rate of composition- and position-matched controls; the identity of the top-ranked bases is about half reproducible between any two runs. Neither is a statement about biological reproducibility.
+
+### The randomization sanity check, and why one number would have misled
+
+`make_faithfulness.py` previously declared cascading parameter randomization in its docstring and carried both `--skip-randomization` and `RANDOMIZE_LOCI`, while implementing none of it. It is implemented now, by **permuting each parameter tensor's own values** rather than resampling them: a permutation preserves every parameter's exact marginal distribution and destroys only the arrangement, so a collapse cannot be attributed to a change of scale.
+
+Randomizing head-first over 6 loci, gradient × input decorrelates from its intact self monotonically, **0.96 → 0.25**. Two features of that profile matter more than the endpoints:
+
+- Destroying the **entire transformer** moves it only **0.60 → 0.34**, not to zero, because the three decoder skips are fed by `block5`–`block7` and carry real signal around the bottleneck. Reported as one pooled number this would read as the sanity check failing; it is an architectural fact, and every row therefore carries the branch it destroyed.
+- It does not settle at zero even with the whole network randomized (**0.25**). That residual is what the one-hot input geometry contributes before any learning, and it is the floor any collapse should be read against.
+
+Status `Impl-Approx` — one permutation seed, 6 loci, gradient × input only. The check establishes that the map reads the network; it says nothing about whether the network is right.
+
 ### Every attribution surface now has an exact-edit score
 
 `shorkieFaithfulness.json` scores each released attribution against the exhaustive mutagenesis planes on two axes. Rank agreement is computed at **each method's own native resolution**, with the ground truth pooled to match, so a 64-bp or 128-bp method is not penalised for its resolution. The deletion curve is an intervention rather than a correlation: rank the bases, substitute the top-k to the alternative the exact plane says is worst, re-run forward and reverse, and record the real fall in `g`. Every curve is divided by what ranking by that same damage achieves, so the column reads as the fraction of achievable damage a ranking found.
