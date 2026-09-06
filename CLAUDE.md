@@ -2842,6 +2842,53 @@ they all import.
   every single-base effect, so it must reproduce the shipped ISM planes, and a drift there means
   the two arms of the inclusion–exclusion residual do not share a convention.
 
+- **A pack that ships only aggregates cannot show what it summarises, and nobody notices.** The
+  fold pack recorded `folds: [f0…f7]` and shipped medians and fractions and *no per-fold numbers at
+  all*, so "recomputed under all eight folds" was a sentence a reader had to take on trust — the
+  page could not have drawn eight folds if it wanted to. The raw values were in the 184 sweep caches
+  the whole time and came back with **no GPU** through the existing `--summarise` path. **When a
+  claim is about N things, ship the N things**; a median is a summary of evidence, not the evidence.
+
+- **Sign stability and rank stability are different numbers, and an aggregate merges them.** Across
+  the eight folds, 85.1% of the strongest bases keep their sign — but any two checkpoints share
+  only **41–55%** of their top 1% of bases. Direction is a stable property of the architecture and
+  the data; *which* base ranks highest is about half a property of the individual optimisation. Every
+  surface that presents a RANKING (a logo, a top-k table, seqlet extraction) inherits the weaker
+  figure, and quoting the 85% beside a ranking is quoting the wrong one.
+
+- **A CLI flag and a docstring are not an implementation.** `make_faithfulness.py` declared cascading
+  parameter randomization as one of three score families, carried `--skip-randomization` and defined
+  `RANDOMIZE_LOCI` — and contained no code that did it. Nothing failed, because a constant that is
+  never read and a flag that gates nothing both look exactly like working code. **Grep for the
+  constant's uses, not for its definition.**
+
+- **Randomize by PERMUTING a tensor's own values, not by resampling.** A permutation preserves every
+  parameter's exact marginal distribution and destroys only the arrangement, so a collapse cannot be
+  waved away as a change of scale — which is the first objection to any resampled Adebayo check.
+
+- **In a U-Net the randomization check must be reported PER BRANCH or it accuses the wrong thing.**
+  Destroying the entire transformer moves gradient x input only **0.60 → 0.34**, not to zero,
+  because the three decoder skips are fed by `block5`–`block7` and carry signal around the
+  bottleneck. As one pooled number that reads as the sanity check failing; it is an architectural
+  fact. And the map does not reach zero even fully randomized (**0.25**) — that floor is what the
+  one-hot input geometry contributes before any learning, and it is what a collapse should be read
+  against rather than against 0.
+
+- **Sorting inside the payload literal while building parallel arrays from the unsorted list is a
+  silent mislabelling.** `"perLocus": sorted(per_locus, …)` beside `[per_fold[f][r["id"]] for r in
+  per_locus]` labels 23 plausible numbers with the wrong 23 loci and nothing looks wrong. Sort once,
+  bind the order to a name, and build everything from that name.
+
+- **An assertion that COUNTS elements breaks the moment you add one.** The gate asserted "2 tables in
+  act 9" and failed as soon as the randomization table landed between them. Identify by content —
+  and pick a key that appears in exactly ONE of them: `deletion auc` matched both the scorecard and
+  the reference menu, so `find()` was working only by document order.
+
+- **`</strong>` followed by a newline swallows a space too**, and `display: block` on the label hides
+  it visually while the DOM text still reads "usNothing" — wrong for a screen reader, for text
+  extraction, and for the rendered-DOM gate. It hit **all 30** closing readings at once; the source
+  checker caught every one before the browser did.
+
 - **`typeof someData.json` types an optional field from whichever run is on disk.** Twice in one
   round: the grammar scatter's `hess` inferred as `null` because the last smoke run used
   `--no-hessian`, and `matchedNull` inferred as `null` because `make_null_planes.py` had not run
