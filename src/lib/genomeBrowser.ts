@@ -633,6 +633,8 @@ export interface ViewState {
   locusTrack?: number;
   /** Which network's lanes are on offer: 'both', 'shorkie' or 'lm'. */
   model?: string;
+  /** How tall the score lanes are: 'comfortable', 'compact' or 'dense'. */
+  density?: LaneDensity;
 }
 
 /**
@@ -650,6 +652,9 @@ export function encodeViewState(s: ViewState): string {
   // ordinary link stays short and an older link still decodes.
   if (s.locusTrack != null) parts.push(`k=${s.locusTrack}`);
   if (s.model && s.model !== 'both') parts.push(`m=${s.model}`);
+  // Lane density. Omitted at the default, so an ordinary link stays short and an older link that
+  // names no density still decodes to the default rather than to nothing.
+  if (s.density && s.density !== 'compact') parts.push(`d=${s.density}`);
   return parts.join(';');
 }
 
@@ -665,6 +670,7 @@ export function decodeViewState(hash: string, chroms: ChromInfo[]): DecodedViewS
     if (k === 't' && v) out.tracks = v.split(',').filter(Boolean);
     if (k === 'k' && v && Number.isFinite(Number(v))) out.locusTrack = Number(v);
     if (k === 'm' && (v === 'shorkie' || v === 'lm' || v === 'both')) out.model = v;
+    if (k === 'd') { const d = parseDensity(v); if (d) out.density = d; }
     if (k === 'roi' && v) {
       const [a, b] = v.split('-').map(Number);
       if (Number.isFinite(a) && Number.isFinite(b)) {
@@ -1045,4 +1051,55 @@ export function frameGene(
   const want = Math.max(MIN_VIEW_BP, len + pad * 2);
   const centre = (gene.txStart + gene.txEnd) / 2;
   return clampView(centre - want / 2, centre + want / 2, chromLength);
+}
+
+
+// ------------------------------------------------------------------------------------------------
+// Lane density
+// ------------------------------------------------------------------------------------------------
+
+export type LaneDensity = 'comfortable' | 'compact' | 'dense';
+
+export const LANE_DENSITIES: LaneDensity[] = ['comfortable', 'compact', 'dense'];
+
+/**
+ * How tall a score lane is, per density.
+ *
+ * `base` is every score track. The two language-model lanes and phastCons are taller because they
+ * are read against a FIXED axis a reader is meant to judge absolutely -- 0-2 bits and a 0-1
+ * posterior -- where an attribution lane is read for its shape and its sign. That relationship is
+ * the one thing worth keeping proportional across the three settings.
+ *
+ * Compact is the default. Nine lanes at `comfortable` is ~900 px of canvas, which is taller than a
+ * laptop viewport, so the browser opened on a picture that could not be seen at once.
+ */
+export const LANE_DENSITY: Record<LaneDensity, { base: number; bits: number; posterior: number }> = {
+  comfortable: { base: 110, bits: 118, posterior: 96 },
+  compact: { base: 64, bits: 72, posterior: 58 },
+  dense: { base: 46, bits: 52, posterior: 42 },
+};
+
+/** Lanes whose height is set by their axis rather than by the generic default. */
+const BITS_LANES = new Set(['lm-masked', 'lm-unmasked']);
+const POSTERIOR_LANES = new Set(['phastcons', 'gc']);
+
+/**
+ * The height a score lane starts at, before any per-lane override.
+ *
+ * The floor is not decoration: `drawScore` reserves 12 px for the label chip and the letter view
+ * needs room for at least one annotation label row under it, so below ~40 px a lane stops being
+ * able to say what it is.
+ */
+export function laneHeightFor(trackId: string, density: LaneDensity): number {
+  const d = LANE_DENSITY[density] ?? LANE_DENSITY.compact;
+  const h = BITS_LANES.has(trackId) ? d.bits
+    : POSTERIOR_LANES.has(trackId) ? d.posterior
+      : d.base;
+  return Math.max(40, h);
+}
+
+/** A density from a URL hash, or null when the hash names none or names something unknown. */
+export function parseDensity(v: string | undefined | null): LaneDensity | null {
+  const s = String(v ?? '').trim().toLowerCase();
+  return (LANE_DENSITIES as string[]).includes(s) ? (s as LaneDensity) : null;
 }

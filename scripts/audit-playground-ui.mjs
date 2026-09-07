@@ -2674,6 +2674,212 @@ async function auditBrowserExtras(page, scope) {
     + `with ${paths} vector paths`);
 }
 
+/**
+ * The wheel belongs to the PAGE; zoom is a pinch.
+ *
+ * This handler used to `preventDefault()` unconditionally, so a two-finger scroll over the canvas
+ * -- the gesture a reader uses to get past the browser to the text below it -- zoomed the genome
+ * and the page never moved.
+ *
+ * The ctrl/shift gestures are DISPATCHED rather than driven through `page.mouse`, because
+ * `mouse.wheel` does not carry keyboard modifier state onto the WheelEvent. The browser's own
+ * trackpad-pinch-to-`ctrlKey` mapping is a platform fact that cannot be simulated; what is under
+ * test is how the handler responds to it.
+ */
+async function auditWheel(page, scope) {
+  await page.goto(`${GENOME_ROUTE}#chrIV:100000-140000`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 20000 });
+  await page.waitForTimeout(1800);
+  const view = () => page.$eval('[data-genome-browser]', (h) => h.dataset.gbView || '');
+  const span = async () => {
+    const m = /:([\d,]+)-([\d,]+)/.exec(await view());
+    return m ? Number(m[2].replace(/,/g, '')) - Number(m[1].replace(/,/g, '')) : 0;
+  };
+  // A `bare` page pins html/body and scrolls an inner pane, so `window.scrollY` is always 0.
+  const scrolled = () => page.evaluate(() => {
+    let best = window.scrollY;
+    for (const el of document.querySelectorAll('*')) if (el.scrollTop > best) best = el.scrollTop;
+    return Math.round(best);
+  });
+  const at = () => page.$eval('[data-gb-track]', (c) => {
+    const r = c.getBoundingClientRect();
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+  });
+  const send = async (init) => {
+    const box = await at();          // re-read: an earlier scroll moves the canvas
+    await page.evaluate(([b, i]) => {
+      document.querySelector('[data-gb-track]').dispatchEvent(new WheelEvent('wheel', {
+        clientX: b.x, clientY: b.y, bubbles: true, cancelable: true, ...i }));
+    }, [box, init]);
+    await page.waitForTimeout(600);
+  };
+
+  // 1. A plain wheel must leave the view alone AND move the page.
+  const v0 = await view();
+  const s0 = await scrolled();
+  const box0 = await at();
+  await page.mouse.move(box0.x, box0.y);
+  await page.mouse.wheel(0, 400);
+  await page.waitForTimeout(700);
+  if ((await view()) !== v0) fail(scope, `wheel: a plain scroll moved the view (${v0} -> ${await view()})`);
+  if (!((await scrolled()) > s0 + 50)) {
+    fail(scope, `wheel: a plain scroll did not scroll the page (${s0} -> ${await scrolled()}) — the `
+      + 'canvas is one screen of a page several screens long and cannot own the wheel');
+  }
+
+  // 2. ctrl (trackpad pinch) zooms, and does not scroll.
+  const beforeZoom = await span();
+  const sBefore = await scrolled();
+  await send({ deltaY: -300, ctrlKey: true });
+  if (!((await span()) < beforeZoom)) {
+    fail(scope, `wheel: ctrl+wheel did not zoom in (${beforeZoom} -> ${await span()} bp)`);
+  }
+  if ((await scrolled()) !== sBefore) fail(scope, 'wheel: ctrl+wheel scrolled the page as well as zooming');
+
+  // 3. shift, and a bare horizontal swipe, pan without changing the span.
+  for (const [label, init] of [['shift+wheel', { deltaY: 300, shiftKey: true }],
+                               ['a horizontal swipe', { deltaX: -240, deltaY: 0 }]]) {
+    const bv = await view();
+    const bs = await span();
+    await send(init);
+    if ((await view()) === bv) fail(scope, `wheel: ${label} did not pan (${bv})`);
+    if (Math.abs((await span()) - bs) > 2) {
+      fail(scope, `wheel: ${label} changed the span (${bs} -> ${await span()}) — it must pan, not zoom`);
+    }
+  }
+
+  // 4. One history entry per gesture. `zoom()` used to push one per TICK, so a single pinch left a
+  //    back button that needed pressing dozens of times.
+  const h0 = Number((await page.$eval('[data-genome-browser]', (h) => h.dataset.gbHistory)).split('/')[1]);
+  const box = await at();
+  await page.evaluate(async ([b]) => {
+    const el = document.querySelector('[data-gb-track]');
+    for (let i = 0; i < 8; i += 1) {
+      el.dispatchEvent(new WheelEvent('wheel', { deltaY: -120, clientX: b.x, clientY: b.y,
+        ctrlKey: true, bubbles: true, cancelable: true }));
+      await new Promise((r) => setTimeout(r, 30));
+    }
+  }, [box]);
+  await page.waitForTimeout(900);
+  const h1 = Number((await page.$eval('[data-genome-browser]', (h) => h.dataset.gbHistory)).split('/')[1]);
+  if (h1 - h0 > 2) fail(scope, `wheel: eight ticks pushed ${h1 - h0} history entries, want one gesture`);
+  progress(`  genome/wheel: scroll scrolls, ctrl zooms, shift and deltaX pan, ${h1 - h0} entry per gesture`);
+}
+
+/**
+ * The browser fills its container at every width.
+ *
+ * The stage must be compared to its CONTAINER, not the canvas to the stage: when the stage itself
+ * collapses those two are equal and the bug is invisible. `.gb-layout { align-items: flex-start }`
+ * made the cross axis shrink-to-fit in the stacked layout, so the canvas's `width: 100%` was
+ * circular and fell back to its intrinsic 300px -- 300px of tracks in an available 871 at a 900px
+ * viewport, at every width from 360 to 900.
+ */
+async function auditWidths(page, scope) {
+  const WIDTHS = FULL
+    ? [1920, 1440, 1180, 1024, 900, 820, 768, 700, 600, 500, 430, 390, 360, 320]
+    : [1440, 900, 700, 390];
+  const seen = [];
+  for (const w of WIDTHS) {
+    await page.setViewportSize({ width: w, height: 900 });
+    await page.goto(GENOME_ROUTE, { waitUntil: 'networkidle' });
+    await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 20000 });
+    await page.waitForTimeout(1200);
+    const r = await page.evaluate(() => {
+      const cv = document.querySelector('[data-gb-track]');
+      const stage = document.querySelector('.gb-stage');
+      const layout = document.querySelector('.gb-layout');
+      const panelEl = document.querySelector('.gb-panel');
+      const lcs = getComputedStyle(layout);
+      const pcs = getComputedStyle(panelEl);
+      const gap = parseFloat(lcs.columnGap) || 0;
+      const side = lcs.flexDirection === 'row' && pcs.display !== 'none' && pcs.position !== 'absolute';
+      const want = layout.clientWidth
+        - (side ? Math.round(panelEl.getBoundingClientRect().width) + gap : 0);
+      const clipped = [];
+      for (const el of document.querySelectorAll(
+        '.gb-head, .gb-stats, .gb-panel, .vp-nav, .gb-panel__presets, .gb-panel__modes, .gb-card__links')) {
+        const cs = getComputedStyle(el);
+        if (el.scrollWidth > el.clientWidth + 1 && cs.overflowX !== 'auto' && cs.overflowX !== 'scroll') {
+          clipped.push(`${el.className.split(' ')[0]}(${el.scrollWidth}>${el.clientWidth})`);
+        }
+      }
+      return {
+        stageW: Math.round(stage.getBoundingClientRect().width),
+        wantW: Math.round(want),
+        cssW: Math.round(cv.clientWidth),
+        docOvf: Math.max(0, Math.round(document.documentElement.scrollWidth - window.innerWidth)),
+        clipped,
+        h1: document.querySelectorAll('h1').length,
+      };
+    });
+    if (r.stageW < r.wantW - 4) {
+      fail(scope, `widths: at ${w}px the tracks are ${r.stageW}px of an available ${r.wantW}px`);
+    }
+    if (r.cssW < r.stageW - 2) fail(scope, `widths: at ${w}px the canvas is ${r.cssW} in a ${r.stageW} stage`);
+    if (r.docOvf > 1) fail(scope, `widths: at ${w}px the document overflows by ${r.docOvf}px`);
+    if (r.clipped.length) {
+      fail(scope, `widths: at ${w}px content is clipped and cannot scroll — ${r.clipped.join(' ')}`);
+    }
+    if (r.h1 !== 1) fail(scope, `widths: at ${w}px there are ${r.h1} h1 elements`);
+    seen.push(`${w}:${r.stageW}`);
+  }
+  await page.setViewportSize({ width: 1440, height: 950 });
+  progress(`  genome/widths: ${seen.join(' ')}`);
+}
+
+/**
+ * Lane density: compact by default, three levels, and a control that fits its column.
+ *
+ * The default matters because it decides whether the browser can be seen at once: nine lanes at
+ * `comfortable` is a 897px canvas, taller than a laptop viewport.
+ */
+async function auditDensity(page, scope) {
+  await page.goto(GENOME_ROUTE, { waitUntil: 'networkidle' });
+  await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 20000 });
+  await page.waitForTimeout(1600);
+  const state = () => page.evaluate(() => ({
+    on: document.querySelector('[data-genome-browser]').dataset.gbDensityOn,
+    h: document.querySelector('[data-gb-track]').clientHeight,
+  }));
+  const first = await state();
+  if (first.on !== 'compact') fail(scope, `density: opens at "${first.on}", want compact`);
+  if (!(first.h < 700)) {
+    fail(scope, `density: the default canvas is ${first.h}px — it must fit a laptop viewport`);
+  }
+
+  // The control must FIT its 248px column. It overlapped when the label shared the buttons' row,
+  // printing "compact" across "comforta", which reads as a rendering fault rather than a tight fit.
+  const fitted = await page.evaluate(() => {
+    const btns = [...document.querySelectorAll('.gb-density__row [data-gb-density]')];
+    const b = btns.map((x) => x.getBoundingClientRect());
+    let overlap = 0;
+    for (let i = 1; i < b.length; i += 1) if (b[i].left < b[i - 1].right - 0.5) overlap += 1;
+    return { n: btns.length, overlap, cut: btns.filter((x) => x.scrollWidth > x.clientWidth + 1).length };
+  });
+  if (fitted.n !== 3) fail(scope, `density: ${fitted.n} buttons, want 3`);
+  if (fitted.overlap) fail(scope, `density: ${fitted.overlap} button(s) overlap their neighbour`);
+  if (fitted.cut) fail(scope, `density: ${fitted.cut} button label(s) truncated in the panel column`);
+
+  const h = {};
+  for (const d of ['comfortable', 'compact', 'dense']) {
+    await page.click(`.gb-density__row [data-gb-density="${d}"]`);
+    await page.waitForTimeout(800);
+    const s = await state();
+    if (s.on !== d) fail(scope, `density: clicking ${d} left it at ${s.on}`);
+    h[d] = s.h;
+  }
+  if (!(h.comfortable > h.compact && h.compact > h.dense)) {
+    fail(scope, `density: heights are not ordered (${h.comfortable}/${h.compact}/${h.dense})`);
+  }
+  // A shared link must open at the density it names.
+  await page.goto(`${GENOME_ROUTE}#chrVII:882012-884610;d=dense`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 20000 });
+  await page.waitForTimeout(1400);
+  if ((await state()).on !== 'dense') fail(scope, 'density: a d=dense link did not open dense');
+  progress(`  genome/density: compact default ${h.compact}px, comfortable ${h.comfortable}, dense ${h.dense}`);
+}
+
 async function auditGenomeBrowser(browser, baseURL, scope) {
   const context = await browser.newContext({
     baseURL,
@@ -2712,6 +2918,9 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     // cost. A misaligned logo draws at the right level, with the right letters, in the right
     // colours, on the wrong baseline -- nothing else on this page can see it. A wrong per-mode
     // default set is invisible to every other check too. Both defects shipped once.
+    await auditDensity(page, scope);
+    await auditWheel(page, scope);
+    await auditWidths(page, scope);
     await auditModeDefaults(page, scope);
     await auditLogoBaseline(page, scope);
 

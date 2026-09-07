@@ -270,7 +270,10 @@ const breadcrumbLd = buildBreadcrumbLd([
           Giemsa banding, so this is a position indicator and not an ideogram in the cytogenetic
           sense. Click anywhere along it to jump — the nearest chromosome answers, so the 8 px chrM
           is reachable. <strong>Drag the ruler to select a region</strong> (or shift-drag anywhere); drag a track
-          to pan, scroll to zoom, click the overview strip to jump. Every score lane keeps a{' '}
+          to pan and click the overview strip to jump. <strong>Scrolling moves the page</strong>, not
+          the genome — the browser is one screen of a page several screens long, so it does not own
+          your wheel. <strong>Pinch to zoom</strong> (a trackpad pinch, or ctrl-scroll), and
+          shift-scroll or a horizontal swipe to slide along the chromosome. Every score lane keeps a{' '}
           <em>fixed</em> axis at every zoom, so any two positions are read against the same ruler —
           and each lane prints its own range, because {index.tracks[0].units} and a 0–1 posterior
           are not the same units. <strong>autoscale</strong> suspends that rule for the visible
