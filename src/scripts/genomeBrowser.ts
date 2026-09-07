@@ -127,8 +127,15 @@ const MOTIF_LANE_H = 14;
 const LANE_GAP = 9;
 /** Floor for the control panel's height, so a two-lane view still leaves it usable. */
 const PANEL_MIN_H = 260;
-/** Below this the layout stacks and the panel stops being a column. Mirrors the media query. */
-const PANEL_STACK_W = 900;
+/**
+ * Below this the panel stops being a side column and becomes the bottom drawer.
+ *
+ * MIRRORS `@media (max-width: 760px)` in variantPlayground.css, and the two must move together:
+ * this decides whether the controller writes an inline `max-height` on the panel, and the query
+ * decides whether the panel is still in the flow. It was 900, with a full-width stacked panel
+ * between 760 and 900 -- the range where the stage collapsed to 300px.
+ */
+const PANEL_STACK_W = 760;
 
 /**
  * Left gutter, in CSS pixels. Responsive because it is not decoration: at 320 px a fixed 62 px
@@ -4445,6 +4452,15 @@ export function initGenomeBrowser(host: HTMLElement): void {
     // a 664 px phone viewport pushes the track below the fold before a single base is visible.
     const narrow = (trackCanvas.clientWidth || window.innerWidth) < PHONE_W;
     narrowLayout = narrow;
+    // Recomputed on every resize, not only here. It decides which default track set a mode is
+    // seeded with, and it was measured once at init -- so rotating a phone to landscape, or
+    // dragging a window wider, kept whichever answer the first paint happened to give.
+    selfRemoving(window, 'resize', () => {
+      const now = (trackCanvas.clientWidth || window.innerWidth) < PHONE_W;
+      if (now === narrowLayout) return;
+      narrowLayout = now;
+      host.dataset.gbNarrow = now ? '1' : '0';
+    });
     host.dataset.gbNarrow = narrow ? '1' : '0';
 
     const hash = !isMinimal ? decodeViewState(window.location.hash, index.chroms) : { tracks: [], view: null, roi: null };
