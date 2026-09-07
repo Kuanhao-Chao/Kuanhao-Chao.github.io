@@ -1184,6 +1184,28 @@ browser through `data-gb-minimal` / `data-gb-no-hash` / `data-gb-tracks`.
   now walks every horizontally-scrollable region and fails anything wider than its container that
   cannot scroll.
 
+- **A flex or grid child that cannot shrink makes the layout depend on which fonts the machine
+  has, and CI's are not yours.** The three model buttons were `flex: 1 1 0` — which says "shrink
+  me" — with the default `min-width: auto`, which says "never below my own text", and the second
+  wins. They came to **227 px inside a 227 px column, fitting by nothing at all**, so CI's Linux
+  fonts, about 1 % wider, rendered 229 and clipped. Nothing local could see it: everything here
+  runs on one set of fonts.
+  - **Reproduce it by widening the TEXT, not by changing machines.** `.gb-mode` at 1.02× gives
+    exactly `229>227`, CI's own number; at 1.10× it is 16 px over.
+  - **`flex: 0 1 auto`, not `flex: 1 1 0`.** Equal thirds cannot hold "Shorkie_LM" — it would sit
+    permanently ellipsised, trading a clipped label for a truncated one. Content-sized with room to
+    shrink keeps every label whole (16 px of slack) and degrades to an ellipsis rather than an
+    overflow at any size.
+  - **The grid form of the same trap is an `auto` column**, which sizes to MAX-CONTENT and then
+    overflows its container rather than capping at it. The density control hit it one rule away
+    from the flex case: a 240 px column inside a 227 px panel. `grid-template-columns: minmax(0, 1fr)`.
+  - **`audit:playground` now scales the panel's text by 6 % and asserts no watched row overflows.**
+    A layout with zero margin passes on the machine it was written on and fails on the machine that
+    builds it, and that is not a font question, it is a "can these children shrink" question.
+    Proven both ways: reverting the fix reports `gb-panel__modes(+9) gb-panel__sticky(+3)`.
+  - A progress line must not claim the property the check just contradicted — the first version
+    printed "survives 6% wider text" on the run where it did not.
+
 - **`align-items: flex-start` collapsed the tracks to 300 px at every width under 940.** On the
   cross axis that means shrink-to-fit — harmless in a row, fatal in the column `.gb-layout` became
   under its stacking query, because the stage's only child is a canvas whose `width: 100%` is then
