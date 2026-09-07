@@ -656,7 +656,11 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
 .gb-logo-key__note { margin-left: 0.4rem; color: var(--color-muted); }
 @media (max-width: 760px) { .gb-logo-key__note { display: none; } }
 /* `grab` rather than `default`: the track is the pan surface, and nothing else says so. */
-.gb-track { width: 100%; display: block; cursor: grab; touch-action: none; }
+/* `pan-y`, not `none`: the browser keeps VERTICAL scrolling, so a touch drag up the page still
+   scrolls past the browser, while the app keeps horizontal drag (pan) and pinch (zoom, through
+   pointer events). `none` gave the canvas every touch gesture including the one the reader needs
+   to leave it. This is what `.vp-viewport` already does on this site for the same reason. */
+.gb-track { width: 100%; display: block; cursor: grab; touch-action: pan-y; }
 .gb-track:focus-visible { outline: 2px solid var(--color-accent, #3d6ea8); outline-offset: 2px; }
 .gb-caption { margin: 0.5rem 0 0; }
 .gb-caption__short { display: none; }
@@ -903,6 +907,31 @@ html[data-theme='dark'] .vp {
 }
 .gb-panel__stickytop { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .gb-panel__on { font-size: 0.82em; color: var(--color-muted); font-variant-numeric: tabular-nums; }
+/* Lane density, in the sticky header: it decides how much of the browser fits on screen, so with
+   48 tracks it must not be something a reader scrolls past. */
+/* The label sits ABOVE the buttons rather than beside them. On one line, "lane height" plus
+   "comfortable" needs more than the 248px column has, and the buttons overlapped -- "comforta"
+   with "compact" printed across it, which reads as a rendering fault rather than as a tight fit. */
+.gb-density { display: grid; gap: 0.15rem; }
+.gb-density__label { font-size: 0.78em; color: var(--color-muted); }
+.gb-density__row { display: flex; gap: 0.2rem; }
+.gb-density__btn {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-inline: 0.2rem;
+  font-size: 0.74em;
+  text-align: center;
+  /* Never overlap: if a name still cannot fit it is cut with an ellipsis, which reads as a name
+     that did not fit rather than as two names printed on top of each other. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gb-density__btn[aria-pressed='true'] {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-bg);
+}
 .gb-panel__clear { padding: 0.1rem 0.45rem; font-size: 0.78em; }
 .gb-panel__clear[disabled] { opacity: 0.45; cursor: default; }
 .gb-panel__find {

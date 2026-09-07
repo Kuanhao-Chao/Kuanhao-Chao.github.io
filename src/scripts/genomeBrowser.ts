@@ -48,6 +48,7 @@ import {
   MIN_VIEW_BP, type Level, type ChromInfo, type View, type LaneSpec, type Lane,
   type SearchIndex, type History,
   type ScaleSpace, defaultTracksFor, stepGene, frameGene,
+  laneHeightFor, parseDensity, LANE_DENSITIES, type LaneDensity,
 } from '../lib/genomeBrowser';
 import trackNamesJson from '../data/shorkieTrackNames.json';
 import { decodePackedRows, trackIndex, TRACK_GROUPS } from '../lib/shorkieModel';
@@ -928,11 +929,16 @@ export function initGenomeBrowser(host: HTMLElement): void {
     laneOrder(index?.tracks ?? [], index?.groupOrder ?? DEFAULT_GROUP_ORDER,
       FEATURE_LANES.map((f) => f.id)).filter((id) => !laneHidden(id));
   const enabled = new Map<string, boolean>();
-  const laneHeight = new Map<string, number>([
-    ['lm-masked', isCompact ? 90 : 118],
-    ['lm-unmasked', isCompact ? 90 : 118],
-    ['phastcons', isCompact ? 72 : 96],
-  ]);
+  /**
+   * Lane height is a DENSITY plus per-lane overrides, not a seeded table.
+   *
+   * The density sets what every score lane starts at; the per-lane slider overrides one lane and
+   * that override survives a density change, because a reader who deliberately grew one lane to
+   * read it did not ask for that to be undone. Changing density clears nothing -- it re-bases the
+   * lanes that were never touched.
+   */
+  let density: LaneDensity = isCompact ? 'dense' : 'compact';
+  const laneHeight = new Map<string, number>();
 
   /** The enabled score lanes, in THE order -- so the statistics table and the CSV columns come
    *  out in the same sequence the canvas draws them. */
@@ -1663,7 +1669,8 @@ export function initGenomeBrowser(host: HTMLElement): void {
       if (!enabled.get(id)) continue;
       const spec = byId.get(id);
       if (spec) {
-        out.push({ id, kind: 'score', label: spec.label, height: laneHeight.get(id) ?? 110 });
+        out.push({ id, kind: 'score', label: spec.label,
+          height: laneHeight.get(id) ?? laneHeightFor(id, density) });
       } else if (id === 'sequence') {
         // The letters lane is the one that can be enabled and still not drawn: below base zoom
         // there is nothing legible to draw.
@@ -2199,7 +2206,11 @@ export function initGenomeBrowser(host: HTMLElement): void {
   ): number {
     const space = spec.space ?? 'linear';
     const signed = isSignedAxis(spec.axis);
-    const h = lane.height - 12;
+    // The 12 is the label chip drawn at `top` at the end of this function; the plot is what is left.
+    // Floored, because a lane shorter than the chip makes `h` NEGATIVE, which inverts `yOf` and
+    // `yOfFrac` -- bars grow upward out of the lane -- and makes the logo's clip rect empty, so the
+    // letters vanish with nothing on screen to say why. `laneLayout` clamps the spec at 1, not at 12.
+    const h = Math.max(8, lane.height - 12);
     const top = lane.top;
     const cols = sample(spec, lvl, inner);
 
@@ -2383,8 +2394,18 @@ export function initGenomeBrowser(host: HTMLElement): void {
       // three crowded boxes still smeared "OREG0030209" over "STE12", which reads as a corrupt
       // name rather than as two. Same rule the gene lane already uses -- width is self-limiting,
       // and a label that cannot be read is worse than one that is absent.
-      const rowRight = [-1e9, -1e9, -1e9];
-      const ROW_Y = [top + 20, top + 30, top + 40];
+      // The rows are DERIVED from the lane's height and the ones that do not fit are dropped, not
+      // drawn outside it. They were fixed at `top + 20/30/40` against a `matched` string at
+      // `top + h - 2`, so on a short lane the third row printed over the sequence it describes and
+      // on a very short one it printed below the lane entirely -- already true at the slider's own
+      // 60px floor, where h is 48, and unavoidable once compact is the default. Same rule the gene
+      // lane uses for its labels: a label that cannot be read is worse than one that is absent.
+      const LABEL_ROW_H = 10;
+      const rowTop = 20;
+      // `h - 12` leaves the `matched` line at `top + h - 2` its own row.
+      const nRows = Math.max(0, Math.min(3, Math.floor((h - 12 - rowTop) / LABEL_ROW_H) + 1));
+      const ROW_Y = Array.from({ length: nRows }, (_, i) => top + rowTop + i * LABEL_ROW_H);
+      const rowRight = ROW_Y.map(() => -1e9);
       for (const box of boxes) {
         const x0 = Math.max(padLeft(w), xOfBp(box.a, w));
         const x1 = Math.min(padLeft(w) + inner, xOfBp(box.b, w));
@@ -2400,7 +2421,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
         ctx.fillStyle = css('--gb-motif', '#d1495b');
         const cx = (x0 + x1) / 2;
         const tw = ctx.measureText(box.label).width;
-        const row = rowRight.findIndex((r) => cx - tw / 2 > r + 4);
+        const row = ROW_Y.length ? rowRight.findIndex((r) => cx - tw / 2 > r + 4) : -1;
         if (row >= 0) {
           rowRight[row] = cx + tw / 2;
           ctx.fillText(box.label, cx, ROW_Y[row]);
@@ -3377,6 +3398,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     // Only when the lane is on, so an ordinary link stays short.
     locusTrack: enabled.get(LOCUS_LANE) ? locusTrackIdx : undefined,
     model: modelMode,
+    density,
   });
 
   function setView(next: View, opts: { push?: boolean; hash?: boolean } = {}): void {
@@ -3652,11 +3674,59 @@ export function initGenomeBrowser(host: HTMLElement): void {
     schedule();
   });
 
+  /**
+   * A PLAIN SCROLL BELONGS TO THE PAGE.
+   *
+   * This used to `preventDefault()` unconditionally and zoom on every tick, so a two-finger scroll
+   * over the canvas -- the gesture a reader uses to get past the browser to the text below it --
+   * zoomed the genome instead and the page never moved. The canvas is 583 px of a page that is
+   * several screens long; it cannot own the scroll wheel.
+   *
+   * A trackpad PINCH arrives as a wheel event with `ctrlKey: true` (the browser's own zoom chord
+   * too), which is the only signal that separates the two. `terminal.ts` makes the same test for
+   * the same reason. Touch pinch is a different path entirely -- pointer events, below -- and is
+   * untouched.
+   *
+   * Horizontal intent pans along the genome: an explicit shift-scroll, or a two-finger swipe whose
+   * dominant axis is horizontal. That is free, since the event already carries `deltaX`, and it is
+   * the gesture IGV users reach for.
+   */
+  let wheelSettle = 0;
   trackCanvas.addEventListener('wheel', (e) => {
-    e.preventDefault();
     const rect = trackCanvas.getBoundingClientRect();
     const w = Math.max(1, Math.round(trackCanvas.clientWidth));
-    zoom(e.deltaY > 0 ? 1.25 : 0.8, bpOfX(e.clientX - rect.left, w));
+    const horizontal = e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
+
+    if (!e.ctrlKey && !e.metaKey && !horizontal) return;   // the page scrolls
+    e.preventDefault();
+
+    if (e.ctrlKey || e.metaKey) {
+      // `push: false` -- a gesture is one navigation, not forty. The wheel handler used to call
+      // `zoom()` with defaults, so every tick pushed a history entry and rewrote the URL; a single
+      // pinch left a back button that needed pressing dozens of times. Committed once on settle,
+      // exactly as the touch pinch already does.
+      const info = chromInfo(view.chrom);
+      if (info) {
+        const anchor = bpOfX(e.clientX - rect.left, w);
+        const next = zoomAbout(view.start, view.end, e.deltaY > 0 ? 1.25 : 0.8, anchor, info.length);
+        setView({ chrom: view.chrom, ...next }, { push: false, hash: false });
+      }
+    } else {
+      const inner = Math.max(1, w - padLeft(w) - PAD_RIGHT);
+      const bpPerPx = (view.end - view.start) / inner;
+      // `deltaX` on a horizontal swipe, `deltaY` on shift-scroll, which is how a mouse with one
+      // wheel sends a horizontal gesture.
+      const d = (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) * bpPerPx;
+      setView({ chrom: view.chrom, start: view.start + d, end: view.end + d },
+              { push: false, hash: false });
+    }
+
+    window.clearTimeout(wheelSettle);
+    wheelSettle = window.setTimeout(() => {
+      history = historyPush(history, view);
+      writeHash();
+      syncButtons();
+    }, 250);
   }, { passive: false });
 
   /**
@@ -4169,7 +4239,46 @@ export function initGenomeBrowser(host: HTMLElement): void {
       const top = document.createElement('div');
       top.className = 'gb-panel__stickytop';
       top.append(cnt, clear);
-      bar.append(top, find);
+
+      /**
+       * Lane density, in the sticky header because it is the control that decides how much of the
+       * browser fits on the screen at all -- and because with 48 tracks it must not scroll away.
+       *
+       * It re-bases every lane that has no per-lane override; a lane the reader deliberately grew
+       * with its own slider keeps that height, since undoing a deliberate act is not what a
+       * density switch is for.
+       */
+      const dens = document.createElement('div');
+      dens.className = 'gb-density';
+      const dlabel = document.createElement('span');
+      dlabel.className = 'gb-density__label';
+      dlabel.textContent = 'lane height';
+      dens.appendChild(dlabel);
+      const drow = document.createElement('div');
+      drow.className = 'gb-density__row';
+      for (const d of LANE_DENSITIES) {
+        const bn = document.createElement('button');
+        bn.type = 'button';
+        bn.className = 'vp-btn vp-btn--sm gb-density__btn';
+        bn.dataset.gbDensity = d;
+        bn.textContent = d;
+        bn.setAttribute('aria-pressed', density === d ? 'true' : 'false');
+        bn.title = d === 'comfortable' ? 'The original height: nine lanes are taller than a laptop screen'
+          : d === 'compact' ? 'The default: the nine default lanes fit a laptop screen at once'
+            : 'As short as a lane can be and still carry its own label';
+        bn.addEventListener('click', () => {
+          if (density === d) return;
+          density = d;
+          host.dataset.gbDensityOn = d;
+          writeHash();
+          buildPanel();
+          schedule();
+        });
+        drow.appendChild(bn);
+      }
+      dens.appendChild(drow);
+
+      bar.append(top, dens, find);
       panelBox.appendChild(bar);
     }
 
@@ -4303,10 +4412,12 @@ export function initGenomeBrowser(host: HTMLElement): void {
         const h = document.createElement('input');
         h.type = 'range';
         h.className = 'gb-panel__h';
-        h.min = '60';
+        // 40, not 60: `laneHeightFor` floors there for the same reason, and the letter view's
+        // label rows are derived from the lane height now rather than fixed at +20/30/40.
+        h.min = '40';
         h.max = '220';
         h.step = '10';
-        h.value = String(laneHeight.get(t.id) ?? 110);
+        h.value = String(laneHeight.get(t.id) ?? laneHeightFor(t.id, density));
         h.dataset.gbHeight = t.id;
         h.setAttribute('aria-label', `${t.label} lane height`);
         h.addEventListener('input', () => {
@@ -4408,6 +4519,11 @@ export function initGenomeBrowser(host: HTMLElement): void {
 
   selfRemoving(window, 'hashchange', () => {
     const s = decodeViewState(window.location.hash, index?.chroms ?? []);
+    if (s.density && s.density !== density) {
+      density = s.density;
+      host.dataset.gbDensityOn = density;
+      buildPanel();
+    }
     if (s.tracks) applyTracks(s.tracks);
     if (s.roi !== undefined) roi = s.roi;
     if (s.view) setView(s.view, { hash: false });
@@ -4470,6 +4586,10 @@ export function initGenomeBrowser(host: HTMLElement): void {
       modelMode = hash.model;
     }
     host.dataset.gbModelOn = modelMode;
+    // Before the first paint, so a `d=` link opens at that density rather than opening at the
+    // default and then jumping.
+    if (hash.density) density = hash.density;
+    host.dataset.gbDensityOn = density;
 
     // A host that names its own tracks (the homepage showcase) always wins over every default.
     const initialTracks = host.dataset.gbTracks

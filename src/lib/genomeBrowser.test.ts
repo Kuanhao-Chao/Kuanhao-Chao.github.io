@@ -12,7 +12,8 @@ import {
   ideogramLayout, ideogramHit,
   parseMotif, rcMasks, findMotif, motifDegeneracy, expectedHits,
   MODEL_DEFAULT_TRACKS, MODEL_DEFAULT_TRACKS_NARROW, defaultTracksFor, type ModelMode,
-  stepGene, frameGene,} from './genomeBrowser';
+  stepGene, frameGene,
+  LANE_DENSITY, LANE_DENSITIES, laneHeightFor, parseDensity, type LaneDensity,} from './genomeBrowser';
 
 const LEVELS: Level[] = [
   { level: 0, binBp: 1, rows: 1 },
@@ -1466,5 +1467,74 @@ describe('frameGene', () => {
     const g = { txStart: 4000, txEnd: 5000 };
     const v = frameGene(g, 100000);
     expect((v.start + v.end) / 2).toBeCloseTo(4500, 6);
+  });
+});
+
+// ------------------------------------------------------------------------------------------------
+// Lane density
+// ------------------------------------------------------------------------------------------------
+
+describe('laneHeightFor', () => {
+  // The nine lanes Both mode opens with, so the totals below are the real first paint.
+  const DEFAULT_NINE = ['sk-rnaseq', 'lm-masked', 'lm-unmasked', 'sk-gradient', 'sk-ig', 'sk-ism',
+    'phastcons'];
+  const stack = (d: LaneDensity) => DEFAULT_NINE.reduce((s, id) => s + laneHeightFor(id, d), 0)
+    + 26 + 18 + 16          // ruler, genes, sequence
+    + 9 * 10;               // LANE_GAP per lane plus the trailing one
+
+  it('is ordered comfortable > compact > dense for every lane', () => {
+    for (const id of [...DEFAULT_NINE, 'sk-occl', 'gc']) {
+      expect(laneHeightFor(id, 'comfortable')).toBeGreaterThan(laneHeightFor(id, 'compact'));
+      expect(laneHeightFor(id, 'compact')).toBeGreaterThan(laneHeightFor(id, 'dense'));
+    }
+  });
+
+  it('keeps the fixed-axis lanes taller than the attribution lanes at every density', () => {
+    // 0-2 bits and a 0-1 posterior are read absolutely; an attribution lane is read for shape.
+    for (const d of LANE_DENSITIES) {
+      expect(laneHeightFor('lm-masked', d)).toBeGreaterThan(laneHeightFor('sk-gradient', d));
+      expect(laneHeightFor('lm-unmasked', d)).toBe(laneHeightFor('lm-masked', d));
+    }
+  });
+
+  it('makes the default stack fit a laptop viewport at compact, and not at comfortable', () => {
+    // The reason compact is the default: nine lanes at comfortable is taller than the screen.
+    expect(stack('comfortable')).toBeGreaterThan(880);
+    expect(stack('compact')).toBeLessThan(680);
+    expect(stack('dense')).toBeLessThan(540);
+  });
+
+  it('never returns a lane too short to carry its own label chip and a label row', () => {
+    // `drawScore` reserves 12 px for the chip and the letter view puts its first annotation row at
+    // +20; below ~40 a lane cannot say what it is.
+    for (const d of LANE_DENSITIES) {
+      for (const id of [...DEFAULT_NINE, 'anything-else']) {
+        expect(laneHeightFor(id, d)).toBeGreaterThanOrEqual(40);
+      }
+    }
+  });
+
+  it('gives an unknown track the base height', () => {
+    expect(laneHeightFor('sk-folddis', 'compact')).toBe(LANE_DENSITY.compact.base);
+    expect(laneHeightFor('whatever', 'dense')).toBe(LANE_DENSITY.dense.base);
+  });
+
+  it('falls back to compact for an unknown density', () => {
+    expect(laneHeightFor('sk-ism', 'nonsense' as LaneDensity)).toBe(LANE_DENSITY.compact.base);
+  });
+});
+
+describe('parseDensity', () => {
+  it('accepts the three names, case-insensitively', () => {
+    for (const d of LANE_DENSITIES) {
+      expect(parseDensity(d)).toBe(d);
+      expect(parseDensity(d.toUpperCase())).toBe(d);
+    }
+  });
+
+  it('rejects anything else rather than guessing', () => {
+    for (const bad of ['', ' ', 'tall', 'small', '64', undefined, null]) {
+      expect(parseDensity(bad)).toBeNull();
+    }
   });
 });
