@@ -1184,6 +1184,69 @@ browser through `data-gb-minimal` / `data-gb-no-hash` / `data-gb-tracks`.
   now walks every horizontally-scrollable region and fails anything wider than its container that
   cannot scroll.
 
+- **`align-items: flex-start` collapsed the tracks to 300 px at every width under 940.** On the
+  cross axis that means shrink-to-fit — harmless in a row, fatal in the column `.gb-layout` became
+  under its stacking query, because the stage's only child is a canvas whose `width: 100%` is then
+  circular. The browser falls back to the canvas element's **intrinsic 300×150**, the controller
+  reads that back out of `clientWidth` and writes it to the backing store, and it stays 300 forever.
+  Measured: 300 px of tracks in an available 871 at a 900 px viewport, 300 in 361 at 390 — every
+  width from 360 to 900.
+  - **Compare the stage to its CONTAINER, not the canvas to the stage.** When the stage itself
+    collapses those two are equal and the bug is invisible; the first version of the gate passed.
+  - The stacked tier is **deleted**, not fixed: a full-width panel below the tracks pushed the
+    controls off the fold and was exactly the range that collapsed. The panel is a side column down
+    to 760 and the bottom drawer below it, which also moves the one-row scrolling nav up to 760 —
+    the other half of the 700 px case, where the nav wrapped to **seven rows, 262 px**, and the
+    tracks began 407 px down a 900 px screen.
+
+- **Lane height is a DENSITY, compact by default.** Nine lanes at the old 110 px was an 897 px
+  canvas, taller than a laptop viewport, so the browser opened on a picture that could not be seen
+  at once: compact is 583, dense 455. The per-lane slider still overrides one lane and that override
+  **survives a density change** — undoing a deliberate act is not what a density switch is for.
+  - **Two things had to be fixed before compact was safe**, and both were already broken at the
+    slider's own 60 px floor. The letter view's annotation labels were fixed at `top + 20/30/40`
+    against a matched-sequence line at `top + h - 2`, so a short lane printed the third row over the
+    sequence it describes; the rows are derived from the height now and the ones that do not fit are
+    dropped. And `h = lane.height - 12` had **no floor**: a lane shorter than its own label chip
+    makes `h` negative, which inverts every `yOf` and empties the logo's clip rect — the letters
+    vanish with nothing on screen to say why.
+
+- **The canvas cannot own the wheel.** It called `preventDefault()` unconditionally and zoomed on
+  every tick, so a two-finger scroll — the gesture for getting past the browser to the text below —
+  zoomed the genome and the page never moved. A trackpad pinch arrives as a `wheel` event with
+  **`ctrlKey: true`**, which is the only signal separating the two, and `terminal.ts:624` already
+  makes that test. Shift-scroll and a bare horizontal swipe pan, free because the event carries
+  `deltaX`. `touch-action: none` on the canvas likewise gave it every touch gesture **including the
+  one needed to leave it**; `pan-y` is what `.vp-viewport` already does here.
+  - **`zoom()` pushed a history entry and rewrote the URL on every tick**, so one pinch left a back
+    button that needed pressing dozens of times. One gesture is one entry, committed on settle.
+  - `page.mouse.wheel` does **not** carry keyboard modifier state onto the WheelEvent, so a gate for
+    the ctrl/shift gestures has to dispatch them. And on a `bare` page `window.scrollY` is always 0 —
+    an inner pane scrolls — so "did the page move" must look at the pane.
+
+- **An element above the canvas whose HEIGHT changes moves the canvas out from under the mouse**, and
+  this page has now hit it twice by different routes. The first was the "open the full analysis"
+  link; the second is the header row, which carries a hover readout, a correlation and a search
+  result — all variable text — and wrapped to a second line. Moving the pointer onto the overview
+  strip cleared the hover readout, the row unwrapped, and the stage rose 30 px **between measuring
+  the strip and pressing on it**: measured at y=242, pressed at 257, strip actually at 212, and the
+  press landed on the track where it brushed the current view into a plausible 110 bp window. The
+  row is fixed-height and now **scrolls sideways rather than clipping** — truncation is still the
+  primary mechanism, but the locus and the base-colour key are deliberately unshrinkable, which is
+  how 731 px of content came to be clipped in a 671 px box. **Four wrong guesses preceded recording
+  the real `pointerdown` target from inside the page**; `elementFromPoint` measured before or after
+  the drag describes a layout the press never saw.
+
+- **`host.dataset.gbX` shadows a `data-gb-x` control inside the host — a third time.** The density
+  buttons carry `data-gb-density` and the host published its state under the same name, so
+  `querySelectorAll` returned the whole container first. The convention one control over is already
+  right: buttons are `data-gb-model`, the host publishes `data-gb-model-on`. **Sweep with comments
+  stripped, and read the result** — a same-element overlap (a script writing state back to the node
+  it queried) is benign and will always show up.
+
+- **A hover readout should key on `(hover: none)`, not on a width.** A 700 px laptop window has a
+  mouse and wants it; a 1024 px tablet does not have one and does not.
+
 - **The DNA logos were drawn on a different axis from their own zero rule, in EITHER direction.**
   Past the letter threshold a signed lane placed its glyphs on a LINEAR `logoRange` over the visible
   window while the gridlines, the tick labels, the zero rule and the bar baseline all used the
