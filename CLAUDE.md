@@ -1184,6 +1184,80 @@ browser through `data-gb-minimal` / `data-gb-no-hash` / `data-gb-tracks`.
   now walks every horizontally-scrollable region and fails anything wider than its container that
   cannot scroll.
 
+- **The DNA logos were drawn on a different axis from their own zero rule, in EITHER direction.**
+  Past the letter threshold a signed lane placed its glyphs on a LINEAR `logoRange` over the visible
+  window while the gridlines, the tick labels, the zero rule and the bar baseline all used the
+  track's SYMLOG axis, whose zero is exactly mid-lane. Those agree only when the window happens to
+  be symmetric about zero — so the logo sat off its own rule by however asymmetric the view was:
+  measured, **25.4 px BELOW on TDH3's promoter and 15.5 px ABOVE on chrI**. Both directions, which
+  is why it read as an erratic shift rather than a constant offset, and why a reader taking a sign
+  off the drawing took it wrong. `drawScore` now picks ONE vertical mapping before anything is
+  drawn — `axis` plus `axSpace` — and everything positional derives from it, which is the shape
+  `shorkieViewport.drawLogoLane` already had. The unsigned `lm-masked` was never affected: it grows
+  from the lane floor, which both paths already agreed on.
+  - Three things fall out of the fix. The ticks read the window's own range, so the lane says
+    **LOCAL AXIS lo–hi · this view only** rather than burying it — without that a reader compares
+    glyph heights between two positions on a ruler that changed underneath them. Zero no longer
+    lands on a tick, so a signed letter lane **drops its midpoint tick and labels the zero rule**
+    instead; zero is the one line such a lane is read against. And the glyph loop is clipped to the
+    plot area like every other lane kind.
+  - **`auditLogoBaseline` reads what was PAINTED**: each glyph's transform `f` is its baseline and
+    the zero rule is the only full-width stroke at alpha 0.55. It runs three windows, because the
+    sign of the error depends on which extreme dominates and one locus can be accidentally
+    symmetric, and it fails if it checked fewer than four lanes so it cannot pass by not running.
+  - **The other four logo renderers were audited rather than assumed**, all live:
+    `shorkieViewport.drawLogoLane` puts a glyph 0.50 px from its rule (the half-pixel snap), the
+    motif PWM popover's stack floor is 70.00 against an expected 70, the LM page's SVG logo has all
+    150 columns on one floor within 0.073 px (the C/G baseline dip), and the plain sequence lane is
+    monospace text at a fixed y with no baseline to get wrong.
+
+- **The default lane set is PER MODEL MODE, seeded once and then remembered.** A mode is a question
+  and its default is the set of lanes that answers it: Both opens on the prediction, both LM passes
+  and all three attribution methods (9 lanes, ~900 px); Shorkie on the prediction and the three
+  methods; Shorkie_LM on the two passes. phastCons, the genes and the sequence belong to neither
+  model — `laneHidden` only hides a lane whose `group` the mode excludes and these have no model
+  group — so they are in all three. `modeTracks` holds each mode's last enabled set, which keeps the
+  guarantee that predates it: **`both → shorkie → both` restores the reader's own set**, never the
+  default over work they have done. `defaultTracksFor` is pure and tested, including that the narrow
+  defaults are *fewer lanes, not different ones* (a strict subset) and that no mode names a lane its
+  own `MODEL_GROUPS` entry would hide.
+  - **A check that compares DRAWN lanes against a default set reports a working browser as broken.**
+    `sequence` is enabled at every zoom and drawn only past the letter threshold. Read the enabled
+    set from the hash's `t=`, which is written from `availableLanes().filter(enabled)`.
+
+- **An element above the canvas whose HEIGHT changes moves the canvas out from under the mouse**, and
+  this page has now hit it twice by different routes. The first was the "open the full analysis"
+  link; the second is the header row itself, which carries a hover readout, a correlation and a
+  search result — all variable text — and wrapped to a second line. Moving the pointer onto the
+  overview strip cleared the hover readout, the row unwrapped, and the stage rose 30 px **between
+  measuring the strip and pressing on it**: measured at y=242, pressed at 257, strip actually at
+  212, and the press landed on the track, where it brushed the current view into a plausible 110 px
+  window with no clue the surface was wrong. `.gb-head` no longer wraps and has a fixed
+  `min-height`; the transient readouts truncate and the locus and the base-colour key never do.
+  **Four wrong guesses preceded recording the real `pointerdown` target from inside the page** —
+  `elementFromPoint` measured before or after the drag describes a layout the press never saw.
+
+- **The SVG export RECORDS the real renderer rather than reimplementing it.** `paintTrack` takes an
+  optional context and `createSvgRecorder` (`src/scripts/canvasSvg.ts`) emits SVG from what it is
+  asked to draw, so a figure cannot disagree with the screen about a baseline, an axis or a letter.
+  This is only possible because the track canvas uses **no raster operation at all** — the two
+  `drawImage` calls are in tile decoding, on their own offscreen canvas. 277 KB, 1,063 vector paths
+  carrying the real DejaVu outlines.
+  - **Clip is the one place canvas and SVG genuinely disagree.** A canvas clip is fixed in DEVICE
+    space when `clip()` is called; an SVG `clip-path` resolves in the user space of the element that
+    REFERENCES it — so putting it on each glyph, which carries its own translate-and-scale, applies
+    that matrix to the clip rectangle too and every glyph clips itself away. The first attempt had
+    1,063 valid outlines in the file and three empty lanes on screen. Push the rect's corners
+    through the CTM once and hang the children off a wrapper `<g>` with no transform of its own.
+  - An unbalanced SVG renders as **nothing at all**, so the document closes any group a renderer
+    left open, and the gate counts `<g` against `</g>`.
+
+- **An axis label wider than its gutter is a different number, not a truncated one.** `1098` drew
+  from a negative x and rendered as `098`, `0.648` as `648`. `fitLabel` shortens through fewer
+  decimals to an SI-style `1.1k` or a leading-zero-stripped `-.6` until it fits the 22 px phone
+  gutter. Measured: 3 labels started left of x=0 at 320 and 390 px before, 0 at every width after.
+  Same family as a ruler tick clipped at the edge.
+
 - **The control panel shipped with 30 of 30 lane controls unclickable, and no check could see it.**
   The inline `max-height` went to `[data-gb-panel]`, the inner div, whose `overflow` is `visible`;
   the `overflow-y: auto` lives on the `.gb-panel` **aside** that wraps it. So 1,422 px of controls
