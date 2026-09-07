@@ -611,7 +611,17 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
   gap: 0.5rem 0.9rem;
   margin-bottom: 0.4rem;
   min-height: 1.5em;
+  /* The truncation below is the primary mechanism and normally means no scrollbar at all. This is
+     the safety net for what CANNOT truncate -- the locus and the base-colour key are `flex: 0 0
+     auto` on purpose -- which is how 731px of content came to be clipped inside a 671px box at a
+     700px viewport, and 334 inside 331 at 360. Scrolled, not clipped: a cut-off readout reads as
+     a different value, and this row must not gain height (see the comment above). The hidden
+     scrollbar is the same pattern `.vp-nav` uses, and it is what keeps the height fixed. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
 }
+.gb-head::-webkit-scrollbar { display: none; }
 .gb-head > * { min-width: 0; }
 .gb-head .vp-stat { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* What gives way first, in order. The locus and the base-colour key never truncate: one is the
@@ -644,13 +654,13 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
 .gb-logo-key__g { color: #FFA500; }
 .gb-logo-key__t { color: #FF0000; }
 .gb-logo-key__note { margin-left: 0.4rem; color: var(--color-muted); }
-@media (max-width: 560px) { .gb-logo-key__note { display: none; } }
+@media (max-width: 760px) { .gb-logo-key__note { display: none; } }
 /* `grab` rather than `default`: the track is the pan surface, and nothing else says so. */
 .gb-track { width: 100%; display: block; cursor: grab; touch-action: none; }
 .gb-track:focus-visible { outline: 2px solid var(--color-accent, #3d6ea8); outline-offset: 2px; }
 .gb-caption { margin: 0.5rem 0 0; }
 .gb-caption__short { display: none; }
-@media (max-width: 560px) { .gb-caption__short { display: inline; } }
+@media (max-width: 760px) { .gb-caption__short { display: inline; } }
 .gb-status { margin: 0.35rem 0 0; }
 
 /* Track colours. Fixed hues rather than theme tokens, for the same reason the base colours are:
@@ -666,9 +676,16 @@ html[data-theme='dark'] .vp {
   --gb-chip: #63b892; --gb-roi: #d9ab3c;
 }
 
-/* The stage and the track panel sit side by side and stack under 900px, where a 15rem column would
-   leave the drawing too narrow to read. */
-.gb-layout { display: flex; gap: 0.9rem; align-items: flex-start; }
+/* The stage and the track panel sit side by side down to 760px; below that the panel becomes a
+   drawer over the stage and the tracks take the whole width.
+
+   `align-items: stretch`, NOT `flex-start`, and that one word is a bug fix. On the cross axis
+   `flex-start` means shrink-to-fit -- harmless in a row, fatal in a column, because the stage's
+   only child is a canvas whose `width: 100%` is then circular. The browser falls back to the
+   canvas element's intrinsic 300x150, the controller reads that back out of `clientWidth` and
+   writes it to the backing store, and it stays 300 forever. Measured: 300px of tracks in an
+   available 871px at a 900px viewport, at every width from 360 to 900. */
+.gb-layout { display: flex; gap: 0.9rem; align-items: stretch; }
 .gb-stage { position: relative; flex: 1 1 auto; min-width: 0; }
 
 .gb-panel {
@@ -952,10 +969,11 @@ html[data-theme='dark'] .vp {
 .gb-tooltip[hidden] { display: none; }
 .gb-roi { color: var(--gb-roi); }
 
-@media (max-width: 900px) {
-  .gb-layout { flex-direction: column; }
-  .gb-panel { flex: 1 1 auto; width: 100%; max-height: 18rem; }
-}
+/* Below 760 the panel stops being a column and becomes the bottom drawer defined in the compact
+   block further down. There is no stacked-block tier any more: a full-width panel BELOW the tracks
+   pushed the controls off the fold and was the range where the stage collapsed. 760 rather than
+   900 because a 900px window is a small laptop, not a phone -- at 900 there is room for a 15.5rem
+   column and ~600px of tracks, which is a better browser than a drawer. */
 
 /* ------------------------------------------------------------------------------------------- */
 /* Phone                                                                                        */
@@ -964,9 +982,12 @@ html[data-theme='dark'] .vp {
 /* six control groups wrapping to four rows -- so the track began at y=444 and the track panel   */
 /* at y=777, below the fold. The controls were not too many; they were stacked.                  */
 /* ------------------------------------------------------------------------------------------- */
-@media (max-width: 560px) {
+@media (max-width: 760px) {
   /* ONE row that scrolls sideways, the same pattern .term-keybar already uses for the terminal's
-     key strip. Everything stays reachable and the bar costs one row instead of four. */
+     key strip. Everything stays reachable and the bar costs one row instead of four.
+
+     760, not 560: measured at a 700px viewport the nav wrapped to SEVEN rows, 262px tall, so the
+     tracks began 407px down a 900px screen. The bar was not too full, it was stacked. */
   .vp-nav {
     flex-wrap: nowrap;
     overflow-x: auto;
@@ -994,7 +1015,7 @@ html[data-theme='dark'] .vp {
   .gb-head { gap: 0.3rem 0.6rem; font-size: 0.92em; }
   /* The full caption runs to nine lines on a phone, above the fold-worth of track it explains. */
   .gb-caption__full { display: none; }
-  .gb-hover { display: none; }        /* there is no hover on a touch screen */
+
 
   /* The panel is a drawer, not a column: closed it costs one button, open it overlays the stage
      rather than pushing the track further down the page. */
@@ -1009,16 +1030,22 @@ html[data-theme='dark'] .vp {
   .gb-layout:not(.is-panel-open) .gb-panel { display: none; }
 }
 
+/* A hover readout is useless where there is no hover. Keyed on the INPUT rather than on the width:
+   a 700px laptop window has a mouse and wants it, a 1024px tablet does not have one and does not. */
+@media (hover: none) {
+  .gb-hover { display: none; }
+}
+
 /* The toggle exists only where the panel is a drawer. */
 .gb-panel-toggle { display: none; }
-@media (max-width: 560px) {
+@media (max-width: 760px) {
   .gb-panel-toggle { display: inline-flex; }
 }
 
-@media (max-width: 640px) {
-  .gb-locus { width: 100%; }
-  .gb-hover { min-width: 0; }
-}
+/* The 640px query that used to sit here is gone. It set `.gb-locus { width: 100% }`, which fought
+   the 11rem the compact tier gives it inside a nowrap scrolling nav, and `.gb-hover { min-width: 0 }`,
+   which the rule above makes moot. It had no JS counterpart and was a fourth breakpoint nobody
+   maintained. */
 
 /* The per-lane documentation, inside the track panel. Collapsed by default: four fields per lane
    across a dozen lanes is a reference, not a thing to read past on the way to a checkbox. */
