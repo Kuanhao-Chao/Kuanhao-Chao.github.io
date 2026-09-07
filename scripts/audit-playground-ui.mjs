@@ -2707,15 +2707,24 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
 
     await auditPanelReachable(page, scope, 'desktop');
     await auditIdeogram(page, scope, 'desktop');
-    await auditGeneCard(page, scope);
-    await auditSequenceSearch(page, scope);
+
+    // TWO checks stay in the smoke run, and the reason is what they guard rather than what they
+    // cost. A misaligned logo draws at the right level, with the right letters, in the right
+    // colours, on the wrong baseline -- nothing else on this page can see it. A wrong per-mode
+    // default set is invisible to every other check too. Both defects shipped once.
     await auditModeDefaults(page, scope);
-    await auditBrowserExtras(page, scope);
     await auditLogoBaseline(page, scope);
-    await auditSparseLane(page, scope);
+
     if (FULL) {
-      // 48 tracks x 3 zooms is ~100s of navigation. Cheap enough to run before a release and too
-      // slow for every run, so it lives behind --full alongside the other exhaustive checks.
+      // Everything below is a FEATURE check rather than a regression guard, and together they were
+      // 38 s on a step that had 14 s of headroom -- the smoke run has to stay a smoke run.
+      // `auditGeneCard` is also the only check here needing clipboard permissions, and
+      // `auditSequenceSearch` scans all 17 chromosomes.
+      await auditGeneCard(page, scope);
+      await auditSequenceSearch(page, scope);
+      await auditBrowserExtras(page, scope);
+      await auditSparseLane(page, scope);
+      // 48 tracks x 3 zooms is ~100s of navigation.
       const gIndex = await page.evaluate(
         () => fetch('/genome-data/index.json').then((r) => r.json()));
       await auditAllTracks(page, scope, gIndex);

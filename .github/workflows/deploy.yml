@@ -56,8 +56,12 @@ jobs:
         timeout-minutes: 5
         run: npm run audit:cells:ci
 
+      # 12, not 5, and matching the deep-dive step below. The previous SUCCESSFUL run of this
+      # step took 4 min 46 s against a 5 min cap -- fourteen seconds of margin -- so it failed on
+      # the next commit whatever that commit contained. The smoke run itself was trimmed at the
+      # same time; this is the half that stops the failure recurring.
       - name: Audit variant playground smoke
-        timeout-minutes: 5
+        timeout-minutes: 12
         run: npm run audit:playground:ci
 
       - name: Audit indexing
