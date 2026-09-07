@@ -2825,7 +2825,48 @@ async function auditWidths(page, scope) {
     seen.push(`${w}:${r.stageW}`);
   }
   await page.setViewportSize({ width: 1440, height: 950 });
-  progress(`  genome/widths: ${seen.join(' ')}`);
+
+  /**
+   * THE SAME ROWS, WITH WIDER TEXT.
+   *
+   * A layout with zero margin passes on the machine it was written on and fails on the machine
+   * that builds it. The three model buttons came to 227px inside a 227px column -- fitting by
+   * nothing -- and CI's Linux fonts, about 1% wider, rendered 229 and clipped. Nothing in this
+   * suite could see that, because everything here runs on one set of fonts.
+   *
+   * So the text is widened instead of the machine changed. 1.06x is far more than the difference
+   * between a runner and a laptop; a row that survives it is shrinkable by construction rather
+   * than by luck, which is the property actually wanted.
+   */
+  await page.evaluate(() => {
+    const s = document.createElement('style');
+    s.id = 'gb-font-stress';
+    s.textContent = '.gb-panel__modes .gb-mode, .gb-density__btn, .gb-group__title, '
+      + '.gb-preset, .gb-panel__label { font-size: 1.06em !important; }';
+    document.head.appendChild(s);
+  });
+  await page.waitForTimeout(500);
+  const stressed = await page.evaluate(() => {
+    const out = [];
+    for (const el of document.querySelectorAll(
+      '.gb-panel__modes, .gb-density__row, .gb-group__sum, .gb-panel__sticky, .gb-panel__row')) {
+      const cs = getComputedStyle(el);
+      if (cs.overflowX === 'auto' || cs.overflowX === 'scroll' || cs.flexWrap === 'wrap') continue;
+      const o = el.scrollWidth - el.clientWidth;
+      if (o > 1) out.push(`${el.className.split(' ')[0]}(+${o})`);
+    }
+    return [...new Set(out)];
+  });
+  await page.evaluate(() => document.getElementById('gb-font-stress')?.remove());
+  if (stressed.length) {
+    fail(scope, `widths: with 6% wider text these rows overflow and cannot scroll — `
+      + `${stressed.join(' ')}. A flex row in a fixed-width column needs children that can shrink `
+      + '(`min-width: 0`), or its layout depends on which fonts the machine has.');
+  }
+  // Only claim it when it is true: a progress line that reports the property the check just
+  // contradicted is worse than no line.
+  progress(`  genome/widths: ${seen.join(' ')}`
+    + (stressed.length ? ` · ${stressed.length} row(s) FAIL 6% wider text` : ' · survives 6% wider text'));
 }
 
 /**

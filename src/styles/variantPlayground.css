@@ -843,7 +843,24 @@ html[data-theme='dark'] .vp {
   gap: 0.25rem;
   margin: 0 0 0.45rem;
 }
-.gb-panel__modes .gb-mode { flex: 1 1 0; text-align: center; }
+/* SHRINKABLE, and that is a bug fix rather than a tidy-up.
+   `flex: 1 1 0` says "shrink me", but a flex item's default `min-width: auto` says "never below my
+   own text", and the second wins. The three labels came to 227px inside a 227px column -- fitting
+   by nothing at all -- so CI's Linux fonts, about 1% wider, rendered 229 and clipped. Measured
+   here by widening the text instead of changing machines: 1.02x reproduces CI's exact 229>227.
+   `0 1 auto` rather than `1 1 0` because equal thirds cannot hold "Shorkie_LM": it would sit
+   permanently ellipsised, which trades a clipped label for a truncated one. Content-sized with
+   room to shrink keeps every label whole at normal size (16px of slack now, and still clean at
+   1.05x) and degrades to an ellipsis rather than an overflow at any size. */
+.gb-panel__modes .gb-mode {
+  flex: 0 1 auto;
+  min-width: 0;
+  padding-inline: 0.35rem;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .gb-panel__modes .gb-mode[aria-pressed='true'] {
   background: var(--color-accent);
   border-color: var(--color-accent);
@@ -912,9 +929,13 @@ html[data-theme='dark'] .vp {
 /* The label sits ABOVE the buttons rather than beside them. On one line, "lane height" plus
    "comfortable" needs more than the 248px column has, and the buttons overlapped -- "comforta"
    with "compact" printed across it, which reads as a rendering fault rather than as a tight fit. */
-.gb-density { display: grid; gap: 0.15rem; }
+/* `minmax(0, 1fr)`, not the default `auto` column: an auto track sizes to MAX-CONTENT and then
+   overflows its container rather than capping at it -- the grid counterpart of a flex item's
+   `min-width: auto`, and the same bug as `.gb-mode` one rule below in a different layout mode.
+   Measured under the audit's font stress: a 240px column inside a 227px panel. */
+.gb-density { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.15rem; }
 .gb-density__label { font-size: 0.78em; color: var(--color-muted); }
-.gb-density__row { display: flex; gap: 0.2rem; }
+.gb-density__row { display: flex; min-width: 0; gap: 0.2rem; }
 .gb-density__btn {
   flex: 1 1 0;
   min-width: 0;
@@ -967,7 +988,9 @@ html[data-theme='dark'] .vp {
   transition: transform 0.12s ease;
 }
 .gb-group[open] > .gb-group__sum::before { transform: rotate(90deg); display: inline-block; }
-.gb-group__title { flex: 1 1 auto; font-weight: 650; font-size: 0.88em; }
+/* `min-width: 0` for the same reason as `.gb-mode` above: this is the last flex child in the panel
+   without it. It does not overflow today; it is the same latent shape and costs one property. */
+.gb-group__title { flex: 1 1 auto; min-width: 0; font-weight: 650; font-size: 0.88em; }
 .gb-group__count {
   flex: 0 0 auto;
   font-size: 0.78em;
