@@ -595,13 +595,34 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
 .vp-input[aria-invalid='true'] { border-color: #c0392b; }
 .gb-locus { width: 15.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
+/* THIS ROW SITS ABOVE THE CANVAS, SO ITS HEIGHT MUST NOT CHANGE.
+   It carries a hover readout, a correlation, a search result and a marked region -- all variable
+   text -- and with `flex-wrap: wrap` any of them growing pushed the row to a second line and moved
+   the whole browser down by 30 px. Moving the pointer onto the overview strip cleared the hover
+   readout, the row unwrapped, and the canvas slid out from under the mouse BETWEEN measuring the
+   strip and pressing on it: measured at y=242, pressed at 257, strip actually at 212, and the
+   press landed on the track where it brushed the current view instead. Same failure this page
+   already carries for the "open the full analysis" link, reached by a different route.
+   The row no longer wraps; the flexible readouts truncate instead. */
 .gb-head {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: baseline;
   gap: 0.5rem 0.9rem;
   margin-bottom: 0.4rem;
+  min-height: 1.5em;
 }
+.gb-head > * { min-width: 0; }
+.gb-head .vp-stat { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* What gives way first, in order. The locus and the base-colour key never truncate: one is the
+   coordinate the whole page is about, and the other's second half -- that a mirrored letter LOWERS
+   the prediction -- is the single most misreadable thing on the screen, so a key ending in
+   "mirrored below the rule lower" is worse than no key. The transient readouts shrink instead. */
+.gb-head .gb-readout,
+.gb-head .gb-logo-key { flex: 0 0 auto; }
+.gb-head .gb-hover,
+.gb-head .gb-corr,
+.gb-head .gb-find-out { flex: 1 1 auto; }
 .gb-readout { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--fs-small); }
 .gb-hover { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; min-width: 12ch; text-align: right; }
 
@@ -609,6 +630,21 @@ html[data-theme='dark'] .vp-svg .vp-base-T { fill: #e07f92; }
 /* The genome-level strip. `display: block` matters: an inline canvas gets a baseline gap under it,
    which on a 26 px element reads as a misaligned strip rather than as line-height. */
 .gb-ideo { width: 100%; display: block; cursor: pointer; }
+
+/* The DNA logo key. The four colours are the paper's saturated X11 set and are FIXED across all
+   six themes, for the same reason the chromatin molecular colours are: a base's colour is part of
+   the figure's vocabulary, not part of the page's palette. */
+.gb-logo-key { display: inline-flex; align-items: baseline; gap: 0.1rem; }
+/* Hidden without collapsing: see the comment in genome.astro. `visibility` keeps the box, so the
+   canvas below never moves when the key comes and goes. */
+.gb-logo-key[data-gb-logo-key='off'] { visibility: hidden; }
+.gb-logo-key__base { font: 700 0.95em ui-monospace, SFMono-Regular, Menlo, monospace; }
+.gb-logo-key__a { color: #008000; }
+.gb-logo-key__c { color: #0000FF; }
+.gb-logo-key__g { color: #FFA500; }
+.gb-logo-key__t { color: #FF0000; }
+.gb-logo-key__note { margin-left: 0.4rem; color: var(--color-muted); }
+@media (max-width: 560px) { .gb-logo-key__note { display: none; } }
 /* `grab` rather than `default`: the track is the pan surface, and nothing else says so. */
 .gb-track { width: 100%; display: block; cursor: grab; touch-action: none; }
 .gb-track:focus-visible { outline: 2px solid var(--color-accent, #3d6ea8); outline-offset: 2px; }
