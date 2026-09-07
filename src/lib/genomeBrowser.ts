@@ -995,3 +995,54 @@ export const MODEL_DEFAULT_TRACKS_NARROW: Record<ModelMode, string[]> = {
 export function defaultTracksFor(mode: ModelMode, narrow: boolean): string[] {
   return (narrow ? MODEL_DEFAULT_TRACKS_NARROW : MODEL_DEFAULT_TRACKS)[mode] ?? [];
 }
+
+
+// ------------------------------------------------------------------------------------------------
+// Step to the next / previous gene
+// ------------------------------------------------------------------------------------------------
+
+/**
+ * The gene to jump to from a view, in a direction.
+ *
+ * Anchored on the view's CENTRE, not its edges: at 100 kb a dozen genes are on screen and "next"
+ * anchored on the right edge skips every one of them, while anchored on the centre it walks them
+ * one at a time whatever the zoom. Genes are ordered by start and the comparison is strict, so a
+ * gene already centred is never the answer to either direction and repeated presses always move.
+ *
+ * Overlapping genes are ordered by start then end, which is the order the gene lane packs them in,
+ * so stepping visits them in the order they are drawn.
+ *
+ * Returns null only when there are no genes at all. At the ends it WRAPS, like the sequence-search
+ * stepper: a reader walking a chromosome should not have to notice which end they are at.
+ */
+export function stepGene<T extends { txStart: number; txEnd: number }>(
+  genes: readonly T[], centreBp: number, dir: 1 | -1,
+): T | null {
+  if (!genes.length) return null;
+  const sorted = [...genes].sort((a, b) => a.txStart - b.txStart || a.txEnd - b.txEnd);
+  const mid = (g: T) => (g.txStart + g.txEnd) / 2;
+  if (dir === 1) {
+    return sorted.find((g) => mid(g) > centreBp + 0.5) ?? sorted[0];
+  }
+  for (let i = sorted.length - 1; i >= 0; i -= 1) {
+    if (mid(sorted[i]) < centreBp - 0.5) return sorted[i];
+  }
+  return sorted[sorted.length - 1];
+}
+
+/**
+ * The view that frames a gene, with a margin so its edges are visible rather than flush.
+ *
+ * 20% of the gene's own length on each side: a fixed padding in base pairs would swamp a 300 bp
+ * gene and be invisible around a 10 kb one. Floored at `MIN_VIEW_BP` so a very short feature does
+ * not produce a view narrower than the browser can hold.
+ */
+export function frameGene(
+  gene: { txStart: number; txEnd: number }, chromLength: number,
+): { start: number; end: number } {
+  const len = Math.max(1, gene.txEnd - gene.txStart);
+  const pad = Math.max(50, len * 0.2);
+  const want = Math.max(MIN_VIEW_BP, len + pad * 2);
+  const centre = (gene.txStart + gene.txEnd) / 2;
+  return clampView(centre - want / 2, centre + want / 2, chromLength);
+}

@@ -2115,15 +2115,22 @@ async function auditIdeogram(page, scope, label) {
  * separates them is that the gene's own reading direction starts ATG.
  */
 async function auditGeneCard(page, scope) {
+  // A light lane set on purpose. Both mode's default stacks nine lanes to ~900 px, which puts the
+  // GENE lane below a 950 px viewport -- and a mouse click at a y outside the viewport lands on
+  // nothing, which reads as "the card is broken" rather than "the click missed".
+  await page.evaluate(() => { window.location.hash = 'chrVII:882012-884610;t=lm-masked,genes;m=both'; });
+  await page.waitForTimeout(900);
   await page.fill('[data-gb-locus]', 'TDH3');
   await page.click('[data-gb-go]');
   await page.waitForTimeout(1500);
 
   const pt = await page.evaluate(() => {
     const cv = document.querySelector('[data-gb-track]');
-    const r = cv.getBoundingClientRect();
     const g = JSON.parse(cv.dataset.gbLaneBox || '[]').find((l) => l.kind === 'genes');
-    return g ? { x: r.left + r.width / 2, y: r.top + g.top + g.h / 2 } : null;
+    if (!g) return null;
+    cv.scrollIntoView({ block: 'center' });
+    const r = cv.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + g.top + g.h / 2 };
   });
   if (!pt) { fail(scope, 'gene card: no gene lane in data-gb-lane-box'); return; }
   await page.mouse.click(pt.x, pt.y);
@@ -2548,6 +2555,125 @@ async function auditModeDefaults(page, scope) {
     + `lm ${WANT.lm.length} lanes; per-mode memory survives a round trip`);
 }
 
+/**
+ * The three additions: the base-colour key, gene stepping, and the vector export.
+ */
+async function auditBrowserExtras(page, scope) {
+  // --- the DNA base-colour key -----------------------------------------------------------------
+  // Shown only while letters are on screen: a legend for something not drawn is furniture.
+  await page.evaluate(() => { window.location.hash = 'chrIV:1-200000;t=lm-masked,genes;m=both'; });
+  await page.waitForTimeout(1400);
+  const barsKey = await page.evaluate(() => {
+    const el = document.querySelector('[data-gb-logo-key]');
+    return el ? { on: el.dataset.gbLogoKey === 'on', box: el.getBoundingClientRect().height } : null;
+  });
+  if (barsKey?.on) fail(scope, 'legend: the base-colour key is shown at a zoom drawing no letters');
+  // It must KEEP ITS BOX while hidden. This row is above the canvas, so a key that collapses
+  // shifts the whole browser and moves the overview strip out from under the strip-drag gate.
+  if (!(barsKey && barsKey.box > 0)) {
+    fail(scope, 'legend: the hidden key collapses its box, which shifts everything below it');
+  }
+  await page.evaluate(() => { window.location.hash = 'chrIV:100000-100120;t=lm-masked,genes;m=both'; });
+  await page.waitForTimeout(1600);
+  const lettersKey = await page.evaluate(() => {
+    const el = document.querySelector('[data-gb-logo-key]');
+    if (!el || el.dataset.gbLogoKey !== 'on') return null;
+    const bases = [...el.querySelectorAll('.gb-logo-key__base')];
+    return {
+      text: bases.map((b) => b.textContent).join(''),
+      colours: bases.map((b) => getComputedStyle(b).color),
+      note: el.querySelector('.gb-logo-key__note')?.textContent || '',
+    };
+  });
+  if (!lettersKey) fail(scope, 'legend: no base-colour key while a lane is drawing letters');
+  else {
+    if (lettersKey.text !== 'ACGT') fail(scope, `legend: reads "${lettersKey.text}", want ACGT`);
+    // The paper's saturated X11 set, fixed across all six themes -- a base's colour is part of the
+    // figure's vocabulary, not part of the page's palette.
+    const want = ['rgb(0, 128, 0)', 'rgb(0, 0, 255)', 'rgb(255, 165, 0)', 'rgb(255, 0, 0)'];
+    if (JSON.stringify(lettersKey.colours) !== JSON.stringify(want)) {
+      fail(scope, `legend: colours are ${lettersKey.colours.join(',')}, want the paper's ${want.join(',')}`);
+    }
+    // The single most misreadable thing about a signed logo.
+    if (!/mirror/i.test(lettersKey.note)) {
+      fail(scope, `legend: the note "${lettersKey.note}" does not say what a mirrored letter means`);
+    }
+  }
+
+  // --- next / previous gene --------------------------------------------------------------------
+  await page.evaluate(() => { window.location.hash = 'chrVII:882000-885000;t=lm-masked,genes;m=both'; });
+  await page.waitForTimeout(1300);
+  const at = () => page.$eval('[data-genome-browser]', (h) => h.dataset.gbView || '');
+  const first = await at();
+  await page.click('[data-gb-gene="1"]');
+  await page.waitForTimeout(700);
+  const next1 = await at();
+  if (next1 === first) fail(scope, `gene step: next did not move from ${first}`);
+  await page.click('[data-gb-gene="1"]');
+  await page.waitForTimeout(700);
+  const next2 = await at();
+  if (next2 === next1) fail(scope, `gene step: a second next did not move from ${next1}`);
+  await page.click('[data-gb-gene="-1"]');
+  await page.waitForTimeout(700);
+  if ((await at()) !== next1) {
+    fail(scope, `gene step: previous did not return to ${next1} (got ${await at()})`);
+  }
+  // The keys, which are the reason the buttons carry them in their titles.
+  await page.click('[data-gb-track]');
+  await page.keyboard.press('n');
+  await page.waitForTimeout(700);
+  if ((await at()) === next1) fail(scope, 'gene step: the n key did nothing');
+  await page.keyboard.press('p');
+  await page.waitForTimeout(700);
+
+  // --- SVG export ------------------------------------------------------------------------------
+  // At a zoom where the lanes are LOGOS, because a glyph outline is what an approximating exporter
+  // would get wrong and what a raster export cannot carry at all.
+  await page.evaluate(() => { window.location.hash = 'chrVII:883700-883820;t=lm-masked,sk-gradient,sk-ism,sequence,genes;m=both'; });
+  await page.waitForTimeout(2500);
+  const before = await page.$eval('[data-gb-track]', (c) => JSON.stringify({
+    d: c.dataset.gbDrawn, l: c.dataset.gbLevel, m: c.dataset.gbMode, b: c.dataset.gbLaneBox }));
+  const dl = page.waitForEvent('download', { timeout: 25000 }).catch(() => null);
+  await page.click('[data-gb-export-svg]');
+  const got = await dl;
+  if (!got) { fail(scope, 'svg: the export produced no download'); return; }
+  const stream = await got.createReadStream();
+  let svg = '';
+  for await (const chunk of stream) svg += chunk;
+  const n = (re) => (svg.match(re) || []).length;
+  if (!/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/.test(svg)) {
+    fail(scope, 'svg: the export is not an SVG document');
+  }
+  if (n(/<image/g) || /drawImage/.test(svg)) fail(scope, 'svg: the export embeds a raster image');
+  const paths = n(/<path /g);
+  if (paths < 200) fail(scope, `svg: only ${paths} vector paths — the DNA glyphs are missing`);
+  // The real DejaVu outlines, not an approximation. `LOGO_GLYPHS.A` starts with this.
+  if (!/M0\.18422 0\.13281/.test(svg) && !/M-0\.30016 0\.72906/.test(svg)) {
+    fail(scope, "svg: no glyph carries the paper's own DejaVu outline");
+  }
+  // The clip has to be a wrapper group in ROOT space. Referencing it from each glyph, which
+  // carries its own translate-and-scale, applies that matrix to the clip too and the glyph clips
+  // itself away -- a file full of valid outlines and three empty lanes on screen.
+  if (!/<g clip-path="url\(#gbclip/.test(svg)) {
+    fail(scope, 'svg: clipped lanes are not wrapped in a clip group');
+  }
+  if (n(/<g /g) !== n(/<\/g>/g)) {
+    fail(scope, `svg: unbalanced groups (${n(/<g /g)} open, ${n(/<\/g>/g)} close) — an unbalanced `
+      + 'SVG renders as nothing at all');
+  }
+  if (!/bp bins/.test(svg) || !/chrVII/.test(svg)) {
+    fail(scope, 'svg: the caption does not name the locus and bin size');
+  }
+  await page.waitForTimeout(600);
+  const after = await page.$eval('[data-gb-track]', (c) => JSON.stringify({
+    d: c.dataset.gbDrawn, l: c.dataset.gbLevel, m: c.dataset.gbMode, b: c.dataset.gbLaneBox }));
+  if (before !== after) {
+    fail(scope, 'svg: exporting left the live readouts describing a paint that never reached the screen');
+  }
+  progress(`  genome/extras: key ACGT, gene stepping, SVG ${(svg.length / 1024).toFixed(0)} KB `
+    + `with ${paths} vector paths`);
+}
+
 async function auditGenomeBrowser(browser, baseURL, scope) {
   const context = await browser.newContext({
     baseURL,
@@ -2555,6 +2681,9 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     // Without these the gene card's copy checks fall into their skip branch and pass by not
     // running, which is the shape of a check that quietly stops testing anything.
     permissions: ['clipboard-read', 'clipboard-write'],
+    // The SVG export is a script-driven download; without this Playwright cancels it and the
+    // check fails on a missing file rather than on anything about the export.
+    acceptDownloads: true,
   });
   const page = await context.newPage();
   const errors = [];
@@ -2581,6 +2710,7 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     await auditGeneCard(page, scope);
     await auditSequenceSearch(page, scope);
     await auditModeDefaults(page, scope);
+    await auditBrowserExtras(page, scope);
     await auditLogoBaseline(page, scope);
     await auditSparseLane(page, scope);
     if (FULL) {
@@ -2632,8 +2762,15 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     const deepest = await ds();
     if (deepest.gbMode !== 'letters') fail(scope, `deepest zoom drew "${deepest.gbMode}", not letters`);
 
-    // 2. the cache bound, exercised hard enough that eviction has to happen -- with ALL THREE
-    //    score pyramids enabled, which is the case a bound tuned for one track cannot survive.
+    // 2. the cache bound, exercised hard enough that eviction has to happen -- with THREE score
+    //    pyramids enabled, which is the case a bound tuned for one track cannot survive.
+      // The default lane set is per model mode and has SIX score lanes in Both; a check
+      // that wants a particular number of them has to name them. A hash carrying no `t=`
+      // deliberately leaves the track set alone, so navigating does not reset it either.
+    await page.evaluate(() => {
+      window.location.hash = 'chrIV:1000-1120;t=lm-masked,phastcons,genes,sequence;m=both';
+    });
+    await page.waitForTimeout(900);
     await page.check('[data-gb-toggle="lm-unmasked"]');
     await page.waitForTimeout(600);
     const enabledTracks = Number((await ds()).gbScoreTracks);
@@ -2725,9 +2862,9 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     // and a hash carrying no `t=` deliberately leaves the track set alone. So the previous
     // section's third score track would still be on and this would compare 3 lanes against 3.
     // Set the state explicitly rather than assuming a navigation reset it.
-    await page.goto(`${GENOME_ROUTE}#chrVII:882012-884610`, { waitUntil: 'networkidle' });
+    await page.goto(`${GENOME_ROUTE}#chrVII:882012-884610;t=lm-masked,phastcons,genes,sequence;m=both`,
+      { waitUntil: 'networkidle' });
     await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 20000 });
-    await page.uncheck('[data-gb-toggle="lm-unmasked"]');
     await page.waitForTimeout(1000);
     const oneTrack = Number((await ds()).gbDrawn);
     if (Number((await ds()).gbScoreTracks) !== 2) {
@@ -2800,8 +2937,11 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     if (await readView() !== atGene) fail(scope, 'forward did not return to the searched view');
 
     // 4e. Feature lanes: individual features when they can be told apart, density when they cannot.
-    await go('chrIV:1-1531933');
-    await page.waitForTimeout(1000);
+    // `tfbs_chip` is not in any mode's default set, so this names it rather than assuming it.
+    await page.evaluate(() => {
+      window.location.hash = 'chrIV:1-1531933;t=lm-masked,tfbs_chip,genes;m=both';
+    });
+    await page.waitForTimeout(1400);
     const wide = await ds();
     if (wide.gbFeatureMode !== 'density') {
       fail(scope, `whole chromosome drew features as "${wide.gbFeatureMode}"`);
@@ -2875,21 +3015,78 @@ async function auditGenomeBrowser(browser, baseURL, scope) {
     }
 
     // 4i. The OVERVIEW STRIP is the selection surface: drag on it selects, click still centres.
-    //     The main panel keeps drag-to-pan, which 4c already checks.
-    await page.goto(`${GENOME_ROUTE}#chrVII:882012-884610`, { waitUntil: 'networkidle' });
-    await page.waitForSelector('[data-genome-browser][data-gb-ready="1"]', { timeout: 20000 });
-    await page.waitForTimeout(1200);
-    const mini = await page.$eval('[data-gb-mini]', (c) => {
+    //     The main panel keeps drag-to-pan, which 4c already checks. A light lane set, so the
+    //     canvas is short enough that the strip and the stage are both on screen.
+    // `page.goto` to the same path with only a different hash is a same-document navigation, so
+    // whether it re-applies the view depends on the browser rather than on this code. Set the hash
+    // directly -- that always fires `hashchange` -- and then ASSERT the view landed, because every
+    // assertion below is about a drag whose meaning depends on where the view is.
+    await page.evaluate(() => {
+      window.location.hash = 'chrVII:882012-884610;t=lm-masked,genes;m=both';
+    });
+    await page.waitForTimeout(1400);
+    const stripStart = await readView();
+    if (!/882,012-884,610/.test(stripStart)) {
+      fail(scope, `strip: the view did not reset before the strip checks (${stripStart})`);
+    }
+    // SCROLL IT INTO VIEW FIRST. `getBoundingClientRect` is viewport-relative, so on a page left
+    // scrolled by an earlier check the strip's y can land on the ruler instead -- and a drag there
+    // selects and zooms, which is a plausible-looking 110 bp view and a completely wrong surface.
+    // Measure AND verify in one evaluate, immediately before pressing. The header above the stage
+    // reflows -- a long search readout wraps it to a second line -- so a rect read a moment
+    // earlier can be 30 px stale, and a drag 30 px low lands on the TRACK, where it brushes the
+    // current view and produces a plausible narrow window with no clue the surface was wrong.
+    // This is the documented trap for this page and this gate; asserting the target makes the
+    // check say so instead of blaming the strip.
+    // Scroll FIRST and let it settle: `scrollIntoView` does not finish before the same tick's
+    // `getBoundingClientRect`, so measuring in one evaluate returns a rect for a scroll position
+    // the page is about to leave -- 30 px stale, which is one lane, which is the track.
+    await page.evaluate(() => document.querySelector('[data-gb-mini]')?.scrollIntoView({ block: 'center' }));
+    await page.waitForTimeout(400);
+    const mini = await page.evaluate(() => {
+      const c = document.querySelector('[data-gb-mini]');
       const r = c.getBoundingClientRect();
-      return { x: r.x, y: r.y, w: r.width, h: r.height };
+      const x = r.x + r.width * 0.30;
+      const y = r.y + r.height / 2;
+      const el = document.elementFromPoint(x, y);
+      return {
+        x: r.x, y: r.y, w: r.width, h: r.height,
+        onTarget: el === c,
+        at: el ? `${el.tagName}.${el.className}` : 'nothing',
+      };
+    });
+    if (!mini.onTarget) {
+      fail(scope, `strip: the drag start (${Math.round(mini.x + mini.w * 0.30)}, `
+        + `${Math.round(mini.y + mini.h / 2)}) is over ${mini.at}, not the overview strip`);
+    }
+    // Record what the page ACTUALLY receives, from inside the page. Everything measured from
+    // outside describes a layout that may have moved by the time the press lands.
+    await page.evaluate(() => {
+      window.__gbDown = null;
+      document.addEventListener('pointerdown', (e) => {
+        const el = e.target;
+        window.__gbDown = { at: `${el.tagName}.${el.className}`, x: Math.round(e.clientX), y: Math.round(e.clientY),
+          miniTop: Math.round(document.querySelector('[data-gb-mini]').getBoundingClientRect().y) };
+      }, { capture: true, once: true });
     });
     await page.mouse.move(mini.x + mini.w * 0.30, mini.y + mini.h / 2);
     await page.mouse.down();
     await page.mouse.move(mini.x + mini.w * 0.34, mini.y + mini.h / 2, { steps: 10 });
     const stripBand = await page.$eval('[data-gb-mini]', (c) => c.dataset.gbMiniBrush || '');
+    const downAt = await page.evaluate(() => window.__gbDown);
     await page.mouse.up();
     await page.waitForTimeout(900);
-    if (!stripBand.includes('-')) fail(scope, 'no band was drawn while dragging the overview strip');
+    if (!stripBand.includes('-')) {
+      // Say WHAT was under the pointer. A drag that lands on the track instead brushes the current
+      // view, which produces a plausible narrow window and no clue that the surface was wrong.
+      const at = await page.evaluate(([x, y]) => {
+        const el = document.elementFromPoint(x, y);
+        return el ? `${el.tagName}.${el.className}` : 'nothing';
+      }, [mini.x + mini.w * 0.30, mini.y + mini.h / 2]);
+      fail(scope, `no band was drawn while dragging the overview strip — pressed at `
+        + `(${downAt?.x}, ${downAt?.y}) which the page delivered to ${downAt?.at} with the strip `
+        + `top at ${downAt?.miniTop}; measured it at y=${Math.round(mini.y)} over ${mini.at}`);
+    }
     else {
       // The view must land ON the band drawn -- not merely "narrower than before". The strip spans
       // a whole chromosome, so selecting on it from a 2.6 kb view legitimately gives a WIDER view.

@@ -47,7 +47,7 @@ import {
   encodeViewState, decodeViewState,
   MIN_VIEW_BP, type Level, type ChromInfo, type View, type LaneSpec, type Lane,
   type SearchIndex, type History,
-  type ScaleSpace, defaultTracksFor,
+  type ScaleSpace, defaultTracksFor, stepGene, frameGene,
 } from '../lib/genomeBrowser';
 import trackNamesJson from '../data/shorkieTrackNames.json';
 import { decodePackedRows, trackIndex, TRACK_GROUPS } from '../lib/shorkieModel';
@@ -59,6 +59,7 @@ const TRACK_NAMES: string[] = (trackNamesJson as { identifiers: string[] }).iden
 const TRACK_IDX = trackIndex(TRACK_NAMES);
 
 import { drawGeneRows, type GeneTrackFeature } from './geneTrack';
+import { createSvgRecorder, rememberPathData } from './canvasSvg';
 import {
   LOGO_COLOURS, LOGO_GLYPHS, LOGO_GLOBSCALE, packGeneRows, type Base,
   motifMatch,
@@ -551,6 +552,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
   const locusInput = $<HTMLInputElement>('[data-gb-locus]');
   const readout = $('[data-gb-readout]');
   const levelOut = $('[data-gb-level-out]');
+  const logoKey = $('[data-gb-logo-key]');
   const statusOut = $('[data-gb-status]');
   const corrOut = $('[data-gb-corr]');
   const statsBox = $('[data-gb-stats]');
@@ -1695,7 +1697,12 @@ export function initGenomeBrowser(host: HTMLElement): void {
     return bp.toLocaleString('en-US');
   }
 
-  function paintTrack(): void {
+  /**
+   * @param recorder when given, draw into this instead of the canvas. That is the whole of the
+   *   SVG export: ONE renderer, recorded. A second renderer walking the same columns would drift,
+   *   and the one nobody looks at is the one that drifts.
+   */
+  function paintTrack(recorder?: CanvasRenderingContext2D): void {
     const info = chromInfo(view.chrom);
     if (!info || !index) return;
     const cv = trackCanvas!;
@@ -1712,7 +1719,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     }
     const layout = laneLayout(laneSpecs(), LANE_GAP);
     lanes = layout.lanes;
-    const ctx = fit(cv, layout.total);
+    const ctx = recorder ?? fit(cv, layout.total);
     if (!ctx) return;
     // The CANVAS has always shrunk to what it draws -- `laneLayout` derives the total and `fit`
     // writes `style.height`, so with every lane off it is 35 px. What held the section open at a
@@ -1900,6 +1907,10 @@ export function initGenomeBrowser(host: HTMLElement): void {
     cv.dataset.gbGeneTrack = JSON.stringify(geneTally);
     cv.dataset.gbTiles = String(tiles.size);
     cv.dataset.gbMode = letters + scoreGlyphs > 0 ? 'letters' : 'bars';
+    // The base-colour key, shown only when a lane is actually drawing letters -- a legend for
+    // something not on screen is furniture. `scoreGlyphs` counts logo glyphs specifically; the
+    // plain sequence lane's letters are monospace text in the same colours and are covered too.
+    if (logoKey) logoKey.dataset.gbLogoKey = letters + scoreGlyphs > 0 ? 'on' : 'off';
     cv.dataset.gbBoxes = String(boxTally);
     cv.dataset.gbBoxesSolid = String(solidTally);
     cv.dataset.gbBoxList = boxTally ? JSON.stringify(boxList) : '';
@@ -3732,6 +3743,30 @@ export function initGenomeBrowser(host: HTMLElement): void {
   // -------------------------------------------------------------------------------------------
   // Controls
   // -------------------------------------------------------------------------------------------
+  /**
+   * Frame the next or previous gene, anchored on the view's CENTRE.
+   *
+   * The navigation an IGV user reaches for after search: a chromosome is hundreds of genes and
+   * typing each name is not browsing. `stepGene` and `frameGene` are pure and tested; this only
+   * supplies the chromosome's models and reports when there are none.
+   */
+  function gotoGene(dir: 1 | -1): void {
+    const feats = geneModels(view.chrom);
+    const info = chromInfo(view.chrom);
+    if (!feats || !info) return;
+    const g = stepGene(feats, (view.start + view.end) / 2, dir);
+    if (!g) {
+      // chrM has 28 genes and every nuclear chromosome has hundreds, so this is nearly
+      // unreachable -- but a control that silently does nothing is worse than one that says why.
+      if (statusOut) statusOut.textContent = `no gene models on ${view.chrom}`;
+      return;
+    }
+    setView({ chrom: view.chrom, ...frameGene(g, info.length) });
+  }
+  host.querySelectorAll<HTMLButtonElement>('[data-gb-gene]').forEach((b) => {
+    b.addEventListener('click', () => gotoGene(Number(b.dataset.gbGene) === -1 ? -1 : 1));
+  });
+
   host.querySelectorAll<HTMLButtonElement>('[data-gb-zoom]').forEach((b) => {
     b.addEventListener('click', () => zoom(Number(b.dataset.gbZoom)));
   });
@@ -3797,6 +3832,52 @@ export function initGenomeBrowser(host: HTMLElement): void {
     // name makes that selector match two elements. Third instance of this collision in this repo.
     host.dataset.gbAutoscaleOn = String(autoscale);
     paintTrack();
+  });
+
+  /**
+   * The current view as VECTOR, for a figure.
+   *
+   * PNG is a screenshot; this is the same drawing with every rect, glyph outline and label still
+   * an object, so it scales, restyles and edits in Illustrator or Inkscape. It is produced by
+   * RECORDING the real renderer (`createSvgRecorder`), not by a second one walking the same data
+   * -- so it cannot disagree with the screen about a baseline, an axis or a letter.
+   *
+   * The track stack only. The overview strip is a locator on a different ruler and the PNG export
+   * exists for the whole-page shot; a figure wants the lanes.
+   */
+  $<HTMLButtonElement>('[data-gb-export-svg]')?.addEventListener('click', () => {
+    const cv = trackCanvas;
+    if (!cv || !index) return;
+    // `Path2D` does not expose the string it was built from, and a glyph outline is the one thing
+    // this export must reproduce exactly rather than approximate.
+    rememberPathData();
+    const probe = document.createElement('canvas').getContext('2d');
+    if (!probe) return;
+    const w = Math.max(1, Math.round(cv.clientWidth));
+    const h = Math.max(1, Math.round(cv.clientHeight));
+    probe.canvas.width = w;
+    probe.canvas.height = h;
+    const rec = createSvgRecorder(probe);
+    paintTrack(rec.ctx);
+    // Repaint the real canvas: `paintTrack` writes `data-*` readouts as it goes, and the recorder
+    // run leaves them describing a paint that never reached the screen.
+    paintTrack();
+    // The bin size the figure was drawn at, read from what the canvas just published rather
+    // than recomputed -- the CSV header carries the same fact for the same reason.
+    const caption = `${formatLocus(view)} · ${cv.dataset.gbLevel ?? '?'} bp bins`
+      + ' · Shorkie genome browser · khchao.com';
+    const svg = rec.svg(w, h + 18, css('--color-bg', '#ffffff'), caption)
+      .replace('</svg>', `<text x="6" y="${h + 13}" fill="${css('--color-muted', '#6b7280')}" `
+        + `style="font:10px system-ui, sans-serif">${caption.replace(/[&<>]/g, (c) => (
+          c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;'))}</text></svg>`);
+    const a2 = document.createElement('a');
+    a2.download = `${formatLocus(view).replace(/[:,]/g, '_')}.svg`;
+    a2.href = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
+    a2.click();
+    // Same reason the CSV export revokes: an object URL held for the session is a leak of the
+    // whole document, and the click has already consumed it.
+    setTimeout(() => URL.revokeObjectURL(a2.href), 10_000);
+    host.dataset.gbSvgBytes = String(svg.length);
   });
 
   $<HTMLButtonElement>('[data-gb-export-csv]')?.addEventListener('click', () => {
@@ -3918,6 +3999,8 @@ export function initGenomeBrowser(host: HTMLElement): void {
       setView({ chrom: view.chrom, start: view.start + width * 0.2, end: view.end + width * 0.2 });
     } else if (e.key === '+' || e.key === '=') zoom(0.5);
     else if (e.key === '-') zoom(2);
+    else if (e.key === 'n') gotoGene(1);
+    else if (e.key === 'p') gotoGene(-1);
     else if (e.key === '[') {
       const r = historyBack(history);
       if (r) { history = r.history; setView(r.view, { push: false }); }

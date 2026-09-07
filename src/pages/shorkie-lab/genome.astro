@@ -179,6 +179,10 @@ const breadcrumbLd = buildBreadcrumbLd([
           <button type="button" class="vp-btn vp-btn--icon" data-gb-pan="1" aria-label="Pan right">›</button>
           <button type="button" class="vp-btn vp-btn--icon" data-gb-zoom="0.5" aria-label="Zoom in">+</button>
           <button type="button" class="vp-btn vp-btn--icon" data-gb-zoom="2" aria-label="Zoom out">−</button>
+          <button type="button" class="vp-btn vp-btn--icon" data-gb-gene="-1"
+                  aria-label="Previous gene (p)" title="Previous gene — p">‹g</button>
+          <button type="button" class="vp-btn vp-btn--icon" data-gb-gene="1"
+                  aria-label="Next gene (n)" title="Next gene — n">g›</button>
           <button type="button" class="vp-btn" data-gb-whole>whole chr</button>
         </span>
         <span class="vp-nav__group" role="group" aria-label="Region and export">
@@ -189,6 +193,9 @@ const breadcrumbLd = buildBreadcrumbLd([
                          makes a quiet window look quiet.">autoscale</button>
           <button type="button" class="vp-btn" data-gb-export
                   title="Save the current view as a PNG">PNG</button>
+          <button type="button" class="vp-btn" data-gb-export-svg
+                  title="Save the track stack as vector SVG — every bar, glyph and label still an
+                         object, for a figure. The overview strip is not included.">SVG</button>
           <button type="button" class="vp-btn" data-gb-export-csv
                   title="Save the data behind this view as CSV, at the level it is drawn at">CSV</button>
           <!-- Phone only (CSS): the track panel becomes a drawer over the stage rather than a
@@ -202,6 +209,21 @@ const breadcrumbLd = buildBreadcrumbLd([
         <div class="gb-head">
           <strong class="gb-readout" data-gb-readout>—</strong>
           <span class="vp-stat" data-gb-level-out></span>
+          <!-- Shown only while a lane is actually drawing letters. The four colours are the
+               paper's and appear nowhere else on this page; a signed logo also mirrors its
+               negative letters below the zero rule, which is the thing readers misread.
+               It KEEPS ITS BOX when hidden (`visibility`, not `hidden`): this row sits above the
+               canvas, and an element that appears and disappears there shifts the whole browser
+               vertically -- which moved the overview strip out from under the strip-drag gate's
+               mouse between measuring its box and pressing on it. Documented for this page, and
+               reintroduced here by putting the key in the header. -->
+          <span class="vp-stat gb-logo-key" data-gb-logo-key="off">
+            <span class="gb-logo-key__base gb-logo-key__a">A</span><span
+              class="gb-logo-key__base gb-logo-key__c">C</span><span
+              class="gb-logo-key__base gb-logo-key__g">G</span><span
+              class="gb-logo-key__base gb-logo-key__t">T</span>
+            <span class="gb-logo-key__note">upright raises the prediction · mirrored below the rule lowers it</span>
+          </span>
           <span class="vp-stat gb-roi" data-gb-roi></span>
           <span class="vp-stat gb-corr" data-gb-corr></span>
           <span class="vp-stat gb-find-out" data-gb-find-out></span>

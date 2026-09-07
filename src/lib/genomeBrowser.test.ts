@@ -11,7 +11,8 @@ import {
   laneExcluder, nativeLadder, levelsForTrack, axisFraction, axisValue, isSignedAxis, pearson, exportRows, laneOrder,
   ideogramLayout, ideogramHit,
   parseMotif, rcMasks, findMotif, motifDegeneracy, expectedHits,
-  MODEL_DEFAULT_TRACKS, MODEL_DEFAULT_TRACKS_NARROW, defaultTracksFor, type ModelMode,} from './genomeBrowser';
+  MODEL_DEFAULT_TRACKS, MODEL_DEFAULT_TRACKS_NARROW, defaultTracksFor, type ModelMode,
+  stepGene, frameGene,} from './genomeBrowser';
 
 const LEVELS: Level[] = [
   { level: 0, binBp: 1, rows: 1 },
@@ -1376,5 +1377,94 @@ describe('defaultTracksFor', () => {
     expect(defaultTracksFor('lm', false)).toEqual(MODEL_DEFAULT_TRACKS.lm);
     expect(defaultTracksFor('lm', true)).toEqual(MODEL_DEFAULT_TRACKS_NARROW.lm);
     expect(defaultTracksFor('shorkie', false)).toEqual(MODEL_DEFAULT_TRACKS.shorkie);
+  });
+});
+
+// ------------------------------------------------------------------------------------------------
+// Gene stepping
+// ------------------------------------------------------------------------------------------------
+
+describe('stepGene', () => {
+  const G = [
+    { txStart: 100, txEnd: 200, name: 'a' },     // mid 150
+    { txStart: 400, txEnd: 600, name: 'b' },     // mid 500
+    { txStart: 1000, txEnd: 1100, name: 'c' },   // mid 1050
+  ];
+
+  it('walks forward and back from the view centre', () => {
+    expect(stepGene(G, 0, 1)?.name).toBe('a');
+    expect(stepGene(G, 150, 1)?.name).toBe('b');
+    expect(stepGene(G, 500, 1)?.name).toBe('c');
+    expect(stepGene(G, 1050, -1)?.name).toBe('b');
+    expect(stepGene(G, 500, -1)?.name).toBe('a');
+  });
+
+  it('never answers with the gene already centred, so a press always moves', () => {
+    for (const g of G) {
+      const mid = (g.txStart + g.txEnd) / 2;
+      expect(stepGene(G, mid, 1)?.name).not.toBe(g.name);
+      expect(stepGene(G, mid, -1)?.name).not.toBe(g.name);
+    }
+  });
+
+  it('wraps at both ends rather than stopping', () => {
+    expect(stepGene(G, 1050, 1)?.name).toBe('a');
+    expect(stepGene(G, 150, -1)?.name).toBe('c');
+    expect(stepGene(G, 1e9, 1)?.name).toBe('a');
+    expect(stepGene(G, -1e9, -1)?.name).toBe('c');
+  });
+
+  it('is anchored on the CENTRE, so a wide view still steps one gene at a time', () => {
+    // At a zoom holding all three, "next" from the centre must be the next gene past the centre --
+    // not the one past the right edge, which would skip everything on screen.
+    expect(stepGene(G, 600, 1)?.name).toBe('c');
+    expect(stepGene(G, 600, -1)?.name).toBe('b');
+  });
+
+  it('orders overlapping genes by start then end, as the lane packs them', () => {
+    const O = [
+      { txStart: 100, txEnd: 900, name: 'long' },
+      { txStart: 100, txEnd: 300, name: 'short' },
+    ];
+    // short mid 200, long mid 500.
+    expect(stepGene(O, 0, 1)?.name).toBe('short');
+    expect(stepGene(O, 200, 1)?.name).toBe('long');
+  });
+
+  it('takes whatever order it is given', () => {
+    expect(stepGene([...G].reverse(), 150, 1)?.name).toBe('b');
+  });
+
+  it('returns null only when there are no genes', () => {
+    expect(stepGene([], 100, 1)).toBeNull();
+    expect(stepGene([], 100, -1)).toBeNull();
+  });
+});
+
+describe('frameGene', () => {
+  it('frames a gene with a margin proportional to its own length', () => {
+    const v = frameGene({ txStart: 1000, txEnd: 2000 }, 100000);
+    expect(v.start).toBeLessThan(1000);
+    expect(v.end).toBeGreaterThan(2000);
+    // 1,000 bp gene + 20% each side.
+    expect(v.end - v.start).toBeCloseTo(1400, 0);
+  });
+
+  it('never produces a view narrower than the browser can hold', () => {
+    const v = frameGene({ txStart: 500, txEnd: 505 }, 100000);
+    expect(v.end - v.start).toBeGreaterThanOrEqual(MIN_VIEW_BP);
+  });
+
+  it('stays inside the chromosome at either end', () => {
+    const a = frameGene({ txStart: 0, txEnd: 300 }, 10000);
+    expect(a.start).toBeGreaterThanOrEqual(0);
+    const b = frameGene({ txStart: 9700, txEnd: 10000 }, 10000);
+    expect(b.end).toBeLessThanOrEqual(10000);
+  });
+
+  it('centres the gene when there is room', () => {
+    const g = { txStart: 4000, txEnd: 5000 };
+    const v = frameGene(g, 100000);
+    expect((v.start + v.end) / 2).toBeCloseTo(4500, 6);
   });
 });
