@@ -497,12 +497,25 @@ async function auditUtilityPages(urls) {
   }
 }
 
-async function auditNoDraftReportPdfs() {
+/**
+ * Draft (unlisted) reports must ship no PDF at all: the page renders no download
+ * link for them, so a PDF on disk is an unlinked leak of a private document.
+ * A public report is the opposite -- it advertises `<slug>.pdf`, so that file has
+ * to exist (`audit:links` fails on the dangling target otherwise). Hence this is
+ * per-slug rather than a blanket sweep of the section.
+ */
+async function auditNoDraftReportPdfs(reports) {
+  const publicSlugs = new Set(
+    reports.filter((entry) => entry.data.unlisted === false).map((entry) => entry.slug)
+  );
   const reportPdfs = (await walkFiles(join(DIST, 'reports'))).filter(
     (file) => extname(file).toLowerCase() === '.pdf'
   );
   for (const pdf of reportPdfs) {
-    errors.push(`Report PDF exists while reports are non-indexable: ${pdf.replace(`${DIST}/`, '')}`);
+    const relative = pdf.replace(`${DIST}/`, '');
+    const slug = relative.split('/')[1];
+    if (publicSlugs.has(slug) && basename(pdf) === `${slug}.pdf`) continue;
+    errors.push(`Report PDF exists while reports are non-indexable: ${relative}`);
   }
 }
 
@@ -571,7 +584,7 @@ async function main() {
   await auditPhotosIndex(urls);
   await auditStaticPhotoAsset();
   await auditPublicRichSnippets(urls);
-  await auditNoDraftReportPdfs();
+  await auditNoDraftReportPdfs(reports);
   await auditTerminalIndex(posts, reports);
   await auditResearchResources();
   await auditPublicPageBasics(urls);

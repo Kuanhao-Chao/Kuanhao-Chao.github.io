@@ -8,6 +8,9 @@ import rehypeKatex from 'rehype-katex';
 import { legacyRedirects } from './src/legacy-redirects.mjs';
 
 // https://astro.build/config
+/** Report slugs that are deliberately public (frontmatter `unlisted: false`). */
+const PUBLIC_REPORTS = ['openspliceai-technical-report'];
+
 export default defineConfig({
   site: 'https://khchao.com',
   // Math support for the `reports` section (LaTeX-heavy technical reports). The
@@ -25,8 +28,17 @@ export default defineConfig({
       // The `reports`, `papers`, `algorithms`, `deep_dives`, and `photos`
       // sections are non-indexed. Keep them out of the sitemap so their URLs
       // are never advertised to search engines.
+      //
+      // PUBLIC_REPORTS is the deliberate exception: a report flipped to
+      // `unlisted: false` must appear in the sitemap or `audit:indexing` fails
+      // with "Public report is missing from sitemap". The `/reports/` index page
+      // itself stays out either way -- `auditReportsIndex` forbids it -- so the
+      // match is on a full report path, not on the section prefix. Adding a
+      // report here without also flipping its frontmatter (and relaxing
+      // robots.txt) is exactly the "relax one place in isolation" failure that
+      // CLAUDE.md warns about.
       filter: (page) =>
-        !page.includes('/reports/') &&
+        (!page.includes('/reports/') || PUBLIC_REPORTS.some((slug) => page.endsWith(`/reports/${slug}/`))) &&
         !page.includes('/papers/') &&
         !page.includes('/logo-options/') &&
         !page.includes('/search/') &&

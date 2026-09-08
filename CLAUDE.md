@@ -44,11 +44,13 @@ All page content lives in typed collections under `src/content/` — `publicatio
 ### Reports are in private launch — gated off in several coordinated places
 A report builds a live URL + page but stays hidden until deliberately published. The gate is enforced redundantly, and `audit:indexing` fails if the pieces disagree:
 1. `src/content.config.ts` — `reports` schema defaults `unlisted: true` (→ per-page `noindex`, no citation meta, no PDF link).
-2. `astro.config.mjs` — sitemap `filter` excludes the entire `/reports/` subtree.
-3. `scripts/gen-post-pdfs.mjs` — `shouldSkipPdf` skips report PDFs entirely.
-4. `public/robots.txt` disallows `/reports/`; the `/reports/` index page is `noindex`.
+2. `astro.config.mjs` — sitemap `filter` excludes the `/reports/` subtree **except** slugs listed in `PUBLIC_REPORTS`.
+3. `scripts/gen-post-pdfs.mjs` — `shouldSkipPdf` skips report PDFs entirely, public or not.
+4. `public/robots.txt` disallows `/reports/`, with an `Allow:` line per public report; the `/reports/` index page stays `noindex`.
 
-To take a report public, change **all of these in concert** (set `unlisted: false`, narrow the sitemap filter, allow its PDF, relax robots/audit). The audit script encodes the current "whole section private" state, so publishing requires updating it too — don't relax one place in isolation.
+**`openspliceai-technical-report` is public** (`unlisted: false`); the other five are not. To publish another, change these in concert: set `unlisted: false`, add the slug to `PUBLIC_REPORTS`, and add its `Allow:` line to `robots.txt` — don't relax one place in isolation. Two things do *not* need changing, and both are enforced the other way: `auditReport` already has a public branch (it requires the URL to be **in** the sitemap and the page to emit `index, follow`, and only checks a PDF's size *if one exists* — it never requires one), and `auditTerminalIndex` forbids **any** `/reports/` string in `terminal.json`, so a public report still must not be added to the terminal corpus.
+
+Google Scholar is a separate switch: `isScholarVisible = d.scholar && !d.unlisted` in `src/pages/reports/[...slug].astro`. **All six reports set `scholar: false`**, so no report emits `citation_*` meta or `ScholarlyArticle` JSON-LD even when public.
 
 ### The `/terminal/` shell
 

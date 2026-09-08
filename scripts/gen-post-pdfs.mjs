@@ -187,9 +187,23 @@ async function collectJobs() {
   return jobs;
 }
 
-async function shouldSkipPdf(section) {
+/**
+ * Report slugs that are deliberately public. Must stay in step with
+ * `PUBLIC_REPORTS` in `astro.config.mjs` and the `Allow:` lines in
+ * `public/robots.txt` -- see CLAUDE.md.
+ */
+const PUBLIC_REPORTS = new Set(['openspliceai-technical-report']);
+
+/**
+ * Reports are draft-only and get no PDF, with one exception: a report flipped to
+ * `unlisted: false` renders a "PDF" download link
+ * (`links = isPublicReport ? ... : []` in `src/pages/reports/[...slug].astro`),
+ * so its PDF has to exist or `audit:links` fails on a dangling internal target.
+ * Publishing a report therefore requires adding it here too.
+ */
+async function shouldSkipPdf(section, slug) {
   if (section !== 'reports') return false;
-  return true;
+  return !PUBLIC_REPORTS.has(slug);
 }
 
 async function fulfillFromDist(route) {
@@ -333,7 +347,7 @@ async function main() {
     for (const { section, slug } of jobs) {
       const url = `https://khchao.com/${section}/${slug}/`;
       const pdfPath = join(DIST, section, slug, `${slug}.pdf`);
-      if (await shouldSkipPdf(section)) {
+      if (await shouldSkipPdf(section, slug)) {
         await rm(pdfPath, { force: true });
         console.log(`skipped ${relative(ROOT, pdfPath)} (reports draft-only)`);
         continue;
