@@ -21,10 +21,16 @@ abstract: >-
   field next to SpliceAI's existing field at every human GRCh38 SNV (~3.43 billion SNVs per model seed), enabling the
   first strictly mask-matched, tool-neutral comparison of the two methods. The campaign is a managed, good-citizen
   SLURM workload — idempotent at chunk granularity, serialized across model seeds into a dependency chain so it never
-  exceeds a self-imposed four-GPU cap on a shared ten-GPU account — and is currently in progress (rs10 11.4%, rs13 1.7%
-  complete at the time of writing). This report documents the architecture, the benchmarks, and the campaign design and
-  status.
+  exceeds a self-imposed GPU cap on a shared ten-GPU account. That campaign has now scored 99,283 of 100,000 chunks for
+  one seed and 45,597 for a second, enough for the mask-matched comparison it was built for: over 3.33 billion paired
+  annotations the two tools agree moderately overall (Pearson 0.795), but the agreement is strongly asymmetric — loss
+  scores agree closely (0.900 and 0.906) while gain scores do not (0.681 and 0.597). Scoring a second independently
+  seeded checkpoint supplies the control that makes this interpretable: on losses the gap between the two tools is
+  barely larger than the gap between two training runs of one tool (1.1×), while on gains it is 3.3–3.9×, localising
+  the difference to gain-of-site prediction rather than to training-run variance. This report documents the
+  architecture, the benchmarks, and the campaign design, status and results.
 date: 2026-06-18
+updated: 2026-09-08
 venue: 'Technical Report'
 institution: 'Johns Hopkins University'
 tags:
@@ -63,11 +69,12 @@ import ZoomFigure from '../../components/ZoomFigure.astro';
 import architecture from '../../assets/reports/openspliceai-technical-report/rfig_architecture.png';
 import accuracy from '../../assets/reports/openspliceai-technical-report/rfig_accuracy.png';
 import speed from '../../assets/reports/openspliceai-technical-report/rfig_speed.png';
-import variant from '../../assets/reports/openspliceai-technical-report/rfig_variant_concordance.png';
 import campaignDesign from '../../assets/reports/openspliceai-technical-report/rfig_campaign_design.png';
 import campaignProgress from '../../assets/reports/openspliceai-technical-report/rfig_campaign_progress.png';
+import calibration from '../../assets/reports/openspliceai-technical-report/rfig_calibration.png';
+import seedVsMethod from '../../assets/reports/openspliceai-technical-report/rfig_seed_vs_method.png';
 
-*Center for Computational Biology, Johns Hopkins University, Baltimore, MD, USA. Correspondence: kh.chao@jhu.edu. Code: [github.com/Kuanhao-Chao/OpenSpliceAI](https://github.com/Kuanhao-Chao/OpenSpliceAI) · Documentation: [ccb.jhu.edu/openspliceai](https://ccb.jhu.edu/openspliceai/). This report describes OpenSpliceAI v0.0.6 and a campaign in progress; numbers are current as of the date above.*
+*Center for Computational Biology, Johns Hopkins University, Baltimore, MD, USA. Correspondence: kh.chao@jhu.edu. Code: [github.com/Kuanhao-Chao/OpenSpliceAI](https://github.com/Kuanhao-Chao/OpenSpliceAI) · Documentation: [ccb.jhu.edu/openspliceai](https://ccb.jhu.edu/openspliceai/). This report describes OpenSpliceAI v0.0.7. Sections 3.3, 4.4 and 4.5 were revised on 2026-09-08 with the completed genome-wide comparison; other numbers are current as of the date above.*
 
 ## 1. Introduction
 
@@ -207,7 +214,7 @@ We benchmarked OpenSpliceAI against the original SpliceAI on the **human MANE te
 | Recall | 0.9383 | **0.9614** | −0.0232 | 0.9393 | **0.9575** | −0.0182 |
 | F1 | **0.9434** | 0.8942 | +0.0492 | **0.9469** | 0.8994 | +0.0475 |
 
-The recall/precision trade is worth stating plainly: OpenSpliceAI calls splice sites **more conservatively** than SpliceAI — slightly lower recall, substantially higher precision — which nets out to higher F1 and AUPRC and, as §3.3 shows, recurs in the variant comparison as better specificity. These are the *retrained* PyTorch models, which differ from the original weights; at flanking 10,000 the architectures are equivalent enough that the Keras weights can be loaded and reproduced bit-exactly through the `variant --model-type keras` path, but for accuracy the PyTorch zoo is a genuinely different, retrained model (with the largest gains, per the published study, appearing on non-human species [1]).
+The recall/precision trade is worth stating plainly: OpenSpliceAI calls splice sites **more conservatively** than SpliceAI — slightly lower recall, substantially higher precision — which nets out to higher F1 and AUPRC. §3.3 shows the variant-level counterpart is more specific than that summary suggests: OpenSpliceAI is the more conservative caller at permissive delta-score cutoffs but not at stringent ones, and the difference is concentrated in gain-of-site prediction. These are the *retrained* PyTorch models, which differ from the original weights; at flanking 10,000 the architectures are equivalent enough that the Keras weights can be loaded and reproduced bit-exactly through the `variant --model-type keras` path, but for accuracy the PyTorch zoo is a genuinely different, retrained model (with the largest gains, per the published study, appearing on non-human species [1]).
 
 <ZoomFigure src={accuracy} alt="Grouped bar charts comparing OpenSpliceAI and SpliceAI on donor and acceptor metrics; OpenSpliceAI is at or above SpliceAI on every threshold accuracy, AUPRC, and F1" variant="wide">
   <strong>Figure 2.</strong> Per-position accuracy on the human MANE test set (10,000 nt, 5-model ensembles), donors <strong>(A)</strong> and acceptors <strong>(B)</strong>. OpenSpliceAI (green) is at or above the original SpliceAI (grey) on every threshold accuracy, on AUPRC, and on F1; the y-axis starts at 0.84 to make the gaps visible.
@@ -223,31 +230,39 @@ On the same benchmark run and the same GPU, scoring all 420.58 M positions took 
 
 ### 3.3 Variant delta-score comparison
 
-Beyond per-position accuracy, the clinically relevant question is whether the two tools *agree on the effect of a variant*. We compared OpenSpliceAI and SpliceAI delta scores over a set of **452,053 paired human SNVs** (the VCF INFO carries both an `OpenSpliceAI=` and a `SpliceAI=` field). The headline is **"tied power, better specificity"** (Table 4, Fig. 4): the two tools' maximum delta scores are moderately correlated (Pearson 0.76; agreement at the 0.5 threshold has $\kappa = 0.67$ once the shared, overwhelming negative mass is accounted for, with a positive-class Jaccard ≈ 0.50), **losses agree more than gains** (AL/DL ≈ 0.84 vs AG/DG ≈ 0.64), and OpenSpliceAI is markedly more **specific** (splice-loss AUROC 0.95 vs 0.81, roughly 3× fewer false positives) while **detection power is essentially a tie** (max-DS AUPRC 0.458 vs 0.417). OpenSpliceAI is the more conservative caller, and the entire gap lives on the *gain* side — consistent with the higher-precision behavior seen in §3.1.
+Beyond per-position accuracy, the clinically relevant question is whether the two tools *agree on the effect of a variant*. The campaign in §4 makes that question answerable at genome scale and, crucially, under matched conditions: **3,334,708,099 exact-gene paired annotations** across 99,283 audited chunks, with both sides masked (`-M 1`), scored against the same GENCODE v24 canonical gene table, at the same maximum distance and flanking context. This supersedes an earlier 452,053-variant comparison in which OpenSpliceAI was scored *unmasked* against SpliceAI's masked precompute — a confound that acted precisely on the gain side and made the central asymmetry unattributable.
 
-**Table 4.** Variant delta-score comparison summary (452,053 paired SNVs; adversarially checked).
+Agreement on the maximum delta score is **moderate**: Pearson 0.795, Lin concordance 0.790 (Table 4). At a 0.5 cutoff, overall agreement is 99.90%, but that number is an artifact of the shared negative mass — 99.79% of pairs are below the cutoff in both tools — and should not be quoted; the chance-corrected view is $\kappa = 0.703$ with a positive-class Jaccard of 0.542, meaning that of the variants called by at least one tool, only about half are called by both.
+
+The disagreement is **strongly asymmetric between losses and gains**, and that asymmetry survives the mask-matched control. Acceptor and donor *loss* scores agree closely (Pearson 0.900 and 0.906; identical values for 99.06% of variants), while *gain* scores do not (0.681 and 0.597), with OpenSpliceAI scoring gains systematically lower. Figure 4 shows the mechanism directly: for a variant SpliceAI scores as a moderate gain, OpenSpliceAI's median score stays near zero until SpliceAI's own score is well above 0.5, whereas for losses the two track the diagonal.
+
+Two further properties matter in practice. **Output precision is not the explanation**: rounding OpenSpliceAI to SpliceAI's two decimals raises exact agreement from 82.11% to 93.27% but changes mean absolute error by 3 × 10⁻⁶, and 88.6% of the mean absolute difference survives discarding every discrepancy inside the ±0.005 rounding band. And **call behaviour crosses over with the threshold**: OpenSpliceAI makes only 0.44× as many calls as SpliceAI at a 0.1 cutoff but 1.06× as many at 0.8, so "OpenSpliceAI is the more conservative caller" holds only at permissive cutoffs. Agreement improves monotonically with the cutoff ($\kappa$ 0.445 → 0.779), which is to say the two tools converge exactly where decisions are made. Where both call a variant at 0.5, they agree on the affected position essentially perfectly for losses (100.00%) and nearly so for gains (96.8% and 98.1%).
+
+**Table 4.** Genome-wide mask-matched delta-score comparison (3.33 B paired annotations; SpliceAI vs OpenSpliceAI rs10).
 
 | Quantity | Value | Note |
 |---|---|---|
-| Max-DS correlation (Pearson) | 0.76 | moderate; Spearman 0.47 |
-| Agreement @ 0.5 ($\kappa$) | 0.67 | inflated by shared negative mass |
-| Positive-class Jaccard | ≈ 0.50 | real concordance is moderate |
-| Splice-loss AUROC | **0.95** (OSAI) vs 0.81 (SpliceAI) | OSAI more specific (~3× fewer FP) |
-| Max-DS AUPRC (detection power) | 0.458 (OSAI) vs 0.417 (SpliceAI) | ≈ tie |
-| Loss agreement (AL/DL) | 0.84 | losses agree |
-| Gain agreement (AG/DG) | 0.64 | gains agree less |
+| Paired annotations | 3,334,708,099 | 99,283 audited chunks, exact gene and allele |
+| Max-DS correlation (Pearson) | 0.795 | Lin CCC 0.790 |
+| Agreement @ 0.5 ($\kappa$) | 0.703 | overall agreement 99.90% is inflated by shared negatives |
+| Positive-class Jaccard @ 0.5 | 0.542 | about half of all calls are shared |
+| Loss agreement (AL / DL) | **0.900 / 0.906** | losses agree closely |
+| Gain agreement (AG / DG) | **0.681 / 0.597** | gains do not |
+| Call-rate ratio (OSAI / SpliceAI) | 0.44 @ 0.1 → 1.06 @ 0.8 | conservatism reverses with the cutoff |
+| Position agreement @ 0.5 | 100.00% loss, 96.8–98.1% gain | among jointly called variants |
+| MAE surviving ±0.005 rounding | 88.6% | precision is not the explanation |
 
-**An honest, load-bearing caveat.** This bulk comparison pairs OpenSpliceAI scores computed **unmasked** against SpliceAI's **masked** precompute, and masking acts precisely on the *gain* side — so the gain/loss asymmetry above cannot be cleanly attributed to the *model* versus the *mask*. A small mask-matched re-scoring confirms the conservatism is real at decision-relevant thresholds, but resolving the attribution at scale requires a **strictly mask-matched re-scoring of the whole SNV space**. That requirement is the direct motivation for the campaign in §4.
-
-<ZoomFigure src={variant} alt="Two-panel bar chart: (A) delta-score concordance metrics between OpenSpliceAI and SpliceAI; (B) discrimination, AUROC 0.95 vs 0.81 and AUPRC 0.458 vs 0.417" variant="wide">
-  <strong>Figure 4.</strong> Variant delta-score comparison vs SpliceAI (452 K paired SNVs). <strong>(A)</strong> Concordance: moderate correlation/agreement, with losses (AL/DL) agreeing more than gains (AG/DG). <strong>(B)</strong> Discrimination: OpenSpliceAI is much more specific (AUROC 0.95 vs 0.81) at essentially tied detection power (AUPRC 0.458 vs 0.417). The unmasked-vs-masked caveat (§3.3) is what §4 is designed to remove.
+<ZoomFigure src={calibration} alt="Five panels showing the distribution of the OpenSpliceAI score conditional on the SpliceAI score, for acceptor gain, acceptor loss, donor gain, donor loss and the maximum. Loss panels track the diagonal; gain panels stay near zero until the SpliceAI score exceeds about 0.5." variant="wide">
+  <strong>Figure 4.</strong> Calibration of OpenSpliceAI against SpliceAI over 3.33 billion paired annotations. Each panel shows the distribution of the OpenSpliceAI score conditional on the SpliceAI score — orange line the conditional median, bands the central 50% and 90%. **Losses** (panels 2 and 4) track exact agreement closely. **Gains** (panels 1 and 3) do not: OpenSpliceAI's median stays near zero until SpliceAI is well above 0.5. Two SpliceAI columns are empty because a two-decimal value whose binary representation sits just below the bin edge lands one bin low; this affects 0.03% of observations and no reported threshold.
 </ZoomFigure>
+
+This is a concordance result against a comparator, not against truth. No experimentally validated splicing outcome enters the analysis, so it locates *where* and *how much* the two tools differ — and §4.5 shows that the difference is specific to gains rather than diffuse — but it cannot say which tool is right.
 
 ## 4. Genome-wide SNV re-scoring campaign
 
 ### 4.1 Motivation
 
-To settle the §3.3 attribution and produce a permanent, tool-neutral resource, we are re-scoring **every human GRCh38 SNV** with OpenSpliceAI and writing an `OpenSpliceAI=` delta-score field next to SpliceAI's existing field at every position — a strictly **mask-matched** overlay (OpenSpliceAI run with `-M 1` against SpliceAI's masked precompute). The result is an apples-to-apples comparison at every SNV in the genome, not a sampled subset, and a reusable precompute that others can query without a GPU.
+To settle the mask attribution and produce a permanent, tool-neutral resource, we set out to re-score **every human GRCh38 SNV** with OpenSpliceAI and writing an `OpenSpliceAI=` delta-score field next to SpliceAI's existing field at every position — a strictly **mask-matched** overlay (OpenSpliceAI run with `-M 1` against SpliceAI's masked precompute). The result is an apples-to-apples comparison at every SNV in the genome, not a sampled subset, and a reusable precompute that others can query without a GPU.
 
 ### 4.2 Scale and cluster constraints
 
@@ -257,53 +272,80 @@ The input is partitioned into **100,000 chunks** of ~34,334 SNVs each — about 
 
 The campaign is driven by a single `campaign.sh {status|submit|resume|pause}` script over a per-chunk SLURM array, with four design choices:
 
-- **`PER_TASK = 20`, sequential.** Each array task scores 20 chunks **one at a time** on a single GPU (batched inference already saturates the A100, so fanning out within a task would only OOM). This yields 5,000 tasks per seed — comfortably under both array and job-count caps.
+- **`PER_TASK` chunks per task, sequential.** Each array task scores its chunks **one at a time** on a single GPU (batched inference already saturates the A100, so fanning out within a task would only OOM). At the current `PER_TASK = 10` that is 10,000 tasks per seed — comfortably under both array and job-count caps.
 - **Idempotent at chunk granularity.** A chunk is skipped if its output already has the correct record count; a partial file from a killed task is detected by count mismatch, deleted, and redone. This makes `pause`/`resume` lossless: only the handful of chunks in flight on the GPUs at pause time are ever repeated.
-- **Whole-campaign GPU cap by construction.** SLURM's `%N` array throttle is *per array job*, so two seed-arrays each at `%4` could use 8 GPUs. Instead, `submit` **serializes the seeds into a dependency chain** (`seed[i] --dependency=afterany:seed[i−1]`), so only one seed-array is ever runnable. One runnable array throttled at `%CONC` ⇒ **total concurrent GPUs ≡ CONC**. We set **`CONC = 4`** — a deliberately good-citizen cap that leaves ≥ 6 of the shared 10-GPU account free for labmates. The cap can be retuned on a *live* campaign without losing work via `scontrol update … ArrayTaskThrottle=N`.
+- **Whole-campaign GPU cap by construction.** SLURM's `%N` array throttle is *per array job*, so two seed-arrays each at `%4` could use 8 GPUs. Instead, `submit` **serializes the seeds into a dependency chain** (`seed[i] --dependency=afterany:seed[i−1]`), so only one seed-array is ever runnable. One runnable array throttled at `%CONC` ⇒ **total concurrent GPUs ≡ CONC**. We set **`CONC = 6`** (initially 4) — a deliberately good-citizen cap that leaves the rest of the shared 10-GPU account free for labmates. The cap can be retuned on a *live* campaign without losing work via `scontrol update … ArrayTaskThrottle=N`.
 
 <ZoomFigure src={campaignDesign} alt="Schematic of the campaign engine: 100,000 chunks feed array tasks of 20 chunks each on one GPU; seeds rs10 and rs13 are serialized by an afterany dependency and throttled at %4 so total concurrent GPUs equals CONC=4; list of cluster caps" variant="wide">
-  <strong>Figure 5.</strong> Campaign design. The 100,000-chunk SNV space is scored in `PER_TASK = 20`-chunk array tasks, one GPU each. The two seeds are serialized into an `afterany` dependency chain and each throttled at `%CONC`, so only one seed-array runs at a time and **total concurrent GPUs ≡ CONC = 4** — well under the shared 10-GPU account cap. The boxed constraints are the cluster limits that forced this shape.
+  <strong>Figure 5.</strong> Campaign design. The 100,000-chunk SNV space is scored in `PER_TASK`-chunk array tasks, one GPU each. The two seeds are serialized into an `afterany` dependency chain and each throttled at `%CONC`, so only one seed-array runs at a time and **total concurrent GPUs ≡ CONC** — well under the shared 10-GPU account cap. The boxed constraints are the cluster limits that forced this shape.
 </ZoomFigure>
 
 ### 4.4 Current status
 
-At the time of writing, the campaign is running at the four-GPU cap with **rs10 11.4%** complete (11,380 / 100,000 chunks) and **rs13 1.7%** (1,692 / 100,000), rs13 correctly waiting in its dependency behind rs10 (Fig. 6). At ~122 s/chunk and `CONC = 4`, each seed is ~3,400 GPU-hours (~34 days ideal) and the two serialized seeds project to **~68 days ideal / ~85 days realistic** (Table 5), with rs10 — the first seed to finish — landing first. Output is ~0.5 TB per seed. Progress is checkable at any time with `./campaign.sh status`.
+Scoring is **substantially complete for rs10 and paused for rs13**. A deep audit on 2026-08-08 — byte size, nanosecond mtime, record count, canonical record digest and raw SHA-256 of every input and output — found **99,283 of 100,000 chunks valid for rs10** (693 missing, 13 empty, 11 truncated) and **45,597 for rs13**, the latter covering chunks 1–46,920, i.e. chromosomes 1 through 7. That is roughly 3.41 billion scored source records for rs10 and 1.57 billion for rs13, and about 0.7 TB of output. Both remaining arrays have been pending since 2026-08-08 on `AssocGrpBillingMinutes`: the GPU account exhausted its billing allocation, which is a resource limit rather than a fault in the campaign. The rs10 coverage is already sufficient for the genome-wide analysis reported in §3.3 and §4.5; every result carries a `provisional` status by the analysis pipeline's own contract, because a `final` label requires the chunk domain to be exactly 1–100,000.
 
-**Table 5.** Campaign scale and projection (at `CONC = 4`, ~122 s/chunk).
+**Table 5.** Campaign scale and realised status.
 
 | Quantity | Value |
 |---|---|
 | Chunks per seed | 100,000 (~34,334 SNVs each) |
 | SNVs per seed | ~3.43 billion |
-| Seeds running | rs10, rs13 (single-model, mask-matched `-M 1`) |
-| GPU cost per seed | ~3,400 GPU-h (~34 d ideal) |
-| Both seeds (serialized) | ~68 d ideal / ~85 d realistic |
+| Seeds scored | rs10, rs13 (single-model, mask-matched `-M 1`) |
+| rs10 audit-valid chunks | **99,283 / 100,000** (3.41 B source records) |
+| rs13 audit-valid chunks | **45,597 / 100,000** (chr1–chr7) |
 | Output per seed | ~0.5 TB |
-| Live status | rs10 11.4%, rs13 1.7% (in progress) |
+| Current state | rs10 and rs13 arrays pending on GPU billing allocation since 2026-08-08 |
+| Analysis status | provisional — sufficient for genome-wide concordance (§3.3, §4.5) |
 
-<ZoomFigure src={campaignProgress} alt="Live campaign progress: rs10 at 11.4 percent and rs13 at 1.7 percent of 100,000 chunks, with a throughput and projection panel listing 122 s per chunk, CONC=4, and ETAs" variant="wide">
-  <strong>Figure 6.</strong> Genome-wide SNV scoring — current status. <strong>(A)</strong> Live progress: rs10 11.4% (11,380/100,000 chunks), rs13 1.7% (1,692/100,000). <strong>(B)</strong> Throughput and projection at the four-GPU cap; the deliverable is an `OpenSpliceAI=` delta-score field beside `SpliceAI=` at every human SNV.
+<ZoomFigure src={campaignProgress} alt="Campaign progress and throughput panels for the genome-wide SNV scoring campaign" variant="wide">
+  <strong>Figure 6.</strong> Genome-wide SNV scoring — campaign progress and throughput at the self-imposed GPU cap. The deliverable is an `OpenSpliceAI=` delta-score field beside `SpliceAI=` at every human SNV.
 </ZoomFigure>
+
+### 4.5 Is the difference the method, or just the training run?
+
+A difference between two trained networks is only interesting if it exceeds the difference between two training runs of the *same* network. Because the campaign scored two independently seeded MANE checkpoints, that control is available — and it can be run on an **identical chunk domain**: the 45,589 chunks scored by both seeds. Three quantities then become directly comparable on the same 1.54 billion paired annotations: rs10 versus rs13 (training seed), and SpliceAI versus each of them (method).
+
+Overall, the method gap is real but of the same order as retraining: mean absolute difference 0.00285 between SpliceAI and OpenSpliceAI against 0.00108 between two seeds, a ratio of **2.65×** (1.45× in RMSE). Event by event, that summary breaks apart (Table 6, Figure 7). On **losses**, the method gap is barely larger than the seed gap — ratios of 1.13× and 1.17×, with between-tool correlations of 0.897 and 0.904 against between-seed correlations of 0.915 and 0.926. For loss-of-site interpretation, a different implementation is very nearly as interchangeable as a different training seed. On **gains**, the ratios are 3.35× and 3.92×.
+
+This localises the entire OpenSpliceAI-versus-SpliceAI difference: it is not diffuse numerical drift, and it is not training-run variance. It is a specific, reproducible disagreement about **gain-of-site prediction**, which survives matching the mask, the annotation, the distance and the genomic domain. A plausible mechanism is that under masking a loss score is only reported where the shared annotation already declares a splice site — both tools answer "how much does this variant damage a site we both know about," and they agree — whereas a gain score asks "is there a *new* site here," a question with no annotation to anchor it. Restricting the genome-wide arm to the same chromosomes 1–7 changes every statistic by less than 0.002, so the control region is representative.
+
+**Table 6.** Training-seed variation versus method difference, on an identical 45,589-chunk domain (1.54 B paired annotations).
+
+| Event | Between two seeds (r / MAE) | SpliceAI vs OpenSpliceAI (r / MAE) | MAE ratio |
+|---|---|---|---|
+| Acceptor gain | 0.831 / 0.00040 | 0.686 / 0.00134 | **3.35×** |
+| Acceptor loss | 0.915 / 0.00031 | 0.897 / 0.00035 | **1.13×** |
+| Donor gain | 0.799 / 0.00033 | 0.604 / 0.00131 | **3.92×** |
+| Donor loss | 0.926 / 0.00027 | 0.904 / 0.00031 | **1.17×** |
+| Maximum | 0.892 / 0.00108 | 0.796 / 0.00285 | 2.65× |
+
+<ZoomFigure src={seedVsMethod} alt="Two panels. Left: mean absolute difference per event between two OpenSpliceAI training seeds and between SpliceAI and each seed. Right: the ratio of method error to seed error per event, showing about 1.1 for losses and 3.3 to 3.9 for gains." variant="wide">
+  <strong>Figure 7.</strong> Training-seed variation versus method difference, measured on an identical chunk domain. <strong>(A)</strong> Mean absolute difference per event between two OpenSpliceAI seeds (green) and between SpliceAI and each seed. <strong>(B)</strong> Their ratio: near 1 for losses — a different implementation is about as interchangeable as a different training seed — and 3.3–3.9× for gains.
+</ZoomFigure>
+
+One asymmetry remains by construction and is not separable here: SpliceAI's published scores average **five** models, while each OpenSpliceAI arm is a **single** checkpoint. The seed contrast shows a second checkpoint moves the scores appreciably, so an OpenSpliceAI ensemble would be expected to sit closer to SpliceAI than either seed alone. Testing that requires a third scored seed and is the natural next experiment.
 
 ## 5. Discussion
 
 **Reimplementation as a platform.** The value of OpenSpliceAI is not a single new number but the conversion of a closed, human-only artifact into an open, end-to-end, PyTorch-native platform. Because one model class is parameterized by the flanking size and reused across `create-data`, `train`, `transfer`, `calibrate`, `predict`, and `variant`, a user can take the architecture to a new genome, retrain or fine-tune it, calibrate it, and score variants — none of which was supported by the original release. The published study [1] shows this most clearly on non-human species, where transfer learning yields the largest gains.
 
-**Accuracy parity-plus, with a specificity tilt.** On human MANE the retrained models are not merely on par with SpliceAI; they exceed it on the canonical threshold-accuracy and AUPRC metrics while being more conservative (higher precision, slightly lower recall). The same conservatism appears in the variant comparison as ~3× fewer false positives at tied detection power. Whether that tilt is desirable is application-dependent — a screen prioritizing recall may prefer SpliceAI's operating point — but for precision-sensitive uses it is an advantage, and calibration (§2.8) plus the per-class delta scores let a user pick an explicit threshold rather than inherit one.
+**Accuracy parity-plus, with a specificity tilt.** On human MANE the retrained models are not merely on par with SpliceAI; they exceed it on the canonical threshold-accuracy and AUPRC metrics while being more conservative (higher precision, slightly lower recall) — and there, against annotated splice sites, "more conservative" is a claim about accuracy that the test set can support. At the variant level the genome-wide comparison (§3.3) shows a related but more specific pattern: OpenSpliceAI issues fewer calls than SpliceAI at permissive delta-score cutoffs and marginally more at stringent ones, with the difference concentrated almost entirely in gain-of-site scores. Because that comparison has no truth set, it cannot be read as fewer false positives; a gain call only SpliceAI makes may equally be one OpenSpliceAI misses. Whether the tilt is desirable is application-dependent, and calibration (§2.8) plus the per-class delta scores let a user pick an explicit threshold rather than inherit one.
 
-**Throughput as an enabler.** The batched, reference-deduplicated scorer is what turns "score every SNV in the genome" from a thought experiment into a managed campaign. The same engineering that makes the campaign fast also makes it a *good citizen*: by serializing seeds into a dependency chain, the whole multi-seed job provably never exceeds a four-GPU footprint on a shared account, and by being idempotent at chunk granularity it can be paused and resumed without waste. The genome-wide, strictly mask-matched overlay it produces is, itself, a reusable contribution: it will let any downstream user compare the two tools at a SNV of interest without recomputation, and it removes the unmasked-vs-masked confound that limits the current variant comparison.
+**Where two implementations of one architecture actually diverge.** The most transferable result here is not a headline correlation but a decomposition. By scoring two independently seeded checkpoints over an identical chunk domain, the campaign measures the difference between two *training runs* alongside the difference between two *implementations* — and finds they are nearly the same size for loss-of-site prediction (1.1×) and three to four times apart for gain-of-site prediction (§4.5). Loss scores are anchored: under masking they are reported only where the shared annotation already declares a splice site, so both tools answer a question with a fixed reference and they agree. Gain scores ask whether a *new* site exists, with nothing to anchor them, and that is where reimplementation, retraining data and architecture-level choices show through. Anyone porting an analysis between the two tools should expect the gain channel, not the loss channel, to move — and anyone benchmarking a splice predictor should report gains and losses separately, because a pooled score averages two very different regimes.
+
+**Throughput as an enabler.** The batched, reference-deduplicated scorer is what turns "score every SNV in the genome" from a thought experiment into a managed campaign. The same engineering that makes the campaign fast also makes it a *good citizen*: by serializing seeds into a dependency chain, the whole multi-seed job provably never exceeds its configured GPU footprint on a shared account, and by being idempotent at chunk granularity it can be paused and resumed without waste. The genome-wide, strictly mask-matched overlay it produces is, itself, a reusable contribution: it lets any downstream user compare the two tools at a SNV of interest without recomputation, and it has already removed the unmasked-vs-masked confound that limited the earlier variant comparison.
 
 ## 6. Limitations
 
 1. **Recall trade-off.** OpenSpliceAI's higher precision comes with slightly lower recall than SpliceAI (§3.1); applications that weight sensitivity above specificity should choose the operating point deliberately.
-2. **The variant comparison is not yet fully mask-matched at scale.** The 452 K-SNV comparison pairs unmasked OpenSpliceAI against masked SpliceAI, so the gain/loss attribution is confounded until the §4 campaign completes (§3.3).
+2. **The variant comparison is concordance, not accuracy.** The genome-wide comparison in §3.3 and §4.5 is now mask-, annotation- and distance-matched, which removes the confound that limited the earlier 452 K-SNV analysis. It still measures agreement against SpliceAI as a comparator, not against experimentally validated splicing outcomes, so it identifies where the two tools differ but cannot say which is correct. It is also a single OpenSpliceAI checkpoint against a five-model SpliceAI ensemble, and that asymmetry is not separable from the method difference.
 3. **Single-device training.** Despite a hardcoded `N_GPUS = 2` in the hyperparameter tables, the code does not use `DataParallel`; training runs on one device, and `N_GPUS` only scales batch size (§2.4).
 4. **Maintenance hazard.** The $(W, AR, \text{batch size})$ schedule is duplicated across several subcommands; a change in one must be mirrored in the others. This is the most likely source of subtle bugs and is flagged in the codebase.
-5. **Campaign in progress.** The genome-wide overlay is not finished — at the four-GPU good-citizen cap the full two-seed run projects to ~2.8 months — so its scientific payoff (the clean mask-matched comparison) is pending completion.
+5. **Campaign incomplete.** The overlay covers 99,283 of 100,000 chunks for rs10 and 45,597 for rs13; both arrays are pending on the GPU account's billing allocation. Every analysis result is therefore labelled `provisional` by contract, and the rs13-dependent comparisons cover chromosomes 1–7 rather than the whole genome — a contiguous region, not a random sample, though restricting the genome-wide arm to it changes every statistic by less than 0.002.
 
 ## 7. Availability and reproducibility
 
-OpenSpliceAI is open-source ([github.com/Kuanhao-Chao/OpenSpliceAI](https://github.com/Kuanhao-Chao/OpenSpliceAI)) with documentation at [ccb.jhu.edu/openspliceai](https://ccb.jhu.edu/openspliceai/). It installs from PyPI (`pip install openspliceai`, v0.0.6; Python ≥ 3.9, PyTorch ≥ 2.2.1) and exposes one console command with six subcommands. Typical invocations:
+OpenSpliceAI is open-source ([github.com/Kuanhao-Chao/OpenSpliceAI](https://github.com/Kuanhao-Chao/OpenSpliceAI)) with documentation at [ccb.jhu.edu/openspliceai](https://ccb.jhu.edu/openspliceai/). It installs from PyPI (`pip install openspliceai`, v0.0.7; Python ≥ 3.9, PyTorch ≥ 2.2.1) and exposes one console command with six subcommands. Typical invocations:
 
 ```
 # build training data, then train a 10,000-nt model
