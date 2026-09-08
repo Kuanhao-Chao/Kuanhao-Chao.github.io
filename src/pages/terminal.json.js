@@ -20,7 +20,7 @@ import { plainMdx } from '../lib/plainContent.ts';
  * PRIVACY GATE — the two collections that can leak use *different* fields, so a
  * single generic filter would silently fail on one:
  *   - posts   → `draft: true`     (4 of 12 today)
- *   - reports → `unlisted: true`  (6 of 6 today — the whole section is private)
+ *   - reports → `unlisted: true`  (5 of 6 today; openspliceai is public)
  * Reports are therefore omitted wholesale rather than filtered: the collection
  * contributes nothing today and could only ever leak later. See CLAUDE.md.
  */
