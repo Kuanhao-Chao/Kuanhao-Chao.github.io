@@ -1,0 +1,152 @@
+---
+interface Props {
+  size?: number;
+  class?: string;
+}
+
+const { size = 64, class: className = '' } = Astro.props;
+---
+
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 100 100"
+  width={size}
+  height={size}
+  class:list={['minesweeper-logo', className]}
+  role="img"
+  aria-label="Minesweeper Logo — Classic beveled grid with naval spike mine, red surveyor flag, and numbered clue cells"
+>
+  <defs>
+    <!-- Background Radial Aura -->
+    <radialGradient id="mine-aura" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ef4444" stop-opacity="0.32" />
+      <stop offset="60%" stop-color="#1e293b" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#020617" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Outer Rim Metallic Gradient -->
+    <linearGradient id="mine-border" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#94a3b8" />
+      <stop offset="40%" stop-color="#475569" />
+      <stop offset="100%" stop-color="#1e293b" />
+    </linearGradient>
+
+    <!-- Plate Gradient -->
+    <linearGradient id="mine-plate" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#090d16" />
+    </linearGradient>
+
+    <!-- Naval Mine Body Gradient -->
+    <radialGradient id="mine-body" cx="38%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#64748b" />
+      <stop offset="40%" stop-color="#334155" />
+      <stop offset="85%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#020617" />
+    </radialGradient>
+
+    <!-- Horn Spikes Gradient -->
+    <linearGradient id="mine-spike" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#78350f" />
+    </linearGradient>
+
+    <!-- Red Flag Gradient -->
+    <linearGradient id="mine-flag" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f87171" />
+      <stop offset="60%" stop-color="#ef4444" />
+      <stop offset="100%" stop-color="#b91c1c" />
+    </linearGradient>
+  </defs>
+
+  <!-- Ambient Glow -->
+  <circle cx="50" cy="50" r="48" fill="url(#mine-aura)" />
+
+  <!-- Outer Base Plate -->
+  <rect
+    x="8"
+    y="8"
+    width="84"
+    height="84"
+    rx="18"
+    fill="url(#mine-plate)"
+    stroke="url(#mine-border)"
+    stroke-width="2.5"
+  />
+
+  <!-- Beveled Grid Pattern in Background -->
+  <g opacity="0.45">
+    <rect x="16" y="16" width="20" height="20" rx="3" fill="#334155" />
+    <rect x="39" y="16" width="20" height="20" rx="3" fill="#334155" />
+    <rect x="62" y="16" width="20" height="20" rx="3" fill="#334155" />
+
+    <rect x="16" y="39" width="20" height="20" rx="3" fill="#334155" />
+    <rect x="62" y="39" width="20" height="20" rx="3" fill="#334155" />
+
+    <rect x="16" y="62" width="20" height="20" rx="3" fill="#334155" />
+    <rect x="39" y="62" width="20" height="20" rx="3" fill="#334155" />
+    <rect x="62" y="62" width="20" height="20" rx="3" fill="#334155" />
+  </g>
+
+  <!-- Number 1 Cell (Top Left) -->
+  <g transform="translate(16, 16)">
+    <rect x="0" y="0" width="20" height="20" rx="3" fill="#1e293b" stroke="#3b82f6" stroke-width="0.8" opacity="0.9" />
+    <text x="10" y="14.5" font-size="12" font-weight="900" fill="#3b82f6" text-anchor="middle" font-family="system-ui, sans-serif">1</text>
+  </g>
+
+  <!-- Number 2 Cell (Top Right) -->
+  <g transform="translate(62, 16)">
+    <rect x="0" y="0" width="20" height="20" rx="3" fill="#1e293b" stroke="#10b981" stroke-width="0.8" opacity="0.9" />
+    <text x="10" y="14.5" font-size="12" font-weight="900" fill="#10b981" text-anchor="middle" font-family="system-ui, sans-serif">2</text>
+  </g>
+
+  <!-- Number 3 Cell (Bottom Left) -->
+  <g transform="translate(16, 62)">
+    <rect x="0" y="0" width="20" height="20" rx="3" fill="#1e293b" stroke="#ef4444" stroke-width="0.8" opacity="0.9" />
+    <text x="10" y="14.5" font-size="12" font-weight="900" fill="#ef4444" text-anchor="middle" font-family="system-ui, sans-serif">3</text>
+  </g>
+
+  <!-- Red Flag (Bottom Right) -->
+  <g transform="translate(62, 62)">
+    <rect x="0" y="0" width="20" height="20" rx="3" fill="#1e293b" stroke="#f59e0b" stroke-width="0.8" opacity="0.9" />
+    <!-- Flag pole -->
+    <line x1="6" y1="4" x2="6" y2="17" stroke="#cbd5e1" stroke-width="1.6" stroke-linecap="round" />
+    <circle cx="6" cy="4" r="1" fill="#f59e0b" />
+    <!-- Triangular Banner -->
+    <path d="M 6 4 L 16 8.5 L 6 13 Z" fill="url(#mine-flag)" />
+  </g>
+
+  <!-- Naval Spiked Mine (Centerpiece) -->
+  <g transform="translate(50, 50)">
+    <!-- Radiating Spikes / Detonator Horns -->
+    <g stroke="url(#mine-spike)" stroke-width="3" stroke-linecap="round">
+      <line x1="0" y1="-18" x2="0" y2="-25" />
+      <line x1="0" y1="18" x2="0" y2="25" />
+      <line x1="-18" y1="0" x2="-25" y2="0" />
+      <line x1="18" y1="0" x2="25" y2="0" />
+      <line x1="-13" y1="-13" x2="-18" y2="-18" />
+      <line x1="13" y1="-13" x2="18" y2="-18" />
+      <line x1="-13" y1="13" x2="-18" y2="18" />
+      <line x1="13" y1="13" x2="18" y2="18" />
+    </g>
+
+    <!-- Mine Horn Caps -->
+    <circle cx="0" cy="-25" r="2" fill="#fbbf24" />
+    <circle cx="0" cy="25" r="2" fill="#fbbf24" />
+    <circle cx="-25" cy="0" r="2" fill="#fbbf24" />
+    <circle cx="25" cy="0" r="2" fill="#fbbf24" />
+    <circle cx="-18" cy="-18" r="1.8" fill="#fbbf24" />
+    <circle cx="18" cy="-18" r="1.8" fill="#fbbf24" />
+    <circle cx="-18" cy="18" r="1.8" fill="#fbbf24" />
+    <circle cx="18" cy="18" r="1.8" fill="#fbbf24" />
+
+    <!-- Spherical Mine Core -->
+    <circle cx="0" cy="0" r="18" fill="url(#mine-body)" stroke="#475569" stroke-width="1.2" />
+
+    <!-- Specular Highlight -->
+    <ellipse cx="-5" cy="-6" rx="5" ry="3" fill="#ffffff" opacity="0.35" transform="rotate(-30, -5, -6)" />
+
+    <!-- Center Warning Light -->
+    <circle cx="0" cy="0" r="3.5" fill="#ef4444" style="filter: drop-shadow(0 0 3px #ef4444);" />
+  </g>
+</svg>

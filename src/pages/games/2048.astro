@@ -1,0 +1,498 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import Game2048Logo from '../../components/games/Game2048Logo.astro';
+import { site } from '../../data/site';
+
+const gameLd = {
+  '@context': 'https://schema.org',
+  '@type': 'VideoGame',
+  name: '2048',
+  description:
+    'A modern browser 2048 sliding tile puzzle featuring multi-step undo, custom grid sizes (3x3, 4x4, 5x5), synthesized Web Audio harmonic chimes, and fluid touch gestures.',
+  url: `${site.url}/games/2048/`,
+  author: { '@id': `${site.url}/#person` },
+  applicationCategory: 'Game',
+  gamePlatform: ['Web browser', 'Mobile web browser'],
+  genre: ['Puzzle', 'Sliding Tile Game', 'Math Game'],
+  inLanguage: 'en',
+  isAccessibleForFree: true,
+};
+---
+
+<PageLayout
+  title="2048"
+  eyebrow="Side project"
+  lead="The classic sliding tile numbers puzzle reimagined: join matching tiles to reach 2048 with multi-step undo history, custom grid configurations (3×3 · 4×4 · 5×5), smooth animations, and synthesized Web Audio harmonic chimes."
+  description="Play 2048 — a modern, responsive browser puzzle by Kuan-Hao Chao with multi-step undo, 3 board sizes, and synthesized Web Audio effects."
+  width="narrow"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
+
+  <section class="g2048" data-game-2048-root aria-label="2048 sliding tile puzzle">
+    <!-- Header Medallion Card -->
+    <div class="g2048-header-card">
+      <Game2048Logo size={58} />
+      <div class="g2048-header-info">
+        <h2 class="g2048-header-title">2048 Sliding Matrix</h2>
+        <p class="g2048-header-subtitle">
+          Slide and merge matching powers of two. Reach 2048 or push for higher gemstone tiles!
+        </p>
+      </div>
+    </div>
+
+    <!-- Game HUD -->
+    <div class="g2048-hud">
+      <div class="g2048-scores" role="group" aria-label="Current and best score">
+        <div class="score-badge" title="Current Score">
+          <span class="score-label">Score</span>
+          <span class="score-val" data-2048-score>0</span>
+        </div>
+        <div class="score-badge" title="Best Score">
+          <span class="score-label">Best</span>
+          <span class="score-val" data-2048-best>0</span>
+        </div>
+      </div>
+
+      <div class="g2048-actions" role="toolbar" aria-label="Game actions">
+        <button
+          type="button"
+          class="game-btn is-disabled"
+          data-2048-undo
+          title="Undo move (U or Cmd+Z)"
+          aria-label="Undo move"
+          disabled
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 7v6h6"></path>
+            <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
+          </svg>
+          Undo
+        </button>
+        <button
+          type="button"
+          class="game-btn"
+          data-2048-restart
+          title="Restart game (R)"
+          aria-label="Start new game"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21.5 2v6h-6"></path>
+            <path d="M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+          </svg>
+          Restart
+        </button>
+        <button
+          type="button"
+          class="game-btn game-btn--icon"
+          data-2048-sound
+          title="Mute/unmute sound FX"
+          aria-label="Toggle sound FX"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mode Selector -->
+    <div class="g2048-mode-bar" role="group" aria-label="Select board grid size">
+      <span class="mode-label">Mode:</span>
+      <div class="mode-buttons">
+        <button type="button" class="mode-btn" data-2048-size data-board-size="3" aria-pressed="false">Speed (3×3)</button>
+        <button type="button" class="mode-btn is-active" data-2048-size data-board-size="4" aria-pressed="true">Classic (4×4)</button>
+        <button type="button" class="mode-btn" data-2048-size data-board-size="5" aria-pressed="false">Relaxed (5×5)</button>
+      </div>
+    </div>
+
+    <!-- Board Stage -->
+    <div class="g2048-stage">
+      <div class="g2048-board-wrapper">
+        <div class="g2048-grid" data-2048-grid role="grid" aria-label="2048 playfield"></div>
+
+        <!-- Win / Game Over Overlay -->
+        <div class="g2048-overlay" data-2048-overlay hidden>
+          <h3 class="overlay-title" data-2048-overlay-title>Game Over</h3>
+          <p class="overlay-msg muted" data-2048-overlay-msg>No moves remaining!</p>
+          <button type="button" class="game-btn game-btn--primary" data-2048-overlay-btn>Try Again</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Directional Controls -->
+    <div class="g2048-touch-controls" aria-label="Mobile D-Pad">
+      <div class="dpad-row">
+        <button type="button" class="tctl" data-2048-btn="up" aria-label="Slide up">▲</button>
+      </div>
+      <div class="dpad-row">
+        <button type="button" class="tctl" data-2048-btn="left" aria-label="Slide left">◀</button>
+        <button type="button" class="tctl" data-2048-btn="down" aria-label="Slide down">▼</button>
+        <button type="button" class="tctl" data-2048-btn="right" aria-label="Slide right">▶</button>
+      </div>
+    </div>
+
+    <!-- Rules & Shortcuts Help -->
+    <details class="g2048-help">
+      <summary>How to Play & Shortcuts</summary>
+      <div class="help-grid muted">
+        <p><strong>Desktop Slide:</strong> Use <code>Arrow keys</code> or <code>W / A / S / D</code>.</p>
+        <p><strong>Mobile Touch:</strong> Swipe anywhere across the grid in any direction.</p>
+        <p><strong>Undo Move:</strong> Press <code>U</code>, <code>Cmd+Z</code>, or click the <strong>Undo</strong> button.</p>
+        <p><strong>Quick Restart:</strong> Press <code>R</code> to start a fresh board.</p>
+        <p><strong>Tile Merging:</strong> Tiles with the same number merge into one when they touch. After reaching 2048, choose <em>Keep Going</em> to reach 4096 and beyond!</p>
+      </div>
+    </details>
+  </section>
+</PageLayout>
+
+<script>
+  import { initGame2048, type Game2048Controller } from '../../scripts/game2048';
+
+  let controller: Game2048Controller | null = null;
+  function mount() {
+    if (controller) return;
+    controller = initGame2048(document);
+  }
+  function unmount() {
+    controller?.destroy();
+    controller = null;
+  }
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', unmount);
+  mount();
+</script>
+
+<style>
+  .g2048 {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    margin-block: 1rem 3rem;
+  }
+
+  /* Header Card */
+  .g2048-header-card {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 1rem 1.25rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-lg);
+  }
+  .g2048-header-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .g2048-header-title {
+    margin: 0;
+    font-size: var(--fs-h3);
+    color: var(--color-ink);
+  }
+  .g2048-header-subtitle {
+    margin: 0;
+    font-size: var(--fs-small);
+    color: var(--color-muted);
+  }
+
+  /* HUD */
+  .g2048-hud {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  .g2048-scores {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .score-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 4.75rem;
+    padding: 0.4rem 0.75rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+  }
+  .score-label {
+    font-size: 0.65rem;
+    font-weight: var(--fw-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-muted);
+  }
+  .score-val {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--color-ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .g2048-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .game-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.45rem 0.85rem;
+    font-size: var(--fs-small);
+    font-weight: var(--fw-semibold);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+  .game-btn:hover:not(:disabled) {
+    background: var(--color-bg);
+    border-color: var(--color-accent);
+  }
+  .game-btn:disabled,
+  .game-btn.is-disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .game-btn--primary {
+    background: var(--color-accent);
+    color: #ffffff;
+    border-color: var(--color-accent);
+  }
+  .game-btn--primary:hover {
+    background: var(--color-accent-dark);
+    color: #ffffff;
+  }
+  .game-btn--icon {
+    padding: 0.45rem;
+  }
+  .game-btn--icon.is-muted {
+    opacity: 0.6;
+    color: #ef4444;
+  }
+
+  /* Mode Bar */
+  .g2048-mode-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: var(--fs-small);
+  }
+  .mode-label {
+    font-weight: var(--fw-semibold);
+    color: var(--color-muted);
+  }
+  .mode-buttons {
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+  }
+  .mode-btn {
+    padding: 0.25rem 0.65rem;
+    font-size: 0.75rem;
+    font-weight: var(--fw-semibold);
+    background: var(--color-surface);
+    color: var(--color-muted);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+  .mode-btn:hover {
+    color: var(--color-ink);
+    border-color: var(--color-accent);
+  }
+  .mode-btn.is-active {
+    background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+  }
+
+  /* Stage & Board */
+  .g2048-stage {
+    display: flex;
+    justify-content: center;
+    padding: 1rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-lg);
+  }
+  .g2048-board-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 440px;
+    aspect-ratio: 1 / 1;
+  }
+
+  .g2048-grid {
+    --grid-size: 4;
+    display: grid;
+    grid-template-columns: repeat(var(--grid-size), 1fr);
+    grid-template-rows: repeat(var(--grid-size), 1fr);
+    gap: clamp(6px, 1.8vw, 12px);
+    width: 100%;
+    height: 100%;
+    padding: clamp(6px, 1.8vw, 12px);
+    background: color-mix(in srgb, var(--color-ink) 8%, var(--color-bg));
+    border-radius: var(--radius-lg);
+    user-select: none;
+    touch-action: none;
+  }
+
+  :global(.g2048-cell) {
+    position: relative;
+    background: color-mix(in srgb, var(--color-ink) 6%, var(--color-surface));
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  :global(.g2048-tile) {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius);
+    font-weight: 800;
+    font-size: clamp(1.4rem, 5vw, 2.1rem);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.08s ease-in-out;
+  }
+
+  :global(.g2048-tile.is-compact) {
+    font-size: clamp(1.05rem, 3.8vw, 1.6rem);
+  }
+  :global(.g2048-tile.is-tiny) {
+    font-size: clamp(0.85rem, 3vw, 1.25rem);
+  }
+
+  :global(.g2048-tile.is-new) {
+    animation: g2048-appear 0.15s ease-out;
+  }
+  :global(.g2048-tile.is-merged) {
+    animation: g2048-pop 0.18s ease-in-out;
+  }
+
+  @keyframes g2048-appear {
+    0% { transform: scale(0); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes g2048-pop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+    100% { transform: scale(1); }
+  }
+
+  /* Tile Colors */
+  :global(.g2048-tile--2) { background: #eee4da; color: #776e65; }
+  :global(.g2048-tile--4) { background: #ede0c8; color: #776e65; }
+  :global(.g2048-tile--8) { background: #f2b179; color: #f9f6f2; }
+  :global(.g2048-tile--16) { background: #f59563; color: #f9f6f2; }
+  :global(.g2048-tile--32) { background: #f67c5f; color: #f9f6f2; }
+  :global(.g2048-tile--64) { background: #f65e3b; color: #f9f6f2; }
+  :global(.g2048-tile--128) { background: #edcf72; color: #f9f6f2; box-shadow: 0 0 12px rgba(243, 215, 116, 0.4); }
+  :global(.g2048-tile--256) { background: #edcc61; color: #f9f6f2; box-shadow: 0 0 16px rgba(243, 215, 116, 0.5); }
+  :global(.g2048-tile--512) { background: #edc850; color: #f9f6f2; box-shadow: 0 0 20px rgba(243, 215, 116, 0.6); }
+  :global(.g2048-tile--1024) { background: #edc53f; color: #f9f6f2; box-shadow: 0 0 24px rgba(243, 215, 116, 0.7); }
+  :global(.g2048-tile--2048) { background: #eab308; color: #ffffff; box-shadow: 0 0 30px rgba(234, 179, 8, 0.85); }
+  :global(.g2048-tile--super) { background: #3b82f6; color: #ffffff; box-shadow: 0 0 30px rgba(59, 130, 246, 0.85); }
+
+  /* Overlay */
+  .g2048-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    background: rgba(15, 23, 42, 0.85);
+    border-radius: var(--radius-lg);
+    backdrop-filter: blur(4px);
+    z-index: 20;
+    animation: g2048-fade 0.2s ease-out;
+  }
+  @keyframes g2048-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .overlay-title {
+    margin: 0;
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #ffffff;
+  }
+  .overlay-msg {
+    margin: 0;
+    color: #cbd5e1;
+  }
+
+  /* Mobile Touch D-Pad */
+  .g2048-touch-controls {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .dpad-row {
+    display: flex;
+    gap: 0.4rem;
+  }
+  .tctl {
+    width: 3.25rem;
+    height: 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    font-size: 1.1rem;
+    color: var(--color-ink);
+    cursor: pointer;
+  }
+  .tctl:active {
+    background: var(--color-bg);
+    border-color: var(--color-accent);
+  }
+
+  @media (max-width: 640px) {
+    .g2048-touch-controls {
+      display: flex;
+    }
+  }
+
+  /* Help & Details */
+  .g2048-help {
+    padding: 0.75rem 1rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    font-size: var(--fs-small);
+  }
+  .g2048-help summary {
+    font-weight: var(--fw-semibold);
+    color: var(--color-ink);
+    cursor: pointer;
+  }
+  .help-grid {
+    display: grid;
+    gap: 0.4rem;
+    margin-top: 0.75rem;
+  }
+  .help-grid p {
+    margin: 0;
+  }
+</style>
