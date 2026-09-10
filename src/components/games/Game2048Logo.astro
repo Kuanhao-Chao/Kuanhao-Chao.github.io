@@ -1,0 +1,129 @@
+---
+interface Props {
+  size?: number;
+  class?: string;
+}
+
+const { size = 64, class: className = '' } = Astro.props;
+---
+
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 100 100"
+  width={size}
+  height={size}
+  class:list={['game-2048-logo', className]}
+  role="img"
+  aria-label="2048 Logo — Sliding numbers matrix with glowing 2048 golden gemstone tile"
+>
+  <defs>
+    <!-- Background Radial Aura -->
+    <radialGradient id="g2048-aura" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.35" />
+      <stop offset="60%" stop-color="#78350f" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Outer Rim Metallic Gradient -->
+    <linearGradient id="g2048-border" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24" />
+      <stop offset="50%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#b45309" />
+    </linearGradient>
+
+    <!-- Backplate Gradient -->
+    <linearGradient id="g2048-plate" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+
+    <!-- 2048 Gold Tile Gradient -->
+    <linearGradient id="g2048-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="40%" stop-color="#facc15" />
+      <stop offset="100%" stop-color="#eab308" />
+    </linearGradient>
+
+    <!-- Tile Inner Shadow / Bevel -->
+    <linearGradient id="g2048-tile-bevel" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.4" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.2" />
+    </linearGradient>
+  </defs>
+
+  <!-- Ambient Glow -->
+  <circle cx="50" cy="50" r="48" fill="url(#g2048-aura)" />
+
+  <!-- Outer Base Plate -->
+  <rect
+    x="8"
+    y="8"
+    width="84"
+    height="84"
+    rx="18"
+    fill="url(#g2048-plate)"
+    stroke="url(#g2048-border)"
+    stroke-width="2.5"
+  />
+
+  <!-- 4x4 Grid Matrix Pattern -->
+  <g transform="translate(14, 14)">
+    <!-- Background Slots -->
+    <rect x="0" y="0" width="16" height="16" rx="4" fill="#334155" opacity="0.4" />
+    <rect x="19" y="0" width="16" height="16" rx="4" fill="#334155" opacity="0.4" />
+    <rect x="38" y="0" width="16" height="16" rx="4" fill="#334155" opacity="0.4" />
+    <rect x="56" y="0" width="16" height="16" rx="4" fill="#334155" opacity="0.4" />
+
+    <rect x="0" y="19" width="16" height="16" rx="4" fill="#334155" opacity="0.4" />
+    <rect x="19" y="19" width="16" height="16" rx="4" fill="#334155" opacity="0.4" />
+    <rect x="38" y="19" width="16" height="16" rx="4" fill="#334155" opacity="0.4" />
+    <rect x="56" y="19" width="16" height="16" rx="4" fill="#334155" opacity="0.4" />
+
+    <rect x="0" y="38" width="16" height="16" rx="4" fill="#334155" opacity="0.4" />
+    <rect x="19" y="38" width="16" height="16" rx="4" fill="#334155" opacity="0.4" />
+    <rect x="38" y="38" width="16" height="16" rx="4" fill="#334155" opacity="0.4" />
+    <rect x="56" y="38" width="16" height="16" rx="4" fill="#334155" opacity="0.4" />
+
+    <rect x="0" y="56" width="16" height="16" rx="4" fill="#334155" opacity="0.4" />
+    <rect x="19" y="56" width="16" height="16" rx="4" fill="#334155" opacity="0.4" />
+    <rect x="38" y="56" width="16" height="16" rx="4" fill="#334155" opacity="0.4" />
+    <rect x="56" y="56" width="16" height="16" rx="4" fill="#334155" opacity="0.4" />
+
+    <!-- Active Tile: 2 -->
+    <rect x="0" y="0" width="16" height="16" rx="4" fill="#e2e8f0" />
+    <text x="8" y="11.5" font-size="9" font-weight="bold" fill="#334155" text-anchor="middle" font-family="system-ui, sans-serif">2</text>
+
+    <!-- Active Tile: 4 -->
+    <rect x="19" y="0" width="16" height="16" rx="4" fill="#fed7aa" />
+    <text x="27" y="11.5" font-size="9" font-weight="bold" fill="#7c2d12" text-anchor="middle" font-family="system-ui, sans-serif">4</text>
+
+    <!-- Active Tile: 128 -->
+    <rect x="0" y="19" width="16" height="16" rx="4" fill="#fde047" />
+    <text x="8" y="10.5" font-size="6" font-weight="bold" fill="#713f12" text-anchor="middle" font-family="system-ui, sans-serif">128</text>
+
+    <!-- Giant Prominent Centerpiece Tile: 2048 spanning 2x2 bottom-right -->
+    <g transform="translate(19, 19)">
+      <!-- Drop shadow -->
+      <rect x="0" y="2" width="53" height="53" rx="8" fill="#000000" opacity="0.45" />
+      <!-- Main Tile Body -->
+      <rect x="0" y="0" width="53" height="53" rx="8" fill="url(#g2048-gold)" stroke="#ffffff" stroke-width="1" stroke-opacity="0.6" />
+      <!-- Bevel Highlights -->
+      <rect x="1.5" y="1.5" width="50" height="24" rx="6" fill="#ffffff" opacity="0.25" />
+
+      <!-- Glowing 2048 Text -->
+      <text
+        x="26.5"
+        y="33"
+        font-size="14.5"
+        font-weight="900"
+        letter-spacing="-0.5px"
+        fill="#ffffff"
+        text-anchor="middle"
+        font-family="system-ui, -apple-system, sans-serif"
+        style="filter: drop-shadow(0 1px 2px rgba(113, 63, 18, 0.6));"
+      >
+        2048
+      </text>
+    </g>
+  </g>
+</svg>

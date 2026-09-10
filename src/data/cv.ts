@@ -344,4 +344,16 @@ export const sideProjects: SideProject[] = [
       'Bay Area Pathfinding & Route Search Visualizer — dynamic step-by-step route planning across the SF Bay Area comparing Dijkstra, A*, Bidirectional A*, Greedy, and BFS in real time',
     url: '/games/bay-route/',
   },
+  {
+    name: '2048',
+    detail:
+      'Sliding tile number puzzle — join matching tiles to reach the 2048 tile with multi-step undo, custom grid configurations (3×3 · 4×4 · 5×5), smooth animations, and harmonic Web Audio synthesis',
+    url: '/games/2048/',
+  },
+  {
+    name: 'Minesweeper',
+    detail:
+      'Classic grid deduction puzzle — guaranteed first-click safe opening, intelligent chord clearing, tactile flag placement, and customizable difficulties (Beginner · Intermediate · Expert)',
+    url: '/games/minesweeper/',
+  },
 ];

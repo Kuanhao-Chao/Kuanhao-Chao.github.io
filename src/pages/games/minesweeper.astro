@@ -1,0 +1,454 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import MinesweeperLogo from '../../components/games/MinesweeperLogo.astro';
+import { site } from '../../data/site';
+
+const gameLd = {
+  '@context': 'https://schema.org',
+  '@type': 'VideoGame',
+  name: 'Minesweeper',
+  description:
+    'A modern editorial take on classic Minesweeper: guaranteed safe first-click cascade, intelligent chording, tactile flags, retro-modern LED status bar, and audio synthesis.',
+  url: `${site.url}/games/minesweeper/`,
+  author: { '@id': `${site.url}/#person` },
+  applicationCategory: 'Game',
+  gamePlatform: ['Web browser', 'Mobile web browser'],
+  genre: ['Puzzle', 'Logic Game', 'Deduction Game'],
+  inLanguage: 'en',
+  isAccessibleForFree: true,
+};
+---
+
+<PageLayout
+  title="Minesweeper"
+  eyebrow="Side project"
+  lead="The classic grid deduction game: clear the minefield using numerical clues with a guaranteed first-click safe opening, intelligent chord clearing, tactile flag placement, and retro LED displays across Beginner, Intermediate, and Expert difficulties."
+  description="Play classic Minesweeper — modern, responsive browser game by Kuan-Hao Chao with guaranteed zero-guess opening, chording, and retro LED displays."
+  width="narrow"
+>
+  <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
+
+  <section class="minesweeper" data-minesweeper-root aria-label="Minesweeper deduction game">
+    <!-- Header Medallion Card -->
+    <div class="mine-header-card">
+      <MinesweeperLogo size={58} />
+      <div class="mine-header-info">
+        <h2 class="mine-header-title">Minesweeper Minefield</h2>
+        <p class="mine-header-subtitle">
+          Deduce hidden naval mines with mathematical precision. Tap numbers to chord-clear cleared perimeters!
+        </p>
+      </div>
+    </div>
+
+    <!-- Difficulty & Best Time Toolbar -->
+    <div class="mine-toolbar">
+      <div class="diff-selector" role="group" aria-label="Select game difficulty">
+        <button type="button" class="diff-btn is-active" data-mine-diff="beginner" aria-pressed="true">
+          Beginner (9×9)
+        </button>
+        <button type="button" class="diff-btn" data-mine-diff="intermediate" aria-pressed="false">
+          Intermediate (16×16)
+        </button>
+        <button type="button" class="diff-btn" data-mine-diff="expert" aria-pressed="false">
+          Expert (16×30)
+        </button>
+      </div>
+
+      <div class="best-badge" title="Best time for this difficulty">
+        <span class="best-label">Best:</span>
+        <strong class="best-val" data-mine-best>—</strong>
+      </div>
+    </div>
+
+    <!-- Retro Console Stage -->
+    <div class="mine-console">
+      <!-- Status Topbar: Mines Counter | Smiley Reset | Timer -->
+      <div class="mine-hud">
+        <!-- Digital 7-Seg Mine Counter -->
+        <div class="digital-lcd" title="Mines Remaining" aria-label="Mines Remaining">
+          <span class="lcd-text" data-mine-count>010</span>
+        </div>
+
+        <!-- Interactive Reset Face Button -->
+        <button
+          type="button"
+          class="face-btn"
+          data-mine-face
+          title="Reset board (or click to restart)"
+          aria-label="Restart game"
+        >
+          😊
+        </button>
+
+        <!-- Digital 7-Seg Timer -->
+        <div class="digital-lcd" title="Elapsed Time (seconds)" aria-label="Elapsed Time">
+          <span class="lcd-text" data-mine-timer>000</span>
+        </div>
+      </div>
+
+      <!-- Quick Action Bar -->
+      <div class="mine-action-bar">
+        <!-- Flag Mode Toggle (Touch / Mobile) -->
+        <button
+          type="button"
+          class="flag-toggle-btn"
+          data-mine-flag-toggle
+          title="Toggle flag placement mode (essential on mobile phones)"
+          aria-pressed="false"
+        >
+          <span class="flag-icon">🚩</span>
+          <span class="flag-text">Flag Mode</span>
+        </button>
+
+        <!-- Sound Toggle -->
+        <button
+          type="button"
+          class="sound-btn"
+          data-mine-sound
+          title="Toggle sound effects"
+          aria-label="Toggle sound FX"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Mine Board Wrapper with smooth horizontal scrolling for Expert mode -->
+      <div class="board-scroll-container">
+        <div class="mine-board" data-mine-board role="grid" aria-label="Minesweeper grid"></div>
+      </div>
+    </div>
+
+    <!-- Help & Pro Tips -->
+    <details class="mine-help">
+      <summary>Rules, Chording & Deduction Tips</summary>
+      <div class="help-grid muted">
+        <p><strong>First Click Safe:</strong> Your first click is 100% guaranteed safe and opens up a cascade perimeter.</p>
+        <p><strong>Revealing Cells:</strong> Left click (or tap in Normal mode) on any unrevealed tile.</p>
+        <p><strong>Flagging Mines:</strong> Right click, long press, or toggle <strong>🚩 Flag Mode</strong> to mark suspected mines.</p>
+        <p><strong>Intelligent Chording:</strong> Click on an already revealed number when you've placed the matching number of flags around it. All other surrounding tiles will reveal in an instant!</p>
+        <p><strong>Number Colors:</strong> 1 is <span style="color:#2563eb;font-weight:bold;">Blue</span>, 2 is <span style="color:#16a34a;font-weight:bold;">Green</span>, 3 is <span style="color:#dc2626;font-weight:bold;">Red</span>, 4 is <span style="color:#1e3a8a;font-weight:bold;">Navy</span>, 5 is <span style="color:#991b1b;font-weight:bold;">Burgundy</span>, 6 is <span style="color:#0d9488;font-weight:bold;">Teal</span>.</p>
+      </div>
+    </details>
+  </section>
+</PageLayout>
+
+<script>
+  import { initMinesweeper, type MinesweeperController } from '../../scripts/minesweeper';
+
+  let controller: MinesweeperController | null = null;
+  function mount() {
+    if (controller) return;
+    controller = initMinesweeper(document);
+  }
+  function unmount() {
+    controller?.destroy();
+    controller = null;
+  }
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', unmount);
+  mount();
+</script>
+
+<style>
+  .minesweeper {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    margin-block: 1rem 3rem;
+  }
+
+  /* Header Card */
+  .mine-header-card {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 1rem 1.25rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-lg);
+  }
+  .mine-header-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .mine-header-title {
+    margin: 0;
+    font-size: var(--fs-h3);
+    color: var(--color-ink);
+  }
+  .mine-header-subtitle {
+    margin: 0;
+    font-size: var(--fs-small);
+    color: var(--color-muted);
+  }
+
+  /* Difficulty Toolbar */
+  .mine-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  .diff-selector {
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+  }
+  .diff-btn {
+    padding: 0.35rem 0.75rem;
+    font-size: var(--fs-small);
+    font-weight: var(--fw-semibold);
+    background: var(--color-surface);
+    color: var(--color-muted);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+  .diff-btn:hover {
+    color: var(--color-ink);
+    border-color: var(--color-accent);
+  }
+  .diff-btn.is-active {
+    background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+  }
+
+  .best-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.65rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    font-size: var(--fs-small);
+  }
+  .best-label {
+    color: var(--color-muted);
+  }
+  .best-val {
+    color: var(--color-accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Console & Beveled Stage */
+  .mine-console {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem;
+    background: color-mix(in srgb, var(--color-ink) 4%, var(--color-surface));
+    border: 2px solid var(--color-rule);
+    border-radius: var(--radius-lg);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+
+  /* HUD */
+  .mine-hud {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 480px;
+    padding: 0.5rem 0.85rem;
+    background: var(--color-surface);
+    border: 2px solid var(--color-rule);
+    border-radius: var(--radius);
+  }
+
+  /* Digital 7-Segment LCD Display */
+  .digital-lcd {
+    background: #020617;
+    border: 2px inset #334155;
+    border-radius: 4px;
+    padding: 0.2rem 0.55rem;
+    min-width: 4.5rem;
+    text-align: right;
+  }
+  .lcd-text {
+    font-family: ui-monospace, 'Courier New', Courier, monospace;
+    font-size: 1.6rem;
+    font-weight: 900;
+    color: #ef4444;
+    letter-spacing: 0.12em;
+    text-shadow: 0 0 6px rgba(239, 68, 68, 0.7);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Smiley Face Button */
+  .face-btn {
+    font-size: 1.65rem;
+    line-height: 1;
+    width: 2.75rem;
+    height: 2.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg);
+    border: 2px outset var(--color-rule);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: transform 0.05s ease;
+  }
+  .face-btn:active {
+    border-style: inset;
+    transform: translateY(1px);
+  }
+
+  /* Action Bar (Flag mode & sound) */
+  .mine-action-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .flag-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.85rem;
+    font-size: var(--fs-small);
+    font-weight: var(--fw-semibold);
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    color: var(--color-ink);
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+  .flag-toggle-btn:hover {
+    border-color: var(--color-accent);
+  }
+  .flag-toggle-btn.is-active {
+    background: color-mix(in srgb, #ef4444 14%, var(--color-surface));
+    border-color: #ef4444;
+    color: #ef4444;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.25);
+  }
+
+  .sound-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.45rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    color: var(--color-ink);
+    cursor: pointer;
+  }
+  .sound-btn.is-muted {
+    opacity: 0.5;
+    color: #ef4444;
+  }
+
+  /* Board & Cell Styles */
+  .board-scroll-container {
+    width: 100%;
+    overflow-x: auto;
+    display: flex;
+    justify-content: center;
+    padding-bottom: 0.5rem;
+  }
+
+  .mine-board {
+    --mine-rows: 9;
+    --mine-cols: 9;
+    display: grid;
+    grid-template-rows: repeat(var(--mine-rows), 1fr);
+    grid-template-columns: repeat(var(--mine-cols), 1fr);
+    gap: 1px;
+    background: var(--color-rule);
+    border: 3px solid var(--color-rule);
+    border-radius: 4px;
+    user-select: none;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  }
+
+  :global(.mine-cell) {
+    width: clamp(24px, 3.5vw, 32px);
+    height: clamp(24px, 3.5vw, 32px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-size: clamp(0.9rem, 2.3vw, 1.15rem);
+    font-weight: 900;
+    line-height: 1;
+    background: var(--color-surface);
+    border: 2px outset color-mix(in srgb, var(--color-ink) 12%, var(--color-surface));
+    color: var(--color-ink);
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.05s ease;
+  }
+
+  :global(.mine-cell:active:not(.is-revealed)) {
+    border-style: inset;
+    background: var(--color-bg);
+  }
+
+  :global(.mine-cell.is-revealed) {
+    border: 1px solid color-mix(in srgb, var(--color-ink) 8%, transparent);
+    background: color-mix(in srgb, var(--color-ink) 5%, var(--color-bg));
+    cursor: default;
+  }
+
+  :global(.mine-cell.is-mine) {
+    background: #fee2e2;
+  }
+  :global(.mine-cell.is-exploded) {
+    background: #ef4444;
+    color: #ffffff;
+    animation: mine-shake 0.3s ease-in-out;
+  }
+  @keyframes mine-shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-3px); }
+    75% { transform: translateX(3px); }
+  }
+
+  :global(.mine-cell.is-misflagged) {
+    background: #fef08a;
+  }
+
+  /* Number Colors */
+  :global(.mine-cell.is-num-1) { color: #2563eb; }
+  :global(.mine-cell.is-num-2) { color: #16a34a; }
+  :global(.mine-cell.is-num-3) { color: #dc2626; }
+  :global(.mine-cell.is-num-4) { color: #1e3a8a; }
+  :global(.mine-cell.is-num-5) { color: #991b1b; }
+  :global(.mine-cell.is-num-6) { color: #0d9488; }
+  :global(.mine-cell.is-num-7) { color: #000000; }
+  :global(.mine-cell.is-num-8) { color: #64748b; }
+
+  /* Help & Tips */
+  .mine-help {
+    padding: 0.75rem 1rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    font-size: var(--fs-small);
+  }
+  .mine-help summary {
+    font-weight: var(--fw-semibold);
+    color: var(--color-ink);
+    cursor: pointer;
+  }
+  .help-grid {
+    display: grid;
+    gap: 0.4rem;
+    margin-top: 0.75rem;
+  }
+  .help-grid p {
+    margin: 0;
+  }
+</style>
