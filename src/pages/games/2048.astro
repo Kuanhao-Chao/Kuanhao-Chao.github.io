@@ -46,6 +46,7 @@ const gameLd = {
         <div class="score-badge" title="Current Score">
           <span class="score-label">Score</span>
           <span class="score-val" data-2048-score>0</span>
+          <span class="score-addition" data-2048-score-add aria-hidden="true"></span>
         </div>
         <div class="score-badge" title="Best Score">
           <span class="score-label">Best</span>
@@ -97,13 +98,20 @@ const gameLd = {
       </div>
     </div>
 
-    <!-- Mode Selector -->
+    <!-- Mode Selector & Shortcut Chips -->
     <div class="g2048-mode-bar" role="group" aria-label="Select board grid size">
-      <span class="mode-label">Mode:</span>
-      <div class="mode-buttons">
-        <button type="button" class="mode-btn" data-2048-size data-board-size="3" aria-pressed="false">Speed (3×3)</button>
-        <button type="button" class="mode-btn is-active" data-2048-size data-board-size="4" aria-pressed="true">Classic (4×4)</button>
-        <button type="button" class="mode-btn" data-2048-size data-board-size="5" aria-pressed="false">Relaxed (5×5)</button>
+      <div class="mode-left">
+        <span class="mode-label">Mode:</span>
+        <div class="mode-buttons">
+          <button type="button" class="mode-btn" data-2048-size data-board-size="3" aria-pressed="false">Speed (3×3)</button>
+          <button type="button" class="mode-btn is-active" data-2048-size data-board-size="4" aria-pressed="true">Classic (4×4)</button>
+          <button type="button" class="mode-btn" data-2048-size data-board-size="5" aria-pressed="false">Relaxed (5×5)</button>
+        </div>
+      </div>
+      <div class="shortcut-hints muted" aria-hidden="true">
+        <span class="hint-chip">Arrows / WASD</span>
+        <span class="hint-chip"><kbd>U</kbd> Undo</span>
+        <span class="hint-chip"><kbd>R</kbd> Restart</span>
       </div>
     </div>
 
@@ -211,6 +219,7 @@ const gameLd = {
     gap: 0.5rem;
   }
   .score-badge {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -232,6 +241,31 @@ const gameLd = {
     font-weight: 800;
     color: var(--color-ink);
     font-variant-numeric: tabular-nums;
+  }
+  .score-addition {
+    position: absolute;
+    right: 8px;
+    top: 4px;
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: var(--color-accent);
+    opacity: 0;
+    pointer-events: none;
+    user-select: none;
+    font-variant-numeric: tabular-nums;
+  }
+  .score-addition.is-floating {
+    animation: g2048-score-float 0.65s ease-out forwards;
+  }
+  @keyframes g2048-score-float {
+    0% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-26px);
+    }
   }
 
   .g2048-actions {
@@ -281,12 +315,19 @@ const gameLd = {
     color: #ef4444;
   }
 
-  /* Mode Bar */
+  /* Mode Bar & Shortcut Badges */
   .g2048-mode-bar {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 0.6rem;
+    flex-wrap: wrap;
     font-size: var(--fs-small);
+  }
+  .mode-left {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
   }
   .mode-label {
     font-weight: var(--fw-semibold);
@@ -316,6 +357,30 @@ const gameLd = {
     background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
     color: var(--color-accent);
     border-color: var(--color-accent);
+  }
+  .shortcut-hints {
+    display: none;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  @media (min-width: 640px) {
+    .shortcut-hints {
+      display: flex;
+    }
+  }
+  .hint-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.45rem;
+    background: color-mix(in srgb, var(--color-ink) 5%, var(--color-surface));
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    font-size: 0.72rem;
+  }
+  .hint-chip kbd {
+    font-family: var(--font-mono);
+    font-weight: 700;
   }
 
   /* Stage & Board */
@@ -365,10 +430,12 @@ const gameLd = {
     align-items: center;
     justify-content: center;
     border-radius: var(--radius);
+    font-family: var(--font-display, system-ui, sans-serif);
     font-weight: 800;
     font-size: clamp(1.4rem, 5vw, 2.1rem);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
     transition: transform 0.08s ease-in-out;
+    font-variant-numeric: tabular-nums;
   }
 
   :global(.g2048-tile.is-compact) {
@@ -407,22 +474,30 @@ const gameLd = {
   :global(.g2048-tile--512) { background: #edc850; color: #f9f6f2; box-shadow: 0 0 20px rgba(243, 215, 116, 0.6); }
   :global(.g2048-tile--1024) { background: #edc53f; color: #f9f6f2; box-shadow: 0 0 24px rgba(243, 215, 116, 0.7); }
   :global(.g2048-tile--2048) { background: #eab308; color: #ffffff; box-shadow: 0 0 30px rgba(234, 179, 8, 0.85); }
-  :global(.g2048-tile--super) { background: #3b82f6; color: #ffffff; box-shadow: 0 0 30px rgba(59, 130, 246, 0.85); }
+  :global(.g2048-tile--4096) { background: #8b5cf6; color: #ffffff; box-shadow: 0 0 30px rgba(139, 92, 246, 0.85); }
+  :global(.g2048-tile--8192) { background: #ec4899; color: #ffffff; box-shadow: 0 0 30px rgba(236, 72, 153, 0.85); }
+  :global(.g2048-tile--super) { background: #06b6d4; color: #ffffff; box-shadow: 0 0 30px rgba(6, 182, 212, 0.85); }
 
-  /* Overlay */
+  /* Overlay (Hidden by default, shown via .is-active:not([hidden])) */
   .g2048-overlay {
     position: absolute;
     inset: 0;
-    display: flex;
+    display: none;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 0.75rem;
-    background: rgba(15, 23, 42, 0.85);
+    background: rgba(15, 23, 42, 0.88);
     border-radius: var(--radius-lg);
-    backdrop-filter: blur(4px);
+    backdrop-filter: blur(5px);
     z-index: 20;
     animation: g2048-fade 0.2s ease-out;
+  }
+  .g2048-overlay.is-active:not([hidden]) {
+    display: flex;
+  }
+  .g2048-overlay[hidden] {
+    display: none !important;
   }
   @keyframes g2048-fade {
     from { opacity: 0; }

@@ -167,6 +167,7 @@ export function initGame2048(root: HTMLElement | Document = document): Game2048C
 
   const gridEl = container.querySelector<HTMLElement>('[data-2048-grid]');
   const scoreValEl = container.querySelector<HTMLElement>('[data-2048-score]');
+  const scoreAddEl = container.querySelector<HTMLElement>('[data-2048-score-add]');
   const bestScoreValEl = container.querySelector<HTMLElement>('[data-2048-best]');
   const undoBtn = container.querySelector<HTMLButtonElement>('[data-2048-undo]');
   const restartBtn = container.querySelector<HTMLButtonElement>('[data-2048-restart]');
@@ -195,6 +196,7 @@ export function initGame2048(root: HTMLElement | Document = document): Game2048C
   let isOver = false;
   let keepPlaying = false;
   let history: HistoryStack = createHistoryStack(20);
+  let activeOverlayHandler: (() => void) | null = null;
 
   function getBestScore(): number {
     try {
@@ -265,21 +267,30 @@ export function initGame2048(root: HTMLElement | Document = document): Game2048C
     }
   }
 
+  function hideOverlay(): void {
+    if (!overlayEl) return;
+    overlayEl.hidden = true;
+    overlayEl.classList.remove('is-active');
+    if (overlayActionBtn && activeOverlayHandler) {
+      overlayActionBtn.removeEventListener('click', activeOverlayHandler);
+      activeOverlayHandler = null;
+    }
+  }
+
   function showOverlay(title: string, msg: string, btnText: string, onAction: () => void): void {
     if (!overlayEl || !overlayTitleEl || !overlayMsgEl || !overlayActionBtn) return;
+    hideOverlay();
     overlayTitleEl.textContent = title;
     overlayMsgEl.textContent = msg;
     overlayActionBtn.textContent = btnText;
     overlayEl.hidden = false;
     overlayEl.classList.add('is-active');
 
-    const clickHandler = () => {
-      overlayActionBtn.removeEventListener('click', clickHandler);
-      overlayEl.hidden = true;
-      overlayEl.classList.remove('is-active');
+    activeOverlayHandler = () => {
+      hideOverlay();
       onAction();
     };
-    overlayActionBtn.addEventListener('click', clickHandler);
+    overlayActionBtn.addEventListener('click', activeOverlayHandler, { once: true });
   }
 
   function startNewGame(newSize: BoardSize = boardSize): void {
@@ -291,7 +302,7 @@ export function initGame2048(root: HTMLElement | Document = document): Game2048C
     keepPlaying = false;
     history = clearHistory(history);
 
-    if (overlayEl) overlayEl.hidden = true;
+    hideOverlay();
 
     // Spawn 2 initial tiles
     const t1 = spawnRandomTile(grid);
@@ -332,8 +343,14 @@ export function initGame2048(root: HTMLElement | Document = document): Game2048C
     score += res.scoreGain;
     setBestScore(score);
 
-    // Audio cues
+    // Audio cues & score addition animation
     if (res.scoreGain > 0) {
+      if (scoreAddEl) {
+        scoreAddEl.textContent = `+${res.scoreGain}`;
+        scoreAddEl.classList.remove('is-floating');
+        void scoreAddEl.offsetWidth; // trigger reflow to restart animation
+        scoreAddEl.classList.add('is-floating');
+      }
       let maxMerged = 4;
       for (const [r, c] of res.mergedPositions) {
         if (grid[r][c] > maxMerged) maxMerged = grid[r][c];
@@ -382,9 +399,9 @@ export function initGame2048(root: HTMLElement | Document = document): Game2048C
     score = restored.score;
     boardSize = restored.boardSize;
     isWon = restored.isWon;
-    isOver = restored.isOver;
+    isOver = false;
 
-    if (overlayEl) overlayEl.hidden = true;
+    hideOverlay();
     audio.playSlide();
     renderGrid();
   }
@@ -443,12 +460,19 @@ export function initGame2048(root: HTMLElement | Document = document): Game2048C
   // --- Touch Gesture Handler ---
   let touchStartX = 0;
   let touchStartY = 0;
-  const MIN_SWIPE_DISTANCE = 30;
+  const MIN_SWIPE_DISTANCE = 20;
 
   function onTouchStart(e: TouchEvent): void {
     if (e.touches.length !== 1) return;
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
+  }
+
+  function onTouchMove(e: TouchEvent): void {
+    if (e.touches.length === 1) {
+      // Prevent screen scrolling when user swipes over the 2048 grid
+      e.preventDefault();
+    }
   }
 
   function onTouchEnd(e: TouchEvent): void {
@@ -482,6 +506,7 @@ export function initGame2048(root: HTMLElement | Document = document): Game2048C
   // --- Event Listeners Attachment ---
   window.addEventListener('keydown', onKeyDown);
   gridEl.addEventListener('touchstart', onTouchStart, { passive: true });
+  gridEl.addEventListener('touchmove', onTouchMove, { passive: false });
   gridEl.addEventListener('touchend', onTouchEnd, { passive: true });
 
   const onUndoClick = () => handleUndo();
@@ -513,6 +538,7 @@ export function initGame2048(root: HTMLElement | Document = document): Game2048C
     destroy: () => {
       window.removeEventListener('keydown', onKeyDown);
       gridEl.removeEventListener('touchstart', onTouchStart);
+      gridEl.removeEventListener('touchmove', onTouchMove);
       gridEl.removeEventListener('touchend', onTouchEnd);
       undoBtn?.removeEventListener('click', onUndoClick);
       restartBtn?.removeEventListener('click', onRestartClick);
