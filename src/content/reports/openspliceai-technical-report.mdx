@@ -237,11 +237,12 @@ Agreement differs by event: AL/DL correlations are 0.900 /
 0.597 for AG/DG. These are concordance measurements against
 SpliceAI, with no experimental truth labels. They cannot rank biological accuracy.
 
-The [full-SNV scoring technical report](/reports/full-snv-scoring-technical-report/#5-results)
-contains the complete tables and redesigned figures: event-level agreement, threshold transfer,
-output precision, predicted-position agreement, genomic heterogeneity, selected discrepancies,
-and context around annotated internal splice boundaries. It also compares seed and method
-differences on exactly the same three-way variant/gene intersection.
+The [full-SNV scoring technical report](/reports/full-snv-scoring-technical-report/#loss-scores-agree-more-closely-than-gain-scores)
+covers event-level score agreement, call overlap, boundary context and predicted positions on the
+primary matched annotations, and compares the two seeds against SpliceAI on the smaller three-way
+intersection. The
+[supplement](/reports/full-snv-scoring-supplement/) provides detailed methods, secondary figures,
+and complete table downloads.
 
 ## 4. Genome-wide SNV re-scoring campaign
 
@@ -256,10 +257,10 @@ arms contain 1,536,316,689 common exact-gene
 observations. All results are provisional; audited legacy outputs do not carry embedded
 receipts proving their checkpoint identity.
 
-The [companion report](/reports/full-snv-scoring-technical-report/) documents the scoring
-and submission implementation, incidents and recovery, audit and boundary contracts,
-independent verification, and complete reproducibility artifacts. It distinguishes
-annotation proximity from the scorer's masking rule and from biological validation.
+The [main comparison](/reports/full-snv-scoring-technical-report/) includes the current two-seed
+progress figure. Its [supplement](/reports/full-snv-scoring-supplement/) describes audit and
+boundary contracts, independent verification, and reproducibility artifacts. The original engineering
+narrative remains in the [September 9 archive](/downloads/full-snv-concordance-20260909.zip).
 
 ## 5. Discussion
 
@@ -279,14 +280,15 @@ contributions remain mixed; agreement with another predictor is not biological v
 ## 6. Limitations
 
 1. **Recall trade-off.** OpenSpliceAI's higher precision comes with slightly lower recall than SpliceAI (§3.1); applications that weight sensitivity above specificity should choose the operating point deliberately.
-2. **The variant comparison is concordance, not accuracy.** The genome-wide comparison in §3.3 and the [full-SNV report](/reports/full-snv-scoring-technical-report/#58-seed-variation-and-regional-heterogeneity) is now mask-, annotation- and distance-matched, which removes the confound that limited the earlier 452 K-SNV analysis. It still measures agreement against SpliceAI as a comparator, not against experimentally validated splicing outcomes, so it identifies where the two tools differ but cannot say which is correct. It is also a single OpenSpliceAI checkpoint against a five-model SpliceAI ensemble, and that asymmetry is not separable from the method difference.
+2. **The variant comparison is concordance, not accuracy.** The genome-wide comparison in §3.3 and the [full-SNV report](/reports/full-snv-scoring-technical-report/#study-design-and-inference-progress) is now mask-, annotation- and distance-matched, which removes the confound that limited the earlier 452 K-SNV analysis. It still measures agreement against SpliceAI as a comparator, not against experimentally validated splicing outcomes, so it identifies where the two tools differ but cannot say which is correct. It is also a single OpenSpliceAI checkpoint against a five-model SpliceAI ensemble, and that asymmetry is not separable from the method difference.
 3. **Single-device training.** Despite a hardcoded `N_GPUS = 2` in the hyperparameter tables, the code does not use `DataParallel`; training runs on one device, and `N_GPUS` only scales batch size (§2.4).
 4. **Maintenance hazard.** The $(W, AR, \text{batch size})$ schedule is duplicated across several subcommands; a change in one must be mirrored in the others. This is the most likely source of subtle bugs and is flagged in the codebase.
 5. **Campaign incomplete.** The depth analysis is based on the frozen audited subset;
    GPU scoring remains outside this continuation. All concordance results are provisional,
    and the rs13-dependent analysis is regional and restricted to common genes. The
-   [full-SNV report](/reports/full-snv-scoring-technical-report/#7-limitations) details these
-   coverage, provenance and interpretation limits.
+   full-SNV report records the
+   [coverage and provenance limits](/reports/full-snv-scoring-technical-report/#study-design-and-inference-progress)
+   and sets out the [interpretation limits](/reports/full-snv-scoring-technical-report/#discussion).
 
 ## 7. Availability and reproducibility
 

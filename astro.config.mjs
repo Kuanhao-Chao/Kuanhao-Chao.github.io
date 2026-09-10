@@ -9,7 +9,7 @@ import { legacyRedirects } from './src/legacy-redirects.mjs';
 
 // https://astro.build/config
 /** Report slugs that are deliberately public (frontmatter `unlisted: false`). */
-const PUBLIC_REPORTS = ['openspliceai-technical-report', 'full-snv-scoring-technical-report'];
+const PUBLIC_REPORTS = ['openspliceai-technical-report', 'full-snv-scoring-technical-report', 'full-snv-scoring-supplement'];
 
 export default defineConfig({
   site: 'https://khchao.com',
