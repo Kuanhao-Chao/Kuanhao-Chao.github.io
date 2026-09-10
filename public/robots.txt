@@ -2,6 +2,7 @@ User-agent: *
 # /reports/ is private as a section; individual reports flipped to
 # `unlisted: false` are re-allowed above the Disallow (longest match wins).
 Allow: /reports/openspliceai-technical-report/
+Allow: /reports/full-snv-scoring-technical-report/
 Disallow: /reports/
 Disallow: /papers/
 Disallow: /algorithms/

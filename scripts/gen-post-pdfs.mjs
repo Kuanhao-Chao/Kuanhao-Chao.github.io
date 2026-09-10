@@ -192,7 +192,7 @@ async function collectJobs() {
  * `PUBLIC_REPORTS` in `astro.config.mjs` and the `Allow:` lines in
  * `public/robots.txt` -- see CLAUDE.md.
  */
-const PUBLIC_REPORTS = new Set(['openspliceai-technical-report']);
+const PUBLIC_REPORTS = new Set(['openspliceai-technical-report', 'full-snv-scoring-technical-report']);
 
 /**
  * Reports are draft-only and get no PDF, with one exception: a report flipped to
