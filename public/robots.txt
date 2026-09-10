@@ -3,6 +3,7 @@ User-agent: *
 # `unlisted: false` are re-allowed above the Disallow (longest match wins).
 Allow: /reports/openspliceai-technical-report/
 Allow: /reports/full-snv-scoring-technical-report/
+Allow: /reports/full-snv-scoring-supplement/
 Disallow: /reports/
 Disallow: /papers/
 Disallow: /algorithms/

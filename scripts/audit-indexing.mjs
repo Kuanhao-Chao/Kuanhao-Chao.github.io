@@ -575,6 +575,13 @@ async function main() {
   const urls = await sitemapUrls();
   const posts = await readCollection('posts');
   const reports = await readCollection('reports');
+  const snvSupplement = reports.find((entry) => entry.slug === 'full-snv-scoring-supplement');
+  if (!snvSupplement) {
+    // The main report deep-links the supplement, so its absence is a broken contract, not a pass.
+    errors.push('The SNV supplement entry is missing; its indexing contract cannot be checked.');
+  } else if (snvSupplement.data.unlisted !== false || snvSupplement.data.scholar !== false || snvSupplement.data.listed !== false) {
+    errors.push('The SNV supplement must be public, non-Scholar, and linked from its main report instead of the reports listing.');
+  }
 
   await auditRobots();
   await auditReportsIndex(reports, urls);

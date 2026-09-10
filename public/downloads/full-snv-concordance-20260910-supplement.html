@@ -1,0 +1,1054 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Supplement: genome-wide OpenSpliceAI and SpliceAI comparison</title>
+<style>
+@import url("https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+/* Palette: cool-biased neutrals (the accent is blue, so the greys lean blue rather
+   than sitting at a pure mid-grey), with the two accents taken directly from the
+   figures' validated categorical slots -- SpliceAI blue and OpenSpliceAI orange --
+   so the prose, the tables and the charts read as one system. */
+:root{
+  color-scheme: light;
+  --ground:#f7f8fa; --card:#ffffff; --raised:#eef1f6;
+  --ink:#12151a; --ink-2:#49515f; --ink-3:#838b99;
+  --rule:#e0e4ea; --rule-strong:#c9cfd9;
+  --accent:#2a78d6; --accent-2:#eb6834;
+  --serif:"Spectral",Georgia,"Times New Roman",serif;
+  --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --measure:68ch;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --ground:#14171c; --card:#1b1f26; --raised:#232832;
+    --ink:#f1f3f7; --ink-2:#b2b9c6; --ink-3:#7b8393;
+    --rule:#2b303a; --rule-strong:#3b424f;
+    --accent:#5a9bea; --accent-2:#ef7f52;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --ground:#14171c; --card:#1b1f26; --raised:#232832;
+  --ink:#f1f3f7; --ink-2:#b2b9c6; --ink-3:#7b8393;
+  --rule:#2b303a; --rule-strong:#3b424f;
+  --accent:#5a9bea; --accent-2:#ef7f52;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:var(--serif); font-size:17px; line-height:1.68;
+  -webkit-font-smoothing:antialiased;
+}
+main{
+  /* A narrow measure for prose; tables and figures break out to the full width,
+     because dense numeric data is scanned, not read at 68 characters. */
+  max-width:78rem; margin:0 auto; padding:4rem 2rem 7rem;
+  display:flex; flex-direction:column; gap:0;
+}
+main > p, main > ul, main > ol, main > blockquote{max-width:var(--measure)}
+main > h1, main > h2, main > h3, main > h4{max-width:var(--measure)}
+
+h1{
+  font-weight:700; font-size:clamp(1.9rem,3.4vw,2.7rem); line-height:1.14;
+  letter-spacing:-.018em; text-wrap:balance; margin:0 0 1.1rem;
+}
+h2{
+  font-weight:600; font-size:1.52rem; line-height:1.25; letter-spacing:-.012em;
+  text-wrap:balance; margin:3.6rem 0 .5rem; padding-top:1.5rem;
+  border-top:1px solid var(--rule);
+}
+h3{font-weight:600; font-size:1.18rem; letter-spacing:-.006em; text-wrap:balance; margin:2.3rem 0 .4rem}
+h4{font-family:var(--sans); font-weight:600; font-size:.86rem; letter-spacing:.06em;
+   text-transform:uppercase; color:var(--ink-2); margin:1.7rem 0 .35rem}
+p{margin:0 0 1.05rem}
+strong{font-weight:600}
+a{color:var(--accent); text-underline-offset:2px}
+a:focus-visible,summary:focus-visible{outline:2px solid var(--accent); outline-offset:3px; border-radius:3px}
+ul,ol{margin:0 0 1.1rem; padding-left:1.35rem}
+li{margin:.3rem 0}
+li::marker{color:var(--ink-3)}
+
+blockquote{
+  margin:1.5rem 0; padding:.85rem 1.15rem; background:var(--raised);
+  border-left:2px solid var(--accent); border-radius:0 3px 3px 0;
+  font-style:italic; color:var(--ink-2);
+}
+
+code{font-family:var(--mono); font-size:.84em; background:var(--raised);
+     padding:.1em .34em; border-radius:3px; word-break:break-word}
+pre{font-family:var(--mono); background:var(--raised); color:var(--ink);
+    padding:1rem 1.15rem; border-radius:5px; overflow-x:auto; font-size:.82rem;
+    line-height:1.55; border:1px solid var(--rule); margin:1.3rem 0; max-width:100%}
+pre code{background:none; padding:0; font-size:1em}
+
+/* Tables are the substance of this document, so they get the utility face,
+   lining figures and a scroll container of their own. */
+.tablewrap{overflow-x:auto; margin:1.5rem 0; border:1px solid var(--rule);
+           border-radius:5px; background:var(--card)}
+table{border-collapse:collapse; width:100%; font-family:var(--sans);
+      font-size:.815rem; line-height:1.45; font-variant-numeric:tabular-nums lining-nums}
+th,td{padding:.5rem .8rem; text-align:right; white-space:nowrap;
+      border-bottom:1px solid var(--rule)}
+th:first-child,td:first-child{text-align:left; white-space:normal; min-width:11rem}
+thead th{background:var(--raised); color:var(--ink-2); font-weight:600;
+         font-size:.74rem; letter-spacing:.045em; text-transform:uppercase;
+         border-bottom:1px solid var(--rule-strong); position:sticky; top:0; z-index:1}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--raised)}
+td code{font-size:.78em}
+
+figure{margin:2rem 0}
+/* Charts are rendered on the light chart surface. In dark mode they sit on a light
+   card rather than being inverted: an automatic flip is not a selected palette. */
+figure img{display:block; width:100%; height:auto; background:#fcfcfb;
+           border:1px solid var(--rule); border-radius:5px; padding:.6rem}
+figcaption{margin-top:.6rem; font-family:var(--sans); font-size:.8rem;
+           line-height:1.5; color:var(--ink-2); max-width:var(--measure)}
+
+small{font-family:var(--sans); font-size:.78rem; color:var(--ink-3)}
+hr{border:none; border-top:1px solid var(--rule); margin:2.6rem 0}
+
+/* Masthead: the one place the page spends any visual weight. */
+.masthead{margin:0 0 2.2rem; padding:0 0 1.6rem; border-bottom:2px solid var(--rule-strong)}
+.masthead .eyebrow{font-family:var(--sans); font-size:.74rem; font-weight:600;
+  letter-spacing:.13em; text-transform:uppercase; color:var(--accent); margin:0 0 .7rem}
+.masthead h1{margin:0 0 .8rem; max-width:22ch}
+.masthead .dek{font-size:1.06rem; line-height:1.55; color:var(--ink-2);
+  max-width:var(--measure); margin:0 0 1.5rem}
+.status{display:inline-flex; align-items:center; gap:.42rem; font-family:var(--sans);
+  font-size:.71rem; font-weight:600; letter-spacing:.09em; text-transform:uppercase;
+  padding:.26rem .6rem .26rem .5rem; border-radius:3px;
+  background:var(--accent-2); color:#fff}
+.status::before{content:""; width:.4rem; height:.4rem; border-radius:50%;
+  background:#fff; opacity:.85}
+.meta{display:grid; grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));
+  gap:1rem 1.6rem; margin:1.4rem 0 0; padding:0; list-style:none;
+  font-family:var(--sans)}
+.meta div{display:flex; flex-direction:column; gap:.16rem}
+.meta dt{font-size:.7rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--ink-3)}
+.meta dd{margin:0; font-size:.95rem; font-weight:500; color:var(--ink);
+  font-variant-numeric:tabular-nums lining-nums}
+.meta dd.small{font-family:var(--mono); font-size:.72rem; font-weight:400;
+  color:var(--ink-2); word-break:break-all}
+
+/* Table of contents, emitted by the markdown toc extension. */
+.toc{max-width:var(--measure); margin:2rem 0 0; padding:1.1rem 1.3rem;
+     background:var(--card); border:1px solid var(--rule); border-radius:5px}
+.toc > ul{margin:0; padding-left:1.1rem; font-family:var(--sans); font-size:.85rem}
+.toc ul ul{padding-left:1.05rem}
+.toc li{margin:.16rem 0}
+.toc a{color:var(--ink-2); text-decoration:none}
+.toc a:hover{color:var(--accent); text-decoration:underline}
+
+@media (max-width:760px){
+  body{font-size:16px}
+  main{padding:2.5rem 1.1rem 4rem}
+  th,td{padding:.42rem .6rem}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+<h1 id="supplement-genome-wide-openspliceai-and-spliceai-comparison">Supplement: genome-wide OpenSpliceAI and SpliceAI comparison</h1>
+<h2 id="abstract">Abstract</h2>
+<p>We provide detailed methods and supporting analyses for the genome-wide comparison of OpenSpliceAI and SpliceAI. The supplement documents counting units, pairing, masking, score precision, annotation context, and matched seed comparisons. It records the review of all sixteen original figures and preserves complete data access alongside the concise six-figure main report.</p>
+<p>This supplement accompanies the <a href="https://khchao.com/reports/full-snv-scoring-technical-report/">main report</a>.
+The scientific results remain the September 9 snapshot. The separately dated progress update does not
+add newly scored chunks to any scientific comparison. Figures S1–S11 retain the supporting evidence
+while the main report focuses on four predicted events: acceptor gain (AG), acceptor loss (AL), donor
+gain (DG), and donor loss (DL). MAX is the largest of these scores.</p>
+<h2 id="detailed-methods">Detailed methods</h2>
+<h3 id="scoring-collection-and-models">Scoring collection and models</h3>
+<p>We used the published masked genic SNV collection distributed with SpliceAI. The collection includes
+genic positions and flanking sequence and does not enumerate all possible substitutions at every
+reference base. The campaign divides the source into 100,000 chunks. We scored
+MANE-trained OpenSpliceAI checkpoints from seeds rs10 and rs13, each using a single checkpoint.
+The published SpliceAI scores were produced by a five-model ensemble. The seed labels do not refer to
+cross-validation folds. The comparison therefore combines differences in training, checkpoints,
+implementation and ensembling.</p>
+<p>The recorded setup uses GRCh38.p14, the GENCODE v24 canonical gene table supplied with SpliceAI,
+a 10,000-nt model context, a ±50-bp event-search window, and masked output.
+Training annotations and scoring annotations have different roles: MANE defines the retraining data,
+whereas the campaign's shared canonical gene table controls assignment and masking.
+For each event, the score is the largest predicted increase or decrease in the event-search window;
+its accompanying delta position records the selected location relative to the variant.</p>
+<h3 id="audit-pairing-and-comparison-domains">Audit, pairing and comparison domains</h3>
+<p>Input and output VCFs were audited for completeness, parseability, source-record preservation and
+annotation structure. The analysis pins source artifacts and manifests by checksum and verifies
+selected chunk identities. A valid structural audit does not establish the checkpoint that produced
+a legacy file. We retain the classification <code>legacy_unprovenanced</code> and do not infer embedded provenance
+receipts from campaign settings alone.</p>
+<p>We pair by chromosome, position, reference allele, alternate allele and exact gene label. We collapse
+identical duplicate values and exclude conflicting duplicates. An absent model score is missing, not
+zero. Chunk-boundary joining resolves groups split by file partitioning. We retain separate counts
+for physical VCF records, distinct variant alleles, gene annotations and paired observations.</p>
+<figure><img src="/downloads/full-snv-concordance-20260910/figures/supp01_coverage.png" alt="Source records, variant groups and paired gene annotations have different denominators." /><figcaption>Figure S1. Counting units and pairing coverage. Arrows describe processing, not quantities. Multiple genes can annotate one variant, so the stages are not a decreasing sequence of row counts. Retained coverage is provisional.</figcaption></figure>
+
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Arm</th>
+<th style="text-align: right;">Comparison</th>
+<th style="text-align: right;">Role</th>
+<th style="text-align: right;">Chunks</th>
+<th style="text-align: right;">Paired annotations</th>
+<th style="text-align: right;">Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>A_rs10_genomewide</strong></td>
+<td style="text-align: right;">SpliceAI vs OpenSpliceAI</td>
+<td style="text-align: right;">primary</td>
+<td style="text-align: right;">99,283</td>
+<td style="text-align: right;">3,334,708,099</td>
+<td style="text-align: right;">provisional</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>B_seeds_rs10_rs13</strong></td>
+<td style="text-align: right;">rs10 vs rs13</td>
+<td style="text-align: right;">seed</td>
+<td style="text-align: right;">45,589</td>
+<td style="text-align: right;">1,536,316,689</td>
+<td style="text-align: right;">provisional</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>C_rs10_matched</strong></td>
+<td style="text-align: right;">SpliceAI vs rs10</td>
+<td style="text-align: right;">matched</td>
+<td style="text-align: right;">45,589</td>
+<td style="text-align: right;">1,536,316,689</td>
+<td style="text-align: right;">provisional</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>D_rs13_matched</strong></td>
+<td style="text-align: right;">SpliceAI vs rs13</td>
+<td style="text-align: right;">matched</td>
+<td style="text-align: right;">45,589</td>
+<td style="text-align: right;">1,536,316,689</td>
+<td style="text-align: right;">provisional</td>
+</tr>
+</tbody>
+</table></div>
+<p>The primary comparison uses the available rs10 domain. The other three arms compare rs10 with rs13,
+SpliceAI with rs10, and SpliceAI with rs13 on one exact three-way intersection after duplicate
+resolution. Each has 1,536,316,689 observations across
+45,589 chunks. The matched region covers chunks 1-46,920, ending at chr7:152,826,580;
+its genomic restriction prevents treating it as a random subset of the full collection.</p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Quantity</th>
+<th style="text-align: right;">Count</th>
+<th style="text-align: left;">Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Retained VCF rows</td>
+<td style="text-align: right;">3,408,766,953</td>
+<td style="text-align: left;">rows entering aggregation after incomplete edge groups are excluded</td>
+</tr>
+<tr>
+<td style="text-align: left;">Variant groups</td>
+<td style="text-align: right;">3,321,262,905</td>
+<td style="text-align: left;">distinct (CHROM, POS, REF, ALT)</td>
+</tr>
+<tr>
+<td style="text-align: left;">SpliceAI annotations</td>
+<td style="text-align: right;">3,408,658,794</td>
+<td style="text-align: left;">valid, deduplicated, allele-matched</td>
+</tr>
+<tr>
+<td style="text-align: left;">OpenSpliceAI annotations</td>
+<td style="text-align: right;">3,334,713,875</td>
+<td style="text-align: left;">valid, deduplicated, allele-matched</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Exact-gene paired</strong></td>
+<td style="text-align: right;"><strong>3,334,708,099</strong></td>
+<td style="text-align: left;"><strong>the denominator of every paired statistic</strong></td>
+</tr>
+<tr>
+<td style="text-align: left;">SpliceAI-only annotations</td>
+<td style="text-align: right;">73,950,695</td>
+<td style="text-align: left;">gene absent from the OpenSpliceAI output</td>
+</tr>
+<tr>
+<td style="text-align: left;">OpenSpliceAI-only annotations</td>
+<td style="text-align: right;">5,776</td>
+<td style="text-align: left;">gene absent from the SpliceAI source</td>
+</tr>
+<tr>
+<td style="text-align: left;">Groups without any prediction</td>
+<td style="text-align: right;">66,560,405</td>
+<td style="text-align: left;">no OpenSpliceAI value on any row</td>
+</tr>
+<tr>
+<td style="text-align: left;">Conflicting SpliceAI values</td>
+<td style="text-align: right;">50,538</td>
+<td style="text-align: left;">excluded from paired metrics</td>
+</tr>
+<tr>
+<td style="text-align: left;">Conflicting OpenSpliceAI values</td>
+<td style="text-align: right;">2,261</td>
+<td style="text-align: left;">excluded from paired metrics</td>
+</tr>
+<tr>
+<td style="text-align: left;">Duplicate annotations</td>
+<td style="text-align: right;">261,358,769</td>
+<td style="text-align: left;">identical repeats, collapsed</td>
+</tr>
+<tr>
+<td style="text-align: left;">Malformed annotations</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: left;">rejected</td>
+</tr>
+<tr>
+<td style="text-align: left;">Edge fragments excluded</td>
+<td style="text-align: right;">92</td>
+<td style="text-align: left;">groups touching a missing chunk</td>
+</tr>
+</tbody>
+</table></div>
+<p>Of the SpliceAI annotations, 97.83% could be paired with an OpenSpliceAI annotation for the same gene.</p>
+<h3 id="streaming-summaries-and-numerical-verification">Streaming summaries and numerical verification</h3>
+<p>The analysis reduces streams of paired annotations to additive counts, moments, fixed-bin
+histograms, and stratum tables. It does not materialize a multi-billion-row dataframe. Exact
+threshold counters use 0.05, 0.1, 0.2, 0.5 and 0.8, with positive calls defined by score ≥ cutoff.
+The 200-bin score histograms have width 0.005; conditional quantiles and threshold sweeps derived
+from them are approximate. Empty bins remain gaps. Undefined rates remain undefined rather than
+being replaced with zero.</p>
+<p>All event-level global score summaries use the full paired domain, including shared zeros. Pearson
+correlation describes association, mean absolute difference describes score magnitude, and signed
+bias is OpenSpliceAI minus SpliceAI. Jaccard is the intersection divided by the union of positive
+calls. The call-count ratio is OpenSpliceAI divided by SpliceAI. Comparator-based MCC and related
+agreement statistics are not experimental accuracy measures.</p>
+<p>The reducer checks missing and duplicate tasks, pair-domain completeness and source identity.
+Independent real-data-window implementations passed 11,195 primary
+and 40,020 matched numerical checks. These validate the implemented
+computations on the tested windows, not biological truth or completeness of unfinished inference.
+The archived September 9 bundle retains the original engineering narrative and verification evidence.</p>
+<h3 id="annotation-context-and-masking">Annotation context and masking</h3>
+<p>The proximity index contains 351,042 unique internal boundary coordinates from the
+scoring annotation. Donor and acceptor roles are assigned by strand. Internal boundaries are pooled
+across genes, and transcript ends are excluded. We group variants by the distance of the variant
+coordinate to the nearest indexed boundary: at-site, 1–2, 3–10, 11–50, 51–500 and &gt;500 bp. The main
+figure pools donor/acceptor context by summing call numerators and denominators before computing rates.
+The original tables preserve the site-type strata.</p>
+<p>The scorer's mask uses a different boundary set: it selects the nearest exon boundary for the
+specific variant–gene annotation, including transcript ends and pooling donor/acceptor boundary
+types. A loss is retained only if its selected delta position equals that boundary. A gain at that
+boundary is suppressed. The mask acts on the selected event position, whereas proximity grouping
+uses the variant position. This distinction explains why pooled distance and retained loss location
+must not be interpreted as independent biological labels.</p>
+<p>A symmetric 1–2-bp distance group includes both sides of a boundary and is not synonymous with the
+essential splice dinucleotide. A distance &gt;500 bp does not establish a deep-intronic variant: the
+index is pooled and no transcript-specific intronic/exonic classification was performed. Far-loss
+strata may be empty or very small under the mask; eligible counts are needed to interpret their rates.</p>
+<h3 id="current-inference-progress">Current inference progress</h3>
+<p>The progress collector reads the dated campaign manifests and verifies their checksums, seed labels,
+complete unique chunk IDs, state totals and provenance totals against the audit metadata. It then
+compares current input and output file sizes and nanosecond modification times with those recorded
+in each manifest. Unchanged files retain their audited classification; changed or newly appearing
+files are unverified, and absent files are missing. An I/O failure cannot produce a valid count.
+This metadata comparison is deliberately separate from a new VCF content audit.</p>
+<p>The scheduler query records matching rs10 and rs13 scoring jobs with their states and reasons. A
+failed query is reported as unavailable, rather than as no jobs. The displayed observation time and
+original audit time remain separate. No inference jobs or campaign manifests are changed by this
+report revision, and no completion date is inferred from a pending job.</p>
+<h2 id="secondary-event-comparisons">Secondary event comparisons</h2>
+<h3 id="signed-differences-and-threshold-transfer">Signed differences and threshold transfer</h3>
+<p>The signed-difference tails support the main gain–loss distinction: large gain differences are
+asymmetric, with SpliceAI more often exceeding OpenSpliceAI. A tail probability describes the selected
+score collection; it cannot determine whether either direction corresponds to a true effect.</p>
+<figure><img src="/downloads/full-snv-concordance-20260910/figures/supp02_tails.png" alt="Signed score-difference tails by event." /><figcaption>Figure S2. The direction of large score differences. Tail probabilities distinguish OpenSpliceAI exceeding SpliceAI from the reverse. The right panel compares these directions. Difference magnitudes use histogram centers and estimates are approximate. This supports, rather than replaces, the event-wise score and call comparisons.</figcaption></figure>
+
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Event</th>
+<th style="text-align: right;">n</th>
+<th style="text-align: right;">Mean SpliceAI</th>
+<th style="text-align: right;">Mean OpenSpliceAI</th>
+<th style="text-align: right;">Bias</th>
+<th style="text-align: right;">MAE</th>
+<th style="text-align: right;">RMSE</th>
+<th style="text-align: right;">Pearson r</th>
+<th style="text-align: right;">Lin CCC</th>
+<th style="text-align: right;">Spearman*</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">acceptor gain (AG)</td>
+<td style="text-align: right;">3,334,708,099</td>
+<td style="text-align: right;">0.00173</td>
+<td style="text-align: right;">0.00060</td>
+<td style="text-align: right;">-0.00112</td>
+<td style="text-align: right;">0.00148</td>
+<td style="text-align: right;">0.01592</td>
+<td style="text-align: right;">0.6810</td>
+<td style="text-align: right;">0.6663</td>
+<td style="text-align: right;">0.3357</td>
+</tr>
+<tr>
+<td style="text-align: left;">acceptor loss (AL)</td>
+<td style="text-align: right;">3,334,708,099</td>
+<td style="text-align: right;">0.00068</td>
+<td style="text-align: right;">0.00079</td>
+<td style="text-align: right;">+0.00011</td>
+<td style="text-align: right;">0.00037</td>
+<td style="text-align: right;">0.01009</td>
+<td style="text-align: right;">0.8998</td>
+<td style="text-align: right;">0.8941</td>
+<td style="text-align: right;">0.7197</td>
+</tr>
+<tr>
+<td style="text-align: left;">donor gain (DG)</td>
+<td style="text-align: right;">3,334,708,099</td>
+<td style="text-align: right;">0.00166</td>
+<td style="text-align: right;">0.00046</td>
+<td style="text-align: right;">-0.00120</td>
+<td style="text-align: right;">0.00147</td>
+<td style="text-align: right;">0.01722</td>
+<td style="text-align: right;">0.5973</td>
+<td style="text-align: right;">0.5576</td>
+<td style="text-align: right;">0.3201</td>
+</tr>
+<tr>
+<td style="text-align: left;">donor loss (DL)</td>
+<td style="text-align: right;">3,334,708,099</td>
+<td style="text-align: right;">0.00067</td>
+<td style="text-align: right;">0.00077</td>
+<td style="text-align: right;">+0.00010</td>
+<td style="text-align: right;">0.00033</td>
+<td style="text-align: right;">0.00994</td>
+<td style="text-align: right;">0.9056</td>
+<td style="text-align: right;">0.9022</td>
+<td style="text-align: right;">0.6914</td>
+</tr>
+<tr>
+<td style="text-align: left;">maximum (MAX)</td>
+<td style="text-align: right;">3,334,708,099</td>
+<td style="text-align: right;">0.00420</td>
+<td style="text-align: right;">0.00217</td>
+<td style="text-align: right;">-0.00203</td>
+<td style="text-align: right;">0.00315</td>
+<td style="text-align: right;">0.02452</td>
+<td style="text-align: right;">0.7945</td>
+<td style="text-align: right;">0.7903</td>
+<td style="text-align: right;">0.3901</td>
+</tr>
+</tbody>
+</table></div>
+<p>Call-volume matching asks which OpenSpliceAI cutoff produces a similar number of calls to a given
+SpliceAI cutoff. MCC optimization asks which candidate cutoff maximizes agreement with SpliceAI.
+These objectives can select different cutoffs because equal volumes need not contain the same
+annotations. Neither supplies a biologically validated decision threshold.</p>
+<figure><img src="/downloads/full-snv-concordance-20260910/figures/supp03_threshold_transfer.png" alt="Per-event cutoffs selected by call-volume matching or comparator MCC." /><figcaption>Figure S3. Matching call volume does not match call membership. Every configured SpliceAI cutoff is shown. Candidate OpenSpliceAI cutoffs lie on the histogram grid and exclude the unresolved endpoint at one. MCC is agreement with SpliceAI; neither objective optimizes experimental accuracy.</figcaption></figure>
+
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Event</th>
+<th style="text-align: right;">SpliceAI cutoff</th>
+<th style="text-align: right;">MCC at same cutoff</th>
+<th style="text-align: right;">Rate-matched OSAI cutoff</th>
+<th style="text-align: right;">MCC-optimal OSAI cutoff</th>
+<th style="text-align: right;">Optimised MCC</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">AG</td>
+<td style="text-align: right;">0.05</td>
+<td style="text-align: right;">0.362</td>
+<td style="text-align: right;">0.005</td>
+<td style="text-align: right;">0.005</td>
+<td style="text-align: right;">0.438</td>
+</tr>
+<tr>
+<td style="text-align: left;">AG</td>
+<td style="text-align: right;">0.1</td>
+<td style="text-align: right;">0.400</td>
+<td style="text-align: right;">0.010</td>
+<td style="text-align: right;">0.010</td>
+<td style="text-align: right;">0.431</td>
+</tr>
+<tr>
+<td style="text-align: left;">AG</td>
+<td style="text-align: right;">0.2</td>
+<td style="text-align: right;">0.457</td>
+<td style="text-align: right;">0.055</td>
+<td style="text-align: right;">0.200</td>
+<td style="text-align: right;">0.457</td>
+</tr>
+<tr>
+<td style="text-align: left;">AG</td>
+<td style="text-align: right;">0.5</td>
+<td style="text-align: right;">0.589</td>
+<td style="text-align: right;">0.380</td>
+<td style="text-align: right;">0.590</td>
+<td style="text-align: right;">0.593</td>
+</tr>
+<tr>
+<td style="text-align: left;">AG</td>
+<td style="text-align: right;">0.8</td>
+<td style="text-align: right;">0.633</td>
+<td style="text-align: right;">0.830</td>
+<td style="text-align: right;">0.825</td>
+<td style="text-align: right;">0.634</td>
+</tr>
+<tr>
+<td style="text-align: left;">AL</td>
+<td style="text-align: right;">0.05</td>
+<td style="text-align: right;">0.702</td>
+<td style="text-align: right;">0.040</td>
+<td style="text-align: right;">0.040</td>
+<td style="text-align: right;">0.703</td>
+</tr>
+<tr>
+<td style="text-align: left;">AL</td>
+<td style="text-align: right;">0.1</td>
+<td style="text-align: right;">0.709</td>
+<td style="text-align: right;">0.110</td>
+<td style="text-align: right;">0.130</td>
+<td style="text-align: right;">0.711</td>
+</tr>
+<tr>
+<td style="text-align: left;">AL</td>
+<td style="text-align: right;">0.2</td>
+<td style="text-align: right;">0.729</td>
+<td style="text-align: right;">0.275</td>
+<td style="text-align: right;">0.355</td>
+<td style="text-align: right;">0.747</td>
+</tr>
+<tr>
+<td style="text-align: left;">AL</td>
+<td style="text-align: right;">0.5</td>
+<td style="text-align: right;">0.794</td>
+<td style="text-align: right;">0.725</td>
+<td style="text-align: right;">0.765</td>
+<td style="text-align: right;">0.835</td>
+</tr>
+<tr>
+<td style="text-align: left;">AL</td>
+<td style="text-align: right;">0.8</td>
+<td style="text-align: right;">0.828</td>
+<td style="text-align: right;">0.925</td>
+<td style="text-align: right;">0.905</td>
+<td style="text-align: right;">0.846</td>
+</tr>
+<tr>
+<td style="text-align: left;">DG</td>
+<td style="text-align: right;">0.05</td>
+<td style="text-align: right;">0.341</td>
+<td style="text-align: right;">0.005</td>
+<td style="text-align: right;">0.005</td>
+<td style="text-align: right;">0.430</td>
+</tr>
+<tr>
+<td style="text-align: left;">DG</td>
+<td style="text-align: right;">0.1</td>
+<td style="text-align: right;">0.372</td>
+<td style="text-align: right;">0.010</td>
+<td style="text-align: right;">0.005</td>
+<td style="text-align: right;">0.426</td>
+</tr>
+<tr>
+<td style="text-align: left;">DG</td>
+<td style="text-align: right;">0.2</td>
+<td style="text-align: right;">0.411</td>
+<td style="text-align: right;">0.035</td>
+<td style="text-align: right;">0.115</td>
+<td style="text-align: right;">0.416</td>
+</tr>
+<tr>
+<td style="text-align: left;">DG</td>
+<td style="text-align: right;">0.5</td>
+<td style="text-align: right;">0.465</td>
+<td style="text-align: right;">0.235</td>
+<td style="text-align: right;">0.400</td>
+<td style="text-align: right;">0.470</td>
+</tr>
+<tr>
+<td style="text-align: left;">DG</td>
+<td style="text-align: right;">0.8</td>
+<td style="text-align: right;">0.459</td>
+<td style="text-align: right;">0.745</td>
+<td style="text-align: right;">0.685</td>
+<td style="text-align: right;">0.465</td>
+</tr>
+<tr>
+<td style="text-align: left;">DL</td>
+<td style="text-align: right;">0.05</td>
+<td style="text-align: right;">0.714</td>
+<td style="text-align: right;">0.055</td>
+<td style="text-align: right;">0.080</td>
+<td style="text-align: right;">0.720</td>
+</tr>
+<tr>
+<td style="text-align: left;">DL</td>
+<td style="text-align: right;">0.1</td>
+<td style="text-align: right;">0.748</td>
+<td style="text-align: right;">0.125</td>
+<td style="text-align: right;">0.180</td>
+<td style="text-align: right;">0.762</td>
+</tr>
+<tr>
+<td style="text-align: left;">DL</td>
+<td style="text-align: right;">0.2</td>
+<td style="text-align: right;">0.784</td>
+<td style="text-align: right;">0.275</td>
+<td style="text-align: right;">0.340</td>
+<td style="text-align: right;">0.800</td>
+</tr>
+<tr>
+<td style="text-align: left;">DL</td>
+<td style="text-align: right;">0.5</td>
+<td style="text-align: right;">0.810</td>
+<td style="text-align: right;">0.665</td>
+<td style="text-align: right;">0.640</td>
+<td style="text-align: right;">0.818</td>
+</tr>
+<tr>
+<td style="text-align: left;">DL</td>
+<td style="text-align: right;">0.8</td>
+<td style="text-align: right;">0.793</td>
+<td style="text-align: right;">0.900</td>
+<td style="text-align: right;">0.880</td>
+<td style="text-align: right;">0.800</td>
+</tr>
+<tr>
+<td style="text-align: left;">MAX</td>
+<td style="text-align: right;">0.05</td>
+<td style="text-align: right;">0.432</td>
+<td style="text-align: right;">0.005</td>
+<td style="text-align: right;">0.005</td>
+<td style="text-align: right;">0.477</td>
+</tr>
+<tr>
+<td style="text-align: left;">MAX</td>
+<td style="text-align: right;">0.1</td>
+<td style="text-align: right;">0.485</td>
+<td style="text-align: right;">0.015</td>
+<td style="text-align: right;">0.065</td>
+<td style="text-align: right;">0.487</td>
+</tr>
+<tr>
+<td style="text-align: left;">MAX</td>
+<td style="text-align: right;">0.2</td>
+<td style="text-align: right;">0.559</td>
+<td style="text-align: right;">0.080</td>
+<td style="text-align: right;">0.260</td>
+<td style="text-align: right;">0.562</td>
+</tr>
+<tr>
+<td style="text-align: left;">MAX</td>
+<td style="text-align: right;">0.5</td>
+<td style="text-align: right;">0.704</td>
+<td style="text-align: right;">0.420</td>
+<td style="text-align: right;">0.655</td>
+<td style="text-align: right;">0.715</td>
+</tr>
+<tr>
+<td style="text-align: left;">MAX</td>
+<td style="text-align: right;">0.8</td>
+<td style="text-align: right;">0.780</td>
+<td style="text-align: right;">0.835</td>
+<td style="text-align: right;">0.880</td>
+<td style="text-align: right;">0.787</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="precision-and-dominant-events">Precision and dominant events</h3>
+<p>The two output formats use different precision: two decimal places for SpliceAI and five for
+OpenSpliceAI. Rounding OpenSpliceAI to the coarser grid increases exact-score matches, particularly
+among small scores. Differences exceeding half that grid step, 0.005, remain and support the main
+score-magnitude comparisons. Exact equality alone is a poor summary when shared zeros are common.</p>
+<figure><img src="/downloads/full-snv-concordance-20260910/figures/supp04_precision.png" alt="Exact score agreement after matching output precision and differences beyond the rounding allowance." /><figcaption>Figure S4. Output precision explains only part of disagreement. SpliceAI reports two decimals and OpenSpliceAI five. Quantization changes exact equality; differences beyond 0.005 cannot be attributed solely to rounding on the two-decimal grid. Shared zeros remain in the denominator.</figcaption></figure>
+
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Event</th>
+<th style="text-align: right;">MAE</th>
+<th style="text-align: right;">MAE (OSAI at 2 dp)</th>
+<th style="text-align: right;">Exact match</th>
+<th style="text-align: right;">Exact match (2 dp)</th>
+<th style="text-align: right;">Change</th>
+<th style="text-align: right;">MAE beyond +/-0.005</th>
+<th style="text-align: right;">Share of MAE</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">acceptor gain (AG)</td>
+<td style="text-align: right;">0.001481</td>
+<td style="text-align: right;">0.001482</td>
+<td style="text-align: right;">89.55%</td>
+<td style="text-align: right;">96.58%</td>
+<td style="text-align: right;">+7.03 pp</td>
+<td style="text-align: right;">0.001300</td>
+<td style="text-align: right;">87.8%</td>
+</tr>
+<tr>
+<td style="text-align: left;">acceptor loss (AL)</td>
+<td style="text-align: right;">0.000369</td>
+<td style="text-align: right;">0.000366</td>
+<td style="text-align: right;">99.06%</td>
+<td style="text-align: right;">99.54%</td>
+<td style="text-align: right;">+0.48 pp</td>
+<td style="text-align: right;">0.000341</td>
+<td style="text-align: right;">92.5%</td>
+</tr>
+<tr>
+<td style="text-align: left;">donor gain (DG)</td>
+<td style="text-align: right;">0.001465</td>
+<td style="text-align: right;">0.001467</td>
+<td style="text-align: right;">90.75%</td>
+<td style="text-align: right;">96.78%</td>
+<td style="text-align: right;">+6.03 pp</td>
+<td style="text-align: right;">0.001297</td>
+<td style="text-align: right;">88.5%</td>
+</tr>
+<tr>
+<td style="text-align: left;">donor loss (DL)</td>
+<td style="text-align: right;">0.000333</td>
+<td style="text-align: right;">0.000331</td>
+<td style="text-align: right;">99.06%</td>
+<td style="text-align: right;">99.58%</td>
+<td style="text-align: right;">+0.52 pp</td>
+<td style="text-align: right;">0.000307</td>
+<td style="text-align: right;">92.2%</td>
+</tr>
+<tr>
+<td style="text-align: left;">maximum (MAX)</td>
+<td style="text-align: right;">0.003145</td>
+<td style="text-align: right;">0.003148</td>
+<td style="text-align: right;">82.11%</td>
+<td style="text-align: right;">93.27%</td>
+<td style="text-align: right;">+11.16 pp</td>
+<td style="text-align: right;">0.002788</td>
+<td style="text-align: right;">88.6%</td>
+</tr>
+</tbody>
+</table></div>
+<p>The dominant event is the event with the largest score within a model. Ties and all-zero annotations
+remain explicit. This summary can expose changes in the largest response, but it compresses four
+scores and is sensitive to quantization. We therefore retain it as supporting evidence rather than
+treating dominant labels as mutually exclusive biological outcomes.</p>
+<figure><img src="/downloads/full-snv-concordance-20260910/figures/supp05_dominant_event.png" alt="Row-normalized dominant-event transitions, retaining ties and all-zero annotations." /><figcaption>Figure S5. Dominant-event labels compress the four scores. Rows are normalized within SpliceAI's category. TIE and NONE remain explicit. A dominant label discards the other scores and depends on output precision; it is not an experimentally assigned splicing class.</figcaption></figure>
+
+<h2 id="context-and-selected-positions">Context and selected positions</h2>
+<p>Survival distributions display the fraction of scores exceeding each cutoff within the stated
+context group. The large distant population affects total call counts but does not, by itself,
+increase a within-group rate. The four events differ in both score distributions and retained
+calling behavior, consistent with the main event-level results.</p>
+<figure><img src="/downloads/full-snv-concordance-20260910/figures/supp06_site_distributions.png" alt="Event-score survival distributions near and far from internal boundaries, including MAX." /><figcaption>Figure S6. Score distributions vary with boundary context. Score survival distributions at/within 2 bp versus more than 500 bp from a pooled internal boundary, for AG, AL, DG, DL and MAX. Curves use histogram edges at 0.005 resolution and logarithmic probability axes. Group sizes differ; these conditional rates do not establish biological prevalence or a transcript-specific intronic location.</figcaption></figure>
+
+<p>Conditional score plots retain near and far results for all four events. They show the distribution
+of OpenSpliceAI scores at a given SpliceAI score, not predictive calibration against observed
+splicing. Near-boundary gain agreement is closer across much of the score range; this does not imply
+that every near-boundary gain has equal scores or that the distant calls are false.</p>
+<figure><img src="/downloads/full-snv-concordance-20260910/figures/supp07_site_score_agreement.png" alt="Near and distant score distributions for gains and losses." /><figcaption>Figure S7. Full conditional context comparisons. Conditional medians and interquartile intervals for all four events and MAX, underlying main Figure 4. Near means at/within 2 bp of a pooled internal boundary; far means more than 500 bp away. Empty comparator bins are gaps. Internal-boundary proximity differs from the per-gene masking boundary.</figcaption></figure>
+
+<p>Position agreement is conditional on both models crossing the event cutoff. The shared subset may
+have high positional agreement even when many calls are unique to one model. For retained losses,
+the common mask constrains both selected positions to the same per-gene boundary. This cannot serve
+as independent evidence of correct loss localization.</p>
+<figure><img src="/downloads/full-snv-concordance-20260910/figures/supp08_site_positions.png" alt="Exact and within-2-bp position agreement by event and annotation context at a score cutoff of 0.5." /><figcaption>Figure S8. Position agreement depends on the eligible subset. Both event scores must be at least 0.5. Lines show exact and within-2-bp agreement by variant proximity; DP=0 remains eligible. Empty eligible groups are gaps. Retained losses are constrained to the common per-gene masking boundary. The source table retains all configured cutoffs and tolerances.</figcaption></figure>
+
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Event</th>
+<th style="text-align: right;">Jointly called (≥ 0.5)</th>
+<th style="text-align: right;">Exact</th>
+<th style="text-align: right;">≤ 1 bp</th>
+<th style="text-align: right;">≤ 2 bp</th>
+<th style="text-align: right;">≤ 5 bp</th>
+<th style="text-align: right;">≤ 10 bp</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">acceptor gain (AG)</td>
+<td style="text-align: right;">801,905</td>
+<td style="text-align: right;">96.83%</td>
+<td style="text-align: right;">96.83%</td>
+<td style="text-align: right;">96.86%</td>
+<td style="text-align: right;">97.89%</td>
+<td style="text-align: right;">98.18%</td>
+</tr>
+<tr>
+<td style="text-align: left;">acceptor loss (AL)</td>
+<td style="text-align: right;">1,441,730</td>
+<td style="text-align: right;">100.00%</td>
+<td style="text-align: right;">100.00%</td>
+<td style="text-align: right;">100.00%</td>
+<td style="text-align: right;">100.00%</td>
+<td style="text-align: right;">100.00%</td>
+</tr>
+<tr>
+<td style="text-align: left;">donor gain (DG)</td>
+<td style="text-align: right;">576,354</td>
+<td style="text-align: right;">98.09%</td>
+<td style="text-align: right;">98.09%</td>
+<td style="text-align: right;">98.12%</td>
+<td style="text-align: right;">98.41%</td>
+<td style="text-align: right;">98.60%</td>
+</tr>
+<tr>
+<td style="text-align: left;">donor loss (DL)</td>
+<td style="text-align: right;">1,630,987</td>
+<td style="text-align: right;">100.00%</td>
+<td style="text-align: right;">100.00%</td>
+<td style="text-align: right;">100.00%</td>
+<td style="text-align: right;">100.00%</td>
+<td style="text-align: right;">100.00%</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="seed-comparisons-and-genomic-heterogeneity">Seed comparisons and genomic heterogeneity</h2>
+<p>Gene-level method-to-seed ratios extend the matched global comparison. They identify whether the
+gain–loss contrast occurs across genes rather than only in a global average. Gene-level distributions
+give each retained gene a contribution, whereas the global means weight annotations. Ratios with a
+zero seed-difference denominator are undefined and do not become evidence for an infinite effect.</p>
+<figure><img src="/downloads/full-snv-concordance-20260910/figures/supp09_seed_by_gene.png" alt="Gene-level method-to-seed mean absolute difference ratios." /><figcaption>Figure S9. Seed and method differences across shared genes. Distribution of method-to-seed mean absolute difference ratios across genes on the exact three-way intersection. Only genes with at least 1,000 paired observations and positive, defined ratios are plotted. The complete source table retains excluded and undefined entries. This gene-level distribution weights genes differently from the global annotation-weighted ratio; the domain remains the partially scored matched region.</figcaption></figure>
+
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th style="text-align: left;">Event</th>
+<th style="text-align: right;">Seed r</th>
+<th style="text-align: right;">Seed MAE</th>
+<th style="text-align: right;">Method r (rs10)</th>
+<th style="text-align: right;">Method MAE (rs10)</th>
+<th style="text-align: right;">Method r (rs13)</th>
+<th style="text-align: right;">Method MAE (rs13)</th>
+<th style="text-align: right;">MAE ratio method/seed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">acceptor gain (AG)</td>
+<td style="text-align: right;">0.8313</td>
+<td style="text-align: right;">0.00040</td>
+<td style="text-align: right;">0.6857</td>
+<td style="text-align: right;">0.00134</td>
+<td style="text-align: right;">0.6854</td>
+<td style="text-align: right;">0.00134</td>
+<td style="text-align: right;">x3.35 / x3.35</td>
+</tr>
+<tr>
+<td style="text-align: left;">acceptor loss (AL)</td>
+<td style="text-align: right;">0.9147</td>
+<td style="text-align: right;">0.00031</td>
+<td style="text-align: right;">0.8966</td>
+<td style="text-align: right;">0.00035</td>
+<td style="text-align: right;">0.9019</td>
+<td style="text-align: right;">0.00033</td>
+<td style="text-align: right;">x1.13 / x1.08</td>
+</tr>
+<tr>
+<td style="text-align: left;">donor gain (DG)</td>
+<td style="text-align: right;">0.7990</td>
+<td style="text-align: right;">0.00033</td>
+<td style="text-align: right;">0.6041</td>
+<td style="text-align: right;">0.00131</td>
+<td style="text-align: right;">0.6070</td>
+<td style="text-align: right;">0.00131</td>
+<td style="text-align: right;">x3.92 / x3.92</td>
+</tr>
+<tr>
+<td style="text-align: left;">donor loss (DL)</td>
+<td style="text-align: right;">0.9255</td>
+<td style="text-align: right;">0.00027</td>
+<td style="text-align: right;">0.9037</td>
+<td style="text-align: right;">0.00031</td>
+<td style="text-align: right;">0.9128</td>
+<td style="text-align: right;">0.00029</td>
+<td style="text-align: right;">x1.17 / x1.09</td>
+</tr>
+<tr>
+<td style="text-align: left;">maximum (MAX)</td>
+<td style="text-align: right;">0.8917</td>
+<td style="text-align: right;">0.00108</td>
+<td style="text-align: right;">0.7956</td>
+<td style="text-align: right;">0.00285</td>
+<td style="text-align: right;">0.7989</td>
+<td style="text-align: right;">0.00283</td>
+<td style="text-align: right;">x2.65 / x2.63</td>
+</tr>
+</tbody>
+</table></div>
+<p>Regional MAX averages provide a broad view of genomic heterogeneity. The revised chromosome figure
+retains all blocks with at least 10,000 paired annotations and shows their full vertical range. This
+avoids hiding extreme retained blocks. MAX pools event types, so the plot is secondary to the
+acceptor/donor gain–loss comparison and does not establish a regional biological mechanism.</p>
+<figure><img src="/downloads/full-snv-concordance-20260910/figures/supp10_chromosome.png" alt="Mean signed MAX differences in all eligible 1-Mb blocks." /><figcaption>Figure S10. Regional averages include extreme retained blocks. Each point is a genomic block with at least 10,000 paired annotations. Blocks are ordered and evenly spaced within chromosomes; gaps are not drawn to scale. Point area increases with count. The dashed line is the primary mean. The full vertical range retains extreme blocks that were clipped in the original figure. MAX combines the four events and is secondary to the event-level comparisons.</figcaption></figure>
+
+<p>Gene-level differences similarly depend on variant composition and retained sample size. The
+high-divergence genes shown in the original figure are descriptive follow-up candidates, not
+validated disease associations or an enrichment analysis.</p>
+<figure><img src="/downloads/full-snv-concordance-20260910/figures/supp11_gene_divergence.png" alt="Gene-level MAX disagreement and selected high-divergence genes." /><figcaption>Figure S11. Gene-level disagreement is heterogeneous. Gene means depend on their variant composition and sample size. Selected extreme genes are descriptive candidates for follow-up, not an unbiased enrichment analysis or validated disease mechanism.</figcaption></figure>
+
+<h2 id="figure-by-figure-revision-audit">Figure-by-figure revision audit</h2>
+<p>We reviewed all sixteen original figures. The table records the question each answers, its main
+result, and its destination in the revised reading structure. No original evidence is removed from
+the archived September 9 release. The new progress figure has no scientific counterpart in that
+release.</p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Original figure</th>
+<th>Question</th>
+<th>Key result</th>
+<th>Revised figure</th>
+<th>Decision</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Coverage</td>
+<td>Different counting units require explicit denominators.</td>
+<td>S1</td>
+<td>Retain as methods support.</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Conditional scores</td>
+<td>Loss scores agree more closely; donor gain differs most.</td>
+<td>2</td>
+<td>Four larger event panels; omit MAX from the main figure.</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Signed tails</td>
+<td>Gain differences are directionally asymmetric.</td>
+<td>S2</td>
+<td>Retain secondary distribution evidence.</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Threshold agreement</td>
+<td>Loss overlap is higher; donor gain has fewer shared calls.</td>
+<td>3</td>
+<td>Focus on Jaccard and relative call counts.</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Threshold transfer</td>
+<td>Matching call counts need not match membership.</td>
+<td>S3</td>
+<td>Retain; clarify comparator-based objectives.</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Output precision</td>
+<td>Quantization explains only part of score disagreement.</td>
+<td>S4</td>
+<td>Retain as a robustness check.</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Dominant events</td>
+<td>Largest-score labels compress nonexclusive event scores.</td>
+<td>S5</td>
+<td>Retain ties/zeros and limit biological interpretation.</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Selected positions</td>
+<td>Shared gain calls usually select the same position.</td>
+<td>5</td>
+<td>Show exact rates and eligible counts; explain loss-mask constraint.</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Boundary distance</td>
+<td>Call rates and gain–loss differences vary with proximity.</td>
+<td>4A–D</td>
+<td>Pool counts before division; distinguish variant and event position.</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Context distributions</td>
+<td>Proximity groups have different score distributions.</td>
+<td>S6</td>
+<td>Retain supporting survival curves.</td>
+</tr>
+<tr>
+<td>11</td>
+<td>Conditional context</td>
+<td>Gain score agreement is closer near boundaries.</td>
+<td>4E–F; S7</td>
+<td>Highlight gain medians; retain all four events in supplement.</td>
+</tr>
+<tr>
+<td>12</td>
+<td>Context positions</td>
+<td>Agreement depends on a jointly called, sometimes small subset.</td>
+<td>S8</td>
+<td>Retain denominators and undefined groups.</td>
+</tr>
+<tr>
+<td>13</td>
+<td>Seed contrast</td>
+<td>Gain method differences exceed the observed seed contrast.</td>
+<td>6</td>
+<td>Compare four events on the identical three-way domain.</td>
+</tr>
+<tr>
+<td>14</td>
+<td>Seed contrast by gene</td>
+<td>The gain–loss distinction extends across retained genes.</td>
+<td>S9</td>
+<td>Retain; distinguish gene and annotation weighting.</td>
+</tr>
+<tr>
+<td>15</td>
+<td>Chromosomes/blocks</td>
+<td>Regional MAX means vary, including extreme retained blocks.</td>
+<td>S10</td>
+<td>Redraw with full vertical range; retain all eligible blocks.</td>
+</tr>
+<tr>
+<td>16</td>
+<td>Gene divergence</td>
+<td>Gene averages vary with variant composition and coverage.</td>
+<td>S11</td>
+<td>Retain descriptive candidates without enrichment claims.</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="complete-data-and-reproducibility">Complete data and reproducibility</h2>
+<p>The <a href="https://khchao.com/downloads/full-snv-concordance-20260910.zip">revised bundle</a> contains both reading copies, the figure
+manifest, all seventeen PNG/PDF figure pairs, unchanged scientific facts, a separate progress JSON,
+display histograms and derived display tables, selected original CSV tables, and the report source. Figure
+captions and numbers are generated from one manifest for the website and standalone reading copies.
+The <a href="https://khchao.com/downloads/full-snv-concordance-20260910-supplement.html">standalone supplement</a> and
+<a href="https://khchao.com/downloads/full-snv-concordance-20260910-SHA256SUMS.txt">checksums</a> can be read separately.</p>
+<p>Complete original CSV archives remain available for the
+<a href="https://khchao.com/downloads/full-snv-concordance-20260909-A_rs10_genomewide.zip">primary rs10 comparison</a>,
+<a href="https://khchao.com/downloads/full-snv-concordance-20260909-B_seeds_rs10_rs13.zip">rs10–rs13 seed comparison</a>,
+<a href="https://khchao.com/downloads/full-snv-concordance-20260909-C_rs10_matched.zip">matched SpliceAI–rs10 comparison</a>, and
+<a href="https://khchao.com/downloads/full-snv-concordance-20260909-D_rs13_matched.zip">matched SpliceAI–rs13 comparison</a>.
+These include chromosome, gene, substitution, genomic-block, event-context, collapsed-variant,
+discordance and threshold tables. The unchanged
+<a href="https://khchao.com/downloads/full-snv-concordance-20260909.zip">September 9 release</a> preserves the full original report,
+all original figures, engineering history and verification records.</p>
+</main>
+</body>
+</html>
