@@ -185,6 +185,9 @@ export function initMinesweeper(root: HTMLElement | Document = document): Minesw
   const flagModeBtn = container.querySelector<HTMLButtonElement>('[data-mine-flag-toggle]');
   const diffBtns = container.querySelectorAll<HTMLButtonElement>('[data-mine-diff]');
   const bestTimeEl = container.querySelector<HTMLElement>('[data-mine-best]');
+  const statusBannerEl = container.querySelector<HTMLElement>('[data-mine-status]');
+  const statusTextEl = container.querySelector<HTMLElement>('[data-mine-status-text]');
+  const statusBtnEl = container.querySelector<HTMLButtonElement>('[data-mine-status-btn]');
 
   if (!boardEl || !mineCounterEl || !timerEl || !faceBtn) return null;
 
@@ -203,6 +206,14 @@ export function initMinesweeper(root: HTMLElement | Document = document): Minesw
   let secondsElapsed = 0;
   let flagMode = false;
   let isMousedown = false;
+
+  function vibrate(pattern: number | number[]): void {
+    try {
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate(pattern);
+      }
+    } catch (_) {}
+  }
 
   function format3Digits(num: number): string {
     const clamped = Math.max(-99, Math.min(999, num));
@@ -261,6 +272,21 @@ export function initMinesweeper(root: HTMLElement | Document = document): Minesw
     soundToggleBtn.title = audio.enabled ? 'Mute sound FX' : 'Enable sound FX';
   }
 
+  function updateStatusBanner(): void {
+    if (!statusBannerEl || !statusTextEl) return;
+    if (game.status === 'won') {
+      statusBannerEl.hidden = false;
+      statusBannerEl.className = 'mine-status-banner is-won';
+      statusTextEl.textContent = `🎉 Victory! Swept all ${game.totalMines} mines in ${secondsElapsed}s!`;
+    } else if (game.status === 'lost') {
+      statusBannerEl.hidden = false;
+      statusBannerEl.className = 'mine-status-banner is-lost';
+      statusTextEl.textContent = '💥 Mine detonated! Tap 😊 or press [R] to retry.';
+    } else {
+      statusBannerEl.hidden = true;
+    }
+  }
+
   function setFace(face: 'normal' | 'scared' | 'won' | 'lost'): void {
     let icon = '😊';
     if (face === 'scared') icon = '😮';
@@ -286,6 +312,7 @@ export function initMinesweeper(root: HTMLElement | Document = document): Minesw
     } else {
       setFace('normal');
     }
+    updateStatusBanner();
 
     const fragment = document.createDocumentFragment();
 
@@ -351,11 +378,13 @@ export function initMinesweeper(root: HTMLElement | Document = document): Minesw
       const res = chordCell(game, row, col);
       if (res.exploded) {
         stopTimer();
+        vibrate([60, 40, 100]);
         audio.playExplosion();
       } else if (res.won) {
         stopTimer();
         setBestTime(secondsElapsed);
         updateBestTimeDisplay();
+        vibrate([40, 30, 40]);
         audio.playWin();
       } else if (res.revealed.length > 0) {
         audio.playChord();
@@ -375,11 +404,13 @@ export function initMinesweeper(root: HTMLElement | Document = document): Minesw
 
     if (res.exploded) {
       stopTimer();
+      vibrate([60, 40, 100]);
       audio.playExplosion();
     } else if (res.won) {
       stopTimer();
       setBestTime(secondsElapsed);
       updateBestTimeDisplay();
+      vibrate([40, 30, 40]);
       audio.playWin();
     } else {
       audio.playClick();
@@ -394,6 +425,7 @@ export function initMinesweeper(root: HTMLElement | Document = document): Minesw
     if (cell.state === 'revealed') return;
 
     toggleFlag(game, row, col);
+    vibrate(25);
     audio.playFlag();
     renderBoard();
   }
@@ -406,6 +438,7 @@ export function initMinesweeper(root: HTMLElement | Document = document): Minesw
     game = createGame(difficulty);
     setFace('normal');
     updateBestTimeDisplay();
+    updateStatusBanner();
 
     diffBtns.forEach((btn) => {
       const d = btn.dataset.mineDiff as Difficulty;
@@ -440,7 +473,7 @@ export function initMinesweeper(root: HTMLElement | Document = document): Minesw
   }
 
   function onBoardMousedown(e: MouseEvent): void {
-    if (e.button === 0 && game.status === 'playing') {
+    if (e.button === 0 && (game.status === 'ready' || game.status === 'playing')) {
       isMousedown = true;
       setFace('scared');
     }
@@ -449,7 +482,21 @@ export function initMinesweeper(root: HTMLElement | Document = document): Minesw
   function onWindowMouseup(): void {
     if (isMousedown) {
       isMousedown = false;
-      if (game.status === 'playing') setFace('normal');
+      if (game.status === 'ready' || game.status === 'playing') setFace('normal');
+    }
+  }
+
+  // --- Keyboard Shortcuts ---
+  function onKeyDown(e: KeyboardEvent): void {
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) return;
+    if (e.key === 'r' || e.key === 'R') {
+      e.preventDefault();
+      startNewGame();
+    } else if (e.key === 'f' || e.key === 'F') {
+      e.preventDefault();
+      flagMode = !flagMode;
+      flagModeBtn?.classList.toggle('is-active', flagMode);
+      flagModeBtn?.setAttribute('aria-pressed', flagMode.toString());
     }
   }
 
@@ -485,6 +532,7 @@ export function initMinesweeper(root: HTMLElement | Document = document): Minesw
   }
 
   // --- Event Bindings ---
+  window.addEventListener('keydown', onKeyDown);
   boardEl.addEventListener('click', onBoardClick);
   boardEl.addEventListener('contextmenu', onBoardContextMenu);
   boardEl.addEventListener('mousedown', onBoardMousedown);
@@ -495,6 +543,7 @@ export function initMinesweeper(root: HTMLElement | Document = document): Minesw
 
   const onFaceClick = () => startNewGame();
   faceBtn.addEventListener('click', onFaceClick);
+  statusBtnEl?.addEventListener('click', onFaceClick);
 
   const onSoundClick = () => {
     audio.enabled = !audio.enabled;
@@ -526,6 +575,7 @@ export function initMinesweeper(root: HTMLElement | Document = document): Minesw
   return {
     destroy: () => {
       stopTimer();
+      window.removeEventListener('keydown', onKeyDown);
       boardEl.removeEventListener('click', onBoardClick);
       boardEl.removeEventListener('contextmenu', onBoardContextMenu);
       boardEl.removeEventListener('mousedown', onBoardMousedown);
@@ -533,6 +583,7 @@ export function initMinesweeper(root: HTMLElement | Document = document): Minesw
       boardEl.removeEventListener('touchstart', onTouchStart);
       boardEl.removeEventListener('touchend', onTouchEnd);
       faceBtn.removeEventListener('click', onFaceClick);
+      statusBtnEl?.removeEventListener('click', onFaceClick);
       soundToggleBtn?.removeEventListener('click', onSoundClick);
       flagModeBtn?.removeEventListener('click', onFlagModeClick);
       diffListeners.forEach(({ btn, fn }) => btn.removeEventListener('click', fn));

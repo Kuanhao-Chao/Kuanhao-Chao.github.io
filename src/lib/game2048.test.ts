@@ -162,6 +162,22 @@ describe('2048 Core Engine', () => {
       ];
       expect(hasMovesAvailable(deadGrid)).toBe(false);
     });
+
+    it('correctly detects deadlock on 3x3 and 5x5 boards', () => {
+      const dead3x3 = [
+        [2, 4, 2],
+        [4, 2, 4],
+        [2, 4, 2],
+      ];
+      expect(hasMovesAvailable(dead3x3)).toBe(false);
+
+      const live3x3 = [
+        [2, 4, 2],
+        [4, 4, 2], // center merge possible
+        [2, 4, 2],
+      ];
+      expect(hasMovesAvailable(live3x3)).toBe(true);
+    });
   });
 
   describe('isGameWon', () => {

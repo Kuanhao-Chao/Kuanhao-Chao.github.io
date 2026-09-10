@@ -86,19 +86,25 @@ const gameLd = {
         </div>
       </div>
 
-      <!-- Quick Action Bar -->
+      <!-- Quick Action Bar & Shortcut Hints -->
       <div class="mine-action-bar">
         <!-- Flag Mode Toggle (Touch / Mobile) -->
         <button
           type="button"
           class="flag-toggle-btn"
           data-mine-flag-toggle
-          title="Toggle flag placement mode (essential on mobile phones)"
+          title="Toggle flag placement mode (essential on mobile phones, or press F)"
           aria-pressed="false"
         >
-          <span class="flag-icon">🚩</span>
+          <span class="flag-icon" aria-hidden="true">🚩</span>
           <span class="flag-text">Flag Mode</span>
         </button>
+
+        <div class="mine-desktop-shortcuts muted" aria-hidden="true">
+          <span class="hint-chip"><kbd>Left-Click</kbd> Reveal</span>
+          <span class="hint-chip"><kbd>Right-Click / F</kbd> Flag</span>
+          <span class="hint-chip"><kbd>R</kbd> Reset</span>
+        </div>
 
         <!-- Sound Toggle -->
         <button
@@ -114,6 +120,12 @@ const gameLd = {
             <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
           </svg>
         </button>
+      </div>
+
+      <!-- Status Banner (Win / Loss Announcement) -->
+      <div class="mine-status-banner" data-mine-status aria-live="polite" hidden>
+        <span class="status-text" data-mine-status-text></span>
+        <button type="button" class="status-retry-btn" data-mine-status-btn>Play Again</button>
       </div>
 
       <!-- Mine Board Wrapper with smooth horizontal scrolling for Expert mode -->
@@ -308,6 +320,9 @@ const gameLd = {
   .mine-action-bar {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 480px;
     gap: 0.75rem;
   }
   .flag-toggle-btn {
@@ -331,7 +346,32 @@ const gameLd = {
     background: color-mix(in srgb, #ef4444 14%, var(--color-surface));
     border-color: #ef4444;
     color: #ef4444;
-    box-shadow: 0 0 8px rgba(239, 68, 68, 0.25);
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.35);
+  }
+
+  .mine-desktop-shortcuts {
+    display: none;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  @media (min-width: 640px) {
+    .mine-desktop-shortcuts {
+      display: flex;
+    }
+  }
+  .hint-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.45rem;
+    background: color-mix(in srgb, var(--color-ink) 5%, var(--color-surface));
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    font-size: 0.72rem;
+  }
+  .hint-chip kbd {
+    font-family: var(--font-mono);
+    font-weight: 700;
   }
 
   .sound-btn {
@@ -348,6 +388,63 @@ const gameLd = {
   .sound-btn.is-muted {
     opacity: 0.5;
     color: #ef4444;
+  }
+
+  /* Status Banner */
+  .mine-status-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: 100%;
+    max-width: 480px;
+    padding: 0.5rem 0.85rem;
+    border-radius: var(--radius);
+    font-size: var(--fs-small);
+    font-weight: var(--fw-semibold);
+    animation: mine-banner-appear 0.2s ease-out;
+  }
+  .mine-status-banner[hidden] {
+    display: none !important;
+  }
+  .mine-status-banner.is-won {
+    background: color-mix(in srgb, #22c55e 14%, var(--color-surface));
+    border: 1px solid #22c55e;
+    color: #15803d;
+  }
+  :root[data-theme='dark'] .mine-status-banner.is-won,
+  :root[data-theme='nord'] .mine-status-banner.is-won,
+  :root[data-theme='monokai'] .mine-status-banner.is-won {
+    color: #4ade80;
+  }
+  .mine-status-banner.is-lost {
+    background: color-mix(in srgb, #ef4444 14%, var(--color-surface));
+    border: 1px solid #ef4444;
+    color: #b91c1c;
+  }
+  :root[data-theme='dark'] .mine-status-banner.is-lost,
+  :root[data-theme='nord'] .mine-status-banner.is-lost,
+  :root[data-theme='monokai'] .mine-status-banner.is-lost {
+    color: #f87171;
+  }
+  .status-retry-btn {
+    padding: 0.25rem 0.6rem;
+    font-size: 0.78rem;
+    font-weight: var(--fw-semibold);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all var(--transition);
+  }
+  .status-retry-btn:hover {
+    background: var(--color-bg);
+    border-color: var(--color-accent);
+  }
+  @keyframes mine-banner-appear {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
   /* Board & Cell Styles */
@@ -420,15 +517,15 @@ const gameLd = {
     background: #fef08a;
   }
 
-  /* Number Colors */
-  :global(.mine-cell.is-num-1) { color: #2563eb; }
-  :global(.mine-cell.is-num-2) { color: #16a34a; }
-  :global(.mine-cell.is-num-3) { color: #dc2626; }
-  :global(.mine-cell.is-num-4) { color: #1e3a8a; }
-  :global(.mine-cell.is-num-5) { color: #991b1b; }
-  :global(.mine-cell.is-num-6) { color: #0d9488; }
-  :global(.mine-cell.is-num-7) { color: #000000; }
-  :global(.mine-cell.is-num-8) { color: #64748b; }
+  /* Number Colors (Theme-Safe & High Contrast) */
+  :global(.mine-cell.is-num-1) { color: #3b82f6; }
+  :global(.mine-cell.is-num-2) { color: #22c55e; }
+  :global(.mine-cell.is-num-3) { color: #ef4444; }
+  :global(.mine-cell.is-num-4) { color: #818cf8; }
+  :global(.mine-cell.is-num-5) { color: #f97316; }
+  :global(.mine-cell.is-num-6) { color: #06b6d4; }
+  :global(.mine-cell.is-num-7) { color: #ec4899; }
+  :global(.mine-cell.is-num-8) { color: #94a3b8; }
 
   /* Help & Tips */
   .mine-help {
