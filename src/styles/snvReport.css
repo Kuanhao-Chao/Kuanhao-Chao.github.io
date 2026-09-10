@@ -1,0 +1,45 @@
+/* Imported by the two SNV report entries. Screen tables retain horizontal
+   scrolling; print tables must fit the physical page instead of clipping. */
+.prose th,
+.prose td {
+  padding: 0.45em 0.6em;
+  border-bottom: 1px solid var(--color-rule);
+  vertical-align: top;
+  font-variant-numeric: tabular-nums;
+}
+
+.prose th {
+  background: color-mix(in srgb, var(--color-ink) 4%, transparent);
+}
+
+.prose :not(pre) > code {
+  overflow-wrap: anywhere;
+}
+
+@media print {
+  .prose table {
+    display: table;
+    width: 100%;
+    max-width: 100%;
+    overflow: visible;
+    font-size: 7.2pt;
+    line-height: 1.35;
+  }
+
+  .prose th,
+  .prose td {
+    padding: 0.35em 0.4em;
+  }
+
+  .prose th {
+    overflow-wrap: anywhere;
+  }
+
+  .prose thead {
+    display: table-header-group;
+  }
+
+  .prose tr {
+    break-inside: avoid;
+  }
+}
