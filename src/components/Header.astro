@@ -1,12 +1,23 @@
 ---
 import Icon from './Icon.astro';
-import { Image } from 'astro:assets';
-import { site, nav } from '../data/site';
-import shorkieLogo from '../assets/logos/software/shorkie.png';
+import { site, nav, labNavItems } from '../data/site';
 
 const path = Astro.url.pathname;
 const isActive = (href: string) =>
   href === '/' ? path === '/' : path.startsWith(href.replace(/\/$/, ''));
+
+const labPrefixes = [
+  '/algorithms',
+  '/shorkie-lab',
+  '/lab',
+  '/nn-lab',
+  '/deep_dives',
+  '/terminal',
+  '/fun-lab',
+];
+const isLabActive = labPrefixes.some((prefix) =>
+  prefix === '/lab' ? path === '/lab' || path.startsWith('/lab/') : path.startsWith(prefix)
+);
 
 // Header (desktop + mobile) shows primary items only; footer keeps the full nav.
 const headerNav = nav.filter((item) => !item.footerOnly);
@@ -32,6 +43,49 @@ const headerNav = nav.filter((item) => !item.footerOnly);
             </li>
           ))
         }
+        <li class="nav-labs-item" data-nav-labs-wrapper>
+          <button
+            type="button"
+            class="nav-labs-trigger"
+            data-nav-labs-trigger
+            aria-haspopup="menu"
+            aria-expanded="false"
+            aria-current={isLabActive ? 'page' : undefined}
+            title="Interactive tools, models, and genome browsers"
+          >
+            <span>Labs</span>
+            <span class="nav-labs-caret" aria-hidden="true">▾</span>
+          </button>
+
+          <div class="nav-labs-popover" data-nav-labs-popover role="menu" hidden>
+            <div class="nav-labs-header">
+              <span class="eyebrow">Interactive Labs & Tools</span>
+              <span class="nav-labs-count">8 Explorations</span>
+            </div>
+            <div class="nav-labs-grid">
+              {
+                labNavItems.map((item) => (
+                  <a
+                    href={item.href}
+                    class="nav-lab-card"
+                    role="menuitem"
+                    aria-current={path.startsWith(item.href.replace(/\/$/, '')) ? 'page' : undefined}
+                  >
+                    <span class="nav-lab-icon" aria-hidden="true">{item.icon}</span>
+                    <div class="nav-lab-info">
+                      <div class="nav-lab-title-row">
+                        <strong class="nav-lab-title">{item.title}</strong>
+                        {item.badge && <span class="nav-lab-badge">{item.badge}</span>}
+                      </div>
+                      <span class="nav-lab-sub">{item.sub}</span>
+                    </div>
+                    <span class="nav-lab-arrow" aria-hidden="true">→</span>
+                  </a>
+                ))
+              }
+            </div>
+          </div>
+        </li>
       </ul>
     </nav>
 
@@ -258,52 +312,6 @@ const headerNav = nav.filter((item) => !item.footerOnly);
             <span class="cell-control-hint" data-cell-mode-hint>
               Ambient keeps a subtle 0.8 alpha background with page content.
             </span>
-
-            <div class="popover-labs-list">
-              <a
-                href="/lab"
-                data-astro-reload
-                class="popover-lab-card"
-                title="Open full-screen interactive Cell Lab cellular automata simulation"
-              >
-                <span class="lab-card-icon" aria-hidden="true">🔬</span>
-                <div class="lab-card-content">
-                  <strong class="lab-card-title">Cell Lab Playground</strong>
-                  <span class="lab-card-sub">In silico cellular microcosm</span>
-                </div>
-                <span class="lab-card-arrow" aria-hidden="true">→</span>
-              </a>
-
-              <a
-                href="/shorkie-lab/"
-                data-astro-reload
-                class="popover-lab-card"
-                title="Open Shorkie & Shorkie_LM browser-native deep learning models"
-              >
-                <span class="lab-card-icon lab-card-icon--img" aria-hidden="true">
-                  <Image src={shorkieLogo} alt="" width={22} height={22} class="lab-shorkie-logo" />
-                </span>
-                <div class="lab-card-content">
-                  <strong class="lab-card-title">Shorkie Lab</strong>
-                  <span class="lab-card-sub">Neural expression & DNA LM</span>
-                </div>
-                <span class="lab-card-arrow" aria-hidden="true">→</span>
-              </a>
-
-              <a
-                href="/fun-lab/"
-                data-astro-reload
-                class="popover-lab-card"
-                title="Explore playful biophysical toys: 3D Chromatin Compaction & Sonic Genome DNA Synthesizer"
-              >
-                <span class="lab-card-icon" aria-hidden="true">✨</span>
-                <div class="lab-card-content">
-                  <strong class="lab-card-title">Lab for Fun</strong>
-                  <span class="lab-card-sub">Chromatin 3D & Sonic Synth</span>
-                </div>
-                <span class="lab-card-arrow" aria-hidden="true">→</span>
-              </a>
-            </div>
           </div>
         </div>
       </div>
@@ -337,12 +345,31 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       </ul>
     </nav>
 
-    {/*
-      The appearance controls used to be duplicated here *and* in the header pill's
-      popover, so a phone offered the same six themes, three phosphors and cell modes
-      in two places — and the duplicate pushed the Cell Lab link below a long scroll.
-      The popover is now the single home for them on every screen size.
-    */}
+    <div class="mobile-labs-section">
+      <div class="mobile-labs-header">
+        <span class="eyebrow">Interactive Labs & Tools</span>
+      </div>
+      <div class="mobile-labs-grid">
+        {
+          labNavItems.map((item) => (
+            <a
+              href={item.href}
+              class="mobile-lab-card"
+              aria-current={path.startsWith(item.href.replace(/\/$/, '')) ? 'page' : undefined}
+            >
+              <span class="mobile-lab-icon" aria-hidden="true">{item.icon}</span>
+              <div class="mobile-lab-text">
+                <div class="mobile-lab-title-row">
+                  <strong class="mobile-lab-title">{item.title}</strong>
+                  {item.badge && <span class="mobile-lab-badge">{item.badge}</span>}
+                </div>
+                <span class="mobile-lab-sub">{item.sub}</span>
+              </div>
+            </a>
+          ))
+        }
+      </div>
+    </div>
   </div>
 </header>
 
@@ -436,6 +463,225 @@ const headerNav = nav.filter((item) => !item.footerOnly);
   .nav-desktop a:focus-visible::after,
   .nav-desktop a[aria-current='page']::after {
     transform: scaleX(1);
+  }
+
+  /* Labs Dropdown in Desktop Nav */
+  .nav-labs-item {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+  .nav-labs-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: var(--color-ink);
+    font-size: var(--fs-small);
+    font-weight: var(--fw-medium);
+    padding-block: 0.4rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    white-space: nowrap;
+    font-family: inherit;
+    transition: color var(--transition);
+  }
+  .nav-labs-trigger:hover,
+  .nav-labs-trigger[aria-expanded='true'] {
+    color: var(--color-accent);
+  }
+  .nav-labs-trigger[aria-current='page'] {
+    color: var(--color-accent);
+  }
+  .nav-labs-trigger::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -2px;
+    height: 1.5px;
+    background: var(--color-accent);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 200ms ease;
+  }
+  .nav-labs-trigger:hover::after,
+  .nav-labs-trigger:focus-visible::after,
+  .nav-labs-trigger[aria-current='page']::after,
+  .nav-labs-trigger[aria-expanded='true']::after {
+    transform: scaleX(1);
+  }
+  .nav-labs-caret {
+    font-size: 0.72rem;
+    line-height: 1;
+    opacity: 0.65;
+    transition: transform 200ms ease, opacity var(--transition);
+  }
+  .nav-labs-trigger:hover .nav-labs-caret,
+  .nav-labs-trigger[aria-expanded='true'] .nav-labs-caret {
+    opacity: 1;
+  }
+  .nav-labs-trigger[aria-expanded='true'] .nav-labs-caret {
+    transform: rotate(180deg);
+  }
+
+  .nav-labs-popover {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: min(560px, 92vw);
+    background: color-mix(in srgb, var(--color-surface) 96%, var(--color-bg));
+    -webkit-backdrop-filter: saturate(160%) blur(16px);
+    backdrop-filter: saturate(160%) blur(16px);
+    border: 1px solid var(--color-rule);
+    border-radius: 12px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.05);
+    padding: 1.1rem;
+    z-index: 120;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    animation: labs-popover-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes labs-popover-in {
+    from {
+      opacity: 0;
+      transform: translateY(-6px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .nav-labs-popover[hidden] {
+    display: none !important;
+  }
+
+  .nav-labs-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 0.45rem;
+    border-bottom: 1px solid var(--color-rule);
+  }
+
+  .nav-labs-count {
+    font-size: 0.72rem;
+    color: var(--color-muted);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .nav-labs-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .nav-lab-card {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.55rem 0.65rem;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    background: color-mix(in srgb, var(--color-surface) 60%, transparent);
+    color: var(--color-ink);
+    text-decoration: none;
+    transition: all 140ms ease;
+  }
+
+  .nav-lab-card:hover {
+    background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+    border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+    text-decoration: none;
+    transform: translateY(-1px);
+  }
+
+  .nav-lab-card[aria-current='page'] {
+    background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+    border-color: var(--color-accent);
+  }
+
+  .nav-lab-icon {
+    display: inline-grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    font-size: 1.15rem;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--color-ink) 4%, transparent);
+    flex-shrink: 0;
+  }
+
+  .nav-lab-card:hover .nav-lab-icon {
+    background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  }
+
+  .nav-lab-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .nav-lab-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .nav-lab-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-ink);
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .nav-lab-card:hover .nav-lab-title {
+    color: var(--color-accent);
+  }
+
+  .nav-lab-badge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.1em 0.4em;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+    color: var(--color-accent);
+  }
+
+  .nav-lab-sub {
+    font-size: 0.72rem;
+    color: var(--color-muted);
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .nav-lab-arrow {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--color-accent);
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: all 140ms ease;
+    flex-shrink: 0;
+  }
+
+  .nav-lab-card:hover .nav-lab-arrow {
+    opacity: 1;
+    transform: translateX(0);
   }
 
   .header-actions {
@@ -792,98 +1038,6 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .popover-labs-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    margin-top: 0.55rem;
-  }
-
-  .popover-lab-card {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    padding: 0.45rem 0.6rem;
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--color-surface) 90%, var(--color-ink) 5%);
-    border: 1px solid var(--color-rule);
-    text-decoration: none;
-    color: var(--color-ink);
-    transition: all 0.15s ease;
-    box-sizing: border-box;
-  }
-
-  .popover-lab-card:hover {
-    background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
-    border-color: var(--color-accent);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
-  }
-
-  .lab-card-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    flex-shrink: 0;
-    font-size: 1.15rem;
-    line-height: 1;
-  }
-
-  .lab-card-icon--img {
-    border-radius: 4px;
-    overflow: hidden;
-  }
-
-  .lab-shorkie-logo {
-    width: 22px;
-    height: 22px;
-    object-fit: contain;
-    display: block;
-  }
-
-  .lab-card-content {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    flex: 1;
-  }
-
-  .lab-card-title {
-    font-size: 0.78125rem;
-    font-weight: 650;
-    color: var(--color-ink);
-    line-height: 1.25;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .lab-card-sub {
-    font-size: 0.6875rem;
-    color: var(--color-muted);
-    line-height: 1.2;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .lab-card-arrow {
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--color-accent);
-    opacity: 0.7;
-    margin-left: auto;
-    transition: transform 0.15s ease, opacity 0.15s ease;
-    flex-shrink: 0;
-  }
-
-  .popover-lab-card:hover .lab-card-arrow {
-    opacity: 1;
-    transform: translateX(2px);
-  }
-
   .cell-action-row {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1100,6 +1254,100 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     color: var(--color-accent);
   }
 
+  .mobile-labs-section {
+    padding: 1.25rem var(--gutter) 1.5rem;
+    border-top: 1px solid var(--color-rule);
+    background: color-mix(in srgb, var(--color-surface) 40%, transparent);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .mobile-labs-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .mobile-labs-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .mobile-lab-card {
+    display: flex !important;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.65rem 0.6rem !important;
+    border: 1px solid var(--color-rule) !important;
+    border-radius: 8px;
+    background: var(--color-surface);
+    color: var(--color-ink) !important;
+    text-decoration: none !important;
+    transition: all 120ms ease;
+  }
+
+  .mobile-lab-card:hover,
+  .mobile-lab-card:active {
+    background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+    border-color: var(--color-accent) !important;
+    text-decoration: none !important;
+  }
+
+  .mobile-lab-card[aria-current='page'] {
+    border-color: var(--color-accent) !important;
+    background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+  }
+
+  .mobile-lab-icon {
+    font-size: 1.25rem;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .mobile-lab-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .mobile-lab-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .mobile-lab-title {
+    font-size: 0.8125rem;
+    font-weight: 650;
+    color: var(--color-ink);
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-lab-badge {
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: 0.05em 0.35em;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+    color: var(--color-accent);
+  }
+
+  .mobile-lab-sub {
+    font-size: 0.6875rem;
+    color: var(--color-muted);
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .mobile-theme-drawer {
     padding: 1rem var(--gutter) 1.5rem;
     border-top: 1px solid var(--color-rule);
@@ -1268,6 +1516,11 @@ const headerNav = nav.filter((item) => !item.footerOnly);
   let nav: Nav | null = null;
   let popoverEl: HTMLElement | null = null;
   let topBtnEl: HTMLButtonElement | null = null;
+  let labsWrapperEl: HTMLElement | null = null;
+  let labsTriggerEl: HTMLButtonElement | null = null;
+  let labsPopoverEl: HTMLElement | null = null;
+  let labsCloseTimer: ReturnType<typeof setTimeout> | null = null;
+
   const headerWindow = window as Window & {
     __khcHeaderEventsBound?: boolean;
     __khcCellControlEventsBound?: boolean;
@@ -1286,6 +1539,13 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     if (!popoverEl || !topBtnEl) return;
     popoverEl.hidden = !open;
     topBtnEl.setAttribute('aria-expanded', String(open));
+  };
+
+  const isLabsOpen = () => labsTriggerEl?.getAttribute('aria-expanded') === 'true';
+  const setLabsOpen = (open: boolean) => {
+    if (!labsPopoverEl || !labsTriggerEl) return;
+    labsPopoverEl.hidden = !open;
+    labsTriggerEl.setAttribute('aria-expanded', String(open));
   };
 
   function syncHeaderThemeIcons() {
@@ -1440,6 +1700,40 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       });
     }
 
+    // Labs Dropdown setup
+    labsWrapperEl = document.querySelector<HTMLElement>('[data-nav-labs-wrapper]');
+    labsTriggerEl = document.querySelector<HTMLButtonElement>('[data-nav-labs-trigger]');
+    labsPopoverEl = document.querySelector<HTMLElement>('[data-nav-labs-popover]');
+
+    if (labsTriggerEl && labsTriggerEl.dataset.labsBound !== 'true') {
+      labsTriggerEl.dataset.labsBound = 'true';
+      labsTriggerEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setLabsOpen(!isLabsOpen());
+      });
+    }
+
+    if (labsWrapperEl && labsWrapperEl.dataset.labsHoverBound !== 'true') {
+      labsWrapperEl.dataset.labsHoverBound = 'true';
+      labsWrapperEl.addEventListener('mouseenter', () => {
+        if (window.matchMedia('(min-width: 960px)').matches) {
+          if (labsCloseTimer) clearTimeout(labsCloseTimer);
+          setLabsOpen(true);
+        }
+      });
+      labsWrapperEl.addEventListener('mouseleave', () => {
+        if (window.matchMedia('(min-width: 960px)').matches) {
+          labsCloseTimer = setTimeout(() => {
+            setLabsOpen(false);
+          }, 160);
+        }
+      });
+    }
+
+    labsPopoverEl?.querySelectorAll<HTMLAnchorElement>('a').forEach((link) => {
+      link.addEventListener('click', () => setLabsOpen(false));
+    });
+
     // Theme, CRT and the CRT power switch are applied by the ONE delegated listener in
     // BaseLayout. This component binds none of them: it used to, and so did ThemeSwitcher, and
     // because both used `btn.onclick = ...` over `document.querySelectorAll` each replaced the
@@ -1482,6 +1776,10 @@ const headerNav = nav.filter((item) => !item.footerOnly);
 
   function handleHeaderKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') {
+      if (isLabsOpen()) {
+        setLabsOpen(false);
+        labsTriggerEl?.focus();
+      }
       if (isPopoverOpen()) {
         setPopoverOpen(false);
         topBtnEl?.focus();
@@ -1495,6 +1793,9 @@ const headerNav = nav.filter((item) => !item.footerOnly);
 
   function handleOutsideClick(e: MouseEvent) {
     const target = e.target as Node;
+    if (isLabsOpen() && !labsPopoverEl?.contains(target) && !labsTriggerEl?.contains(target)) {
+      setLabsOpen(false);
+    }
     if (isPopoverOpen() && !popoverEl?.contains(target) && !topBtnEl?.contains(target)) {
       setPopoverOpen(false);
     }
@@ -1504,12 +1805,17 @@ const headerNav = nav.filter((item) => !item.footerOnly);
   }
 
   function handleDesktopLayout(e: MediaQueryListEvent) {
-    if (e.matches) setMenuOpen(false);
+    if (e.matches) {
+      setMenuOpen(false);
+    } else {
+      setLabsOpen(false);
+    }
   }
 
   function closeHeaderMenus() {
     setMenuOpen(false);
     setPopoverOpen(false);
+    setLabsOpen(false);
   }
 
   // Refresh active navigation indicators
@@ -1524,6 +1830,21 @@ const headerNav = nav.filter((item) => !item.footerOnly);
         href === '/' ? currentPath === '/' : currentPath.startsWith(href.replace(/\/$/, ''));
       if (active) a.setAttribute('aria-current', 'page');
       else a.removeAttribute('aria-current');
+    }
+
+    const isLab = [
+      '/algorithms',
+      '/shorkie-lab',
+      '/lab',
+      '/nn-lab',
+      '/deep_dives',
+      '/terminal',
+      '/fun-lab',
+    ].some((p) => (p === '/lab' ? currentPath === '/lab' || currentPath.startsWith('/lab/') : currentPath.startsWith(p)));
+
+    if (labsTriggerEl) {
+      if (isLab) labsTriggerEl.setAttribute('aria-current', 'page');
+      else labsTriggerEl.removeAttribute('aria-current');
     }
   }
 
