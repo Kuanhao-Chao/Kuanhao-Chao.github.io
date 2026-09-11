@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Supplement: genome-wide OpenSpliceAI and SpliceAI comparison</title>
+<style>
+@import url("https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+/* Palette: cool-biased neutrals (the accent is blue, so the greys lean blue rather
+   than sitting at a pure mid-grey), with the two accents taken directly from the
+   figures' validated categorical slots -- SpliceAI blue and OpenSpliceAI orange --
+   so the prose, the tables and the charts read as one system. */
+:root{
+  color-scheme: light;
+  --ground:#f7f8fa; --card:#ffffff; --raised:#eef1f6;
+  --ink:#12151a; --ink-2:#49515f; --ink-3:#838b99;
+  --rule:#e0e4ea; --rule-strong:#c9cfd9;
+  --accent:#2a78d6; --accent-2:#eb6834;
+  --serif:"Spectral",Georgia,"Times New Roman",serif;
+  --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --measure:68ch;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --ground:#14171c; --card:#1b1f26; --raised:#232832;
+    --ink:#f1f3f7; --ink-2:#b2b9c6; --ink-3:#7b8393;
+    --rule:#2b303a; --rule-strong:#3b424f;
+    --accent:#5a9bea; --accent-2:#ef7f52;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --ground:#14171c; --card:#1b1f26; --raised:#232832;
+  --ink:#f1f3f7; --ink-2:#b2b9c6; --ink-3:#7b8393;
+  --rule:#2b303a; --rule-strong:#3b424f;
+  --accent:#5a9bea; --accent-2:#ef7f52;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:var(--serif); font-size:17px; line-height:1.68;
+  -webkit-font-smoothing:antialiased;
+}
+main{
+  /* A narrow measure for prose; tables and figures break out to the full width,
+     because dense numeric data is scanned, not read at 68 characters. */
+  max-width:78rem; margin:0 auto; padding:4rem 2rem 7rem;
+  display:flex; flex-direction:column; gap:0;
+}
+main > p, main > ul, main > ol, main > blockquote{max-width:var(--measure)}
+main > h1, main > h2, main > h3, main > h4{max-width:var(--measure)}
+
+h1{
+  font-weight:700; font-size:clamp(1.9rem,3.4vw,2.7rem); line-height:1.14;
+  letter-spacing:-.018em; text-wrap:balance; margin:0 0 1.1rem;
+}
+h2{
+  font-weight:600; font-size:1.52rem; line-height:1.25; letter-spacing:-.012em;
+  text-wrap:balance; margin:3.6rem 0 .5rem; padding-top:1.5rem;
+  border-top:1px solid var(--rule);
+}
+h3{font-weight:600; font-size:1.18rem; letter-spacing:-.006em; text-wrap:balance; margin:2.3rem 0 .4rem}
+h4{font-family:var(--sans); font-weight:600; font-size:.86rem; letter-spacing:.06em;
+   text-transform:uppercase; color:var(--ink-2); margin:1.7rem 0 .35rem}
+p{margin:0 0 1.05rem}
+strong{font-weight:600}
+a{color:var(--accent); text-underline-offset:2px}
+a:focus-visible,summary:focus-visible{outline:2px solid var(--accent); outline-offset:3px; border-radius:3px}
+ul,ol{margin:0 0 1.1rem; padding-left:1.35rem}
+li{margin:.3rem 0}
+li::marker{color:var(--ink-3)}
+
+blockquote{
+  margin:1.5rem 0; padding:.85rem 1.15rem; background:var(--raised);
+  border-left:2px solid var(--accent); border-radius:0 3px 3px 0;
+  font-style:italic; color:var(--ink-2);
+}
+
+code{font-family:var(--mono); font-size:.84em; background:var(--raised);
+     padding:.1em .34em; border-radius:3px; word-break:break-word}
+pre{font-family:var(--mono); background:var(--raised); color:var(--ink);
+    padding:1rem 1.15rem; border-radius:5px; overflow-x:auto; font-size:.82rem;
+    line-height:1.55; border:1px solid var(--rule); margin:1.3rem 0; max-width:100%}
+pre code{background:none; padding:0; font-size:1em}
+
+/* Tables are the substance of this document, so they get the utility face,
+   lining figures and a scroll container of their own. */
+.tablewrap{overflow-x:auto; margin:1.5rem 0; border:1px solid var(--rule);
+           border-radius:5px; background:var(--card)}
+table{border-collapse:collapse; width:100%; font-family:var(--sans);
+      font-size:.815rem; line-height:1.45; font-variant-numeric:tabular-nums lining-nums}
+th,td{padding:.5rem .8rem; text-align:right; white-space:nowrap;
+      border-bottom:1px solid var(--rule)}
+th:first-child,td:first-child{text-align:left; white-space:normal; min-width:11rem}
+thead th{background:var(--raised); color:var(--ink-2); font-weight:600;
+         font-size:.74rem; letter-spacing:.045em; text-transform:uppercase;
+         border-bottom:1px solid var(--rule-strong); position:sticky; top:0; z-index:1}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--raised)}
+td code{font-size:.78em}
+
+figure{margin:2rem 0}
+/* Charts are rendered on the light chart surface. In dark mode they sit on a light
+   card rather than being inverted: an automatic flip is not a selected palette. */
+figure img{display:block; width:100%; height:auto; background:#fcfcfb;
+           border:1px solid var(--rule); border-radius:5px; padding:.6rem}
+figcaption{margin-top:.6rem; font-family:var(--sans); font-size:.8rem;
+           line-height:1.5; color:var(--ink-2); max-width:var(--measure)}
+
+small{font-family:var(--sans); font-size:.78rem; color:var(--ink-3)}
+hr{border:none; border-top:1px solid var(--rule); margin:2.6rem 0}
+
+/* Masthead: the one place the page spends any visual weight. */
+.masthead{margin:0 0 2.2rem; padding:0 0 1.6rem; border-bottom:2px solid var(--rule-strong)}
+.masthead .eyebrow{font-family:var(--sans); font-size:.74rem; font-weight:600;
+  letter-spacing:.13em; text-transform:uppercase; color:var(--accent); margin:0 0 .7rem}
+.masthead h1{margin:0 0 .8rem; max-width:22ch}
+.masthead .dek{font-size:1.06rem; line-height:1.55; color:var(--ink-2);
+  max-width:var(--measure); margin:0 0 1.5rem}
+.status{display:inline-flex; align-items:center; gap:.42rem; font-family:var(--sans);
+  font-size:.71rem; font-weight:600; letter-spacing:.09em; text-transform:uppercase;
+  padding:.26rem .6rem .26rem .5rem; border-radius:3px;
+  background:var(--accent-2); color:#fff}
+.status::before{content:""; width:.4rem; height:.4rem; border-radius:50%;
+  background:#fff; opacity:.85}
+.meta{display:grid; grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));
+  gap:1rem 1.6rem; margin:1.4rem 0 0; padding:0; list-style:none;
+  font-family:var(--sans)}
+.meta div{display:flex; flex-direction:column; gap:.16rem}
+.meta dt{font-size:.7rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--ink-3)}
+.meta dd{margin:0; font-size:.95rem; font-weight:500; color:var(--ink);
+  font-variant-numeric:tabular-nums lining-nums}
+.meta dd.small{font-family:var(--mono); font-size:.72rem; font-weight:400;
+  color:var(--ink-2); word-break:break-all}
+
+/* Table of contents, emitted by the markdown toc extension. */
+.toc{max-width:var(--measure); margin:2rem 0 0; padding:1.1rem 1.3rem;
+     background:var(--card); border:1px solid var(--rule); border-radius:5px}
+.toc > ul{margin:0; padding-left:1.1rem; font-family:var(--sans); font-size:.85rem}
+.toc ul ul{padding-left:1.05rem}
+.toc li{margin:.16rem 0}
+.toc a{color:var(--ink-2); text-decoration:none}
+.toc a:hover{color:var(--accent); text-decoration:underline}
+
+@media (max-width:760px){
+  body{font-size:16px}
+  main{padding:2.5rem 1.1rem 4rem}
+  th,td{padding:.42rem .6rem}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+<h1 id="supplement-genome-wide-openspliceai-and-spliceai-comparison">Supplement: genome-wide OpenSpliceAI and SpliceAI comparison</h1>
+<h2 id="abstract">Abstract</h2>
+<p>We describe the scoring collection, annotation pairing, masking, and statistical summaries used to compare OpenSpliceAI with SpliceAI. Supporting analyses examine score differences, threshold transfer, output precision, annotation context, selected positions, and variation across genes and genomic blocks. All results use the same dated scientific snapshot as the main report; inference progress is documented separately.</p>
+<p>This supplement accompanies the <a href="https://khchao.com/reports/full-snv-scoring-technical-report/">main report</a>.
+AG, AL, DG and DL denote acceptor gain, acceptor loss, donor gain and donor loss, respectively.
+MAX is the largest of those four scores. Scientific results use the September 9 snapshot;
+separately dated progress observations do not change the analyzed populations.</p>
+<h2 id="coverage-and-counting-units">Coverage and counting units</h2>
+<figure><img src="/downloads/full-snv-concordance-20260911-figures/figures/supp01_coverage.png" alt="Source records, variant groups and paired gene annotations have different denominators." /><figcaption>Figure S1. Counting units and pairing coverage. Counts refer to the primary rs10 comparison. VCF rows, distinct variant groups and variant–gene annotations are different units; these rows are not successive stages of a decreasing funnel. Pairing excludes missing or conflicting predictions. Counts for each model use its name explicitly. Coverage remains provisional.</figcaption></figure>
+
+<h2 id="secondary-event-comparisons">Secondary event comparisons</h2>
+<figure><img src="/downloads/full-snv-concordance-20260911-figures/figures/supp02_tails.png" alt="Signed score-difference tails by event." /><figcaption>Figure S2. The direction of large score differences. Tail probabilities distinguish OpenSpliceAI exceeding SpliceAI from the reverse. The right panel compares these directions. Difference magnitudes use histogram centers and estimates are approximate. This supports, rather than replaces, the event-wise score and call comparisons.</figcaption></figure>
+
+<figure><img src="/downloads/full-snv-concordance-20260911-figures/figures/supp03_threshold_transfer.png" alt="Per-event cutoffs selected by call-volume matching or comparator MCC." /><figcaption>Figure S3. Matching call volume does not ensure matching membership. Every configured SpliceAI cutoff is shown. Candidate OpenSpliceAI cutoffs lie on the histogram grid and exclude the unresolved endpoint at one. MCC is agreement with SpliceAI; neither objective optimizes experimental accuracy.</figcaption></figure>
+
+<figure><img src="/downloads/full-snv-concordance-20260911-figures/figures/supp04_precision.png" alt="Exact score agreement after matching output precision and differences beyond the rounding allowance." /><figcaption>Figure S4. Score agreement under a rounding allowance. SpliceAI reports two decimal places and OpenSpliceAI five. Left, exact matches before and after rounding OpenSpliceAI to two decimals. Right, mean(max(|OpenSpliceAI − SpliceAI| − 0.005, 0)) divided by the original mean absolute difference. This is a residual-error share, not a fraction of discordant variants or an estimate of error caused by rounding. The 0.005 allowance is an operational sensitivity analysis; it does not reconstruct either model’s unrounded scores. Shared zeros remain in the denominator.</figcaption></figure>
+
+<figure><img src="/downloads/full-snv-concordance-20260911-figures/figures/supp05_dominant_event.png" alt="Row-normalized dominant-event transitions, retaining ties and all-zero annotations." /><figcaption>Figure S5. Dominant-event labels and their denominators. Each row is normalized by its displayed SpliceAI-category count. TIE denotes a tied nonzero maximum and NONE all-zero scores. Unlabelled cells have proportions below 0.005, not necessarily zero; displayed rounding can prevent row labels summing to one. Exact counts and proportions are supplied in figure_data/dominant_row_proportions.csv. Dominant labels compress four nonexclusive scores.</figcaption></figure>
+
+<h2 id="context-and-selected-positions">Context and selected positions</h2>
+<figure><img src="/downloads/full-snv-concordance-20260911-figures/figures/supp06_site_distributions.png" alt="Event-score survival distributions near and far from internal boundaries, including MAX." /><figcaption>Figure S6. Score distributions near and far from internal boundaries. Histogram survival curves show the fraction at or above each lower bin edge, using width 0.005. All panels share the same logarithmic rate scale and include MAX as a summary. The near population contains 5,431,412 annotations and the far population 2,805,642,585. Zero survival values cannot appear on the log axis; a point at cutoff zero alone does not establish a nonzero loss score. The far group is not a transcript-specific deep-intronic category.</figcaption></figure>
+
+<figure><img src="/downloads/full-snv-concordance-20260911-figures/figures/supp07_site_score_agreement.png" alt="Near and distant score distributions for gains and losses." /><figcaption>Figure S7. Conditional score distributions by boundary proximity. Points are histogram-derived conditional medians and intervals the central 50% of OpenSpliceAI scores for each SpliceAI bin. Empty bins remain gaps. Near and far populations contain 5,431,412 and 2,805,642,585 annotations, respectively; the number in each conditioning bin varies. These are distribution intervals, not confidence intervals or calibration against experimental outcomes. MAX is a summary of the four events.</figcaption></figure>
+
+<figure><img src="/downloads/full-snv-concordance-20260911-figures/figures/supp08_site_positions.png" alt="Exact and within-2-bp position agreement by event and annotation context at a score cutoff of 0.5." /><figcaption>Figure S8. Position agreement within jointly called distance groups. Exact and within-2-bp agreement require both event scores ≥0.5. All panels retain the same six variant-distance groups. A group without jointly called events has undefined agreement and is labelled No joint calls. Vertical labels give eligible counts and exact-position mismatches (miss). The complete table includes other cutoffs and tolerances. Rare AL and DL mismatches are preserved rather than hidden by rounded percentages.</figcaption></figure>
+
+<h2 id="seed-comparisons-and-genomic-heterogeneity">Seed comparisons and genomic heterogeneity</h2>
+<figure><img src="/downloads/full-snv-concordance-20260911-figures/figures/supp09_seed_by_gene.png" alt="Gene-level method-to-seed mean absolute difference ratios." /><figcaption>Figure S9. Distribution of gene-level method-to-seed differences. Empirical cumulative distributions use the exact three-way intersection, with at least 1,000 paired observations per gene and positive, defined MAE ratios. All panels share log-axis limits. Legends give plotted gene counts; figure_data/seed_gene_summary.csv records exclusions, medians and fractions above one. Genes contribute equal weight to each curve. A small seed MAE can produce a large ratio; zero-denominator ratios are undefined.</figcaption></figure>
+
+<figure><img src="/downloads/full-snv-concordance-20260911-figures/figures/supp10_chromosome.png" alt="Mean signed MAX differences in all eligible 1-Mb blocks." /><figcaption>Figure S10. Regional variation in mean MAX differences. All 2,571 retained 1-Mb blocks with at least 10,000 paired annotations are shown across their full value range. Blocks are equally spaced within each chromosome; the horizontal scale is not proportional to genomic length. Point area increases with annotation count using an offset plus a scaled count. The dashed line is the primary annotation-weighted mean. MAX averages do not identify an event-specific regional mechanism.</figcaption></figure>
+
+<figure><img src="/downloads/full-snv-concordance-20260911-figures/figures/supp11_gene_divergence.png" alt="Gene-level MAX disagreement and selected high-divergence genes." /><figcaption>Figure S11. Distribution of gene-level mean MAX differences. Both panels contain 19,063 genes with at least 1,000 paired annotations. Point area increases linearly with annotation count after scaling. Up to twelve labels are selected in order of negative mean difference subject to spacing, so they are not strictly the twelve most negative genes. The scatter compares x=mean SpliceAI MAX with y=mean OpenSpliceAI MAX−x; the shared x term and bound y≥−x create mathematical coupling. The histogram shows the same gene differences and their median. Neither panel tests enrichment or establishes disease associations.</figcaption></figure>
+</main>
+</body>
+</html>
