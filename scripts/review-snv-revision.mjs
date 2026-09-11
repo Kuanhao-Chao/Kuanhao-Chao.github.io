@@ -7,6 +7,7 @@ import { chromium } from 'playwright';
 
 const evidence = process.env.SNV_REVIEW_EVIDENCE ?? resolve(dirname(fileURLToPath(import.meta.url)), "publication");
 const dist = process.env.SNV_REVIEW_DIST ?? resolve(evidence, '../website-release/dist');
+const releaseId = process.env.SNV_RELEASE_ID ?? '20260910';
 const screenshots = resolve(evidence, 'screenshots');
 await mkdir(screenshots, { recursive: true });
 const types = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript',
@@ -67,6 +68,13 @@ try {
         await page.screenshot({ path: resolve(screenshots, `${slug}-${profile.name}-figure.png`) });
         await chosen.locator('[data-zoom]').click();
         await chosen.locator('dialog[open]').waitFor();
+        await chosen.locator('dialog[open] img').evaluate(async image => {
+          await image.decode();
+          const box = image.getBoundingClientRect();
+          if (!image.naturalWidth || box.width < 100 || box.height < 20) {
+            throw new Error('Enlarged figure did not render');
+          }
+        });
         await page.screenshot({ path: resolve(screenshots, `${slug}-${profile.name}-zoom.png`) });
         await page.keyboard.press('Escape');
         if (await chosen.locator('dialog[open]').count()) throw new Error('Figure close failed');
@@ -89,7 +97,7 @@ try {
   }
   for (const [suffix, count] of [['', 6], ['-supplement', 11]]) {
     const standalone = await browser.newPage({ viewport: { width: 390, height: 844 } });
-    await standalone.goto(`${origin}/downloads/full-snv-concordance-20260910${suffix}.html`);
+    await standalone.goto(`${origin}/downloads/full-snv-concordance-${releaseId}${suffix}.html`);
     if (!(await standalone.locator('meta[name="viewport"]').count())) throw new Error('Missing standalone viewport');
     const overflow = await standalone.evaluate(() => document.documentElement.scrollWidth - innerWidth);
     if (overflow > 1) throw new Error(`Standalone overflow: ${overflow}px`);

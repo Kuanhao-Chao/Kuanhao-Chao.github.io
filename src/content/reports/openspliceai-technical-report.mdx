@@ -4,31 +4,20 @@ description: 'A technical report on OpenSpliceAI — a PyTorch reimplementation 
 authors:
   - Kuan-Hao Chao
 abstract: >-
-  SpliceAI set the standard for deep-learning splice-site prediction, but its original implementation is locked to a
-  TensorFlow/Keras runtime, ships as fixed human weights with no supported path to retrain on other species, and exposes
-  only a variant-scoring entry point — not the data-preparation, training, calibration, and genome-scale prediction
-  pipeline behind it. OpenSpliceAI is a ground-up reimplementation in PyTorch that reproduces the SpliceAI residual
-  dilated-CNN architecture exactly while exposing the full lifecycle as a single console tool with six composable
-  subcommands: create-data, train, transfer, calibrate, predict, and variant. The same model class is keyed on one
-  central parameter — the flanking (context) size, with the identity CL = 2·Σ AR(W−1) tying the dilation schedule to a
-  context length of 80, 400, 2,000, or 10,000 nt — and is reused across every subcommand, so a dataset, a checkpoint,
-  and an inference run are always consistent. On the human MANE test set (420.58 M scored positions, 5-model ensembles
-  at 10,000 nt), OpenSpliceAI matches or exceeds the original SpliceAI on every top-kL accuracy threshold, on AUPRC, on
-  precision, and on F1 for both donors and acceptors (e.g. donor Top-1L 0.944 vs 0.919, AUPRC 0.981 vs 0.966), trading a
-  little recall for markedly higher precision, and it is 1.47× faster on the same hardware. A batched, reference-
-  deduplicated variant scorer makes whole-genome variant effect prediction tractable — about 6.7× faster than the
-  original per-variant loop. We use that engine to launch a genome-wide campaign that writes an OpenSpliceAI delta-score
-  field next to SpliceAI's existing field throughout the published genic GRCh38 SNV collection (~3.43 billion SNVs per model seed), enabling the
-  first strictly mask-matched, tool-neutral comparison of the two methods. The campaign is a managed, good-citizen
-  SLURM workload — idempotent at chunk granularity, serialized across model seeds into a dependency chain so it never
-  exceeds a self-imposed GPU cap on a shared ten-GPU account. The frozen output collection supports a provisional comparison over
-  3,334,708,099 exact-gene paired annotations. MAX Pearson correlation is
-  0.795; losses and gains have different agreement profiles.
-  The companion full-SNV report documents the complete event-level analysis, a three-way matched seed
-  comparison, annotated-site context and independent computational verification. This report retains
-  the architecture and benchmark details and summarizes the campaign.
+  OpenSpliceAI implements the SpliceAI architecture in PyTorch and provides data preparation,
+  training, transfer learning, calibration, sequence prediction and variant scoring. This report
+  describes the implementation and its human MANE benchmark, separating labelled splice-site
+  prediction from model agreement on variant effects. The recorded benchmark compares five-model
+  ensembles over 420.58 million positions and measures processing time on the same hardware.
+  A genome-wide campaign additionally scores the published genic GRCh38 SNV collection using
+  individual OpenSpliceAI checkpoints. Its provisional scientific snapshot contains
+  3,334,708,099 paired variant–gene annotations. Loss scores agree
+  more closely than gains, and donor gain shows the largest difference. The companion full-SNV
+  report provides event-level results, matched seed comparisons, progress observations and
+  verification evidence. These variant comparisons describe agreement with SpliceAI and do not
+  establish relative biological accuracy.
 date: 2026-06-18
-updated: 2026-09-09
+updated: 2026-09-10
 venue: 'Technical Report'
 institution: 'Johns Hopkins University'
 tags:
@@ -97,7 +86,7 @@ This report documents OpenSpliceAI and validates it against the original SpliceA
 - A faithful PyTorch reimplementation of the SpliceAI residual dilated-CNN whose context length is tied to the dilation schedule by the exact identity $CL = 2\sum_i AR_i(W_i-1)$, reused across all six subcommands (§2).
 - A head-to-head benchmark on the human MANE test set showing OpenSpliceAI **at or above** the original SpliceAI on every top-kL accuracy threshold, AUPRC, precision, and F1 for both donors and acceptors, while being **1.47× faster** on identical hardware (§3.1–3.2).
 - A batched, reference-deduplicated variant-scoring engine (~**6.7×** over the per-variant loop) that makes genome-wide variant effect prediction tractable (§2.7, §3.2).
-- A genome-wide campaign that re-scores **the published genic GRCh38 SNV collection** with OpenSpliceAI alongside SpliceAI's existing scores — a mask-matched, tool-neutral overlay — engineered as an idempotent, GPU-capped SLURM workload, reported here as a frozen scoring snapshot (§4). Coverage refers to this collection, which does not include every genomic base or every possible GRCh38 SNV.
+- A genome-wide campaign that re-scores **the published genic GRCh38 SNV collection** with OpenSpliceAI alongside SpliceAI's existing scores with recorded common masking settings, engineered as an idempotent, GPU-capped SLURM workload, reported here as a frozen scoring snapshot (§4). Coverage refers to this collection, which does not include every genomic base or every possible GRCh38 SNV.
 
 ## 2. Architecture and pipeline
 
@@ -160,7 +149,7 @@ Chromosome assignment follows one of two policies. `--split-method human` reprod
 
 ### 2.5 Genome-scale prediction (`predict`)
 
-`predict` is staged to scale to whole genomes. It optionally restricts to gene regions when given an annotation (`-a`), splits any FASTA entry longer than `--split-threshold` (default 1.5 Mb) into tiles **with flanking overlap so that predictions are seamless across tile boundaries**, one-hot encodes, runs the model, and writes `donor_predictions.bed` and `acceptor_predictions.bed`. There are two modes: the default **turbo** path streams predictions straight to BED with no intermediate file, while `--predict-all` materializes a `predict.h5` first. **If `--model` is a directory, every checkpoint in it is ensembled by averaging predictions** — the intended way to use the five-seed model zoo.
+`predict` is staged to scale to whole genomes. It optionally restricts to gene regions when given an annotation (`-a`), splits any FASTA entry longer than `--split-threshold` (default 1.5 Mb) into tiles **with flanking overlap so that predictions are seamless across tile boundaries**, one-hot encodes, runs the model, and writes `donor_predictions.bed` and `acceptor_predictions.bed`. There are two modes: the default **turbo** path streams predictions straight to BED with no intermediate file, while `--predict-all` materializes a `predict.h5` first. **If `--model` is a directory, every checkpoint in it is ensembled by averaging predictions**.
 
 ### 2.6 Variant effect scoring (`variant`)
 
@@ -217,7 +206,7 @@ The recall/precision trade is worth stating plainly: OpenSpliceAI calls splice s
 
 ### 3.2 Inference speed
 
-On the same benchmark run and the same GPU, scoring all 420.58 M positions took OpenSpliceAI **1,491 s** versus SpliceAI's **2,185 s** — a **1.47×** speedup from the PyTorch runtime alone (Fig. 3A). The larger lever is the batched variant scorer of §2.7: on the genome-wide workload it is about **6.7× faster** than the original per-variant loop (Fig. 3B), running at roughly **122 s per 34,334-SNV chunk** on a shared A100. That factor is the difference between a genome-wide SNV study being a multi-year proposition and a managed multi-month one.
+On the same benchmark run and the same GPU, scoring all 420.58 M positions took OpenSpliceAI **1,491 s** versus SpliceAI's **2,185 s** — a **1.47×** speedup in this implementation and hardware comparison (Fig. 3A). The larger lever is the batched variant scorer of §2.7: on the genome-wide workload it is about **6.7× faster** than the original per-variant loop (Fig. 3B), running at roughly **122 s per 34,334-SNV chunk** on a shared A100. These measured timings depend on hardware and workload and do not provide a completion forecast for the unfinished campaign.
 
 <ZoomFigure src={speed} alt="Two-panel bar chart: (A) whole-test-set scoring wall-clock 1491 s for OpenSpliceAI vs 2185 s for SpliceAI; (B) variant delta-score engine relative throughput, batched -b 128 is 6.7x the per-variant baseline" variant="wide">
   <strong>Figure 3.</strong> Inference speed. <strong>(A)</strong> Whole-test-set scoring (420.58 M positions, same GPU): OpenSpliceAI is 1.47× faster than the Keras SpliceAI. <strong>(B)</strong> The batched, reference-deduplicated variant scorer (`-b 128`) reaches ~6.7× the throughput of the original per-variant loop, ~122 s per chunk on a shared A100.
@@ -226,8 +215,7 @@ On the same benchmark run and the same GPU, scoring all 420.58 M positions took 
 ### 3.3 Variant delta-score comparison
 
 The genome-wide comparison uses 3,334,708,099 exact-gene paired
-annotations from 99,283 audited chunks. The recorded scoring setup matches
-masking, gene annotation, maximum distance, flanking context and reference. MAX Pearson
+annotations from 99,283 audited chunks. Campaign records specify common masking, gene annotation, search distance, flanking context and reference. Legacy outputs do not independently prove that every setting was identical; five jointly called loss annotations retain different positions at two gene boundaries. MAX Pearson
 correlation is 0.795, Lin concordance is
 0.790, and positive-call Jaccard at 0.5 is
 0.542. Shared zeros inflate overall agreement.
@@ -264,23 +252,34 @@ narrative remains in the [September 9 archive](/downloads/full-snv-concordance-2
 
 ## 5. Discussion
 
-**Reimplementation as a platform.** The value of OpenSpliceAI is not a single new number but the conversion of a closed, human-only artifact into an open, end-to-end, PyTorch-native platform. Because one model class is parameterized by the flanking size and reused across `create-data`, `train`, `transfer`, `calibrate`, `predict`, and `variant`, a user can take the architecture to a new genome, retrain or fine-tune it, calibrate it, and score variants — none of which was supported by the original release. The published study [1] shows this most clearly on non-human species, where transfer learning yields the largest gains.
+OpenSpliceAI provides data preparation, training, transfer learning, calibration, sequence prediction
+and variant scoring through a PyTorch implementation of the SpliceAI architecture. The published
+study [1] evaluates retraining and transfer learning across species. These capabilities allow users
+to evaluate models trained with annotations appropriate to their organism and task.
 
-**Accuracy parity-plus, with a specificity tilt.** On human MANE the retrained models are not merely on par with SpliceAI; they exceed it on the canonical threshold-accuracy and AUPRC metrics while being more conservative (higher precision, slightly lower recall) — and there, against annotated splice sites, "more conservative" is a claim about accuracy that the test set can support. At the variant level the genome-wide comparison (§3.3) shows a related but more specific pattern: OpenSpliceAI issues fewer calls than SpliceAI at permissive delta-score cutoffs and marginally more at stringent ones, with the difference concentrated almost entirely in gain-of-site scores. Because that comparison has no truth set, it cannot be read as fewer false positives; a gain call only SpliceAI makes may equally be one OpenSpliceAI misses. Whether the tilt is desirable is application-dependent, and calibration (§2.8) plus the per-class delta scores let a user pick an explicit threshold rather than inherit one.
+The MANE benchmark in §3.1 evaluates annotated splice-site prediction. Its precision and recall
+results concern that labelled test set. The variant comparison in §3.3 instead measures agreement
+between predictions. At a common cutoff of 0.5, OpenSpliceAI makes fewer gain calls and more loss
+calls than SpliceAI; donor gain shows the largest relative reduction. These differences cannot be
+translated into false-positive or false-negative rates without experimental variant outcomes.
 
-**Separating event classes and sources of variation.** The companion analysis compares
-seed and method differences on identical variant/gene observations and reports gain and loss
-events separately. The loss-versus-gain pattern is not adequately described by a pooled
-correlation. Masking constrains which selected event positions retain scores, but does not
-explain the cause of the method gap by itself. Training, ensembling and implementation
-contributions remain mixed; agreement with another predictor is not biological validation.
+The matched seed analysis uses identical variant–gene observations for all three contrasts. Gain
+method differences exceed the observed seed difference more strongly than loss differences.
+Training, ensembling and implementation remain combined in this comparison. Recorded masking
+restricts retained loss positions, but five exceptions at two genes show that the legacy collections
+do not select identical boundary positions in every case. The full report provides the exact counts
+and source-record investigation.
 
-**Throughput as an enabler.** The batched, reference-deduplicated scorer is what turns "score the published SNV collection" from a thought experiment into a managed campaign. The same engineering that makes the campaign fast also makes it a *good citizen*: by serializing seeds into a dependency chain, the whole multi-seed job provably never exceeds its configured GPU footprint on a shared account, and by being idempotent at chunk granularity it can be paused and resumed without waste. The genome-wide, strictly mask-matched overlay it produces is, itself, a reusable contribution: it lets any downstream user compare the two tools at a SNV of interest without recomputation, and it has already removed the unmasked-vs-masked confound that limited the earlier variant comparison.
+Batching and shared reference inference reduce computation in the measured scoring workload.
+The campaign groups chunks into tasks and serializes seed arrays to control concurrent GPU use.
+This describes the submitted campaign design, not a guarantee about all other activity on the
+account. Inference remains incomplete, and current progress is reported separately from the
+scientific snapshot.
 
 ## 6. Limitations
 
 1. **Recall trade-off.** OpenSpliceAI's higher precision comes with slightly lower recall than SpliceAI (§3.1); applications that weight sensitivity above specificity should choose the operating point deliberately.
-2. **The variant comparison is concordance, not accuracy.** The genome-wide comparison in §3.3 and the [full-SNV report](/reports/full-snv-scoring-technical-report/#study-design-and-inference-progress) is now mask-, annotation- and distance-matched, which removes the confound that limited the earlier 452 K-SNV analysis. It still measures agreement against SpliceAI as a comparator, not against experimentally validated splicing outcomes, so it identifies where the two tools differ but cannot say which is correct. It is also a single OpenSpliceAI checkpoint against a five-model SpliceAI ensemble, and that asymmetry is not separable from the method difference.
+2. **The variant comparison is concordance, not accuracy.** The genome-wide comparison in §3.3 and the [full-SNV report](/reports/full-snv-scoring-technical-report/#study-design-and-inference-progress) uses recorded common masking, annotation and distance settings, with five verified loss-position exceptions. These settings alone do not establish identical historical processing for every legacy record. It still measures agreement against SpliceAI as a comparator, not against experimentally validated splicing outcomes, so it identifies where the two tools differ but cannot say which is correct. It is also a single OpenSpliceAI checkpoint against a five-model SpliceAI ensemble, and that asymmetry is not separable from the method difference.
 3. **Single-device training.** Despite a hardcoded `N_GPUS = 2` in the hyperparameter tables, the code does not use `DataParallel`; training runs on one device, and `N_GPUS` only scales batch size (§2.4).
 4. **Maintenance hazard.** The $(W, AR, \text{batch size})$ schedule is duplicated across several subcommands; a change in one must be mirrored in the others. This is the most likely source of subtle bugs and is flagged in the codebase.
 5. **Campaign incomplete.** The depth analysis is based on the frozen audited subset;
@@ -307,4 +306,4 @@ openspliceai predict --model models/openspliceai-mane/10000nt/ --input-sequence 
 openspliceai variant -R genome.fa -A grch38 --model models/openspliceai-mane/10000nt/ -b 128 < in.vcf > out.vcf
 ```
 
-The **model zoo** ships five random-seed checkpoints per setting — `models/openspliceai-{mane,mouse,zebrafish,arabidopsis,honeybee}/{80,400,2000,10000}nt/model_*nt_rs{10..14}.pt` — intended to be ensembled by pointing `predict`/`variant` at the directory; `models/spliceai/` holds the original Keras weights for the `--model-type keras` path. The accuracy benchmark harness streams a MANE `dataset_test.h5` through both ensembles and computes the canonical top-kL/AUPRC statistics on the full test set. The genome-wide campaign is driven by `campaign.sh {status|submit|resume|pause}` over a per-chunk SLURM array, with all parameters (paths, `-M 1 -f 10000 -D 50 -b 128`, seeds, `PER_TASK`, `CONC`) centralized in one `config.sh`; the campaign is idempotent and pause/resume-safe by construction. The benchmark figures use the on-disk benchmark JSONs. The variant-comparison text is resolved from the same frozen fact base as the full-SNV report; it is not a live campaign-status display.
+The **model zoo** ships five random-seed checkpoints per setting — `models/openspliceai-{mane,mouse,zebrafish,arabidopsis,honeybee}/{80,400,2000,10000}nt/model_*nt_rs{10..14}.pt` — intended to be ensembled by pointing `predict`/`variant` at the directory; `models/spliceai/` holds the original Keras weights for the `--model-type keras` path. The accuracy benchmark harness streams a MANE `dataset_test.h5` through both ensembles and computes the canonical top-kL/AUPRC statistics on the full test set. The genome-wide campaign is driven by `campaign.sh {status|submit|resume|pause}` over a per-chunk SLURM array, with all parameters (paths, `-M 1 -f 10000 -D 50 -b 128`, seeds, `PER_TASK`, `CONC`) centralized in one `config.sh`; the campaign uses per-chunk completion checks to support restart and resumption. The benchmark figures use the on-disk benchmark JSONs. The variant-comparison text is resolved from the same frozen fact base as the full-SNV report; it is not a live campaign-status display.
