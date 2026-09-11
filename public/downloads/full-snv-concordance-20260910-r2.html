@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Genome-wide comparison of predicted splicing effects between OpenSpliceAI and SpliceAI</title>
+<style>
+@import url("https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+/* Palette: cool-biased neutrals (the accent is blue, so the greys lean blue rather
+   than sitting at a pure mid-grey), with the two accents taken directly from the
+   figures' validated categorical slots -- SpliceAI blue and OpenSpliceAI orange --
+   so the prose, the tables and the charts read as one system. */
+:root{
+  color-scheme: light;
+  --ground:#f7f8fa; --card:#ffffff; --raised:#eef1f6;
+  --ink:#12151a; --ink-2:#49515f; --ink-3:#838b99;
+  --rule:#e0e4ea; --rule-strong:#c9cfd9;
+  --accent:#2a78d6; --accent-2:#eb6834;
+  --serif:"Spectral",Georgia,"Times New Roman",serif;
+  --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --measure:68ch;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --ground:#14171c; --card:#1b1f26; --raised:#232832;
+    --ink:#f1f3f7; --ink-2:#b2b9c6; --ink-3:#7b8393;
+    --rule:#2b303a; --rule-strong:#3b424f;
+    --accent:#5a9bea; --accent-2:#ef7f52;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --ground:#14171c; --card:#1b1f26; --raised:#232832;
+  --ink:#f1f3f7; --ink-2:#b2b9c6; --ink-3:#7b8393;
+  --rule:#2b303a; --rule-strong:#3b424f;
+  --accent:#5a9bea; --accent-2:#ef7f52;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:var(--serif); font-size:17px; line-height:1.68;
+  -webkit-font-smoothing:antialiased;
+}
+main{
+  /* A narrow measure for prose; tables and figures break out to the full width,
+     because dense numeric data is scanned, not read at 68 characters. */
+  max-width:78rem; margin:0 auto; padding:4rem 2rem 7rem;
+  display:flex; flex-direction:column; gap:0;
+}
+main > p, main > ul, main > ol, main > blockquote{max-width:var(--measure)}
+main > h1, main > h2, main > h3, main > h4{max-width:var(--measure)}
+
+h1{
+  font-weight:700; font-size:clamp(1.9rem,3.4vw,2.7rem); line-height:1.14;
+  letter-spacing:-.018em; text-wrap:balance; margin:0 0 1.1rem;
+}
+h2{
+  font-weight:600; font-size:1.52rem; line-height:1.25; letter-spacing:-.012em;
+  text-wrap:balance; margin:3.6rem 0 .5rem; padding-top:1.5rem;
+  border-top:1px solid var(--rule);
+}
+h3{font-weight:600; font-size:1.18rem; letter-spacing:-.006em; text-wrap:balance; margin:2.3rem 0 .4rem}
+h4{font-family:var(--sans); font-weight:600; font-size:.86rem; letter-spacing:.06em;
+   text-transform:uppercase; color:var(--ink-2); margin:1.7rem 0 .35rem}
+p{margin:0 0 1.05rem}
+strong{font-weight:600}
+a{color:var(--accent); text-underline-offset:2px}
+a:focus-visible,summary:focus-visible{outline:2px solid var(--accent); outline-offset:3px; border-radius:3px}
+ul,ol{margin:0 0 1.1rem; padding-left:1.35rem}
+li{margin:.3rem 0}
+li::marker{color:var(--ink-3)}
+
+blockquote{
+  margin:1.5rem 0; padding:.85rem 1.15rem; background:var(--raised);
+  border-left:2px solid var(--accent); border-radius:0 3px 3px 0;
+  font-style:italic; color:var(--ink-2);
+}
+
+code{font-family:var(--mono); font-size:.84em; background:var(--raised);
+     padding:.1em .34em; border-radius:3px; word-break:break-word}
+pre{font-family:var(--mono); background:var(--raised); color:var(--ink);
+    padding:1rem 1.15rem; border-radius:5px; overflow-x:auto; font-size:.82rem;
+    line-height:1.55; border:1px solid var(--rule); margin:1.3rem 0; max-width:100%}
+pre code{background:none; padding:0; font-size:1em}
+
+/* Tables are the substance of this document, so they get the utility face,
+   lining figures and a scroll container of their own. */
+.tablewrap{overflow-x:auto; margin:1.5rem 0; border:1px solid var(--rule);
+           border-radius:5px; background:var(--card)}
+table{border-collapse:collapse; width:100%; font-family:var(--sans);
+      font-size:.815rem; line-height:1.45; font-variant-numeric:tabular-nums lining-nums}
+th,td{padding:.5rem .8rem; text-align:right; white-space:nowrap;
+      border-bottom:1px solid var(--rule)}
+th:first-child,td:first-child{text-align:left; white-space:normal; min-width:11rem}
+thead th{background:var(--raised); color:var(--ink-2); font-weight:600;
+         font-size:.74rem; letter-spacing:.045em; text-transform:uppercase;
+         border-bottom:1px solid var(--rule-strong); position:sticky; top:0; z-index:1}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--raised)}
+td code{font-size:.78em}
+
+figure{margin:2rem 0}
+/* Charts are rendered on the light chart surface. In dark mode they sit on a light
+   card rather than being inverted: an automatic flip is not a selected palette. */
+figure img{display:block; width:100%; height:auto; background:#fcfcfb;
+           border:1px solid var(--rule); border-radius:5px; padding:.6rem}
+figcaption{margin-top:.6rem; font-family:var(--sans); font-size:.8rem;
+           line-height:1.5; color:var(--ink-2); max-width:var(--measure)}
+
+small{font-family:var(--sans); font-size:.78rem; color:var(--ink-3)}
+hr{border:none; border-top:1px solid var(--rule); margin:2.6rem 0}
+
+/* Masthead: the one place the page spends any visual weight. */
+.masthead{margin:0 0 2.2rem; padding:0 0 1.6rem; border-bottom:2px solid var(--rule-strong)}
+.masthead .eyebrow{font-family:var(--sans); font-size:.74rem; font-weight:600;
+  letter-spacing:.13em; text-transform:uppercase; color:var(--accent); margin:0 0 .7rem}
+.masthead h1{margin:0 0 .8rem; max-width:22ch}
+.masthead .dek{font-size:1.06rem; line-height:1.55; color:var(--ink-2);
+  max-width:var(--measure); margin:0 0 1.5rem}
+.status{display:inline-flex; align-items:center; gap:.42rem; font-family:var(--sans);
+  font-size:.71rem; font-weight:600; letter-spacing:.09em; text-transform:uppercase;
+  padding:.26rem .6rem .26rem .5rem; border-radius:3px;
+  background:var(--accent-2); color:#fff}
+.status::before{content:""; width:.4rem; height:.4rem; border-radius:50%;
+  background:#fff; opacity:.85}
+.meta{display:grid; grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));
+  gap:1rem 1.6rem; margin:1.4rem 0 0; padding:0; list-style:none;
+  font-family:var(--sans)}
+.meta div{display:flex; flex-direction:column; gap:.16rem}
+.meta dt{font-size:.7rem; font-weight:600; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--ink-3)}
+.meta dd{margin:0; font-size:.95rem; font-weight:500; color:var(--ink);
+  font-variant-numeric:tabular-nums lining-nums}
+.meta dd.small{font-family:var(--mono); font-size:.72rem; font-weight:400;
+  color:var(--ink-2); word-break:break-all}
+
+/* Table of contents, emitted by the markdown toc extension. */
+.toc{max-width:var(--measure); margin:2rem 0 0; padding:1.1rem 1.3rem;
+     background:var(--card); border:1px solid var(--rule); border-radius:5px}
+.toc > ul{margin:0; padding-left:1.1rem; font-family:var(--sans); font-size:.85rem}
+.toc ul ul{padding-left:1.05rem}
+.toc li{margin:.16rem 0}
+.toc a{color:var(--ink-2); text-decoration:none}
+.toc a:hover{color:var(--accent); text-decoration:underline}
+
+@media (max-width:760px){
+  body{font-size:16px}
+  main{padding:2.5rem 1.1rem 4rem}
+  th,td{padding:.42rem .6rem}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+<h1 id="genome-wide-comparison-of-predicted-splicing-effects-between-openspliceai-and-spliceai">Genome-wide comparison of predicted splicing effects between OpenSpliceAI and SpliceAI</h1>
+<h2 id="abstract">Abstract</h2>
+<p>OpenSpliceAI reproduces the SpliceAI architecture in PyTorch and supports retraining with different annotations and species. Here, we compare their predicted variant effects across the published collection of masked genic single-nucleotide variants. The frozen analysis contains 3,334,708,099 matched variant–gene annotations. Agreement differs by event: acceptor and donor loss scores have Pearson correlations of 0.900 and 0.906, compared with 0.681 and 0.597 for gains. At a cutoff of 0.5, OpenSpliceAI makes more loss calls and fewer gain calls, with the largest reduction in donor gain. Among jointly called gains, the models usually select the same position. On identical observations shared by two OpenSpliceAI training seeds and SpliceAI, gain-score differences exceed the observed seed difference more strongly than loss-score differences. These results describe agreement between a published ensemble and individual retrained checkpoints; they do not establish relative biological accuracy. We report inference progress separately from the frozen scientific results, which remain provisional because scoring is incomplete.</p>
+<p><em>Center for Computational Biology, Johns Hopkins University, Baltimore, MD, USA. Correspondence: kh.chao@jhu.edu. Scientific snapshot: 2026-09-09. Progress snapshot completed: 2026-09-10 20:30:22+00:00. <a href="https://khchao.com/reports/full-snv-scoring-supplement/">Supplement and detailed methods</a> · <a href="https://khchao.com/reports/openspliceai-technical-report/">Architecture and benchmarks</a>.</em></p>
+<h2 id="introduction">Introduction</h2>
+<p>OpenSpliceAI implements the SpliceAI architecture in PyTorch and supports retraining with different
+annotations and species [2]. Similar splice-site prediction performance does not establish that two
+trained models assign the same effect to a sequence variant. Here, we compare OpenSpliceAI and
+SpliceAI across the published collection of masked genic single-nucleotide variants (SNVs), asking
+where their predicted effects agree and which types of effects differ most.</p>
+<p>We distinguish four events: <strong>acceptor gain (AG), acceptor loss (AL), donor gain (DG), and donor loss
+(DL)</strong>. Gains summarize increases in predicted splice-site scores after substitution; losses summarize
+decreases. Each event score records the largest change within the search window and has an associated
+selected position. A variant can receive multiple nonzero event scores. These events are therefore
+not mutually exclusive variant classes. MAX, the largest of the four scores, summarizes predicted
+effect strength without distinguishing gain from loss or acceptor from donor.</p>
+<p>Our comparisons address score magnitude, overlap of calls at a common cutoff, boundary proximity,
+and selected positions. We also compare two OpenSpliceAI training seeds on identical observations.
+SpliceAI is the comparator throughout. The collection contains no experimental splicing outcomes,
+so concordance identifies similarities and differences between predictions without determining which
+model is correct when they disagree.</p>
+<h2 id="study-design-and-inference-progress">Study design and inference progress</h2>
+<p>The campaign divides the published SpliceAI masked genic SNV collection into 100,000
+chunks. Here, genome-wide describes the collection's genomic extent; the collection does not contain
+every possible substitution at every GRCh38 base. OpenSpliceAI scoring uses two MANE-trained
+checkpoints, rs10 and rs13, with a 10,000-nt context. These are training seeds, not cross-validation
+folds. Each comparison uses one OpenSpliceAI checkpoint against the published five-model SpliceAI
+ensemble.</p>
+<p>Campaign records specify GRCh38.p14, the GENCODE v24 canonical gene table supplied with SpliceAI,
+a ±50-bp event-search window, and masked output. The scoring annotation controls
+gene assignment and masking; MANE supplied the OpenSpliceAI training annotation. Matching the former
+does not match the training data. The legacy outputs passed structural audits but lack embedded
+checkpoint receipts. We therefore retain their recorded model labels and provisional provenance,
+without treating file validity as independent proof of checkpoint identity.</p>
+<p>We pair annotations by chromosome, position, reference allele, alternate allele, and gene. Identical
+repeats are collapsed; conflicting duplicates are excluded. Missing scores remain missing. This gives
+3,334,708,099 paired variant–gene annotations from 99,283
+rs10 chunks for the primary comparison. A physical VCF row, a distinct variant allele, and a
+variant–gene annotation are different counting units. All main event statistics use paired
+annotations unless stated otherwise.</p>
+<p>The seed analysis uses 1,536,316,689 observations shared by
+SpliceAI, rs10 and rs13 after duplicate resolution and joining groups split across chunk boundaries.
+The rs10–rs13 and both SpliceAI–OpenSpliceAI contrasts use this identical intersection. It covers
+chunks 1-46,920, ending at chr7:152,826,580 and is not a random sample of the genome.</p>
+<p>At the current metadata check, rs10 has 99,283 of 100,000 chunks (99.283%) with an audited-valid state and unchanged metadata; 693 are missing, 24 invalid, and 0 changed or unverified; rs13 has 45,597 of 100,000 chunks (45.597%) with an audited-valid state and unchanged metadata; 54,382 are missing, 21 invalid, and 0 changed or unverified. These counts carry forward the 2026-08-08 content audit; they do not constitute a new VCF content audit. Figure 1 records the separately observed scheduler state.</p>
+<figure><img src="/downloads/full-snv-concordance-20260910-r2/figures/main01_progress.png" alt="Two OpenSpliceAI seeds remain incomplete; the scientific snapshot is frozen." /><figcaption>Figure 1. Inference progress and analyzed coverage. Current input/output size and modification-time checks are compared with the dated audit manifests. Unchanged metadata carries forward an audited state; it is not a new content audit. Missing, invalid and changed/unverified chunks remain separate. Job reasons are a dated scheduler observation, not a completion forecast. The lower panel shows the distinct primary and exact three-way analysis domains.</figcaption></figure>
+
+<p>Figure 1 separates inference progress from analyzed coverage. A progress update does not add newly
+available predictions to the September 9 scientific snapshot. The original content-audit date,
+filesystem checks, and scheduler observation are recorded separately. Pending-job reasons describe
+the observed scheduler state and do not provide a completion forecast.</p>
+<h2 id="loss-scores-agree-more-closely-than-gain-scores">Loss scores agree more closely than gain scores</h2>
+<p>Both acceptors and donors show greater score agreement for losses than gains (Figure 2). Pearson
+correlations are 0.900 for AL and
+0.906 for DL, compared with 0.681
+for AG and 0.597 for DG. Donor gain has the lowest correlation,
+whereas the two loss correlations are similar. This gain–loss distinction is more informative than
+the single MAX correlation of 0.795.</p>
+<figure><img src="/downloads/full-snv-concordance-20260910-r2/figures/main02_score_agreement.png" alt="Conditional score distributions for acceptor gain, acceptor loss, donor gain and donor loss." /><figcaption>Figure 2. Loss scores agree more closely than gain scores. OpenSpliceAI scores conditional on SpliceAI scores for the primary paired variant–gene annotations. Points are medians; dark and light intervals contain the central 50% and 90%. The dashed diagonal denotes equal scores. Quantiles use stored 200-bin histograms (width 0.005); empty comparator bins remain gaps. Pearson correlations use the original scores and include shared zeros. The panels describe score agreement, not calibration against experimental outcomes.</figcaption></figure>
+
+<p>The conditional distributions show how this difference depends on score magnitude. For losses,
+the median OpenSpliceAI score follows the equal-score line more closely. For gains, it lies below
+that line across much of the SpliceAI range, especially for donor gain. The intervals contain the
+central 50% and 90% of scores within each comparator bin. Their width shows that the median is not
+a prediction for every annotation; OpenSpliceAI does not always assign the lower gain score.</p>
+<p>Across the full paired population, mean signed differences, defined as OpenSpliceAI minus SpliceAI,
+are negative for both gains and slightly positive for both losses. Mean absolute differences are
+0.00148 for AG, 0.00037 for AL,
+0.00147 for DG and 0.00033 for DL. These averages
+include the large population of low and zero scores. Small global mean differences can therefore
+coexist with substantial differences among annotations assigned a high score by either model.</p>
+<p>Output precision affects exact equality. SpliceAI reports two decimals and OpenSpliceAI five.
+Rounding OpenSpliceAI to two decimals increases exact matches, while a sensitivity analysis that
+subtracts a 0.005 allowance from each absolute difference retains substantial residual error
+(Figure S4). This calculation does not estimate how much disagreement was caused by rounding.
+We interpret the conditional distributions together with positive-call overlap, rather than using
+exact equality alone to assess whether the score collections can be substituted for one another.</p>
+<h2 id="call-overlap-differs-between-the-four-events">Call overlap differs between the four events</h2>
+<p>We define a call as an event score at or above a specified cutoff. Jaccard overlap is the number of
+annotations called by both models divided by the number called by either model. It excludes shared
+negative calls. The call-count ratio divides OpenSpliceAI calls by SpliceAI calls and measures their
+relative number, independently of whether those calls identify the same annotations (Figure 3).</p>
+<figure><img src="/downloads/full-snv-concordance-20260910-r2/figures/main03_call_agreement.png" alt="Jaccard overlap and relative call count across common event-score cutoffs." /><figcaption>Figure 3. Gain calls overlap less, especially donor gain. A, shared positive calls divided by their union. B, OpenSpliceAI calls divided by SpliceAI calls; the dashed line denotes equal counts and the vertical scale is logarithmic. Colors and marker shapes distinguish the four events. Curves use approximate histogram cutoffs; larger symbols at 0.5 show exact counters. Shared negatives do not enter Jaccard. Fewer calls do not establish higher specificity.</figcaption></figure>
+
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>Event</th>
+<th style="text-align: right;">Pearson r</th>
+<th style="text-align: right;">Jaccard at 0.5</th>
+<th style="text-align: right;">OpenSpliceAI / SpliceAI calls</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AG</td>
+<td style="text-align: right;">0.681</td>
+<td style="text-align: right;">0.413</td>
+<td style="text-align: right;">0.788</td>
+</tr>
+<tr>
+<td>AL</td>
+<td style="text-align: right;">0.900</td>
+<td style="text-align: right;">0.649</td>
+<td style="text-align: right;">1.291</td>
+</tr>
+<tr>
+<td>DG</td>
+<td style="text-align: right;">0.597</td>
+<td style="text-align: right;">0.284</td>
+<td style="text-align: right;">0.522</td>
+</tr>
+<tr>
+<td>DL</td>
+<td style="text-align: right;">0.906</td>
+<td style="text-align: right;">0.677</td>
+<td style="text-align: right;">1.164</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Table 1. Agreement across 3,334,708,099 paired variant–gene annotations.
+Jaccard and call-count ratios use a cutoff of 0.5 in both models. Pearson correlation uses all paired
+scores, including shared zeros. An annotation may be called for more than one event.</em></p>
+<p>At 0.5, loss-call overlap is higher than gain-call overlap for both acceptors and donors. OpenSpliceAI
+makes 29.1% more AL calls and 16.4% more DL calls than SpliceAI. In contrast, it makes 21.2% fewer AG
+calls and 47.8% fewer DG calls. Donor gain has both the lowest Jaccard overlap and the smallest
+relative call count. The gain–loss distinction is thus shared by the two splice-site types, while
+the magnitude of gain disagreement is greater for donors.</p>
+<p>Call overlap and relative call count answer different questions. Equal counts can still describe disjoint sets, while unequal counts can coexist with a large shared subset. Reporting both quantities makes this distinction visible for each event.</p>
+<p>These percentages describe the chosen cutoff. They do not establish that one model always makes
+more or fewer calls. For example, the MAX call-count ratio changes from
+0.607 at 0.2 to
+1.060 at 0.8. The curves show approximate
+histogram-based cutoffs; the emphasized 0.5 points use exact counters. The supplementary threshold
+analysis separately selects cutoffs by call-volume matching and by agreement with SpliceAI, because
+similar call counts do not ensure similar membership.</p>
+<p>A smaller call count does not establish higher specificity, and a larger count does not establish
+higher sensitivity. Either conclusion would require experimental outcomes. Likewise, the dominant
+event—the largest score within a model—is a useful descriptive label but discards the other three
+scores. Figure S5 retains ties and all-zero annotations to show that compression explicitly.</p>
+<h2 id="boundary-proximity-distinguishes-local-patterns">Boundary proximity distinguishes local patterns</h2>
+<p>We grouped variants by distance to the nearest annotated internal splice boundary. The index contains
+351,042 unique coordinates, assigns acceptor and donor roles by strand, pools across
+genes, and excludes transcript ends. Coordinates assigned both roles are classified as ambiguous.
+Figure 4 pools counts across all three boundary types before dividing by the number of paired
+annotations in each distance group.</p>
+<figure><img src="/downloads/full-snv-concordance-20260910-r2/figures/main04_boundary_context.png" alt="Call rates by variant distance and conditional gain-score medians near and far from internal boundaries." /><figcaption>Figure 4. Annotation context distinguishes gain and loss differences. A–D, event score ≥0.5 divided by all paired variant–gene annotations in each distance group. Counts are pooled across acceptor, donor and ambiguous boundary types before division. Both models use the same group denominator. The rate axis is logarithmic; printed zeros indicate measured zero calls. E–F, histogram-derived conditional gain-score medians at/within 2 bp versus more than 500 bp from a pooled internal boundary. The strand-aware index excludes transcript ends. Variant distance differs from selected-event distance and does not classify variants as intronic or exonic.</figcaption></figure>
+
+<p>At a cutoff of 0.5, loss-call volumes are similar within 1–2 bp of a boundary: OpenSpliceAI/SpliceAI
+ratios are 0.973 for AL and 0.984 for DL. The models differ more in the 11–50-bp group, where the
+ratios are 2.44 for AL and 5.10 for DL. Thus, the higher overall number of OpenSpliceAI loss calls
+does not correspond to a uniform increase at every distance. The donor-loss increase is particularly
+pronounced in the 11–50-bp group, even though global AL call counts increase more than DL counts.</p>
+<p>For gains, OpenSpliceAI makes fewer calls at 0.5 in every displayed distance group. Beyond 500 bp,
+the ratio is 0.797 for AG and 0.439 for DG. Donor gain therefore shows the larger relative reduction
+in this distant group. The plotted rates use within-group denominators; the much larger number of
+distant annotations affects total call counts but does not automatically increase a within-group
+rate. Conditional gain-score medians also lie closer to equal scores near boundaries than in the
+distant group across much of the comparator range (Figure 4E–F).</p>
+<p>Boundary distance and masking describe different quantities. The recorded masking procedure selects
+the nearest exon boundary for a particular variant–gene annotation, including transcript ends and
+pooling boundary types. It retains a loss only at that selected boundary and suppresses a gain there.
+Masking acts on the selected event position, whereas our distance groups use the variant position
+and a pooled internal-boundary index. Their boundary sets are not identical. Sparse distant loss
+calls therefore cannot be interpreted as an independent measurement of absent biological losses.</p>
+<p>The symmetric 1–2-bp group includes both sides of a boundary and is not equivalent to the essential
+splice dinucleotides. A distance greater than 500 bp also does not establish a deep-intronic location;
+we did not assign transcript-specific intronic or exonic status. These groups locate differences in
+predictions without identifying their biological cause. Figures S6–S8 provide the full distributions,
+conditional intervals, and eligible position-comparison counts.</p>
+<h2 id="jointly-called-gains-usually-select-the-same-position">Jointly called gains usually select the same position</h2>
+<p>Among annotations with both event scores at least 0.5, exact selected-position agreement is
+96.83% for AG and 98.09% for DG (Figure 5). Many gain
+calls are unique to one model, but the shared subset usually selects the same position. Score
+magnitude and selected location therefore provide distinct descriptions of model disagreement.</p>
+<figure><img src="/downloads/full-snv-concordance-20260910-r2/figures/main05_positions.png" alt="Exact predicted-position agreement among jointly called variant–gene annotations." /><figcaption>Figure 5. Jointly called gains usually select the same position. Both event scores must be ≥0.5. Labels give exact-position matches, eligible annotation counts and mismatches. AL has one mismatch and DL four; extra decimal places prevent rounding these results to perfect agreement. The axis spans 90–101%. Recorded masking restricts retained loss positions, but does not establish the cause of the exceptions. Calls unique to one model are excluded; shared positions do not validate splice-site use.</figcaption></figure>
+
+<p>For losses, exact agreement is 1,441,729 of 1,441,730 AL annotations and 1,630,983 of 1,630,987 DL
+annotations. These correspond to one AL mismatch and four DL mismatches, which would be hidden by
+rounding to two percentage decimals. The AL mismatch is within 2 bp; all four DL mismatches are
+within 5 bp. We report the exceptions explicitly instead of describing loss-position agreement as
+perfect. All four DL exceptions map to TVP23C-CDRT4 and the AL exception to XAGE3. Source-record checks confirm that OpenSpliceAI selects the current annotation boundary in both genes, whereas the published SpliceAI position differs by 3 bp and 2 bp, respectively.</p>
+<p>The recorded mask restricts retained loss positions, so near-complete loss agreement is not an
+independent test of loss localization. The two legacy score collections do not report identical loss positions in every case; the origin of these local discrepancies remains unresolved. More generally, selecting the same position does not establish splice-site use in
+vivo. Position agreement is conditional on shared calls and excludes predictions unique to either
+model. It must be considered alongside call overlap and score magnitude, with undefined agreement
+retained for distance groups lacking jointly called events.</p>
+<h2 id="gain-disagreement-exceeds-the-observed-seed-difference">Gain disagreement exceeds the observed seed difference</h2>
+<p>We compared the mean absolute difference between rs10 and rs13 with the difference between each
+checkpoint and SpliceAI on the identical three-way intersection (Figure 6). This controls the
+comparison domain: differences between these contrasts cannot arise simply because they contain
+different variant–gene observations. It does not match the training data or ensemble size.</p>
+<figure><img src="/downloads/full-snv-concordance-20260910-r2/figures/main06_seed_comparison.png" alt="Mean absolute differences and method-to-seed ratios on the identical three-way intersection." /><figcaption>Figure 6. Gain differences exceed the observed seed contrast. A, mean absolute differences for rs10–rs13 and for each checkpoint versus SpliceAI. B, each method difference divided by the rs10–rs13 difference; one denotes equal mean differences. All contrasts use exactly the same variant–gene annotations. Two seeds provide one observed contrast, not a population estimate of training variability. Single OpenSpliceAI checkpoints and the published SpliceAI ensemble remain different comparison units.</figcaption></figure>
+
+<p>For rs10, the SpliceAI–OpenSpliceAI difference divided by the seed difference is
+3.35 for AG and
+3.92 for DG, compared with
+1.13 for AL and
+1.17 for DL. The rs13 contrasts show the same
+pattern. Gain differences between the model collections are therefore larger relative to this
+observed seed contrast, particularly for donor gain. Loss differences are closer in magnitude to
+the difference between the two OpenSpliceAI checkpoints.</p>
+<p>Gene-level ratios provide a complementary description. Among genes with at least 1,000 matched
+annotations and positive, defined ratios, more than 99.8% of AG ratios and 99.9% of DG ratios exceed
+one for both checkpoints (Figure S9). Loss ratios are more mixed. These curves weight genes equally,
+whereas the global mean differences weight annotations. A very small seed difference can also
+produce a large ratio, so extreme ratios should not be interpreted as evidence of a large absolute
+effect or a particular mechanism.</p>
+<p>Two seeds provide one observed training contrast, not a population estimate of training variability.
+A ratio near one does not establish interchangeability or show that seed variation explains the
+model difference. Training annotations, checkpoints, implementation, and ensembling remain combined
+in the comparison. The matched domain is also restricted to part of the genome, limiting
+extrapolation to unscored regions. Regional and gene-level MAX summaries remain descriptive
+supporting analyses (Figures S10–S11).</p>
+<h2 id="discussion">Discussion</h2>
+<p>The comparison identifies a consistent gain–loss distinction for both acceptors and donors. Loss
+scores and calls agree more closely between the models. Gain scores show larger differences, with
+donor gain showing the lowest correlation and call overlap. Among shared gain calls, selected
+positions usually agree. Boundary context further distinguishes similar loss-call volumes close to
+splice boundaries from larger differences farther away. These results explain why overall MAX
+correlation alone cannot describe agreement across the four predicted events.</p>
+<p>Our eLife paper [2] evaluated splice-site prediction, mutagenesis around selected sites, and
+cryptic-splicing examples. Its mutagenesis comparisons used five-model ensembles. The present study
+instead compares individual OpenSpliceAI checkpoints with the published SpliceAI ensemble across
+masked genic variants. The sampling, averaging, and predicted quantities differ. Correlations from
+those experiments should therefore not be treated as interchangeable performance measures.</p>
+<p>Determining which discordant predictions correspond to observed splicing changes requires independent
+outcomes covering shared calls and calls unique to each model. A comparison with matched ensemble
+sizes would help separate ensemble effects from the remaining model differences. The current
+analysis identifies where those evaluations would be informative; it does not rank biological
+accuracy or establish a causal explanation for the observed gain–loss pattern.</p>
+<h2 id="methods-and-data-availability">Methods and data availability</h2>
+<p>We summarized paired annotations with additive counters, moments, fixed-width histograms, and
+stratum tables. Configured cutoffs of 0.05, 0.1, 0.2, 0.5 and 0.8 use exact counters; 200-bin
+histograms of width 0.005 provide approximate curves and conditional quantiles. Independent
+implementations passed 11,195 primary and
+40,020 matched numerical checks on selected real-data windows.
+Those windows verify implementation behavior on their inputs, rather than every genomic record.</p>
+<p>The <a href="https://khchao.com/reports/full-snv-scoring-supplement/">supplement</a> provides detailed methods and supporting
+results. The <a href="https://khchao.com/downloads/full-snv-concordance-20260910-r2.zip">study bundle</a> contains both reading copies,
+seventeen PNG/PDF figure pairs, plotting inputs, unchanged scientific facts, the dated progress
+snapshot, and source code. The <a href="https://khchao.com/downloads/full-snv-concordance-20260910-r2-figure-audit.md">scientific audit</a>
+records figure decisions and claim qualifications. A <a href="https://khchao.com/downloads/full-snv-concordance-20260910-r2.html">browser reading copy</a>,
+<a href="https://khchao.com/downloads/full-snv-concordance-20260910-r2-SHA256SUMS.txt">checksums</a>, and the unchanged
+<a href="https://khchao.com/downloads/full-snv-concordance-20260909.zip">September 9 bundle</a> are also available.</p>
+<h2 id="references">References</h2>
+<ol>
+<li>
+<p><a href="https://doi.org/10.1016/j.cell.2018.12.015">Jaganathan K, Kyriazopoulou Panagiotopoulou S, McRae JF, et al. Predicting Splicing from Primary Sequence with Deep Learning. Cell, 2019.</a></p>
+</li>
+<li>
+<p><a href="https://doi.org/10.7554/eLife.107454.3">Chao K-H, Mao A, Liu A, Salzberg SL, Pertea M. OpenSpliceAI provides an efficient modular implementation of SpliceAI enabling easy retraining across nonhuman species. eLife 14:RP107454, 2025.</a></p>
+</li>
+</ol>
+</main>
+</body>
+</html>
