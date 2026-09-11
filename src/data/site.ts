@@ -149,6 +149,77 @@ export const nav: NavItem[] = [
 export const navPages = nav.filter((item) => item.group === 'pages');
 export const navLabs = nav.filter((item) => item.group === 'labs');
 
+export interface LabNavItem {
+  id: string;
+  title: string;
+  href: string;
+  sub: string;
+  icon: string;
+  badge?: string;
+}
+
+export const labNavItems: LabNavItem[] = [
+  {
+    id: 'genome-browser',
+    title: 'Genome Browser',
+    href: '/shorkie-lab/genome/',
+    sub: 'Yeast genome under Shorkie_LM',
+    icon: '🧬',
+    badge: 'Live',
+  },
+  {
+    id: 'algorithms',
+    title: 'Algorithms',
+    href: '/algorithms/',
+    sub: '12 interactive genomic & ML visualizers',
+    icon: '⚡',
+    badge: '12 tools',
+  },
+  {
+    id: 'shorkie-lab',
+    title: 'Shorkie Lab',
+    href: '/shorkie-lab/',
+    sub: 'In-browser neural net inference & ISM',
+    icon: '🧠',
+  },
+  {
+    id: 'nn-lab',
+    title: 'NN Lab',
+    href: '/nn-lab/',
+    sub: 'Transformer attention & Mamba SSM',
+    icon: '📐',
+  },
+  {
+    id: 'cell-lab',
+    title: 'Cell Lab',
+    href: '/lab',
+    sub: 'In silico cellular microcosm simulation',
+    icon: '🔬',
+  },
+  {
+    id: 'deep-dives',
+    title: 'Deep Dives',
+    href: '/deep_dives/',
+    sub: 'First-principles ML & genomics curricula',
+    icon: '📚',
+  },
+  {
+    id: 'terminal',
+    title: 'Terminal',
+    href: '/terminal/',
+    sub: 'Interactive Unix shell with Workers AI',
+    icon: '💻',
+    badge: '$ shell',
+  },
+  {
+    id: 'fun-lab',
+    title: 'Fun Lab & Games',
+    href: '/fun-lab/',
+    sub: 'Chromatin 3D, Sonic Synth & 12 mini-games',
+    icon: '🎮',
+  },
+];
+
 export type SocialKey =
   'email' | 'scholar' | 'github' | 'linkedin' | 'orcid' | 'twitter' | 'bluesky' | 'calendly';
 
