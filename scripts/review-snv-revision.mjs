@@ -42,7 +42,10 @@ try {
       await page.evaluate(() => document.documentElement.dataset.theme =
         matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
       const body = await page.locator('body').innerText();
-      if (!body.includes('3,334,708,099') || /PILOT PREVIEW|INTERPRET|\{\{/.test(body)) {
+      // The figures-only supplement carries the paired-annotation count in its figures rather than
+      // its text; the other two state it in their abstracts.
+      const statesProductionCount = slug !== 'full-snv-scoring-supplement';
+      if ((statesProductionCount && !body.includes('3,334,708,099')) || /PILOT PREVIEW|INTERPRET|\{\{/.test(body)) {
         throw new Error(`Missing production results or unresolved text: ${slug}`);
       }
       const canonical = await page.locator('link[rel="canonical"]').getAttribute('href');
