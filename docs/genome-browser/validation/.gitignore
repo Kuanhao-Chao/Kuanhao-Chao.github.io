@@ -1,0 +1,4 @@
+# Keep local validation evidence across host changes. Selected screenshots and the human-readable
+# implementation record live one directory above; raw logs and probes are local artifacts.
+*
+!.gitignore

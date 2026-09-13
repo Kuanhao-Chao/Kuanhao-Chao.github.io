@@ -35,7 +35,7 @@ jobs:
         run: npm ci
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium webkit
+        run: npx playwright install --with-deps chromium firefox webkit
 
       - name: Check site
         run: npm run check
@@ -63,6 +63,20 @@ jobs:
       - name: Audit variant playground smoke
         timeout-minutes: 12
         run: npm run audit:playground:ci
+
+      # Chromium is also exercised by audit:playground:ci through the shared genome gate.
+      - name: Audit genome browser in Firefox and WebKit
+        timeout-minutes: 10
+        run: npm run audit:genome:ci -- --browsers firefox,webkit
+
+      - name: Upload genome audit failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: genome-browser-audit
+          path: /tmp/genome-audit/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Audit indexing
         run: npm run audit:indexing

@@ -2,8 +2,10 @@
 import { readFileSync } from 'node:fs';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import '../../styles/variantPlayground.css';
+import '../../styles/genomeBrowser.css';
 import { site } from '../../data/site';
 import { buildBreadcrumbLd } from '../../lib/breadcrumbs';
+import { scoredMean } from '../../lib/genomeAnalysis';
 import lociData from '../../data/shorkieLoci.json';
 
 // Every number on this page is read from the shipped tiles at build time rather than typed, so the
@@ -47,8 +49,7 @@ const shortFlank = index.chroms.reduce((s, c) => s + c.shortFlankBases, 0);
 const windows = Math.ceil(totalBp / index.window.core) + index.chroms.length;
 const nuclear = index.chroms.filter((c) => c.name !== 'chrM');
 const trackMean = (id: string, rows: typeof index.chroms) =>
-  rows.reduce((s, c) => s + (c.tracks[id]?.mean ?? 0) * c.length, 0)
-  / rows.reduce((s, c) => s + c.length, 0);
+  scoredMean(rows.map((c) => c.tracks[id] ?? { mean: null, scored: 0 })) ?? 0;
 const meanIc = trackMean('lm-masked', nuclear);
 const meanUnmasked = trackMean('lm-unmasked', nuclear);
 const meanCons = trackMean('phastcons', nuclear);
@@ -87,16 +88,15 @@ const primaryWindows = (lociData.loci as { id: string; gene: string; chrom: stri
   .map((l) => ({ id: l.id, gene: l.gene, chrom: l.chrom,
                  start: l.start, end: l.start + 16384 }));
 
-const title = 'The yeast genome under Shorkie_LM';
+const title = 'Yeast genome browser · Shorkie & Shorkie_LM';
 const description =
-  'A genome browser over Shorkie_LM constraint: per-base information content for all 12,157,105 '
-  + 'bases of the S. cerevisiae R64 reference, precomputed with overlapping windows and browsable '
-  + 'from whole chromosomes down to individual letters.';
+  'Explore the yeast reference genome with Shorkie expression predictions, Shorkie_LM constraint, '
+  + 'conservation and gene annotations. Search a gene, compare tracks, and export a view.';
 
 const webAppLd = {
   '@context': 'https://schema.org',
   '@type': 'WebApplication',
-  name: 'Shorkie_LM genome browser',
+  name: 'Shorkie yeast genome browser',
   applicationCategory: 'ScienceApplication',
   operatingSystem: 'Web Browser',
   description,
@@ -115,97 +115,112 @@ const breadcrumbLd = buildBreadcrumbLd([
   <script type="application/ld+json" is:inline set:html={JSON.stringify(webAppLd)} />
   <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} />
 
-  <div class="vp" data-genome-browser data-gb-default="chrVII:882,012-884,610"
+  <div class="vp gb-page" data-gb-page data-genome-browser data-gb-default="chrVII:882,012-884,610"
        data-gb-primary={JSON.stringify(primaryWindows)}>
-    <header class="vp-top">
-      <h1 class="vp-title">Genome browser</h1>
-      <span class="vp-sub">
-        Shorkie_LM constraint + Shorkie expression · sacCer3 / R64 ·
-        {totalBp.toLocaleString()} bp · {index.chroms.length} sequences
-      </span>
-      <span class="vp-spacer"></span>
-      <a class="vp-sub" href="/shorkie-lab/shorkie_lm/">← Language model</a>
-      <a class="vp-sub" href="/shorkie-lab/shorkie/">Expression model</a>
-      <a class="vp-sub" href="/shorkie-lab/">Lab</a>
-      <a class="vp-sub" href="https://doi.org/10.1101/2025.09.19.677475">Paper</a>
+    <header class="vp-top gb-top">
+      <div class="gb-brand">
+        <a href="/shorkie-lab/" class="gb-eyebrow">Shorkie Lab <span aria-hidden="true">/</span></a>
+        <h1 class="vp-title">Yeast genome browser</h1>
+      </div>
+      <nav class="gb-top-links" aria-label="Lab pages">
+        <a href="/shorkie-lab/shorkie_lm/">Language<span class="gb-wide-word"> model</span></a>
+        <a href="/shorkie-lab/shorkie/">Expression<span class="gb-wide-word"> model</span></a>
+        <a href="https://doi.org/10.1101/2025.09.19.677475">Paper ↗</a>
+        <details class="gb-theme">
+          <summary>Theme</summary>
+          <div>
+            {['light', 'dark', 'nord', 'monokai', 'cyberdeck', 'parchment'].map((theme) => (
+              <button type="button" data-theme-choice={theme}>{theme}</button>
+            ))}
+          </div>
+        </details>
+      </nav>
     </header>
 
-    <div class="vp-scroll">
-      <!-- Sticky bars belong INSIDE .vp-scroll: this is a `bare` page, so html/body are pinned and
-           the inner pane is what scrolls. Outside it, `position: sticky` has nothing to stick to. -->
-      <nav class="vp-nav" aria-label="Genome navigation">
-        <span class="vp-nav__group">
-          <label class="vp-nav__label" for="gb-chrom">chromosome</label>
-          <select class="vp-select" id="gb-chrom" data-gb-chrom aria-label="Chromosome"></select>
-        </span>
-        <span class="vp-nav__group">
-          <label class="vp-nav__label" for="gb-locus">locus or gene</label>
+    <div class="vp-scroll" data-gb-scroll>
+      <noscript><p class="gb-intro">Enable JavaScript to use the interactive browser. The track guide and methods below remain available.</p></noscript>
+      <div class="gb-intro">
+        <p>One genome. Two ways to read it.</p>
+        <span><em>S. cerevisiae</em> · sacCer3 / R64 · {index.chroms.length} sequences · {(totalBp / 1e6).toFixed(2)} Mb</span>
+        <a href="#gb-guide">How to read the tracks ↓</a>
+      </div>
+      <nav class="vp-nav gb-toolbar" aria-label="Genome navigation">
+        <div class="gb-searchbar">
+          <label class="gb-sr" for="gb-locus">Gene name or genomic coordinates</label>
           <input class="vp-input gb-locus" id="gb-locus" data-gb-locus spellcheck="false"
-                 placeholder="TDH3 · YGR192C · chrIV:65,235-65,431"
-                 aria-label="Locus or gene name" />
-          <button type="button" class="vp-btn" data-gb-go>Go</button>
-        </span>
-        <span class="vp-nav__group">
-          <label class="vp-nav__label" for="gb-region">primary regions</label>
-          <select class="vp-select" id="gb-region" data-gb-region aria-label="Jump to a primary region">
-            <option value="">jump to…</option>
-            {regions.map((r) => <option value={r.locus}>{r.label}</option>)}
-          </select>
-        </span>
-        <span class="vp-nav__group" role="group" aria-label="Find a sequence">
-          <label class="vp-nav__label" for="gb-find-seq">SEQUENCE</label>
-          <input class="vp-input gb-find" id="gb-find-seq" data-gb-find-seq
-                 placeholder="GAATTC · GTRAGT" autocomplete="off" spellcheck="false"
-                 title="A DNA pattern, IUPAC codes allowed (R Y S W K M B D H V N). Both strands
-                        are searched; a palindrome is reported once." />
-          <button type="button" class="vp-btn" data-gb-find-go>find</button>
-          <button type="button" class="vp-btn" data-gb-find-scope aria-pressed="false"
-                  title="Search every chromosome instead of this one. Fetches the whole reference
-                         sequence — 3.9 MB, the same tiles this browser already draws from.">genome</button>
-          <button type="button" class="vp-btn vp-btn--icon" data-gb-find-prev
-                  aria-label="Previous hit" title="Previous hit">‹</button>
-          <button type="button" class="vp-btn vp-btn--icon" data-gb-find-next
-                  aria-label="Next hit" title="Next hit">›</button>
-        </span>
-        <span class="vp-spacer"></span>
-        <span class="vp-nav__group" role="group" aria-label="History">
-          <button type="button" class="vp-btn vp-btn--icon" data-gb-back
-                  aria-label="Back ([)" title="Back — [">↶</button>
-          <button type="button" class="vp-btn vp-btn--icon" data-gb-fwd
-                  aria-label="Forward (])" title="Forward — ]">↷</button>
-        </span>
-        <span class="vp-nav__group" role="group" aria-label="Pan and zoom">
-          <button type="button" class="vp-btn vp-btn--icon" data-gb-pan="-1" aria-label="Pan left">‹</button>
-          <button type="button" class="vp-btn vp-btn--icon" data-gb-pan="1" aria-label="Pan right">›</button>
-          <button type="button" class="vp-btn vp-btn--icon" data-gb-zoom="0.5" aria-label="Zoom in">+</button>
-          <button type="button" class="vp-btn vp-btn--icon" data-gb-zoom="2" aria-label="Zoom out">−</button>
-          <button type="button" class="vp-btn vp-btn--icon" data-gb-gene="-1"
-                  aria-label="Previous gene (p)" title="Previous gene — p">‹g</button>
-          <button type="button" class="vp-btn vp-btn--icon" data-gb-gene="1"
-                  aria-label="Next gene (n)" title="Next gene — n">g›</button>
-          <button type="button" class="vp-btn" data-gb-whole>whole chr</button>
-        </span>
-        <span class="vp-nav__group" role="group" aria-label="Region and export">
-          <button type="button" class="vp-btn" data-gb-mark
-                  title="Keep this region highlighted while you navigate">mark region</button>
-          <button type="button" class="vp-btn" data-gb-autoscale aria-pressed="false"
-                  title="Scale each lane to the data in view. Off by default: a fixed axis is what
-                         makes a quiet window look quiet.">autoscale</button>
-          <button type="button" class="vp-btn" data-gb-export
-                  title="Save the current view as a PNG">PNG</button>
-          <button type="button" class="vp-btn" data-gb-export-svg
-                  title="Save the track stack as vector SVG — every bar, glyph and label still an
-                         object, for a figure. The overview strip is not included.">SVG</button>
-          <button type="button" class="vp-btn" data-gb-export-csv
-                  title="Save the data behind this view as CSV, at the level it is drawn at">CSV</button>
-          <!-- Phone only (CSS): the track panel becomes a drawer over the stage rather than a
-               column below the fold. -->
-          <button type="button" class="vp-btn gb-panel-toggle" data-gb-panel-toggle
-                  aria-expanded="false">tracks</button>
-        </span>
+            autocomplete="off" list="gb-suggestions" aria-describedby="gb-search-help"
+            placeholder="Find a gene or region · TDH3, YGR192C, chrVII:882012-884610" />
+          <datalist id="gb-suggestions" data-gb-suggestions></datalist>
+          <button type="button" class="vp-btn gb-go" data-gb-go>Go <span aria-hidden="true">→</span></button>
+        </div>
+        <div class="gb-navigation">
+          <label class="gb-sr" for="gb-chrom">Chromosome</label>
+          <select class="vp-select" id="gb-chrom" data-gb-chrom aria-label="Chromosome"></select>
+          <div class="gb-zoom" role="group" aria-label="Genome zoom">
+            <button type="button" class="vp-btn" data-gb-zoom="0.5" aria-label="Zoom in">+</button>
+            <button type="button" class="vp-btn" data-gb-zoom="2" aria-label="Zoom out">−</button>
+          </div>
+          <button type="button" class="vp-btn gb-panel-toggle" data-gb-panel-toggle aria-expanded="false" aria-controls="gb-track-panel">Tracks</button>
+          <details class="gb-tools">
+            <summary class="vp-btn">Tools <span aria-hidden="true">⌄</span></summary>
+            <div class="gb-tools-body">
+              <div class="gb-tool-section">
+                <h2>Navigate</h2>
+                <div class="gb-tool-row">
+                  <button type="button" class="vp-btn" data-gb-back aria-label="Previous view">↶ Back</button>
+                  <button type="button" class="vp-btn" data-gb-fwd aria-label="Next view">Forward ↷</button>
+                  <button type="button" class="vp-btn" data-gb-whole>Whole chromosome</button>
+                </div>
+                <div class="gb-tool-row">
+                  <button type="button" class="vp-btn" data-gb-pan="-1">← Pan</button>
+                  <button type="button" class="vp-btn" data-gb-pan="1">Pan →</button>
+                  <button type="button" class="vp-btn" data-gb-gene="-1">Previous gene</button>
+                  <button type="button" class="vp-btn" data-gb-gene="1">Next gene</button>
+                </div>
+                <label for="gb-region">Explore an analysed region</label>
+                <select class="vp-select" id="gb-region" data-gb-region>
+                  <option value="">Choose a gene…</option>
+                  {regions.map((r) => <option value={r.locus}>{r.label}</option>)}
+                </select>
+              </div>
+              <div class="gb-tool-section">
+                <h2>Find a DNA sequence</h2>
+                <label for="gb-find-seq">Pattern · both strands, IUPAC codes supported</label>
+                <div class="gb-tool-row">
+                  <input class="vp-input gb-find" id="gb-find-seq" data-gb-find-seq placeholder="GAATTC or GTRAGT" autocomplete="off" spellcheck="false" />
+                  <button type="button" class="vp-btn" data-gb-find-go>Find</button>
+                  <button type="button" class="vp-btn" data-gb-find-cancel hidden>Cancel</button>
+                </div>
+                <div class="gb-tool-row">
+                  <button type="button" class="vp-btn" data-gb-find-scope aria-pressed="false">Whole genome</button>
+                  <button type="button" class="vp-btn" data-gb-find-prev aria-label="Previous sequence match">‹ Previous</button>
+                  <button type="button" class="vp-btn" data-gb-find-next aria-label="Next sequence match">Next ›</button>
+                </div>
+                <p class="gb-tool-note">Searches this chromosome unless Whole genome is selected. Whole-genome search loads about 4 MB of reference sequence.</p>
+                <p class="vp-stat" data-gb-find-out role="status"></p>
+              </div>
+              <div class="gb-tool-section">
+                <h2>View and export</h2>
+                <div class="gb-tool-row">
+                  <button type="button" class="vp-btn" data-gb-mark>Mark region</button>
+                  <button type="button" class="vp-btn" data-gb-autoscale aria-pressed="false">Autoscale</button>
+                  <button type="button" class="vp-btn" data-gb-share>Copy view link</button>
+                </div>
+                <div class="gb-tool-row">
+                  <button type="button" class="vp-btn" data-gb-export>PNG image</button>
+                  <button type="button" class="vp-btn" data-gb-export-svg>SVG figure</button>
+                  <button type="button" class="vp-btn" data-gb-export-csv>CSV data</button>
+                </div>
+                <p class="gb-tool-note">Images preserve the view. CSV uses the shared genomic grid shown in the statistics, with zero-based, half-open coordinates.</p>
+                <p class="vp-stat" data-gb-export-status role="status"></p>
+              </div>
+            </div>
+          </details>
+        </div>
+        <p id="gb-search-help" class="gb-search-help" data-gb-search-help role="status">Search by gene name or one-based coordinates. Try TDH3 or ACT1.</p>
       </nav>
 
-      <section class="vp-panel">
+      <section class="vp-panel gb-browser" aria-label="Genome tracks">
         <div class="gb-head">
           <strong class="gb-readout" data-gb-readout>—</strong>
           <span class="vp-stat" data-gb-level-out></span>
@@ -225,8 +240,7 @@ const breadcrumbLd = buildBreadcrumbLd([
             <span class="gb-logo-key__note">upright raises the prediction · mirrored below the rule lowers it</span>
           </span>
           <span class="vp-stat gb-roi" data-gb-roi></span>
-          <span class="vp-stat gb-corr" data-gb-corr></span>
-          <span class="vp-stat gb-find-out" data-gb-find-out></span>
+
           <span class="vp-spacer"></span>
           <span class="vp-stat gb-hover" data-gb-hover></span>
         </div>
@@ -241,75 +255,69 @@ const breadcrumbLd = buildBreadcrumbLd([
             <canvas class="vp-canvas gb-mini" data-gb-mini
                     aria-label="Whole-chromosome overview with the current viewport marked"></canvas>
             <canvas class="vp-canvas gb-track" tabindex="0" data-gb-track
-                    aria-label="Shorkie_LM constraint, conservation, annotation and gene models"
+                    aria-label="Genome tracks: Shorkie expression, Shorkie_LM constraint, conservation, annotations and genes. Focus here to use the keyboard shortcuts."
             ></canvas>
             <div class="gb-tooltip" data-gb-tooltip hidden></div>
             <!-- Opened by clicking a binding-site box: the motif that factor recognises, from
                  JASPAR, over the reference sequence actually at that position. -->
-            <aside class="gb-motif" data-gb-motif hidden aria-label="Motif"></aside>
+            <aside class="gb-motif" data-gb-motif hidden tabindex="-1" aria-label="Selected feature"></aside>
           </div>
-          <aside class="gb-panel" aria-label="Tracks">
+          <button type="button" class="gb-sheet-backdrop" data-gb-panel-backdrop aria-label="Close tracks" hidden></button>
+          <aside class="gb-panel" id="gb-track-panel" aria-label="Tracks">
+            <div class="gb-sheet-heading"><strong>Tracks &amp; display</strong><button type="button" class="vp-btn" data-gb-panel-close>Done</button></div>
             <div data-gb-panel></div>
             <p class="gb-panel__note">
-              Hover a name for what it is. The visible set is part of the link, so a shared URL
-              restores this exact picture.
+              Open “what this is” for a track’s source, units and interpretation.
+              Copy view link in Tools to share your selection.
             </p>
           </aside>
         </div>
 
-        <p class="vp-notes gb-caption">
-          <span class="gb-caption__short">
-            <strong>Tap a chromosome</strong> in the top strip to jump to it,{' '}
-            <strong>pinch to zoom</strong>, drag to pan, tap the strip below to jump, and{' '}
-            <strong>tracks</strong> to choose what is drawn. Every score lane keeps a fixed axis at
-            every zoom unless you press <strong>autoscale</strong>, and prints its own units.
-          </span>
-          <span class="gb-caption__full"><strong>The top strip is all 17 chromosomes, drawn strictly to scale</strong> — chrM
-          really is 5.6% of chrIV, and nothing is widened to a minimum, because a floor would
-          distort the one channel a bar is read by. It carries <em>no bands</em>: yeast has no
-          Giemsa banding, so this is a position indicator and not an ideogram in the cytogenetic
-          sense. Click anywhere along it to jump — the nearest chromosome answers, so the 8 px chrM
-          is reachable. <strong>Drag the ruler to select a region</strong> (or shift-drag anywhere); drag a track
-          to pan and click the overview strip to jump. <strong>Scrolling moves the page</strong>, not
-          the genome — the browser is one screen of a page several screens long, so it does not own
-          your wheel. <strong>Pinch to zoom</strong> (a trackpad pinch, or ctrl-scroll), and
-          shift-scroll or a horizontal swipe to slide along the chromosome. Every score lane keeps a{' '}
-          <em>fixed</em> axis at every zoom, so any two positions are read against the same ruler —
-          and each lane prints its own range, because {index.tracks[0].units} and a 0–1 posterior
-          are not the same units. <strong>autoscale</strong> suspends that rule for the visible
-          window; it is off by default and every rescaled lane says so on its own face, because an
-          axis that was rescaled without announcing it is the same trick as a bar chart drawn from a
-          non-zero baseline. Above a lane's own resolution a pixel column is a summary bin: the
-          filled bar is its <strong>mean</strong>, the pale mark its <strong>maximum</strong> and
-          the dark tick its <strong>minimum</strong>, so one determined base inside a wide bin stays
-          visible. Signed lanes — the attribution — grow both ways from a zero rule instead. At the
-          deepest zoom the per-base lanes become a logo, one letter a base; a lane whose data is
-          coarser than that stops at its own floor and the readout names it.
-          The nuclear genome averages{' '}
-          <strong>{meanIc.toFixed(3)} bits</strong> masked against{' '}
-          <strong>{meanUnmasked.toFixed(3)}</strong> unmasked
-          {mitoIc !== null ? `, and chrM ${mitoIc.toFixed(3)} masked` : ''} — so most of the track
-          is genuinely low and the tall columns are the exception.</span>
-        </p>
+        <div class="gb-browser-footer">
+          <p class="gb-caption"><span class="gb-mouse-hint">Drag to pan · drag the ruler to select · + / − to zoom.</span><span class="gb-touch-hint">Swipe sideways to pan · swipe vertically to scroll · + / − to zoom the genome.</span> <a href="#gb-guide">Reading guide</a></p>
+          <div class="gb-load-status"><p class="gb-status" data-gb-status role="status">Loading genome…</p><button type="button" class="vp-btn" data-gb-retry hidden>Retry</button></div>
+        </div>
 
         <!-- BELOW the canvas, deliberately. This link appears and disappears as the view enters
              and leaves one of the analysed windows, and anything above the canvas that does that
              shifts the whole browser vertically while a reader is dragging it. -->
         <a class="gb-deep" data-gb-deep hidden href="/shorkie-lab/shorkie/"></a>
 
-        <section class="gb-stats-box" aria-label="This view, in numbers">
-          <h3 class="gb-stats__title">This view, in numbers</h3>
-          <div data-gb-stats hidden></div>
-          <canvas class="gb-scatter" data-gb-scatter height="170"
-                  aria-label="The two enabled score lanes plotted against each other over this view"
-                  hidden></canvas>
-        </section>
-
-        <p class="vp-stat gb-status" data-gb-status></p>
+        <div class="gb-summary-grid">
+          <section class="gb-stats-box" aria-label="This view, in numbers">
+            <h2>This view, in numbers</h2>
+            <p class="vp-stat gb-corr" data-gb-corr></p>
+            <div data-gb-stats hidden></div>
+            <canvas class="gb-scatter" data-gb-scatter height="170" aria-label="Enabled score tracks compared at matching genomic bins" hidden></canvas>
+          </section>
+          <section class="gb-inspector">
+            <h2>Explore what’s here</h2>
+            <p data-gb-score-readout role="status">Tap a score track, or focus the canvas and press Enter, to read values at a position.</p>
+            <p>Tap a gene or annotation in the tracks to inspect it, or choose from the accessible list below.</p>
+            <details data-gb-feature-details>
+              <summary>Genes &amp; enabled annotations in view</summary>
+              <div data-gb-feature-list></div>
+            </details>
+            <p class="gb-tool-note">At base zoom, letters are the reference sequence. A tall constraint letter means a confident model, not a confirmed functional effect.</p>
+          </section>
+        </div>
+        <details class="gb-diagnostics"><summary>Loading diagnostics</summary><p data-gb-diagnostics></p></details>
       </section>
 
-      <section class="vp-panel">
+      <section class="gb-guide" id="gb-guide" aria-labelledby="gb-guide-title">
+        <div class="gb-section-heading"><span class="gb-eyebrow">Reading the genome</span><h2 id="gb-guide-title">Different tracks, different questions.</h2><p>Each lane keeps its own units and a fixed axis. Start with the overview, then choose a preset in Tracks to investigate further.</p></div>
+        <div class="gb-guide-grid">
+          <article><span class="gb-guide-key gb-key-constraint">01 / Constraint</span><h3>What does the context predict?</h3><p>Shorkie_LM’s masked pass measures information content in bits. Higher values mean a more concentrated prediction of the hidden base. The optional unmasked pass sees its input and is labeled <strong>not a prediction</strong>.</p></article>
+          <article><span class="gb-guide-key gb-key-expression">02 / Expression</span><h3>What signal does Shorkie expect?</h3><p>Predicted RNA-seq is coverage in arbitrary units, resolved at 16 bp. Attribution asks which bases raise or lower that prediction; signed lanes have a visible zero line.</p></article>
+          <article><span class="gb-guide-key gb-key-conservation">03 / Conservation</span><h3>What does evolution retain?</h3><p>phastCons is an alignment-based score from 0 to 1. It is a separate comparison with the model’s constraint. A gap means no measurement, not a score of zero.</p></article>
+        </div>
+        <details class="gb-reading-details"><summary>Navigation, scale and keyboard shortcuts</summary><p>Click a chromosome in the top strip or use the chromosome selector. The next strip shows the full chromosome and your current view. Wider views show minimum, mean and maximum within each bin; at close zoom, per-base lanes become letters. Coarser tracks retain their native resolution.</p><p>With the track canvas focused: ← / → pan, + / − zoom, n / p step between genes, and [ / ] navigate view history. On touchscreens, pinch changes page magnification; use + / − for genomic zoom. Autoscale is optional and visibly marked on every rescaled lane.</p></details>
+      </section>
+
+      <section class="vp-panel gb-methods" id="gb-methods">
+        <span class="gb-eyebrow">Methods &amp; sources</span>
         <h2>How the whole genome was scored</h2>
+        <p class="gb-table-hint">Tables scroll sideways to keep their columns readable.</p>
         <p class="vp-notes vp-lede">
           The model reads a {index.window.seqLen.toLocaleString()} bp window, so a genome-wide track
           has to be assembled from overlapping windows — and a base near a window edge has less
@@ -326,7 +334,7 @@ const breadcrumbLd = buildBreadcrumbLd([
               A masked language model only predicts where it is masked. The browser can draw the
               model two ways, and the difference between them is the paper's Figure 2A point:
             </p>
-            <div class="vp-scroll-x"><table class="vp-collapse-table">
+            <div class="vp-scroll-x" tabindex="0" role="region" aria-label="Scrollable comparison table"><table class="vp-collapse-table">
               <thead>
                 <tr><th>pass</th><th>what it asks</th><th>mean IC, nuclear genome</th></tr>
               </thead>
@@ -381,7 +389,7 @@ const breadcrumbLd = buildBreadcrumbLd([
             </p>
             {cmp && (
               <>
-                <div class="vp-scroll-x"><table class="vp-collapse-table">
+                <div class="vp-scroll-x" tabindex="0" role="region" aria-label="Scrollable data table"><table class="vp-collapse-table">
                   <thead>
                     <tr>
                       <th>over</th><th>bases</th><th>Pearson r</th><th>Spearman ρ</th>
@@ -453,7 +461,7 @@ const breadcrumbLd = buildBreadcrumbLd([
               in a window and once against its edge, and compare information content per base.{' '}
               <strong>The answer depends entirely on which region you measure.</strong>
             </p>
-            <div class="vp-scroll-x"><table class="vp-collapse-table">
+            <div class="vp-scroll-x" tabindex="0" role="region" aria-label="Scrollable data table"><table class="vp-collapse-table">
               <thead>
                 <tr><th>distance from edge</th><th>quiet chrIV:400k</th><th>promoter chrI:76k</th></tr>
               </thead>
@@ -516,7 +524,7 @@ const breadcrumbLd = buildBreadcrumbLd([
               drawing can show the envelope and a spike stays visible at genome zoom. A pyramid that
               smooths is a pyramid that lies.
             </p>
-            <div class="vp-scroll-x"><table class="vp-collapse-table">
+            <div class="vp-scroll-x" tabindex="0" role="region" aria-label="Scrollable data table"><table class="vp-collapse-table">
               <thead>
                 <tr><th>level</th><th>bp / bin</th><th>bins</th><th>rows</th><th>used at</th></tr>
               </thead>
@@ -551,7 +559,7 @@ const breadcrumbLd = buildBreadcrumbLd([
               and it is the same rule for the model tracks, which need it nowhere — one decode path
               rather than two.
             </p>
-            <div class="vp-scroll-x"><table class="vp-collapse-table">
+            <div class="vp-scroll-x" tabindex="0" role="region" aria-label="Scrollable data table"><table class="vp-collapse-table gb-track-catalog">
               <thead>
                 <tr><th>track</th><th>units</th><th>axis</th><th>what it is</th></tr>
               </thead>
@@ -581,7 +589,7 @@ const breadcrumbLd = buildBreadcrumbLd([
             </p>
             {gcCmp && (
               <>
-                <div class="vp-scroll-x"><table class="vp-collapse-table">
+                <div class="vp-scroll-x" tabindex="0" role="region" aria-label="Scrollable data table"><table class="vp-collapse-table">
                   <thead>
                     <tr><th>over</th><th>bases</th><th>Pearson r</th><th>mean IC</th><th>mean GC</th></tr>
                   </thead>

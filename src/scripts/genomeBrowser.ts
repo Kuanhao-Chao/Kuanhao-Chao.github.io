@@ -39,17 +39,20 @@ import {
   levelForBpPerPixel, tilesCovering, tileStartBp, clampView, zoomAbout,
   levelsForTrack, axisFraction, axisValue, isSignedAxis, pearson, exportRows, laneExcluder,
   xOfBp as xOfBpPure, bpOfX as bpOfXPure, formatLocus, formatSpan, rulerTicks,
-  laneLayout, laneOrder, laneAt, brushRegion, featureDensity, searchLocus, chromOrder,
+  laneLayout, laneOrder, laneAt, brushRegion, featureDensity, searchLocus, searchSuggest, chromOrder,
   ideogramLayout, ideogramHit, type IdeogramBar,
   parseMotif, findMotif, motifDegeneracy, expectedHits, type MotifHit,
   shouldDrawLetters, pinchZoom, pointDistance, pointMidpoint,
   emptyHistory, historyPush, historyBack, historyForward, canGoBack, canGoForward,
   encodeViewState, decodeViewState,
   MIN_VIEW_BP, type Level, type ChromInfo, type View, type LaneSpec, type Lane,
-  type SearchIndex, type History,
+  type SearchIndex, type History, type DecodedViewState,
   type ScaleSpace, defaultTracksFor, stepGene, frameGene,
-  laneHeightFor, parseDensity, LANE_DENSITIES, type LaneDensity,
+  laneHeightFor, LANE_DENSITIES, type LaneDensity,
 } from '../lib/genomeBrowser';
+import { analysisGrid, meanOverView, scoredMean } from '../lib/genomeAnalysis';
+import { decodeGenomeTile } from '../lib/genomeTile';
+import { GenomeResources } from '../lib/genomeResources';
 import trackNamesJson from '../data/shorkieTrackNames.json';
 import { decodePackedRows, trackIndex, TRACK_GROUPS } from '../lib/shorkieModel';
 
@@ -91,8 +94,6 @@ const BASES4: Base[] = ['A', 'C', 'G', 'T'];
 
 const DATA = '/genome-data';
 
-/** Decode slice width. Below every browser's maximum canvas dimension, with room to spare. */
-const DECODE_CHUNK = 4096;
 
 /**
  * Whether the letter view is drawn is `shouldDrawLetters(span, innerWidth)` in the pure layer, not
@@ -164,6 +165,18 @@ const PRESETS: {
   /** Tracks without which this view would be misleading rather than merely smaller. */
   requires?: string[];
 }[] = [
+  {
+    id: 'overview', label: 'Overview',
+    hint: 'Compare masked constraint, expression and conservation against the same genes.',
+    lanes: ['lm-masked', 'sk-rnaseq', 'phastcons', 'genes', 'sequence'],
+    requires: ['lm-masked', 'sk-rnaseq'],
+  },
+  {
+    id: 'full-comparison', label: 'Full comparison',
+    hint: 'Both language-model passes, expression and all three primary attribution methods.',
+    lanes: ['lm-masked', 'lm-unmasked', 'sk-rnaseq', 'sk-gradient', 'sk-ig', 'sk-ism', 'phastcons', 'genes', 'sequence'],
+    requires: ['lm-masked', 'sk-rnaseq'],
+  },
   {
     id: 'constraint',
     label: 'constraint',
@@ -551,6 +564,17 @@ const DEFAULT_GROUP_ORDER = ['constraint', 'expression', 'attribution', 'compara
 export function initGenomeBrowser(host: HTMLElement): void {
   const $ = <T extends HTMLElement = HTMLElement>(sel: string) =>
     host.querySelector(sel) as T | null;
+  let disposed = false;
+  const cleanup: (() => void)[] = [];
+  const resources = new GenomeResources(() => schedule());
+  const panelStackWidth = host.hasAttribute('data-gb-page') ? 1023 : PANEL_STACK_W;
+  async function fetchResource<T>(url: string, kind: 'json' | 'blob' = 'json'): Promise<T | null> {
+    return resources.request(url, async (signal) => {
+      const r = await fetch(url, { signal });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return (kind === 'json' ? r.json() : r.blob()) as Promise<T>;
+    });
+  }
 
   const trackCanvas = $<HTMLCanvasElement>('[data-gb-track]');
   const miniCanvas = $<HTMLCanvasElement>('[data-gb-mini]');
@@ -776,19 +800,20 @@ export function initGenomeBrowser(host: HTMLElement): void {
   async function ensureLocusData(pr: Primary): Promise<void> {
     if (locusRow && locusRow.locus === pr.id && locusRow.track === locusTrackIdx) return;
     if (locusLoading) return;
+    if (resources.failures.has(`/vp-data/${pr.id}.json`) || resources.failures.has(`/vp-data/${pr.id}-tracks.png`)) return;
     locusLoading = true;
     try {
       if (!locusBitmap || locusBitmap.locus !== pr.id) {
         const [meta, blob] = await Promise.all([
-          fetch(`/vp-data/${pr.id}.json`).then((r) => (r.ok ? r.json() : null)),
-          fetch(`/vp-data/${pr.id}-tracks.png`).then((r) => (r.ok ? r.blob() : null)),
+          fetchResource<{ tracks: { lo: number[]; hi: number[] } }>(`/vp-data/${pr.id}.json`),
+          fetchResource<Blob>(`/vp-data/${pr.id}-tracks.png`, 'blob'),
         ]);
         const spec = meta?.tracks;
         if (!spec || !blob) { locusLoading = false; return; }
+        const bmp = await createImageBitmap(blob);
+        if (disposed || primaryHere()?.id !== pr.id) { bmp.close(); return; }
         locusBitmap?.bmp.close();
-        locusBitmap = {
-          locus: pr.id, bmp: await createImageBitmap(blob), lo: spec.lo, hi: spec.hi,
-        };
+        locusBitmap = { locus: pr.id, bmp, lo: spec.lo, hi: spec.hi };
       }
       const b = locusBitmap;
       const r = Math.min(Math.max(0, locusTrackIdx), b.lo.length - 1);
@@ -807,8 +832,11 @@ export function initGenomeBrowser(host: HTMLElement): void {
       locusRow = { locus: pr.id, track: locusTrackIdx, row, axisTop: axisTop || 100 };
       refreshLocusSpec();
       schedule();
+    } catch (error) {
+      resources.failures.set(`/vp-data/${pr.id}-tracks.png`, String(error));
     } finally {
       locusLoading = false;
+      schedule();
     }
   }
 
@@ -854,7 +882,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
   let view: View = { chrom: 'chrI', start: 0, end: 20000 };
   let history: History = emptyHistory();
   let hoverBp: number | null = null;
-  let roi: { start: number; end: number } | null = null;
+  let roi: { chrom: string; start: number; end: number } | null = null;
   let brush: { start: number; end: number } | null = null;
   /** The band being dragged on the overview strip, in chromosome coordinates. */
   let miniBrush: { start: number; end: number } | null = null;
@@ -962,7 +990,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     consensus: string | null; matched: string | null }[] = [];
 
   /** The ROI start last announced, so a repaint does not re-announce an unchanged region. */
-  let lastRoiSent = -1;
+  let lastRoiSent = '';
 
   /**
    * Which member of each track FAMILY is currently selected.
@@ -989,23 +1017,15 @@ export function initGenomeBrowser(host: HTMLElement): void {
   }
 
   /**
-   * A track's genome-wide mean, length-weighted over the chromosomes that scored it.
-   *
-   * Weighted, because chrIV is eighteen times chrI and an unweighted mean of per-chromosome means
-   * would let the mitochondrion -- 0.7% of the genome and by far the most atypical sequence in it
-   * -- carry a seventeenth of the answer.
+   * A track's genome-wide mean, weighted by finite native values on each chromosome.
+   * Chromosome length would over-weight sparsely scored chromosomes and count missing coverage.
    */
   function genomeMean(id: string, abs = false): number | null {
     if (!index) return null;
-    let num = 0; let den = 0;
-    for (const c of index.chroms) {
-      // A signed track's plain mean is near zero everywhere and is not a baseline; the tiler
-      // records `meanAbs` for those, which is what its |v| summary must be compared against.
-      const m = abs ? c.tracks[id]?.meanAbs : c.tracks[id]?.mean;
-      if (m == null) continue;
-      num += m * c.length; den += c.length;
-    }
-    return den ? num / den : null;
+    return scoredMean(index.chroms.map((c) => ({
+      scored: c.tracks[id]?.scored ?? 0,
+      mean: (abs ? c.tracks[id]?.meanAbs : c.tracks[id]?.mean) ?? null,
+    })));
   }
 
   /**
@@ -1078,30 +1098,11 @@ export function initGenomeBrowser(host: HTMLElement): void {
   }
 
   async function decodeGray(url: string): Promise<Tile | null> {
-    const res = await fetch(url).catch(() => null);
-    if (!res || !res.ok) return null;
-    const bitmap = await createImageBitmap(await res.blob()).catch(() => null);
-    if (!bitmap) return null;
-    const cols = bitmap.width;
-    const rows = bitmap.height;
-    const out = new Uint8Array(rows * cols);
-    const cv = document.createElement('canvas');
-    cv.width = Math.min(cols, DECODE_CHUNK);
-    cv.height = rows;
-    const cx = cv.getContext('2d', { willReadFrequently: true });
-    if (!cx) { bitmap.close(); return null; }
-    for (let x0 = 0; x0 < cols; x0 += DECODE_CHUNK) {
-      const w = Math.min(DECODE_CHUNK, cols - x0);
-      cx.clearRect(0, 0, w, rows);
-      cx.drawImage(bitmap, x0, 0, w, rows, 0, 0, w, rows);
-      const px = cx.getImageData(0, 0, w, rows).data;
-      for (let r = 0; r < rows; r += 1) {
-        const base = r * cols + x0;
-        for (let c = 0; c < w; c += 1) out[base + c] = px[(r * w + c) * 4];
-      }
-    }
-    bitmap.close();
-    return { rows, cols, data: out };
+    return resources.request(url, async (signal) => {
+      const res = await fetch(url, { signal });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return decodeGenomeTile(await res.arrayBuffer());
+    });
   }
 
   /**
@@ -1113,10 +1114,10 @@ export function initGenomeBrowser(host: HTMLElement): void {
   function tile(key: string): Tile | null {
     const hit = cacheGet(key);
     if (hit) return hit;
-    if (inflight.has(key)) return null;
+    if (disposed || inflight.has(key) || resources.failures.has(`${DATA}/${key}.png`)) return null;
     const p = decodeGray(`${DATA}/${key}.png`).then((t) => {
       inflight.delete(key);
-      if (t) { cachePut(key, t); fetched += 1; schedule(); }
+      if (t && !disposed) { cachePut(key, t); fetched += 1; schedule(); }
       return t;
     });
     inflight.set(key, p);
@@ -1134,13 +1135,11 @@ export function initGenomeBrowser(host: HTMLElement): void {
     const have = genes.get(chrom);
     if (have) return have;
     const key = `genes:${chrom}`;
-    if (jsonInflight.has(key)) return null;
+    if (disposed || jsonInflight.has(key) || resources.failures.has(`${DATA}/${chrom}/${key.startsWith('genes') ? 'genes' : 'features'}.json`)) return null;
     jsonInflight.add(key);
-    void fetch(`${DATA}/${chrom}/genes.json`)
-      .then((r) => (r.ok ? r.json() : []))
-      .catch(() => [])
-      .then((g: GeneTrackFeature[]) => {
-        genes.set(chrom, g);
+    void fetchResource<GeneTrackFeature[]>(`${DATA}/${chrom}/genes.json`)
+      .then((g) => {
+        if (g && !disposed) genes.set(chrom, g);
         jsonInflight.delete(key);
         schedule();
       });
@@ -1158,12 +1157,12 @@ export function initGenomeBrowser(host: HTMLElement): void {
     const have = features.get(chrom);
     if (have) return have;
     const key = `feat:${chrom}`;
-    if (jsonInflight.has(key)) return null;
+    if (disposed || jsonInflight.has(key) || resources.failures.has(`${DATA}/${chrom}/${key.startsWith('genes') ? 'genes' : 'features'}.json`)) return null;
     jsonInflight.add(key);
-    void fetch(`${DATA}/${chrom}/features.json`)
-      .then((r) => (r.ok ? r.json() : null))
-      .catch(() => null)
-      .then((raw: { names: string[]; classes: Record<string, number[][]> } | null) => {
+    void fetchResource<{ names: string[]; classes: Record<string, number[][]> }>(`${DATA}/${chrom}/features.json`)
+      .then((raw) => {
+        jsonInflight.delete(key);
+        if (!raw || disposed) { schedule(); return; }
         const classes = new Map<string, FeatureClass>();
         if (raw) {
           for (const [cls, rows] of Object.entries(raw.classes)) {
@@ -1316,6 +1315,22 @@ export function initGenomeBrowser(host: HTMLElement): void {
       out[i] = k ? sum / k : null;
     }
     return out;
+  }
+
+  function scoreDataState(spec: TrackSpec, lvl: Level, start: number, n: number, binBp: number): 'ready' | 'loading' | 'error' {
+    if (spec.id === LOCUS_LANE) {
+      const pr = primaryHere();
+      if (!pr) return 'ready'; // This lane is biologically unavailable outside the primary windows.
+      if (resources.failures.has(`/vp-data/${pr.id}.json`) || resources.failures.has(`/vp-data/${pr.id}-tracks.png`)) return 'error';
+      return locusRow?.locus === pr.id && locusRow.track === locusTrackIdx ? 'ready' : 'loading';
+    }
+    let state: 'ready' | 'loading' | 'error' = 'ready';
+    for (const ti of tilesCovering(start, Math.min(view.end, start + n * binBp, chromInfo(view.chrom)?.length ?? Infinity), lvl.binBp, index?.tileBins ?? 65536)) {
+      const key = `${view.chrom}/${spec.id}/L${lvl.level}/${ti}`;
+      if (resources.failures.has(`${DATA}/${key}.png`)) return 'error';
+      if (!tiles.has(key)) state = 'loading';
+    }
+    return state;
   }
 
   interface AnnBox {
@@ -1610,7 +1625,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     ctx.strokeStyle = accent;
     ctx.strokeRect(vx0 - 0.5, 3.5, Math.max(2, vx1 - vx0) + 1, MINIMAP_H - 11);
 
-    if (roi) {
+    if (roi?.chrom === view.chrom) {
       const rx0 = padLeft(w) + (roi.start / info.length) * inner;
       const rx1 = padLeft(w) + (roi.end / info.length) * inner;
       ctx.fillStyle = css('--gb-roi', '#b8860b');
@@ -1753,7 +1768,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
       // panel is a full-width block below it, where an inline height from the wide layout would
       // override the media query -- and would survive a resize back down, since nothing else
       // clears it.
-      if (window.innerWidth > PANEL_STACK_W) {
+      if (window.innerWidth > panelStackWidth) {
         panelAside.style.maxHeight = `${Math.max(PANEL_MIN_H, layout.total)}px`;
       } else {
         panelAside.style.removeProperty('max-height');
@@ -1777,7 +1792,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
 
     // The region of interest sits BEHIND everything, across the whole stack, so it reads as a
     // property of the coordinate rather than of any one track.
-    if (roi && roi.end > view.start && roi.start < view.end) {
+    if (roi?.chrom === view.chrom && roi.end > view.start && roi.start < view.end) {
       const rx0 = Math.max(padLeft(w), xOfBp(roi.start, w));
       const rx1 = Math.min(padLeft(w) + inner, xOfBp(roi.end, w));
       ctx.fillStyle = css('--gb-roi', '#b8860b');
@@ -1865,38 +1880,6 @@ export function initGenomeBrowser(host: HTMLElement): void {
       ctx.globalAlpha = 1;
     }
 
-    // Live correlation between the two enabled score lanes, over the visible window.
-    //
-    // It makes the page's genome-wide constants locally interrogable: IC against phastCons is 0.121
-    // genome-wide but 0.045 within coding sequence, and IC against GC is -0.020 genome-wide but
-    // -0.221 in intergenic. A reader can now go and see where those numbers come from instead of
-    // taking them on trust. Sampled onto the same PIXEL columns the lanes are drawn on, so what is
-    // correlated is exactly what is on screen; `pearson` pairs only where both lanes have data,
-    // which matters because phastCons is undefined over 0.65% of the genome and Shorkie cannot
-    // score the first 1,024 bases of a chromosome.
-    if (corrOut) {
-      const on = scoreTracks();
-      if (on.length !== 2) {
-        corrOut.textContent = on.length < 2
-          ? '' : `${on.length} tracks on · correlation needs exactly 2`;
-      } else {
-        const [a, b] = on;
-        const va = sample(a, drawnLevels.get(a.id) ?? lvl, inner)
-          .map((c) => (c.have ? c.mean : null));
-        const vb = sample(b, drawnLevels.get(b.id) ?? lvl, inner)
-          .map((c) => (c.have ? c.mean : null));
-        const r = pearson(va, vb);
-        corrOut.textContent = r == null
-          ? `${a.short} vs ${b.short}: too little data here`
-          : `${a.short} vs ${b.short}: r = ${r.toFixed(3)} over this view`;
-        // NOT `gbCorr`: the readout span is `[data-gb-corr]`, and a canvas dataset key of the
-        // same name makes that selector resolve to two elements. The same collision cost this
-        // repo a round on `data-lm-locus` in the language-model page.
-        cv.dataset.gbCorrelation = r == null ? '' : r.toFixed(4);
-      }
-      if (on.length !== 2) cv.dataset.gbCorrelation = '';
-    }
-
     renderStats(inner, bpPerPx, col);
 
     if (deepLink) {
@@ -1952,8 +1935,8 @@ export function initGenomeBrowser(host: HTMLElement): void {
     cv.dataset.gbRoiRange = roi ? `${roi.start}-${roi.end}` : '';
     // A marked region is the browser's version of "trace this". Published separately from the
     // view because it changes far less often and drives an expensive fan-out downstream.
-    if (roi && roi.start !== lastRoiSent) {
-      lastRoiSent = roi.start;
+    if (roi?.chrom === view.chrom && `${roi.chrom}:${roi.start}-${roi.end}` !== lastRoiSent) {
+      lastRoiSent = `${roi.chrom}:${roi.start}-${roi.end}`;
       const p = primaryHere();
       if (p) {
         host.dispatchEvent(new CustomEvent('khc:gb-roi', {
@@ -1962,7 +1945,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
         }));
       }
     } else if (!roi) {
-      lastRoiSent = -1;
+      lastRoiSent = '';
     }
 
     if (levelOut) {
@@ -1988,11 +1971,26 @@ export function initGenomeBrowser(host: HTMLElement): void {
           : '');
     }
     if (readout) readout.textContent = `${formatLocus(view)} · ${formatSpan(view.end - view.start)}`;
-    if (statusOut) {
-      statusOut.textContent = `${tiles.size} tiles cached · ${fetched} fetched · ${evicted} evicted`
-        + ` · cap ${maxTiles()}`;
-    }
+    updateResourceStatus();
+    renderFeatureList();
     syncButtons();
+  }
+
+  function updateResourceStatus(): void {
+    const failed = resources.failures.size;
+    host.dataset.gbPending = String(resources.pending);
+    host.dataset.gbCacheLimit = String(maxTiles());
+    host.dataset.gbCached = String(tiles.size);
+    host.dataset.gbFailed = String(failed);
+    if (statusOut) {
+      const message = failed ? `${failed} resource${failed === 1 ? '' : 's'} could not load. Use Retry to recover.`
+        : resources.pending ? 'Loading tracks…' : 'Tracks ready. Gaps indicate unavailable measurements.';
+      if (statusOut.textContent !== message) statusOut.textContent = message;
+    }
+    const retry = $('[data-gb-retry]');
+    if (retry) retry.hidden = !failed;
+    const diag = $('[data-gb-diagnostics]');
+    if (diag) diag.textContent = `${tiles.size} tiles cached · ${fetched} fetched · ${evicted} evicted · cap ${maxTiles()} · ${resources.pending} pending`;
   }
 
   /**
@@ -2006,27 +2004,39 @@ export function initGenomeBrowser(host: HTMLElement): void {
    * - A SIGNED track is summarised by mean |v|, never by its mean. Gradient x input is 50.2%
    *   negative genome-wide, so its mean is near zero everywhere and a ratio against it would be
    *   noise divided by noise -- a large, meaningless number that looks like a finding.
-   * - Values are read at the level the lane is DRAWN at, on the data's own grid rather than on
-   *   pixel columns, so the number does not change when the window is resized.
+   * - Values use a common genomic grid independent of rendering resolution and screen width.
    */
-  function renderStats(inner: number, bpPerPx: number, col: Record<string, string>): void {
+  let statsKey = '';
+  function renderStats(_inner: number, _bpPerPx: number, col: Record<string, string>): void {
     if (!statsBox || !index) return;
     const specs = scoreTracks();
+    const key = `${view.chrom}:${view.start}:${view.end}:${specs.map((s) => s.id).join(',')}:${fetched}:${resources.failures.size}:${locusRow?.locus}:${locusRow?.track}:${statsBox.clientWidth}:${col.ink}:${col.accent}`;
+    if (key === statsKey) return;
+    statsKey = key;
     statsBox.textContent = '';
     if (!specs.length) {
       statsBox.hidden = true;
       if (scatterCv) scatterCv.hidden = true;
+      if (corrOut) corrOut.textContent = '';
+      trackCanvas!.dataset.gbCorrelation = '';
       return;
     }
     statsBox.hidden = false;
 
-    const series: (number | null)[][] = [];
-    for (const s of specs) {
-      const l = drawnLevels.get(s.id) ?? levelForBpPerPixel(bpPerPx, levelsForTrack(s, index.levels));
-      const start = Math.floor(view.start / l.binBp) * l.binBp;
-      const n = Math.min(4000, Math.ceil((view.end - start) / l.binBp));
-      series.push(sampleBins(s, l, start, n, l.binBp));
+    const grid = analysisGrid(view, specs, index.levels);
+    const series = specs.map((spec, i) => sampleBins(spec, grid.levels[i], grid.start, grid.count, grid.binBp));
+    const states = specs.map((spec, i) => scoreDataState(spec, grid.levels[i], grid.start, grid.count, grid.binBp));
+    const ready = states.every((s) => s === 'ready');
+    const r = specs.length === 2 && ready ? pearson(series[0], series[1]) : null;
+    if (corrOut) {
+      corrOut.textContent = specs.length !== 2 ? 'Choose a two-track preset to compare signals.'
+        : !ready ? 'Comparison waits for both tracks to load.'
+        : r == null ? 'Correlation unavailable: fewer than 8 pairs or a constant signal.'
+        : `${specs[0].short} vs ${specs[1].short}: r = ${r.toFixed(3)} · ${grid.binBp} bp bins`;
     }
+    trackCanvas!.dataset.gbCorrelation = r == null ? '' : r.toFixed(4);
+    trackCanvas!.dataset.gbAnalysisBin = String(grid.binBp);
+    trackCanvas!.dataset.gbAnalysisCount = String(grid.count);
 
     // A scroll container, because a four-column table is 320 px wide and the box is 240 at a
     // 320 px viewport. Without it the last column -- "vs genome", the one that answers the
@@ -2047,7 +2057,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
       const signed = isSignedAxis(s.axis);
       const vals = series[i].filter((v): v is number => v != null)
         .map((v) => (signed ? Math.abs(v) : v));
-      const gm = genomeMean(s.id, signed);
+      const gm = signed && grid.binBp > 1 ? null : genomeMean(s.id, signed);
       const tr = document.createElement('tr');
       const cell = (txt: string, cls?: string) => {
         const td = document.createElement('td');
@@ -2057,11 +2067,13 @@ export function initGenomeBrowser(host: HTMLElement): void {
       };
       const fmt = (v: number) => (Math.abs(v) >= 100 ? v.toFixed(0)
         : Math.abs(v) >= 1 ? v.toFixed(2) : v.toFixed(4));
-      cell(s.short + (signed ? ' |v|' : ''));
-      if (!vals.length) {
+      cell(s.short + (signed ? (grid.binBp > 1 ? ' |bin mean|' : ' |v|') : ''));
+      if (states[i] !== 'ready') {
+        cell(states[i] === 'error' ? 'Load failed' : 'Loading…'); cell(gm == null ? '—' : fmt(gm)); cell('—');
+      } else if (!vals.length) {
         cell('no data'); cell(gm == null ? '—' : fmt(gm)); cell('—');
       } else {
-        const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+        const mean = meanOverView(series[i], grid, view, signed)!;
         cell(fmt(mean));
         // For a signed track both sides of the comparison are mean |v|, never the plain mean:
         // gradient x input is 50.2% negative genome-wide, so a ratio against its mean would be
@@ -2090,12 +2102,13 @@ export function initGenomeBrowser(host: HTMLElement): void {
       : (tight
         ? 'Two score lanes on shows their correlation.'
         : 'Turn on exactly two score lanes to see their correlation and the shape behind it.');
+    note.textContent = `Approximate summaries · ${grid.binBp} bp bins across this interval. Missing bins are excluded; stored bins do not carry valid-base counts. Signed coarse summaries show |bin mean|, not mean per-base magnitude. ` + note.textContent;
     statsBox.appendChild(note);
 
     // The scatter. A correlation is a single number summarising a shape, and the same r comes from
     // a line, a fan and a cloud with two outliers -- so the number is never shown without it.
     if (!scatterCv) return;
-    if (specs.length !== 2) { scatterCv.hidden = true; return; }
+    if (specs.length !== 2 || !ready) { scatterCv.hidden = true; return; }
     scatterCv.hidden = false;
     const w = Math.max(1, Math.round(scatterCv.clientWidth));
     const h = Math.max(1, Math.round(scatterCv.clientHeight || 150));
@@ -2484,6 +2497,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     // The lane's own name and units, on the lane. With three score tracks stacked, a legend
     // somewhere else is a lookup the reader has to do on every glance.
     const missing = cols.filter((c) => !c.have).length;
+    const dataState = scoreDataState(spec, lvl, view.start, Math.ceil((view.end - view.start) / lvl.binBp), lvl.binBp);
     const text = `${spec.label} · ${spec.units}`
       + (spec.laneTag ? ` · ${spec.laneTag}` : '')
       // Autoscale is announced ON THE LANE, with the range it became. A rescaled axis that does not
@@ -2498,18 +2512,30 @@ export function initGenomeBrowser(host: HTMLElement): void {
       // second half a reader compares glyph heights between two positions on a ruler that changed
       // underneath them, which is the same trick as an unannounced autoscale.
       + (lAxis ? ` · LOCAL AXIS ${label(lAxis[0])}–${label(lAxis[1])} · this view only` : '')
-      + (missing > inner * 0.02 ? ` · ${Math.round((missing / inner) * 100)}% no data` : '');
+      + (dataState === 'error' ? ' · LOAD FAILED — Retry' : dataState === 'loading' ? ' · loading…'
+        : missing > inner * 0.02 ? ` · ${Math.round((missing / inner) * 100)}% no data` : '');
     // A chip behind it, because phastCons saturates at 1.0 through a whole gene and a bare label
     // at the top of the plot lands on the data rather than above it.
-    ctx.font = '10px system-ui, sans-serif';
+    const standalone = host.hasAttribute('data-gb-page');
+    ctx.font = `${standalone ? 11 : 10}px system-ui, sans-serif`;
     ctx.textAlign = 'left';
-    const tw = ctx.measureText(text).width;
-    ctx.globalAlpha = 0.82;
+    let display = text;
+    if (standalone && ctx.measureText(display).width > inner - 12) {
+      display = `${spec.short} · ${spec.units}`
+        + (spec.id === 'lm-unmasked' ? ' · not a prediction' : '')
+        + (spec.nativeBp && spec.nativeBp > 1 ? ` · ${spec.nativeBp} bp` : '')
+        + (signed ? ' · signed' : '')
+        + (lAxis ? ' · local axis' : axis !== spec.axis ? ' · AUTOSCALED' : '')
+        + (dataState !== 'ready' ? ` · ${dataState === 'error' ? 'LOAD FAILED' : 'loading…'}` : '');
+    }
+    while (ctx.measureText(display).width > inner - 12 && display.length > 10) display = display.slice(0, -2).trimEnd() + '…';
+    const tw = ctx.measureText(display).width;
+    ctx.globalAlpha = 0.94;
     ctx.fillStyle = col.surface;
-    ctx.fillRect(padLeft(w) + 1, top, tw + 6, 12);
+    ctx.fillRect(padLeft(w) + 1, top, tw + 6, standalone ? 15 : 12);
     ctx.globalAlpha = 1;
-    ctx.fillStyle = col.muted;
-    ctx.fillText(text, padLeft(w) + 4, top + 9);
+    ctx.fillStyle = col.ink;
+    ctx.fillText(display, padLeft(w) + 4, top + (standalone ? 11 : 9));
     return drawn;
   }
 
@@ -2816,7 +2842,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
   }
 
   function geneAt(bp: number): string | null {
-    const hits = (genes.get(view.chrom) ?? []).filter((f) => bp >= f.txStart && bp <= f.txEnd);
+    const hits = (genes.get(view.chrom) ?? []).filter((f) => bp >= f.txStart && bp < f.txEnd);
     if (!hits.length) return null;
     return hits.map((f) => {
       const common = (f as GeneTrackFeature & { gene?: string }).gene;
@@ -2897,7 +2923,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
    * bases, so this is one or two tiles that are usually already cached.
    */
   async function sequenceRange(
-    chrom: string, start: number, end: number, maxSpan = 200000,
+    chrom: string, start: number, end: number, maxSpan = 200000, cancelled: () => boolean = () => disposed,
   ): Promise<string | null> {
     const tileBins = index?.tileBins ?? 65536;
     const span = end - start;
@@ -2910,10 +2936,11 @@ export function initGenomeBrowser(host: HTMLElement): void {
     const out = new Array<string>(span).fill('N');
     let any = false;
     for (const ti of tilesCovering(start, end, 1, tileBins)) {
+      if (cancelled()) return null;
       const key = `${chrom}/seq/${ti}`;
       // `tile` returns null while a fetch is in flight, which is right for a paint and wrong here.
       const got = tile(key) ?? await (inflight.get(key) ?? Promise.resolve(null));
-      if (!got) continue;
+      if (!got || cancelled()) return null;
       any = true;
       const base = tileStartBp(ti, 1, tileBins);
       // Walk only the OVERLAP of this tile with the range. Walking the whole span inside each tile
@@ -2943,6 +2970,8 @@ export function initGenomeBrowser(host: HTMLElement): void {
    * raw, so the entire saving is 0.9 MB in exchange for shipping the genome twice and writing a
    * second decoder; and per chromosome, which is the default, only that chromosome is fetched.
    */
+  let motifRun = 0;
+  let motifError = '';
   let motifPattern = '';
   let motifMasks: number[] | null = null;
   /** Each hit carries its chromosome, so genome scope can step across sequences. */
@@ -2954,6 +2983,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
   let motifScanned = 0;
 
   function clearMotif(): void {
+    motifRun++; motifScanning = false; motifError = '';
     motifPattern = '';
     motifMasks = null;
     motifHits = [];
@@ -2979,8 +3009,11 @@ export function initGenomeBrowser(host: HTMLElement): void {
     const out = $('[data-gb-find-out]');
     const host2 = host as HTMLElement;
     if (!out) return;
+    const cancel = $('[data-gb-find-cancel]');
+    if (cancel) cancel.hidden = !motifScanning;
+    if (motifError) { out.textContent = motifError; return; }
     if (motifScanning) {
-      out.textContent = motifGenome ? `searching… ${motifScanned}/17` : 'searching…';
+      out.textContent = motifGenome ? `searching… ${motifScanned}/${index?.chroms.length ?? 17}` : 'searching…';
       host2.dataset.gbSearchHits = '';
       return;
     }
@@ -3018,6 +3051,11 @@ export function initGenomeBrowser(host: HTMLElement): void {
       return;
     }
     box?.removeAttribute('aria-invalid');
+    const run = ++motifRun;
+    const wholeGenome = motifGenome;
+    const searchChrom = view.chrom;
+    const cancelled = () => disposed || run !== motifRun || (!wholeGenome && view.chrom !== searchChrom);
+    motifError = '';
     motifPattern = pattern;
     motifMasks = masks;
     motifChrom = view.chrom;
@@ -3034,24 +3072,36 @@ export function initGenomeBrowser(host: HTMLElement): void {
     const found: (MotifHit & { chrom: string })[] = [];
     let done = 0;
     for (const c of targets) {
+      if (cancelled()) return;
       const len = chromInfo(c)?.length ?? 0;
-      const seq = await sequenceRange(c, 0, len, len);
-      // Per RUN, not shared: two overlapping searches -- which is what toggling scope while one is
-      // in flight produces -- both incremented the shared counter and the progress read "19/17".
-      done += 1;
+      const seq = await sequenceRange(c, 0, len, len, cancelled);
+      if (cancelled()) return;
+      if (!seq) {
+        motifScanning = false;
+        motifError = `Search incomplete: ${c} could not load. Retry the failed resources, then search again.`;
+        renderMotifOut(); return;
+      }
+      // Chunk the scan with motif-length overlap so hits crossing a chunk boundary are retained.
+      for (let offset = 0; offset < seq.length; offset += 32768) {
+        if (cancelled()) return;
+        const stop = Math.min(seq.length, offset + 32768);
+        const chunk = seq.slice(offset, Math.min(seq.length, stop + masks.length - 1));
+        for (const h of findMotif(chunk, masks, true)) {
+          if (h.start + offset < stop) found.push({ ...h, start: h.start + offset, end: h.end + offset, chrom: c });
+          if (found.length >= 100000) {
+            motifScanning = false;
+            motifError = 'More than 100,000 matches. Use a longer or more specific pattern.';
+            renderMotifOut(); return;
+          }
+        }
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+      }
+      done++;
       motifScanned = done;
-      if (motifScanning) renderMotifOut();
-      if (!seq) continue;
-      for (const h of findMotif(seq, masks, true)) found.push({ ...h, chrom: c });
-    }
-    motifScanning = false;
-    // The reader may have started another search, or changed chromosome under a chromosome-scoped
-    // one, while the tiles were arriving. Reporting chrIV's hits under a chrII heading is worse
-    // than reporting none.
-    if (motifMasks !== masks || (!motifGenome && motifChrom !== view.chrom)) {
       renderMotifOut();
-      return;
     }
+    if (cancelled()) return;
+    motifScanning = false;
     motifHits = found;
     motifIdx = -1;
     renderMotifOut();
@@ -3118,11 +3168,84 @@ export function initGenomeBrowser(host: HTMLElement): void {
    * TDH3 that is 999 bp against 2,749 -- so a card labelling the CDS "the gene record" would be a
    * wrong sentence around a right number, which no test that checks the number can see.
    */
+  let cardFocus: HTMLElement | null = null;
+  function rememberCardFocus(): void {
+    if (!$('[data-gb-motif]')?.contains(document.activeElement)) cardFocus = document.activeElement as HTMLElement;
+  }
+  function closeCard(): void {
+    const box = $('[data-gb-motif]');
+    const focused = box?.contains(document.activeElement);
+    box?.setAttribute('hidden', '');
+    if (focused) (cardFocus?.isConnected ? cardFocus : trackCanvas)?.focus({ preventScroll: true });
+  }
+  function inspectScore(bp: number): void {
+    const output = $('[data-gb-score-readout]');
+    if (!output) return;
+    const pos = Math.max(0, Math.min(Math.floor(bp), (chromInfo(view.chrom)?.length ?? 1) - 1));
+    output.textContent = `${view.chrom}:${(pos + 1).toLocaleString()} · ` + scoreTracks()
+      .map((t) => scoreAt(pos, t.id) ?? `${t.short}: loading or unavailable`).join(' · ');
+  }
+
+  let featureListKey = '';
+  let featureLimit = 50;
+  function renderFeatureList(): void {
+    const list = $('[data-gb-feature-list]');
+    if (!list || !$<HTMLDetailsElement>('[data-gb-feature-details]')?.open) return;
+    const models = geneModels(view.chrom);
+    const key = `${view.chrom}:${view.start}:${view.end}:${models?.length}:${features.has(view.chrom)}:${availableLanes().filter((id) => enabled.get(id)).join(',')}:${featureLimit}:${resources.failures.size}`;
+    if (key === featureListKey) return;
+    featureListKey = key;
+    const choices: { name: string; start: number; end: number; kind: string; inspect: () => void }[] = [];
+    for (const g of models ?? []) {
+      if (g.txEnd <= view.start || g.txStart >= view.end) continue;
+      choices.push({ name: (g as GeneTrackFeature & { gene?: string }).gene ?? g.name, start: g.txStart, end: g.txEnd, kind: 'gene', inspect: () => showGene(g) });
+    }
+    for (const id of availableLanes().filter((id) => enabled.get(id) && FEATURE_LANES.some((f) => f.id === id))) {
+      for (const f of laneFeatures(id).items) {
+        if (f.end <= view.start || f.start >= view.end) continue;
+        choices.push({ ...f, kind: f.cls, inspect: () => {
+          if (id.startsWith('tfbs')) showMotif(f.name, f.start, f.end);
+          else {
+            const box = $('[data-gb-motif]');
+            if (!box) return;
+            rememberCardFocus(); box.hidden = false; box.replaceChildren();
+            const p = document.createElement('p');
+            p.textContent = `${f.name} · ${f.cls} · ${view.chrom}:${f.start + 1}–${f.end} · strand ${f.strand < 0 ? '−' : f.strand > 0 ? '+' : 'unspecified'}`;
+            const close = document.createElement('button'); close.type = 'button'; close.className = 'vp-btn'; close.textContent = 'Close'; close.addEventListener('click', closeCard);
+            box.append(p, close); box.focus({ preventScroll: true });
+          }
+        } });
+      }
+    }
+    choices.sort((a, b) => a.start - b.start || a.end - b.end);
+    list.replaceChildren();
+    const note = document.createElement('p');
+    note.textContent = !models ? (resources.failures.has(`${DATA}/${view.chrom}/genes.json`) ? 'Gene annotations failed to load. Use Retry.' : 'Loading annotations…')
+      : `${choices.length.toLocaleString()} features overlap this view.`;
+    list.append(note);
+    const items = document.createElement('div'); items.className = 'gb-feature-items';
+    for (const f of choices.slice(0, featureLimit)) {
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'vp-btn';
+      const label = document.createElement('span'); label.textContent = `${f.name} · ${f.kind}`;
+      const coords = document.createElement('small'); coords.textContent = `${f.start + 1}–${f.end}`;
+      button.append(label, coords); button.addEventListener('click', f.inspect); items.append(button);
+    }
+    list.append(items);
+    if (choices.length > featureLimit) {
+      const more = document.createElement('button'); more.type = 'button'; more.className = 'vp-btn'; more.textContent = 'Show 50 more';
+      more.addEventListener('click', () => { featureLimit += 50; renderFeatureList(); }); list.append(more);
+    }
+  }
+  $('[data-gb-feature-details]')?.addEventListener('toggle', () => renderFeatureList());
+
   function showGene(f: GeneTrackFeature & { gene?: string }): void {
+    const geneChrom = view.chrom;
     const box = $('[data-gb-motif]');
     if (!box) return;
     box.textContent = '';
     box.removeAttribute('hidden');
+    rememberCardFocus(); box.focus({ preventScroll: true });
+    box.setAttribute('aria-label', `Selected gene ${f.name}`);
     box.dataset.gbCard = 'gene';
     box.dataset.gbGeneFor = f.name;
     delete box.dataset.gbMotifFor;
@@ -3130,7 +3253,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     const common = f.gene && f.gene !== f.name ? f.gene : null;
     const span = f.txEnd - f.txStart;
     const introns = Math.max(0, (f.exons?.length ?? 1) - 1);
-    const locus = `${view.chrom}:${(f.txStart + 1).toLocaleString()}–${f.txEnd.toLocaleString()}`;
+    const locus = `${geneChrom}:${(f.txStart + 1).toLocaleString()}–${f.txEnd.toLocaleString()}`;
 
     const head = document.createElement('div');
     head.className = 'gb-motif__head';
@@ -3146,7 +3269,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     close.className = 'vp-btn vp-btn--icon';
     close.setAttribute('aria-label', 'Close');
     close.textContent = '×';
-    close.addEventListener('click', () => { box.setAttribute('hidden', ''); });
+    close.addEventListener('click', closeCard);
     head.append(title, sub, close);
     box.appendChild(head);
 
@@ -3173,7 +3296,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     for (const [label, href] of [
       ['SGD', `https://www.yeastgenome.org/locus/${encodeURIComponent(f.name)}`],
       ['UCSC', 'https://genome.ucsc.edu/cgi-bin/hgTracks?db=sacCer3&position='
-        + encodeURIComponent(`${view.chrom}:${f.txStart + 1}-${f.txEnd}`)],
+        + encodeURIComponent(`${geneChrom}:${f.txStart + 1}-${f.txEnd}`)],
     ] as const) {
       const a = document.createElement('a');
       a.className = 'vp-btn vp-btn--sm';
@@ -3193,7 +3316,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     region.dataset.gbCopyRegion = '';
     region.textContent = 'copy region';
     region.addEventListener('click', () => {
-      void copyToClipboard(`${view.chrom}:${f.txStart + 1}-${f.txEnd}`, region, 'region');
+      void copyToClipboard(`${geneChrom}:${f.txStart + 1}-${f.txEnd}`, region, 'region');
     });
     const seqBtn = document.createElement('button');
     seqBtn.type = 'button';
@@ -3202,7 +3325,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     seqBtn.textContent = 'copy sequence';
     seqBtn.addEventListener('click', () => {
       void (async () => {
-        const seq = await sequenceRange(view.chrom, f.txStart, f.txEnd);
+        const seq = await sequenceRange(geneChrom, f.txStart, f.txEnd);
         if (!seq) { seqBtn.textContent = 'sequence unavailable'; return; }
         // On the minus strand a gene READS the other way, so copying the plus strand under a
         // header naming a minus-strand gene hands over the reverse complement of what was asked
@@ -3212,7 +3335,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
           : seq;
         const name = common ? `${common} ${f.name}` : f.name;
         await copyToClipboard(
-          `>${name} ${view.chrom}:${f.txStart + 1}-${f.txEnd} ${f.strand} ${span} bp\n`
+          `>${name} ${geneChrom}:${f.txStart + 1}-${f.txEnd} ${f.strand} ${span} bp\n`
             + (out.match(/.{1,60}/g) ?? []).join('\n') + '\n',
           seqBtn, `${span.toLocaleString()} bp`);
       })();
@@ -3235,6 +3358,8 @@ export function initGenomeBrowser(host: HTMLElement): void {
     const entry = motifs?.factors[name];
     box.textContent = '';
     box.removeAttribute('hidden');
+    rememberCardFocus(); box.focus({ preventScroll: true });
+    box.setAttribute('aria-label', `Selected motif ${name}`);
     box.dataset.gbCard = 'motif';
     delete box.dataset.gbGeneFor;
 
@@ -3251,7 +3376,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     close.className = 'vp-btn vp-btn--icon';
     close.setAttribute('aria-label', 'Close');
     close.textContent = '×';
-    close.addEventListener('click', () => box.setAttribute('hidden', ''));
+    close.addEventListener('click', closeCard);
     head.append(title, sub, close);
     box.appendChild(head);
 
@@ -3377,11 +3502,13 @@ export function initGenomeBrowser(host: HTMLElement): void {
   // Frame scheduling
   // -------------------------------------------------------------------------------------------
   let queued = false;
+  let frame = 0;
   function schedule(): void {
-    if (queued) return;
+    if (queued || disposed) return;
     queued = true;
-    requestAnimationFrame(() => {
+    frame = requestAnimationFrame(() => {
       queued = false;
+      if (disposed) return;
       paintIdeo();
       paintMini();
       paintTrack();
@@ -3399,6 +3526,8 @@ export function initGenomeBrowser(host: HTMLElement): void {
     locusTrack: enabled.get(LOCUS_LANE) ? locusTrackIdx : undefined,
     model: modelMode,
     density,
+    autoscale,
+    heights: Object.fromEntries(laneHeight),
   });
 
   function setView(next: View, opts: { push?: boolean; hash?: boolean } = {}): void {
@@ -3411,8 +3540,13 @@ export function initGenomeBrowser(host: HTMLElement): void {
     // stage, so it swallows clicks meant for the overview strip beneath it; that is how this was
     // found. A pan within one chromosome leaves it alone, because a reader may well be panning to
     // look at the gene it names.
-    if (next.chrom !== view.chrom) $('[data-gb-motif]')?.setAttribute('hidden', '');
+    if (next.chrom !== view.chrom) {
+      $('[data-gb-motif]')?.setAttribute('hidden', '');
+      if (!motifGenome && (motifScanning || motifHits.length)) clearMotif();
+    }
     view = { chrom: next.chrom, ...v };
+    const scoreReadout = $('[data-gb-score-readout]');
+    if (scoreReadout) scoreReadout.textContent = 'Tap a score track, or focus the canvas and press Enter, to inspect this view.';
     if (opts.push !== false) history = historyPush(history, view);
     if (chromSel && chromSel.value !== view.chrom) chromSel.value = view.chrom;
     if (locusInput && document.activeElement !== locusInput) locusInput.value = formatLocus(view);
@@ -3449,7 +3583,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     if (host.dataset.gbNoHash === '1' || host.dataset.gbMinimal === '1') return;
     const hash = `#${encodeViewState(currentState())}`;
     if (window.location.hash !== hash) {
-      window.history.replaceState(null, '', `${window.location.pathname}${hash}`);
+      window.history.replaceState(window.history.state, '', `${window.location.pathname}${hash}`);
     }
   }
 
@@ -3468,7 +3602,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     host.dataset.gbHistory = `${history.at + 1}/${history.entries.length}`;
     if (roiBox) {
       roiBox.textContent = roi
-        ? `marked ${view.chrom}:${(roi.start + 1).toLocaleString()}–${roi.end.toLocaleString()}`
+        ? `marked ${roi.chrom}:${(roi.start + 1).toLocaleString()}–${roi.end.toLocaleString()}`
         : '';
     }
     const mark = $<HTMLButtonElement>('[data-gb-mark]');
@@ -3491,12 +3625,17 @@ export function initGenomeBrowser(host: HTMLElement): void {
    * already suppressed here and nothing was replacing it.
    */
   const pointers = new Map<number, { x: number; y: number }>();
+  let dragY = 0;
+  let touchPanning = false;
   let pinch: { dist: number; anchorBp: number; startStart: number; startEnd: number } | null = null;
 
   trackCanvas.addEventListener('pointerdown', (e) => {
     const w = Math.max(1, Math.round(trackCanvas.clientWidth));
     const rect = trackCanvas.getBoundingClientRect();
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (e.pointerType === 'touch' && host.hasAttribute('data-gb-page') && pointers.size > 1) {
+      mode = 'none'; brush = null; pinch = null; return;
+    }
     // Never let this throw past the gesture logic. A synthetic pointer has no active pointer, so
     // this raises NotFoundError and aborted the handler before the two-finger branch below could
     // run -- which is how a pinch silently degraded into a one-finger pan.
@@ -3525,6 +3664,8 @@ export function initGenomeBrowser(host: HTMLElement): void {
     // neither needs a mode toggle. Shift-drag brushes anywhere, for anyone who does not know that.
     mode = (lane?.kind === 'ruler' || e.shiftKey) ? 'brush' : 'pan';
     dragX = e.clientX;
+    dragY = e.clientY;
+    touchPanning = false;
     dragStart = view.start;
     anchorBp = bpOfX(e.clientX - rect.left, w);
     brush = null;
@@ -3556,6 +3697,12 @@ export function initGenomeBrowser(host: HTMLElement): void {
       return;
     }
 
+    if (e.pointerType === 'touch' && mode !== 'none' && !touchPanning) {
+      const dx = Math.abs(e.clientX - dragX), dy = Math.abs(e.clientY - dragY);
+      if (dy > dx && dy > 6) { mode = 'none'; brush = null; return; }
+      if (dx < 6) return;
+      touchPanning = true;
+    }
     if (mode === 'pan') {
       const shift = (dragX - e.clientX) * bpPerPx;
       const width = view.end - view.start;
@@ -3647,9 +3794,11 @@ export function initGenomeBrowser(host: HTMLElement): void {
           // large gene remains reachable everywhere it is not overlapped.
           const bp = bpOfX(e.clientX - rect.left, w);
           const hits = (genes.get(view.chrom) ?? [])
-            .filter((g) => bp >= g.txStart && bp <= g.txEnd)
+            .filter((g) => bp >= g.txStart && bp < g.txEnd)
             .sort((p1, p2) => (p1.txEnd - p1.txStart) - (p2.txEnd - p2.txStart));
           if (hits.length) showGene(hits[0]);
+        } else if (lane?.kind === 'score') {
+          inspectScore(bpOfX(e.clientX - rect.left, w));
         }
       }
       history = historyPush(history, view);
@@ -3666,7 +3815,11 @@ export function initGenomeBrowser(host: HTMLElement): void {
     }
   };
   trackCanvas.addEventListener('pointerup', endDrag);
-  trackCanvas.addEventListener('pointercancel', endDrag);
+  trackCanvas.addEventListener('pointercancel', (e) => {
+    pointers.delete(e.pointerId); pinch = null; mode = 'none'; brush = null;
+    trackCanvas.style.cursor = 'grab';
+    schedule();
+  });
   trackCanvas.addEventListener('pointerleave', () => {
     hoverBp = null;
     if (hoverOut) hoverOut.textContent = '';
@@ -3871,11 +4024,45 @@ export function initGenomeBrowser(host: HTMLElement): void {
     setView(r.view, { push: false });
   });
   $<HTMLButtonElement>('[data-gb-mark]')?.addEventListener('click', () => {
-    roi = roi ? null : { start: view.start, end: view.end };
+    roi = roi ? null : { ...view };
     writeHash();
     schedule();
   });
-  $<HTMLButtonElement>('[data-gb-export]')?.addEventListener('click', () => {
+  let exporting = false;
+  async function exportView(save: () => void): Promise<void> {
+    if (exporting || !index) return;
+    exporting = true;
+    const snapshot = encodeViewState(currentState());
+    const output = $('[data-gb-export-status]');
+    if (output) output.textContent = 'Preparing export…';
+    try {
+      // Paint requests the visible tiles; analysis requests the common grid used by the CSV.
+      for (let attempt = 0; attempt < 4; attempt++) {
+        paintMini(); paintTrack();
+        await resources.idle();
+        await Promise.all(inflight.values());
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+        if (disposed || snapshot !== encodeViewState(currentState())) throw new Error('View changed. Export again from the new view.');
+        const specs = scoreTracks();
+        const grid = analysisGrid(view, specs, index.levels);
+        const states = specs.map((spec, i) => scoreDataState(spec, grid.levels[i], grid.start, grid.count, grid.binBp));
+        const failures = [...resources.failures.keys()].filter((key) =>
+          key.startsWith(`${DATA}/${view.chrom}/`) || key.startsWith(`/vp-data/${primaryHere()?.id}`));
+        if (failures.length) throw new Error('Export unavailable: some view data failed to load. Retry, then export again.');
+        if (!resources.pending && !locusLoading && states.every((state) => state === 'ready')) {
+          paintMini(); paintTrack();
+          save();
+          if (output) output.textContent = 'Export downloaded.';
+          return;
+        }
+      }
+      throw new Error('View data is still loading. Please try the export again.');
+    } catch (e) {
+      if (output) output.textContent = e instanceof Error ? e.message : 'Export failed. Please try again.';
+    } finally { exporting = false; }
+  }
+
+  $<HTMLButtonElement>('[data-gb-export]')?.addEventListener('click', () => void exportView(() => {
     // One image of the whole view: the overview strip above the track stack, which is what a reader
     // would screenshot by hand anyway. This is a normal route, not an artifact viewer, so a
     // script-driven download works.
@@ -3892,13 +4079,13 @@ export function initGenomeBrowser(host: HTMLElement): void {
     cx.setTransform(dpr, 0, 0, dpr, 0, 0);
     cx.fillStyle = css('--color-muted', '#6b7280');
     cx.font = '10px system-ui, sans-serif';
-    cx.fillText(`${formatLocus(view)} · Shorkie_LM genome browser · khchao.com`,
+    cx.fillText(`${formatLocus(view)} · sacCer3 / R64 · Shorkie genome browser · khchao.com`,
                 6, (miniCanvas.height + trackCanvas.height) / dpr + 13);
     const a = document.createElement('a');
     a.download = `${formatLocus(view).replace(/[:,]/g, '_')}.png`;
     a.href = out.toDataURL('image/png');
     a.click();
-  });
+  }));
 
   $<HTMLButtonElement>('[data-gb-autoscale]')?.addEventListener('click', (e) => {
     autoscale = !autoscale;
@@ -3908,6 +4095,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     // NOT `gbAutoscale`: the button is `[data-gb-autoscale]`, and a host dataset key of the same
     // name makes that selector match two elements. Third instance of this collision in this repo.
     host.dataset.gbAutoscaleOn = String(autoscale);
+    writeHash();
     paintTrack();
   });
 
@@ -3922,7 +4110,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
    * The track stack only. The overview strip is a locator on a different ruler and the PNG export
    * exists for the whole-page shot; a figure wants the lanes.
    */
-  $<HTMLButtonElement>('[data-gb-export-svg]')?.addEventListener('click', () => {
+  $<HTMLButtonElement>('[data-gb-export-svg]')?.addEventListener('click', () => void exportView(() => {
     const cv = trackCanvas;
     if (!cv || !index) return;
     // `Path2D` does not expose the string it was built from, and a glyph outline is the one thing
@@ -3942,7 +4130,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
     // The bin size the figure was drawn at, read from what the canvas just published rather
     // than recomputed -- the CSV header carries the same fact for the same reason.
     const caption = `${formatLocus(view)} · ${cv.dataset.gbLevel ?? '?'} bp bins`
-      + ' · Shorkie genome browser · khchao.com';
+      + ` · sacCer3 / R64 · ${autoscale ? 'autoscale' : 'fixed axes'} · khchao.com`;
     const svg = rec.svg(w, h + 18, css('--color-bg', '#ffffff'), caption)
       .replace('</svg>', `<text x="6" y="${h + 13}" fill="${css('--color-muted', '#6b7280')}" `
         + `style="font:10px system-ui, sans-serif">${caption.replace(/[&<>]/g, (c) => (
@@ -3955,34 +4143,24 @@ export function initGenomeBrowser(host: HTMLElement): void {
     // whole document, and the click has already consumed it.
     setTimeout(() => URL.revokeObjectURL(a2.href), 10_000);
     host.dataset.gbSvgBytes = String(svg.length);
-  });
+  }));
 
-  $<HTMLButtonElement>('[data-gb-export-csv]')?.addEventListener('click', () => {
-    // The DATA behind the view, at the level it is being drawn at -- not at some canonical
-    // resolution the reader did not choose. The header names the bin size for each column, because
-    // a bin mean and a per-base value are different numbers and a file carrying neither units nor
-    // a bin size is a trap the moment it leaves the browser.
+  $<HTMLButtonElement>('[data-gb-export-csv]')?.addEventListener('click', () => void exportView(() => {
+    // Export the same screen-independent genomic grid as the statistics and scatter.
+    // State the resolution and units because stored bin means differ from per-base values.
     if (!index) return;
     const specs = scoreTracks();
-    if (!specs.length) return;
-    const w = Math.max(1, Math.round(trackCanvas.clientWidth));
-    const inner = Math.max(1, w - padLeft(w) - PAD_RIGHT);
-    const bpPerPx = (view.end - view.start) / inner;
-    // One row per bin of the COARSEST enabled track, so every column is a real stored value rather
-    // than one track's number repeated down a finer grid.
-    const lvls = specs.map((s) => levelForBpPerPixel(bpPerPx, levelsForTrack(s, index!.levels)));
-    const binBp = Math.max(...lvls.map((l) => l.binBp));
-    const start = Math.floor(view.start / binBp) * binBp;
-    const n = Math.ceil((view.end - start) / binBp);
-    const cols = specs.map((s, i) => {
-      const c = sampleBins(s, lvls[i], start, n, binBp);
-      return c;
-    });
+    if (!specs.length) throw new Error('Select a score track in Tracks before exporting CSV.');
+    const grid = analysisGrid(view, specs, index.levels);
+    const { binBp, start, count: n, levels: lvls } = grid;
+    const cols = specs.map((s, i) => sampleBins(s, lvls[i], start, n, binBp));
     const rows = exportRows(view.chrom, start, binBp,
-      specs.map((s) => ({ id: s.id, units: s.units })), cols);
+      specs.map((s) => ({ id: s.id, units: s.units })), cols, chromInfo(view.chrom)?.length);
     const head = [
       `# ${formatLocus(view)} · ${index.genome} · khchao.com/shorkie-lab/genome/`,
-      `# ${binBp === 1 ? 'per base' : `bin ${binBp} bp, values are bin means`}`,
+      `# Coordinates: zero-based, half-open; whole intersecting bins, clipped at the chromosome end`,
+      `# ${binBp === 1 ? 'per base' : `bin ${binBp} bp, approximate means of available stored bins; missing values are empty`}`,
+      '# Same genomic grid as the statistics and scatter; independent of screen width.',
       ...specs.map((s, i) => `# ${s.id}: ${s.label} — ${s.detail}`
         + (lvls[i].binBp < binBp ? ` (stored at ${lvls[i].binBp} bp, re-binned)` : '')),
     ];
@@ -3992,25 +4170,56 @@ export function initGenomeBrowser(host: HTMLElement): void {
     a.href = URL.createObjectURL(blob);
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }));
+
+  host.addEventListener('pointerdown', (event) => {
+    for (const selector of ['.gb-tools', '.gb-theme']) {
+      const details = $<HTMLDetailsElement>(selector);
+      if (details?.open && event.target instanceof Node && !details.contains(event.target)) details.open = false;
+    }
+  });
+  host.querySelectorAll<HTMLElement>('[data-theme-choice]').forEach((button) => {
+    button.addEventListener('click', () => { const menu = $<HTMLDetailsElement>('.gb-theme'); if (menu) menu.open = false; });
   });
 
-  if (chromSel) {
-    // The track panel is a drawer on a phone (see the 560px block in variantPlayground.css) and a
-  // column everywhere else; the button only exists at that width, so this is a no-op elsewhere.
-  $<HTMLButtonElement>('[data-gb-panel-toggle]')?.addEventListener('click', (e) => {
-    const btn = e.currentTarget as HTMLButtonElement;
-    const layout = host.querySelector('.gb-layout');
-    if (!layout) return;
-    const open = layout.classList.toggle('is-panel-open');
-    btn.setAttribute('aria-expanded', String(open));
-    host.dataset.gbPanelOpen = open ? '1' : '0';
-  });
-
-  chromSel.addEventListener('change', () => {
-      const info = chromInfo(chromSel.value);
-      if (info) setView({ chrom: chromSel.value, start: 0, end: info.length });
-    });
+  const panelElement = $<HTMLElement>('.gb-panel');
+  function setPanelOpen(open: boolean): void {
+    const button = $('[data-gb-panel-toggle]');
+    const sheet = window.innerWidth <= panelStackWidth;
+    host.querySelector('.gb-layout')?.classList.toggle('is-panel-open', open && sheet);
+    button?.setAttribute('aria-expanded', String(open && sheet));
+    host.dataset.gbPanelOpen = open && sheet ? '1' : '0';
+    const backdrop = $('[data-gb-panel-backdrop]');
+    if (backdrop) backdrop.hidden = !open || !sheet;
+    if (panelElement) {
+      if (sheet && open) {
+        panelElement.setAttribute('role', 'dialog');
+        panelElement.setAttribute('aria-modal', 'true');
+        $('[data-gb-panel-close]')?.focus();
+      } else {
+        panelElement.removeAttribute('role'); panelElement.removeAttribute('aria-modal');
+        if (sheet && panelElement.contains(document.activeElement)) button?.focus();
+      }
+    }
   }
+  $('[data-gb-panel-toggle]')?.addEventListener('click', () => setPanelOpen(host.dataset.gbPanelOpen !== '1'));
+  $('[data-gb-panel-close]')?.addEventListener('click', () => setPanelOpen(false));
+  $('[data-gb-panel-backdrop]')?.addEventListener('click', () => setPanelOpen(false));
+  panelElement?.addEventListener('keydown', (e) => {
+    if (host.dataset.gbPanelOpen !== '1' || e.key !== 'Tab') return;
+    const nodes = [...panelElement.querySelectorAll<HTMLElement>('button, input, select, summary, a[href]')]
+      .filter((el) => el.getClientRects().length && !(el as HTMLButtonElement).disabled);
+    const first = nodes[0], last = nodes.at(-1);
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+  });
+  $('[data-gb-share]')?.addEventListener('click', (e) => {
+    void copyToClipboard(`${location.origin}${location.pathname}#${encodeViewState(currentState())}`, e.currentTarget as HTMLButtonElement, 'view link');
+  });
+  chromSel?.addEventListener('change', () => {
+    const info = chromInfo(chromSel.value);
+    if (info) setView({ chrom: chromSel.value, start: 0, end: info.length });
+  });
 
   // -------------------------------------------------------------------------------------------
   // Sequence search controls
@@ -4029,6 +4238,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
       if (e.key === 'Escape') { findBox.value = ''; clearMotif(); }
     });
     $('[data-gb-find-go]')?.addEventListener('click', run);
+    $('[data-gb-find-cancel]')?.addEventListener('click', () => { clearMotif(); });
     const scopeBtn = $<HTMLButtonElement>('[data-gb-find-scope]');
     scopeBtn?.addEventListener('click', () => {
       motifGenome = !motifGenome;
@@ -4052,13 +4262,26 @@ export function initGenomeBrowser(host: HTMLElement): void {
       const v = searchLocus(locusInput.value, searchIndex, index?.chroms ?? []);
       if (!v) {
         locusInput.setAttribute('aria-invalid', 'true');
+        const help = $('[data-gb-search-help]');
+        if (help) { help.classList.add('is-error'); help.textContent = !searchIndex ? 'Gene search is still loading. Coordinates work now; Retry if loading failed.' : 'No matching gene or region. Try TDH3, a systematic gene ID, or chrVII:882012-884610.'; }
         return;
       }
       locusInput.removeAttribute('aria-invalid');
+      const help = $('[data-gb-search-help]');
+      if (help) { help.classList.remove('is-error'); help.textContent = `Showing ${formatLocus(v)}. Coordinates are one-based and inclusive.`; }
       setView(v);
     };
     locusInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
-    locusInput.addEventListener('input', () => locusInput.removeAttribute('aria-invalid'));
+    locusInput.addEventListener('input', () => {
+      locusInput.removeAttribute('aria-invalid');
+      const list = $('[data-gb-suggestions]');
+      if (!list) return;
+      list.replaceChildren(...searchSuggest(locusInput.value, searchIndex).map((g) => {
+        const option = document.createElement('option');
+        option.value = g[5]?.find((name) => name.toUpperCase().startsWith(locusInput.value.toUpperCase())) ?? g[0];
+        option.label = `${g[0]} · ${g[1]}`; return option;
+      }));
+    });
     $<HTMLButtonElement>('[data-gb-go]')?.addEventListener('click', go);
   }
 
@@ -4068,7 +4291,16 @@ export function initGenomeBrowser(host: HTMLElement): void {
   });
 
   host.addEventListener('keydown', (e) => {
-    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+    if (e.key === 'Escape') {
+      closeCard(); setPanelOpen(false);
+      for (const selector of ['.gb-tools', '.gb-theme']) {
+        const menu = $<HTMLDetailsElement>(selector);
+        if (menu?.open) { menu.open = false; menu.querySelector<HTMLElement>('summary')?.focus(); }
+      }
+      return;
+    }
+    if (e.target !== trackCanvas) return;
+    if (e.key === 'Enter') { inspectScore((view.start + view.end) / 2); e.preventDefault(); return; }
     const width = view.end - view.start;
     if (e.key === 'ArrowLeft') {
       setView({ chrom: view.chrom, start: view.start - width * 0.2, end: view.end - width * 0.2 });
@@ -4422,6 +4654,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
         h.setAttribute('aria-label', `${t.label} lane height`);
         h.addEventListener('input', () => {
           laneHeight.set(t.id, Number(h.value));
+          writeHash();
           schedule();
         });
         row(t.id, t.label, `${t.detail} — ${t.note}`, h, t.docs);
@@ -4464,6 +4697,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
 
   function applyTracks(ids: string[]): void {
     for (const id of availableLanes()) enabled.set(id, ids.includes(id));
+    while (tiles.size > maxTiles()) { const oldest = tiles.keys().next().value; if (!oldest) break; tiles.delete(oldest); evicted++; }
     buildPanel();
   }
 
@@ -4503,7 +4737,25 @@ export function initGenomeBrowser(host: HTMLElement): void {
       fn();
     };
     target.addEventListener(type, wrapped);
+    cleanup.push(() => target.removeEventListener(type, wrapped));
   };
+
+  const teardown = () => {
+    disposed = true;
+    resources.dispose();
+    cancelAnimationFrame(frame);
+    window.clearTimeout(resizeTimer);
+    window.clearTimeout(wheelSettle);
+    motifRun++;
+    locusBitmap?.bmp.close();
+    for (const fn of cleanup) fn();
+    tiles.clear(); genes.clear(); features.clear();
+  };
+  document.addEventListener('astro:before-swap', teardown, { once: true });
+  cleanup.push(() => document.removeEventListener('astro:before-swap', teardown));
+  const sizeObserver = new ResizeObserver(() => schedule());
+  sizeObserver.observe(trackCanvas);
+  cleanup.push(() => sizeObserver.disconnect());
 
   selfRemoving(document, 'khc:theme-change', () => schedule());
 
@@ -4517,28 +4769,58 @@ export function initGenomeBrowser(host: HTMLElement): void {
     resizeTimer = window.setTimeout(schedule, 90);
   });
 
-  selfRemoving(window, 'hashchange', () => {
-    const s = decodeViewState(window.location.hash, index?.chroms ?? []);
-    if (s.density && s.density !== density) {
-      density = s.density;
-      host.dataset.gbDensityOn = density;
-      buildPanel();
+  function restoreState(s: DecodedViewState, navigate = true): void {
+    if (!index) return;
+    const nextMode = s.model === 'lm' || s.model === 'shorkie' ? s.model : 'both';
+    const changedMode = modelMode !== nextMode;
+    modelMode = nextMode;
+    density = s.density ?? (isCompact ? 'dense' : 'compact');
+    autoscale = s.autoscale ?? false;
+    laneHeight.clear();
+    for (const [id, height] of Object.entries(s.heights ?? {})) {
+      if (index.tracks.some((t) => t.id === id)) laneHeight.set(id, height);
     }
-    if (s.tracks) applyTracks(s.tracks);
-    if (s.roi !== undefined) roi = s.roi;
-    if (s.view) setView(s.view, { hash: false });
+    roi = s.roi ? { ...s.roi, chrom: s.roi.chrom ?? s.view?.chrom ?? view.chrom } : null;
+    if (s.locusTrack != null && s.locusTrack < TRACK_NAMES.length) locusTrackIdx = s.locusTrack;
+    else locusTrackIdx = 1148;
+    refreshLocusSpec();
+    host.dataset.gbModelOn = modelMode;
+    host.dataset.gbDensityOn = density;
+    host.dataset.gbAutoscaleOn = String(autoscale);
+    const scaleButton = $('[data-gb-autoscale]');
+    scaleButton?.setAttribute('aria-pressed', String(autoscale));
+    scaleButton?.classList.toggle('is-on', autoscale);
+    if (s.tracks !== undefined) applyTracks(s.tracks);
+    else if (changedMode) applyTracks(defaultTracksFor(modelMode, narrowLayout));
+    else buildPanel();
+    if (navigate && s.view) setView(s.view, { hash: false });
+    else schedule();
+  }
+
+  selfRemoving(window, 'hashchange', () => {
+    const state = decodeViewState(window.location.hash, index?.chroms ?? []);
+    if (state.view) restoreState(state);
+  });
+  host.querySelectorAll<HTMLAnchorElement>('a[href="#gb-guide"]').forEach((link) => {
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      const guide = $('#gb-guide');
+      guide?.scrollIntoView({ block: 'start' });
+      guide?.setAttribute('tabindex', '-1');
+      guide?.focus({ preventScroll: true });
+    });
   });
 
   // -------------------------------------------------------------------------------------------
   // Boot
   // -------------------------------------------------------------------------------------------
-  void (async () => {
-    const res = await fetch(`${DATA}/index.json`).catch(() => null);
-    if (!res || !res.ok) {
-      if (statusOut) statusOut.textContent = 'genome data unavailable';
-      return;
+  async function boot(): Promise<void> {
+    const data = await fetchResource<IndexFile>(`${DATA}/index.json`);
+    if (!data || disposed) { updateResourceStatus(); return; }
+    if (!Array.isArray(data.chroms) || !data.chroms.length || !Array.isArray(data.tracks) || !Array.isArray(data.levels)) {
+      resources.failures.set(`${DATA}/index.json`, 'Invalid genome index'); updateResourceStatus(); return;
     }
-    index = (await res.json()) as IndexFile;
+    index = data;
     // chrI, chrII, ... chrXVI, chrM -- not by length, which reads chrIV, chrXV, chrVII and makes a
     // reader hunt for chrII, and not by name, which puts chrIX before chrV.
     index.chroms.sort((a, b) => chromOrder(a.name, b.name));
@@ -4557,59 +4839,48 @@ export function initGenomeBrowser(host: HTMLElement): void {
       for (const c of index.chroms) {
         const o = document.createElement('option');
         o.value = c.name;
-        o.textContent = `${c.name} · ${formatSpan(c.length)} · ${c.genes} genes`;
+        o.textContent = host.hasAttribute('data-gb-page') ? c.name : `${c.name} · ${formatSpan(c.length)} · ${c.genes} genes`;
+        o.title = `${formatSpan(c.length)} · ${c.genes} genes`;
         chromSel.appendChild(o);
       }
     }
 
     const isMinimal = host.dataset.gbMinimal === '1' || host.dataset.gbNoHash === '1';
-    // A host that names its own tracks (the homepage showcase) always wins. Otherwise the default
-    // set depends on how much room there is: the laptop set stacks to ~340 px of canvas, which on
-    // a 664 px phone viewport pushes the track below the fold before a single base is visible.
-    const narrow = (trackCanvas.clientWidth || window.innerWidth) < PHONE_W;
+    // A host that names its own tracks (the homepage showcase) always wins. Individual model
+    // modes use width-sensitive defaults; the focused comparison is consistent across widths.
+    const narrow = (trackCanvas!.clientWidth || window.innerWidth) < PHONE_W;
     narrowLayout = narrow;
     // Recomputed on every resize, not only here. It decides which default track set a mode is
     // seeded with, and it was measured once at init -- so rotating a phone to landscape, or
     // dragging a window wider, kept whichever answer the first paint happened to give.
     selfRemoving(window, 'resize', () => {
-      const now = (trackCanvas.clientWidth || window.innerWidth) < PHONE_W;
+      if (window.innerWidth > panelStackWidth) setPanelOpen(false);
+      const now = (trackCanvas!.clientWidth || window.innerWidth) < PHONE_W;
       if (now === narrowLayout) return;
       narrowLayout = now;
       host.dataset.gbNarrow = now ? '1' : '0';
     });
     host.dataset.gbNarrow = narrow ? '1' : '0';
 
-    const hash = !isMinimal ? decodeViewState(window.location.hash, index.chroms) : { tracks: [], view: null, roi: null };
-    // The mode is resolved BEFORE the defaults, because the default set now depends on it: landing
-    // on a `m=lm` link must open the language model's lanes, not Both's and then a rebuild.
-    if (hash.model === 'shorkie' || hash.model === 'lm' || hash.model === 'both') {
-      modelMode = hash.model;
-    }
-    host.dataset.gbModelOn = modelMode;
-    // Before the first paint, so a `d=` link opens at that density rather than opening at the
-    // default and then jumping.
-    if (hash.density) density = hash.density;
-    host.dataset.gbDensityOn = density;
-
-    // A host that names its own tracks (the homepage showcase) always wins over every default.
+    const hash: DecodedViewState = !isMinimal ? decodeViewState(window.location.hash, index.chroms) : { view: null };
+    modelMode = hash.model === 'lm' || hash.model === 'shorkie' ? hash.model : 'both';
     const initialTracks = host.dataset.gbTracks
       ? host.dataset.gbTracks.split(',').map((s) => s.trim()).filter(Boolean)
       : defaultTracksFor(modelMode, narrow);
     for (const id of initialTracks) if (!laneHidden(id)) enabled.set(id, true);
-    if (hash.locusTrack != null && hash.locusTrack >= 0 && hash.locusTrack < TRACK_NAMES.length) {
-      locusTrackIdx = hash.locusTrack;
-      refreshLocusSpec();
-    }
-    if (hash.tracks?.length) applyTracks(hash.tracks);
+    if (!isMinimal) restoreState(hash, false);
     else buildPanel();
-    if (hash.roi) roi = hash.roi;
+    host.dataset.gbModelOn = modelMode;
+    host.dataset.gbDensityOn = density;
 
     // `#locus=<id or gene>` beats `data-gb-default`. On a page where the browser IS the
     // navigation, a deep link naming a window must land the BROWSER there -- otherwise the browser
     // starts at its default, announces that view, and the companions following it overwrite the
     // locus the link asked for. That regression is exactly what this guard exists to stop.
-    const wanted = decodeURIComponent(
-      (/[#&]locus=([^&;]+)/.exec(window.location.hash) ?? [])[1] ?? '').trim().toLowerCase();
+    const wanted = (() => {
+      try { return decodeURIComponent((/[#&]locus=([^&;]+)/.exec(window.location.hash) ?? [])[1] ?? '').trim().toLowerCase(); }
+      catch { return ''; }
+    })();
     const named = wanted
       ? primaries.find((q) => q.id.toLowerCase() === wanted || q.gene.toLowerCase() === wanted)
       : null;
@@ -4617,7 +4888,7 @@ export function initGenomeBrowser(host: HTMLElement): void {
       ?? (named ? { chrom: named.chrom, start: named.start + 6144, end: named.start + 10240 } : null)
       ?? searchLocus(host.dataset.gbDefault || 'chrVII:882,012-884,610', null, index.chroms)
       ?? { chrom: index.chroms[0].name, start: 0, end: Math.min(20000, index.chroms[0].length) };
-    lastW = trackCanvas.clientWidth;
+    lastW = trackCanvas!.clientWidth;
     setView(start, { hash: !hash.view && !isMinimal });
     host.dataset.gbReady = '1';
 
@@ -4637,23 +4908,30 @@ export function initGenomeBrowser(host: HTMLElement): void {
       });
     });
 
-    // The search index is small and every search needs it, but nothing on screen waits for it.
-    void fetch(`${DATA}/search.json`)
-      .then((r) => (r.ok ? r.json() : null))
-      .catch(() => null)
-      .then((s: SearchIndex | null) => {
-        searchIndex = s;
-        host.dataset.gbSearch = String(s?.genes.length ?? 0);
-      });
+    loadSupplemental();
+  }
 
-    void fetch(`${DATA}/motifs.json`)
-      .then((r) => (r.ok ? r.json() : null))
-      .catch(() => null)
-      .then((m: MotifFile | null) => {
-        motifs = m;
-        host.dataset.gbMotifs = String(Object.keys(m?.factors ?? {}).length);
-      });
-  })();
+  function loadSupplemental(): void {
+    if (!searchIndex) void fetchResource<SearchIndex>(`${DATA}/search.json`).then((s) => {
+      if (disposed) return;
+      searchIndex = s;
+      host.dataset.gbSearch = String(s?.genes.length ?? 0);
+    });
+    if (!motifs) void fetchResource<MotifFile>(`${DATA}/motifs.json`).then((m) => {
+      if (disposed) return;
+      motifs = m;
+      host.dataset.gbMotifs = String(Object.keys(m?.factors ?? {}).length);
+    });
+  }
+  const startBoot = () => void boot().catch((e) => {
+    resources.failures.set(`${DATA}/index.json`, String(e)); updateResourceStatus();
+  });
+  $('[data-gb-retry]')?.addEventListener('click', () => {
+    resources.retry();
+    if (!index) startBoot();
+    else { loadSupplemental(); schedule(); }
+  });
+  startBoot();
 
   host.dataset.gbMinView = String(MIN_VIEW_BP);
 }
