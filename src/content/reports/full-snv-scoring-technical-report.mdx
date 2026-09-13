@@ -14,9 +14,8 @@ abstract: >-
   and fewer gain calls, with the largest reduction in donor gain. Among jointly called gains, the models
   usually select the same position. On identical observations shared by two OpenSpliceAI training seeds
   and SpliceAI, gain-score differences exceed the observed seed difference more strongly than loss-score
-  differences. These results describe agreement between a published ensemble and individual retrained
-  checkpoints; they do not establish relative biological accuracy. We report inference progress separately
-  from the frozen scientific results, which remain provisional because scoring is incomplete.
+  differences. These results describe agreement between a published SpliceAI ensemble and OpenSpliceAI individual retrained
+  checkpoints; they do not establish relative biological accuracy.
 date: 2026-09-09
 updated: 2026-09-11
 venue: 'Technical Report'
@@ -60,9 +59,7 @@ where their predicted effects agree and which types of effects differ most.
 We distinguish four events: **acceptor gain (AG), acceptor loss (AL), donor gain (DG), and donor loss
 (DL)**. Gains summarize increases in predicted splice-site scores after substitution; losses summarize
 decreases. Each event score records the largest change within the search window and has an associated
-selected position. A variant can receive multiple nonzero event scores. These events are therefore
-not mutually exclusive variant classes. MAX, the largest of the four scores, summarizes predicted
-effect strength without distinguishing gain from loss or acceptor from donor.
+selected position.
 
 Our comparisons address score magnitude, overlap of calls at a common cutoff, boundary proximity,
 and selected positions. We also compare two OpenSpliceAI training seeds on identical observations.
