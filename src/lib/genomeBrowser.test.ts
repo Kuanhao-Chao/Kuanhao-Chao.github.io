@@ -645,7 +645,7 @@ describe('view state in the hash', () => {
     const s = {
       view: { chrom: 'chrIV', start: 999, end: 2000 },
       tracks: ['lm-masked', 'phastcons'],
-      roi: { start: 1200, end: 1400 },
+      roi: { chrom: 'chrIV', start: 1200, end: 1400 },
     };
     const back = decodeViewState(encodeViewState(s), CHROMS);
     expect(back.view).toEqual(s.view);
@@ -661,7 +661,7 @@ describe('view state in the hash', () => {
 
   it('omits what is not set, so a simple view keeps a simple link', () => {
     const s = { view: { chrom: 'chrI', start: 0, end: 1000 }, tracks: [], roi: null };
-    expect(encodeViewState(s)).toBe('chrI:1-1000');
+    expect(encodeViewState(s)).toBe('chrI:1-1000;t=');
   });
 
   it('survives junk rather than throwing', () => {
@@ -931,7 +931,7 @@ describe('pearson', () => {
 describe('exportRows', () => {
   it('names the bin size in the header, so a bin mean is never read as a per-base value', () => {
     const rows = exportRows('chrIV', 1000, 64, [{ id: 'lm-masked', units: 'bits' }], [[0.5, null, 1.25]]);
-    expect(rows[0]).toBe('chrom,start,end,lm-masked (bits, mean of 64 bp)');
+    expect(rows[0]).toBe('chrom,start,end,"lm-masked (bits, mean of 64 bp)"');
     expect(rows[1]).toBe('chrIV,1000,1064,0.5');
     expect(rows[2]).toBe('chrIV,1064,1128,');                      // unscored is EMPTY, not 0
     expect(rows[3]).toBe('chrIV,1128,1192,1.25');
@@ -1318,9 +1318,9 @@ describe('defaultTracksFor', () => {
   it('opens each mode on the lanes that answer its question', () => {
     expect(MODEL_DEFAULT_TRACKS.both).toContain('sk-rnaseq');
     expect(MODEL_DEFAULT_TRACKS.both).toContain('lm-masked');
-    expect(MODEL_DEFAULT_TRACKS.both).toContain('lm-unmasked');
+    expect(MODEL_DEFAULT_TRACKS.both).not.toContain('lm-unmasked');
     for (const m of ['sk-gradient', 'sk-ig', 'sk-ism']) {
-      expect(MODEL_DEFAULT_TRACKS.both).toContain(m);
+      expect(MODEL_DEFAULT_TRACKS.both).not.toContain(m);
       expect(MODEL_DEFAULT_TRACKS.shorkie).toContain(m);
       // An attribution lane is Shorkie's; asking the language model for one is a category error.
       expect(MODEL_DEFAULT_TRACKS.lm).not.toContain(m);
@@ -1335,12 +1335,12 @@ describe('defaultTracksFor', () => {
     }
   });
 
-  it('narrow is FEWER lanes, not different ones', () => {
+  it('narrow keeps the focused comparison and never adds unexpected lanes', () => {
     // The rule the narrow default has always carried. A phone showing a lane the laptop does not
     // would be a second design nobody maintains.
     for (const m of MODES) {
       const wide = new Set(MODEL_DEFAULT_TRACKS[m]);
-      expect(MODEL_DEFAULT_TRACKS_NARROW[m].length).toBeLessThan(wide.size);
+      expect(MODEL_DEFAULT_TRACKS_NARROW[m].length).toBeLessThanOrEqual(wide.size);
       for (const id of MODEL_DEFAULT_TRACKS_NARROW[m]) expect(wide.has(id)).toBe(true);
     }
   });

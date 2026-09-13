@@ -227,14 +227,17 @@ export function exportRows(
   chrom: string, start: number, binBp: number,
   tracks: { id: string; units: string }[],
   columns: (number | null)[][],
+  chromLength = Infinity,
 ): string[] {
   const n = columns.length ? Math.max(...columns.map((c) => c.length)) : 0;
   const head = ['chrom', 'start', 'end',
     ...tracks.map((t) => `${t.id} (${t.units}${binBp > 1 ? `, mean of ${binBp} bp` : ''})`)];
-  const out = [head.join(',')];
+  const quote = (s: string) => /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  const out = [head.map(quote).join(',')];
   for (let i = 0; i < n; i += 1) {
     const s = start + i * binBp;
-    out.push([chrom, s, s + binBp,
+    if (s >= chromLength) break;
+    out.push([quote(chrom), s, Math.min(s + binBp, chromLength),
       ...columns.map((c) => (c[i] == null ? '' : String(Math.round((c[i] as number) * 1e6) / 1e6))),
     ].join(','));
   }
@@ -628,13 +631,15 @@ export interface ViewState {
   /** Enabled track ids, in draw order. */
   tracks: string[];
   /** A region of interest that survives navigation, or null. */
-  roi: { start: number; end: number } | null;
+  roi: { chrom?: string; start: number; end: number } | null;
   /** Index of the output track the per-locus lane is showing, when that lane is enabled. */
   locusTrack?: number;
   /** Which network's lanes are on offer: 'both', 'shorkie' or 'lm'. */
   model?: string;
   /** How tall the score lanes are: 'comfortable', 'compact' or 'dense'. */
   density?: LaneDensity;
+  autoscale?: boolean;
+  heights?: Record<string, number>;
 }
 
 /**
@@ -646,8 +651,8 @@ export interface ViewState {
  */
 export function encodeViewState(s: ViewState): string {
   const parts = [formatLocus(s.view).replace(/,/g, '')];
-  if (s.tracks.length) parts.push(`t=${s.tracks.join(',')}`);
-  if (s.roi) parts.push(`roi=${Math.round(s.roi.start)}-${Math.round(s.roi.end)}`);
+  parts.push(`t=${s.tracks.join(',')}`);
+  if (s.roi) parts.push(`roi=${s.roi.chrom ?? s.view.chrom}:${Math.round(s.roi.start)}-${Math.round(s.roi.end)}`);
   // Which of the 5,215 the per-locus lane is showing. Omitted unless that lane is on, so an
   // ordinary link stays short and an older link still decodes.
   if (s.locusTrack != null) parts.push(`k=${s.locusTrack}`);
@@ -655,6 +660,9 @@ export function encodeViewState(s: ViewState): string {
   // Lane density. Omitted at the default, so an ordinary link stays short and an older link that
   // names no density still decodes to the default rather than to nothing.
   if (s.density && s.density !== 'compact') parts.push(`d=${s.density}`);
+  if (s.autoscale) parts.push('a=1');
+  const heights = Object.entries(s.heights ?? {}).filter(([, h]) => Number.isFinite(h) && h >= 40 && h <= 220);
+  if (heights.length) parts.push(`h=${heights.map(([id, h]) => `${id}:${Math.round(h)}`).join(',')}`);
   return parts.join(';');
 }
 
@@ -667,14 +675,27 @@ export function decodeViewState(hash: string, chroms: ChromInfo[]): DecodedViewS
   const out: DecodedViewState = { view };
   for (const part of rest) {
     const [k, v] = part.split('=');
-    if (k === 't' && v) out.tracks = v.split(',').filter(Boolean);
-    if (k === 'k' && v && Number.isFinite(Number(v))) out.locusTrack = Number(v);
+    if (k === 't') out.tracks = (v ?? '').split(',').filter(Boolean);
+    if (k === 'k' && v && Number.isInteger(Number(v)) && Number(v) >= 0) out.locusTrack = Number(v);
     if (k === 'm' && (v === 'shorkie' || v === 'lm' || v === 'both')) out.model = v;
     if (k === 'd') { const d = parseDensity(v); if (d) out.density = d; }
+    if (k === 'a') out.autoscale = v === '1';
+    if (k === 'h' && v) {
+      out.heights = {};
+      for (const entry of v.split(',')) {
+        const [id, value] = entry.split(':');
+        const h = Number(value);
+        if (/^[a-z][a-z0-9_-]*$/.test(id) && Number.isFinite(h) && h >= 40 && h <= 220) out.heights[id] = Math.round(h);
+      }
+    }
     if (k === 'roi' && v) {
-      const [a, b] = v.split('-').map(Number);
-      if (Number.isFinite(a) && Number.isFinite(b)) {
-        out.roi = { start: Math.min(a, b), end: Math.max(a, b) };
+      const match = /^(?:(chr[^:;]+):)?(\d+)-(\d+)$/.exec(v);
+      const chrom = match?.[1] ?? view?.chrom;
+      const info = chroms.find((c) => c.name === chrom);
+      if (match && info) {
+        const start = Math.max(0, Math.min(Number(match[2]), Number(match[3]), info.length));
+        const end = Math.min(Math.max(Number(match[2]), Number(match[3])), info.length);
+        if (end > start) out.roi = { chrom: info.name, start, end };
       }
     }
   }
@@ -969,7 +990,7 @@ export type ModelMode = 'both' | 'shorkie' | 'lm';
  * A mode is a question, and its default answer is the set of lanes that answers it. "Shorkie" asks
  * what an assay would measure and which bases drove it, so it opens with the prediction and all
  * three attribution methods; "Shorkie_LM" asks how constrained a base is, so it opens with both
- * passes; "Both" is the comparison and opens with all six.
+ * passes; "Both" opens a focused comparison of constraint and predicted expression.
  *
  * phastCons, the gene models and the sequence belong to NEITHER model — they are the independent
  * check and the coordinates everything else is read against — so they are in every mode. That is
@@ -977,22 +998,17 @@ export type ModelMode = 'both' | 'shorkie' | 'lm';
  * excludes, and these have no model group at all.
  */
 export const MODEL_DEFAULT_TRACKS: Record<ModelMode, string[]> = {
-  both: ['sk-rnaseq', 'lm-masked', 'lm-unmasked', 'sk-gradient', 'sk-ig', 'sk-ism',
-    'phastcons', 'genes', 'sequence'],
+  both: ['lm-masked', 'sk-rnaseq', 'phastcons', 'genes', 'sequence'],
   shorkie: ['sk-rnaseq', 'sk-gradient', 'sk-ig', 'sk-ism', 'phastcons', 'genes', 'sequence'],
   lm: ['lm-masked', 'lm-unmasked', 'phastcons', 'genes', 'sequence'],
 };
 
 /**
- * The narrow defaults. FEWER LANES, NOT DIFFERENT ONES — each is a strict subset of its wide
- * counterpart, which `genomeBrowser.test.ts` asserts.
- *
- * Nine lanes is roughly 920 px of canvas. On a 664 px phone viewport that puts the track below the
- * fold before a single base is visible, so the phone opens on one lane per question: the
- * prediction, the exact attribution, and the constraint pass.
+ * Narrow defaults are subsets of their desktop counterparts. The focused comparison is the
+ * same at every width; individual model modes use fewer lanes on small screens.
  */
 export const MODEL_DEFAULT_TRACKS_NARROW: Record<ModelMode, string[]> = {
-  both: ['lm-masked', 'sk-rnaseq', 'sk-ism', 'genes', 'sequence'],
+  both: ['lm-masked', 'sk-rnaseq', 'phastcons', 'genes', 'sequence'],
   shorkie: ['sk-rnaseq', 'sk-ism', 'genes', 'sequence'],
   lm: ['lm-masked', 'genes', 'sequence'],
 };
