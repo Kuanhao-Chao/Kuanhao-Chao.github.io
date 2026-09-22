@@ -26,6 +26,9 @@
     z-index: 0;
     pointer-events: none;
   }
+  :global(html[data-background-scene]:not([data-background-scene='cells'])) canvas { display: none; }
+  :global(html[data-background-motion='calm']) canvas { opacity: 0.55; }
+  @media print { canvas { display: none; } }
 </style>
 
 <script>
@@ -391,6 +394,7 @@
     }
 
     function draw(trail: boolean, frameScale = 1) {
+      if (document.documentElement.dataset.backgroundScene && document.documentElement.dataset.backgroundScene !== 'cells') return;
       const renderStartedAt = performance.now();
       renderCount++;
       if (trail) {
@@ -495,6 +499,7 @@
     }
 
     function step(frameScale: number) {
+      if (document.documentElement.dataset.backgroundMotion === 'calm') frameScale *= 0.4;
       tick += frameScale;
       updateCount++;
 
@@ -556,6 +561,8 @@
 
     function start() {
       if (running || reduce.matches || coarse.matches || !visible || document.hidden) return;
+      const state = document.documentElement.dataset;
+      if ((state.backgroundScene && state.backgroundScene !== 'cells') || state.backgroundMotion === 'paused' || state.backgroundExploring === 'true') return;
       running = true;
       lastFrameTime = 0;
       raf = requestAnimationFrame(frame);
@@ -594,6 +601,11 @@
       }
     };
     const onThemeChange = () => refreshPalette();
+    const onBackgroundChange = () => {
+      stop();
+      draw(false);
+      start();
+    };
 
     // On touch (no resting cursor) skip pointer tracking so the helix never
     // lurches to the finger mid-scroll; it keeps its calm autonomous drift.
@@ -606,6 +618,7 @@
     if (textEl) ro.observe(textEl);
     document.addEventListener('visibilitychange', onVisChange);
     document.addEventListener('khc:theme-change', onThemeChange);
+    document.addEventListener('khc:background-change', onBackgroundChange);
     const io = new IntersectionObserver(
       (entries) => {
         for (const en of entries) {
@@ -656,6 +669,7 @@
         }
         document.removeEventListener('visibilitychange', onVisChange);
         document.removeEventListener('khc:theme-change', onThemeChange);
+        document.removeEventListener('khc:background-change', onBackgroundChange);
         reduce.removeEventListener('change', onReduceChange);
       },
     };

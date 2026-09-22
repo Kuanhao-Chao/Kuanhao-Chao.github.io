@@ -1,5 +1,6 @@
 ---
 import Icon from './Icon.astro';
+import BackgroundControls from './BackgroundControls.astro';
 import { site, nav, labNavItems } from '../data/site';
 
 const path = Astro.url.pathname;
@@ -108,10 +109,10 @@ const headerNav = nav.filter((item) => !item.footerOnly);
           type="button"
           data-top-theme-btn
           data-theme-state="light"
-          aria-haspopup="menu"
+          aria-haspopup="dialog"
           aria-expanded="false"
           aria-label="Appearance settings"
-          title="Adjust color theme, ambient cells, or 1988 CRT mode"
+          title="Adjust color theme, background, or 1988 CRT mode"
         >
           <span class="theme-icon-container">
             <span class="theme-toggle-icon theme-toggle-icon--light" aria-hidden="true">
@@ -143,16 +144,16 @@ const headerNav = nav.filter((item) => !item.footerOnly);
           <span class="top-theme-caret" aria-hidden="true">▾</span>
         </button>
 
-        <div class="top-theme-popover" data-top-theme-popover role="menu" hidden>
+        <div class="top-theme-popover" data-top-theme-popover role="dialog" aria-label="Appearance" hidden>
           <!-- Modern Themes Section -->
           <div class="popover-section">
             <span class="popover-heading">Modern Themes</span>
-            <div class="popover-grid">
+            <div class="popover-grid" role="radiogroup" aria-label="Color theme">
               <button
                 type="button"
                 class="popover-opt-btn"
                 data-theme-choice="light"
-                role="menuitem"
+                role="radio"
               >
                 <span class="opt-icon-wrap" aria-hidden="true">
                   <Icon name="sun" size={14} />
@@ -163,7 +164,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
                 type="button"
                 class="popover-opt-btn"
                 data-theme-choice="dark"
-                role="menuitem"
+                role="radio"
               >
                 <span class="opt-icon-wrap" aria-hidden="true">
                   <Icon name="moon" size={14} />
@@ -174,7 +175,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
                 type="button"
                 class="popover-opt-btn"
                 data-theme-choice="parchment"
-                role="menuitem"
+                role="radio"
               >
                 <span class="opt-icon-wrap" aria-hidden="true">
                   <Icon name="parchment" size={14} />
@@ -185,7 +186,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
                 type="button"
                 class="popover-opt-btn"
                 data-theme-choice="nord"
-                role="menuitem"
+                role="radio"
               >
                 <span class="opt-icon-wrap" aria-hidden="true">
                   <Icon name="nord" size={14} />
@@ -196,7 +197,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
                 type="button"
                 class="popover-opt-btn"
                 data-theme-choice="monokai"
-                role="menuitem"
+                role="radio"
               >
                 <span class="opt-icon-wrap" aria-hidden="true">
                   <Icon name="monokai" size={14} />
@@ -207,7 +208,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
                 type="button"
                 class="popover-opt-btn"
                 data-theme-choice="cyberdeck"
-                role="menuitem"
+                role="radio"
               >
                 <span class="opt-icon-wrap" aria-hidden="true">
                   <Icon name="cyberdeck" size={14} />
@@ -275,44 +276,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
             </div>
           </div>
 
-          <div class="popover-section popover-section--cells">
-            <span class="popover-heading" id="desktop-cell-mode-heading">Ambient cells</span>
-            <div class="cell-mode-grid cell-mode-grid--three" role="radiogroup" aria-labelledby="desktop-cell-mode-heading">
-              <button
-                type="button"
-                class="cell-control-btn"
-                data-cell-mode="ambient"
-                role="radio"
-                aria-checked="true"
-                title="Living cells drifting quietly behind the page"
-              >
-                Ambient
-              </button>
-              <button
-                type="button"
-                class="cell-control-btn"
-                data-cell-mode="calm"
-                role="radio"
-                aria-checked="false"
-                title="Dimmer and heavily damped, with no division or death while you read"
-              >
-                Calm
-              </button>
-              <button
-                type="button"
-                class="cell-control-btn"
-                data-cell-mode="off"
-                role="radio"
-                aria-checked="false"
-                title="Hide the background cells entirely"
-              >
-                Off
-              </button>
-            </div>
-            <span class="cell-control-hint" data-cell-mode-hint>
-              Ambient keeps a subtle 0.8 alpha background with page content.
-            </span>
-          </div>
+          <BackgroundControls />
         </div>
       </div>
 
@@ -844,7 +808,8 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     top: calc(100% + 8px);
     right: 0;
     width: 264px;
-    max-height: 80vh;
+    max-height: calc(100dvh - 6rem);
+    overscroll-behavior: contain;
     overflow-y: auto;
     overflow-x: hidden;
     padding: 0.75rem;
@@ -1490,7 +1455,6 @@ const headerNav = nav.filter((item) => !item.footerOnly);
 </style>
 
 <script>
-  import { getLivingCellsEngine, type CellAction, type CellMode } from '../lib/livingCellsEngine';
 
   interface ThemeApi {
     get: () => string;
@@ -1609,73 +1573,6 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     });
   }
 
-  // These used to claim "0.8 alpha" while setMode applied 0.6, and calm repeated the
-  // ambient string verbatim because calm was only an alias for it. Both are now true.
-  const cellModeCopy: Record<CellMode, string> = {
-    ambient: 'Twelve cells drifting quietly behind the page, dividing and dying slowly.',
-    calm: 'Dimmer and heavily damped, and nothing divides or dies while you read.',
-    lab: 'Cell Lab is running the dish full-screen.',
-    off: 'Background cells are hidden.',
-  };
-
-  function syncCellControls() {
-    const engine = getLivingCellsEngine();
-    const mode = engine.getMode();
-    const action = engine.getLabAction();
-    document.documentElement.dataset.cellMode = mode;
-    document.documentElement.dataset.cellAction = action;
-
-    document.querySelectorAll<HTMLButtonElement>('button[data-cell-mode]').forEach((btn) => {
-      const isActive = btn.dataset.cellMode === mode;
-      btn.classList.toggle('is-active', isActive);
-      btn.setAttribute('aria-checked', String(isActive));
-      btn.tabIndex = isActive ? 0 : -1;
-    });
-
-    document.querySelectorAll<HTMLButtonElement>('button[data-cell-action]').forEach((btn) => {
-      const isActive = btn.dataset.cellAction === action;
-      btn.classList.toggle('is-active', isActive);
-      btn.setAttribute('aria-checked', String(isActive));
-      btn.tabIndex = isActive ? 0 : -1;
-    });
-
-    document.querySelectorAll<HTMLElement>('[data-cell-lab-actions]').forEach((group) => {
-      group.hidden = mode !== 'lab';
-    });
-    document.querySelectorAll<HTMLElement>('[data-cell-mode-hint]').forEach((hint) => {
-      hint.textContent = cellModeCopy[mode];
-    });
-  }
-
-  function handleCellControlKeydown(event: KeyboardEvent, button: HTMLButtonElement) {
-    const keys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
-    if (!keys.includes(event.key)) return;
-    const selector = button.hasAttribute('data-cell-mode')
-      ? 'button[data-cell-mode]'
-      : 'button[data-cell-action]';
-    const choices = Array.from(
-      button.parentElement?.querySelectorAll<HTMLButtonElement>(selector) ?? []
-    );
-    if (!choices.length) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    const current = Math.max(0, choices.indexOf(button));
-    const backwards = event.key === 'ArrowLeft' || event.key === 'ArrowUp';
-    const nextIndex =
-      event.key === 'Home'
-        ? 0
-        : event.key === 'End'
-          ? choices.length - 1
-          : (current + (backwards ? -1 : 1) + choices.length) % choices.length;
-    const next = choices[nextIndex];
-    next.focus();
-    const mode = next.dataset.cellMode as CellMode | undefined;
-    const action = next.dataset.cellAction as CellAction | undefined;
-    if (mode) getLivingCellsEngine().setMode(mode);
-    if (action) getLivingCellsEngine().setLabAction(action);
-    syncCellControls();
-  }
 
   function bind() {
     const toggle = document.querySelector<HTMLButtonElement>('.nav-toggle');
@@ -1746,32 +1643,8 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       btn.onclick = () => setPopoverOpen(false);
     });
 
-    document.querySelectorAll<HTMLButtonElement>('button[data-cell-mode]').forEach((btn) => {
-      btn.onclick = (event) => {
-        event.stopPropagation();
-        const mode = btn.dataset.cellMode as CellMode | undefined;
-        if (!mode) return;
-        getLivingCellsEngine().setMode(mode);
-        syncCellControls();
-      };
-      btn.onkeydown = (event) => handleCellControlKeydown(event, btn);
-    });
-
-    document.querySelectorAll<HTMLButtonElement>('button[data-cell-action]').forEach((btn) => {
-      btn.onclick = (event) => {
-        event.stopPropagation();
-        const action = btn.dataset.cellAction as CellAction | undefined;
-        if (!action) return;
-        getLivingCellsEngine().setLabAction(action);
-        syncCellControls();
-        if (btn.closest('[data-top-theme-popover]')) setPopoverOpen(false);
-        if (btn.closest('#mobile-menu')) setMenuOpen(false);
-      };
-      btn.onkeydown = (event) => handleCellControlKeydown(event, btn);
-    });
 
     syncHeaderThemeIcons();
-    syncCellControls();
   }
 
   function handleHeaderKeydown(e: KeyboardEvent) {
@@ -1865,8 +1738,6 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     document.addEventListener('astro:before-swap', closeHeaderMenus);
     document.addEventListener('khc:theme-change', syncHeaderThemeIcons);
     document.addEventListener('khc:crt-change', syncHeaderThemeIcons);
-    window.addEventListener('khc:cell-mode-change', syncCellControls);
-    window.addEventListener('khc:cell-action-change', syncCellControls);
     document.addEventListener('astro:page-load', handleHeaderPageLoad);
   }
 

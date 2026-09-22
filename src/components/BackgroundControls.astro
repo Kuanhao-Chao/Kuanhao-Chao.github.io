@@ -1,0 +1,113 @@
+---
+const scenes = [
+  ['cells', 'Cells'],
+  ['flow', 'Flow Field'],
+  ['landscape', 'Learning Landscape'],
+  ['off', 'Off'],
+];
+const motions = [
+  ['ambient', 'Ambient'],
+  ['calm', 'Calm'],
+  ['paused', 'Paused'],
+];
+---
+
+<section class="background-controls" aria-label="Background settings">
+  <span class="background-label" id="background-scene-label">Background</span>
+  <div class="background-choices" role="radiogroup" aria-labelledby="background-scene-label">
+    {
+      scenes.map(([value, label]) => (
+        <button
+          type="button"
+          role="radio"
+          aria-checked={value === 'cells' ? 'true' : 'false'}
+          tabindex={value === 'cells' ? 0 : -1}
+          data-background-scene={value}
+        >
+          {label}
+        </button>
+      ))
+    }
+  </div>
+  <span class="background-label" id="background-motion-label">Motion</span>
+  <div class="background-motions" role="radiogroup" aria-labelledby="background-motion-label">
+    {
+      motions.map(([value, label]) => (
+        <button
+          type="button"
+          role="radio"
+          aria-checked={value === 'ambient' ? 'true' : 'false'}
+          tabindex={value === 'ambient' ? 0 : -1}
+          data-background-motion={value}
+        >
+          {label}
+        </button>
+      ))
+    }
+  </div>
+  <p class="background-hint" data-background-hint>Choose a scene. Your preference is remembered.</p>
+  <button type="button" class="background-explore" data-background-explore>Open Cell Lab ↗</button>
+</section>
+<script>
+  import { initBackground } from '../scripts/background';
+  initBackground();
+</script>
+<style>
+  .background-controls {
+    padding-top: 0.85rem;
+    border-top: 1px solid var(--color-rule);
+  }
+  .background-label {
+    display: block;
+    margin: 0 0 0.45rem;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-muted);
+  }
+  .background-choices,
+  .background-motions {
+    display: grid;
+    gap: 0.3rem;
+    margin-bottom: 0.8rem;
+  }
+  .background-choices {
+    grid-template-columns: 1fr 1fr;
+  }
+  .background-motions {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  button {
+    min-height: 44px;
+    padding: 0.4rem;
+    font: inherit;
+    font-size: 0.75rem;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    color: var(--color-ink);
+    background: transparent;
+    cursor: pointer;
+  }
+  button[aria-checked='true'] {
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+  }
+  button:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  button:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .background-hint {
+    font-size: 0.75rem;
+    line-height: 1.5;
+    margin: 0 0 0.65rem;
+    color: var(--color-muted);
+  }
+  .background-explore {
+    width: 100%;
+    color: var(--color-accent);
+  }
+</style>

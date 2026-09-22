@@ -1,21 +1,41 @@
 ---
 /**
- * Site-wide ambient schematic animal-cell background.
- *
- * Renders a biologically grounded, non-distracting animal-cell lifecycle:
- * - Interphase growth with a size checkpoint before natural division
- * - Mature homeostasis with gently moving membranes, nuclei, and organelles
- * - Open mitosis followed by animal-cell cleavage-furrow cytokinesis
- * - Apoptotic shrinkage, pyknosis, blebbing, fragmentation, and quiet clearance
- *
- * Honors prefers-reduced-motion, pauses when the tab is hidden, scales DPR <= 2,
- * and keeps the background low contrast behind foreground content.
+ * Decorative backgrounds on ordinary content pages: existing Cells (default),
+ * Flow Field, Learning Landscape, or Off. One controller owns preferences and
+ * lifecycle; the dedicated labs retain their own canvases and settings.
  */
 import CellStatusChip from './CellStatusChip.astro';
+import BackgroundExplorer from './BackgroundExplorer.astro';
 ---
 
-<canvas data-site-bg-canvas aria-hidden="true" transition:persist="site-bg"></canvas>
+<script is:inline>
+  // Set before the hero mounts: a saved Off/alternate scene must never flash cells.
+  try {
+    let saved = null;
+    try {
+      saved = JSON.parse(localStorage.getItem('khc-background-v1') || 'null');
+    } catch {}
+    const legacy = localStorage.getItem('khc-cell-mode');
+    const valid =
+      saved &&
+      ['cells', 'flow', 'landscape', 'off'].includes(saved.scene) &&
+      ['ambient', 'calm', 'paused'].includes(saved.motion);
+    document.documentElement.dataset.backgroundScene = valid
+      ? saved.scene
+      : legacy === 'off'
+        ? 'off'
+        : 'cells';
+    document.documentElement.dataset.backgroundMotion = valid
+      ? saved.motion
+      : legacy === 'calm'
+        ? 'calm'
+        : 'ambient';
+  } catch {}
+</script>
+<canvas data-site-bg-canvas aria-hidden="true" transition:persist="site-bg" hidden></canvas>
+<canvas data-art-bg-canvas aria-hidden="true" transition:persist="art-bg" hidden></canvas>
 <CellStatusChip />
+<BackgroundExplorer />
 
 <style>
   canvas {
@@ -25,38 +45,27 @@ import CellStatusChip from './CellStatusChip.astro';
     height: 100%;
     z-index: -1;
     pointer-events: none;
+    transition: opacity 140ms ease;
+  }
+  canvas[hidden] {
+    display: none;
+  }
+  :global(html[data-background-switching='true']) canvas {
+    opacity: 0;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    canvas {
+      transition: none;
+    }
+  }
+  @media print {
+    canvas {
+      display: none;
+    }
   }
 </style>
 
 <script>
-  import { getLivingCellsEngine, initLivingCellsBackground } from '../lib/livingCellsEngine';
-
-  const lifecycleWindow = window as Window & {
-    __khcLivingCellsLifecycleBound?: boolean;
-    __khcLivingCellsCanvas?: HTMLCanvasElement | null;
-  };
-
-  const attachBackground = () => {
-    const canvas = document.querySelector<HTMLCanvasElement>('[data-site-bg-canvas]');
-    if (!canvas || lifecycleWindow.__khcLivingCellsCanvas === canvas) return;
-    initLivingCellsBackground();
-    lifecycleWindow.__khcLivingCellsCanvas = canvas;
-  };
-
-  // Module scripts run on the first document before Astro emits its navigation
-  // lifecycle events. Attach now as well as after subsequent page transitions.
-  attachBackground();
-
-  if (!lifecycleWindow.__khcLivingCellsLifecycleBound) {
-    lifecycleWindow.__khcLivingCellsLifecycleBound = true;
-
-    document.addEventListener('astro:page-load', () => {
-      attachBackground();
-    });
-
-    document.addEventListener('astro:before-swap', () => {
-      getLivingCellsEngine().detach();
-      lifecycleWindow.__khcLivingCellsCanvas = null;
-    });
-  }
+  import { initBackground } from '../scripts/background';
+  initBackground();
 </script>
