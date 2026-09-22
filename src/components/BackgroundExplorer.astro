@@ -1,0 +1,204 @@
+<dialog class="background-dialog" data-background-dialog aria-labelledby="background-demo-title">
+  <div class="background-demo-header">
+    <div>
+      <p class="eyebrow">Computational art</p>
+      <h2 id="background-demo-title" data-background-demo-title>Explore background</h2>
+    </div>
+    <button type="button" data-background-close aria-label="Close background exploration"
+      >Close ×</button
+    >
+  </div>
+  <p class="background-demo-description" data-background-description></p>
+  <div class="background-demo-stage">
+    <canvas data-background-demo-canvas role="img" aria-label="Interactive background demonstration"
+    ></canvas>
+  </div>
+  <div class="background-demo-controls">
+    <div class="background-demo-actions">
+      <button type="button" data-background-play>Pause</button>
+      <button type="button" data-background-step>Single step</button>
+      <button type="button" data-background-reset>Reset</button>
+    </div>
+    <div data-background-flow-controls>
+      <label
+        >Flow strength <input
+          data-background-strength
+          type="range"
+          min="0.2"
+          max="2"
+          step="0.1"
+          value="1"
+        /></label
+      >
+      <button type="button" data-background-vortex>Add vortex</button>
+    </div>
+    <div data-background-landscape-controls hidden>
+      <label
+        >Methods <select data-background-method
+          ><option value="both">Both</option><option value="gd">Gradient descent</option><option
+            value="momentum">Momentum</option
+          ></select
+        ></label
+      >
+      <label
+        >Step size <input
+          data-background-rate
+          type="number"
+          min="0.005"
+          max="0.3"
+          step="0.005"
+          value="0.035"
+        /></label
+      >
+      <label
+        >Start x <input
+          data-background-x
+          type="number"
+          min="-2"
+          max="2"
+          step="0.05"
+          value="0.45"
+        /></label
+      >
+      <label
+        >Start y <input
+          data-background-y
+          type="number"
+          min="-2"
+          max="2"
+          step="0.05"
+          value="1.65"
+        /></label
+      >
+      <button type="button" data-background-start>Set start</button>
+    </div>
+  </div>
+  <p class="background-demo-status" data-background-demo-status role="status" aria-live="polite">
+  </p>
+  <p class="background-demo-key" data-background-legend hidden>
+    Solid line: gradient descent · Dashed line: momentum (0.85). Click the plot or enter coordinates
+    to choose a shared start. Both use v ← βv + ∇L, then θ ← θ − ηv (β = 0 for gradient descent).
+    Contours join equal loss. Minima: (−1, −0.35) and (1, 0.35); saddle: (0, 0).
+  </p>
+</dialog>
+<style>
+  .background-dialog {
+    position: fixed;
+    inset: 0;
+    width: min(900px, calc(100vw - 2rem));
+    max-height: calc(100dvh - 2rem);
+    padding: 1.25rem;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg);
+    color: var(--color-ink);
+    overflow: auto;
+    overscroll-behavior: contain;
+    margin: auto;
+  }
+  .background-dialog::backdrop {
+    background: var(--color-dialog-backdrop);
+  }
+  .background-demo-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .background-demo-header h2 {
+    font-size: 1.5rem;
+    margin: 0.25rem 0 0.6rem;
+  }
+  .background-demo-header .eyebrow {
+    margin: 0;
+  }
+  .background-demo-description,
+  .background-demo-key,
+  .background-demo-status {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin: 0.7rem 0;
+  }
+  .background-demo-description,
+  .background-demo-key {
+    color: var(--color-muted);
+  }
+  .background-demo-stage {
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: clamp(240px, 43dvh, 420px);
+    touch-action: pan-y;
+  }
+  .background-demo-controls {
+    margin-top: 0.75rem;
+    display: grid;
+    gap: 0.7rem;
+  }
+  .background-demo-controls > div {
+    display: flex;
+    align-items: end;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+  .background-demo-controls > div[hidden],
+  [hidden] {
+    display: none;
+  }
+  label {
+    display: grid;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+  }
+  button,
+  input,
+  select {
+    min-height: 44px;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    padding: 0.4rem 0.65rem;
+    color: var(--color-ink);
+    background: var(--color-surface);
+    font: inherit;
+    font-size: 0.85rem;
+  }
+  input[type='number'] {
+    width: 6.2rem;
+  }
+  input[type='range'] {
+    width: 150px;
+    accent-color: var(--color-accent);
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  :is(button, input, select):focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  .background-demo-status {
+    min-height: 2.6em;
+  }
+  @media (max-width: 480px) {
+    .background-dialog {
+      width: 100%;
+      max-width: 100%;
+      max-height: 100dvh;
+      height: 100dvh;
+      padding: 1rem;
+      border-radius: 0;
+    }
+    canvas {
+      height: 34dvh;
+      min-height: 230px;
+    }
+  }
+</style>

@@ -32,6 +32,7 @@
     "audit:ml-interview": "node scripts/audit-ml-interview.mjs",
     "audit:games": "node scripts/audit-game-ui.mjs",
     "audit:cells": "node scripts/audit-living-cells-ui.mjs",
+    "audit:background": "node scripts/audit-background-ui.mjs",
     "audit:cells:ci": "node scripts/audit-living-cells-ui.mjs --smoke",
     "audit:posts": "node scripts/audit-post-ui.mjs",
     "audit:playground": "node scripts/audit-playground-ui.mjs",

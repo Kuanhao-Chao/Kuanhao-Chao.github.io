@@ -857,41 +857,41 @@ async function removeAuditSurface(page) {
 
 async function auditCellControls(page, scope, _profile) {
   const contract = await page.evaluate(() => ({
-    modes: [...document.querySelectorAll('[data-cell-mode]')].map((element) =>
-      element.getAttribute('data-cell-mode')
+    modes: [...document.querySelectorAll('[data-background-scene]')].map((element) =>
+      element.getAttribute('data-background-scene')
     ),
-    hasLabLink: Boolean(document.querySelector('a[href="/lab"], .cell-lab-link-btn')),
+    hasLabLink: Boolean(document.querySelector('a[href="/lab"], [data-background-explore]')),
     hasStatus: Boolean(document.querySelector('[data-cell-status]')),
     hasStatusText: Boolean(document.querySelector('[data-cell-status-text]')),
   }));
   check(
     scope,
-    ['ambient', 'off'].every((mode) => contract.modes.includes(mode) || (mode === 'ambient' && contract.modes.includes('calm'))),
+    ['cells', 'off'].every((mode) => contract.modes.includes(mode)),
     `mode controls are incomplete: ${contract.modes.join(', ')}`
   );
   check(scope, contract.hasLabLink, 'Lab playground link is missing');
   check(scope, contract.hasStatus && contract.hasStatusText, 'cell status chip is incomplete');
 
   // Test Off mode
-  await clickCellControl(page, '[data-cell-mode="off"]');
+  await clickCellControl(page, '[data-background-scene="off"]');
   await page.waitForFunction(
     () =>
-      document.documentElement.dataset.cellMode === 'off' &&
-      window.__khcCellsDebug.snapshot().mode === 'off'
+      document.documentElement.dataset.backgroundScene === 'off' &&
+      !window.__khcCellsDebug.snapshot().attached
   );
   const off = await snapshot(page);
   check(scope, off.running === false, 'Off mode did not pause the animation');
   check(
     scope,
-    await page.evaluate(() => localStorage.getItem('khc-cell-mode') === 'off'),
+    await page.evaluate(() => JSON.parse(localStorage.getItem('khc-background-v1')).scene === 'off'),
     'Off mode was not persisted'
   );
 
   // Test Ambient mode restoration
-  await clickCellControl(page, '[data-cell-mode="ambient"], [data-cell-mode="calm"]');
+  await clickCellControl(page, '[data-background-scene="cells"]');
   await page.waitForFunction(
     () =>
-      (document.documentElement.dataset.cellMode === 'ambient' || document.documentElement.dataset.cellMode === 'calm') &&
+      document.documentElement.dataset.backgroundScene === 'cells' && window.__khcCellsDebug.snapshot().running &&
       (window.__khcCellsDebug.snapshot().mode === 'ambient' || window.__khcCellsDebug.snapshot().mode === 'calm')
   );
   const ambient = await snapshot(page);
@@ -899,8 +899,8 @@ async function auditCellControls(page, scope, _profile) {
   check(
     scope,
     await page.evaluate(() => {
-      const val = localStorage.getItem('khc-cell-mode');
-      return val === 'ambient' || val === 'calm';
+      const val = JSON.parse(localStorage.getItem('khc-background-v1'));
+      return val.scene === 'cells' && val.motion !== 'paused';
     }),
     'Ambient mode was not persisted'
   );

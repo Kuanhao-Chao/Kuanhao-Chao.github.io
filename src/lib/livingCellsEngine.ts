@@ -516,6 +516,7 @@ export class LivingCellsEngine {
   private scrollActivityRemaining = 0;
   private rafId = 0;
   private isRunning = false;
+  private backgroundSuspended = false;
   private lastTime = 0;
   private lastRenderTime = 0;
   private accumulator = 0;
@@ -1212,9 +1213,11 @@ export class LivingCellsEngine {
     this.counters.attaches++;
     this.bindEvents();
     this.hydrateControls();
+    if (this.isLabRoute()) this.backgroundSuspended = false;
     this.refreshEnvironment();
     this.resize();
     if (!this.seeded) this.seed();
+    if (this.backgroundSuspended) this.render(0, true);
     this.installDebug();
     if (this.mode !== 'off' && (!sameCanvas || !this.isRunning)) this.start();
   }
@@ -1245,6 +1248,7 @@ export class LivingCellsEngine {
     this.clearHover();
     this.attached = false;
     this.canvas = null;
+    this.ctx = null;
     this.persistCells();
     this.counters.detaches++;
   }
@@ -1899,6 +1903,8 @@ export class LivingCellsEngine {
 
   private updateHover(event: PointerEvent): void {
     if (
+      !this.attached ||
+      this.backgroundSuspended ||
       this.coarse ||
       this.reducedMotion ||
       this.mode === 'off' ||
@@ -1972,6 +1978,7 @@ export class LivingCellsEngine {
     this.clearHover();
     if (
       !this.attached ||
+      this.backgroundSuspended ||
       this.mode === 'off' ||
       this.reducedMotion ||
       this.interactiveTarget(event.target)
@@ -2325,9 +2332,22 @@ export class LivingCellsEngine {
     return baseInterval;
   }
 
+  /** Suspend the decorative background without changing Cell Lab's simulation settings. */
+  public setBackgroundSuspended(suspended: boolean): void {
+    if (this.backgroundSuspended === suspended) return;
+    this.backgroundSuspended = suspended;
+    if (suspended) {
+      this.stop();
+      this.cancelPointer(false);
+      this.clearHover();
+      if (this.attached && this.ctx) this.render(0, true);
+    } else this.start();
+  }
+
   public start(): void {
     if (
       this.isRunning ||
+      this.backgroundSuspended ||
       !this.attached ||
       !this.ctx ||
       this.mode === 'off' ||
