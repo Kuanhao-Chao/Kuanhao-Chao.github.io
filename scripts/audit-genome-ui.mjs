@@ -20,11 +20,44 @@ async function settled(page, allowFailure = false) {
   await page.waitForFunction(() => {
     const host = document.querySelector('[data-genome-browser]');
     const canvas = host?.querySelector('[data-gb-track]');
-    return canvas?.dataset.gbLanes && host.dataset.gbPending === '0';
-  }, { timeout: 60000 });
-  // A completed request schedules one final paint; wait for that paint, not an arbitrary delay.
-  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    return canvas?.dataset.gbLanes && host.dataset.gbPending === '0'
+      && host.dataset.gbRenderPending === '0';
+  }, undefined, { timeout: 60000 });
   if (!allowFailure) assert.equal(await page.locator('[data-genome-browser]').getAttribute('data-gb-failed'), '0');
+}
+
+/** Reproduce slow CI frames plus a delayed successful retry, on the real browser path. */
+export async function auditGenomeRetry(browser, baseURL) {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', error => errors.push(String(error)));
+    await page.addInitScript(() => {
+      const raf = window.requestAnimationFrame.bind(window);
+      window.requestAnimationFrame = callback => raf(() => setTimeout(() => callback(performance.now()), 80));
+    });
+    let fail = true;
+    await page.route('**/genome-data/chrVII/genes.json', async route => {
+      if (fail) return route.fulfill({ status: 503, body: 'Unavailable' });
+      await new Promise(resolve => setTimeout(resolve, 600));
+      return route.continue();
+    });
+    await page.goto(`${baseURL}${ROUTE}`, { waitUntil: 'networkidle' });
+    await settled(page, true);
+    assert.equal(await page.locator('[data-gb-retry]').isVisible(), true);
+    fail = false;
+    await page.locator('[data-gb-retry]').click();
+    await settled(page);
+    const state = await page.evaluate(() => ({
+      pending: document.querySelector('[data-genome-browser]').dataset.gbPending,
+      genes: JSON.parse(document.querySelector('[data-gb-track]').dataset.gbGeneTrack).features,
+    }));
+    assert.equal(state.pending, '0', 'settled must not return while retry data is loading');
+    assert.ok(state.genes > 0, 'settled must wait for recovered gene features to be drawn');
+    assert.deepEqual(errors, [], 'Uncaught errors during delayed retry');
+    console.log(`[genome/${browser.browserType().name()}] delayed retry PASS (${state.genes} genes)`);
+  } finally { await context.close(); }
 }
 
 async function navigate(page, hash) {
@@ -231,6 +264,7 @@ export async function auditGenomePage(browser, baseURL, { smoke = false, full = 
     await page.unroute('**/genome-data/chrVII/genes.json');
     await page.locator('[data-gb-retry]').click(); await settled(page);
     assert.ok(JSON.parse(await page.locator('[data-gb-track]').getAttribute('data-gb-gene-track')).features > 0);
+    await auditGenomeRetry(browser, baseURL);
 
     if (!smoke) {
       progress('themes, reduced motion, touch cancellation and repeated navigation');

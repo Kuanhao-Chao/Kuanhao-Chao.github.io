@@ -3228,7 +3228,14 @@ export function initGenomeBrowser(host: HTMLElement): void {
       const button = document.createElement('button'); button.type = 'button'; button.className = 'vp-btn';
       const label = document.createElement('span'); label.textContent = `${f.name} · ${f.kind}`;
       const coords = document.createElement('small'); coords.textContent = `${f.start + 1}–${f.end}`;
-      button.append(label, coords); button.addEventListener('click', f.inspect); items.append(button);
+      button.append(label, coords);
+      button.addEventListener('click', () => {
+        // WebKit does not necessarily focus a button on pointer activation.
+        // Establish the opener before the detail card records its return target.
+        button.focus({ preventScroll: true });
+        f.inspect();
+      });
+      items.append(button);
     }
     list.append(items);
     if (choices.length > featureLimit) {
@@ -3506,12 +3513,16 @@ export function initGenomeBrowser(host: HTMLElement): void {
   function schedule(): void {
     if (queued || disposed) return;
     queued = true;
+    // Invalidates the previous frame's idle state synchronously. A retry may
+    // discover its requests only when paintTrack runs on the next frame.
+    host.dataset.gbRenderPending = '1';
     frame = requestAnimationFrame(() => {
       queued = false;
       if (disposed) return;
       paintIdeo();
       paintMini();
       paintTrack();
+      host.dataset.gbRenderPending = queued ? '1' : '0';
     });
   }
 
