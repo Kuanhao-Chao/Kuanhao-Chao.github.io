@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  advectFlow,
   backgroundRouteAllowed,
   createTrajectory,
   flowVelocity,
@@ -121,5 +122,12 @@ describe('flow field', () => {
         (2 * h);
       expect(divergence).toBeCloseTo(0, 6);
     }
+  });
+  it('advects smoothly with a bounded midpoint step', () => {
+    const start = { x: 0.4, y: 1.2 };
+    const whole = advectFlow(start, 2, 0.04);
+    const half = advectFlow(advectFlow(start, 2, 0.02), 2.02, 0.02);
+    expect(Number.isFinite(whole.x + whole.y)).toBe(true);
+    expect(Math.hypot(whole.x - half.x, whole.y - half.y)).toBeLessThan(0.0001);
   });
 });

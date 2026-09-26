@@ -72,6 +72,17 @@
       >
       <button type="button" data-background-start>Set start</button>
     </div>
+    <div data-background-morph-controls hidden>
+      <div class="background-form-buttons" role="group" aria-label="Genome to Cell forms">
+        <button type="button" data-background-form="0" aria-pressed="true">DNA</button>
+        <button type="button" data-background-form="0.5" aria-pressed="false">Cell</button>
+        <button type="button" data-background-form="1" aria-pressed="false">Expression signal</button>
+      </div>
+      <label class="background-scrub-label">Transition
+        <input data-background-scrub type="range" min="0" max="1" step="0.01" value="0"
+          aria-label="Scrub from DNA through cell to expression signal" />
+      </label>
+    </div>
   </div>
   <p class="background-demo-status" data-background-demo-status role="status" aria-live="polite">
   </p>
@@ -148,6 +159,21 @@
   .background-demo-controls > div[hidden],
   [hidden] {
     display: none;
+  }
+  .background-form-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .background-form-buttons button[aria-pressed='true'] {
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+  }
+  .background-scrub-label {
+    width: min(100%, 20rem);
+  }
+  .background-scrub-label input {
+    width: 100%;
   }
   label {
     display: grid;

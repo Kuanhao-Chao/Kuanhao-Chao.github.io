@@ -56,6 +56,10 @@ jobs:
         timeout-minutes: 5
         run: npm run audit:cells:ci
 
+      - name: Audit switchable backgrounds
+        timeout-minutes: 8
+        run: npm run audit:background:ci
+
       # 12, not 5, and matching the deep-dive step below. The previous SUCCESSFUL run of this
       # step took 4 min 46 s against a 5 min cap -- fourteen seconds of margin -- so it failed on
       # the next commit whatever that commit contained. The smoke run itself was trimmed at the

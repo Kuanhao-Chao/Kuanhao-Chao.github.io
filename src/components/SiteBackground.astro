@@ -1,7 +1,7 @@
 ---
 /**
  * Decorative backgrounds on ordinary content pages: existing Cells (default),
- * Flow Field, Learning Landscape, or Off. One controller owns preferences and
+ * Flow Field, Learning Landscape, Genome to Cell, or Off. One controller owns preferences and
  * lifecycle; the dedicated labs retain their own canvases and settings.
  */
 import CellStatusChip from './CellStatusChip.astro';
@@ -18,7 +18,7 @@ import BackgroundExplorer from './BackgroundExplorer.astro';
     const legacy = localStorage.getItem('khc-cell-mode');
     const valid =
       saved &&
-      ['cells', 'flow', 'landscape', 'off'].includes(saved.scene) &&
+      ['cells', 'flow', 'landscape', 'morph', 'off'].includes(saved.scene) &&
       ['ambient', 'calm', 'paused'].includes(saved.motion);
     document.documentElement.dataset.backgroundScene = valid
       ? saved.scene

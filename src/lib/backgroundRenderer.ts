@@ -1,4 +1,5 @@
 import {
+  advectFlow,
   createTrajectory,
   flowVelocity,
   landscapeContours,
@@ -9,20 +10,7 @@ import {
   type Point,
   type Trajectory,
 } from './backgroundModel';
-
-export interface SceneRenderer {
-  resize(): void;
-  refreshPalette(): void;
-  setMotion(motion: BackgroundMotion): void;
-  setRunning(running: boolean): void;
-  setMask(mask: HTMLCanvasElement | null): void;
-  reset(): void;
-  step(): void;
-  configure(options: { strength?: number; rate?: number; method?: string; start?: Point }): void;
-  interact(x: number, y: number): void;
-  status(): string;
-  dispose(): void;
-}
+import type { SceneRenderer } from './sceneRenderer';
 
 type Strand = { point: Point; tail: Point[]; age: number; life: number; sampleTime: number };
 
@@ -69,10 +57,10 @@ export function createSceneRenderer(
   function project(p: Point): Point {
     const size = demo
       ? Math.min(width - 48, height - 56)
-      : Math.min(width * (coarse ? 1.3 : 0.7), height * 0.92);
+      : Math.min(width * (coarse ? 1.45 : 0.7), height * (coarse ? 0.85 : 0.92));
     return {
-      x: (demo ? width * 0.5 : width * (coarse ? 0.84 : 0.77)) + (p.x * size) / 4,
-      y: (demo ? height * 0.5 : height * (coarse ? 0.27 : 0.47)) - (p.y * size) / 4,
+      x: (demo ? width * 0.5 : width * (coarse ? 0.5 : 0.77)) + (p.x * size) / 4,
+      y: (demo ? height * 0.5 : height * (coarse ? 0.32 : 0.47)) - (p.y * size) / 4,
     };
   }
   function unproject(x: number, y: number): Point {
@@ -98,7 +86,7 @@ export function createSceneRenderer(
     random = seededBackgroundRandom();
     time = 0;
     vortices.length = 0;
-    strands = Array.from({ length: coarse ? 28 : 90 }, newStrand);
+    strands = Array.from({ length: coarse ? 42 : 90 }, newStrand);
     trajectories = [createTrajectory(start), createTrajectory(start, true)];
     dwell = 0;
     runAge = 0;
@@ -116,15 +104,21 @@ export function createSceneRenderer(
       const count = Math.ceil(strands.length * quality * (motion === 'calm' ? 0.65 : 1));
       for (let i = 0; i < count; i++) {
         let s = strands[i];
-        const v = flowVelocity(s.point.x / 210, s.point.y / 210, time);
+        const point = advectFlow(
+          { x: s.point.x / 210, y: s.point.y / 210 },
+          time,
+          dt,
+          22 * speed / 210
+        );
+        const next = { x: point.x * 210, y: point.y * 210 };
         for (const vortex of vortices) {
           const dx = s.point.x - vortex.x,
             dy = s.point.y - vortex.y;
           const influence = Math.exp(-(dx * dx + dy * dy) / 18000) * (1 - vortex.age / 5);
-          v.x -= dy * influence * 0.065;
-          v.y += dx * influence * 0.065;
+          next.x -= dy * influence * 0.065 * dt * 22 * speed;
+          next.y += dx * influence * 0.065 * dt * 22 * speed;
         }
-        s.point = { x: s.point.x + v.x * dt * 22 * speed, y: s.point.y + v.y * dt * 22 * speed };
+        s.point = next;
         s.age += dt;
         if (
           s.age > s.life ||
@@ -169,6 +163,24 @@ export function createSceneRenderer(
     context.clearRect(0, 0, width, height);
     context.lineCap = 'round';
     if (scene === 'flow') {
+      if (demo) {
+        context.strokeStyle = accent;
+        context.lineWidth = 1;
+        context.globalAlpha = 0.18;
+        for (let y = 44; y < height - 20; y += 68)
+          for (let x = 44; x < width - 20; x += 68) {
+            const v = flowVelocity(x / 210, y / 210, time);
+            const length = Math.hypot(v.x, v.y) || 1;
+            const dx = v.x / length * 11, dy = v.y / length * 11;
+            context.beginPath();
+            context.moveTo(x - dx, y - dy);
+            context.lineTo(x + dx, y + dy);
+            context.lineTo(x + dx - (dx + dy) * 0.24, y + dy - (dy - dx) * 0.24);
+            context.moveTo(x + dx, y + dy);
+            context.lineTo(x + dx - (dx - dy) * 0.24, y + dy - (dy + dx) * 0.24);
+            context.stroke();
+          }
+      }
       const count = Math.ceil(strands.length * quality * (motion === 'calm' ? 0.65 : 1));
       for (let i = 0; i < count; i++) {
         const s = strands[i];
@@ -177,7 +189,7 @@ export function createSceneRenderer(
         context.lineWidth = demo ? 1.35 : 1.1;
         for (let section = 0; section < 4; section++) {
           context.globalAlpha =
-            (Math.max(0, fade) * (demo ? 0.64 : motion === 'calm' ? 0.08 : 0.16) * (section + 1)) /
+            (Math.max(0, fade) * (demo ? 0.64 : motion === 'calm' ? 0.105 : coarse ? 0.255 : 0.21) * (section + 1)) /
             4;
           const from = Math.floor((section * (s.tail.length - 1)) / 4);
           const to = Math.floor(((section + 1) * (s.tail.length - 1)) / 4);
@@ -187,16 +199,40 @@ export function createSceneRenderer(
           if (section === 3) context.lineTo(s.point.x, s.point.y);
           context.stroke();
         }
+        context.globalAlpha = Math.max(0, fade) * (demo ? 0.68 : motion === 'calm' ? 0.11 : 0.3);
+        context.fillStyle = i % 4 === 0 ? ink : accent;
+        context.beginPath();
+        context.arc(s.point.x, s.point.y, demo ? 1.6 : 1.15, 0, Math.PI * 2);
+        context.fill();
       }
     } else {
       context.strokeStyle = accent;
       context.lineWidth = demo ? 1 : 0.85;
       context.globalAlpha = demo ? 0.35 : motion === 'calm' ? 0.075 : 0.14;
       context.stroke(contourPath);
+      for (const [point, label] of [
+        [{ x: -1, y: -0.35 }, 'minimum'],
+        [{ x: 1, y: 0.35 }, 'minimum'],
+        [{ x: 0, y: 0 }, 'saddle'],
+      ] as const) {
+        const p = project(point);
+        context.beginPath();
+        context.arc(p.x, p.y, label === 'saddle' ? (demo ? 3 : 2) : (demo ? 5 : 3), 0, Math.PI * 2);
+        context.strokeStyle = label === 'saddle' ? ink : accent;
+        context.globalAlpha = demo ? 0.7 : motion === 'calm' ? 0.09 : 0.22;
+        context.stroke();
+        if (demo) {
+          context.globalAlpha = 0.8;
+          context.fillStyle = ink;
+          context.font = '11px system-ui';
+          context.textAlign = 'left';
+          context.fillText(label, p.x + 8, p.y - 7);
+        }
+      }
       for (const t of trajectories) {
         if ((method === 'gd' && t.momentum) || (method === 'momentum' && !t.momentum)) continue;
         const fade = demo ? 1 : Math.min(1, (runAge + 0.3) / 2, Math.max(0, (5 - dwell) / 2));
-        context.globalAlpha = (demo ? 0.92 : 0.38) * fade;
+        context.globalAlpha = (demo ? 0.92 : 0.49) * fade;
         context.strokeStyle = t.momentum ? ink : accent;
         context.fillStyle = t.momentum ? ink : accent;
         context.lineWidth = demo ? 2 : 1.4;
@@ -300,7 +336,7 @@ export function createSceneRenderer(
       contourPath.moveTo(a.x, a.y);
       contourPath.lineTo(b.x, b.y);
     });
-    if (scene === 'flow') strands = Array.from({ length: coarse ? 28 : 90 }, newStrand);
+    if (scene === 'flow') strands = Array.from({ length: coarse ? 42 : 90 }, newStrand);
     draw();
   }
   function refreshPalette() {
@@ -362,7 +398,7 @@ export function createSceneRenderer(
         .filter((t) => method === 'both' || (method === 'momentum') === t.momentum)
         .map(
           (t) =>
-            `${t.momentum ? 'Momentum' : 'Gradient descent'}: ${t.status}, loss ${landscapeLoss(t.point).toFixed(4)}, ${t.iterations} steps${t.status === 'diverged' ? ' — non-finite update; reduce the step size' : t.status === 'outside plot' ? ' — stopped at the plot boundary, not necessarily divergent; try a smaller step size' : ''}`
+            `${t.momentum ? 'Momentum' : 'Gradient descent'}: ${t.status}, loss ${landscapeLoss(t.point).toFixed(4)}, ${t.iterations} steps${t.status === 'diverged' ? ' — non-finite update; reduce the step size' : t.status === 'outside plot' ? ' — stopped at the plot boundary, not necessarily divergent; try a smaller step size' : Math.hypot(t.point.x, t.point.y) < 0.01 && t.status === 'converged' ? ' — stationary saddle, not a minimum' : ''}`
         )
         .join(' · ');
     },

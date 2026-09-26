@@ -1,12 +1,12 @@
 /** Pure preferences and mathematics shared by the ambient scenes and their demos. */
-export type BackgroundScene = 'cells' | 'flow' | 'landscape' | 'off';
+export type BackgroundScene = 'cells' | 'flow' | 'landscape' | 'morph' | 'off';
 export type BackgroundMotion = 'ambient' | 'calm' | 'paused';
 export interface BackgroundPreference {
   scene: BackgroundScene;
   motion: BackgroundMotion;
 }
 export const BACKGROUND_KEY = 'khc-background-v1';
-export const SCENES = ['cells', 'flow', 'landscape', 'off'] as const;
+export const SCENES = ['cells', 'flow', 'landscape', 'morph', 'off'] as const;
 export const MOTIONS = ['ambient', 'calm', 'paused'] as const;
 
 export function resolveBackground(raw: string | null, legacy: string | null): BackgroundPreference {
@@ -105,6 +105,14 @@ export function flowVelocity(x: number, y: number, time: number): Point {
   return { x: vx + 0.17, y: vy + 0.11 };
 }
 
+/** Midpoint integration follows the changing field more accurately than a single Euler sample. */
+export function advectFlow(point: Point, time: number, dt: number, travel = 1): Point {
+  const first = flowVelocity(point.x, point.y, time);
+  const mid = { x: point.x + first.x * travel * dt / 2, y: point.y + first.y * travel * dt / 2 };
+  const second = flowVelocity(mid.x, mid.y, time + dt / 2);
+  return { x: point.x + second.x * travel * dt, y: point.y + second.y * travel * dt };
+}
+
 /** Contour segments, computed once per landscape; ambiguous saddle cells split deterministically. */
 export function landscapeContours(resolution = 90): Array<{ level: number; a: Point; b: Point }> {
   const levels = [0.025, 0.07, 0.14, 0.24, 0.38, 0.58, 0.85, 1.2, 1.65, 2.2, 2.9, 3.7, 4.6, 5.7];
@@ -122,18 +130,28 @@ export function landscapeContours(resolution = 90): Array<{ level: number; a: Po
       ];
       const values = corners.map(landscapeLoss);
       for (const level of levels) {
-        const hits: Point[] = [];
+        const hits: Array<Point | undefined> = [undefined, undefined, undefined, undefined];
         for (let edge = 0; edge < 4; edge++) {
           const next = (edge + 1) % 4;
           if (values[edge] < level === values[next] < level) continue;
           const weight = (level - values[edge]) / (values[next] - values[edge]);
-          hits.push({
+          hits[edge] = {
             x: corners[edge].x + weight * (corners[next].x - corners[edge].x),
             y: corners[edge].y + weight * (corners[next].y - corners[edge].y),
-          });
+          };
         }
-        for (let i = 0; i + 1 < hits.length; i += 2)
-          result.push({ level, a: hits[i], b: hits[i + 1] });
+        const active = hits.flatMap((point, edge) => point ? [edge] : []);
+        if (active.length === 2) {
+          result.push({ level, a: hits[active[0]]!, b: hits[active[1]]! });
+        } else if (active.length === 4) {
+          // Connect around corners opposite to the centre. Pairing consecutive
+          // edge hits unconditionally gives the wrong topology on one side of a saddle.
+          const centerIsLow = landscapeLoss({ x: x + step / 2, y: y + step / 2 }) < level;
+          for (let corner = 0; corner < 4; corner++) {
+            if ((values[corner] < level) === centerIsLow) continue;
+            result.push({ level, a: hits[(corner + 3) % 4]!, b: hits[corner]! });
+          }
+        }
       }
     }
   return result;
