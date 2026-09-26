@@ -70,6 +70,7 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
 
   <section class="section home-section container" data-reveal>
     <SectionHeading eyebrow="What I work on" title="Research" href="/research/" more="All research" />
+    <div class="home-morph-window" data-background-stage="cell" aria-hidden="true"></div>
     <div class="home-research">
       {research.map((entry) => <ResearchCard entry={entry} variant="home" />)}
     </div>
@@ -91,6 +92,7 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
       href="/publications/"
       more="All publications"
     />
+    <div class="home-morph-window" data-background-stage="signal" aria-hidden="true"></div>
     <ol class="home-pubs">
       {pubs.map((pub) => <li><PublicationItem pub={pub} compact /></li>)}
     </ol>
@@ -240,6 +242,19 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
 </BaseLayout>
 
 <style>
+  .home-morph-window {
+    display: none;
+    height: clamp(230px, 24vw, 280px);
+    pointer-events: none;
+  }
+  :global(html[data-background-scene='morph']) .home-morph-window {
+    display: block;
+  }
+  @media (max-width: 640px) {
+    .home-morph-window {
+      height: 220px;
+    }
+  }
   .home-research {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));

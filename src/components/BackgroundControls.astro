@@ -3,6 +3,7 @@ const scenes = [
   ['cells', 'Cells'],
   ['flow', 'Flow Field'],
   ['landscape', 'Learning Landscape'],
+  ['morph', 'Genome → Cell'],
   ['off', 'Off'],
 ];
 const motions = [
@@ -73,6 +74,9 @@ const motions = [
   }
   .background-choices {
     grid-template-columns: 1fr 1fr;
+  }
+  .background-choices button[data-background-scene='off'] {
+    grid-column: 1 / -1;
   }
   .background-motions {
     grid-template-columns: repeat(3, 1fr);

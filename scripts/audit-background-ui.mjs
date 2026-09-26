@@ -3,9 +3,12 @@ import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, webkit } from 'playwright';
+import { preview } from 'astro';
 
-// Run against `npm run dev` or `npm run preview`; screenshots stay out of the repo.
-const baseURL = process.env.BACKGROUND_UI_BASE_URL || 'http://127.0.0.1:4321';
+// Local mode uses a running server; --ci owns a preview of the already-built dist/.
+const ci = process.argv.includes('--ci');
+const baseURL = process.env.BACKGROUND_UI_BASE_URL || (ci ? 'http://127.0.0.1:4337' : 'http://127.0.0.1:4321');
+const previewServer = ci ? await preview({ root: process.cwd(), server: { host: '127.0.0.1', port: 4337 } }) : null;
 const artifacts = await mkdtemp(join(tmpdir(), 'khc-background-'));
 const engines = process.env.BACKGROUND_UI_BROWSERS?.split(',') || ['chromium', 'webkit'];
 const errors = [];
@@ -127,6 +130,55 @@ for (const name of engines) {
       );
       await page.locator('[data-background-close]').click();
 
+      await choose(page, 'scene', 'morph');
+      await page.keyboard.press('Escape');
+      await page.waitForFunction(() => document.querySelector('[data-art-bg-canvas]')?.dataset.bgScene === 'morph');
+      await page.evaluate(() => scrollTo(0, 0));
+      await page.waitForTimeout(700);
+      assert.ok((await frames(page)) > 5, 'particle scene must animate');
+      await page.screenshot({ path: join(artifacts, `${label}-morph-dna.png`) });
+      for (const [stage, threshold] of [['cell', 0.43], ['signal', 0.9]]) {
+        await page.evaluate((name) => {
+          const element = document.querySelector(`[data-background-stage="${name}"]`);
+          const rect = element.getBoundingClientRect();
+          scrollTo({ top: rect.top + scrollY + rect.height / 2 - innerHeight / 2, behavior: 'instant' });
+        }, stage);
+        await page.waitForFunction((minimum) =>
+          Number(document.querySelector('[data-art-bg-canvas]')?.dataset.bgProgress) > minimum,
+          threshold
+        );
+        await page.waitForTimeout(900);
+        const visiblePixels = await page.evaluate((name) => {
+          const canvas = document.querySelector('[data-art-bg-canvas]');
+          const window = document.querySelector(`[data-background-stage="${name}"]`).getBoundingClientRect();
+          const ratio = canvas.width / canvas.clientWidth;
+          const data = canvas.getContext('2d').getImageData(
+            Math.max(0, Math.round(window.left * ratio)),
+            Math.max(0, Math.round(window.top * ratio)),
+            Math.min(canvas.width, Math.round(window.width * ratio)),
+            Math.min(canvas.height, Math.round(window.height * ratio))
+          ).data;
+          let count = 0;
+          for (let i = 3; i < data.length; i += 4) if (data[i] > 10) count++;
+          return count;
+        }, stage);
+        assert.ok(visiblePixels > 50, `${stage} form must be visible in its reading-safe window`);
+        await page.screenshot({ path: join(artifacts, `${label}-morph-${stage}.png`) });
+      }
+      await openAppearance(page);
+      await page.locator('[data-background-explore]').click();
+      await page.locator('[data-background-dialog]').waitFor({ state: 'visible' });
+      await page.locator('[data-background-scrub]').evaluate((input) => {
+        input.value = '0.5';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      assert.match(await page.locator('[data-background-demo-status]').textContent(), /Cell membrane/);
+      await page.locator('[data-background-form="1"]').click();
+      assert.match(await page.locator('[data-background-demo-status]').textContent(), /expression signal/i);
+      await still(page, true);
+      await page.screenshot({ path: join(artifacts, `${label}-morph-demo.png`) });
+      await page.locator('[data-background-close]').click();
+
       await choose(page, 'scene', 'off');
       assert.equal(await page.locator('[data-site-bg-canvas]').isVisible(), false);
       assert.equal(await page.locator('[data-art-bg-canvas]').isVisible(), false);
@@ -174,6 +226,16 @@ for (const name of engines) {
       await page.locator('[data-background-step]').click();
       assert.match(await page.locator('[data-background-demo-status]').textContent(), /1 steps/);
       await page.keyboard.press('Escape');
+      await choose(page, 'scene', 'morph');
+      await page.keyboard.press('Escape');
+      await still(page);
+      await openAppearance(page);
+      await page.locator('[data-background-explore]').click();
+      assert.equal(await page.locator('[data-background-play]').isDisabled(), true);
+      await still(page, true);
+      await page.locator('[data-background-form="0.5"]').click();
+      assert.match(await page.locator('[data-background-demo-status]').textContent(), /Cell membrane/);
+      await page.locator('[data-background-close]').click();
       if (phone) {
         await page.setViewportSize({ width: 320, height: 568 });
         await openAppearance(page);
@@ -218,3 +280,4 @@ for (const name of engines) {
 }
 assert.deepEqual(errors, [], 'browser runtime errors');
 console.log(`[background-ui] Passed. Screenshots: ${artifacts}`);
+await previewServer?.stop();

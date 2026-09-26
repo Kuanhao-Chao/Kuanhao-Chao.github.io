@@ -7,7 +7,8 @@ import {
   type BackgroundPreference,
 } from '../lib/backgroundModel';
 import { getLivingCellsEngine } from '../lib/livingCellsEngine';
-import type { SceneRenderer } from '../lib/backgroundRenderer';
+import type { SceneRenderer } from '../lib/sceneRenderer';
+import { storyProgress } from '../lib/morphModel';
 
 let preference: BackgroundPreference = { scene: 'cells', motion: 'ambient' };
 let renderer: SceneRenderer | null = null;
@@ -27,6 +28,7 @@ let dialog: HTMLDialogElement | null = null;
 let focusBefore: HTMLElement | null = null;
 let scrollBefore = '';
 let selecting = false;
+let storyAnchors: { hero: number; cell: number; signal: number } | null = null;
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const active = () =>
   backgroundRouteAllowed(location.pathname) && !!document.querySelector('[data-site-bg-canvas]');
@@ -103,12 +105,31 @@ function collectBounds() {
     'main h1, main h2, main h3, main h4, main h5, main h6, main a, main label, main p, main li, main dt, main dd, main blockquote, main pre, main table, main button, main input, main select, main summary, main img, main canvas, main iframe, main video, main audio, main [data-terminal], main [data-cell-protected], main [data-background-protected], header.site-header, footer';
   document.querySelectorAll<HTMLElement>(selector).forEach((element) => {
     if (element.closest('[data-background-dialog]')) return;
+    // Closed <details> descendants can retain nonempty client rects in some
+    // engines even though only their summary is painted. Do not erase art for them.
+    if (element.closest('details:not([open]) > :not(summary)')) return;
     for (const r of element.getClientRects()) {
       if (r.width && r.height)
         bounds.push({ x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height });
     }
   });
+  const chapter = (name: string) => {
+    const element = document.querySelector<HTMLElement>(`[data-background-stage="${name}"]`);
+    const rect = element?.getBoundingClientRect();
+    return rect ? rect.top + scrollY + rect.height / 2 : null;
+  };
+  const hero = chapter('dna'), cell = chapter('cell'), signal = chapter('signal');
+  storyAnchors = hero !== null && cell !== null && signal !== null
+    ? { hero, cell, signal } : null;
   paintMask();
+}
+function updateStory() {
+  if (!renderer?.setProgress || preference.scene !== 'morph') return;
+  const a = storyAnchors;
+  const progress = a
+    ? storyProgress(scrollY + innerHeight / 2, a.hero, a.cell, a.signal)
+    : 0.5;
+  if (Math.abs((renderer.getProgress?.() ?? -1) - progress) > 0.002) renderer.setProgress(progress);
 }
 function paintMask() {
   maskRaf = 0;
@@ -132,6 +153,7 @@ function paintMask() {
     ctx.fillRect(x - 6, y - 6, rect.w + 12, rect.h + 12);
   }
   ctx.shadowBlur = 0;
+  updateStory();
   // The fixed header does not move with the document-coordinate boxes above.
   const header = $('.site-header');
   if (header) {
@@ -155,6 +177,7 @@ function detach() {
   canvas = null;
   mask = null;
   bounds = [];
+  storyAnchors = null;
   cancelAnimationFrame(maskRaf);
   maskRaf = 0;
 }
@@ -181,12 +204,20 @@ async function attach() {
     engine.attach(cells);
   } else {
     try {
-      const { createSceneRenderer } = await import('../lib/backgroundRenderer');
+      const makeRenderer = preference.scene === 'morph'
+        ? (await import('../lib/morphRenderer')).createMorphRenderer
+        : (await import('../lib/backgroundRenderer')).createSceneRenderer;
       if (token !== generation || !canvas) return;
       canvas.hidden = false;
       canvas.dataset.bgScene = preference.scene;
       delete canvas.dataset.bgFallback;
-      renderer = createSceneRenderer(canvas, preference.scene);
+      renderer = preference.scene === 'morph'
+        ? (makeRenderer as typeof import('../lib/morphRenderer').createMorphRenderer)(
+            canvas, false, location.pathname === '/', location.pathname === '/' && scrollY < 40 && !reduced() && preference.motion === 'ambient'
+          )
+        : (makeRenderer as typeof import('../lib/backgroundRenderer').createSceneRenderer)(
+            canvas, preference.scene as 'flow' | 'landscape'
+          );
       renderer.setMotion(preference.motion);
       mask = document.createElement('canvas');
       collectBounds();
@@ -244,6 +275,14 @@ function updateDemoStatus(announce = false) {
     play.textContent = demoPlaying ? 'Pause' : 'Play';
     play.disabled = reduced();
   }
+  const progress = demo?.getProgress?.();
+  const scrub = $<HTMLInputElement>('[data-background-scrub]');
+  if (scrub && progress !== undefined) scrub.value = String(progress);
+  document.querySelectorAll<HTMLButtonElement>('[data-background-form]').forEach((button) => {
+    const selected = progress !== undefined &&
+      Math.abs(progress - Number(button.dataset.backgroundForm)) < 0.08;
+    button.setAttribute('aria-pressed', String(selected));
+  });
 }
 function closeDemo() {
   demoGeneration++;
@@ -287,19 +326,24 @@ async function openDemo() {
   host.showModal();
   $('[data-background-close]')?.focus();
   $('[data-background-demo-title]')!.textContent =
-    scene === 'flow' ? 'Flow Field' : 'Learning Landscape';
+    scene === 'flow' ? 'Flow Field' : scene === 'landscape' ? 'Learning Landscape' : 'Genome to Cell';
   $('[data-background-description]')!.textContent =
     scene === 'flow'
-      ? 'Fine strands follow a smooth curl field. Move over the canvas, tap, or add a temporary vortex. This is procedural computational art.'
-      : 'An illustrative two-dimensional objective: L(x,y) = ¼(x² − 1)² + ½(y − 0.35x)². Compare two optimizers on the same terrain. This is a toy function, not a trained model’s loss surface.';
+      ? 'Fine strands follow a smooth curl field. Small arrows show local direction. Move over the canvas, tap, or add a temporary vortex. This is procedural art, not a fluid simulation.'
+      : scene === 'landscape'
+        ? 'An illustrative two-dimensional objective: L(x,y) = ¼(x² − 1)² + ½(y − 0.35x)². Compare two optimizers on the same terrain. This is a toy function, not a trained model’s loss surface.'
+        : 'Dots form DNA and regulatory motifs, an irregular cell, then an illustrative expression signal. Scrub the transition or tap to nudge the dots. These are explanatory forms, not measured data or a biological simulation.';
   $('[data-background-flow-controls]')!.hidden = scene !== 'flow';
   $('[data-background-landscape-controls]')!.hidden = scene !== 'landscape';
   $('[data-background-legend]')!.hidden = scene !== 'landscape';
+  $('[data-background-morph-controls]')!.hidden = scene !== 'morph';
   surface.setAttribute(
     'aria-label',
     scene === 'flow'
       ? 'Flow field with temporary interactive vortices'
-      : 'Contour map comparing gradient descent and momentum; coordinate controls below'
+      : scene === 'landscape'
+        ? 'Contour map comparing gradient descent and momentum; coordinate controls below'
+        : 'Particles morph from DNA to a cell to an illustrative expression signal; controls below'
   );
   for (const [key, value] of [
     ['strength', '1'],
@@ -314,9 +358,13 @@ async function openDemo() {
   notify();
   applyRunning();
   try {
-    const { createSceneRenderer } = await import('../lib/backgroundRenderer');
+    const makeRenderer = scene === 'morph'
+      ? (await import('../lib/morphRenderer')).createMorphRenderer
+      : (await import('../lib/backgroundRenderer')).createSceneRenderer;
     if (token !== demoGeneration || !dialog?.open) return;
-    demo = createSceneRenderer(surface, scene, true);
+    demo = scene === 'morph'
+      ? (makeRenderer as typeof import('../lib/morphRenderer').createMorphRenderer)(surface, true)
+      : (makeRenderer as typeof import('../lib/backgroundRenderer').createSceneRenderer)(surface, scene as 'flow' | 'landscape', true);
     demoPlaying = !reduced();
     applyRunning();
     updateDemoStatus(true);
@@ -357,6 +405,20 @@ function bindDemo() {
   });
   host.querySelector('[data-background-reset]')?.addEventListener('click', () => {
     demo?.reset();
+    updateDemoStatus(true);
+  });
+  host.querySelectorAll<HTMLButtonElement>('[data-background-form]').forEach((button) => {
+    button.addEventListener('click', () => {
+      demoPlaying = false;
+      applyRunning();
+      demo?.setProgress?.(Number(button.dataset.backgroundForm));
+      updateDemoStatus(true);
+    });
+  });
+  host.querySelector<HTMLInputElement>('[data-background-scrub]')?.addEventListener('input', (event) => {
+    demoPlaying = false;
+    applyRunning();
+    demo?.setProgress?.(Number((event.target as HTMLInputElement).value));
     updateDemoStatus(true);
   });
   host.querySelector('[data-background-vortex]')?.addEventListener('click', () => {
