@@ -5,7 +5,9 @@ import {
   MORPH_ROLES,
   playbackProgress,
   playbackTime,
+  particleVisibility,
   sampleCell,
+  sampleCellParticle,
   sampleDna,
   sampleMorph,
   signalHeight,
@@ -18,7 +20,7 @@ import {
 const point = (): MorphPoint => ({ x: 0, y: 0, z: 0, alpha: 1 });
 describe('dimensional genome-to-cell story', () => {
   it('keeps all anatomical groups at phone size and minimum quality', () => {
-    for (const count of [300, 340, 760, 820]) {
+    for (const count of [1000, 1600, 3200, 5000]) {
       const particles = createMorphParticles(count);
       expect(particles).toEqual(createMorphParticles(count));
       expect(particles).toHaveLength(count);
@@ -27,6 +29,68 @@ describe('dimensional genome-to-cell story', () => {
           particles.filter((p) => p.role === role && visibleParticle(p, 0.35)).length
         ).toBeGreaterThan(2);
       }
+    }
+  });
+  it('fills surfaces and interiors while preserving anatomical containment', () => {
+    const p = point();
+    for (const time of [0, 30, 80]) {
+      for (const particle of createMorphParticles(5000)) {
+        sampleCellParticle(particle, time, p);
+        expect([p.x, p.y, p.z, p.alpha].every(Number.isFinite)).toBe(true);
+        const theta = Math.atan2(p.y / 0.79, p.x);
+        // A 3D shell projects inside its outer silhouette, with slight angular irregularity.
+        expect(Math.hypot(p.x, p.y / 0.79)).toBeLessThanOrEqual(cellRadius(theta, time) + 0.001);
+        if (particle.role === 'chromatin' || particle.role === 'nucleolus') {
+          expect(((p.x + 0.13) / 0.29) ** 2 + ((p.y + 0.07) / 0.25) ** 2).toBeLessThan(1);
+        }
+        if (particle.role === 'cytoplasm') {
+          expect(((p.x + 0.13) / 0.34) ** 2 + ((p.y + 0.07) / 0.3) ** 2).toBeGreaterThan(0.999);
+        }
+      }
+    }
+    const shell = createMorphParticles(1000).filter((p) => p.role === 'membrane');
+    const depths = shell.map((particle) => {
+      sampleCellParticle(particle, 0, p);
+      return p.z;
+    });
+    expect(Math.min(...depths)).toBeLessThan(-0.4);
+    expect(Math.max(...depths)).toBeGreaterThan(0.4);
+  });
+  it('keeps every particle participating in complete forms and transformations', () => {
+    const out = point(),
+      scratch = point();
+    for (const p of createMorphParticles(1600)) {
+      for (const stage of [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1]) {
+        sampleMorph(p, stage, 3, out, scratch);
+        expect(out.alpha).toBeGreaterThan(0.1);
+        expect(out.alpha).toBeLessThanOrEqual(1);
+        expect([out.x, out.y, out.z].every(Number.isFinite)).toBe(true);
+        expect(Math.max(Math.abs(out.x), Math.abs(out.y), Math.abs(out.z))).toBeLessThan(1.3);
+      }
+    }
+  });
+  it('returns the same geometry after reverse scrubbing and settles smoothly at endpoints', () => {
+    const a = point(),
+      b = point(),
+      scratch = point();
+    for (const p of createMorphParticles(1000)) {
+      sampleMorph(p, 0.25, 3, a, scratch);
+      sampleMorph(p, 0.9, 3, b, scratch);
+      sampleMorph(p, 0.25, 3, b, scratch);
+      expect(b).toEqual(a);
+      for (const endpoint of [0, 0.5, 1]) {
+        sampleMorph(p, endpoint, 3, a, scratch);
+        sampleMorph(p, endpoint + (endpoint === 1 ? -1 : 1) * 0.00001, 3, b, scratch);
+        expect(Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)).toBeLessThan(0.000001);
+      }
+    }
+  });
+  it('fades quality changes without changing surviving particle identities', () => {
+    for (const p of createMorphParticles(1000)) {
+      const end = visibleParticle(p, 0.35) ? 1 : 0;
+      expect(particleVisibility(p, 1, 0.35, 0)).toBe(1);
+      expect(particleVisibility(p, 1, 0.35, 0.5)).toBe((1 + end) / 2);
+      expect(particleVisibility(p, 1, 0.35, 1)).toBe(end);
     }
   });
   it('keeps chromatin in the nucleus and organelles inside the deforming membrane', () => {

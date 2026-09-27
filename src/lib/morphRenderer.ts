@@ -4,14 +4,14 @@ import {
   createMorphParticles,
   playbackProgress,
   playbackTime,
+  particleVisibility,
   sampleMito,
   sampleMorph,
+  sampleStructureMorph,
   signalHeight,
   smoothstep,
-  springStep,
   TAU,
-  visibleParticle,
-  type MorphParticle,
+  type MorphAnchor,
   type MorphPoint,
   type MorphRole,
 } from './morphModel';
@@ -31,14 +31,18 @@ export function createMorphRenderer(
   delete canvas.dataset.bgFallback;
   const coarse = matchMedia('(pointer: coarse)').matches;
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const particles = createMorphParticles(demo ? (coarse ? 340 : 760) : coarse ? 300 : 820);
+  const particles = createMorphParticles(demo ? (coarse ? 1600 : 5000) : coarse ? 1000 : 3200);
   // Screen coordinates/depth/opacity and normalized interaction displacements.
   const positions = new Float32Array(particles.length * 4);
   const offsets = new Float32Array(particles.length * 4);
+  // Linked buckets: six depth bands × two inks × three sizes × twelve opacities.
+  // Build once per frame without sorting, allocating arrays, or drawing each dot separately.
+  const bucketHeads = new Int32Array(6 * 2 * 3 * 12);
+  const nextParticle = new Int32Array(particles.length);
   const point: MorphPoint = { x: 0, y: 0, z: 0, alpha: 1 };
   const scratch: MorphPoint = { ...point },
     other: MorphPoint = { ...point };
-  const pathParticle: MorphParticle = { role: 'membrane', t: 0, variant: 0, rank: 0 };
+  const pathParticle: MorphAnchor = { role: 'membrane', t: 0, variant: 0, rank: 0 };
   let width = 1,
     height = 1,
     dpr = 1,
@@ -62,6 +66,8 @@ export function createMorphRenderer(
     last = 0,
     labels = false;
   let quality = 1,
+    previousQuality = 1,
+    qualityAge = 0.4,
     costly = 0,
     slow = 0,
     fps = demo ? (coarse ? 30 : 60) : coarse ? 20 : 24;
@@ -102,7 +108,7 @@ export function createMorphRenderer(
     pathParticle.role = role;
     pathParticle.t = t;
     pathParticle.variant = variant;
-    sampleMorph(
+    sampleStructureMorph(
       pathParticle,
       drawingCell ? Math.min(0.5, displayed) : displayed,
       clock,
@@ -124,7 +130,7 @@ export function createMorphRenderer(
     if (closed) context.closePath();
   }
   function opacity() {
-    return demo ? 0.88 : motion === 'calm' ? 0.23 : coarse ? 0.42 : 0.38;
+    return demo ? 0.94 : motion === 'calm' ? 0.23 : home ? (coarse ? 0.5 : 0.48) : 0.32;
   }
   function shape(role: MorphRole, variant: number, fill: number, line: number, inset = 1) {
     sample(role, 0, variant);
@@ -132,11 +138,11 @@ export function createMorphRenderer(
     if (alpha < 0.005) return;
     path(role, variant, true, inset);
     if (fill) {
-      context.globalAlpha = alpha * fill;
+      context.globalAlpha = alpha * fill * 0.45;
       context.fillStyle = accent;
       context.fill();
     }
-    context.globalAlpha = alpha * line;
+    context.globalAlpha = alpha * line * 0.22;
     context.strokeStyle = accent;
     context.lineWidth = demo ? 1.25 : 1;
     context.stroke();
@@ -153,7 +159,7 @@ export function createMorphRenderer(
       other.z = point.z;
       sample('chromatin', t, 0);
       if (point.z < 0 !== back) continue;
-      context.globalAlpha = opacity() * weight * (t > 0.39 && t < 0.54 ? 0.65 : 0.26);
+      context.globalAlpha = opacity() * weight * (t > 0.39 && t < 0.54 ? 0.13 : 0.05);
       context.strokeStyle = t > 0.39 && t < 0.54 ? ink : accent;
       context.lineWidth = demo ? 1.6 : 1;
       context.beginPath();
@@ -167,7 +173,7 @@ export function createMorphRenderer(
       for (let i = 0; i <= 96; i++) {
         sample('chromatin', i / 96, strand);
         if (i && point.z < 0 === back) {
-          context.globalAlpha = opacity() * weight * (back ? 0.38 : 0.9);
+          context.globalAlpha = opacity() * weight * (back ? 0.07 : 0.16);
           context.strokeStyle = accent;
           context.lineWidth = demo ? (back ? 1.6 : 2.6) : back ? 1 : 1.5;
           context.beginPath();
@@ -200,7 +206,7 @@ export function createMorphRenderer(
     glow.addColorStop(0.7, surface);
     glow.addColorStop(1, accent);
     context.fillStyle = glow;
-    context.globalAlpha = alpha * 0.19;
+    context.globalAlpha = alpha * 0.07;
     context.fill();
     // Keep anatomy intact; fade structures while their particles form the ribbon.
     context.save();
@@ -212,7 +218,7 @@ export function createMorphRenderer(
     const cellWeight = smoothstep(displayed / 0.5) * leave;
     for (let strand = 0; strand < 2; strand++) {
       path('chromatin', strand);
-      context.globalAlpha = opacity() * cellWeight * 0.44;
+      context.globalAlpha = opacity() * cellWeight * 0.07;
       context.lineWidth = demo ? 1.1 : 0.8;
       context.strokeStyle = accent;
       context.stroke();
@@ -222,7 +228,7 @@ export function createMorphRenderer(
     path('er');
     context.strokeStyle = accent;
     context.lineWidth = demo ? 2.4 : 1.4;
-    context.globalAlpha = erAlpha * 0.5;
+    context.globalAlpha = erAlpha * 0.12;
     context.stroke();
     for (const t of [0, 1]) {
       sample('nucleus', (-1.4 + t * 3.1) / TAU);
@@ -247,7 +253,7 @@ export function createMorphRenderer(
         else context.lineTo(point.x, point.y);
       }
       sample('mitochondria', 0, variant);
-      context.globalAlpha = point.alpha * opacity() * leave * 0.6;
+      context.globalAlpha = point.alpha * opacity() * leave * 0.14;
       context.lineWidth = demo ? 1.1 : 0.8;
       context.stroke();
     }
@@ -267,13 +273,13 @@ export function createMorphRenderer(
     }
     context.strokeStyle = accent;
     context.lineWidth = demo ? 2.1 : 1.3;
-    context.globalAlpha = opacity() * weight * 0.85;
+    context.globalAlpha = opacity() * weight * 0.18;
     context.stroke();
     context.lineTo(originX + scale, originY + 0.33 * scale);
     context.lineTo(originX - scale, originY + 0.33 * scale);
     context.closePath();
     context.fillStyle = accent;
-    context.globalAlpha = opacity() * weight * 0.1;
+    context.globalAlpha = opacity() * weight * 0.025;
     context.fill();
     context.beginPath();
     context.moveTo(originX - scale, originY + scale * 0.33);
@@ -336,8 +342,13 @@ export function createMorphRenderer(
     context.lineCap = 'round';
     context.lineJoin = 'round';
     const introBlend = smoothstep(introAge / 1.5);
+    bucketHeads.fill(-1);
+    let visible = 0;
     for (let i = 0; i < particles.length; i++) {
       const p = particles[i];
+      const visibility = particleVisibility(p, previousQuality, quality, qualityAge / 0.4);
+      positions[i * 4 + 3] = 0;
+      if (visibility <= 0) continue;
       sampleMorph(p, displayed, clock, point, scratch);
       if (introBlend < 1 && displayed < 0.02) {
         point.x += Math.sin(i * 2.39) * (1 - introBlend) * 0.55;
@@ -349,28 +360,40 @@ export function createMorphRenderer(
       positions[i * 4] = point.x;
       positions[i * 4 + 1] = point.y;
       positions[i * 4 + 2] = point.z;
-      positions[i * 4 + 3] = point.alpha;
+      positions[i * 4 + 3] = point.alpha * visibility;
+      const depth = Math.max(0, Math.min(5, Math.floor(((point.z + 0.55) / 1.1) * 6)));
+      const alpha = point.alpha * visibility * (0.65 + depth * 0.07);
+      if (alpha < 0.015) continue;
+      visible++;
+      const shade = Math.max(0, Math.min(11, Math.round(alpha * 12) - 1));
+      const size = Math.max(0, Math.min(2, Math.floor((p.size - 0.6) / 0.3)));
+      const color = p.role === 'nucleolus' ? 1 : 0;
+      const bucket = ((depth * 2 + color) * 3 + size) * 12 + shade;
+      nextParticle[i] = bucketHeads[bucket];
+      bucketHeads[bucket] = i;
     }
     drawDna(true);
     drawCell();
     drawSignal();
-    let visible = 0;
-    // Two depth buckets avoid an allocation/sort on every frame.
-    for (let layer = 0; layer < 2; layer++) {
-      if (layer === 1) drawDna(false);
-      for (let i = 0; i < particles.length; i++) {
-        const z = positions[i * 4 + 2],
-          alpha = positions[i * 4 + 3];
-        if ((z < 0 ? 0 : 1) !== layer || !visibleParticle(particles[i], quality) || alpha < 0.01)
-          continue;
-        visible++;
-        const radius = (demo ? 1.8 : coarse ? 1.35 : 1.2) * (1 + z * 1.1);
-        context.globalAlpha = opacity() * alpha * (z < 0 ? 0.5 : 0.9);
-        context.fillStyle = particles[i].role === 'nucleolus' ? ink : accent;
-        context.beginPath();
-        context.arc(positions[i * 4], positions[i * 4 + 1], radius, 0, TAU);
-        context.fill();
+    const dotScale = demo ? Math.max(0.85, Math.min(1.35, scale / 220)) : 0.9;
+    for (let bucket = 0; bucket < bucketHeads.length; bucket++) {
+      if (bucket === bucketHeads.length / 2) drawDna(false);
+      if (bucketHeads[bucket] < 0) continue;
+      const shade = bucket % 12;
+      const size = Math.floor(bucket / 12) % 3;
+      const color = Math.floor(bucket / 36) % 2;
+      const depth = Math.floor(bucket / 72);
+      const radius = (0.65 + size * 0.3) * dotScale * (0.85 + depth * 0.06);
+      context.globalAlpha = opacity() * ((shade + 1) / 12);
+      context.fillStyle = color ? ink : accent;
+      context.beginPath();
+      for (let i = bucketHeads[bucket]; i >= 0; i = nextParticle[i]) {
+        const x = positions[i * 4],
+          y = positions[i * 4 + 1];
+        context.moveTo(x + radius, y);
+        context.arc(x, y, radius, 0, TAU);
       }
+      context.fill();
     }
     drawLabels();
     context.globalAlpha = 1;
@@ -384,9 +407,11 @@ export function createMorphRenderer(
     canvas.dataset.bgTransitioning = String(!!tween);
     canvas.dataset.bgQuality = quality.toFixed(2);
     canvas.dataset.bgVisible = String(visible);
+    canvas.dataset.bgAllocated = String(particles.length);
     canvas.dataset.bgFrames = String(Number(canvas.dataset.bgFrames || 0) + 1);
   }
   function update(dt: number) {
+    qualityAge = Math.min(0.4, qualityAge + dt);
     if (running) {
       const speed = motion === 'calm' ? 0.45 : 1;
       clock += dt * speed;
@@ -409,14 +434,18 @@ export function createMorphRenderer(
     }
     if (kickAge > 0) {
       kickAge = Math.max(0, kickAge - dt);
+      const decay = Math.exp(-7 * dt);
       for (let i = 0; i < particles.length; i++) {
+        if (!positions[i * 4 + 3]) continue;
         const index = i * 4;
-        [offsets[index], offsets[index + 2]] = springStep(offsets[index], offsets[index + 2], dt);
-        [offsets[index + 1], offsets[index + 3]] = springStep(
-          offsets[index + 1],
-          offsets[index + 3],
-          dt
-        );
+        // Same exact spring as the model, applied in-place without per-dot tuples.
+        for (let axis = 0; axis < 2; axis++) {
+          const position = offsets[index + axis],
+            velocity = offsets[index + axis + 2];
+          const b = velocity + 7 * position;
+          offsets[index + axis] = (position + b * dt) * decay;
+          offsets[index + axis + 2] = (velocity - 7 * b * dt) * decay;
+        }
       }
       if (!kickAge) offsets.fill(0);
     }
@@ -435,7 +464,9 @@ export function createMorphRenderer(
       canvas.dataset.bgTicks = String(Number(canvas.dataset.bgTicks || 0) + 1);
       costly = cost > 10 ? costly + 1 : Math.max(0, costly - 1);
       if (costly > 20) {
+        previousQuality = quality;
         quality = Math.max(0.35, quality * 0.75);
+        qualityAge = 0;
         fps = Math.max(12, fps - 6);
         costly = 0;
       }
@@ -558,6 +589,7 @@ export function createMorphRenderer(
       if (!demo || !canAnimate()) return;
       const radius = Math.min(width, height) * 0.22;
       for (let i = 0; i < particles.length; i++) {
+        if (!positions[i * 4 + 3]) continue;
         const dx = positions[i * 4] - x,
           dy = positions[i * 4 + 1] - y,
           distance = Math.hypot(dx, dy);
