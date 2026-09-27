@@ -85,7 +85,7 @@ function notify() {
     explore.textContent = preference.scene === 'cells' ? 'Open Cell Lab ↗' : 'Explore background ↗';
   }
 }
-function applyRunning() {
+function applyAmbientRunning() {
   const suspended =
     !active() ||
     document.hidden ||
@@ -96,6 +96,9 @@ function applyRunning() {
   if (preference.scene === 'cells' && active())
     getLivingCellsEngine().setBackgroundSuspended(suspended);
   renderer?.setRunning(!suspended && !getSelection()?.toString());
+}
+function applyRunning() {
+  applyAmbientRunning();
   demo?.setRunning(demoPlaying && !document.hidden && !reduced());
 }
 function collectBounds() {
@@ -332,11 +335,13 @@ async function openDemo() {
       ? 'Fine strands follow a smooth curl field. Small arrows show local direction. Move over the canvas, tap, or add a temporary vortex. This is procedural art, not a fluid simulation.'
       : scene === 'landscape'
         ? 'An illustrative two-dimensional objective: L(x,y) = ¼(x² − 1)² + ½(y − 0.35x)². Compare two optimizers on the same terrain. This is a toy function, not a trained model’s loss surface.'
-        : 'Dots form DNA and regulatory motifs, an irregular cell, then an illustrative expression signal. Scrub the transition or tap to nudge the dots. These are explanatory forms, not measured data or a biological simulation.';
+        : 'Follow a rotating DNA helix into the nucleus of a living cell, then explore an illustrative expression profile. Choose a form, scrub the transition, or tap to gently stir the particles. Turn on structure labels for a closer look.';
   $('[data-background-flow-controls]')!.hidden = scene !== 'flow';
   $('[data-background-landscape-controls]')!.hidden = scene !== 'landscape';
   $('[data-background-legend]')!.hidden = scene !== 'landscape';
   $('[data-background-morph-controls]')!.hidden = scene !== 'morph';
+  const structureLabels = $<HTMLInputElement>('[data-background-labels]');
+  if (structureLabels) structureLabels.checked = false;
   surface.setAttribute(
     'aria-label',
     scene === 'flow'
@@ -411,14 +416,18 @@ function bindDemo() {
     button.addEventListener('click', () => {
       demoPlaying = false;
       applyRunning();
-      demo?.setProgress?.(Number(button.dataset.backgroundForm));
+      demo?.setProgress?.(Number(button.dataset.backgroundForm), { transition: 'smooth' });
       updateDemoStatus(true);
     });
   });
   host.querySelector<HTMLInputElement>('[data-background-scrub]')?.addEventListener('input', (event) => {
     demoPlaying = false;
     applyRunning();
-    demo?.setProgress?.(Number((event.target as HTMLInputElement).value));
+    demo?.setProgress?.(Number((event.target as HTMLInputElement).value), { transition: 'immediate' });
+    updateDemoStatus(true);
+  });
+  host.querySelector<HTMLInputElement>('[data-background-labels]')?.addEventListener('change', (event) => {
+    demo?.configure({ labels: (event.target as HTMLInputElement).checked });
     updateDemoStatus(true);
   });
   host.querySelector('[data-background-vortex]')?.addEventListener('click', () => {
@@ -544,11 +553,8 @@ export function initBackground() {
   });
   document.addEventListener('astro:page-load', onPage);
   document.addEventListener('visibilitychange', applyRunning);
-  document.addEventListener('selectionchange', () => {
-    if (getSelection()?.toString()) {
-      renderer?.setRunning(false);
-    } else applyRunning();
-  });
+  // Updating explorer text can change selection; it must not cancel its explicit transitions.
+  document.addEventListener('selectionchange', applyAmbientRunning);
   for (const event of ['khc:theme-change', 'khc:crt-change'])
     document.addEventListener(event, () => {
       renderer?.refreshPalette();

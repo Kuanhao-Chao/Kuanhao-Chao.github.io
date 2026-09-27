@@ -173,11 +173,42 @@ for (const name of engines) {
         input.dispatchEvent(new Event('input', { bubbles: true }));
       });
       assert.match(await page.locator('[data-background-demo-status]').textContent(), /Cell membrane/);
+      await page.locator('[data-background-form="0"]').click();
+      await page.waitForFunction(() => document.querySelector('[data-background-demo-canvas]').dataset.bgDisplayedProgress === '0.000');
+      await page.locator('[data-background-form="0.5"]').click();
+      assert.equal(await page.locator('[data-background-demo-canvas]').getAttribute('data-bg-transitioning'), 'true');
+      await page.waitForFunction(() => {
+        const c = document.querySelector('[data-background-demo-canvas]');
+        return c.dataset.bgDisplayedProgress === '0.500' && c.dataset.bgTransitioning === 'false';
+      });
+      await page.locator('[data-background-labels]').check();
+      assert.match(await page.locator('[data-background-demo-status]').textContent(), /Structure labels enabled/);
+      await page.screenshot({ path: join(artifacts, `${label}-morph-cell-labels.png`) });
       await page.locator('[data-background-form="1"]').click();
       assert.match(await page.locator('[data-background-demo-status]').textContent(), /expression signal/i);
+      await page.waitForFunction(() => document.querySelector('[data-background-demo-canvas]').dataset.bgTransitioning === 'false');
       await still(page, true);
       await page.screenshot({ path: join(artifacts, `${label}-morph-demo.png`) });
+      await page.locator('[data-background-form="0"]').click();
+      await page.waitForTimeout(150);
+      await page.locator('[data-background-play]').click();
+      await page.waitForTimeout(200);
+      await page.locator('[data-background-play]').click();
+      await still(page, true);
+      await page.locator('[data-background-reset]').click();
+      assert.equal(await page.locator('[data-background-demo-canvas]').getAttribute('data-bg-displayed-progress'), '0.000');
       await page.locator('[data-background-close]').click();
+      // Reverse scroll, then restore the selected scene through a hard reload.
+      await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
+      await page.waitForFunction(() => Number(document.querySelector('[data-art-bg-canvas]').dataset.bgDisplayedProgress) < 0.01);
+      await page.reload();
+      await page.waitForFunction(() => document.querySelector('[data-art-bg-canvas]')?.dataset.bgScene === 'morph');
+      await page.waitForTimeout(1800);
+      await page.evaluate(() => window.__khcTheme.set('dark'));
+      await page.screenshot({ path: join(artifacts, `${label}-morph-dark.png`) });
+      await page.evaluate(() => { window.__khcTheme.set('light'); window.__khcCrt.set('amber'); });
+      await page.screenshot({ path: join(artifacts, `${label}-morph-crt.png`) });
+      await page.evaluate(() => window.__khcCrt.set('off'));
 
       await choose(page, 'scene', 'off');
       assert.equal(await page.locator('[data-site-bg-canvas]').isVisible(), false);
@@ -235,6 +266,8 @@ for (const name of engines) {
       await still(page, true);
       await page.locator('[data-background-form="0.5"]').click();
       assert.match(await page.locator('[data-background-demo-status]').textContent(), /Cell membrane/);
+      assert.equal(await page.locator('[data-background-demo-canvas]').getAttribute('data-bg-displayed-progress'), '0.500');
+      assert.equal(await page.locator('[data-background-demo-canvas]').getAttribute('data-bg-transitioning'), 'false');
       await page.locator('[data-background-close]').click();
       if (phone) {
         await page.setViewportSize({ width: 320, height: 568 });

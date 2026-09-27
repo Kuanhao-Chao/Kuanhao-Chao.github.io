@@ -9,10 +9,16 @@ export interface SceneRenderer {
   setMask(mask: HTMLCanvasElement | null): void;
   reset(): void;
   step(): void;
-  configure(options: { strength?: number; rate?: number; method?: string; start?: Point }): void;
+  configure(options: {
+    strength?: number;
+    rate?: number;
+    method?: string;
+    start?: Point;
+    labels?: boolean;
+  }): void;
   interact(x: number, y: number): void;
   status(): string;
   dispose(): void;
-  setProgress?(progress: number): void;
+  setProgress?(progress: number, options?: { transition?: 'immediate' | 'smooth' }): void;
   getProgress?(): number;
 }
