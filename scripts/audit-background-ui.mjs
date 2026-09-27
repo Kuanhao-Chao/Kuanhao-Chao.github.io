@@ -136,6 +136,10 @@ for (const name of engines) {
       await page.evaluate(() => scrollTo(0, 0));
       await page.waitForTimeout(700);
       assert.ok((await frames(page)) > 5, 'particle scene must animate');
+      const ambientDensity = await page.locator('[data-art-bg-canvas]').evaluate((c) => ({ ...c.dataset }));
+      assert.equal(Number(ambientDensity.bgAllocated), phone ? 1000 : 3200);
+      assert.ok(Number(ambientDensity.bgVisible) >= Number(ambientDensity.bgAllocated) * 0.3,
+        'DNA must retain a dense cloud even at minimum adaptive quality');
       await page.screenshot({ path: join(artifacts, `${label}-morph-dna.png`) });
       for (const [stage, threshold] of [['cell', 0.43], ['signal', 0.9]]) {
         await page.evaluate((name) => {
@@ -189,6 +193,20 @@ for (const name of engines) {
       await page.waitForFunction(() => document.querySelector('[data-background-demo-canvas]').dataset.bgTransitioning === 'false');
       await still(page, true);
       await page.screenshot({ path: join(artifacts, `${label}-morph-demo.png`) });
+      for (const progress of [0, 0.25, 0.5, 0.75, 1]) {
+        await page.locator('[data-background-scrub]').evaluate((input, value) => {
+          input.value = String(value);
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        }, progress);
+        const density = await page.locator('[data-background-demo-canvas]').evaluate((c) => ({ ...c.dataset }));
+        assert.equal(Number(density.bgAllocated), phone ? 1600 : 5000);
+        assert.ok(Number(density.bgVisible) >= Number(density.bgAllocated) * 0.3,
+          `particle participation must survive at progress ${progress}`);
+        assert.equal(Number(density.bgDisplayedProgress), progress);
+        if (progress === 0.25 || progress === 0.75) {
+          await page.screenshot({ path: join(artifacts, `${label}-morph-transition-${progress}.png`) });
+        }
+      }
       await page.locator('[data-background-form="0"]').click();
       await page.waitForTimeout(150);
       await page.locator('[data-background-play]').click();
