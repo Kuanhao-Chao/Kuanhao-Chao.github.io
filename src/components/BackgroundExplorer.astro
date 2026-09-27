@@ -82,6 +82,9 @@
         <input data-background-scrub type="range" min="0" max="1" step="0.01" value="0"
           aria-label="Scrub from DNA through cell to expression signal" />
       </label>
+      <label class="background-label-toggle">
+        <input type="checkbox" data-background-labels /> Show structures
+      </label>
     </div>
   </div>
   <p class="background-demo-status" data-background-demo-status role="status" aria-live="polite">
@@ -174,6 +177,18 @@
   }
   .background-scrub-label input {
     width: 100%;
+  }
+  .background-label-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    cursor: pointer;
+  }
+  .background-label-toggle input {
+    width: 18px;
+    min-height: 18px;
+    accent-color: var(--color-accent);
   }
   label {
     display: grid;
