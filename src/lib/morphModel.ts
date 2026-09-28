@@ -98,6 +98,45 @@ export function particleVisibility(
   return a + (b - a) * smoothstep(blend);
 }
 
+/** Original decorative stream geometry, separate from the representative anatomy. */
+export function sampleMorphAtmosphere(
+  index: number,
+  count: number,
+  progress: number,
+  time: number,
+  out: MorphPoint
+): void {
+  const t = (index + 0.5) / Math.max(1, count);
+  const strand = index % 3;
+  const phase = t * TAU * 2.4 + (strand * TAU) / 3 + time * 0.055;
+  const cell = smoothstep(progress * 2);
+  const angle = t * TAU * 2 + (strand * TAU) / 3 + time * 0.035;
+  const radius = 0.98 + 0.1 * Math.sin(t * TAU * 5 + time * 0.09);
+  const dx = -1.1 + 2.2 * t,
+    dy = 0.37 * Math.cos(phase),
+    dz = 0.32 * Math.sin(phase);
+  out.x = dx + (radius * Math.cos(angle) - dx) * cell;
+  out.y = dy + (radius * 0.67 * Math.sin(angle) - dy) * cell;
+  out.z = dz + (0.25 * Math.sin(angle * 1.5 + strand) - dz) * cell;
+  out.alpha =
+    (0.1 + 0.15 * Math.sin(phase * 0.7) ** 2) * (1 - smoothstep((progress - 0.65) / 0.35));
+}
+
+/** Bounded local response. No effect outside the pointer's small influence area. */
+export function morphPointerFalloff(distance: number, radius: number): number {
+  return smoothstep(1 - distance / Math.max(1, radius));
+}
+
+/** Rotation without translating the subject or changing its scale. */
+export function rotateMorphPoint(out: MorphPoint, yaw: number, pitch: number): void {
+  const x = out.x * Math.cos(yaw) + out.z * Math.sin(yaw);
+  const z = out.z * Math.cos(yaw) - out.x * Math.sin(yaw);
+  const y = out.y * Math.cos(pitch) - z * Math.sin(pitch);
+  out.z = z * Math.cos(pitch) + out.y * Math.sin(pitch);
+  out.x = x;
+  out.y = y;
+}
+
 export function sampleDna(t: number, strand: number, time: number, out: MorphPoint): void {
   const phase = t * TAU * 2.4 + strand * Math.PI + (time * TAU) / 45;
   out.x = -0.98 + t * 1.96;

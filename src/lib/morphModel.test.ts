@@ -6,6 +6,9 @@ import {
   playbackProgress,
   playbackTime,
   particleVisibility,
+  sampleMorphAtmosphere,
+  rotateMorphPoint,
+  morphPointerFalloff,
   sampleCell,
   sampleCellParticle,
   sampleDna,
@@ -19,6 +22,33 @@ import {
 
 const point = (): MorphPoint => ({ x: 0, y: 0, z: 0, alpha: 1 });
 describe('dimensional genome-to-cell story', () => {
+  it('keeps decorative streams bounded and removes them from the final signal', () => {
+    const out = point(),
+      again = point();
+    for (const progress of [0, 0.25, 0.5, 0.75, 1]) {
+      for (let i = 0; i < 240; i++) {
+        sampleMorphAtmosphere(i, 240, progress, 17, out);
+        sampleMorphAtmosphere(i, 240, progress, 17, again);
+        expect(again).toEqual(out);
+        expect(Math.abs(out.x)).toBeLessThan(1.2);
+        expect(Math.abs(out.y)).toBeLessThan(0.8);
+        expect(out.alpha).toBeGreaterThanOrEqual(0);
+        expect(out.alpha).toBeLessThanOrEqual(0.25);
+        if (progress === 1) expect(out.alpha).toBe(0);
+      }
+    }
+  });
+  it('rotates without scaling and bounds pointer influence to a small radius', () => {
+    const out = { x: 0.8, y: -0.3, z: 0.4, alpha: 0.7 };
+    const length = Math.hypot(out.x, out.y, out.z);
+    rotateMorphPoint(out, 0.25, -0.1);
+    expect(Math.hypot(out.x, out.y, out.z)).toBeCloseTo(length, 12);
+    expect(out.alpha).toBe(0.7);
+    expect(morphPointerFalloff(0, 100)).toBe(1);
+    expect(morphPointerFalloff(50, 100)).toBe(0.5);
+    expect(morphPointerFalloff(100, 100)).toBe(0);
+    expect(morphPointerFalloff(1000, 100)).toBe(0);
+  });
   it('keeps all anatomical groups at phone size and minimum quality', () => {
     for (const count of [1000, 1600, 3200, 5000]) {
       const particles = createMorphParticles(count);
