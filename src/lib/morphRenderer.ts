@@ -5,6 +5,9 @@ import {
   playbackProgress,
   playbackTime,
   particleVisibility,
+  morphPointerFalloff,
+  rotateMorphPoint,
+  sampleMorphAtmosphere,
   sampleMito,
   sampleMorph,
   sampleStructureMorph,
@@ -35,9 +38,9 @@ export function createMorphRenderer(
   // Screen coordinates/depth/opacity and normalized interaction displacements.
   const positions = new Float32Array(particles.length * 4);
   const offsets = new Float32Array(particles.length * 4);
-  // Linked buckets: six depth bands × two inks × three sizes × twelve opacities.
+  // Linked buckets: six depth bands × three inks × three sizes × twelve opacities.
   // Build once per frame without sorting, allocating arrays, or drawing each dot separately.
-  const bucketHeads = new Int32Array(6 * 2 * 3 * 12);
+  const bucketHeads = new Int32Array(6 * 3 * 3 * 12);
   const nextParticle = new Int32Array(particles.length);
   const point: MorphPoint = { x: 0, y: 0, z: 0, alpha: 1 };
   const scratch: MorphPoint = { ...point },
@@ -51,6 +54,7 @@ export function createMorphRenderer(
     scale = 1;
   let chapterHeight = 220,
     accent = '#2e6e5e',
+    highlight = '#a6683c',
     ink = '#141414',
     surface = '#fafaf8';
   let motion: BackgroundMotion = 'ambient';
@@ -72,6 +76,17 @@ export function createMorphRenderer(
     slow = 0,
     fps = demo ? (coarse ? 30 : 60) : coarse ? 20 : 24;
   let kickAge = 0;
+  let pointerX = 0,
+    pointerY = 0,
+    targetX = 0,
+    targetY = 0;
+  let hoverX = 0,
+    hoverY = 0,
+    hover = 0,
+    pointerPresent = false;
+  let yaw = 0,
+    pitch = 0;
+  let interactionCount = 0;
   let drawingCell = false;
   let tween: { from: number; age: number } | null = null;
   const canAnimate = () =>
@@ -82,6 +97,10 @@ export function createMorphRenderer(
     canvas.dataset.bgFallback !== 'static';
 
   function layout() {
+    const dimensional = 1 - smoothstep((displayed - 0.65) / 0.35);
+    const restraint = motion === 'calm' ? 0.45 : 1;
+    yaw = dimensional * restraint * (Math.sin(clock * 0.075) * 0.09 + pointerX * 0.16);
+    pitch = dimensional * restraint * (Math.sin(clock * 0.061) * 0.035 + pointerY * 0.09);
     if (demo) {
       originX = width * 0.5;
       originY = height * 0.51;
@@ -89,8 +108,8 @@ export function createMorphRenderer(
     } else if (home) {
       const shift = smoothstep(displayed * 2);
       originX = width * ((coarse ? 0.74 : 0.79) * (1 - shift) + 0.5 * shift);
-      originY = height * ((coarse ? 0.25 : 0.48) * (1 - shift) + 0.5 * shift);
-      const start = Math.min(width * (coarse ? 0.36 : 0.25), height * (coarse ? 0.22 : 0.33));
+      originY = height * ((coarse ? 0.25 : 0.24) * (1 - shift) + 0.5 * shift);
+      const start = Math.min(width * (coarse ? 0.36 : 0.24), height * (coarse ? 0.22 : 0.25));
       const end = Math.min(width * 0.4, (chapterHeight - 32) / 1.5);
       scale = start + (end - start) * shift;
     } else {
@@ -100,6 +119,7 @@ export function createMorphRenderer(
     }
   }
   function project(p: MorphPoint) {
+    rotateMorphPoint(p, yaw, pitch);
     const depth = 1 + p.z * 0.22;
     p.x = originX + p.x * scale * depth;
     p.y = originY + (p.y - p.z * 0.18) * scale * depth;
@@ -130,7 +150,7 @@ export function createMorphRenderer(
     if (closed) context.closePath();
   }
   function opacity() {
-    return demo ? 0.94 : motion === 'calm' ? 0.23 : home ? (coarse ? 0.5 : 0.48) : 0.32;
+    return demo ? 0.94 : motion === 'calm' ? 0.23 : home ? (coarse ? 0.6 : 0.65) : 0.32;
   }
   function shape(role: MorphRole, variant: number, fill: number, line: number, inset = 1) {
     sample(role, 0, variant);
@@ -325,7 +345,11 @@ export function createMorphRenderer(
       context.globalAlpha = 0.35;
       context.strokeStyle = ink;
       context.beginPath();
-      context.moveTo(originX + x * scale, originY + y * scale);
+      point.x = x;
+      point.y = y;
+      point.z = 0;
+      project(point);
+      context.moveTo(point.x, point.y);
       context.lineTo(labelX, labelY + 4);
       context.stroke();
       context.globalAlpha = 0.9;
@@ -342,6 +366,18 @@ export function createMorphRenderer(
     context.lineCap = 'round';
     context.lineJoin = 'round';
     const introBlend = smoothstep(introAge / 1.5);
+    // A few quiet braided streams add depth without filling reading areas with noise.
+    const atmosphere = coarse ? 96 : 240;
+    for (let i = 0; i < atmosphere; i++) {
+      sampleMorphAtmosphere(i, atmosphere, displayed, clock, point);
+      if (point.alpha < 0.005) continue;
+      project(point);
+      context.globalAlpha = opacity() * point.alpha;
+      context.fillStyle = i % 5 === 0 ? highlight : accent;
+      context.beginPath();
+      context.arc(point.x, point.y, (i % 7 === 0 ? 1.6 : 0.7) * (demo ? 1.15 : 0.8), 0, TAU);
+      context.fill();
+    }
     bucketHeads.fill(-1);
     let visible = 0;
     for (let i = 0; i < particles.length; i++) {
@@ -357,6 +393,16 @@ export function createMorphRenderer(
       point.x += offsets[i * 4];
       point.y += offsets[i * 4 + 1];
       project(point);
+      if (hover > 0.01) {
+        const dx = point.x - hoverX,
+          dy = point.y - hoverY;
+        const distance = Math.hypot(dx, dy);
+        const force = morphPointerFalloff(distance, demo ? 115 : 85) * hover * (demo ? 10 : 3.5);
+        if (distance > 1) {
+          point.x += ((dx - dy * 0.35) / distance) * force;
+          point.y += ((dy + dx * 0.35) / distance) * force;
+        }
+      }
       positions[i * 4] = point.x;
       positions[i * 4 + 1] = point.y;
       positions[i * 4 + 2] = point.z;
@@ -367,8 +413,9 @@ export function createMorphRenderer(
       visible++;
       const shade = Math.max(0, Math.min(11, Math.round(alpha * 12) - 1));
       const size = Math.max(0, Math.min(2, Math.floor((p.size - 0.6) / 0.3)));
-      const color = p.role === 'nucleolus' ? 1 : 0;
-      const bucket = ((depth * 2 + color) * 3 + size) * 12 + shade;
+      const warm = (p.role === 'chromatin' && p.u > 0.82) || (p.role === 'cytoplasm' && p.u > 0.7);
+      const color = p.role === 'nucleolus' ? 1 : warm ? 2 : 0;
+      const bucket = ((depth * 3 + color) * 3 + size) * 12 + shade;
       nextParticle[i] = bucketHeads[bucket];
       bucketHeads[bucket] = i;
     }
@@ -381,11 +428,11 @@ export function createMorphRenderer(
       if (bucketHeads[bucket] < 0) continue;
       const shade = bucket % 12;
       const size = Math.floor(bucket / 12) % 3;
-      const color = Math.floor(bucket / 36) % 2;
-      const depth = Math.floor(bucket / 72);
+      const color = Math.floor(bucket / 36) % 3;
+      const depth = Math.floor(bucket / 108);
       const radius = (0.65 + size * 0.3) * dotScale * (0.85 + depth * 0.06);
       context.globalAlpha = opacity() * ((shade + 1) / 12);
-      context.fillStyle = color ? ink : accent;
+      context.fillStyle = color === 1 ? ink : color === 2 ? highlight : accent;
       context.beginPath();
       for (let i = bucketHeads[bucket]; i >= 0; i = nextParticle[i]) {
         const x = positions[i * 4],
@@ -408,10 +455,17 @@ export function createMorphRenderer(
     canvas.dataset.bgQuality = quality.toFixed(2);
     canvas.dataset.bgVisible = String(visible);
     canvas.dataset.bgAllocated = String(particles.length);
+    canvas.dataset.bgAtmosphere = String(atmosphere);
+    canvas.dataset.bgPointer = hover.toFixed(3);
+    canvas.dataset.bgInteractions = String(interactionCount);
     canvas.dataset.bgFrames = String(Number(canvas.dataset.bgFrames || 0) + 1);
   }
   function update(dt: number) {
     qualityAge = Math.min(0.4, qualityAge + dt);
+    const follow = 1 - Math.exp(-dt * 6);
+    pointerX += (targetX - pointerX) * follow;
+    pointerY += (targetY - pointerY) * follow;
+    hover += ((pointerPresent ? 1 : 0) - hover) * follow;
     if (running) {
       const speed = motion === 'calm' ? 0.45 : 1;
       clock += dt * speed;
@@ -435,6 +489,7 @@ export function createMorphRenderer(
     if (kickAge > 0) {
       kickAge = Math.max(0, kickAge - dt);
       const decay = Math.exp(-7 * dt);
+      const maxOffset = demo ? 0.12 : 0.06;
       for (let i = 0; i < particles.length; i++) {
         if (!positions[i * 4 + 3]) continue;
         const index = i * 4;
@@ -443,7 +498,11 @@ export function createMorphRenderer(
           const position = offsets[index + axis],
             velocity = offsets[index + axis + 2];
           const b = velocity + 7 * position;
-          offsets[index + axis] = (position + b * dt) * decay;
+          // Repeated taps cannot pump the sculpture outside its bounded local response.
+          offsets[index + axis] = Math.max(
+            -maxOffset,
+            Math.min(maxOffset, (position + b * dt) * decay)
+          );
           offsets[index + axis + 2] = (velocity - 7 * b * dt) * decay;
         }
       }
@@ -493,6 +552,8 @@ export function createMorphRenderer(
     raf = 0;
     last = 0;
     if (!running) {
+      pointerPresent = false;
+      pointerX = pointerY = targetX = targetY = hover = 0;
       if (demo && tween) {
         progress = displayed;
         playbackAge = playbackTime(displayed);
@@ -543,9 +604,13 @@ export function createMorphRenderer(
     accent = style.getPropertyValue('--color-accent').trim() || '#2e6e5e';
     ink = style.getPropertyValue('--color-ink').trim() || '#141414';
     surface = style.getPropertyValue('--color-surface').trim() || '#fafaf8';
+    const theme = document.documentElement.dataset.theme;
+    highlight = !theme || theme === 'light' || theme === 'parchment' ? '#a6683c' : '#e3b57b';
     const crt = document.documentElement.dataset.crtMode;
-    if (crt && crt !== 'off')
+    if (crt && crt !== 'off') {
       accent = ink = crt === 'amber' ? '#ffb000' : crt === 'green' ? '#33ff33' : '#38fdf8';
+      highlight = accent;
+    }
     draw();
   }
   resize();
@@ -556,8 +621,20 @@ export function createMorphRenderer(
     setRunning,
     setProgress,
     getProgress: () => progress,
+    setPointer(value) {
+      if (!running || !canAnimate() || coarse) return;
+      pointerPresent = !!value;
+      targetX = value ? Math.max(-1, Math.min(1, (value.x - originX) / Math.max(1, scale))) : 0;
+      targetY = value ? Math.max(-1, Math.min(1, (value.y - originY) / Math.max(1, scale))) : 0;
+      if (value) {
+        hoverX = value.x;
+        hoverY = value.y;
+      }
+    },
     reset() {
       tween = null;
+      pointerPresent = false;
+      pointerX = pointerY = targetX = targetY = hover = 0;
       offsets.fill(0);
       kickAge = 0;
       clock = playbackAge = progress = displayed = 0;
@@ -586,7 +663,8 @@ export function createMorphRenderer(
       }
     },
     interact(x, y) {
-      if (!demo || !canAnimate()) return;
+      if ((!demo && !running) || !canAnimate()) return;
+      interactionCount++;
       const radius = Math.min(width, height) * 0.22;
       for (let i = 0; i < particles.length; i++) {
         if (!positions[i * 4 + 3]) continue;
@@ -594,9 +672,11 @@ export function createMorphRenderer(
           dy = positions[i * 4 + 1] - y,
           distance = Math.hypot(dx, dy);
         if (distance > radius || distance < 1) continue;
-        const push = (1 - distance / radius) * 0.23;
-        offsets[i * 4 + 2] += (dx / distance) * push;
-        offsets[i * 4 + 3] += (dy / distance) * push;
+        const push = (1 - distance / radius) * (demo ? 1.6 : 0.6) * (motion === 'calm' ? 0.45 : 1);
+        offsets[i * 4 + 2] += ((dx - dy * 0.6) / distance) * push;
+        offsets[i * 4 + 3] += ((dy + dx * 0.6) / distance) * push;
+        offsets[i * 4 + 2] = Math.max(-1.8, Math.min(1.8, offsets[i * 4 + 2]));
+        offsets[i * 4 + 3] = Math.max(-1.8, Math.min(1.8, offsets[i * 4 + 3]));
       }
       kickAge = 1.5;
       schedule();

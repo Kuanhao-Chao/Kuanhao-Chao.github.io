@@ -168,6 +168,18 @@ function paintMask() {
 function scheduleMask() {
   if (renderer && !maskRaf) maskRaf = requestAnimationFrame(paintMask);
 }
+/** Only exposed artwork reacts; never capture a control, text selection, or touch scroll. */
+function ambientPoint(event: PointerEvent) {
+  if (preference.scene !== 'morph' || !renderer || !canvas || dialog?.open ||
+    preference.motion === 'paused' || reduced() || document.hidden || selecting ||
+    location.pathname !== '/' || getSelection()?.toString()) return null;
+  const target = event.target instanceof Element ? event.target : null;
+  if (target?.closest('a, button, input, select, textarea, summary, [contenteditable], [role="button"], [data-background-protected], [data-terminal]')) return null;
+  const x = event.clientX + scrollX, y = event.clientY + scrollY;
+  if (bounds.some(r => x >= r.x - 8 && x <= r.x + r.w + 8 && y >= r.y - 8 && y <= r.y + r.h + 8)) return null;
+  const rect = canvas.getBoundingClientRect();
+  return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+}
 function detach() {
   generation++;
   selecting = false;
@@ -278,6 +290,8 @@ function updateDemoStatus(announce = false) {
     play.textContent = demoPlaying ? 'Pause' : 'Play';
     play.disabled = reduced();
   }
+  const stir = $<HTMLButtonElement>('[data-background-stir]');
+  if (stir) stir.disabled = reduced();
   const progress = demo?.getProgress?.();
   const scrub = $<HTMLInputElement>('[data-background-scrub]');
   if (scrub && progress !== undefined) scrub.value = String(progress);
@@ -335,7 +349,7 @@ async function openDemo() {
       ? 'Fine strands follow a smooth curl field. Small arrows show local direction. Move over the canvas, tap, or add a temporary vortex. This is procedural art, not a fluid simulation.'
       : scene === 'landscape'
         ? 'An illustrative two-dimensional objective: L(x,y) = ¼(x² − 1)² + ½(y − 0.35x)². Compare two optimizers on the same terrain. This is a toy function, not a trained model’s loss surface.'
-        : 'Follow a rotating DNA helix into the nucleus of a living cell, then explore an illustrative expression profile. Choose a form, scrub the transition, or tap to gently stir the particles. Turn on structure labels for a closer look.';
+        : 'Explore a living particle sculpture: DNA, cellular context, and an illustrative expression profile. Move your pointer while playing to shift the perspective, or tap or use Stir particles to send a gentle swirl through the dots. Scrub between forms and turn on structure labels for a closer look.';
   $('[data-background-flow-controls]')!.hidden = scene !== 'flow';
   $('[data-background-landscape-controls]')!.hidden = scene !== 'landscape';
   $('[data-background-legend]')!.hidden = scene !== 'landscape';
@@ -438,6 +452,10 @@ function bindDemo() {
       updateDemoStatus(true);
     }
   });
+  host.querySelector('[data-background-stir]')?.addEventListener('click', () => {
+    const surface = $<HTMLCanvasElement>('[data-background-demo-canvas]');
+    if (surface) demo?.interact(surface.clientWidth / 2, surface.clientHeight / 2);
+  });
   host.querySelector('[data-background-strength]')?.addEventListener('input', (event) => {
     demo?.configure({ strength: Number((event.target as HTMLInputElement).value) });
   });
@@ -478,6 +496,11 @@ function bindDemo() {
   surface.addEventListener(
     'pointermove',
     (e) => {
+      if (e.pointerType === 'mouse' && preference.scene === 'morph' && demoPlaying) {
+        const r = surface.getBoundingClientRect();
+        demo?.setPointer?.({ x: e.clientX - r.left, y: e.clientY - r.top });
+        return;
+      }
       if (
         e.pointerType !== 'mouse' ||
         preference.scene !== 'flow' ||
@@ -491,6 +514,7 @@ function bindDemo() {
     },
     { passive: true }
   );
+  surface.addEventListener('pointerleave', () => demo?.setPointer?.(null));
 }
 
 export function initBackground() {
@@ -555,6 +579,26 @@ export function initBackground() {
   document.addEventListener('visibilitychange', applyRunning);
   // Updating explorer text can change selection; it must not cancel its explicit transitions.
   document.addEventListener('selectionchange', applyAmbientRunning);
+  let ambientDown: { x: number; y: number; scroll: number; time: number; generation: number } | null = null;
+  document.addEventListener('pointermove', (event) => {
+    if (event.pointerType === 'mouse') renderer?.setPointer?.(ambientPoint(event));
+    if (ambientDown && Math.hypot(event.clientX - ambientDown.x, event.clientY - ambientDown.y) > 8) ambientDown = null;
+  }, { passive: true });
+  document.addEventListener('pointerdown', (event) => {
+    ambientDown = event.button === 0 && ambientPoint(event)
+      ? { x: event.clientX, y: event.clientY, scroll: scrollY, time: performance.now(), generation }
+      : null;
+  }, { passive: true });
+  document.addEventListener('pointerup', (event) => {
+    const start = ambientDown;
+    ambientDown = null;
+    const point = ambientPoint(event);
+    if (point && start && start.generation === generation && performance.now() - start.time < 600 &&
+      Math.abs(scrollY - start.scroll) < 3 && Math.hypot(event.clientX - start.x, event.clientY - start.y) <= 8)
+      renderer?.interact(point.x, point.y);
+  }, { passive: true });
+  document.addEventListener('pointercancel', () => { ambientDown = null; }, { passive: true });
+  document.documentElement.addEventListener('pointerleave', () => renderer?.setPointer?.(null));
   for (const event of ['khc:theme-change', 'khc:crt-change'])
     document.addEventListener(event, () => {
       renderer?.refreshPalette();

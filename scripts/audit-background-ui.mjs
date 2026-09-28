@@ -35,7 +35,7 @@ async function still(page, demo = false) {
 for (const name of engines) {
   const browser = await { chromium, webkit }[name].launch();
   try {
-    for (const phone of [false, true]) {
+    for (const phone of (process.env.BACKGROUND_UI_PHONE_ONLY === '1' ? [true] : [false, true])) {
       const label = `${name}-${phone ? 'phone' : 'desktop'}`;
       console.log(`[background-ui] ${label}`);
       const context = await browser.newContext({
@@ -168,6 +168,22 @@ for (const name of engines) {
         }, stage);
         assert.ok(visiblePixels > 50, `${stage} form must be visible in its reading-safe window`);
         await page.screenshot({ path: join(artifacts, `${label}-morph-${stage}.png`) });
+        if (stage === 'cell') {
+          const point = await page.locator('[data-background-stage="cell"]').evaluate(e => {
+            const r = e.getBoundingClientRect(); return { x: r.left+r.width/2, y: r.top+r.height/2 };
+          });
+          const before = Number(await page.locator('[data-art-bg-canvas]').getAttribute('data-bg-interactions'));
+          if (phone) await page.touchscreen.tap(point.x, point.y);
+          else {
+            await page.mouse.move(point.x, point.y);
+            await page.waitForFunction(() => Number(document.querySelector('[data-art-bg-canvas]').dataset.bgPointer) > 0.2);
+            await page.mouse.click(point.x, point.y);
+          }
+          await page.waitForFunction(expected => Number(document.querySelector('[data-art-bg-canvas]').dataset.bgInteractions) === expected, before+1);
+          await page.locator('[data-top-theme-btn]').click();
+          await page.keyboard.press('Escape');
+          assert.equal(Number(await page.locator('[data-art-bg-canvas]').getAttribute('data-bg-interactions')), before+1, 'controls must not disturb the artwork');
+        }
       }
       await openAppearance(page);
       await page.locator('[data-background-explore]').click();
@@ -188,6 +204,18 @@ for (const name of engines) {
       await page.locator('[data-background-labels]').check();
       assert.match(await page.locator('[data-background-demo-status]').textContent(), /Structure labels enabled/);
       await page.screenshot({ path: join(artifacts, `${label}-morph-cell-labels.png`) });
+      const restingImage = await page.locator('[data-background-demo-canvas]').evaluate(c => c.toDataURL());
+      const restingState = await page.locator('[data-background-demo-canvas]').evaluate(c => ({ width:c.width, height:c.height, ...c.dataset }));
+      const stirred = Number(await page.locator('[data-background-demo-canvas]').getAttribute('data-bg-interactions'));
+      await page.locator('[data-background-stir]').focus();
+      await page.keyboard.press('Enter');
+      await page.waitForFunction(expected => Number(document.querySelector('[data-background-demo-canvas]').dataset.bgInteractions) === expected, stirred+1);
+      await page.waitForTimeout(100);
+      assert.ok(await page.locator('[data-background-demo-canvas]').evaluate(c => c.toDataURL()) !== restingImage, 'stirring must visibly move particles, not just update its counter');
+      await page.waitForTimeout(1800);
+      await still(page, true);
+      const settledState = await page.locator('[data-background-demo-canvas]').evaluate(c => ({ width:c.width, height:c.height, ...c.dataset }));
+      assert.ok(await page.locator('[data-background-demo-canvas]').evaluate(c => c.toDataURL()) === restingImage, `a paused form must return exactly to its resting composition: ${JSON.stringify({ restingState, settledState })}`);
       await page.locator('[data-background-form="1"]').click();
       assert.match(await page.locator('[data-background-demo-status]').textContent(), /expression signal/i);
       await page.waitForFunction(() => document.querySelector('[data-background-demo-canvas]').dataset.bgTransitioning === 'false');
@@ -223,8 +251,10 @@ for (const name of engines) {
       await page.waitForFunction(() => document.querySelector('[data-art-bg-canvas]')?.dataset.bgScene === 'morph');
       await page.waitForTimeout(1800);
       await page.evaluate(() => window.__khcTheme.set('dark'));
+      await page.waitForTimeout(500);
       await page.screenshot({ path: join(artifacts, `${label}-morph-dark.png`) });
       await page.evaluate(() => { window.__khcTheme.set('light'); window.__khcCrt.set('amber'); });
+      await page.waitForTimeout(500);
       await page.screenshot({ path: join(artifacts, `${label}-morph-crt.png`) });
       await page.evaluate(() => window.__khcCrt.set('off'));
 
@@ -281,6 +311,7 @@ for (const name of engines) {
       await openAppearance(page);
       await page.locator('[data-background-explore]').click();
       assert.equal(await page.locator('[data-background-play]').isDisabled(), true);
+      assert.equal(await page.locator('[data-background-stir]').isDisabled(), true);
       await still(page, true);
       await page.locator('[data-background-form="0.5"]').click();
       assert.match(await page.locator('[data-background-demo-status]').textContent(), /Cell membrane/);
