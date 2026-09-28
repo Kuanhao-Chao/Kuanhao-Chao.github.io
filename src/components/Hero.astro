@@ -12,16 +12,15 @@ import portrait from '../assets/profile/portrait.jpg';
     <div class="hero-text">
       <p class="eyebrow hero-eyebrow">{site.role}</p>
       <h1 class="hero-title">{site.name}</h1>
-      <p class="hero-lead">
-        I build machine learning for genomics — sequence-to-function models,
-        genome annotation, and DNA language models.
-      </p>
-      <p class="hero-bio muted">{site.bio}</p>
+      <p class="hero-lead">{site.tagline}</p>
+      <div class="hero-bio muted">
+        {site.bioParagraphs.map((paragraph) => <p>{paragraph}</p>)}
+      </div>
 
       <details class="hero-name">
         <summary>
           <span class="hero-name-head">
-            <span class="hero-name-caret" aria-hidden="true"></span>
+            <span class="hero-name-caret" aria-hidden="true"></span>{' '}
             About my name
           </span>
           <span class="hero-name-zh" lang="zh-Hant">{site.nameZh}</span>
@@ -40,11 +39,11 @@ import portrait from '../assets/profile/portrait.jpg';
             >Song Dynasty</a> in China (A.D. 960 – A.D. 1279).
           </p>
           <p>
-            <span class="hero-name-tag">Also written as</span>
+            <span class="hero-name-tag">Also written as</span>{' '}
             Kuan-Hao Chao, Kuan Hao Chao, or Kuanhao Chao — and, family name first, Chao Kuan-Hao (趙冠豪).
           </p>
           <p class="hero-name-say">
-            <span class="hero-name-tag">Pronunciation</span>
+            <span class="hero-name-tag">Pronunciation</span>{' '}
             Kuan-Hao Chao — say it like <strong>“kwan-how chow”</strong> (Kuan rhymes with “swan”; Hao and
             Chao both rhyme with “now”).
           </p>
@@ -139,6 +138,12 @@ import portrait from '../assets/profile/portrait.jpg';
     max-width: var(--measure);
     font-size: var(--fs-body);
     margin-bottom: 2rem;
+  }
+  .hero-bio p {
+    margin: 0;
+  }
+  .hero-bio p + p {
+    margin-top: 1rem;
   }
   /* Collapsible "About my name" disclosure (identity content from the old site). */
   .hero-name {

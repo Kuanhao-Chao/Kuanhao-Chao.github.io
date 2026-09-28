@@ -4,15 +4,21 @@
  * the bio, role, social handles, or menu.
  */
 
+const bioParagraphs = [
+  'I’m a computational biologist and Senior Deep Learning/AI Engineer at the Illumina AI Lab. I develop machine-learning models and open-source tools to study gene regulation and RNA splicing and to improve genome annotation. My research focuses on sequence-to-function modeling and DNA language models, with an emphasis on connecting predictions to biological understanding.',
+  'I earned my Ph.D. in Computer Science from Johns Hopkins University in August 2025, advised by Steven Salzberg and Mihaela Pertea at the Center for Computational Biology. Before that, I earned a B.S. in Electrical Engineering from National Taiwan University and spent my final undergraduate year as an exchange student at the Australian National University.',
+] as const;
+
 export const site = {
   name: 'Kuan-Hao Chao',
   nameZh: '趙冠豪',
   role: 'Senior Deep Learning/AI Engineer, Illumina AI Lab',
   shortRole: 'Computational biologist',
-  // One-line headline for the hero (kept deliberately short, Calico-style).
-  tagline: 'Building machine learning for genomics.',
-  // Full bio paragraph (homepage + about). Plain text + a few links via bioHtml.
-  bio: `I am a Senior Deep Learning/AI Engineer at the Illumina AI Lab. I earned my Ph.D. in Computer Science from the Center for Computational Biology, Johns Hopkins University (August 2025), advised by Steven Salzberg and Mihaela Pertea. My research focuses on AI for genomics — sequence-to-function modeling, genome annotation, and DNA language models. I hold a B.S. in Electrical Engineering from National Taiwan University and exchanged in my final year at the Australian National University.`,
+  // Shared headline for the homepage and terminal profile.
+  tagline: 'I build models and tools to understand how genomes work.',
+  bioParagraphs,
+  // Preserve the plain-text contract used by both terminal experiences.
+  bio: bioParagraphs.join(' '),
   philosophy: 'Build what you need, use what you build.',
   url: 'https://khchao.com',
   email: 'kuanhao.chao@gmail.com',
