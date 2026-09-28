@@ -207,6 +207,13 @@ for (const name of engines) {
       const restingImage = await page.locator('[data-background-demo-canvas]').evaluate(c => c.toDataURL());
       const restingState = await page.locator('[data-background-demo-canvas]').evaluate(c => ({ width:c.width, height:c.height, ...c.dataset }));
       const stirred = Number(await page.locator('[data-background-demo-canvas]').getAttribute('data-bg-interactions'));
+      if (phone) await page.evaluate(() => {
+        // A loaded/mobile browser can deliver frames slower than the simulation's dt cap.
+        // Finite pointer effects must still settle on wall time, without extending the test.
+        window.__backgroundAuditRaf = [window.requestAnimationFrame, window.cancelAnimationFrame];
+        window.requestAnimationFrame = callback => window.setTimeout(() => callback(performance.now()), 180);
+        window.cancelAnimationFrame = id => window.clearTimeout(id);
+      });
       await page.locator('[data-background-stir]').focus();
       await page.keyboard.press('Enter');
       await page.waitForFunction(expected => Number(document.querySelector('[data-background-demo-canvas]').dataset.bgInteractions) === expected, stirred+1);
@@ -216,6 +223,10 @@ for (const name of engines) {
       await still(page, true);
       const settledState = await page.locator('[data-background-demo-canvas]').evaluate(c => ({ width:c.width, height:c.height, ...c.dataset }));
       assert.ok(await page.locator('[data-background-demo-canvas]').evaluate(c => c.toDataURL()) === restingImage, `a paused form must return exactly to its resting composition: ${JSON.stringify({ restingState, settledState })}`);
+      if (phone) await page.evaluate(() => {
+        [window.requestAnimationFrame, window.cancelAnimationFrame] = window.__backgroundAuditRaf;
+        delete window.__backgroundAuditRaf;
+      });
       await page.locator('[data-background-form="1"]').click();
       assert.match(await page.locator('[data-background-demo-status]').textContent(), /expression signal/i);
       await page.waitForFunction(() => document.querySelector('[data-background-demo-canvas]').dataset.bgTransitioning === 'false');

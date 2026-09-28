@@ -75,7 +75,8 @@ export function createMorphRenderer(
     costly = 0,
     slow = 0,
     fps = demo ? (coarse ? 30 : 60) : coarse ? 20 : 24;
-  let kickAge = 0;
+  let kickUntil = 0,
+    kickTime = 0;
   let pointerX = 0,
     pointerY = 0,
     targetX = 0,
@@ -460,7 +461,7 @@ export function createMorphRenderer(
     canvas.dataset.bgInteractions = String(interactionCount);
     canvas.dataset.bgFrames = String(Number(canvas.dataset.bgFrames || 0) + 1);
   }
-  function update(dt: number) {
+  function update(dt: number, now: number) {
     qualityAge = Math.min(0.4, qualityAge + dt);
     const follow = 1 - Math.exp(-dt * 6);
     pointerX += (targetX - pointerX) * follow;
@@ -486,9 +487,12 @@ export function createMorphRenderer(
         tween = null;
       }
     }
-    if (kickAge > 0) {
-      kickAge = Math.max(0, kickAge - dt);
-      const decay = Math.exp(-7 * dt);
+    if (kickUntil > 0) {
+      // The decorative simulation caps dt, but a finite interaction must not stretch
+      // on a loaded/low-FPS browser. This exact spring safely consumes real elapsed time.
+      const elapsed = Math.max(0, (now - kickTime) / 1000);
+      kickTime = now;
+      const decay = Math.exp(-7 * elapsed);
       const maxOffset = demo ? 0.12 : 0.06;
       for (let i = 0; i < particles.length; i++) {
         if (!positions[i * 4 + 3]) continue;
@@ -501,22 +505,25 @@ export function createMorphRenderer(
           // Repeated taps cannot pump the sculpture outside its bounded local response.
           offsets[index + axis] = Math.max(
             -maxOffset,
-            Math.min(maxOffset, (position + b * dt) * decay)
+            Math.min(maxOffset, (position + b * elapsed) * decay)
           );
-          offsets[index + axis + 2] = (velocity - 7 * b * dt) * decay;
+          offsets[index + axis + 2] = (velocity - 7 * b * elapsed) * decay;
         }
       }
-      if (!kickAge) offsets.fill(0);
+      if (now >= kickUntil) {
+        kickUntil = 0;
+        offsets.fill(0);
+      }
     }
   }
   function frame(now: number) {
     raf = 0;
-    if (!canAnimate() || (!running && !tween && !kickAge)) return;
+    if (!canAnimate() || (!running && !tween && !kickUntil)) return;
     const elapsed = last ? now - last : 1000 / fps;
     if (elapsed >= 1000 / fps - 0.5) {
       last = now;
       const began = performance.now();
-      update(Math.min(0.08, elapsed / 1000));
+      update(Math.min(0.08, elapsed / 1000), now);
       draw();
       const cost = performance.now() - began;
       canvas.dataset.bgRenderMs = cost.toFixed(2);
@@ -542,7 +549,7 @@ export function createMorphRenderer(
     schedule();
   }
   function schedule() {
-    if (!raf && canAnimate() && (running || tween || kickAge)) raf = requestAnimationFrame(frame);
+    if (!raf && canAnimate() && (running || tween || kickUntil)) raf = requestAnimationFrame(frame);
   }
   function setRunning(value: boolean) {
     const next = value && canAnimate();
@@ -559,7 +566,7 @@ export function createMorphRenderer(
         playbackAge = playbackTime(displayed);
       }
       tween = null;
-      kickAge = 0;
+      kickUntil = 0;
       offsets.fill(0);
       if (reduced()) {
         introAge = 1.5;
@@ -636,7 +643,7 @@ export function createMorphRenderer(
       pointerPresent = false;
       pointerX = pointerY = targetX = targetY = hover = 0;
       offsets.fill(0);
-      kickAge = 0;
+      kickUntil = 0;
       clock = playbackAge = progress = displayed = 0;
       introAge = 1.5;
       draw();
@@ -678,7 +685,9 @@ export function createMorphRenderer(
         offsets[i * 4 + 2] = Math.max(-1.8, Math.min(1.8, offsets[i * 4 + 2]));
         offsets[i * 4 + 3] = Math.max(-1.8, Math.min(1.8, offsets[i * 4 + 3]));
       }
-      kickAge = 1.5;
+      const now = performance.now();
+      if (!kickUntil) kickTime = now;
+      kickUntil = now + 1500;
       schedule();
     },
     status() {
