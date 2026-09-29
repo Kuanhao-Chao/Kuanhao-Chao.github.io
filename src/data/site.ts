@@ -5,8 +5,8 @@
  */
 
 const bioParagraphs = [
-  'I’m a computational biologist and Senior Deep Learning/AI Engineer at the Illumina AI Lab. I develop machine-learning models and open-source tools to study gene regulation and RNA splicing and to improve genome annotation. My research focuses on sequence-to-function modeling and DNA language models, with an emphasis on connecting predictions to biological understanding.',
-  'I earned my Ph.D. in Computer Science from Johns Hopkins University in August 2025, advised by Steven Salzberg and Mihaela Pertea at the Center for Computational Biology. Before that, I earned a B.S. in Electrical Engineering from National Taiwan University and spent my final undergraduate year as an exchange student at the Australian National University.',
+  'I’m a Senior Deep Learning/AI Engineer at the Illumina AI Lab. I develop machine-learning models and open-source software to understand gene regulation, RNA splicing, and the effects of genetic variation. My work spans sequence-to-function modeling and DNA language models, alongside methods for genome annotation and pangenome analysis.',
+  'I earned my Ph.D. in Computer Science from Johns Hopkins University in August 2025, advised by Steven Salzberg and Mihaela Pertea at the Center for Computational Biology. I also hold a B.S. in Electrical Engineering from National Taiwan University.',
 ] as const;
 
 export const site = {
