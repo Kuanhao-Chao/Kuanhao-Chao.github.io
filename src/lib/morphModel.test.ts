@@ -13,19 +13,27 @@ import {
   sampleCellParticle,
   sampleDna,
   sampleMorph,
+  sampleMorphTarget,
   signalHeight,
   springStep,
   storyProgress,
   visibleParticle,
   type MorphPoint,
 } from './morphModel';
+import { MORPH_STAGES } from './morphStory';
+import {
+  sampleRnaParticle,
+  sampleProteinParticle,
+  sampleNetworkParticle,
+  sampleDistributionParticle,
+} from './morphTargets';
 
 const point = (): MorphPoint => ({ x: 0, y: 0, z: 0, alpha: 1 });
 describe('dimensional genome-to-cell story', () => {
-  it('keeps decorative streams bounded and removes them from the final signal', () => {
+  it('keeps decorative streams subdued and removes them from expression and distribution', () => {
     const out = point(),
       again = point();
-    for (const progress of [0, 0.25, 0.5, 0.75, 1]) {
+    for (const progress of [0, 1 / 6, 1 / 3, 0.5, 2 / 3, 5 / 6, 1]) {
       for (let i = 0; i < 240; i++) {
         sampleMorphAtmosphere(i, 240, progress, 17, out);
         sampleMorphAtmosphere(i, 240, progress, 17, again);
@@ -33,8 +41,8 @@ describe('dimensional genome-to-cell story', () => {
         expect(Math.abs(out.x)).toBeLessThan(1.2);
         expect(Math.abs(out.y)).toBeLessThan(0.8);
         expect(out.alpha).toBeGreaterThanOrEqual(0);
-        expect(out.alpha).toBeLessThanOrEqual(0.25);
-        if (progress === 1) expect(out.alpha).toBe(0);
+        expect(out.alpha).toBeLessThanOrEqual(0.1);
+        if (progress === 2 / 3 || progress === 1) expect(out.alpha).toBe(0);
       }
     }
   });
@@ -108,10 +116,12 @@ describe('dimensional genome-to-cell story', () => {
       sampleMorph(p, 0.9, 3, b, scratch);
       sampleMorph(p, 0.25, 3, b, scratch);
       expect(b).toEqual(a);
-      for (const endpoint of [0, 0.5, 1]) {
+      for (const endpoint of MORPH_STAGES.map((s) => s.progress)) {
         sampleMorph(p, endpoint, 3, a, scratch);
-        sampleMorph(p, endpoint + (endpoint === 1 ? -1 : 1) * 0.00001, 3, b, scratch);
-        expect(Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)).toBeLessThan(0.000001);
+        for (const side of [-1, 1]) {
+          sampleMorph(p, endpoint + side * 0.00001, 3, b, scratch);
+          expect(Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)).toBeLessThan(0.000001);
+        }
       }
     }
   });
@@ -167,11 +177,11 @@ describe('dimensional genome-to-cell story', () => {
     }
   });
   it('holds complete forms and resumes from the current progress without a jump', () => {
-    for (const t of [0, 1, 2, 24, 25]) expect(playbackProgress(t)).toBe(0);
-    for (const t of [6, 7, 8, 18, 19, 20]) expect(playbackProgress(t)).toBe(0.5);
-    for (const t of [12, 13, 14]) expect(playbackProgress(t)).toBe(1);
+    for (const t of [0, 1, 2, 60, 61]) expect(playbackProgress(t)).toBe(0);
+    for (const t of [15, 16, 17, 45, 46, 47]) expect(playbackProgress(t)).toBe(0.5);
+    for (const t of [30, 31, 32]) expect(playbackProgress(t)).toBe(1);
     for (let p = 0; p <= 1; p += 0.025) expect(playbackProgress(playbackTime(p))).toBeCloseTo(p, 6);
-    for (const t of [2, 6, 8, 12, 14, 18, 20, 24]) {
+    for (const t of [2, 5, 7, 10, 12, 15, 17, 20, 22, 25, 27, 30, 32, 35, 40, 45, 50, 55, 60]) {
       expect(Math.abs(playbackProgress(t - 0.0001) - playbackProgress(t + 0.0001))).toBeLessThan(
         0.00001
       );
@@ -192,11 +202,55 @@ describe('dimensional genome-to-cell story', () => {
   });
   it('keeps expression positive and scroll chapters monotone', () => {
     for (let i = 0; i <= 100; i++) expect(signalHeight(i / 100)).toBeGreaterThan(0);
-    const values = [0, 250, 500, 800, 1100, 1500, 2000].map((focus) =>
-      storyProgress(focus, 250, 1100, 2000)
+    const chapters = MORPH_STAGES.map((stage, i) => ({
+      id: stage.id,
+      center: 100 + i * 400,
+      holdRadius: 40,
+    }));
+    const values = [-100, 100, 300, 500, 1000, 1300, 2000, 2500, 3000].map((focus) =>
+      storyProgress(focus, chapters)
     );
     expect(values[0]).toBe(0);
     expect(values.at(-1)).toBe(1);
     expect(values.every((value, i) => !i || value >= values[i - 1])).toBe(true);
+  });
+  it('lands exactly on independently sampled canonical RNA, protein, Cell, network and density', () => {
+    const out = point(),
+      expected = point(),
+      scratch = point();
+    for (const p of createMorphParticles(1000)) {
+      for (const stage of MORPH_STAGES) {
+        sampleMorph(p, stage.progress, 3, out, scratch);
+        sampleMorphTarget(p, stage.id, 3, expected);
+        expect(out).toEqual(expected);
+      }
+      for (const [progress, sampler] of [
+        [1 / 6, (out: MorphPoint) => sampleRnaParticle(p, 3, out)],
+        [1 / 3, (out: MorphPoint) => sampleProteinParticle(p, out)],
+        [0.5, (out: MorphPoint) => sampleCellParticle(p, 3, out)],
+        [5 / 6, (out: MorphPoint) => sampleNetworkParticle(p, out)],
+        [1, (out: MorphPoint) => sampleDistributionParticle(p, out)],
+      ] as const) {
+        sampleMorph(p, progress, 3, out, scratch);
+        sampler(expected);
+        expect(out).toEqual(expected);
+      }
+    }
+  });
+  it('participates at minimum quality in every stage and keeps all six transitions finite', () => {
+    const out = point(),
+      scratch = point();
+    for (const p of createMorphParticles(1000).filter((p) => visibleParticle(p, 0.3))) {
+      for (let i = 0; i <= 120; i++) {
+        sampleMorph(p, i / 120, 3, out, scratch);
+        expect([out.x, out.y, out.z, out.alpha].every(Number.isFinite)).toBe(true);
+        expect(out.alpha).toBeGreaterThan(0.1);
+        expect(Math.max(Math.abs(out.x), Math.abs(out.y), Math.abs(out.z))).toBeLessThan(1.3);
+      }
+      for (const invalid of [NaN, Infinity, -Infinity]) {
+        sampleMorph(p, invalid, invalid, out, scratch);
+        expect([out.x, out.y, out.z, out.alpha].every(Number.isFinite)).toBe(true);
+      }
+    }
   });
 });
