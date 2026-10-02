@@ -359,6 +359,33 @@ async function assertHomeLifecycle(page, scope, profile, indexRequests) {
     fail(s, `prompt is "${opened.prompt}" on a ${profile.width}px viewport, expected the full host`);
   }
 
+  // Scrolling over window chrome is not shell interaction; the gesture stays native.
+  const wheelSupported = !(profile.mobile && scope.startsWith('webkit/'));
+  if (wheelSupported) {
+    await page.evaluate(() => {
+      document.documentElement.style.scrollBehavior = 'auto';
+      window.__terminalAuditChromeWheelBar = null;
+      document.addEventListener('wheel', (event) => {
+        window.__terminalAuditChromeWheelBar = Boolean(event.target.closest('[data-terminal-bar]'));
+      }, { capture: true, once: true });
+    });
+    await page.locator('[data-terminal-bar]').hover({ position: { x: 20, y: 20 } });
+    // A small delta keeps the pointer over the bar as native document scrolling moves it.
+    await page.mouse.wheel(0, 1);
+    await page.waitForTimeout(150);
+    const wheelHitBar = await page.evaluate(() => {
+      const hit = window.__terminalAuditChromeWheelBar;
+      delete window.__terminalAuditChromeWheelBar;
+      return hit;
+    });
+    if (wheelHitBar !== true) fail(s, 'native wheel did not target window chrome');
+    const afterChromeWheel = await readHomeShell(page);
+    if (!afterChromeWheel.demoing) fail(s, 'wheel over window chrome took over the demo');
+    if (indexRequests.length) fail(s, 'wheel over window chrome fetched terminal.json');
+    // Avoid cascading resume timeouts after a failed chrome-ownership assertion.
+    if (!afterChromeWheel.demoing) return;
+  }
+
   // Minimise by the yellow dot mid-demo: it pauses, stops listening, and keeps its place.
   await page.locator('[data-terminal-min]').click();
   const paused = await readHomeShell(page);
@@ -402,8 +429,13 @@ async function assertHomeLifecycle(page, scope, profile, indexRequests) {
   await page.waitForFunction(() => window.__terminal.demoing(), null, { timeout: 5_000 });
   if ((await readHomeShell(page)).progress < closed.progress) fail(s, 'reopening restarted the demo');
 
-  // The first real interaction takes over, and only then is the index fetched.
-  await page.locator('.term-screen').click({ position: { x: 24, y: 24 } });
+  // Scrolling the transcript is real interaction, unlike scrolling over its chrome.
+  if (wheelSupported) {
+    await page.locator('.term-screen').hover({ position: { x: 24, y: 24 } });
+    await page.mouse.wheel(0, 40);
+  } else {
+    await page.locator('.term-screen').click({ position: { x: 24, y: 24 } });
+  }
   await page.waitForFunction(() => !window.__terminal.demoing(), null, { timeout: 5_000 });
   for (let i = 0; i < 40 && !indexRequests.length; i += 1) await page.waitForTimeout(100);
   if (!indexRequests.length) fail(s, 'taking over the shell did not fetch the knowledge index');

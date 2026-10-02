@@ -623,7 +623,10 @@ export function initTerminal(
   function onShellWheel(event: WheelEvent) {
     if (event.ctrlKey || event.metaKey) return;
     if (booting) skipBoot?.();
-    if (demoRunning) takeOver();
+    if (demoRunning) {
+      if ((event.target as Element | null)?.closest('[data-terminal-bar]')) return;
+      takeOver();
+    }
   }
 
   function onFormSubmit(event: SubmitEvent) {
