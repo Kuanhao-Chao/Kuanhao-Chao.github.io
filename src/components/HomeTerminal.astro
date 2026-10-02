@@ -10,10 +10,12 @@ import '../styles/terminal.css';
 /**
  * The homepage shell — the *same* controller as /terminal/, mounted inline.
  *
- * It types a scripted demo until the visitor touches it, then becomes a real shell:
- * every command works, and `ask` answers. The demo output is precomputed here from
- * the same sources the full shell reads, so the homepage pays no index fetch until
- * someone actually interacts.
+ * It sits collapsed under "About my name" in the hero (server-rendered `term--min`, so
+ * there is no flash of an open window). Opening it starts a scripted demo that types
+ * until the visitor touches it, then it becomes a real shell: every command works, and
+ * `ask` answers. The demo output is precomputed here from the same sources the full
+ * shell reads, so the homepage pays no index fetch until someone actually interacts.
+ * While it is collapsed the demo does not run at all — see `armDemo` in the controller.
  *
  * Navigation lives in three real links (the maximise dot, the title-bar label, the
  * footer) rather than on the card itself — clicking the screen must focus the caret,
@@ -69,7 +71,7 @@ const boot = {
 ---
 <div class="term-shell">
 <section
-  class="term term--inline"
+  class="term term--inline term--min"
   data-terminal
   data-terminal-boot={JSON.stringify(boot)}
   data-terminal-demo={JSON.stringify(demo)}
@@ -91,9 +93,9 @@ const boot = {
       class="term-dot term-dot--min"
       type="button"
       data-terminal-min
-      aria-expanded="true"
-      aria-label="Minimise the terminal"
-      title="Minimise the terminal"></button>
+      aria-expanded="false"
+      aria-label="Restore the terminal"
+      title="Restore the terminal"></button>
     <a
       class="term-dot term-dot--zoom"
       href="/terminal/"

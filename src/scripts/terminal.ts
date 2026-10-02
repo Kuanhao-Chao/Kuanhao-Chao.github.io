@@ -749,15 +749,22 @@ export function initTerminal(
     minBtn?.setAttribute('aria-expanded', String(!next));
     minBtn?.setAttribute('aria-label', next ? 'Restore the terminal' : 'Minimise the terminal');
     minBtn?.setAttribute('title', next ? 'Restore the terminal' : 'Minimise the terminal');
-    if (next) minBtn?.focus({ preventScroll: true });
-    else if (!coarsePointer) input!.focus({ preventScroll: true });
+    if (next) {
+      suspendDemo();
+      minBtn?.focus({ preventScroll: true });
+    } else {
+      onRevealed();
+      if (!coarsePointer) input!.focus({ preventScroll: true });
+    }
   }
 
   function setClosed(next: boolean) {
     shellEl!.classList.toggle('term--closed', next);
     if (reopenBtn) reopenBtn.hidden = !next;
-    if (next) reopenBtn?.focus({ preventScroll: true });
-    else {
+    if (next) {
+      suspendDemo();
+      reopenBtn?.focus({ preventScroll: true });
+    } else {
       // Reopening a *minimised* window should give back a usable shell, not a bar.
       setMinimised(false);
       if (!coarsePointer) input!.focus({ preventScroll: true });
@@ -983,66 +990,131 @@ export function initTerminal(
   // ----------------------------------------------------------------- demo ---
 
   let demoTimer = 0;
+  /** The typed demo is live: the card is visible and the visitor has not touched it. */
   let demoRunning = false;
+  /** Taken over, or shown statically: the demo never starts again. */
+  let demoOver = false;
+  // Where the demo has got to. These live out here, not inside `tick`, so a card that is
+  // hidden mid-sentence carries on from the same character when it comes back.
+  let demoStep = 0;
+  let demoChar = 0;
+  let demoPhase: 'typing' | 'output' | 'wipe' = 'typing';
+
+  const isHidden = () =>
+    shellEl.classList.contains('term--min') || shellEl.classList.contains('term--closed');
+
+  function tick() {
+    if (!demoRunning) return;
+    const current = demo[demoStep % demo.length];
+    if (demoPhase === 'wipe') {
+      // Wipe the transcript before looping so the card never grows unbounded.
+      while (screen!.firstChild) screen!.removeChild(screen!.firstChild);
+      demoPhase = 'typing';
+      tick();
+      return;
+    }
+    if (demoPhase === 'typing') {
+      if (demoChar < current.cmd.length) {
+        input!.value = current.cmd.slice(0, ++demoChar);
+        demoTimer = window.setTimeout(tick, 55);
+        return;
+      }
+      demoPhase = 'output';
+      demoTimer = window.setTimeout(tick, 300);
+      return;
+    }
+    echoCommand(current.cmd);
+    input!.value = '';
+    for (const line of current.out) writeLine({ text: line, tone: 'dim' });
+    writeLine({ text: '' });
+    scrollToEnd();
+    demoStep += 1;
+    demoChar = 0;
+    demoPhase = demoStep % demo.length === 0 ? 'wipe' : 'typing';
+    demoTimer = window.setTimeout(tick, demoPhase === 'wipe' ? 2200 : 1200);
+  }
+
+  /** Reduced motion: the finished demo, written once, rather than typing it out. */
+  function showStaticDemo() {
+    for (const stepDef of demo) {
+      echoCommand(stepDef.cmd);
+      for (const line of stepDef.out) writeLine({ text: line, tone: 'dim' });
+      writeLine({ text: '' });
+    }
+    scrollToEnd();
+  }
 
   /**
-   * Type a scripted demo into the real input, then hand the shell over the instant
-   * the visitor touches it.
+   * Type a scripted demo into the real input, then hand the shell over the instant the
+   * visitor touches it. Starts, or resumes, only while the card can actually be seen.
    *
-   * Takeover has to land *before* the keystroke it reacts to, or the demo's
-   * half-typed command and the visitor's first character interleave into gibberish.
-   * Hence a capture-phase listener that clears the field synchronously and then
-   * lets the event continue to the normal handler.
+   * Takeover has to land *before* the keystroke it reacts to, or the demo's half-typed
+   * command and the visitor's first character interleave into gibberish. Hence a
+   * capture-phase listener that clears the field synchronously and then lets the event
+   * continue to the normal handler.
+   *
+   * That listener is on the whole *document*, which is why the demo must not run while
+   * the card is collapsed: it would type to nobody, and the first key anyone pressed to
+   * scroll past it (Space, PageDown) would end it and fetch the knowledge index.
    */
-  function runDemo() {
+  function armDemo() {
+    if (demoRunning || demoOver || !demo.length || isHidden()) return;
+    if (reduced) {
+      showStaticDemo();
+      demoOver = true;
+      return;
+    }
     demoRunning = true;
-    let step = 0;
-    let char = 0;
-    let phase: 'typing' | 'output' = 'typing';
+    document.addEventListener('keydown', onDemoKeyDown, true);
+    shellEl!.addEventListener('pointerdown', onShellPointerDown, true);
+    const fresh = demoStep === 0 && demoChar === 0 && demoPhase === 'typing';
+    demoTimer = window.setTimeout(tick, fresh ? 400 : 150);
+  }
 
-    const tick = () => {
-      if (!demoRunning) return;
-      const current = demo[step % demo.length];
-      if (phase === 'typing') {
-        if (char < current.cmd.length) {
-          input!.value = current.cmd.slice(0, ++char);
-          demoTimer = window.setTimeout(tick, 55);
-          return;
-        }
-        phase = 'output';
-        demoTimer = window.setTimeout(tick, 300);
-        return;
-      }
-      echoCommand(current.cmd);
-      input!.value = '';
-      for (const line of current.out) writeLine({ text: line, tone: 'dim' });
-      writeLine({ text: '' });
-      scrollToEnd();
-      step += 1;
-      char = 0;
-      phase = 'typing';
-      // Wipe the transcript before looping so the card never grows unbounded.
-      if (step % demo.length === 0) {
-        demoTimer = window.setTimeout(() => {
-          if (!demoRunning) return;
-          while (screen!.firstChild) screen!.removeChild(screen!.firstChild);
-          tick();
-        }, 2200);
-        return;
-      }
-      demoTimer = window.setTimeout(tick, 1200);
-    };
+  /** Hidden: stop typing and stop listening for keys on the page; keep the position. */
+  function suspendDemo() {
+    if (!demoRunning) return;
+    demoRunning = false;
+    window.clearTimeout(demoTimer);
+    document.removeEventListener('keydown', onDemoKeyDown, true);
+    shellEl!.removeEventListener('pointerdown', onShellPointerDown, true);
+  }
 
-    demoTimer = window.setTimeout(tick, 400);
+  /**
+   * Window chrome is not a way of using the shell. Minimising, closing or opening the full
+   * screen from the title bar must not end the demo, or fetch the knowledge index, any more
+   * than scrolling past it would — and the click that minimises would otherwise take over on
+   * its own `pointerdown`, before it ever reached the minimise handler.
+   */
+  function onShellPointerDown(event: PointerEvent) {
+    if ((event.target as Element | null)?.closest('[data-terminal-bar]')) return;
+    takeOver();
+  }
+
+  function onDemoKeyDown(event: KeyboardEvent) {
+    if ((event.target as Element | null)?.closest('[data-terminal-bar]')) return;
+    takeOver();
+  }
+
+  /**
+   * The card has just become visible. Anything measured while it was `display: none` is
+   * stale — a hidden pane is 0 px wide, which reads as 24 columns and the short `khc:`
+   * prompt — so measure again before the first paint, then start the demo.
+   */
+  function onRevealed() {
+    refreshPrompt();
+    scrollToEnd(false);
+    armDemo();
   }
 
   function takeOver() {
     if (!demoRunning) return;
     demoRunning = false;
+    demoOver = true;
     window.clearTimeout(demoTimer);
     input!.value = '';
-    document.removeEventListener('keydown', takeOver, true);
-    shellEl!.removeEventListener('pointerdown', takeOver, true);
+    document.removeEventListener('keydown', onDemoKeyDown, true);
+    shellEl!.removeEventListener('pointerdown', onShellPointerDown, true);
     writeLine({ text: '— ready. type `help`, or `ask` a question —', tone: 'ok' });
     writeLine({ text: '' });
     scrollToEnd();
@@ -1085,19 +1157,8 @@ export function initTerminal(
   } else {
     booting = false;
     refreshPrompt();
-    if (demo.length && !reduced) {
-      document.addEventListener('keydown', takeOver, true);
-      shellEl.addEventListener('pointerdown', takeOver, true);
-      runDemo();
-    } else if (demo.length) {
-      // Reduced motion: show the finished demo rather than animating into it.
-      for (const stepDef of demo) {
-        echoCommand(stepDef.cmd);
-        for (const line of stepDef.out) writeLine({ text: line, tone: 'dim' });
-        writeLine({ text: '' });
-      }
-      scrollToEnd();
-    }
+    // A card that mounts collapsed (the homepage's) waits for its first restore; see armDemo.
+    armDemo();
   }
 
   // A Playwright hook, matching the games' `window.__<name>` convention.
@@ -1120,8 +1181,8 @@ export function initTerminal(
       window.clearTimeout(bootTimer);
       window.clearTimeout(demoTimer);
       demoRunning = false;
-      document.removeEventListener('keydown', takeOver, true);
-      shellEl.removeEventListener('pointerdown', takeOver, true);
+      document.removeEventListener('keydown', onDemoKeyDown, true);
+      shellEl.removeEventListener('pointerdown', onShellPointerDown, true);
       if (bootRaf) cancelAnimationFrame(bootRaf);
       window.cancelAnimationFrame(viewportRaf);
       resizeObserver?.disconnect();

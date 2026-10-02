@@ -251,17 +251,207 @@ async function assertScrollBehavior(page, scope, profile, route) {
   if (boundaryUp.pageY >= boundaryTopStart.pageY) fail(scope, 'homepage did not resume page scrolling at transcript top');
 }
 
+/** What the homepage card looks like right now: placement, state, and what the demo has done. */
+async function readHomeShell(page) {
+  return page.evaluate(() => {
+    const rect = (el) => el?.getBoundingClientRect();
+    const shell = document.querySelector('.term--inline');
+    const name = document.querySelector('.hero-name');
+    const slot = document.querySelector('.hero-terminal');
+    const screen = document.querySelector('.term-screen');
+    const input = document.querySelector('.term-input');
+    const bar = document.querySelector('.term-bar');
+    const dot = document.querySelector('[data-terminal-min]');
+    return {
+      count: document.querySelectorAll('[data-terminal]').length,
+      collapsed: shell?.classList.contains('term--min') ?? false,
+      expanded: dot?.getAttribute('aria-expanded'),
+      label: dot?.getAttribute('aria-label'),
+      screenDisplay: screen ? getComputedStyle(screen).display : 'missing',
+      inHero: Boolean(slot?.closest('.hero')),
+      inSection: Boolean(slot?.closest('.home-section')),
+      directlyAfterName: Boolean(name) && name.nextElementSibling === slot,
+      below: Boolean(rect(slot) && rect(name)) && rect(slot).top >= rect(name).bottom - 1,
+      withinColumn: Boolean(rect(shell) && rect(slot)) && rect(shell).right <= rect(slot).right + 1,
+      actionsBelow: Boolean(rect(slot) && rect(document.querySelector('.hero-actions'))) &&
+        rect(document.querySelector('.hero-actions')).top >= rect(slot).bottom - 1,
+      // The hero clips its own overflow, so a card that is too wide never shows up as
+      // document overflow: it is simply cut off at the viewport. Measure it directly.
+      cardRight: rect(shell)?.right ?? 0,
+      cardLeft: rect(shell)?.left ?? 0,
+      viewportWidth: window.innerWidth,
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      barHeight: rect(bar)?.height ?? 0,
+      shellHeight: rect(shell)?.height ?? 0,
+      demoing: window.__terminal.demoing(),
+      // Typed-but-unsent characters count too: a demo mid-sentence has written no line yet.
+      progress: (input?.value.length ?? 0) + (screen?.textContent ?? '').length,
+      text: screen?.textContent ?? '',
+      prompt: document.querySelector('[data-terminal-prompt]')?.textContent ?? '',
+    };
+  });
+}
+
+/**
+ * The homepage card lives collapsed under "About my name", and its demo is owned by its
+ * visibility. A collapsed card must not type to nobody, must not fetch the knowledge index,
+ * and above all must not swallow the keys of someone scrolling past it — the takeover
+ * listener is on the whole document. Leaves the card open and taken over, ready for the
+ * ordinary checks that follow.
+ */
+async function assertHomeLifecycle(page, scope, profile, indexRequests) {
+  const s = `${scope}/collapsed`;
+  const start = await readHomeShell(page);
+  if (start.count !== 1) fail(s, `${start.count} terminals on the homepage, expected exactly one`);
+  if (!start.collapsed) fail(s, 'the homepage shell did not start collapsed');
+  if (start.expanded !== 'false') fail(s, `restore control aria-expanded is ${start.expanded}`);
+  if (start.label !== 'Restore the terminal') fail(s, `restore control is labelled "${start.label}"`);
+  if (start.screenDisplay !== 'none') fail(s, `screen is ${start.screenDisplay} while collapsed`);
+  if (!start.inHero) fail(s, 'the shell is not inside the hero');
+  if (start.inSection) fail(s, 'the shell is still wrapped in a standalone homepage section');
+  if (!start.directlyAfterName) fail(s, 'the shell does not directly follow "About my name"');
+  if (!start.below) fail(s, 'the shell is not below "About my name"');
+  if (!start.withinColumn) fail(s, 'the card is wider than its hero column');
+  if (!start.actionsBelow) fail(s, 'the hero actions appear before the name and terminal');
+  if (start.overflow > 1) fail(s, `document has ${start.overflow}px horizontal overflow while collapsed`);
+  if (start.shellHeight - start.barHeight > 8) {
+    fail(s, `collapsed card is ${start.shellHeight}px tall around a ${start.barHeight}px bar`);
+  }
+
+  // Quiet while collapsed: wait longer than the demo's 400 ms start-up, then look.
+  await page.waitForTimeout(1600);
+  const idle = await readHomeShell(page);
+  if (idle.demoing) fail(s, 'the demo is running while the card is collapsed');
+  if (idle.progress > 0) fail(s, 'the demo typed into a collapsed card');
+  await page.keyboard.press('PageDown');
+  await page.waitForTimeout(150);
+  const keyed = await readHomeShell(page);
+  if (keyed.demoing || keyed.progress > 0 || keyed.text.includes('— ready.')) {
+    fail(s, 'a key pressed while collapsed was taken as an interaction');
+  }
+  if (indexRequests.length) {
+    fail(s, `terminal.json was requested ${indexRequests.length}x before the card was opened`);
+  }
+
+  // Opening it (by the title bar) starts the demo, and the prompt is measured for real:
+  // a pane that was hidden when it mounted reads 24 columns, which is the short prompt.
+  await page.locator('.term-bar-title').click();
+  const opened = await readHomeShell(page);
+  if (opened.collapsed || opened.expanded !== 'true') fail(s, 'the title bar did not open the card');
+  if (opened.cardRight > opened.viewportWidth + 1 || opened.cardLeft < -1) {
+    fail(
+      s,
+      `the open card spans ${Math.round(opened.cardLeft)}–${Math.round(opened.cardRight)}px on a ` +
+        `${opened.viewportWidth}px viewport (cut off by the hero's overflow clip)`
+    );
+  }
+  if (!opened.withinColumn) fail(s, 'the open card is wider than its hero column');
+  await page.waitForFunction(() => window.__terminal.demoing(), null, { timeout: 5_000 });
+  await page.waitForFunction(
+    () => {
+      const input = document.querySelector('.term-input');
+      return (input?.value.length ?? 0) > 0 || (document.querySelector('.term-screen')?.textContent ?? '').length > 0;
+    },
+    null,
+    { timeout: 6_000 }
+  );
+  if (profile.width >= 768 && !opened.prompt.startsWith('khc@genome')) {
+    fail(s, `prompt is "${opened.prompt}" on a ${profile.width}px viewport, expected the full host`);
+  }
+
+  // Minimise by the yellow dot mid-demo: it pauses, stops listening, and keeps its place.
+  await page.locator('[data-terminal-min]').click();
+  const paused = await readHomeShell(page);
+  if (!paused.collapsed || paused.demoing) fail(s, 'minimising did not pause the demo');
+  await page.keyboard.press('PageDown');
+  await page.waitForTimeout(700);
+  const quiet = await readHomeShell(page);
+  if (quiet.demoing || quiet.progress !== paused.progress || quiet.text.includes('— ready.')) {
+    fail(s, 'the demo kept running, or a key was taken over, while minimised');
+  }
+  if (indexRequests.length) fail(s, 'terminal.json was requested by a minimised card');
+
+  // Restore: it resumes where it stopped rather than starting again.
+  await page.locator('[data-terminal-min]').click();
+  await page.waitForFunction(() => window.__terminal.demoing(), null, { timeout: 5_000 });
+  const resumed = await readHomeShell(page);
+  if (resumed.progress < paused.progress) fail(s, 'the demo restarted instead of resuming');
+
+  // Keyboard activation of window chrome is still window management, not shell input.
+  await page.locator('[data-terminal-min]').focus();
+  await page.keyboard.press('Enter');
+  const keyboardPaused = await readHomeShell(page);
+  if (!keyboardPaused.collapsed || keyboardPaused.demoing || keyboardPaused.text.includes('— ready.')) {
+    fail(s, 'keyboard minimisation took over the demo instead of pausing it');
+  }
+  if (indexRequests.length) fail(s, 'keyboard window chrome fetched terminal.json');
+  await page.locator('[data-terminal-min]').press('Enter');
+  await page.waitForFunction(() => window.__terminal.demoing(), null, { timeout: 5_000 });
+
+  // Close mid-demo, then press a page key while its only visible control is the reopen chip.
+  await page.locator('[data-terminal-close]').click();
+  const closed = await readHomeShell(page);
+  await page.keyboard.press('PageDown');
+  await page.waitForTimeout(700);
+  const closedIdle = await readHomeShell(page);
+  if (closedIdle.demoing || closedIdle.progress !== closed.progress || closedIdle.text.includes('— ready.')) {
+    fail(s, 'the closed card kept typing or took over a page key');
+  }
+  if (indexRequests.length) fail(s, 'closing the demo fetched terminal.json');
+  await page.locator('[data-terminal-reopen]').press('Enter');
+  await page.waitForFunction(() => window.__terminal.demoing(), null, { timeout: 5_000 });
+  if ((await readHomeShell(page)).progress < closed.progress) fail(s, 'reopening restarted the demo');
+
+  // The first real interaction takes over, and only then is the index fetched.
+  await page.locator('.term-screen').click({ position: { x: 24, y: 24 } });
+  await page.waitForFunction(() => !window.__terminal.demoing(), null, { timeout: 5_000 });
+  for (let i = 0; i < 40 && !indexRequests.length; i += 1) await page.waitForTimeout(100);
+  if (!indexRequests.length) fail(s, 'taking over the shell did not fetch the knowledge index');
+}
+
+async function assertReducedHomeLifecycle(page, scope) {
+  const indexRequests = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/terminal.json') indexRequests.push(request.url());
+  });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => Boolean(window.__terminal));
+  await page.waitForTimeout(700);
+  const collapsed = await readHomeShell(page);
+  if (!collapsed.collapsed || collapsed.demoing || collapsed.progress) fail(scope, 'reduced-motion demo painted while collapsed');
+  await page.locator('[data-terminal-min]').press('Enter');
+  const opened = await readHomeShell(page);
+  if (opened.collapsed || opened.demoing || !opened.text.includes('whoami')) {
+    fail(scope, 'reduced motion did not show a static transcript on restore');
+  }
+  await page.waitForTimeout(700);
+  if ((await readHomeShell(page)).progress !== opened.progress) fail(scope, 'reduced-motion transcript animated');
+  await page.locator('[data-terminal-close]').click();
+  await page.locator('[data-terminal-reopen]').press('Enter');
+  if ((await readHomeShell(page)).text !== opened.text) fail(scope, 'reduced-motion reopen duplicated its transcript');
+  if (indexRequests.length) fail(scope, 'reduced-motion demo fetched terminal.json before real interaction');
+  await page.locator('.term-input').fill('help');
+  await page.locator('.term-input').press('Enter');
+  if (!(await page.locator('.term-screen').textContent()).includes('khcOS shell')) fail(scope, 'reduced-motion shell did not accept commands');
+}
+
 async function auditPage(page, scope, profile, route) {
   const pageErrors = [];
+  const indexRequests = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));
   page.on('console', (message) => {
     if (message.type() === 'error') pageErrors.push(message.text());
+  });
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/terminal.json') indexRequests.push(request.url());
   });
   // The shell's controller is the readiness signal. Waiting for network-idle here
   // makes the audit needlessly sensitive to a third-party font or an analytics
   // request that keeps a connection open on hosted runners.
   await page.goto(route.path, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => Boolean(window.__terminal));
+  if (route.name === 'home') await assertHomeLifecycle(page, scope, profile, indexRequests);
   await page.evaluate(() => {
     window.__terminal.skipBoot?.();
     window.__terminal.takeOver?.();
@@ -379,6 +569,9 @@ async function main() {
             page.setDefaultTimeout(15_000);
             try {
               await auditPage(page, scope, profile, route);
+              if (route.name === 'home') {
+                await assertReducedHomeLifecycle(page, `${scope}/reduced-motion`);
+              }
             } catch (error) {
               fail(scope, error instanceof Error ? error.stack ?? error.message : String(error));
             } finally {
