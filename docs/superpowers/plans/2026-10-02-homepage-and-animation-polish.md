@@ -77,7 +77,9 @@ The visible demo owns its timer and document takeover listener.
 **Files:** Delete `src/lib/backgroundRenderer.ts`. Modify `src/lib/backgroundModel.ts`,
 `backgroundModel.test.ts`, `sceneRenderer.ts`, `src/components/SiteBackground.astro`,
 `BackgroundControls.astro`, `BackgroundExplorer.astro`, `src/scripts/background.ts`,
-`src/lib/morphRenderer.ts`, and `scripts/audit-background-ui.mjs`.
+and `scripts/audit-background-ui.mjs`.
+Verify unchanged `src/lib/morphRenderer.ts` already handles only `options.labels`;
+modify it only if narrowing SceneRenderer exposes a concrete incompatibility.
 
 **Interfaces:** Preserve Point, BACKGROUND_KEY, BackgroundMotion, BackgroundPreference,
 backgroundRouteAllowed, SceneRenderer lifecycle. Narrow `configure(options:{labels?:boolean}):void`.
