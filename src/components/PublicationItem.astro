@@ -3,7 +3,7 @@ import Icon from './Icon.astro';
 import CitationTools from './CitationTools.astro';
 import { pubSlug } from '../lib/slug';
 import { resolveRelatedPosts } from '../lib/relatedPosts';
-import { publicationCitation, publicationRis } from '../lib/citationText';
+import { preprintLabel, publicationCitation, publicationRis } from '../lib/citationText';
 import type { CollectionEntry } from 'astro:content';
 
 interface Props {
@@ -30,6 +30,7 @@ const tagClass = inPress ? 'tag--accepted' : `tag--${d.type}`;
 
 const links = [
   { key: 'doi', label: 'DOI', icon: 'link', href: d.doi },
+  { key: 'preprint', label: d.preprint ? preprintLabel(d.preprint) : '', icon: 'external', href: d.preprint },
   { key: 'pdf', label: 'PDF', icon: 'file', href: d.pdf },
   { key: 'code', label: 'Code', icon: 'code', href: d.code },
   { key: 'docs', label: 'Docs', icon: 'book', href: d.docs },

@@ -27,6 +27,17 @@ function venueWithDetail(data: PublicationData) {
   return [data.venue, volumeIssue, data.pages].filter(Boolean).join(', ');
 }
 
+/**
+ * The label for an entry's `preprint` link: the repository it points at, or a plain
+ * "Preprint" when it is a server this site has no name for. `10.1101` is bioRxiv's DOI
+ * prefix; medRxiv shares it, and this site cites only bioRxiv under it.
+ */
+export function preprintLabel(url: string): string {
+  if (/biorxiv\.org|doi\.org\/10\.1101\//i.test(url)) return 'bioRxiv';
+  if (/arxiv\.org|doi\.org\/10\.48550\//i.test(url)) return 'arXiv';
+  return 'Preprint';
+}
+
 export function publicationCitation(data: PublicationData) {
   const year = data.date.getUTCFullYear();
   const doi = data.doi ? ` ${data.doi}` : '';

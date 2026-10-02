@@ -189,7 +189,7 @@ export const software: SoftwareTool[] = [
     code: 'https://github.com/calico/shorkie-paper',
     docs: 'https://khchao.com/shorkie/',
     lab: '/shorkie-lab/',
-    paper: 'https://doi.org/10.1101/2025.09.19.677475',
+    paper: 'https://doi.org/10.7554/eLife.112217.1',
     posts: ['shorkie'],
   },
   {

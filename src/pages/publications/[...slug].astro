@@ -6,7 +6,12 @@ import CitationTools from '../../components/CitationTools.astro';
 import { pubSlug } from '../../lib/slug';
 import { resolveRelatedPosts } from '../../lib/relatedPosts';
 import { fullDate } from '../../lib/format';
-import { authorNames, publicationCitation, publicationRis } from '../../lib/citationText';
+import {
+  authorNames,
+  preprintLabel,
+  publicationCitation,
+  publicationRis,
+} from '../../lib/citationText';
 import { site } from '../../data/site';
 
 export async function getStaticPaths() {
@@ -41,6 +46,7 @@ const meta = [
 
 const links = [
   { label: 'DOI', icon: 'link', href: d.doi },
+  { label: d.preprint ? preprintLabel(d.preprint) : '', icon: 'external', href: d.preprint },
   { label: 'PDF', icon: 'file', href: d.pdf },
   { label: 'Code', icon: 'code', href: d.code },
   { label: 'Docs', icon: 'book', href: d.docs },
@@ -85,7 +91,10 @@ const articleLd = {
   inLanguage: 'en',
   url: canonical,
   mainEntityOfPage: canonical,
-  ...(d.doi ? { sameAs: d.doi, identifier: d.doi } : {}),
+  // Every record of the work: a reviewed preprint's DOI first, then the posting it versions.
+  ...(d.doi
+    ? { sameAs: d.preprint ? [d.doi, d.preprint] : d.doi, identifier: d.doi }
+    : {}),
   ...(d.abstract ? { abstract: d.abstract } : {}),
 };
 
