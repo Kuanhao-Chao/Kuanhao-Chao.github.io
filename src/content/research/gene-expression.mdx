@@ -21,8 +21,8 @@ references:
     doi: 'https://doi.org/10.1038/s41588-024-02053-6'
   - text: 'Karollus, A. et al. Species-aware DNA language models capture regulatory elements and their evolution. Genome Biology (2024).'
     doi: 'https://doi.org/10.1186/s13059-024-03221-x'
-  - text: 'Chao, K.-H. et al. Predicting dynamic expression patterns in budding yeast with a fungal DNA language model. bioRxiv (2025).'
-    doi: 'https://doi.org/10.1101/2025.09.19.677475'
+  - text: 'Chao, K.-H. et al. Predicting dynamic expression patterns in budding yeast with a fungal DNA language model. eLife reviewed preprint (2026); first posted on bioRxiv (2025).'
+    doi: 'https://doi.org/10.7554/eLife.112217.1'
   - text: 'You, K. et al. P588: AI and drug discovery with 100 million cells of genome-wide Perturb-seq. Genetics in Medicine Open (2026).'
     doi: 'https://doi.org/10.1016/j.gimo.2026.104079'
 ---
@@ -42,7 +42,7 @@ The third is **biological interpretation**. Attribution and *in silico* mutagene
 
 ### Learning regulatory priors from related genomes
 
-My main project in this direction is **Shorkie** ([Chao et al., 2025](https://doi.org/10.1101/2025.09.19.677475)), a fungal DNA language model for budding yeast. We first trained a supervised sequence-to-expression model directly. In our experiments, it learned the genes it had seen but did not generalize as strongly as we wanted to unseen genes. This led us to test whether self-supervised pretraining on related fungal genomes could provide a better starting point.
+My main project in this direction is **Shorkie** ([Chao et al., 2026](https://doi.org/10.7554/eLife.112217.1)), a fungal DNA language model for budding yeast. We first trained a supervised sequence-to-expression model directly. In our experiments, it learned the genes it had seen but did not generalize as strongly as we wanted to unseen genes. This led us to test whether self-supervised pretraining on related fungal genomes could provide a better starting point.
 
 We trained the same masked-DNA model across nested evolutionary scopes: one *Saccharomyces cerevisiae* reference genome, 80 strains, 165 genomes from the *Saccharomycetales* order, and 1,341 genomes spanning the fungal kingdom. Pretraining helped, but the largest corpus was not the best. The strongest transfer came from the 165-genome order, which supplied useful diversity while staying close enough to budding yeast for the learned patterns to carry over.
 

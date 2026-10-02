@@ -27,6 +27,10 @@ const publications = defineCollection({
       type: z.enum(['journal', 'conference', 'preprint', 'thesis']),
       status: z.enum(['published', 'preprint', 'accepted']).default('published'),
       doi: z.url().optional(),
+      // The earlier posting of the same work, when `doi` names a later record of it -- an
+      // eLife reviewed preprint is a version of a bioRxiv preprint, and readers (and citation
+      // trackers) need both. Rendered as a "bioRxiv" chip and as a second `sameAs` in JSON-LD.
+      preprint: z.url().optional(),
       pdf: z.url().optional(),
       code: z.url().optional(),
       docs: z.url().optional(),
