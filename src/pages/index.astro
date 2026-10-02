@@ -8,7 +8,6 @@ import PublicationItem from '../components/PublicationItem.astro';
 import NewsEntry from '../components/NewsEntry.astro';
 import Icon from '../components/Icon.astro';
 import SequenceTrack from '../components/SequenceTrack.astro';
-import HomeTerminal from '../components/HomeTerminal.astro';
 import PostItem from '../components/PostItem.astro';
 import { Image } from 'astro:assets';
 import type { ImageMetadata } from 'astro';
@@ -70,15 +69,6 @@ const posts = allPosts
     <div class="home-research">
       {research.map((entry) => <ResearchCard entry={entry} variant="home" />)}
     </div>
-  </section>
-
-  {/*
-    The terminal stands alone — no heading, no blurb. It explains itself, and it takes
-    the plain container so it spans the same width as research, publications and
-    software rather than sitting in a narrower column of its own.
-  */}
-  <section class="section home-section container" data-reveal>
-    <HomeTerminal />
   </section>
 
   <section class="section home-section container" data-reveal>

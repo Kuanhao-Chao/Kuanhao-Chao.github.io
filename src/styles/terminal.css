@@ -257,6 +257,20 @@ a.term-dot:focus-visible {
   cursor: pointer;
   border-bottom-color: transparent;
 }
+/* A collapsed card is a disclosure and should read as one: a chevron ahead of the title, the
+   title lit on hover, and a lighter shadow — the deep drop shadow of the open card under a
+   single title bar looks like a window that failed to open. The title is aria-hidden, so the
+   chevron is decoration; the yellow dot is the labelled control. */
+.term--min .term-bar-title::before {
+  content: '▸ ';
+  color: var(--term-accent);
+}
+.term--min .term-bar:hover .term-bar-title {
+  color: var(--term-ink);
+}
+.term--inline.term--min {
+  box-shadow: 0 0.2rem 0.8rem var(--term-shadow);
+}
 
 .term--closed {
   display: none;

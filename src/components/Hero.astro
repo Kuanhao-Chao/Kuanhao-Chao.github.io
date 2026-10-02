@@ -3,6 +3,7 @@ import { Image } from 'astro:assets';
 import Icon from './Icon.astro';
 import Socials from './Socials.astro';
 import HeroBackground from './HeroBackground.astro';
+import HomeTerminal from './HomeTerminal.astro';
 import { site } from '../data/site';
 import portrait from '../assets/profile/portrait.jpg';
 ---
@@ -56,6 +57,15 @@ import portrait from '../assets/profile/portrait.jpg';
           </div>
         </div>
       </details>
+
+      {/*
+        The shell, collapsed, directly under "About my name". It is part of the profile
+        rather than a section of its own: a visitor who wants it opens it, and everyone
+        else spends one title bar of height on it, not a screen.
+      */}
+      <div class="hero-terminal">
+        <HomeTerminal />
+      </div>
 
       {/*
         Two rows: labelled actions, then one uniform strip of icon tiles.
@@ -117,6 +127,7 @@ import portrait from '../assets/profile/portrait.jpg';
   }
   .hero-text {
     max-width: 42rem;
+    min-width: 0;
   }
   .hero-eyebrow {
     margin-bottom: 1.25rem;
@@ -148,7 +159,7 @@ import portrait from '../assets/profile/portrait.jpg';
   /* Collapsible "About my name" disclosure (identity content from the old site). */
   .hero-name {
     max-width: var(--measure);
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
     border-top: 1px solid var(--color-rule);
     border-bottom: 1px solid var(--color-rule);
   }
@@ -224,6 +235,13 @@ import portrait from '../assets/profile/portrait.jpg';
   }
   .hero-name-audio {
     margin-top: 0.2rem;
+  }
+  /* The collapsed shell takes the same column as the disclosure above it. The card itself is
+     drawn by terminal.css (global, imported by HomeTerminal); this only sets column and rhythm. */
+  .hero-terminal {
+    max-width: var(--measure);
+    min-width: 0;
+    margin-bottom: 2rem;
   }
   .hero-name-audio audio {
     width: 100%;
@@ -312,17 +330,27 @@ import portrait from '../assets/profile/portrait.jpg';
 
   /* Phone + tablet: centered profile-card layout with a circular avatar. */
   @media (max-width: 880px) {
+    /* `minmax(0, 1fr)`, not `1fr`: a bare `1fr` track has an automatic minimum, i.e. the
+       min-content of whatever sits in it. Prose wraps, so that never showed — but the
+       terminal's shortcut row is a scrolling flex strip whose buttons are ~600px end to end,
+       and it stretched the track (measured: `cols=608px` in a 390px viewport) so the open card
+       was cut off at the edge. The hero's own overflow clip hid the evidence: no document
+       overflow, just a card missing its right-hand side. */
     .hero-inner {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
       justify-items: center;
       text-align: center;
       gap: clamp(1.5rem, 5vw, 2.25rem);
     }
+    /* …and `width: 100%`, because `justify-items: center` makes the item shrink-to-fit, which
+       is again its min-content when that exceeds the track. */
+    /* Normal block flow preserves DOM/read order and native scroll chaining from the
+       terminal to the page. A nested grid here trapped Chromium's phone wheel gesture
+       at the transcript boundary; the outer minmax track still keeps the card in bounds. */
     .hero-text {
+      width: 100%;
       max-width: 38rem;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      display: block;
     }
     .hero-portrait {
       order: -1;
@@ -344,24 +372,29 @@ import portrait from '../assets/profile/portrait.jpg';
     }
     /* Long bio reads better left-aligned, but keep the block centered. */
     .hero-bio {
-      order: 5;
       width: 100%;
       text-align: left;
       margin-inline: auto;
-      margin-top: 1rem;
+      margin-top: 0;
       margin-bottom: 0;
       font-size: 1rem;
     }
-    /* Keep the name disclosure directly below the (reordered) bio, left-aligned. */
+    /* Keep the name disclosure directly below the bio, left-aligned. */
     .hero-name {
-      order: 6;
       width: 100%;
       text-align: left;
       margin-top: 1.25rem;
       margin-bottom: 0;
     }
+    /* After the name disclosure, left-aligned like it (the card inherits the centred text of
+       the profile layout otherwise). */
+    .hero-terminal {
+      width: 100%;
+      text-align: left;
+      margin-top: 1rem;
+      margin-bottom: 1.5rem;
+    }
     .hero-actions {
-      order: 4;
       justify-content: center;
     }
     .hero-actions :global(.hero-socials) {
