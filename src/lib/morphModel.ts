@@ -1,4 +1,19 @@
 /** Deterministic, representative anatomy for the Genome → Cell illustration. */
+import {
+  finiteProgress,
+  MORPH_STAGES,
+  smootherstep,
+  stageWeight,
+  type MorphStageId,
+} from './morphStory';
+import {
+  sampleRnaParticle,
+  sampleProteinParticle,
+  sampleNetworkParticle,
+  sampleDistributionParticle,
+} from './morphTargets';
+export { storyProgress, playbackProgress, playbackTime } from './morphStory';
+
 export interface MorphPoint {
   x: number;
   y: number;
@@ -33,10 +48,6 @@ export const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
 export function smoothstep(value: number) {
   const t = clamp01(value);
   return t * t * (3 - 2 * t);
-}
-export function storyProgress(focus: number, hero: number, cell: number, signal: number): number {
-  if (focus <= cell) return 0.5 * smoothstep((focus - hero) / Math.max(1, cell - hero));
-  return 0.5 + 0.5 * smoothstep((focus - cell) / Math.max(1, signal - cell));
 }
 export function cellRadius(theta: number, time = 0): number {
   return (
@@ -106,6 +117,8 @@ export function sampleMorphAtmosphere(
   time: number,
   out: MorphPoint
 ): void {
+  progress = finiteProgress(progress);
+  time = Number.isFinite(time) ? time : 0;
   const t = (index + 0.5) / Math.max(1, count);
   const strand = index % 3;
   const phase = t * TAU * 2.4 + (strand * TAU) / 3 + time * 0.055;
@@ -118,8 +131,14 @@ export function sampleMorphAtmosphere(
   out.x = dx + (radius * Math.cos(angle) - dx) * cell;
   out.y = dy + (radius * 0.67 * Math.sin(angle) - dy) * cell;
   out.z = dz + (0.25 * Math.sin(angle * 1.5 + strand) - dz) * cell;
+  const molecular =
+    stageWeight(progress, 'dna') +
+    stageWeight(progress, 'rna') +
+    stageWeight(progress, 'protein') +
+    stageWeight(progress, 'cell');
   out.alpha =
-    (0.1 + 0.15 * Math.sin(phase * 0.7) ** 2) * (1 - smoothstep((progress - 0.65) / 0.35));
+    (0.04 + 0.04 * Math.sin(phase * 0.7) ** 2) *
+    (molecular + 0.65 * stageWeight(progress, 'network'));
 }
 
 /** Bounded local response. No effect outside the pointer's small influence area. */
@@ -391,7 +410,49 @@ function sampleDnaParticle(p: MorphParticle, time: number, out: MorphPoint): voi
   }
 }
 
-/** Reversible, role-staggered paths with zero transition velocity at each form. */
+/** Existing expression material: a non-normalized multi-peak genomic signal. */
+export function sampleSignalParticle(p: MorphParticle, out: MorphPoint): void {
+  const ridge = p.role === 'chromatin';
+  out.x = -1 + 2 * p.t;
+  out.y = 0.33 - signalHeight(p.t) * (ridge ? 0.96 + p.u * 0.04 : p.u);
+  out.z = 0;
+  out.alpha = ridge ? 0.85 : 0.28 + p.v * 0.2;
+}
+
+/** Canonical sampling seam shared by endpoint checks and the adjacent-target morph. */
+export function sampleMorphTarget(
+  p: MorphParticle,
+  id: MorphStageId,
+  time: number,
+  out: MorphPoint
+): void {
+  const clock = Number.isFinite(time) ? time : 0;
+  switch (id) {
+    case 'dna':
+      sampleDnaParticle(p, clock, out);
+      break;
+    case 'rna':
+      sampleRnaParticle(p, clock, out);
+      break;
+    case 'protein':
+      sampleProteinParticle(p, out);
+      break;
+    case 'cell':
+      sampleCellParticle(p, clock, out);
+      break;
+    case 'signal':
+      sampleSignalParticle(p, out);
+      break;
+    case 'network':
+      sampleNetworkParticle(p, out);
+      break;
+    case 'distribution':
+      sampleDistributionParticle(p, out);
+      break;
+  }
+}
+
+/** Six reversible, subtly staggered paths; quintic easing and endpoint-flat bounded arcs. */
 export function sampleMorph(
   p: MorphParticle,
   progress: number,
@@ -399,59 +460,25 @@ export function sampleMorph(
   out: MorphPoint,
   scratch: MorphPoint
 ): void {
-  const stage = clamp01(progress);
-  sampleCellParticle(p, time, out);
+  const stage = finiteProgress(progress) * 6;
+  const from = Math.min(5, Math.floor(stage));
+  const local = stage - from;
+  // Copy canonical targets exactly, avoiding round-off from interpolation at arrivals.
+  if (local === 0 || local === 1) {
+    sampleMorphTarget(p, MORPH_STAGES[from + local].id, time, out);
+    return;
+  }
+  sampleMorphTarget(p, MORPH_STAGES[from].id, time, scratch);
+  sampleMorphTarget(p, MORPH_STAGES[from + 1].id, time, out);
   const role = MORPH_ROLES.indexOf(p.role);
-  if (stage <= 0.5) {
-    const delay = p.role === 'chromatin' ? 0 : 0.06 + role * 0.025;
-    const blend = smoothstep((stage * 2 - delay) / (1 - delay));
-    sampleDnaParticle(p, time, scratch);
-    const arc = 16 * blend * blend * (1 - blend) * (1 - blend);
-    const angle = p.t * TAU * 2 + role * 0.7;
-    out.x = scratch.x + (out.x - scratch.x) * blend + arc * Math.sin(angle) * 0.12;
-    out.y = scratch.y + (out.y - scratch.y) * blend + arc * Math.cos(angle) * 0.17;
-    out.z = scratch.z + (out.z - scratch.z) * blend + arc * Math.sin(angle + 1) * 0.16;
-    out.alpha = scratch.alpha + (out.alpha - scratch.alpha) * blend;
-  } else {
-    const delay = role * 0.018;
-    const blend = smoothstep(((stage - 0.5) * 2 - delay) / (1 - delay));
-    const ridge = p.role === 'chromatin';
-    const x = -1 + 2 * p.t;
-    const y = 0.33 - signalHeight(p.t) * (ridge ? 0.96 + p.u * 0.04 : p.u);
-    const arc = 16 * blend * blend * (1 - blend) * (1 - blend);
-    const angle = p.t * TAU + role * 0.8;
-    out.x += (x - out.x) * blend + arc * Math.sin(angle) * 0.18;
-    out.y += (y - out.y) * blend - arc * (0.12 + Math.cos(angle) * 0.1);
-    out.z = out.z * (1 - blend) + arc * Math.sin(angle) * 0.18;
-    out.alpha += ((ridge ? 0.85 : 0.28 + p.v * 0.2) - out.alpha) * blend;
-  }
-}
-/** Two-second holds and four-second transitions, with a continuous reverse leg. */
-export function playbackProgress(seconds: number): number {
-  const t = ((seconds % 24) + 24) % 24;
-  if (t < 2) return 0;
-  if (t < 6) return 0.5 * smoothstep((t - 2) / 4);
-  if (t < 8) return 0.5;
-  if (t < 12) return 0.5 + 0.5 * smoothstep((t - 8) / 4);
-  if (t < 14) return 1;
-  if (t < 18) return 1 - 0.5 * smoothstep((t - 14) / 4);
-  if (t < 20) return 0.5;
-  return 0.5 - 0.5 * smoothstep((t - 20) / 4);
-}
-export function playbackTime(progress: number): number {
-  const p = clamp01(progress);
-  if (p === 0) return 0;
-  if (p === 0.5) return 6;
-  if (p === 1) return 12;
-  const local = p < 0.5 ? p * 2 : (p - 0.5) * 2;
-  let low = 0,
-    high = 1;
-  for (let i = 0; i < 24; i++) {
-    const mid = (low + high) / 2;
-    if (smoothstep(mid) < local) low = mid;
-    else high = mid;
-  }
-  return (p < 0.5 ? 2 : 8) + (4 * (low + high)) / 2;
+  const delay = role * 0.006 + p.u * 0.025;
+  const blend = smootherstep((local - delay) / (1 - delay));
+  const arc = 64 * blend ** 3 * (1 - blend) ** 3;
+  const angle = p.t * TAU * 2 + role * 0.7 + from * 0.4;
+  out.x = scratch.x + (out.x - scratch.x) * blend + arc * Math.sin(angle) * 0.1;
+  out.y = scratch.y + (out.y - scratch.y) * blend + arc * Math.cos(angle) * 0.13;
+  out.z = scratch.z + (out.z - scratch.z) * blend + arc * Math.sin(angle + 1) * 0.12;
+  out.alpha = scratch.alpha + (out.alpha - scratch.alpha) * blend;
 }
 /** Exact critically damped spring step, independent of frame subdivision. */
 export function springStep(
