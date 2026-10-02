@@ -244,29 +244,17 @@ async function attach() {
     engine.attach(cells);
   } else {
     try {
-      const makeRenderer =
-        preference.scene === 'morph'
-          ? (await import('../lib/morphRenderer')).createMorphRenderer
-          : (await import('../lib/backgroundRenderer')).createSceneRenderer;
+      const { createMorphRenderer } = await import('../lib/morphRenderer');
       if (token !== generation || !canvas) return;
       canvas.hidden = false;
       canvas.dataset.bgScene = preference.scene;
       delete canvas.dataset.bgFallback;
-      renderer =
-        preference.scene === 'morph'
-          ? (makeRenderer as typeof import('../lib/morphRenderer').createMorphRenderer)(
-              canvas,
-              false,
-              location.pathname === '/',
-              location.pathname === '/' &&
-                scrollY < 40 &&
-                !reduced() &&
-                preference.motion === 'ambient'
-            )
-          : (makeRenderer as typeof import('../lib/backgroundRenderer').createSceneRenderer)(
-              canvas,
-              preference.scene as 'flow' | 'landscape'
-            );
+      renderer = createMorphRenderer(
+        canvas,
+        false,
+        location.pathname === '/',
+        location.pathname === '/' && scrollY < 40 && !reduced() && preference.motion === 'ambient'
+      );
       renderer.setMotion(preference.motion);
       mask = document.createElement('canvas');
       collectBounds();
@@ -363,7 +351,6 @@ async function openDemo() {
     return;
   }
   if (!active() || preference.scene === 'off' || dialog?.open) return;
-  const scene = preference.scene;
   const host = $<HTMLDialogElement>('[data-background-dialog]');
   const surface = $<HTMLCanvasElement>('[data-background-demo-canvas]');
   if (!host || !surface) return;
@@ -379,59 +366,23 @@ async function openDemo() {
   document.body.style.overflow = 'hidden';
   host.showModal();
   $('[data-background-close]')?.focus();
-  $('[data-background-demo-title]')!.textContent =
-    scene === 'flow'
-      ? 'Flow Field'
-      : scene === 'landscape'
-        ? 'Learning Landscape'
-        : 'Genome to Cell';
+  $('[data-background-demo-title]')!.textContent = 'Genome to Cell';
   $('[data-background-description]')!.textContent =
-    scene === 'flow'
-      ? 'Fine strands follow a smooth curl field. Small arrows show local direction. Move over the canvas, tap, or add a temporary vortex. This is procedural art, not a fluid simulation.'
-      : scene === 'landscape'
-        ? 'An illustrative two-dimensional objective: L(x,y) = ¼(x² − 1)² + ½(y − 0.35x)². Compare two optimizers on the same terrain. This is a toy function, not a trained model’s loss surface.'
-        : 'Explore seven particle forms: DNA, RNA, folded protein, cell, expression profile, neural model and probability distribution. Move your pointer while playing to shift the view, or tap or use Stir particles. Scrub between forms and show structure labels for a closer look.';
-  $('[data-background-flow-controls]')!.hidden = scene !== 'flow';
-  $('[data-background-landscape-controls]')!.hidden = scene !== 'landscape';
-  $('[data-background-legend]')!.hidden = scene !== 'landscape';
-  $('[data-background-morph-legend]')!.hidden = scene !== 'morph';
-  $('[data-background-morph-controls]')!.hidden = scene !== 'morph';
+    'Explore seven particle forms: DNA, RNA, folded protein, cell, expression profile, neural model and probability distribution. Move your pointer while playing to shift the view, or tap or use Stir particles. Scrub between forms and show structure labels for a closer look.';
+  $('[data-background-morph-legend]')!.hidden = false;
+  $('[data-background-morph-controls]')!.hidden = false;
   const structureLabels = $<HTMLInputElement>('[data-background-labels]');
   if (structureLabels) structureLabels.checked = false;
   surface.setAttribute(
     'aria-label',
-    scene === 'flow'
-      ? 'Flow field with temporary interactive vortices'
-      : scene === 'landscape'
-        ? 'Contour map comparing gradient descent and momentum; coordinate controls below'
-        : 'Seven particle forms: DNA, RNA, folded protein, cell, expression profile, neural model and probability distribution; controls below'
+    'Seven particle forms: DNA, RNA, folded protein, cell, expression profile, neural model and probability distribution; controls below'
   );
-  for (const [key, value] of [
-    ['strength', '1'],
-    ['rate', '0.035'],
-    ['method', 'both'],
-    ['x', '0.45'],
-    ['y', '1.65'],
-  ]) {
-    const input = $<HTMLInputElement>(`[data-background-${key}]`);
-    if (input) input.value = value;
-  }
   notify();
   applyRunning();
   try {
-    const makeRenderer =
-      scene === 'morph'
-        ? (await import('../lib/morphRenderer')).createMorphRenderer
-        : (await import('../lib/backgroundRenderer')).createSceneRenderer;
+    const { createMorphRenderer } = await import('../lib/morphRenderer');
     if (token !== demoGeneration || !dialog?.open) return;
-    demo =
-      scene === 'morph'
-        ? (makeRenderer as typeof import('../lib/morphRenderer').createMorphRenderer)(surface, true)
-        : (makeRenderer as typeof import('../lib/backgroundRenderer').createSceneRenderer)(
-            surface,
-            scene as 'flow' | 'landscape',
-            true
-          );
+    demo = createMorphRenderer(surface, true);
     demoPlaying = !reduced();
     applyRunning();
     updateDemoStatus(true);
@@ -498,40 +449,12 @@ function bindDemo() {
       demo?.configure({ labels: (event.target as HTMLInputElement).checked });
       updateDemoStatus(true);
     });
-  host.querySelector('[data-background-vortex]')?.addEventListener('click', () => {
-    const surface = $<HTMLCanvasElement>('[data-background-demo-canvas]');
-    if (surface) {
-      demo?.interact(surface.clientWidth / 2, surface.clientHeight / 2);
-      if (!demoPlaying) demo?.step();
-      updateDemoStatus(true);
-    }
-  });
   host.querySelector('[data-background-stir]')?.addEventListener('click', () => {
     const surface = $<HTMLCanvasElement>('[data-background-demo-canvas]');
     if (surface) demo?.interact(surface.clientWidth / 2, surface.clientHeight / 2);
   });
-  host.querySelector('[data-background-strength]')?.addEventListener('input', (event) => {
-    demo?.configure({ strength: Number((event.target as HTMLInputElement).value) });
-  });
-  host.querySelector('[data-background-method]')?.addEventListener('change', (event) => {
-    demo?.configure({ method: (event.target as HTMLSelectElement).value });
-    updateDemoStatus(true);
-  });
-  host.querySelector('[data-background-rate]')?.addEventListener('change', (event) => {
-    const input = event.target as HTMLInputElement;
-    if (input.checkValidity() && input.value) demo?.configure({ rate: Number(input.value) });
-    else input.reportValidity();
-  });
-  host.querySelector('[data-background-start]')?.addEventListener('click', () => {
-    const x = $<HTMLInputElement>('[data-background-x]')!,
-      y = $<HTMLInputElement>('[data-background-y]')!;
-    if (!x.value || !y.value || !x.reportValidity() || !y.reportValidity()) return;
-    demo?.configure({ start: { x: Number(x.value), y: Number(y.value) } });
-    updateDemoStatus(true);
-  });
   const surface = host.querySelector<HTMLCanvasElement>('[data-background-demo-canvas]')!;
-  let down: { x: number; y: number } | null = null,
-    lastVortex = 0;
+  let down: { x: number; y: number } | null = null;
   surface.addEventListener('pointerdown', (e) => {
     down = { x: e.clientX, y: e.clientY };
   });
@@ -544,7 +467,6 @@ function bindDemo() {
     if (!start || Math.hypot(e.clientX - start.x, e.clientY - start.y) > 8) return;
     const r = surface.getBoundingClientRect();
     demo?.interact(e.clientX - r.left, e.clientY - r.top);
-    if (!demoPlaying && preference.scene === 'flow') demo?.step();
     updateDemoStatus(true);
   });
   surface.addEventListener(
@@ -555,16 +477,6 @@ function bindDemo() {
         demo?.setPointer?.({ x: e.clientX - r.left, y: e.clientY - r.top });
         return;
       }
-      if (
-        e.pointerType !== 'mouse' ||
-        preference.scene !== 'flow' ||
-        !demoPlaying ||
-        performance.now() - lastVortex < 450
-      )
-        return;
-      lastVortex = performance.now();
-      const r = surface.getBoundingClientRect();
-      demo?.interact(e.clientX - r.left, e.clientY - r.top);
     },
     { passive: true }
   );
