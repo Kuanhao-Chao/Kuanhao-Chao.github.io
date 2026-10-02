@@ -14,9 +14,7 @@ import { Image } from 'astro:assets';
 import type { ImageMetadata } from 'astro';
 import { site } from '../data/site';
 import { experience, education, software, type SoftwareTool } from '../data/cv';
-import { ALGORITHMS } from '../data/algorithms';
 import { readingTime } from '../lib/format';
-import AlgorithmLogo from '../components/AlgorithmLogo.astro';
 import HomeGenomeBrowser from '../components/genomic/HomeGenomeBrowser.astro';
 
 // Flagship tools for the homepage strip: those with a logo, newest first, each
@@ -47,7 +45,7 @@ const allPublications = await getCollection('publications');
 const pubs = allPublications
   .filter((p) => p.data.featured)
   .sort((a, b) => (a.data.selectedOrder ?? 99) - (b.data.selectedOrder ?? 99))
-  .slice(0, 7);
+  .slice(0, 4);
 
 const latestNews = (await getCollection('news'))
   .filter((n) => !n.data.draft)
@@ -62,8 +60,6 @@ const posts = allPosts
   .filter((p) => !p.data.draft)
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime())
   .slice(0, 2);
-
-const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
 ---
 <BaseLayout type="profile">
   <Hero />
@@ -176,34 +172,14 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
     </section>
   )}
 
-  {featuredAlgos.length > 0 && (
-    <section class="section home-section container" data-reveal>
-      <SectionHeading
-        eyebrow="Interactive tools"
-        title="Algorithms & Visualizers"
-        href="/algorithms/"
-        more="All algorithms"
-      />
-      <div class="home-morph-window" data-background-stage="network" aria-hidden="true"></div>
-      <ul class="home-algos">
-        {featuredAlgos.map((a) => (
-          <li>
-            <a class="home-algo" href={a.href}>
-              <div class="home-algo-header">
-                <AlgorithmLogo id={a.id} size={40} compact />
-                <span class="home-algo-tag">{a.tag}</span>
-              </div>
-              <span class="home-algo-title">{a.shortTitle || a.title}</span>
-              <span class="home-algo-blurb">{a.blurb || a.summary}</span>
-            </a>
-          </li>
-        ))}
-      </ul>
-    </section>
-  )}
-
+  {/*
+    The neural-model artwork window lives here now that the Algorithms section has left the
+    page. The story only needs it between Posts (signal) and the genome browser (distribution):
+    `storyProgress` rejects chapters that are not in document order.
+  */}
   <section class="section home-section container" data-reveal>
     <SectionHeading eyebrow="Updates" title="Recent news" href="/news/" more="All news" />
+    <div class="home-morph-window" data-background-stage="network" aria-hidden="true"></div>
     <div class="home-news">
       {news.map(({ entry, Content }) => (
         <NewsEntry entry={entry} variant="card">
@@ -266,26 +242,9 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
     border-block: 1px solid var(--color-rule);
     background: var(--color-rule);
   }
-  /* ------------------------------------------------------------------------------------- */
-  /* Phone: a shorter index.                                                                 */
-  /*                                                                                         */
-  /* Measured on an iPhone 13 (664px viewport): the page ran 11,680px = 17.6 screens, of      */
-  /* which Publications alone was 3.1 and Recent news 1.7. Desktop keeps the full lists --    */
-  /* the frontmatter still renders all of them and this only hides the tail, so the "All      */
-  /* publications" / "All news" links carry the rest.                                        */
-  /*                                                                                         */
-  /* NOTE: the counts live in TWO places once this exists -- the `.slice()` in the            */
-  /* frontmatter and the `n + 4` here. If the slice is ever cut below 4 these rules silently  */
-  /* do nothing, which looks like they were never needed.                                    */
-  /* ------------------------------------------------------------------------------------- */
-  @media (max-width: 639px) {
-    /* `> li` works for publications because the <li> is written in this file and carries this
-       file's scope hash. Desktop keeps the full publications list; mobile displays the top 3. */
-    .home-pubs > li:nth-child(n + 4) {
-      display: none;
-    }
-  }
-
+  /* Publications: the count (four) lives only in the frontmatter `.slice()`. No breakpoint hides
+     entries any more -- a phone used to show three of seven, and a second rule that had to agree
+     with the slice was a place for the two to drift apart. "All publications" carries the rest. */
   .home-pubs {
     list-style: none;
     margin: 0;
@@ -295,8 +254,7 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
   .home-posts {
     border-top: 1px solid var(--color-rule);
   }
-  .home-tools,
-  .home-algos {
+  .home-tools {
     list-style: none;
     margin: 0;
     padding: 0;
@@ -306,8 +264,7 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
     border-block: 1px solid var(--color-rule);
     background: var(--color-rule);
   }
-  .home-tool,
-  .home-algo {
+  .home-tool {
     display: flex;
     flex-direction: column;
     gap: 0.85rem;
@@ -319,39 +276,8 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
     text-decoration: none;
     transition: background var(--transition);
   }
-  .home-tool:hover,
-  .home-algo:hover {
+  .home-tool:hover {
     background: var(--color-surface);
-  }
-  .home-algo-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    gap: 0.5rem;
-  }
-  .home-algo-tag {
-    font-size: var(--fs-meta);
-    font-weight: 600;
-    padding: 0.12rem 0.45rem;
-    background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
-    color: var(--color-accent-dark);
-    border-radius: var(--radius);
-  }
-  .home-algo-title {
-    font-weight: var(--fw-semibold);
-    font-size: 1.02rem;
-    line-height: 1.35;
-    color: var(--color-ink);
-  }
-  .home-algo:hover .home-algo-title {
-    color: var(--color-accent);
-  }
-  .home-algo-blurb {
-    font-size: var(--fs-small);
-    color: var(--color-muted);
-    line-height: var(--lh-snug);
-    flex: 1;
   }
   /* The frame shrinks to each logo's real aspect rather than forcing a square: given
      a square, Astro center-crops the wide wordmarks down to a couple of letters. The
@@ -489,8 +415,7 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
   }
   @media (max-width: 860px) {
     .home-news,
-    .home-tools,
-    .home-algos {
+    .home-tools {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
@@ -516,27 +441,21 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
     }
     /* Two per row on mobile.
        .home-news uses separate card containers with padding/gap.
-       .home-tools and .home-algos keep gap: 1px so the background rule color
+       .home-tools keeps gap: 1px so the background rule color
        forms the exact same crisp 1px boundary line between cards as on desktop. */
     .home-news {
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: clamp(0.6rem, 2.5vw, 1rem);
     }
-    .home-tools,
-    .home-algos {
+    .home-tools {
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 1px;
     }
-    .home-tool,
-    .home-algo {
+    .home-tool {
       padding: clamp(0.75rem, 3vw, 1.25rem);
       gap: 0.5rem;
     }
-    .home-algo-header {
-      flex-wrap: wrap;
-    }
-    .home-tool-name,
-    .home-algo-title {
+    .home-tool-name {
       font-size: 0.95rem;
     }
     .home-research {
@@ -555,8 +474,7 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
 
   @media (max-width: 440px) {
     .home-news,
-    .home-tools,
-    .home-algos {
+    .home-tools {
       grid-template-columns: 1fr;
     }
   }

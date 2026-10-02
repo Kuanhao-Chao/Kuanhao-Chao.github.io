@@ -200,7 +200,7 @@ function onMouseMove(e: MouseEvent) {
   }
 
   // Find nearest meaningful block element
-  const cuttable = target.closest<HTMLElement>('p, h1, h2, h3, h4, li, a, img, .card, .home-algo, .home-tool, .home-news-card, button');
+  const cuttable = target.closest<HTMLElement>('p, h1, h2, h3, h4, li, a, img, .card, .home-tool, .home-news-card, button');
   if (cuttable && !cutElements.has(cuttable)) {
     hoverTarget = cuttable;
     const rect = cuttable.getBoundingClientRect();
