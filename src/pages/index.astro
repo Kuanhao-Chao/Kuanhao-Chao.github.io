@@ -70,7 +70,7 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
 
   <section class="section home-section container" data-reveal>
     <SectionHeading eyebrow="What I work on" title="Research" href="/research/" more="All research" />
-    <div class="home-morph-window" data-background-stage="cell" aria-hidden="true"></div>
+    <div class="home-morph-window" data-background-stage="rna" aria-hidden="true"></div>
     <div class="home-research">
       {research.map((entry) => <ResearchCard entry={entry} variant="home" />)}
     </div>
@@ -92,7 +92,7 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
       href="/publications/"
       more="All publications"
     />
-    <div class="home-morph-window" data-background-stage="signal" aria-hidden="true"></div>
+    <div class="home-morph-window" data-background-stage="protein" aria-hidden="true"></div>
     <ol class="home-pubs">
       {pubs.map((pub) => <li><PublicationItem pub={pub} compact /></li>)}
     </ol>
@@ -101,6 +101,7 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
   {featuredTools.length > 0 && (
     <section class="section home-section container" data-reveal>
       <SectionHeading eyebrow="Open source" title="Featured software" href="/software/" more="All software" />
+      <div class="home-morph-window" data-background-stage="cell" aria-hidden="true"></div>
       <ul class="home-tools">
         {featuredTools.map((t) => {
           const logo = toolLogo(t);
@@ -166,6 +167,7 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
   {posts.length > 0 && (
     <section class="section home-section container" data-reveal>
       <SectionHeading eyebrow="Writing" title="Posts" href="/posts/" more="All posts" />
+      <div class="home-morph-window" data-background-stage="signal" aria-hidden="true"></div>
       <div class="home-posts">
         {posts.map((entry) => (
           <PostItem entry={entry} minutes={readingTime(entry.body ?? '')} compact />
@@ -182,6 +184,7 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
         href="/algorithms/"
         more="All algorithms"
       />
+      <div class="home-morph-window" data-background-stage="network" aria-hidden="true"></div>
       <ul class="home-algos">
         {featuredAlgos.map((a) => (
           <li>
@@ -217,6 +220,7 @@ const featuredAlgos = ALGORITHMS.filter((a) => a.featured);
       href="/shorkie-lab/genome/"
       more="Open full browser"
     />
+    <div class="home-morph-window" data-background-stage="distribution" aria-hidden="true"></div>
     <HomeGenomeBrowser />
   </section>
 

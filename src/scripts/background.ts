@@ -8,7 +8,12 @@ import {
 } from '../lib/backgroundModel';
 import { getLivingCellsEngine } from '../lib/livingCellsEngine';
 import type { SceneRenderer } from '../lib/sceneRenderer';
-import { storyProgress } from '../lib/morphModel';
+import {
+  MORPH_STAGES,
+  stageDescription,
+  storyProgress,
+  type MorphChapter,
+} from '../lib/morphStory';
 
 let preference: BackgroundPreference = { scene: 'cells', motion: 'ambient' };
 let renderer: SceneRenderer | null = null;
@@ -28,7 +33,7 @@ let dialog: HTMLDialogElement | null = null;
 let focusBefore: HTMLElement | null = null;
 let scrollBefore = '';
 let selecting = false;
-let storyAnchors: { hero: number; cell: number; signal: number } | null = null;
+let storyChapters: MorphChapter[] = [];
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const active = () =>
   backgroundRouteAllowed(location.pathname) && !!document.querySelector('[data-site-bg-canvas]');
@@ -116,22 +121,25 @@ function collectBounds() {
         bounds.push({ x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height });
     }
   });
-  const chapter = (name: string) => {
-    const element = document.querySelector<HTMLElement>(`[data-background-stage="${name}"]`);
+  storyChapters = [];
+  for (const stage of MORPH_STAGES) {
+    const element = document.querySelector<HTMLElement>(`[data-background-stage="${stage.id}"]`);
     const rect = element?.getBoundingClientRect();
-    return rect ? rect.top + scrollY + rect.height / 2 : null;
-  };
-  const hero = chapter('dna'), cell = chapter('cell'), signal = chapter('signal');
-  storyAnchors = hero !== null && cell !== null && signal !== null
-    ? { hero, cell, signal } : null;
+    if (rect && rect.height)
+      storyChapters.push({
+        id: stage.id,
+        center: rect.top + scrollY + rect.height / 2,
+        holdRadius: Math.min(64, rect.height * 0.2),
+      });
+  }
   paintMask();
 }
 function updateStory() {
   if (!renderer?.setProgress || preference.scene !== 'morph') return;
-  const a = storyAnchors;
-  const progress = a
-    ? storyProgress(scrollY + innerHeight / 2, a.hero, a.cell, a.signal)
-    : 0.5;
+  const progress =
+    storyChapters.length === MORPH_STAGES.length
+      ? storyProgress(scrollY + innerHeight / 2, storyChapters)
+      : 0.5;
   if (Math.abs((renderer.getProgress?.() ?? -1) - progress) > 0.002) renderer.setProgress(progress);
 }
 function paintMask() {
@@ -170,13 +178,30 @@ function scheduleMask() {
 }
 /** Only exposed artwork reacts; never capture a control, text selection, or touch scroll. */
 function ambientPoint(event: PointerEvent) {
-  if (preference.scene !== 'morph' || !renderer || !canvas || dialog?.open ||
-    preference.motion === 'paused' || reduced() || document.hidden || selecting ||
-    location.pathname !== '/' || getSelection()?.toString()) return null;
+  if (
+    preference.scene !== 'morph' ||
+    !renderer ||
+    !canvas ||
+    dialog?.open ||
+    preference.motion === 'paused' ||
+    reduced() ||
+    document.hidden ||
+    selecting ||
+    location.pathname !== '/' ||
+    getSelection()?.toString()
+  )
+    return null;
   const target = event.target instanceof Element ? event.target : null;
-  if (target?.closest('a, button, input, select, textarea, summary, [contenteditable], [role="button"], [data-background-protected], [data-terminal]')) return null;
-  const x = event.clientX + scrollX, y = event.clientY + scrollY;
-  if (bounds.some(r => x >= r.x - 8 && x <= r.x + r.w + 8 && y >= r.y - 8 && y <= r.y + r.h + 8)) return null;
+  if (
+    target?.closest(
+      'a, button, input, select, textarea, summary, [contenteditable], [role="button"], [data-background-protected], [data-terminal]'
+    )
+  )
+    return null;
+  const x = event.clientX + scrollX,
+    y = event.clientY + scrollY;
+  if (bounds.some((r) => x >= r.x - 8 && x <= r.x + r.w + 8 && y >= r.y - 8 && y <= r.y + r.h + 8))
+    return null;
   const rect = canvas.getBoundingClientRect();
   return { x: event.clientX - rect.left, y: event.clientY - rect.top };
 }
@@ -192,7 +217,7 @@ function detach() {
   canvas = null;
   mask = null;
   bounds = [];
-  storyAnchors = null;
+  storyChapters = [];
   cancelAnimationFrame(maskRaf);
   maskRaf = 0;
 }
@@ -219,20 +244,29 @@ async function attach() {
     engine.attach(cells);
   } else {
     try {
-      const makeRenderer = preference.scene === 'morph'
-        ? (await import('../lib/morphRenderer')).createMorphRenderer
-        : (await import('../lib/backgroundRenderer')).createSceneRenderer;
+      const makeRenderer =
+        preference.scene === 'morph'
+          ? (await import('../lib/morphRenderer')).createMorphRenderer
+          : (await import('../lib/backgroundRenderer')).createSceneRenderer;
       if (token !== generation || !canvas) return;
       canvas.hidden = false;
       canvas.dataset.bgScene = preference.scene;
       delete canvas.dataset.bgFallback;
-      renderer = preference.scene === 'morph'
-        ? (makeRenderer as typeof import('../lib/morphRenderer').createMorphRenderer)(
-            canvas, false, location.pathname === '/', location.pathname === '/' && scrollY < 40 && !reduced() && preference.motion === 'ambient'
-          )
-        : (makeRenderer as typeof import('../lib/backgroundRenderer').createSceneRenderer)(
-            canvas, preference.scene as 'flow' | 'landscape'
-          );
+      renderer =
+        preference.scene === 'morph'
+          ? (makeRenderer as typeof import('../lib/morphRenderer').createMorphRenderer)(
+              canvas,
+              false,
+              location.pathname === '/',
+              location.pathname === '/' &&
+                scrollY < 40 &&
+                !reduced() &&
+                preference.motion === 'ambient'
+            )
+          : (makeRenderer as typeof import('../lib/backgroundRenderer').createSceneRenderer)(
+              canvas,
+              preference.scene as 'flow' | 'landscape'
+            );
       renderer.setMotion(preference.motion);
       mask = document.createElement('canvas');
       collectBounds();
@@ -282,7 +316,7 @@ async function select(patch: Partial<BackgroundPreference>) {
 function updateDemoStatus(announce = false) {
   const status = $('[data-background-demo-status]');
   if (status) {
-    status.setAttribute('aria-live', announce || !demoPlaying ? 'polite' : 'off');
+    status.setAttribute('aria-live', announce ? 'polite' : 'off');
     status.textContent = demo?.status() || '';
   }
   const play = $<HTMLButtonElement>('[data-background-play]');
@@ -294,10 +328,13 @@ function updateDemoStatus(announce = false) {
   if (stir) stir.disabled = reduced();
   const progress = demo?.getProgress?.();
   const scrub = $<HTMLInputElement>('[data-background-scrub]');
-  if (scrub && progress !== undefined) scrub.value = String(progress);
+  if (scrub && progress !== undefined) {
+    scrub.value = String(progress);
+    scrub.setAttribute('aria-valuetext', stageDescription(progress));
+  }
   document.querySelectorAll<HTMLButtonElement>('[data-background-form]').forEach((button) => {
-    const selected = progress !== undefined &&
-      Math.abs(progress - Number(button.dataset.backgroundForm)) < 0.08;
+    const selected =
+      progress !== undefined && Math.abs(progress - Number(button.dataset.backgroundForm)) < 0.08;
     button.setAttribute('aria-pressed', String(selected));
   });
 }
@@ -343,16 +380,21 @@ async function openDemo() {
   host.showModal();
   $('[data-background-close]')?.focus();
   $('[data-background-demo-title]')!.textContent =
-    scene === 'flow' ? 'Flow Field' : scene === 'landscape' ? 'Learning Landscape' : 'Genome to Cell';
+    scene === 'flow'
+      ? 'Flow Field'
+      : scene === 'landscape'
+        ? 'Learning Landscape'
+        : 'Genome to Cell';
   $('[data-background-description]')!.textContent =
     scene === 'flow'
       ? 'Fine strands follow a smooth curl field. Small arrows show local direction. Move over the canvas, tap, or add a temporary vortex. This is procedural art, not a fluid simulation.'
       : scene === 'landscape'
         ? 'An illustrative two-dimensional objective: L(x,y) = ¼(x² − 1)² + ½(y − 0.35x)². Compare two optimizers on the same terrain. This is a toy function, not a trained model’s loss surface.'
-        : 'Explore a living particle sculpture: DNA, cellular context, and an illustrative expression profile. Move your pointer while playing to shift the perspective, or tap or use Stir particles to send a gentle swirl through the dots. Scrub between forms and turn on structure labels for a closer look.';
+        : 'Explore seven particle forms: DNA, RNA, folded protein, cell, expression profile, neural model and probability distribution. Move your pointer while playing to shift the view, or tap or use Stir particles. Scrub between forms and show structure labels for a closer look.';
   $('[data-background-flow-controls]')!.hidden = scene !== 'flow';
   $('[data-background-landscape-controls]')!.hidden = scene !== 'landscape';
   $('[data-background-legend]')!.hidden = scene !== 'landscape';
+  $('[data-background-morph-legend]')!.hidden = scene !== 'morph';
   $('[data-background-morph-controls]')!.hidden = scene !== 'morph';
   const structureLabels = $<HTMLInputElement>('[data-background-labels]');
   if (structureLabels) structureLabels.checked = false;
@@ -362,7 +404,7 @@ async function openDemo() {
       ? 'Flow field with temporary interactive vortices'
       : scene === 'landscape'
         ? 'Contour map comparing gradient descent and momentum; coordinate controls below'
-        : 'Particles morph from DNA to a cell to an illustrative expression signal; controls below'
+        : 'Seven particle forms: DNA, RNA, folded protein, cell, expression profile, neural model and probability distribution; controls below'
   );
   for (const [key, value] of [
     ['strength', '1'],
@@ -377,20 +419,26 @@ async function openDemo() {
   notify();
   applyRunning();
   try {
-    const makeRenderer = scene === 'morph'
-      ? (await import('../lib/morphRenderer')).createMorphRenderer
-      : (await import('../lib/backgroundRenderer')).createSceneRenderer;
+    const makeRenderer =
+      scene === 'morph'
+        ? (await import('../lib/morphRenderer')).createMorphRenderer
+        : (await import('../lib/backgroundRenderer')).createSceneRenderer;
     if (token !== demoGeneration || !dialog?.open) return;
-    demo = scene === 'morph'
-      ? (makeRenderer as typeof import('../lib/morphRenderer').createMorphRenderer)(surface, true)
-      : (makeRenderer as typeof import('../lib/backgroundRenderer').createSceneRenderer)(surface, scene as 'flow' | 'landscape', true);
+    demo =
+      scene === 'morph'
+        ? (makeRenderer as typeof import('../lib/morphRenderer').createMorphRenderer)(surface, true)
+        : (makeRenderer as typeof import('../lib/backgroundRenderer').createSceneRenderer)(
+            surface,
+            scene as 'flow' | 'landscape',
+            true
+          );
     demoPlaying = !reduced();
     applyRunning();
     updateDemoStatus(true);
     demoObserver = new ResizeObserver(() => demo?.resize());
     demoObserver.observe(surface);
     demoInterval = window.setInterval(() => {
-      if (!document.hidden && demoPlaying) updateDemoStatus();
+      if (!document.hidden) updateDemoStatus();
     }, 500);
   } catch {
     if (token !== demoGeneration) return;
@@ -434,16 +482,22 @@ function bindDemo() {
       updateDemoStatus(true);
     });
   });
-  host.querySelector<HTMLInputElement>('[data-background-scrub]')?.addEventListener('input', (event) => {
-    demoPlaying = false;
-    applyRunning();
-    demo?.setProgress?.(Number((event.target as HTMLInputElement).value), { transition: 'immediate' });
-    updateDemoStatus(true);
-  });
-  host.querySelector<HTMLInputElement>('[data-background-labels]')?.addEventListener('change', (event) => {
-    demo?.configure({ labels: (event.target as HTMLInputElement).checked });
-    updateDemoStatus(true);
-  });
+  host
+    .querySelector<HTMLInputElement>('[data-background-scrub]')
+    ?.addEventListener('input', (event) => {
+      demoPlaying = false;
+      applyRunning();
+      demo?.setProgress?.(Number((event.target as HTMLInputElement).value), {
+        transition: 'immediate',
+      });
+      updateDemoStatus(true);
+    });
+  host
+    .querySelector<HTMLInputElement>('[data-background-labels]')
+    ?.addEventListener('change', (event) => {
+      demo?.configure({ labels: (event.target as HTMLInputElement).checked });
+      updateDemoStatus(true);
+    });
   host.querySelector('[data-background-vortex]')?.addEventListener('click', () => {
     const surface = $<HTMLCanvasElement>('[data-background-demo-canvas]');
     if (surface) {
@@ -579,25 +633,66 @@ export function initBackground() {
   document.addEventListener('visibilitychange', applyRunning);
   // Updating explorer text can change selection; it must not cancel its explicit transitions.
   document.addEventListener('selectionchange', applyAmbientRunning);
-  let ambientDown: { x: number; y: number; scroll: number; time: number; generation: number } | null = null;
-  document.addEventListener('pointermove', (event) => {
-    if (event.pointerType === 'mouse') renderer?.setPointer?.(ambientPoint(event));
-    if (ambientDown && Math.hypot(event.clientX - ambientDown.x, event.clientY - ambientDown.y) > 8) ambientDown = null;
-  }, { passive: true });
-  document.addEventListener('pointerdown', (event) => {
-    ambientDown = event.button === 0 && ambientPoint(event)
-      ? { x: event.clientX, y: event.clientY, scroll: scrollY, time: performance.now(), generation }
-      : null;
-  }, { passive: true });
-  document.addEventListener('pointerup', (event) => {
-    const start = ambientDown;
-    ambientDown = null;
-    const point = ambientPoint(event);
-    if (point && start && start.generation === generation && performance.now() - start.time < 600 &&
-      Math.abs(scrollY - start.scroll) < 3 && Math.hypot(event.clientX - start.x, event.clientY - start.y) <= 8)
-      renderer?.interact(point.x, point.y);
-  }, { passive: true });
-  document.addEventListener('pointercancel', () => { ambientDown = null; }, { passive: true });
+  let ambientDown: {
+    x: number;
+    y: number;
+    scroll: number;
+    time: number;
+    generation: number;
+  } | null = null;
+  document.addEventListener(
+    'pointermove',
+    (event) => {
+      if (event.pointerType === 'mouse') renderer?.setPointer?.(ambientPoint(event));
+      if (
+        ambientDown &&
+        Math.hypot(event.clientX - ambientDown.x, event.clientY - ambientDown.y) > 8
+      )
+        ambientDown = null;
+    },
+    { passive: true }
+  );
+  document.addEventListener(
+    'pointerdown',
+    (event) => {
+      ambientDown =
+        event.button === 0 && ambientPoint(event)
+          ? {
+              x: event.clientX,
+              y: event.clientY,
+              scroll: scrollY,
+              time: performance.now(),
+              generation,
+            }
+          : null;
+    },
+    { passive: true }
+  );
+  document.addEventListener(
+    'pointerup',
+    (event) => {
+      const start = ambientDown;
+      ambientDown = null;
+      const point = ambientPoint(event);
+      if (
+        point &&
+        start &&
+        start.generation === generation &&
+        performance.now() - start.time < 600 &&
+        Math.abs(scrollY - start.scroll) < 3 &&
+        Math.hypot(event.clientX - start.x, event.clientY - start.y) <= 8
+      )
+        renderer?.interact(point.x, point.y);
+    },
+    { passive: true }
+  );
+  document.addEventListener(
+    'pointercancel',
+    () => {
+      ambientDown = null;
+    },
+    { passive: true }
+  );
   document.documentElement.addEventListener('pointerleave', () => renderer?.setPointer?.(null));
   for (const event of ['khc:theme-change', 'khc:crt-change'])
     document.addEventListener(event, () => {

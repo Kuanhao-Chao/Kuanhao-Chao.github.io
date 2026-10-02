@@ -10,15 +10,37 @@ import {
   sampleMorphAtmosphere,
   sampleMito,
   sampleMorph,
-  sampleStructureMorph,
+  sampleDna,
+  sampleCell,
   signalHeight,
   smoothstep,
   TAU,
-  type MorphAnchor,
   type MorphPoint,
   type MorphRole,
 } from './morphModel';
+import { MORPH_STAGES, stageWeight, stageDescription, transitionDuration } from './morphStory';
+import {
+  sampleRnaBackbone,
+  sampleProteinBackbone,
+  sampleNetworkNode,
+  sampleNetworkEdge,
+  NETWORK_NODE_COUNT,
+  NETWORK_EDGES,
+  normalDensity,
+} from './morphTargets';
+import { PROTEIN_SECONDARY_STRUCTURE } from '../data/morphProtein';
 import type { SceneRenderer } from './sceneRenderer';
+const PROJECTED_EXTENTS = [0.74, 0.62, 1.1, 0.86, 0.46, 0.7, 0.51];
+const ACCENT_STAGES = ['rna', 'protein', 'network', 'distribution'] as const;
+const STRUCTURE_LABELS = [
+  ['DNA · paired strands', 'Representative genetic information'],
+  ['RNA · single transcript', 'Local bends and hairpins'],
+  ['Ubiquitin · 1UBQ chain A', 'Helix, sheets and loops · experimental backbone'],
+  ['Cell · membrane and nucleus', 'Chromatin, mitochondria and ER'],
+  ['Illustrative expression profile', 'Genomic position → · non-normalized signal'],
+  ['Generic neural model · five layers', '4 → 6 → 8 → 6 → 3 · not Shorkie'],
+  ['Standard-normal probability density', 'Standardized response → · illustrative'],
+];
 
 /** Layered Canvas2D illustration; anatomy and particle geometry share one sampler. */
 export function createMorphRenderer(
@@ -45,14 +67,14 @@ export function createMorphRenderer(
   const point: MorphPoint = { x: 0, y: 0, z: 0, alpha: 1 };
   const scratch: MorphPoint = { ...point },
     other: MorphPoint = { ...point };
-  const pathParticle: MorphAnchor = { role: 'membrane', t: 0, variant: 0, rank: 0 };
   let width = 1,
     height = 1,
     dpr = 1,
     originX = 0,
     originY = 0,
     scale = 1;
-  let chapterHeight = 220,
+  const chapterHeights = new Float64Array(7);
+  let chapterHeight = 240,
     accent = '#2e6e5e',
     highlight = '#a6683c',
     ink = '#141414',
@@ -86,10 +108,10 @@ export function createMorphRenderer(
     hover = 0,
     pointerPresent = false;
   let yaw = 0,
-    pitch = 0;
+    pitch = 0,
+    perspective = 1;
   let interactionCount = 0;
-  let drawingCell = false;
-  let tween: { from: number; age: number } | null = null;
+  let tween: { from: number; age: number; duration: number } | null = null;
   const canAnimate = () =>
     !disposed &&
     !document.hidden &&
@@ -98,20 +120,35 @@ export function createMorphRenderer(
     canvas.dataset.bgFallback !== 'static';
 
   function layout() {
-    const dimensional = 1 - smoothstep((displayed - 0.65) / 0.35);
+    const dimensional =
+      1 - stageWeight(displayed, 'signal') - stageWeight(displayed, 'distribution');
+    perspective = 1 - stageWeight(displayed, 'protein');
     const restraint = motion === 'calm' ? 0.45 : 1;
     yaw = dimensional * restraint * (Math.sin(clock * 0.075) * 0.09 + pointerX * 0.16);
     pitch = dimensional * restraint * (Math.sin(clock * 0.061) * 0.035 + pointerY * 0.09);
+    // Conservative projected half-heights include idle rotation and depth, with a
+    // bounded allowance between targets. Every axis uses the same fitting scale.
+    let extent = 0;
+    chapterHeight = 0;
+    for (let i = 0; i < MORPH_STAGES.length; i++) {
+      const weight = stageWeight(displayed, MORPH_STAGES[i].id);
+      extent += PROJECTED_EXTENTS[i] * weight;
+      chapterHeight += chapterHeights[i] * weight;
+    }
+    extent += 0.14 * Math.sin(displayed * 6 * Math.PI) ** 2;
     if (demo) {
       originX = width * 0.5;
       originY = height * 0.51;
-      scale = Math.min(width * (labels ? 0.36 : 0.43), height * 0.59);
+      scale = Math.min(
+        width * (labels ? 0.36 : 0.43),
+        (height - (labels ? 80 : 32)) / (2 * extent)
+      );
     } else if (home) {
-      const shift = smoothstep(displayed * 2);
+      const shift = 1 - stageWeight(displayed, 'dna');
       originX = width * ((coarse ? 0.74 : 0.79) * (1 - shift) + 0.5 * shift);
       originY = height * ((coarse ? 0.25 : 0.24) * (1 - shift) + 0.5 * shift);
       const start = Math.min(width * (coarse ? 0.36 : 0.24), height * (coarse ? 0.22 : 0.25));
-      const end = Math.min(width * 0.4, (chapterHeight - 32) / 1.5);
+      const end = Math.min(width * 0.4, (chapterHeight - 32) / (2 * extent));
       scale = start + (end - start) * shift;
     } else {
       originX = width * (coarse ? 0.74 : 0.8);
@@ -121,21 +158,13 @@ export function createMorphRenderer(
   }
   function project(p: MorphPoint) {
     rotateMorphPoint(p, yaw, pitch);
-    const depth = 1 + p.z * 0.22;
+    // The experimental protein is a rigid orthographic view, not axis-wise deformation.
+    const depth = 1 + p.z * 0.22 * perspective;
     p.x = originX + p.x * scale * depth;
-    p.y = originY + (p.y - p.z * 0.18) * scale * depth;
+    p.y = originY + p.y * scale * depth;
   }
   function sample(role: MorphRole, t: number, variant = 0) {
-    pathParticle.role = role;
-    pathParticle.t = t;
-    pathParticle.variant = variant;
-    sampleStructureMorph(
-      pathParticle,
-      drawingCell ? Math.min(0.5, displayed) : displayed,
-      clock,
-      point,
-      scratch
-    );
+    sampleCell(role, t, variant, clock, point);
     project(point);
   }
   function path(role: MorphRole, variant = 0, closed = false, inset = 1) {
@@ -155,7 +184,7 @@ export function createMorphRenderer(
   }
   function shape(role: MorphRole, variant: number, fill: number, line: number, inset = 1) {
     sample(role, 0, variant);
-    const alpha = point.alpha * opacity();
+    const alpha = point.alpha * opacity() * stageWeight(displayed, 'cell');
     if (alpha < 0.005) return;
     path(role, variant, true, inset);
     if (fill) {
@@ -169,16 +198,18 @@ export function createMorphRenderer(
     context.stroke();
   }
   function drawDna(back: boolean) {
-    const weight = (1 - smoothstep(displayed / 0.4)) * smoothstep(introAge / 1.5);
+    const weight = stageWeight(displayed, 'dna') * smoothstep(introAge / 1.5);
     if (weight < 0.005) return;
     // Draw rungs in two depth passes around the nearer backbone segments.
     for (let rung = 0; rung <= 26; rung++) {
       const t = rung / 26;
-      sample('chromatin', t, 1);
+      sampleDna(t, 1, clock, point);
+      project(point);
       other.x = point.x;
       other.y = point.y;
       other.z = point.z;
-      sample('chromatin', t, 0);
+      sampleDna(t, 0, clock, point);
+      project(point);
       if (point.z < 0 !== back) continue;
       context.globalAlpha = opacity() * weight * (t > 0.39 && t < 0.54 ? 0.13 : 0.05);
       context.strokeStyle = t > 0.39 && t < 0.54 ? ink : accent;
@@ -192,7 +223,8 @@ export function createMorphRenderer(
       let previousX = 0,
         previousY = 0;
       for (let i = 0; i <= 96; i++) {
-        sample('chromatin', i / 96, strand);
+        sampleDna(i / 96, strand, clock, point);
+        project(point);
         if (i && point.z < 0 === back) {
           context.globalAlpha = opacity() * weight * (back ? 0.07 : 0.16);
           context.strokeStyle = accent;
@@ -208,9 +240,8 @@ export function createMorphRenderer(
     }
   }
   function drawCell() {
-    const leave = 1 - smoothstep((displayed - 0.5) / 0.25);
-    if (leave < 0.005 || displayed < 0.1) return;
-    drawingCell = true;
+    const leave = stageWeight(displayed, 'cell');
+    if (leave < 0.005) return;
     // Soft volume inside a closed outline, followed by organelles and front rim.
     sample('membrane', 0);
     const alpha = point.alpha * opacity() * leave;
@@ -231,12 +262,12 @@ export function createMorphRenderer(
     context.fill();
     // Keep anatomy intact; fade structures while their particles form the ribbon.
     context.save();
-    shape('membrane', 0, 0, 0.9 * leave);
-    shape('membrane', 0, 0, 0.22 * leave, 0.984);
-    shape('nucleus', 0, 0.09 * leave, 0.65 * leave);
-    shape('nucleus', 0, 0, 0.2 * leave, 0.97);
-    shape('nucleolus', 0, 0.25 * leave, 0.35 * leave);
-    const cellWeight = smoothstep(displayed / 0.5) * leave;
+    shape('membrane', 0, 0, 0.9);
+    shape('membrane', 0, 0, 0.22, 0.984);
+    shape('nucleus', 0, 0.09, 0.65);
+    shape('nucleus', 0, 0, 0.2, 0.97);
+    shape('nucleolus', 0, 0.25, 0.35);
+    const cellWeight = leave;
     for (let strand = 0; strand < 2; strand++) {
       path('chromatin', strand);
       context.globalAlpha = opacity() * cellWeight * 0.07;
@@ -260,15 +291,11 @@ export function createMorphRenderer(
       context.stroke();
     }
     for (let variant = 0; variant < 3; variant++) {
-      shape('mitochondria', variant, 0.12 * leave, 0.85 * leave);
+      shape('mitochondria', variant, 0.12, 0.85);
       context.beginPath();
       // Cristae share their organelle's translation and rotation.
-      const zoom = displayed <= 0.5 ? 0.65 + 0.35 * smoothstep(displayed * 2) : 1;
       for (let i = 0; i <= 64; i++) {
         sampleMito(i / 64, variant, clock, true, point);
-        point.x *= zoom;
-        point.y *= zoom;
-        point.z *= zoom;
         project(point);
         if (!i) context.moveTo(point.x, point.y);
         else context.lineTo(point.x, point.y);
@@ -279,10 +306,9 @@ export function createMorphRenderer(
       context.stroke();
     }
     context.restore();
-    drawingCell = false;
   }
   function drawSignal() {
-    const weight = smoothstep((displayed - 0.7) / 0.3);
+    const weight = stageWeight(displayed, 'signal');
     if (weight < 0.005) return;
     context.beginPath();
     for (let i = 0; i <= 160; i++) {
@@ -323,40 +349,84 @@ export function createMorphRenderer(
   function drawLabels() {
     if (!demo || !labels) return;
     context.font = '11px system-ui';
-    context.lineWidth = 0.7;
-    const cell = displayed > 0.43 && displayed < 0.57;
-    const items: Array<[string, number, number, number, number]> = cell
-      ? [
-          ['Membrane', -0.73, -0.34, -0.95, -0.62],
-          ['Nucleus', -0.26, -0.22, -0.9, -0.36],
-          ['Mitochondrion', 0.48, -0.23, 0.95, -0.55],
-          ['ER', 0.23, 0.03, 0.96, 0.1],
-        ]
-      : displayed < 0.12
-        ? [['DNA · paired strands', 0, -0.2, 0, -0.58]]
-        : displayed > 0.88
-          ? [
-              ['Illustrative expression profile', 0, -0.3, 0, -0.62],
-              ['Genomic position →', 0, 0.33, 0, 0.63],
-            ]
-          : [];
-    for (const [label, x, y, tx, ty] of items) {
-      const labelX = Math.max(80, Math.min(width - 80, originX + tx * scale));
-      const labelY = originY + ty * scale;
-      context.globalAlpha = 0.35;
-      context.strokeStyle = ink;
+    const index = Math.round(displayed * 6);
+    const weight = stageWeight(displayed, MORPH_STAGES[index].id);
+    if (weight < 0.9) return;
+    context.globalAlpha = 0.9 * smoothstep((weight - 0.9) / 0.1);
+    context.fillStyle = ink;
+    context.textAlign = 'center';
+    // Dedicated top/bottom gutters remain clear even in the 320px phone dialog.
+    context.fillText(STRUCTURE_LABELS[index][0], width / 2, 22, width - 24);
+    context.fillText(STRUCTURE_LABELS[index][1], width / 2, height - 14, width - 24);
+  }
+  function drawTargetAccents() {
+    for (const id of ACCENT_STAGES) {
+      const weight = stageWeight(displayed, id);
+      if (weight < 0.005) continue;
+      context.strokeStyle = accent;
+      context.fillStyle = accent;
+      context.globalAlpha = opacity() * weight * 0.28;
+      context.lineWidth = demo ? 1.6 : 1;
+      if (id === 'network') {
+        context.beginPath();
+        for (let edge = 0; edge < NETWORK_EDGES.length; edge++) {
+          sampleNetworkEdge(edge, 0, point);
+          project(point);
+          context.moveTo(point.x, point.y);
+          sampleNetworkEdge(edge, 1, point);
+          project(point);
+          context.lineTo(point.x, point.y);
+        }
+        context.stroke();
+        context.beginPath();
+        for (let node = 0; node < NETWORK_NODE_COUNT; node++) {
+          sampleNetworkNode(node, point);
+          project(point);
+          const radius = (demo ? 3 : 2) + Math.sin(clock * 1.2 - node * 0.3) * 0.4;
+          context.moveTo(point.x + radius, point.y);
+          context.arc(point.x, point.y, radius, 0, TAU);
+        }
+        context.fill();
+        continue;
+      }
       context.beginPath();
-      point.x = x;
-      point.y = y;
-      point.z = 0;
-      project(point);
-      context.moveTo(point.x, point.y);
-      context.lineTo(labelX, labelY + 4);
+      for (let i = 0; i <= 192; i++) {
+        const t = i / 192;
+        if (id === 'rna') sampleRnaBackbone(t, clock, point);
+        else if (id === 'protein') sampleProteinBackbone(t, point);
+        else {
+          point.x = -1 + 2 * t;
+          point.y = 0.33 - normalDensity(point.x * 3.5) * 1.85;
+          point.z = 0;
+        }
+        project(point);
+        if (!i) context.moveTo(point.x, point.y);
+        else context.lineTo(point.x, point.y);
+      }
       context.stroke();
-      context.globalAlpha = 0.9;
-      context.fillStyle = ink;
-      context.textAlign = 'center';
-      context.fillText(label, labelX, labelY);
+      if (id === 'protein') {
+        for (const structure of PROTEIN_SECONDARY_STRUCTURE) {
+          context.beginPath();
+          for (let i = 0; i <= 40; i++) {
+            sampleProteinBackbone(
+              (structure.start - 1 + ((structure.end - structure.start) * i) / 40) / 75,
+              point
+            );
+            project(point);
+            if (!i) context.moveTo(point.x, point.y);
+            else context.lineTo(point.x, point.y);
+          }
+          context.strokeStyle = structure.type === 'helix' ? highlight : accent;
+          context.lineWidth = demo ? 4 : 2;
+          context.stroke();
+        }
+      }
+      if (id === 'distribution') {
+        context.beginPath();
+        context.moveTo(originX - scale, originY + scale * 0.33);
+        context.lineTo(originX + scale, originY + scale * 0.33);
+        context.stroke();
+      }
     }
   }
   function draw() {
@@ -423,6 +493,7 @@ export function createMorphRenderer(
     drawDna(true);
     drawCell();
     drawSignal();
+    drawTargetAccents();
     const dotScale = demo ? Math.max(0.85, Math.min(1.35, scale / 220)) : 0.9;
     for (let bucket = 0; bucket < bucketHeads.length; bucket++) {
       if (bucket === bucketHeads.length / 2) drawDna(false);
@@ -451,6 +522,7 @@ export function createMorphRenderer(
       context.globalCompositeOperation = 'source-over';
     }
     canvas.dataset.bgProgress = progress.toFixed(3);
+    canvas.dataset.bgStage = MORPH_STAGES[Math.round(displayed * 6)].id;
     canvas.dataset.bgDisplayedProgress = displayed.toFixed(3);
     canvas.dataset.bgTransitioning = String(!!tween);
     canvas.dataset.bgQuality = quality.toFixed(2);
@@ -461,7 +533,7 @@ export function createMorphRenderer(
     canvas.dataset.bgInteractions = String(interactionCount);
     canvas.dataset.bgFrames = String(Number(canvas.dataset.bgFrames || 0) + 1);
   }
-  function update(dt: number, now: number) {
+  function update(dt: number, now: number, wallDt: number) {
     qualityAge = Math.min(0.4, qualityAge + dt);
     const follow = 1 - Math.exp(-dt * 6);
     pointerX += (targetX - pointerX) * follow;
@@ -472,7 +544,9 @@ export function createMorphRenderer(
       clock += dt * speed;
       introAge = Math.min(1.5, introAge + dt);
       if (demo) {
-        playbackAge += dt * speed;
+        // Story deadlines use elapsed active wall time. Only decorative motion is
+        // capped/slowed; calm mode still completes the approved 60-second story.
+        playbackAge += wallDt;
         progress = displayed = playbackProgress(playbackAge);
       } else {
         displayed += (progress - displayed) * (1 - Math.exp(-dt * 9));
@@ -480,9 +554,9 @@ export function createMorphRenderer(
       }
     }
     if (tween) {
-      tween.age += dt;
-      displayed = tween.from + (progress - tween.from) * smoothstep(tween.age / 0.9);
-      if (tween.age >= 0.9) {
+      tween.age += wallDt;
+      displayed = tween.from + (progress - tween.from) * smoothstep(tween.age / tween.duration);
+      if (tween.age >= tween.duration) {
         displayed = progress;
         tween = null;
       }
@@ -523,7 +597,7 @@ export function createMorphRenderer(
     if (elapsed >= 1000 / fps - 0.5) {
       last = now;
       const began = performance.now();
-      update(Math.min(0.08, elapsed / 1000), now);
+      update(Math.min(0.08, elapsed / 1000), now, elapsed / 1000);
       draw();
       const cost = performance.now() - began;
       canvas.dataset.bgRenderMs = cost.toFixed(2);
@@ -557,7 +631,7 @@ export function createMorphRenderer(
     running = next;
     cancelAnimationFrame(raf);
     raf = 0;
-    last = 0;
+    last = performance.now();
     if (!running) {
       pointerPresent = false;
       pointerX = pointerY = targetX = targetY = hover = 0;
@@ -585,8 +659,8 @@ export function createMorphRenderer(
     if (progress > 0.02) introAge = 1.5;
     playbackAge = playbackTime(progress);
     if (options?.transition === 'smooth' && canAnimate() && !running) {
-      tween = { from: displayed, age: 0 };
-      last = 0;
+      tween = { from: displayed, age: 0, duration: transitionDuration(displayed, progress) };
+      last = performance.now();
       schedule();
     } else if (options?.transition === 'immediate' || demo || !running || !canAnimate()) {
       tween = null;
@@ -598,10 +672,12 @@ export function createMorphRenderer(
     width = Math.max(1, canvas.clientWidth);
     height = Math.max(1, canvas.clientHeight);
     dpr = Math.min(devicePixelRatio || 1, coarse ? 1.5 : 2);
-    const chapter = home
-      ? document.querySelector<HTMLElement>('[data-background-stage="cell"]')
-      : null;
-    chapterHeight = chapter?.clientHeight || (coarse ? 220 : 280);
+    MORPH_STAGES.forEach((stage, i) => {
+      const chapter = home
+        ? document.querySelector<HTMLElement>(`[data-background-stage="${stage.id}"]`)
+        : null;
+      chapterHeights[i] = chapter?.clientHeight || (coarse ? 240 : 280);
+    });
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
     draw();
@@ -627,7 +703,7 @@ export function createMorphRenderer(
     refreshPalette,
     setRunning,
     setProgress,
-    getProgress: () => progress,
+    getProgress: () => (demo ? displayed : progress),
     setPointer(value) {
       if (!running || !canAnimate() || coarse) return;
       pointerPresent = !!value;
@@ -691,13 +767,7 @@ export function createMorphRenderer(
       schedule();
     },
     status() {
-      const label =
-        progress < 0.25
-          ? 'DNA: paired strands and a regulatory motif'
-          : progress < 0.75
-            ? 'Cell membrane, nucleus, chromatin, mitochondria, and endoplasmic reticulum'
-            : 'Illustrative expression signal along genomic position';
-      return `${label}. ${labels ? 'Structure labels enabled. ' : ''}Representative anatomy; relative scales are illustrative.`;
+      return `${stageDescription(displayed)} ${tween ? `Moving toward: ${stageDescription(progress)} ` : ''}${labels ? 'Structure labels enabled. ' : ''}Relative scales are illustrative.`;
     },
     dispose() {
       setRunning(false);
