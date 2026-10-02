@@ -27,15 +27,15 @@ Use seven scroll chapters on the homepage, with full forward/reverse autoplay in
 
 ## Chapters and silhouettes
 
-| ID | Position | Visual |
-| --- | --- | --- |
-| dna | Existing hero | Paired strands, dotted backbone, restrained paired-base accents |
-| rna | Research artwork window | Single transcript with bends and local hairpins |
-| protein | Publications artwork window | Ubiquitin 1UBQ chain A, with helix, sheets and loops |
-| cell | Featured software artwork window | Irregular transparent cell and existing faithful organelle anatomy |
-| signal | Posts artwork window | Multi-peak expression signal along genomic position |
-| network | Algorithms artwork window | Five layers [4, 6, 8, 6, 3], sparse adjacent connections and subtle pulses |
-| distribution | Genome browser artwork window | Single bell-shaped probability density, distinct from expression |
+| ID           | Position                         | Visual                                                                     |
+| ------------ | -------------------------------- | -------------------------------------------------------------------------- |
+| dna          | Existing hero                    | Paired strands, dotted backbone, restrained paired-base accents            |
+| rna          | Research artwork window          | Single transcript with bends and local hairpins                            |
+| protein      | Publications artwork window      | Ubiquitin 1UBQ chain A, with helix, sheets and loops                       |
+| cell         | Featured software artwork window | Irregular transparent cell and existing faithful organelle anatomy         |
+| signal       | Posts artwork window             | Multi-peak expression signal along genomic position                        |
+| network      | Algorithms artwork window        | Five layers [4, 6, 8, 6, 3], sparse adjacent connections and subtle pulses |
+| distribution | Genome browser artwork window    | Single bell-shaped probability density, distinct from expression           |
 
 Preserve section order and headings. Artwork windows appear only for morph, remain 240px on phones and 260–340px on desktop, and retain a 16px vertical inset. Four more windows than today add about 960px to the phone homepage when this scene is selected. Ordinary content pages retain a quiet Cell composition.
 
@@ -66,3 +66,14 @@ One registry supplies stage IDs, canonical progress, labels and explanatory desc
 Tests cover target endpoints, finite/bounded geometry, protein source fidelity, normal-density area, all transitions and both sides of boundaries, reverse scrubbing, chapter holds/fallback, autoplay inverse/resumption, adaptive quality participation and exact spring settling. Browser audits cover every endpoint/intermediate, all seven scroll windows, reverse navigation, labels, controls, visibility, themes/CRT, paused/reduced motion, persistence, denied storage and phone widths 390/320px.
 
 Measure update/draw p95 below 6ms desktop and 10ms on a 4x CPU-throttled phone viewport for every target and transition. Run full tests, Astro check, full build, indexing, links and background browser audit before release. Commit, push main, monitor Pages build/deploy, then verify live in Chromium/WebKit desktop and phone profiles.
+
+## Implementation validation record (2026-10-02)
+
+- [x] Task 1: shared story/target geometry and independently verified experimental protein source.
+- [x] Task 2: seven homepage windows, renderer accents, canonical explorer controls and wall-time timing.
+- [x] Task 3: boundary/full-playback/minimum-quality/reset browser coverage; sequential 52-case profiler; updated scientific/performance documentation.
+- [x] Local implementation gates: 4,169 tests passed / 350 skipped; Astro 0 errors/0 warnings; full 195-page build including PDFs; complete indexing, links, security, JSX spacing and Chromium/WebKit desktop/phone background audits.
+- [x] All 13 endpoints/midpoints in ambient and explorer on desktop and 390px 4×-CPU Chromium passed p95 limits. Maximums: desktop 1.9ms ambient/2.8ms explorer; throttled phone 3.5ms ambient/4.8ms explorer. All 52 rows retained quality 1, no fallback, fixed budgets. These are local-host measurements, not physical-device evidence.
+- [ ] Controller: whole-branch review, integration, push, Pages deployment and published-site verification.
+
+Detailed evidence, exact commands, the local installed-extractor PATH workaround and all 52 per-pose metrics are in `.superpowers/sdd/2026-10-01-seven-stage-genome-to-cell/task-3-report.md`; maintained operational details are in `docs/background-scenes.md`. Release is not claimed by this implementation record.
