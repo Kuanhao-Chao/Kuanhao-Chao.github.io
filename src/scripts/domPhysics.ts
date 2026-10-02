@@ -154,7 +154,7 @@ function onPointerDown(e: PointerEvent) {
   mouseY = e.clientY;
 
   // Check if an element was clicked
-  const target = (e.target as HTMLElement | null)?.closest<HTMLElement>('.card, .home-algo, .home-tool, .home-news-card, h1, h2, .algo-card, .btn');
+  const target = (e.target as HTMLElement | null)?.closest<HTMLElement>('.card, .home-tool, .home-news-card, h1, h2, .algo-card, .btn');
   if (target) {
     const body = bodies.find((b) => b.el === target);
     if (body) {
@@ -216,7 +216,7 @@ export function startZeroGravity() {
 
   // Collect key elements
   const candidates = Array.from(document.querySelectorAll<HTMLElement>(
-    '.card, .home-algo, .home-tool, .home-news-card, h1, h2, .algo-card, .btn, .wordmark, .tag, .avatar'
+    '.card, .home-tool, .home-news-card, h1, h2, .algo-card, .btn, .wordmark, .tag, .avatar'
   ));
 
   bodies = [];
