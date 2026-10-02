@@ -18,12 +18,14 @@ let server;
 let browser;
 try {
   server = await preview({ root: process.cwd(), server: { host: '127.0.0.1', port: 4338 } });
+  // Astro/Vite may retry on another port; use the preview we actually own.
+  const baseURL = `http://127.0.0.1:${server.port}`;
   browser = await chromium.launch();
   for (const phone of [false, true]) {
     const profile = phone ? 'phone-390px-4x-cpu' : 'desktop';
     for (const mode of ['ambient', 'explorer']) {
       const context = await browser.newContext({
-        baseURL: 'http://127.0.0.1:4338',
+        baseURL,
         viewport: phone ? { width: 390, height: 844 } : { width: 1440, height: 1000 },
         deviceScaleFactor: phone ? 3 : 1,
         hasTouch: phone,
