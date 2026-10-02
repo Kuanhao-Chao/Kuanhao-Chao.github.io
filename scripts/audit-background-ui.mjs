@@ -45,6 +45,102 @@ async function still(page, demo = false) {
   await page.waitForTimeout(400);
   assert.equal(await frames(page, demo), before, 'paused renderer must not continue drawing');
 }
+async function migrationChecks(browser, name) {
+  for (const [saved, legacy, expected] of [
+    [{ scene: 'flow', motion: 'calm' }, null, { scene: 'cells', motion: 'calm' }],
+    [{ scene: 'landscape', motion: 'paused' }, null, { scene: 'cells', motion: 'paused' }],
+    [{ scene: 'future', motion: 'calm' }, 'off', { scene: 'cells', motion: 'calm' }],
+    [{ scene: 'future', motion: 'paused' }, 'off', { scene: 'cells', motion: 'paused' }],
+    [{ scene: 'morph', motion: 'paused' }, null, { scene: 'morph', motion: 'paused' }],
+    [{ scene: 'off', motion: 'calm' }, null, { scene: 'off', motion: 'calm' }],
+    ['{broken', 'calm', { scene: 'cells', motion: 'calm' }],
+    [null, 'off', { scene: 'off', motion: 'ambient' }],
+  ]) {
+    const context = await browser.newContext({ baseURL });
+    try {
+      const raw = typeof saved === 'string' || saved === null ? saved : JSON.stringify(saved);
+      await context.addInitScript(
+        ({ raw, legacy }) => {
+          if (raw !== null) localStorage.setItem('khc-background-v1', raw);
+          if (legacy !== null) localStorage.setItem('khc-cell-mode', legacy);
+        },
+        { raw, legacy }
+      );
+      const page = await context.newPage();
+      page.on('pageerror', (e) => errors.push(`${name}-migration: ${e.message}`));
+      let releaseModules;
+      const moduleGate = new Promise((resolve) => {
+        releaseModules = resolve;
+      });
+      // Pause external modules, not inline scripts: observe the actual early-paint policy.
+      await page.route('**/*', async (route) => {
+        if (route.request().resourceType() === 'script') await moduleGate;
+        await route.continue();
+      });
+      try {
+        await page.goto('/?cell-audit=1', { waitUntil: 'commit' });
+        await page.waitForFunction(() => document.documentElement.dataset.backgroundScene);
+        assert.deepEqual(
+          await page.evaluate(() => ({
+            scene: document.documentElement.dataset.backgroundScene,
+            motion: document.documentElement.dataset.backgroundMotion,
+          })),
+          expected,
+          `pre-hydration resolution: ${raw}`
+        );
+        assert.equal(
+          await page.evaluate(() => document.documentElement.dataset.backgroundExploring),
+          undefined,
+          'the controller must not have hydrated during the early-paint assertion'
+        );
+        assert.equal(
+          await page.evaluate(() => localStorage.getItem('khc-background-v1')),
+          raw,
+          'early paint must not silently rewrite storage'
+        );
+      } finally {
+        releaseModules();
+      }
+      await page.waitForFunction(
+        () => document.documentElement.dataset.backgroundExploring === 'false'
+      );
+      assert.deepEqual(
+        await page.evaluate(() => ({
+          scene: document.documentElement.dataset.backgroundScene,
+          motion: document.documentElement.dataset.backgroundMotion,
+        })),
+        expected,
+        `hydrated resolution: ${raw}`
+      );
+      assert.deepEqual(
+        await page.evaluate(() => JSON.parse(localStorage.getItem('khc-background-v1'))),
+        expected,
+        'hydration persists the migrated choice without losing motion'
+      );
+      assert.equal(
+        await page
+          .locator(`button[data-background-scene="${expected.scene}"]`)
+          .getAttribute('aria-checked'),
+        'true'
+      );
+      assert.equal(
+        await page
+          .locator(`button[data-background-motion="${expected.motion}"]`)
+          .getAttribute('aria-checked'),
+        'true'
+      );
+      if (expected.scene === 'cells') {
+        await page.waitForFunction(() => window.__khcCellsDebug?.snapshot().attached);
+        const snapshot = await page.evaluate(() => window.__khcCellsDebug.snapshot());
+        assert.equal(snapshot.running, expected.motion !== 'paused');
+        assert.equal(snapshot.mode, expected.motion === 'calm' ? 'calm' : 'ambient');
+      }
+    } finally {
+      await context.close();
+    }
+  }
+  console.log(`[background-ui] ${name} pre-hydration + hydrated migration: 8 cases passed`);
+}
 async function scrub(page, progress) {
   await page.locator('[data-background-scrub]').evaluate((input, value) => {
     input.value = String(value);
@@ -202,6 +298,7 @@ try {
   for (const name of engines) {
     const browser = await { chromium, webkit }[name].launch();
     try {
+      await migrationChecks(browser, name);
       for (const phone of process.env.BACKGROUND_UI_PHONE_ONLY === '1' ? [true] : [false, true]) {
         const label = `${name}-${phone ? 'phone' : 'desktop'}`;
         console.log(`[background-ui] ${label}`);
@@ -224,15 +321,22 @@ try {
           forms.map(([, progress]) => progress),
           'explorer must offer all seven canonical forms'
         );
+        assert.deepEqual(
+          await page
+            .locator('button[data-background-scene]')
+            .evaluateAll((buttons) => buttons.map((button) => button.dataset.backgroundScene)),
+          ['cells', 'morph', 'off'],
+          'only the two supported scenes and accessibility Off are offered'
+        );
         await page.waitForFunction(() => window.__khcCellsDebug?.snapshot().running);
-        await choose(page, 'scene', 'flow');
+        await choose(page, 'scene', 'morph');
         assert.equal(await page.locator('[data-site-bg-canvas]').isVisible(), false);
         assert.equal(await page.locator('[data-hero-canvas]').isVisible(), false);
         assert.equal(await page.evaluate(() => window.__khcCellsDebug.snapshot().attached), false);
         await page.keyboard.press('Escape');
         await page.waitForTimeout(1200);
         assert.ok((await frames(page)) > 5);
-        await page.screenshot({ path: join(artifacts, `${label}-flow.png`) });
+        await page.screenshot({ path: join(artifacts, `${label}-morph-switch.png`) });
         await choose(page, 'motion', 'paused');
         await still(page);
         await choose(page, 'motion', 'calm');
@@ -245,12 +349,27 @@ try {
         await still(page);
         await page.locator('[data-background-play]').click();
         await still(page, true);
-        await page.locator('[data-background-vortex]').click();
-        assert.match(
-          await page.locator('[data-background-demo-status]').textContent(),
-          /1 temporary/
+        const interactions = Number(
+          await page.locator('[data-background-demo-canvas]').getAttribute('data-bg-interactions')
         );
-        await page.screenshot({ path: join(artifacts, `${label}-flow-demo.png`) });
+        await page.locator('[data-background-stir]').click();
+        await page.waitForFunction(
+          (expected) =>
+            Number(
+              document.querySelector('[data-background-demo-canvas]').dataset.bgInteractions
+            ) === expected,
+          interactions + 1
+        );
+        assert.equal(
+          Number(
+            await page.locator('[data-background-demo-canvas]').getAttribute('data-bg-interactions')
+          ),
+          interactions + 1,
+          'the retained explorer interaction must stir particles'
+        );
+        await page.waitForTimeout(1800);
+        await still(page, true);
+        await page.screenshot({ path: join(artifacts, `${label}-morph-switch-demo.png`) });
         await page.keyboard.press('Escape');
         assert.equal(await page.locator('[data-background-dialog]').isVisible(), false);
         assert.equal(
@@ -263,48 +382,14 @@ try {
           'opening a demo must preserve reading position'
         );
 
-        await choose(page, 'scene', 'landscape');
-        await choose(page, 'motion', 'ambient');
-        await page.keyboard.press('Escape');
-        await page.waitForTimeout(1500);
-        await page.evaluate(() => scrollTo(0, 0));
-        await page.screenshot({ path: join(artifacts, `${label}-landscape.png`) });
-        await page.evaluate(() => window.__khcTheme.set('dark'));
-        await page.screenshot({ path: join(artifacts, `${label}-landscape-dark.png`) });
-        await page.evaluate(() => window.__khcCrt.set('amber'));
-        await page.screenshot({ path: join(artifacts, `${label}-landscape-crt.png`) });
-        await page.evaluate(() => {
-          window.__khcCrt.set('off');
-          window.__khcTheme.set('light');
-        });
-        await openAppearance(page);
-        await page.locator('[data-background-explore]').click();
-        await page.waitForFunction(() =>
-          document
-            .querySelector('[data-background-demo-status]')
-            .textContent.includes('Gradient descent')
-        );
-        await page.locator('[data-background-play]').click();
-        await page.locator('[data-background-reset]').click();
-        await page.locator('[data-background-step]').click();
-        assert.match(await page.locator('[data-background-demo-status]').textContent(), /1 steps/);
-        await page.locator('[data-background-rate]').fill('0.1');
-        await page.locator('[data-background-rate]').press('Tab');
-        await page.locator('[data-background-x]').fill('-1');
-        await page.locator('[data-background-y]').fill('-0.35');
-        await page.locator('[data-background-start]').click();
-        assert.match(
-          await page.locator('[data-background-demo-status]').textContent(),
-          /loss 0.0000/
-        );
-        await page.locator('[data-background-play]').click();
-        await page.waitForTimeout(1200);
-        await page.screenshot({ path: join(artifacts, `${label}-landscape-demo.png`) });
         assert.ok(
           await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
           'page must not overflow horizontally'
         );
-        await page.locator('[data-background-close]').click();
+        await choose(page, 'scene', 'cells');
+        await page.waitForFunction(() => window.__khcCellsDebug.snapshot().running);
+        assert.equal(await page.locator('[data-art-bg-canvas]').isVisible(), false);
+        await choose(page, 'motion', 'ambient');
 
         await choose(page, 'scene', 'morph');
         await page.keyboard.press('Escape');
@@ -731,7 +816,7 @@ try {
         await choose(page, 'motion', 'paused');
         assert.equal(await page.evaluate(() => window.__khcCellsDebug.snapshot().running), false);
         assert.equal(await page.evaluate(() => window.__khcHeroDebug.snapshot().running), false);
-        await choose(page, 'scene', 'landscape');
+        await choose(page, 'scene', 'morph');
         await page.keyboard.press('Escape');
         // Exercise Astro client navigation rather than only hard reloads.
         await page.locator('a[href="/research/"]').filter({ visible: true }).first().click();
@@ -744,6 +829,26 @@ try {
           await page.evaluate(() => JSON.parse(localStorage.getItem('khc-background-v1')).motion),
           'paused'
         );
+        await page.goBack();
+        await page.waitForURL('**/?cell-audit=1');
+        await page.waitForFunction(
+          () => document.querySelector('[data-art-bg-canvas]')?.hidden === false
+        );
+        await still(page);
+        await openAppearance(page);
+        await page.locator('[data-background-explore]').click();
+        await page.locator('[data-background-dialog]').waitFor({ state: 'visible' });
+        await page.goForward();
+        await page.waitForURL('**/research/');
+        await page.waitForFunction(
+          () => document.documentElement.dataset.backgroundExploring === 'false'
+        );
+        assert.equal(
+          await page.locator('[data-background-dialog]').isVisible(),
+          false,
+          'history navigation disposes the open explorer'
+        );
+        await still(page);
         await page.goto('/lab/?cell-audit=1');
         await page.waitForFunction(() => window.__khcCellsDebug?.snapshot().running);
         assert.equal(await page.evaluate(() => window.__khcCellsDebug.snapshot().mode), 'lab');
@@ -753,7 +858,7 @@ try {
         );
         assert.equal(
           await page.evaluate(() => document.documentElement.dataset.backgroundScene),
-          'landscape'
+          'morph'
         );
         await still(page);
         await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -764,7 +869,7 @@ try {
         assert.equal(await page.locator('[data-background-play]').isDisabled(), true);
         await still(page, true);
         await page.locator('[data-background-step]').click();
-        assert.match(await page.locator('[data-background-demo-status]').textContent(), /1 steps/);
+        assert.equal(await displayed(page), 0.05, 'single step remains usable in reduced motion');
         await page.keyboard.press('Escape');
         await choose(page, 'scene', 'morph');
         await page.keyboard.press('Escape');
@@ -838,11 +943,11 @@ try {
           );
           await page.locator('[data-background-close]').click();
           await openAppearance(page);
-          await page.locator('button[data-background-scene="flow"]').focus();
+          await page.locator('button[data-background-scene="cells"]').focus();
           await page.keyboard.press('ArrowRight');
           assert.equal(
             await page
-              .locator('button[data-background-scene="landscape"]')
+              .locator('button[data-background-scene="morph"]')
               .getAttribute('aria-checked'),
             'true'
           );
@@ -870,8 +975,24 @@ try {
       const page = await context.newPage();
       page.on('pageerror', (e) => errors.push(`${name}-storage: ${e.message}`));
       await page.goto('/');
-      await choose(page, 'scene', 'flow');
+      await choose(page, 'scene', 'morph');
       assert.equal(await page.locator('[data-art-bg-canvas]').isVisible(), true);
+      await choose(page, 'motion', 'paused');
+      await page.keyboard.press('Escape');
+      await page.locator('a[href="/research/"]').filter({ visible: true }).first().click();
+      await page.waitForURL('**/research/');
+      await page.waitForFunction(
+        () => document.querySelector('[data-art-bg-canvas]')?.hidden === false
+      );
+      assert.equal(
+        await page.evaluate(() => document.documentElement.dataset.backgroundScene),
+        'morph'
+      );
+      assert.equal(
+        await page.evaluate(() => document.documentElement.dataset.backgroundMotion),
+        'paused'
+      );
+      await still(page);
       await context.close();
     } finally {
       await browser.close();

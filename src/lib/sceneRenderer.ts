@@ -1,6 +1,6 @@
 import type { BackgroundMotion, Point } from './backgroundModel';
 
-/** The lifecycle seam shared by the existing field/landscape and particle adapters. */
+/** The lifecycle seam for the particle scene adapter. */
 export interface SceneRenderer {
   resize(): void;
   refreshPalette(): void;
@@ -9,13 +9,7 @@ export interface SceneRenderer {
   setMask(mask: HTMLCanvasElement | null): void;
   reset(): void;
   step(): void;
-  configure(options: {
-    strength?: number;
-    rate?: number;
-    method?: string;
-    start?: Point;
-    labels?: boolean;
-  }): void;
+  configure(options: { labels?: boolean }): void;
   interact(x: number, y: number): void;
   /** Optional, passive hover input; null releases the pointer without changing playback. */
   setPointer?(point: Point | null): void;
