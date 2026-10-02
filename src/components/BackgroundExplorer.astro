@@ -1,3 +1,17 @@
+---
+import { MORPH_STAGES } from '../lib/morphStory';
+import { PROTEIN_SOURCE } from '../data/morphProtein';
+const controlLabels = [
+  'DNA',
+  'RNA',
+  'Protein',
+  'Cell',
+  'Expression',
+  'Neural model',
+  'Distribution',
+];
+---
+
 <dialog class="background-dialog" data-background-dialog aria-labelledby="background-demo-title">
   <div class="background-demo-header">
     <div>
@@ -74,13 +88,30 @@
     </div>
     <div data-background-morph-controls hidden>
       <div class="background-form-buttons" role="group" aria-label="Genome to Cell forms">
-        <button type="button" data-background-form="0" aria-pressed="true">DNA</button>
-        <button type="button" data-background-form="0.5" aria-pressed="false">Cell</button>
-        <button type="button" data-background-form="1" aria-pressed="false">Expression signal</button>
+        {
+          MORPH_STAGES.map((stage, index) => (
+            <button
+              type="button"
+              data-background-form={stage.progress}
+              aria-pressed={index === 0 ? 'true' : 'false'}
+              title={`${stage.label}: ${stage.description}`}
+            >
+              {controlLabels[index]}
+            </button>
+          ))
+        }
       </div>
-      <label class="background-scrub-label">Transition
-        <input data-background-scrub type="range" min="0" max="1" step="0.01" value="0"
-          aria-label="Scrub from DNA through cell to expression signal" />
+      <label class="background-scrub-label"
+        >Transition
+        <input
+          data-background-scrub
+          type="range"
+          min="0"
+          max="1"
+          step="any"
+          value="0"
+          aria-label="Scrub DNA, RNA, folded protein, cell, expression, neural model and probability distribution"
+        />
       </label>
       <label class="background-label-toggle">
         <input type="checkbox" data-background-labels /> Show structures
@@ -94,6 +125,17 @@
     Solid line: gradient descent · Dashed line: momentum (0.85). Click the plot or enter coordinates
     to choose a shared start. Both use v ← βv + ∇L, then θ ← θ − ηv (β = 0 for gradient descent).
     Contours join equal loss. Minima: (−1, −0.35) and (1, 0.35); saddle: (0, 0).
+  </p>
+  <p class="background-demo-key" data-background-morph-legend hidden>
+    DNA → RNA → folded protein → cell → expression profile → neural model → probability
+    distribution. Protein: <a href={PROTEIN_SOURCE.url} target="_blank" rel="noopener noreferrer"
+      >Ubiquitin {PROTEIN_SOURCE.entry}, chain {PROTEIN_SOURCE.chain}</a
+    >, experimental C-alpha coordinates ({PROTEIN_SOURCE.license}; extracted {
+      PROTEIN_SOURCE.extractionDate
+    }). Transitions illustrate information flow, not ribosome activity or folding dynamics. The
+    neural model is generic, not Shorkie’s architecture; the normalized standard-normal density is
+    illustrative, not measured or calibrated Shorkie uncertainty. Dots are drawing material, not
+    tracked atoms.
   </p>
 </dialog>
 <style>
