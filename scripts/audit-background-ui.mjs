@@ -605,6 +605,10 @@ async function assertEffects(
     ['bgStreaks', Math.floor(Number(state.bgAllocated) / 3)],
     ['bgPackets', phone ? 24 : 48],
     ['bgRain', phone ? 32 : 64],
+    // Two introns, each with one glow and SPARKS_PER_INTRON (6) ligation sparks: a structural
+    // ceiling, which morphSplice.test.ts ties to the model so the two cannot drift apart.
+    ['bgSplice', 2],
+    ['bgSparks', 12],
   ]) {
     assert.ok(
       Number(state[key]) >= 0 && Number(state[key]) <= cap,
@@ -765,6 +769,72 @@ async function effectLifecycle(browser, engine, phone) {
     await assertEffects(page, { demo: true, phone, amount: 0 });
     console.log(
       `[background-ui] ${engine}-${phone ? 'phone' : 'desktop'} effect lifecycle: exact under the fake clock`
+    );
+  } finally {
+    await context.close();
+  }
+}
+// The RNA scene is a loop with one pinned still. Clock 0 (reduced motion, a paused explorer, the
+// static fallback) is the poster: the first intron half looped, its spliceosome at the neck. A
+// running page starts there without a jump, and Pause freezes the loop where it stands. The scene
+// is a canvas with no elements to inspect, so every claim is read from what the renderer published
+// (`data-bg-splice-phase`, `-splice`, `-sparks`), under the fake clock so each count is exact.
+async function spliceLifecycle(browser, engine, phone) {
+  const { context, page } = await openClockedExplorer(browser, engine, phone);
+  try {
+    const canvas = page.locator('[data-background-demo-canvas]');
+    const read = () => canvas.evaluate((c) => ({ ...c.dataset }));
+    const phaseNow = async () => Number((await read()).bgSplicePhase);
+    await pausedAtDna(page);
+    await scrub(page, 1 / 6);
+    const poster = await read();
+    assert.equal(poster.bgStage, 'rna', 'the scrub lands on the RNA scene');
+    assert.equal(poster.bgSplicePhase, '0.420', 'clock 0 is the poster phase');
+    assert.ok(Number(poster.bgSplice) >= 1, 'the poster has a spliceosome gathered mid-splice');
+    assert.equal(Number(poster.bgSparks), 0, 'the poster is before the first ligation');
+    await assertEffects(page, { demo: true, phone, stage: 'rna' });
+    await pressDemo(page, 'play');
+    await page.clock.fastForward(100);
+    const first = await phaseNow();
+    assert.ok(
+      first >= 0.42 && first - 0.42 < 0.01,
+      `a running page leaves the poster smoothly, not with a jump: ${first}`
+    );
+    for (let i = 0; i < 8; i++) await page.clock.fastForward(100);
+    const running = await phaseNow();
+    assert.ok(running > first && running < 0.6, `the loop advances while playing: ${running}`);
+    await pressDemo(page, 'play');
+    assert.match(
+      (await page.locator('[data-background-play]').textContent()) || '',
+      /play/i,
+      'the explorer is paused'
+    );
+    const frozen = await phaseNow();
+    // A paused explorer draws no frames of its own, so frames alone would pass against a loop that
+    // kept drifting. A scrub forces a real draw while paused, and it must show the same phase.
+    await scrub(page, 1 / 6);
+    assert.equal(await phaseNow(), frozen, 'a draw while paused shows the phase it stopped at');
+    for (let i = 0; i < 4; i++) await page.clock.fastForward(100);
+    assert.equal(await phaseNow(), frozen, 'Pause freezes the loop where it stands');
+    await pressDemo(page, 'reset');
+    assert.equal((await read()).bgSplicePhase, '0.420', 'Reset returns the loop to the poster');
+    // Reduced motion keeps the poster and draws none of its effects. The change reaches the page
+    // as a media-query event on the engine's own cycle, so wait for the effect, not for a sleep.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.waitForFunction(
+      () => document.querySelector('[data-background-demo-canvas]').dataset.bgLife === '0',
+      undefined,
+      { timeout: 20_000, polling: 100 }
+    );
+    await scrub(page, 1 / 6);
+    const reduced = await read();
+    assert.equal(reduced.bgStage, 'rna', 'the RNA scene is still reachable in reduced motion');
+    assert.equal(reduced.bgSplicePhase, '0.420', 'reduced motion shows the poster');
+    assert.equal(Number(reduced.bgSplice), 0, 'reduced motion draws no spliceosome glow');
+    assert.equal(Number(reduced.bgSparks), 0, 'reduced motion draws no ligation sparks');
+    assert.ok(Number(reduced.bgVisible) > 0, 'the poster still draws the RNA scene');
+    console.log(
+      `[background-ui] ${engine}-${phone ? 'phone' : 'desktop'} splice lifecycle: poster 0.420, ${first.toFixed(3)} after one frame, ${running.toFixed(3)} after nine, frozen on pause`
     );
   } finally {
     await context.close();
@@ -1365,6 +1435,11 @@ try {
     try {
       if (process.env.BACKGROUND_UI_EFFECT_ONLY === '1') {
         await effectLifecycle(browser, name, false);
+        await spliceLifecycle(browser, name, false);
+        continue;
+      }
+      if (process.env.BACKGROUND_UI_SPLICE_ONLY === '1') {
+        for (const phone of [false, true]) await spliceLifecycle(browser, name, phone);
         continue;
       }
       if (process.env.BACKGROUND_UI_VEIL_ONLY === '1') {
@@ -1383,6 +1458,7 @@ try {
           await minimumQuality(browser, name, phone, label);
           await stirAndReset(browser, name, phone);
           await effectLifecycle(browser, name, phone);
+          await spliceLifecycle(browser, name, phone);
           await slowCallbacks(browser, name, phone);
           await slowPress(browser, name, phone);
           console.log(`[background-ui] ${label} virtual-time scenarios passed`);
@@ -1817,6 +1893,7 @@ try {
         await minimumQuality(browser, name, phone, label);
         await stirAndReset(browser, name, phone);
         await effectLifecycle(browser, name, phone);
+        await spliceLifecycle(browser, name, phone);
         await slowCallbacks(browser, name, phone);
         await slowPress(browser, name, phone);
         await page.locator('[data-background-reset]').click();
@@ -2117,6 +2194,15 @@ try {
               .getAttribute('data-bg-transitioning'),
             'false'
           );
+          if (id === 'rna') {
+            const still = await page
+              .locator('[data-background-demo-canvas]')
+              .evaluate((c) => ({ ...c.dataset }));
+            assert.equal(still.bgSplicePhase, '0.420', 'reduced motion shows the poster');
+            assert.equal(Number(still.bgSplice), 0, 'reduced motion draws no spliceosome glow');
+            assert.equal(Number(still.bgSparks), 0, 'reduced motion draws no ligation sparks');
+            assert.ok(Number(still.bgVisible) > 0, 'the poster still draws the RNA scene');
+          }
         }
         await page.locator('[data-background-close]').click();
         if (phone) {

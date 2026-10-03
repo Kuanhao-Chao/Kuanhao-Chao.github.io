@@ -22,11 +22,11 @@ import {
 } from './morphModel';
 import { MORPH_STAGES } from './morphStory';
 import {
-  sampleRnaParticle,
   sampleProteinParticle,
   sampleNetworkParticle,
   sampleDistributionParticle,
 } from './morphTargets';
+import { sampleRnaParticle } from './morphSplice';
 
 const point = (): MorphPoint => ({ x: 0, y: 0, z: 0, alpha: 1 });
 describe('dimensional genome-to-cell story', () => {
@@ -97,13 +97,21 @@ describe('dimensional genome-to-cell story', () => {
   it('keeps every particle participating in complete forms and transformations', () => {
     const out = point(),
       scratch = point();
+    // The RNA form splices over a loop (a released lariat leaves, the finished mRNA departs), so a
+    // particle can be absent at one instant of it. Participation is therefore asked of a particle over
+    // the loop, at every form, while geometry is held to its bounds at every single sample.
+    const times = [0, 1.5, 3, 4.5, 6, 7.5, 9, 10.5];
     for (const p of createMorphParticles(1600)) {
       for (const stage of [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1]) {
-        sampleMorph(p, stage, 3, out, scratch);
-        expect(out.alpha).toBeGreaterThan(0.1);
-        expect(out.alpha).toBeLessThanOrEqual(1);
-        expect([out.x, out.y, out.z].every(Number.isFinite)).toBe(true);
-        expect(Math.max(Math.abs(out.x), Math.abs(out.y), Math.abs(out.z))).toBeLessThan(1.3);
+        let most = 0;
+        for (const time of times) {
+          sampleMorph(p, stage, time, out, scratch);
+          most = Math.max(most, out.alpha);
+          expect(out.alpha).toBeLessThanOrEqual(1);
+          expect([out.x, out.y, out.z].every(Number.isFinite)).toBe(true);
+          expect(Math.max(Math.abs(out.x), Math.abs(out.y), Math.abs(out.z))).toBeLessThan(1.3);
+        }
+        expect(most).toBeGreaterThan(0.1);
       }
     }
   });
@@ -242,10 +250,15 @@ describe('dimensional genome-to-cell story', () => {
       scratch = point();
     for (const p of createMorphParticles(1000).filter((p) => visibleParticle(p, 0.3))) {
       for (let i = 0; i <= 120; i++) {
-        sampleMorph(p, i / 120, 3, out, scratch);
-        expect([out.x, out.y, out.z, out.alpha].every(Number.isFinite)).toBe(true);
-        expect(out.alpha).toBeGreaterThan(0.1);
-        expect(Math.max(Math.abs(out.x), Math.abs(out.y), Math.abs(out.z))).toBeLessThan(1.3);
+        // Over the splicing loop, for the same reason as above: a particle takes part at some moment.
+        let most = 0;
+        for (const time of [0, 3, 6, 9]) {
+          sampleMorph(p, i / 120, time, out, scratch);
+          most = Math.max(most, out.alpha);
+          expect([out.x, out.y, out.z, out.alpha].every(Number.isFinite)).toBe(true);
+          expect(Math.max(Math.abs(out.x), Math.abs(out.y), Math.abs(out.z))).toBeLessThan(1.3);
+        }
+        expect(most).toBeGreaterThan(0.1);
       }
       for (const invalid of [NaN, Infinity, -Infinity]) {
         sampleMorph(p, invalid, invalid, out, scratch);

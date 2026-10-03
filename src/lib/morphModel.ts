@@ -7,11 +7,11 @@ import {
   type MorphStageId,
 } from './morphStory';
 import {
-  sampleRnaParticle,
   sampleProteinParticle,
   sampleNetworkParticle,
   sampleDistributionParticle,
 } from './morphTargets';
+import { sampleRnaParticle } from './morphSplice';
 export { storyProgress, playbackProgress, playbackTime } from './morphStory';
 
 export interface MorphPoint {

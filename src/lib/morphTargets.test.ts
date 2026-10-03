@@ -3,16 +3,6 @@ import * as targets from './morphTargets';
 import { createMorphParticles, type MorphPoint } from './morphModel';
 const point = (): MorphPoint => ({ x: 0, y: 0, z: 0, alpha: 1 });
 
-it('exposes a continuous single-transcript RNA target', async () => {
-  const targets = await import('./morphTargets');
-  const start = { x: 0, y: 0, z: 0, alpha: 1 };
-  const end = { ...start };
-  targets.sampleRnaBackbone(0, 0, start);
-  targets.sampleRnaBackbone(1, 0, end);
-  expect(start.x).toBeLessThan(-0.8);
-  expect(end.x).toBeGreaterThan(0.8);
-});
-
 it('bundles all 76 unchanged chain-A C-alpha records with source secondary structure', async () => {
   const { PROTEIN_RESIDUES, PROTEIN_SECONDARY_STRUCTURE, PROTEIN_SOURCE } =
     await import('../data/morphProtein');
@@ -73,9 +63,9 @@ it('draws the experimental fold with a rigid orientation and a single uniform sc
 it('fills every new form deterministically with bounded material and finite ribbon frames', () => {
   const out = point(),
     again = point();
+  // The RNA form is time-dependent (splicing), so src/lib/morphSplice.test.ts owns it; this one
+  // holds the time-free forms to the same bounded, deterministic, mutually distinct standard.
   const samplers = [
-    (p: ReturnType<typeof createMorphParticles>[number], out: MorphPoint) =>
-      targets.sampleRnaParticle(p, 3, out),
     targets.sampleProteinParticle,
     targets.sampleNetworkParticle,
     targets.sampleDistributionParticle,
