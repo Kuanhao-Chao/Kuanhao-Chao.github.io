@@ -5,7 +5,8 @@ Astro static site for `khchao.com` (Node 22 — see `.nvmrc`). No client-side fr
 ## Commands
 - `npm install` — install deps.
 - `npm run dev` — dev server at `http://localhost:4321`.
-- `npm run check` — `astro check`: TypeScript + content-schema validation. This is the primary correctness gate; there is **no unit test suite**.
+- `npm run check` — `astro check`: TypeScript + content-schema validation, the primary type and content gate.
+- `npm test` — the vitest suite (4,000+ tests over the pure `src/lib/` layers and the content contracts). Run it before every commit; CI runs it before building.
 - `npm run build` — runs `build:site` (`astro build`) then `pdf:posts`. Run this before submitting changes to routes, assets, MD, or config.
 - `npm run pdf:posts` — regenerates `dist/<section>/<slug>/<slug>.pdf` from an **existing** build (needs `dist/posts` to exist).
 - `npm run audit:indexing` — post-build SEO/indexing invariant checker. Runs against the built `dist/` directory. **Always run this after `npm run build` to verify indexing and PDF standards.**

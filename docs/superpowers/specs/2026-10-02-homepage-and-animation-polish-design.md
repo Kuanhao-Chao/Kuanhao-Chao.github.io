@@ -1,7 +1,8 @@
 # Homepage and luminous background polish
 
 Approved Claude design, transcribed for implementation on 2026-10-02. Source:
-`~/.claude/plans/gleaming-knitting-peacock.md`. Status: implementation in progress.
+`~/.claude/plans/gleaming-knitting-peacock.md`. Status: implemented; observed results are in
+`docs/superpowers/verification/2026-10-02-homepage-and-animation-polish.md`.
 
 ## Scope and existing work
 

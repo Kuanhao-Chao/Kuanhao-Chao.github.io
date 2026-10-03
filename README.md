@@ -20,6 +20,7 @@ npm run build      # production build to ./dist, including post PDFs
 npm run pdf:posts  # regenerate post PDFs after an existing build
 npm run preview    # preview the production build
 npm run check      # astro check (types + content schemas)
+npm test           # vitest unit and content tests
 ```
 
 `npm run build` expects a Playwright Chromium browser for PDF generation. On a new
