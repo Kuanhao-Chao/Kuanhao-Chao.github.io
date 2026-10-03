@@ -1,4 +1,4 @@
-/** Deterministic, representative anatomy for the Genome → Cell illustration. */
+/** Deterministic, representative anatomy for the Sequence → Function illustration. */
 import {
   finiteProgress,
   MORPH_STAGES,

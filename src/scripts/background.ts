@@ -1,5 +1,8 @@
 import {
+  BACKGROUND_DEFAULT_KEY,
   BACKGROUND_KEY,
+  DEFAULT_SCENE,
+  DEFAULT_SCENE_VERSION,
   MOTIONS,
   SCENES,
   backgroundRouteAllowed,
@@ -23,7 +26,7 @@ import {
   type MorphChapter,
 } from '../lib/morphStory';
 
-let preference: BackgroundPreference = { scene: 'cells', motion: 'ambient' };
+let preference: BackgroundPreference = { scene: DEFAULT_SCENE, motion: 'ambient' };
 let renderer: SceneRenderer | null = null;
 let canvas: HTMLCanvasElement | null = null;
 let generation = 0;
@@ -54,7 +57,8 @@ function readPreference() {
   try {
     preference = resolveBackground(
       localStorage.getItem(BACKGROUND_KEY),
-      localStorage.getItem('khc-cell-mode')
+      localStorage.getItem('khc-cell-mode'),
+      localStorage.getItem(BACKGROUND_DEFAULT_KEY)
     );
   } catch {
     /* Keep the in-memory choice when storage is unavailable. */
@@ -417,7 +421,7 @@ async function openDemo() {
   document.body.style.overflow = 'hidden';
   host.showModal();
   $('[data-background-close]')?.focus();
-  $('[data-background-demo-title]')!.textContent = 'Genome to Cell';
+  $('[data-background-demo-title]')!.textContent = 'Sequence to Function';
   $('[data-background-description]')!.textContent =
     'Explore seven particle forms: DNA, RNA, folded protein, cell, expression profile, neural model and probability distribution. Move your pointer while playing to shift the view, or tap or use Stir particles. Scrub between forms and show structure labels for a closer look.';
   $('[data-background-morph-legend]')!.hidden = false;
@@ -538,9 +542,11 @@ export function initBackground() {
   if (installed) return;
   installed = true;
   readPreference();
-  // Migrate once, before Cell Lab can overwrite its separate legacy mode key.
+  // Migrate once, before Cell Lab can overwrite its separate legacy mode key. The flag records
+  // that this release's default has been applied, so from here on a saved Cells is a choice.
   try {
     localStorage.setItem(BACKGROUND_KEY, JSON.stringify(preference));
+    localStorage.setItem(BACKGROUND_DEFAULT_KEY, DEFAULT_SCENE_VERSION);
   } catch {}
   const onPage = () => {
     document.documentElement.dataset.backgroundSwitching = 'false';

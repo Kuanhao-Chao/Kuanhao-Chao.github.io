@@ -1992,9 +1992,16 @@ async function auditReducedMotion(browser, baseURL, browserName, profile) {
     deviceScaleFactor: profile.deviceScaleFactor,
     reducedMotion: 'reduce',
   });
+  // The Cells scene stopped being the default, and this audit exercises it: seed it the way a returning
+  // visitor who chose Cells has it (the flag stops it being moved to the new default). Conditional, so
+  // a page that reloads mid-run keeps whatever the run chose.
   await context.addInitScript((theme) => {
     localStorage.setItem('khc-theme', theme);
     localStorage.setItem('khc-cell-mode', 'calm');
+    if (localStorage.getItem('khc-background-v1') === null) {
+      localStorage.setItem('khc-background-v1', JSON.stringify({ scene: 'cells', motion: 'calm' }));
+      localStorage.setItem('khc-background-default', 'sequence-function-1');
+    }
     sessionStorage.setItem('khc-cell-action', 'divide');
   }, profile.theme);
   const page = await context.newPage();
@@ -2131,9 +2138,19 @@ async function main() {
             isMobile: profile.touch,
             deviceScaleFactor: profile.deviceScaleFactor,
           });
+    // The Cells scene stopped being the default, and this audit exercises it: seed it the way a returning
+    // visitor who chose Cells has it (the flag stops it being moved to the new default). Conditional, so
+    // a page that reloads mid-run keeps whatever the run chose.
           await context.addInitScript((theme) => {
             localStorage.setItem('khc-theme', theme);
             localStorage.setItem('khc-cell-mode', 'calm');
+            if (localStorage.getItem('khc-background-v1') === null) {
+              localStorage.setItem(
+                'khc-background-v1',
+                JSON.stringify({ scene: 'cells', motion: 'calm' })
+              );
+              localStorage.setItem('khc-background-default', 'sequence-function-1');
+            }
             sessionStorage.setItem('khc-cell-action', 'divide');
           }, profile.theme);
           const page = await context.newPage();
