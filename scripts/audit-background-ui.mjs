@@ -766,6 +766,75 @@ async function completePlayback(browser, engine, phone) {
     await context.close();
   }
 }
+// Exact pixel equality across frames, asserted where it is deterministic. Under the fake clock a
+// frame costs 0 ms, so adaptive quality cannot move between two captures on any runner. The
+// real-time versions of these two checks (in the profile) compare only when the adaptive state
+// held still: a slow runner steps quality down, and the 400 ms fade between two levels advances
+// per FRAME, so two captures can legitimately differ in how many particles are drawn (headless
+// WebKit on the CI runner reached quality 0.56 and failed the old unconditional comparison).
+async function stirAndReset(browser, engine, phone) {
+  const label = `${engine}-${phone ? 'phone' : 'desktop'}`;
+  const { context, page } = await openClockedExplorer(browser, engine, phone);
+  try {
+    const canvas = page.locator('[data-background-demo-canvas]');
+    const image = () => canvas.evaluate((c) => c.toDataURL());
+    const labels = (on) =>
+      page.locator('[data-background-labels]').evaluate((input, checked) => {
+        input.checked = checked;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }, on);
+    await pausedAtDna(page);
+    const canonical = await image();
+    // A paused form disturbed by Stir returns exactly to rest, even when frames arrive late.
+    await scrub(page, 0.5);
+    await labels(true);
+    const resting = await image();
+    const interactions = Number(await canvas.getAttribute('data-bg-interactions'));
+    await pressDemo(page, 'stir');
+    await page.clock.fastForward(100);
+    // The counter is written by the frame that draws the displacement, not by the click.
+    assert.equal(
+      Number(await canvas.getAttribute('data-bg-interactions')),
+      interactions + 1,
+      'stir is counted'
+    );
+    assert.notEqual(
+      await image(),
+      resting,
+      'stirring must visibly move particles, not just update its counter'
+    );
+    // Frames 180 ms apart, like a loaded phone: the disturbance still ends on wall time.
+    for (let i = 0; i < 12; i++) await page.clock.fastForward(180);
+    assert.equal(
+      await image(),
+      resting,
+      `a paused form must return exactly to its resting composition (${label})`
+    );
+    const ticks = await frames(page, true);
+    await page.clock.fastForward(1000);
+    assert.equal(await frames(page, true), ticks, 'paused renderer must not continue drawing');
+    // Reset from a disturbed finale restores canonical DNA exactly.
+    await labels(false);
+    await scrub(page, 1);
+    await pressDemo(page, 'stir');
+    await page.clock.fastForward(100);
+    await pressDemo(page, 'reset');
+    assert.equal(
+      await displayed(page),
+      0,
+      'reset returns from a disturbed finale to canonical DNA'
+    );
+    assert.equal(await canvas.getAttribute('data-bg-transitioning'), 'false');
+    assert.equal(
+      await image(),
+      canonical,
+      `reset restores exact unstirred geometry and decorative clock (${label})`
+    );
+    console.log(`[background-ui] ${label} stir and reset: exact under the fake clock`);
+  } finally {
+    await context.close();
+  }
+}
 async function minimumQuality(browser, engine, phone, label) {
   const { context, page } = await openClockedExplorer(browser, engine, phone);
   try {
@@ -835,6 +904,7 @@ try {
           const label = `${name}-${phone ? 'phone' : 'desktop'}`;
           await completePlayback(browser, name, phone);
           await minimumQuality(browser, name, phone, label);
+          await stirAndReset(browser, name, phone);
           console.log(`[background-ui] ${label} virtual-time scenarios passed`);
         }
         continue;
@@ -1186,22 +1256,38 @@ try {
             ) === expected,
           stirred + 1
         );
-        await page.waitForTimeout(100);
-        assert.ok(
-          (await page.locator('[data-background-demo-canvas]').evaluate((c) => c.toDataURL())) !==
+        // A condition, not a 100 ms sleep: the displaced frame arrives on the rendering cycle.
+        await page
+          .waitForFunction(
+            (resting) =>
+              document.querySelector('[data-background-demo-canvas]').toDataURL() !== resting,
             restingImage,
-          'stirring must visibly move particles, not just update its counter'
-        );
+            { timeout: 15_000, polling: 100 }
+          )
+          .catch(() => {
+            throw new Error('stirring must visibly move particles, not just update its counter');
+          });
         await page.waitForTimeout(1800);
         await still(page, true);
         const settledState = await page
           .locator('[data-background-demo-canvas]')
           .evaluate((c) => ({ width: c.width, height: c.height, ...c.dataset }));
-        assert.ok(
-          (await page.locator('[data-background-demo-canvas]').evaluate((c) => c.toDataURL())) ===
-            restingImage,
-          `a paused form must return exactly to its resting composition: ${JSON.stringify({ restingState, settledState })}`
-        );
+        const settledImage = await page
+          .locator('[data-background-demo-canvas]')
+          .evaluate((c) => c.toDataURL());
+        // Exact only while the adaptive state held still; stirAndReset asserts it unconditionally.
+        if (
+          restingState.bgQuality === settledState.bgQuality &&
+          restingState.bgVisible === settledState.bgVisible
+        )
+          assert.ok(
+            settledImage === restingImage,
+            `a paused form must return exactly to its resting composition: ${JSON.stringify({ restingState, settledState })}`
+          );
+        else
+          console.log(
+            `[background-ui] ${label} stir-return pixel comparison skipped: adaptive quality moved (quality ${restingState.bgQuality} -> ${settledState.bgQuality}, visible ${restingState.bgVisible} -> ${settledState.bgVisible}); asserted exactly under the fake clock`
+          );
         if (phone)
           await page.evaluate(() => {
             [window.requestAnimationFrame, window.cancelAnimationFrame] =
@@ -1277,10 +1363,15 @@ try {
         }
         await completePlayback(browser, name, phone);
         await minimumQuality(browser, name, phone, label);
+        await stirAndReset(browser, name, phone);
         await page.locator('[data-background-reset]').click();
-        const resetImage = await page
-          .locator('[data-background-demo-canvas]')
-          .evaluate((c) => c.toDataURL());
+        const snapshot = () =>
+          page.locator('[data-background-demo-canvas]').evaluate((c) => ({
+            image: c.toDataURL(),
+            quality: c.dataset.bgQuality,
+            visible: c.dataset.bgVisible,
+          }));
+        const resetSnapshot = await snapshot();
         await scrub(page, 1);
         await page.locator('[data-background-stir]').click();
         await page.locator('[data-background-reset]').click();
@@ -1293,11 +1384,20 @@ try {
           await page.locator('[data-background-demo-canvas]').getAttribute('data-bg-transitioning'),
           'false'
         );
-        assert.equal(
-          await page.locator('[data-background-demo-canvas]').evaluate((c) => c.toDataURL()),
-          resetImage,
-          'reset restores exact unstirred geometry and decorative clock'
-        );
+        const afterReset = await snapshot();
+        if (
+          afterReset.quality === resetSnapshot.quality &&
+          afterReset.visible === resetSnapshot.visible
+        )
+          assert.equal(
+            afterReset.image,
+            resetSnapshot.image,
+            'reset restores exact unstirred geometry and decorative clock'
+          );
+        else
+          console.log(
+            `[background-ui] ${label} reset pixel comparison skipped: adaptive quality moved (quality ${resetSnapshot.quality} -> ${afterReset.quality}, visible ${resetSnapshot.visible} -> ${afterReset.visible}); asserted exactly under the fake clock`
+          );
         await page.locator('[data-background-form="0"]').click();
         await page.waitForTimeout(150);
         await page.locator('[data-background-play]').click();
@@ -1560,7 +1660,22 @@ try {
       await browser.close();
     }
   }
-  assert.deepEqual(errors, [], 'browser runtime errors');
+  // "ResizeObserver loop completed with undelivered notifications" is a notice the spec has an
+  // engine report as an error event when observers settle over more than one frame: not an
+  // exception, and it changes nothing. Headless WebKit on the CI runner (1-8 Hz) raises it in the
+  // explorer and the hero; a laptop never does. Anything else still fails the audit.
+  const observerLoop =
+    /ResizeObserver loop (completed with undelivered notifications|limit exceeded)/;
+  const notices = errors.filter((message) => observerLoop.test(message));
+  if (notices.length)
+    console.log(
+      `[background-ui] ignored ${notices.length} benign ResizeObserver loop notice(s): ${[...new Set(notices)].join('; ')}`
+    );
+  assert.deepEqual(
+    errors.filter((message) => !observerLoop.test(message)),
+    [],
+    'browser runtime errors'
+  );
   console.log(`[background-ui] Passed. Screenshots: ${artifacts}`);
 } finally {
   await previewServer?.stop();
