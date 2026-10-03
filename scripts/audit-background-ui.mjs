@@ -840,6 +840,31 @@ async function spliceLifecycle(browser, engine, phone) {
     await context.close();
   }
 }
+// The coverage scene (stage 5) is a canvas too: what it drew is what the renderer published. Three
+// junction arcs when it owns the frame, none anywhere else, and none of the RNA scene's effects.
+async function locusScene(browser, engine, phone) {
+  const { context, page } = await openClockedExplorer(browser, engine, phone);
+  try {
+    const canvas = page.locator('[data-background-demo-canvas]');
+    const read = () => canvas.evaluate((c) => ({ ...c.dataset }));
+    await pausedAtDna(page);
+    assert.equal(Number((await read()).bgJunctions), 0, 'DNA draws no junction arcs');
+    await scrub(page, 2 / 3);
+    const locus = await read();
+    assert.equal(locus.bgStage, 'signal', 'the scrub lands on the coverage scene');
+    assert.equal(Number(locus.bgJunctions), 3, 'two ordinary junctions and the skipping read');
+    assert.equal(Number(locus.bgSplice), 0, 'the RNA scene’s glow is not drawn here');
+    assert.equal(Number(locus.bgSparks), 0, 'the RNA scene’s sparks are not drawn here');
+    await assertEffects(page, { demo: true, phone, stage: 'signal' });
+    await scrub(page, 1 / 6);
+    assert.equal(Number((await read()).bgJunctions), 0, 'the RNA scene draws no junction arcs');
+    console.log(
+      `[background-ui] ${engine}-${phone ? 'phone' : 'desktop'} coverage scene: 3 junction arcs on stage 5, none elsewhere`
+    );
+  } finally {
+    await context.close();
+  }
+}
 // The explorer's story and its tweens follow WALL time, not the renderer's 80 ms step cap: a
 // browser that delivers a frame only every 180 ms (a loaded phone) must still finish a .9 s
 // transition in about a second and reach the same pose after the same hold. This used to be
@@ -1436,10 +1461,15 @@ try {
       if (process.env.BACKGROUND_UI_EFFECT_ONLY === '1') {
         await effectLifecycle(browser, name, false);
         await spliceLifecycle(browser, name, false);
+        await locusScene(browser, name, false);
         continue;
       }
-      if (process.env.BACKGROUND_UI_SPLICE_ONLY === '1') {
-        for (const phone of [false, true]) await spliceLifecycle(browser, name, phone);
+      if (process.env.BACKGROUND_UI_SCENES_ONLY === '1') {
+        // The RNA and coverage scenes alone: the fast loop while those are being worked on.
+        for (const phone of [false, true]) {
+          await spliceLifecycle(browser, name, phone);
+          await locusScene(browser, name, phone);
+        }
         continue;
       }
       if (process.env.BACKGROUND_UI_VEIL_ONLY === '1') {
@@ -1459,6 +1489,7 @@ try {
           await stirAndReset(browser, name, phone);
           await effectLifecycle(browser, name, phone);
           await spliceLifecycle(browser, name, phone);
+          await locusScene(browser, name, phone);
           await slowCallbacks(browser, name, phone);
           await slowPress(browser, name, phone);
           console.log(`[background-ui] ${label} virtual-time scenarios passed`);
@@ -1894,6 +1925,7 @@ try {
         await stirAndReset(browser, name, phone);
         await effectLifecycle(browser, name, phone);
         await spliceLifecycle(browser, name, phone);
+        await locusScene(browser, name, phone);
         await slowCallbacks(browser, name, phone);
         await slowPress(browser, name, phone);
         await page.locator('[data-background-reset]').click();
@@ -2193,6 +2225,11 @@ try {
               .locator('[data-background-demo-canvas]')
               .getAttribute('data-bg-transitioning'),
             'false'
+          );
+          assert.equal(
+            Number(await page.locator('[data-background-demo-canvas]').getAttribute('data-bg-junctions')),
+            id === 'signal' ? 3 : 0,
+            `junction arcs at rest on ${id}`
           );
           if (id === 'rna') {
             const still = await page

@@ -94,6 +94,12 @@ it('shares smooth finite stage weights, descriptions and explicit transition tim
   expect(story.stageDescription(1 / 6)).toMatch(/introns/);
   expect(story.stageDescription(1 / 6)).toMatch(/invented/);
   expect(story.stageDescription(1 / 6)).toMatch(/not a simulation/);
+  // So does the sashimi view: junction reads, what a skipped exon looks like, and that it is invented.
+  expect(story.stageDescription(2 / 3)).toMatch(/RNA-seq/);
+  expect(story.stageDescription(2 / 3)).toMatch(/junction reads/);
+  expect(story.stageDescription(2 / 3)).toMatch(/skipping an exon/);
+  expect(story.stageDescription(2 / 3)).toMatch(/invented, not data/);
+  expect(story.stageDescription(2 / 3)).not.toMatch(/non-normalized/);
   expect(story.transitionDuration(0, 1)).toBeCloseTo(5.4, 12);
   expect(story.transitionDuration(1 / 6, 1 / 3)).toBeCloseTo(0.9, 12);
   expect(story.transitionDuration(0.5, 0.5)).toBe(0.15);

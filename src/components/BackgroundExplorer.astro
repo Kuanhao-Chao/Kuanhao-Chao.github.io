@@ -69,9 +69,11 @@ const controlLabels = [
   <p class="background-demo-status" data-background-demo-status role="status" aria-live="polite">
   </p>
   <p class="background-demo-key" data-background-morph-legend hidden>
-    DNA → RNA → folded protein → cell → expression profile → neural model → probability
-    distribution. Protein: <a href={PROTEIN_SOURCE.url} target="_blank" rel="noopener noreferrer"
-      >Ubiquitin {PROTEIN_SOURCE.entry}, chain {PROTEIN_SOURCE.chain}</a
+    DNA → RNA splicing → folded protein → cell → splice-aware expression → neural model →
+    probability distribution. Protein: <a
+      href={PROTEIN_SOURCE.url}
+      target="_blank"
+      rel="noopener noreferrer">Ubiquitin {PROTEIN_SOURCE.entry}, chain {PROTEIN_SOURCE.chain}</a
     >, experimental C-alpha coordinates ({PROTEIN_SOURCE.license}; extracted {
       PROTEIN_SOURCE.extractionDate
     }). Transitions illustrate information flow, not ribosome activity or folding dynamics. The
