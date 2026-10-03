@@ -92,7 +92,7 @@ const posts = allPosts
         {featuredTools.map((t) => {
           const logo = toolLogo(t);
           return (
-            <li>
+            <li data-veiled>
               <a class="home-tool" href={`/posts/${t.posts![0]}/`}>
                 {logo && (
                   <span class="home-tool-logo" data-shape={logoShape(logo)}>
@@ -268,6 +268,39 @@ const posts = allPosts
   }
   .home-tool:hover {
     background: var(--color-surface);
+  }
+  /* Sequence → Function: the research and software grids let the background art show through at
+     the veil strength (--art-through in tokens.css). Their hairlines used to be the container's
+     own background showing through a 1px gap, which a translucent card would show as a grey slab,
+     so the lines move onto the cards: each card outlines itself and neighbours' outlines overlap in
+     the gap into one line. clip-path drops the new outer left/right lines; the top and bottom ones
+     coincide with the container's own border-block. `data-veiled` (on the li for software, on the
+     article for research) keeps the reading mask from erasing the art behind the text as well. */
+  :global(html[data-background-scene='morph']) .home-research,
+  :global(html[data-background-scene='morph']) .home-tools {
+    background: transparent;
+    clip-path: inset(0);
+  }
+  :global(html[data-background-scene='morph']) .home-research :global(.rcard--home),
+  :global(html[data-background-scene='morph']) .home-tool {
+    outline: 1px solid var(--color-rule);
+  }
+  :global(html[data-background-scene='morph']) .home-tool {
+    background: color-mix(in srgb, var(--color-bg) var(--veil-fill), transparent);
+  }
+  :global(html[data-background-scene='morph']) .home-tool:hover {
+    background: color-mix(
+      in srgb,
+      var(--color-accent) 5%,
+      color-mix(in srgb, var(--color-surface) var(--veil-fill), transparent)
+    );
+  }
+  /* The clip would cut an outset ring on an edge card; research cards already use this one. */
+  :global(html[data-background-scene='morph']) .home-tool:focus-visible {
+    position: relative;
+    z-index: 1;
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
   }
   /* The frame shrinks to each logo's real aspect rather than forcing a square: given
      a square, Astro center-crops the wide wordmarks down to a couple of letters. The
