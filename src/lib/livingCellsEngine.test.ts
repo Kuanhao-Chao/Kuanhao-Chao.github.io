@@ -870,7 +870,7 @@ describe('LivingCellsEngine', () => {
     expect((engine as any).cells).toHaveLength(0);
   });
 
-  it('locks to full detail and 1.0 alpha in lab mode while ambient uses 0.6 alpha', () => {
+  it('keeps lab alpha intact and applies distinct bounded Ambient and Calm rendering alpha', () => {
     const engine = makeEngine();
     Object.assign(engine as any, { cells: Array.from({ length: 25 }, () => createCell(engine, 40, 40)) });
 
@@ -879,9 +879,31 @@ describe('LivingCellsEngine', () => {
     expect((engine as any).effectiveAlpha()).toBe(1.0);
 
     engine.setMode('ambient');
-    expect((engine as any).effectiveAlpha()).toBe(0.6);
+    expect((engine as any).effectiveAlpha()).toBe(0.75);
     // On ambient with 25 cells (population > limit + 10), detail level gracefully degrades to minimal
     expect((engine as any).effectiveDetailLevel()).toBe('minimal');
+    engine.setMode('calm');
+    expect((engine as any).effectiveAlpha()).toBe(0.45);
+    expect((engine as any).effectiveAlpha(0.5)).toBe(0.225);
+  });
+
+  it('paints an ambient membrane rim and a restrained dark halo without altering Lab strokes', () => {
+    const engine = makeEngine();
+    const strokes: Array<{ width: number; color: string }> = [];
+    const ctx = {
+      lineWidth: 0, strokeStyle: '', fillStyle: '',
+      fill() {},
+      stroke() { strokes.push({ width: this.lineWidth, color: this.strokeStyle }); },
+    };
+    Object.assign(engine as any, { ctx, palette: { accent: '20, 100, 90', ink: '240, 240, 240', glow: '20, 100, 90', dark: true } });
+    engine.setMode('ambient');
+    (engine as any).fillStroke(1, 1);
+    expect(strokes.map(s => s.width)).toEqual([3.2, 1.15, 0.65]);
+    expect(strokes[0].color).toBe('rgba(20, 100, 90, 0.0225)');
+    strokes.length = 0;
+    engine.setMode('lab');
+    (engine as any).fillStroke(1, 1);
+    expect(strokes.map(s => s.width)).toEqual([1.45]);
   });
 
   it('allows direct canvas pointer interaction and click mitosis in lab mode', () => {
