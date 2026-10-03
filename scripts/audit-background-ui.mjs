@@ -69,8 +69,9 @@ async function throttleCpu(context, page, engine) {
 // run 37104648024): headless WebKit on Linux delivers requestAnimationFrame at 1-8 Hz, where a
 // laptop gives 30-120, and the renderer's own cost there is only 4-11 ms, so it is the
 // compositor, not the page. BACKGROUND_UI_SLOW_FRAMES=250 replaces requestAnimationFrame with a
-// 250 ms timer in every page this audit opens (the fake-clock scenarios excepted). An assertion
-// that quietly assumes a frame rate, such as "more than 5 ticks in 1.2 s", fails here.
+// 250 ms timer in every page this audit opens (the fake-clock scenarios excepted), and delivers
+// matchMedia, ResizeObserver and IntersectionObserver callbacks as late. An assertion that quietly assumes a frame rate, such as
+// "more than 5 ticks in 1.2 s", or that a media change has landed after a fixed sleep, fails here.
 const slowFrames = Number(process.env.BACKGROUND_UI_SLOW_FRAMES || 0);
 assert.ok(
   Number.isFinite(slowFrames) && slowFrames >= 0,
@@ -86,6 +87,33 @@ async function launch(name) {
         window.requestAnimationFrame = (callback) =>
           window.setTimeout(() => callback(performance.now()), delay);
         window.cancelAnimationFrame = (id) => window.clearTimeout(id);
+        // Media-query change events are delivered on the rendering cycle, so a slow
+        // compositor delivers them late too: a fixed sleep after emulateMedia loses that race.
+        // So are ResizeObserver and IntersectionObserver callbacks.
+        for (const name of ['ResizeObserver', 'IntersectionObserver']) {
+          const Native = window[name];
+          window[name] = class extends Native {
+            constructor(callback, ...rest) {
+              super(
+                (entries, observer) => {
+                  window.setTimeout(() => callback(entries, observer), delay);
+                },
+                ...rest
+              );
+            }
+          };
+        }
+        const add = MediaQueryList.prototype.addEventListener;
+        MediaQueryList.prototype.addEventListener = function (type, listener, options) {
+          if (type !== 'change' || typeof listener !== 'function')
+            return add.call(this, type, listener, options);
+          return add.call(
+            this,
+            type,
+            (event) => window.setTimeout(() => listener.call(this, event), delay),
+            options
+          );
+        };
       }, slowFrames);
       return context;
     };
@@ -415,9 +443,24 @@ async function effectLifecycleChecks(page, phone) {
   );
   assert.equal(await canvas.getAttribute('data-bg-warm-ink'), '#ffb000');
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.waitForTimeout(100);
+  // The change reaches the page as a media-query event, which WebKit delivers on its rendering
+  // cycle (1-8 Hz on the CI runner), so wait for the effect itself rather than a fixed 100 ms.
+  await page.waitForFunction(
+    () => document.querySelector('[data-background-demo-canvas]').dataset.bgLife === '0',
+    undefined,
+    { timeout: 20_000, polling: 100 }
+  );
   await assertEffects(page, { demo: true, phone, amount: 0 });
   await page.emulateMedia({ reducedMotion: 'no-preference' });
+  // matchMedia lags the emulation by a rendering cycle too, and the draw forced below reads it.
+  await page.waitForFunction(
+    () => !matchMedia('(prefers-reduced-motion: reduce)').matches,
+    undefined,
+    {
+      timeout: 20_000,
+      polling: 100,
+    }
+  );
   await page.evaluate(() => {
     window.__khcCrt.set('off');
     window.__khcTheme.set('light');
@@ -1371,6 +1414,15 @@ try {
         );
         await still(page);
         await page.emulateMedia({ reducedMotion: 'reduce' });
+        // The explorer reads matchMedia when it opens; let the emulation take effect first.
+        await page.waitForFunction(
+          () => matchMedia('(prefers-reduced-motion: reduce)').matches,
+          undefined,
+          {
+            timeout: 20_000,
+            polling: 100,
+          }
+        );
         await choose(page, 'motion', 'ambient');
         await still(page);
         await page.locator('[data-background-explore]').click();
