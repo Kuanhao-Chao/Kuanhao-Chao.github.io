@@ -1,19 +1,70 @@
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createInterface } from 'node:readline';
+import { fileURLToPath } from 'node:url';
 import { chromium, webkit } from 'playwright';
 import { preview } from 'astro';
 
 // Local mode uses a running server; --ci owns a preview of the already-built dist/.
 const ci = process.argv.includes('--ci');
+const port = Number(process.env.BACKGROUND_UI_PORT || 4337);
+
+// The two engines are independent and the audit mostly waits on the real clock, so a full --ci
+// run is one process per engine, each with its own preview port and screenshots. One engine
+// failing never stops the other finishing, so a single run shows all the evidence, and the
+// parent prints the one verdict line a gate should read. Naming an engine (or a port) runs a
+// single process, which is what the focused switches below use.
+if (ci && !process.env.BACKGROUND_UI_BROWSERS) {
+  const engineList = ['chromium', 'webkit'];
+  const runs = engineList.map(
+    (engine, index) =>
+      new Promise((resolve) => {
+        const child = spawn(process.execPath, [fileURLToPath(import.meta.url), '--ci'], {
+          env: {
+            ...process.env,
+            BACKGROUND_UI_BROWSERS: engine,
+            BACKGROUND_UI_PORT: String(port + index * 10),
+          },
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
+        for (const stream of [child.stdout, child.stderr])
+          createInterface({ input: stream }).on('line', (line) =>
+            console.log(`[${engine}] ${line}`)
+          );
+        child.on('error', () => resolve([engine, 1]));
+        child.on('close', (code) => resolve([engine, code ?? 1]));
+      })
+  );
+  const failed = (await Promise.all(runs)).filter(([, code]) => code !== 0).map(([e]) => e);
+  console.log(
+    failed.length
+      ? `[background-ui] FAILED: ${failed.join(', ')}`
+      : `[background-ui] Passed: ${engineList.join(' and ')}`
+  );
+  process.exit(failed.length ? 1 : 0);
+}
 const baseURL =
-  process.env.BACKGROUND_UI_BASE_URL || (ci ? 'http://127.0.0.1:4337' : 'http://127.0.0.1:4321');
+  process.env.BACKGROUND_UI_BASE_URL || (ci ? `http://127.0.0.1:${port}` : 'http://127.0.0.1:4321');
 const previewServer = ci
-  ? await preview({ root: process.cwd(), server: { host: '127.0.0.1', port: 4337 } })
+  ? await preview({ root: process.cwd(), server: { host: '127.0.0.1', port } })
   : null;
 const artifacts = await mkdtemp(join(tmpdir(), 'khc-background-'));
 const engines = process.env.BACKGROUND_UI_BROWSERS?.split(',') || ['chromium', 'webkit'];
+// Emulates a slower runner (Chromium only): BACKGROUND_UI_CPU_THROTTLE=8 gives CI-class frame
+// costs on a fast machine, so a harness that only passes on a quick CPU fails here too.
+const cpuThrottle = Number(process.env.BACKGROUND_UI_CPU_THROTTLE || 1);
+assert.ok(
+  Number.isFinite(cpuThrottle) && cpuThrottle >= 1,
+  'BACKGROUND_UI_CPU_THROTTLE must be a number >= 1'
+);
+async function throttleCpu(context, page, engine) {
+  if (cpuThrottle === 1 || engine !== 'chromium') return;
+  const session = await context.newCDPSession(page);
+  await session.send('Emulation.setCPUThrottlingRate', { rate: cpuThrottle });
+}
 const errors = [];
 // Independent approved order and exact canonical values, not read from production metadata.
 const forms = [
@@ -44,6 +95,344 @@ async function still(page, demo = false) {
   const before = await frames(page, demo);
   await page.waitForTimeout(400);
   assert.equal(await frames(page, demo), before, 'paused renderer must not continue drawing');
+}
+async function luminousChecks(browser, name) {
+  const failures = [];
+  for (const width of [320, 360, 390, 414, 768, 1440]) {
+    const context = await browser.newContext({
+      baseURL,
+      viewport: { width, height: 900 },
+      hasTouch: width < 768,
+      isMobile: width < 768,
+    });
+    try {
+      await context.addInitScript(() => {
+        localStorage.setItem(
+          'khc-background-v1',
+          JSON.stringify({ scene: 'morph', motion: 'ambient' })
+        );
+        const proto = CanvasRenderingContext2D.prototype;
+        const begin = proto.beginPath,
+          move = proto.moveTo,
+          line = proto.lineTo,
+          stroke = proto.stroke,
+          clear = proto.clearRect,
+          image = proto.drawImage;
+        proto.beginPath = function (...args) {
+          this.__xs = [];
+          return begin.apply(this, args);
+        };
+        for (const [key, original] of [
+          ['moveTo', move],
+          ['lineTo', line],
+        ])
+          proto[key] = function (x, y) {
+            this.__xs?.push(x);
+            return original.call(this, x, y);
+          };
+        proto.clearRect = function (...args) {
+          this.__bounds = [Infinity, -Infinity];
+          this.__lightAlpha = 0;
+          return clear.apply(this, args);
+        };
+        proto.drawImage = function (...args) {
+          if (this.canvas.matches('[data-art-bg-canvas]') && args[0]?.width === 32)
+            this.__lightAlpha += this.globalAlpha;
+          return image.apply(this, args);
+        };
+        proto.stroke = function (...args) {
+          if (this.canvas.matches('[data-hero-canvas]')) this.__heroColor = this.strokeStyle;
+          if (this.canvas.matches('[data-art-bg-canvas]') && this.__bounds)
+            for (const x of this.__xs || []) {
+              this.__bounds[0] = Math.min(this.__bounds[0], x);
+              this.__bounds[1] = Math.max(this.__bounds[1], x);
+            }
+          return stroke.apply(this, args);
+        };
+      });
+      const page = await context.newPage();
+      await page.goto('/?cell-audit=1');
+      await page.waitForTimeout(1800);
+      await page.screenshot({ path: join(artifacts, `${name}-fit-${width}.png`) });
+      const measured = await page.locator('[data-art-bg-canvas]').evaluate((c) => ({
+        bounds: c.getContext('2d').__bounds,
+        lightAlpha: c.getContext('2d').__lightAlpha,
+        ...c.dataset,
+      }));
+      console.log(`[background-ui] fit ${name} ${width}: ${JSON.stringify(measured)}`);
+      if (!(measured.bounds[0] >= 16 && measured.bounds[1] <= width - 16))
+        failures.push(`${width}px DNA stroke outside 16px inset: ${measured.bounds}`);
+      if (!(
+        Number(measured.bgLife) === 1 &&
+        Number(measured.bgGlow) > 0 &&
+        Number(measured.bgBokeh) > 0
+      ))
+        failures.push(`${width}px missing active life/glow/bokeh`);
+      await assertReadingClearance(page);
+      if (width === 390 || width === 1440) {
+        await choose(page, 'motion', 'calm');
+        await page.waitForTimeout(150);
+        const calm = await page
+          .locator('[data-art-bg-canvas]')
+          .evaluate((c) => ({ lightAlpha: c.getContext('2d').__lightAlpha, ...c.dataset }));
+        if (!(
+          Number(calm.bgLife) === 0.45 &&
+          Math.abs(calm.lightAlpha / measured.lightAlpha - 0.45) < 0.01
+        ))
+          failures.push(`${width}px Calm amplitude not 0.45`);
+        await choose(page, 'motion', 'ambient');
+        await choose(page, 'scene', 'cells');
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(400);
+        await page.screenshot({ path: join(artifacts, `${name}-cells-${width}.png`) });
+        console.log(
+          `[background-ui] cells ${name} ${width}: ${JSON.stringify(await page.evaluate(() => window.__khcCellsDebug.snapshot().timings))}`
+        );
+        await page.evaluate(() => window.__khcCrt.set('amber'));
+        await page.waitForTimeout(150);
+        console.log(
+          `[background-ui] hero palette ${name} ${width}: ${JSON.stringify(
+            await page.evaluate(() => {
+              const style = getComputedStyle(document.documentElement);
+              return {
+                ink: style.getPropertyValue('--color-ink').trim(),
+                heroInk: style.getPropertyValue('--rgb-ink').trim(),
+                accent: style.getPropertyValue('--color-accent').trim(),
+                heroAccent: style.getPropertyValue('--rgb-accent').trim(),
+              };
+            })
+          )}`
+        );
+        const heroColor = await page
+          .locator('[data-hero-canvas]')
+          .evaluate((c) => c.getContext('2d').__heroColor);
+        console.log(`[background-ui] hero painted amber: ${heroColor}`);
+        const rgb = (heroColor || '').match(/[\d.]+/g)?.map(Number) || [];
+        if (!(rgb[0] === 255 && rgb[1] >= 176 && rgb[1] <= 204 && rgb[2] >= 0 && rgb[2] <= 51))
+          failures.push(`${width}px Hero paints stale CRT ink: ${heroColor}`);
+        await page.evaluate(() => window.__khcCrt.set('off'));
+        await choose(page, 'scene', 'morph');
+        await page.keyboard.press('Escape');
+        if (width === 390) {
+          await page.setViewportSize({ width: 320, height: 700 });
+          for (let expanded = 0; expanded < 2; expanded++) {
+            await page.locator('[data-terminal-min]').evaluate((button) => button.click());
+            await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
+            await page.waitForTimeout(650);
+            const state = await page
+              .locator('[data-art-bg-canvas]')
+              .evaluate((c) => ({ bounds: c.getContext('2d').__bounds, ...c.dataset }));
+            assert.ok(
+              state.bounds[0] >= 16 && state.bounds[1] <= 304,
+              'fit survives resized and expanded/collapsed terminal'
+            );
+            const centers = await page.locator('[data-background-stage]').evaluateAll((elements) =>
+              elements.map((e) => {
+                const r = e.getBoundingClientRect();
+                return r.top + r.height / 2;
+              })
+            );
+            assert.ok(
+              centers.every((center, i) => !i || center > centers[i - 1]),
+              'terminal resizing keeps chapters ordered'
+            );
+            await assertReadingClearance(page);
+          }
+        }
+      }
+    } finally {
+      await context.close();
+    }
+  }
+  assert.deepEqual(failures, [], 'fitted luminous DNA');
+  console.log(`[background-ui] ${name} luminous fit: 6 widths passed`);
+}
+async function assertReadingClearance(page) {
+  const measured = await page.evaluate(() => {
+    const canvas = document.querySelector('[data-art-bg-canvas]');
+    const ctx = canvas.getContext('2d');
+    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    const ratio = canvas.width / canvas.clientWidth;
+    let max = 0,
+      count = 0;
+    for (const element of document.querySelectorAll(
+      'main h1, main h2, main p, main [data-terminal]'
+    )) {
+      const r = element.getBoundingClientRect();
+      for (
+        let y = Math.max(0, Math.ceil(r.top + 2));
+        y < Math.min(innerHeight, r.bottom - 2);
+        y += 5
+      )
+        for (
+          let x = Math.max(0, Math.ceil(r.left + 2));
+          x < Math.min(innerWidth, r.right - 2);
+          x += 5
+        ) {
+          max = Math.max(
+            max,
+            pixels[(Math.floor(y * ratio) * canvas.width + Math.floor(x * ratio)) * 4 + 3]
+          );
+          count++;
+        }
+    }
+    return { max, count };
+  });
+  assert.ok(measured.count > 100, 'sample actual visible reading areas');
+  // The CSS-resolution mask is scaled to the DPR backing store: permit one
+  // 8-bit alpha rounding unit, not a visible light pass over reading material.
+  assert.ok(measured.max <= 1, `reading-clearance mask alpha ${measured.max}/255`);
+}
+async function assertEffects(
+  page,
+  { demo = false, amount = 1, stage = 'dna', phone = false } = {}
+) {
+  const state = await page
+    .locator(demo ? '[data-background-demo-canvas]' : '[data-art-bg-canvas]')
+    .evaluate((c) => ({ ...c.dataset }));
+  assert.equal(Number(state.bgLife), amount, 'life amplitude follows accessibility/motion');
+  for (const [key, cap] of [
+    ['bgGlow', phone ? 100 : 250],
+    ['bgBokeh', phone ? 12 : 28],
+    ['bgStreaks', Math.floor(Number(state.bgAllocated) / 3)],
+    ['bgPackets', phone ? 24 : 48],
+    ['bgRain', phone ? 32 : 64],
+  ]) {
+    assert.ok(
+      Number(state[key]) >= 0 && Number(state[key]) <= cap,
+      `${key} has a bounded drawn count`
+    );
+    if (!amount) assert.equal(Number(state[key]), 0, `${key} is disabled`);
+  }
+  if (amount) {
+    assert.ok(Number(state.bgGlow) > 0 && Number(state.bgBokeh) > 0, 'active frame has lights');
+    if (stage === 'network') assert.ok(Number(state.bgPackets) > 0, 'network has edge packets');
+    if (stage === 'distribution') assert.ok(Number(state.bgRain) > 0, 'density has quantile rain');
+  }
+  return state;
+}
+async function effectLifecycleChecks(page, phone) {
+  const canvas = page.locator('[data-background-demo-canvas]');
+  await scrub(page, 0);
+  const first = await page.locator(`[data-background-form="${1 / 6}"]`).evaluate((button) => {
+    button.click();
+    return Number(document.querySelector('[data-background-demo-canvas]').dataset.bgStreaks);
+  });
+  assert.equal(first, 0, 'starting a form tween never teleports a streak');
+  await page.waitForFunction(
+    () => Number(document.querySelector('[data-background-demo-canvas]').dataset.bgStreaks) > 0
+  );
+  const transition = await assertEffects(page, { demo: true, phone });
+  console.log(
+    `[background-ui] transition ${phone ? 'phone' : 'desktop'} streaks=${transition.bgStreaks} renderMs=${transition.bgRenderMs} quality=${transition.bgQuality}`
+  );
+  await scrub(page, 1);
+  assert.equal(
+    await canvas.getAttribute('data-bg-streaks'),
+    '0',
+    'discontinuous scrub clears history'
+  );
+  await assertEffects(page, { demo: true, phone, stage: 'distribution' });
+  await scrub(page, 5 / 6);
+  await assertEffects(page, { demo: true, phone, stage: 'network' });
+  const lightImage = await canvas.evaluate((c) => c.toDataURL());
+  const initial = Number(await canvas.getAttribute('data-bg-palette'));
+  await page.evaluate(() => window.__khcTheme.set('dark'));
+  await page.waitForFunction(
+    (previous) =>
+      Number(document.querySelector('[data-background-demo-canvas]').dataset.bgPalette) > previous,
+    initial
+  );
+  assert.equal(await canvas.getAttribute('data-bg-light-blend'), 'lighter');
+  assert.notEqual(
+    await canvas.evaluate((c) => c.toDataURL()),
+    lightImage,
+    'palette repaint changes actual pixels'
+  );
+  const dark = Number(await canvas.getAttribute('data-bg-palette'));
+  await page.locator('[data-background-play]').click();
+  await page.waitForTimeout(250);
+  assert.equal(
+    Number(await canvas.getAttribute('data-bg-palette')),
+    dark,
+    'animation frames reuse cached sprites'
+  );
+  await page.evaluate(() => window.__khcCrt.set('amber'));
+  await page.waitForFunction(
+    (previous) =>
+      Number(document.querySelector('[data-background-demo-canvas]').dataset.bgPalette) > previous,
+    dark
+  );
+  assert.equal(await canvas.getAttribute('data-bg-warm-ink'), '#ffb000');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.waitForTimeout(100);
+  await assertEffects(page, { demo: true, phone, amount: 0 });
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.evaluate(() => {
+    window.__khcCrt.set('off');
+    window.__khcTheme.set('light');
+  });
+  await assertEffects(page, { demo: true, phone });
+  const hidden = await page.evaluate(() => {
+    try {
+      Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+      return { ...document.querySelector('[data-background-demo-canvas]').dataset };
+    } finally {
+      delete document.hidden;
+      document.dispatchEvent(new Event('visibilitychange'));
+    }
+  });
+  assert.equal(Number(hidden.bgLife), 0, 'hidden-document suspension repaints zero life');
+  assert.equal(Number(hidden.bgGlow), 0, 'hidden-document suspension removes light effects');
+  await page.locator('[data-background-reset]').click();
+  assert.equal(
+    await canvas.getAttribute('data-bg-streaks'),
+    '0',
+    'reset clears transition history'
+  );
+  await scrub(page, 0);
+  await page.evaluate(() => {
+    const saved = {
+      raf: requestAnimationFrame,
+      cancel: cancelAnimationFrame,
+      now: performance.now.bind(performance),
+    };
+    let callback = null,
+      time = saved.now(),
+      cost = 0;
+    window.requestAnimationFrame = (next) => {
+      callback = next;
+      return -1;
+    };
+    window.cancelAnimationFrame = () => {
+      callback = null;
+    };
+    try {
+      document.querySelector('[data-background-play]').click();
+      performance.now = () => saved.now() + (cost += 40);
+      for (let i = 0; i < 300 && callback; i++) {
+        const frame = callback;
+        callback = null;
+        frame((time += 100));
+      }
+    } finally {
+      window.requestAnimationFrame = saved.raf;
+      window.cancelAnimationFrame = saved.cancel;
+      performance.now = saved.now;
+    }
+  });
+  assert.equal(
+    await canvas.getAttribute('data-bg-fallback'),
+    'static',
+    'exercise measured-cost static fallback'
+  );
+  await assertEffects(page, { demo: true, phone, amount: 0 });
+  await page.locator('[data-background-close]').click();
+  await openAppearance(page);
+  await page.locator('[data-background-explore]').click();
+  await page.locator('[data-background-dialog]').waitFor({ state: 'visible' });
+  await scrub(page, 0);
 }
 async function migrationChecks(browser, name) {
   for (const [saved, legacy, expected] of [
@@ -152,119 +541,157 @@ async function displayed(page) {
     await page.locator('[data-background-demo-canvas]').getAttribute('data-bg-displayed-progress')
   );
 }
-async function completePlayback(page) {
-  // Exercise the actual renderer/controller with an owned deterministic RAF clock,
-  // not 60 real seconds per profile (the background CI job has an eight-minute cap).
-  await page.locator('[data-background-reset]').click();
-  await page.evaluate(() => {
-    window.__morphAuditClock = {
-      raf: requestAnimationFrame,
-      cancel: cancelAnimationFrame,
-      time: performance.now(),
-      next: null,
-    };
-    window.requestAnimationFrame = (callback) => {
-      window.__morphAuditClock.next = callback;
-      return -1;
-    };
-    window.cancelAnimationFrame = () => {
-      window.__morphAuditClock.next = null;
-    };
+// Virtual-time scenarios (the 60-second story, the minimum-quality floor) run on their OWN page,
+// whose timers, requestAnimationFrame and performance.now are Playwright's fake clock, installed
+// BEFORE navigation so the explorer, the ambient renderer and the reading mask share one time
+// base. They used to borrow the profile's page behind a single-slot requestAnimationFrame mock
+// whose cancelAnimationFrame cleared the slot for ANY id. The controller legitimately calls
+// cancelAnimationFrame(0) for the suspended ambient renderer on every selectionchange while the
+// dialog is open, so a late selectionchange from the preceding tap erased the explorer's pending
+// frame ("Playback must schedule the next frame") whenever it landed between two advances: only
+// on a slower runner. The mock also mixed the real performance.now with its virtual clock, which
+// moved the story by however long the harness took, and let real frame cost steer adaptive
+// quality, so the outcome depended on CPU speed three separate ways.
+async function openClockedExplorer(browser, engine, phone) {
+  const context = await browser.newContext({
+    baseURL,
+    viewport: phone ? { width: 390, height: 844 } : { width: 1440, height: 1000 },
+    hasTouch: phone,
+    isMobile: phone,
+    deviceScaleFactor: phone ? 3 : 1,
   });
-  const advance = async (seconds) =>
-    page.evaluate((seconds) => {
-      const clock = window.__morphAuditClock;
-      clock.time += seconds * 1000;
-      const callback = clock.next;
-      clock.next = null;
-      if (!callback) throw new Error('Playback must schedule the next frame');
-      callback(clock.time);
-    }, seconds);
   try {
-    await page.locator('[data-background-play]').evaluate((button) => button.click());
-    await page.evaluate(() => {
-      window.__morphAuditClock.time = performance.now();
+    await context.addInitScript(() => {
+      localStorage.setItem(
+        'khc-background-v1',
+        JSON.stringify({ scene: 'morph', motion: 'ambient' })
+      );
     });
+    const page = await context.newPage();
+    page.on('pageerror', (e) =>
+      errors.push(`clocked ${engine}-${phone ? 'phone' : 'desktop'}: ${e.message}`)
+    );
+    await throttleCpu(context, page, engine);
+    // Installed before navigation so nothing in the page ever holds a real timer. Time still
+    // flows naturally until pauseAt, which lets the page hydrate and open the explorer normally.
+    await page.clock.install();
+    await page.goto('/');
+    await page.waitForFunction(
+      () => document.querySelector('[data-art-bg-canvas]')?.dataset.bgScene === 'morph'
+    );
+    await openAppearance(page);
+    await page.locator('[data-background-explore]').click();
+    await page.locator('[data-background-dialog]').waitFor({ state: 'visible' });
+    // The explorer renderer is created after a dynamic import, i.e. AFTER the dialog is visible,
+    // and only then does the controller decide it is playing. Wait for it (it draws once on
+    // creation) before touching Play or Reset: a click that lands first toggles a state that has
+    // not been decided yet, and the import then flips it back.
+    await page.waitForFunction(
+      () => document.querySelector('[data-background-demo-canvas]')?.dataset.bgFrames
+    );
+    // Freeze. From here only the test moves the page, and a frame costs 0ms of fake time.
+    await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 2000);
+    return { context, page };
+  } catch (error) {
+    await context.close();
+    throw error;
+  }
+}
+// A synthetic click: Playwright's actionability waits would otherwise be racing a frozen clock.
+const pressDemo = (page, control) =>
+  page.locator(`[data-background-${control}]`).evaluate((button) => button.click());
+const demoState = (page) =>
+  page
+    .locator('[data-background-demo-canvas]')
+    .evaluate((canvas) => ({ ...canvas.dataset, hidden: document.hidden }));
+// One browser frame after `ms` of fake time. The explorer must draw it: a lost frame loop would
+// leave the story standing still and every later pose silently wrong, so name the state if so.
+async function frameAfter(page, ms, what) {
+  const before = await frames(page, true);
+  await page.clock.fastForward(ms);
+  if ((await frames(page, true)) <= before)
+    throw new Error(
+      `the explorer drew no frame during ${what}: ${JSON.stringify(await demoState(page))}`
+    );
+}
+// The explorer opens playing. Make "paused at canonical DNA with the clock frozen" explicit
+// instead of depending on that default.
+async function pausedAtDna(page) {
+  const label = () => page.locator('[data-background-play]').textContent();
+  if (/pause/i.test((await label()) || '')) await pressDemo(page, 'play');
+  assert.match((await label()) || '', /play/i, 'the explorer is paused before the scenario starts');
+  await pressDemo(page, 'reset');
+  assert.equal(await displayed(page), 0, 'reset returns the explorer to canonical DNA');
+}
+async function completePlayback(browser, engine, phone) {
+  const label = `${engine}-${phone ? 'phone' : 'desktop'}`;
+  const { context, page } = await openClockedExplorer(browser, engine, phone);
+  try {
+    const near = (actual, expected, tolerance, what) =>
+      assert.ok(
+        Math.abs(actual - expected) < tolerance,
+        `${what}: displayed ${actual}, expected ${expected} ± ${tolerance} (${label})`
+      );
+    await pausedAtDna(page);
+    await pressDemo(page, 'play');
     for (let leg = 0; leg < 12; leg++) {
       const from = leg < 6 ? leg / 6 : (12 - leg) / 6;
       const to = leg < 6 ? (leg + 1) / 6 : (11 - leg) / 6;
-      await advance(0.25);
-      assert.ok(Math.abs((await displayed(page)) - from) < 0.001, `playback arrival ${leg * 5}s`);
-      await advance(1.5);
-      assert.ok(
-        Math.abs((await displayed(page)) - from) < 0.001,
-        `two-second hold after ${leg * 5}s`
-      );
-      await advance(1.75);
-      assert.ok(
-        Math.abs((await displayed(page)) - (from + to) / 2) < 0.002,
+      await frameAfter(page, 250, `leg ${leg} arrival`);
+      near(await displayed(page), from, 0.001, `playback arrival ${leg * 5}s`);
+      if (leg % 5 === 0) {
+        // The explorer rewrites its status text as the story moves, a text change fires
+        // selectionchange, and the page answers by re-evaluating the AMBIENT renderer. That
+        // must never stop the explorer's own frame loop.
+        await page.evaluate(() => document.dispatchEvent(new Event('selectionchange')));
+      }
+      await frameAfter(page, 1500, `leg ${leg} hold`);
+      near(await displayed(page), from, 0.001, `two-second hold after ${leg * 5}s`);
+      await frameAfter(page, 1750, `leg ${leg} transition`);
+      near(
+        await displayed(page),
+        (from + to) / 2,
+        0.002,
         `adjacent playback midpoint on leg ${leg}`
       );
       if (leg === 8) {
-        await page.locator('[data-background-play]').evaluate((button) => button.click());
+        await pressDemo(page, 'play');
         const paused = await displayed(page);
-        await page.locator('[data-background-play]').evaluate((button) => button.click());
-        // Resume resets the renderer wall-time origin, retaining its reverse phase.
-        await page.evaluate(() => {
-          window.__morphAuditClock.time = performance.now();
-        });
-        assert.ok(
-          Math.abs((await displayed(page)) - paused) < 0.001,
-          'reverse playback resumes without a jump'
-        );
+        // Time passing while paused must not move the story.
+        await page.clock.fastForward(500);
+        near(await displayed(page), paused, 0.001, 'a paused story stands still');
+        await pressDemo(page, 'play');
+        near(await displayed(page), paused, 0.001, 'reverse playback resumes without a jump');
       }
-      await advance(1.5);
+      await frameAfter(page, 1500, `leg ${leg} approach`);
     }
-    await advance(0.25);
-    assert.ok(Math.abs(await displayed(page)) < 0.001, '60-second loop returns to DNA');
-    await page.locator('[data-background-play]').evaluate((button) => button.click());
+    await frameAfter(page, 250, 'loop end');
+    near(await displayed(page), 0, 0.001, '60-second loop returns to DNA');
+    await pressDemo(page, 'play');
+    console.log(`[background-ui] ${label} playback: 12 legs, ${await frames(page, true)} frames`);
   } finally {
-    await page.evaluate(() => {
-      const clock = window.__morphAuditClock;
-      window.requestAnimationFrame = clock.raf;
-      window.cancelAnimationFrame = clock.cancel;
-      delete window.__morphAuditClock;
-    });
+    await context.close();
   }
 }
-async function minimumQuality(page, label) {
-  await page.evaluate(() => {
-    window.__morphQualityAudit = {
-      raf: requestAnimationFrame,
-      cancel: cancelAnimationFrame,
-      now: performance.now.bind(performance),
-      next: null,
-      cost: 0,
-    };
-    window.requestAnimationFrame = (callback) => {
-      window.__morphQualityAudit.next = callback;
-      return -1;
-    };
-    window.cancelAnimationFrame = () => {
-      window.__morphQualityAudit.next = null;
-    };
-  });
+async function minimumQuality(browser, engine, phone, label) {
+  const { context, page } = await openClockedExplorer(browser, engine, phone);
   try {
-    await page.locator('[data-background-play]').evaluate((button) => button.click());
+    await pausedAtDna(page);
     await page.evaluate(() => {
-      const audit = window.__morphQualityAudit;
-      let time = audit.now();
-      // Inject measured 11ms cost, not a real busy loop. Drive the existing adaptive
-      // quality branch without triggering the separate >24ms static-fallback branch.
-      performance.now = () => audit.now() + (audit.cost += 11);
-      for (let i = 0; i < 110; i++) {
-        const callback = audit.next;
-        audit.next = null;
-        if (!callback) throw new Error('Adaptive-quality audit must keep drawing');
-        callback((time += 100));
-      }
-      performance.now = audit.now;
+      // Inject a measured 11ms of cost per frame on top of the fake clock, not a real busy loop:
+      // it drives the existing adaptive-quality branch without the separate >24ms static fallback.
+      const fake = performance.now.bind(performance);
+      let cost = 0;
+      performance.now = () => fake() + (cost += 11);
     });
-    await page.locator('[data-background-play]').evaluate((button) => button.click());
-    await page.evaluate(() => {
-      window.requestAnimationFrame = window.__morphQualityAudit.raf;
-      window.cancelAnimationFrame = window.__morphQualityAudit.cancel;
-    });
+    await pressDemo(page, 'play');
+    const start = await frames(page, true);
+    for (let i = 0; i < 110; i++) await page.clock.fastForward(100);
+    assert.ok(
+      (await frames(page, true)) - start >= 110,
+      `the explorer drew every adaptive-quality frame: ${JSON.stringify(await demoState(page))}`
+    );
+    await pressDemo(page, 'play');
     for (const [id, progress] of forms) {
       await scrub(page, progress);
       const state = await page.locator('[data-background-demo-canvas]').evaluate((canvas) => {
@@ -285,19 +712,42 @@ async function minimumQuality(page, label) {
         .screenshot({ path: join(artifacts, `${label}-morph-min-quality-${id}.png`) });
     }
   } finally {
-    await page.evaluate(() => {
-      const audit = window.__morphQualityAudit;
-      performance.now = audit.now;
-      window.requestAnimationFrame = audit.raf;
-      window.cancelAnimationFrame = audit.cancel;
-      delete window.__morphQualityAudit;
-    });
+    await context.close();
   }
 }
 try {
   for (const name of engines) {
     const browser = await { chromium, webkit }[name].launch();
     try {
+      if (process.env.BACKGROUND_UI_EFFECT_ONLY === '1') {
+        const context = await browser.newContext({
+          baseURL,
+          viewport: { width: 1440, height: 1000 },
+        });
+        try {
+          const page = await context.newPage();
+          await page.goto('/?cell-audit=1');
+          await choose(page, 'scene', 'morph');
+          await page.locator('[data-background-explore]').click();
+          await page.locator('[data-background-dialog]').waitFor({ state: 'visible' });
+          await effectLifecycleChecks(page, false);
+        } finally {
+          await context.close();
+        }
+        continue;
+      }
+      if (process.env.BACKGROUND_UI_CLOCK_ONLY === '1') {
+        // Just the two virtual-time scenarios: the fast loop for harness work.
+        for (const phone of process.env.BACKGROUND_UI_PHONE_ONLY === '1' ? [true] : [false, true]) {
+          const label = `${name}-${phone ? 'phone' : 'desktop'}`;
+          await completePlayback(browser, name, phone);
+          await minimumQuality(browser, name, phone, label);
+          console.log(`[background-ui] ${label} virtual-time scenarios passed`);
+        }
+        continue;
+      }
+      await luminousChecks(browser, name);
+      if (process.env.BACKGROUND_UI_LIGHT_ONLY === '1') continue;
       await migrationChecks(browser, name);
       for (const phone of process.env.BACKGROUND_UI_PHONE_ONLY === '1' ? [true] : [false, true]) {
         const label = `${name}-${phone ? 'phone' : 'desktop'}`;
@@ -310,6 +760,7 @@ try {
           deviceScaleFactor: phone ? 3 : 1,
         });
         const page = await context.newPage();
+        await throttleCpu(context, page, name);
         page.on('pageerror', (e) => errors.push(`${label}: ${e.message}`));
         await page.goto('/?cell-audit=1');
         assert.deepEqual(
@@ -339,6 +790,7 @@ try {
         await page.screenshot({ path: join(artifacts, `${label}-morph-switch.png`) });
         await choose(page, 'motion', 'paused');
         await still(page);
+        await assertEffects(page, { amount: 0, phone });
         await choose(page, 'motion', 'calm');
         const start = await frames(page);
         await page.waitForTimeout(300);
@@ -433,6 +885,7 @@ try {
             progress
           );
           await page.waitForTimeout(900);
+          await assertEffects(page, { stage, phone });
           const visiblePixels = await page.evaluate((name) => {
             const canvas = document.querySelector('[data-art-bg-canvas]');
             const window = document
@@ -489,6 +942,7 @@ try {
         await openAppearance(page);
         await page.locator('[data-background-explore]').click();
         await page.locator('[data-background-dialog]').waitFor({ state: 'visible' });
+        await effectLifecycleChecks(page, phone);
         await page.locator('[data-background-scrub]').evaluate((input) => {
           input.value = '0';
           input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -548,31 +1002,38 @@ try {
           'single step advances normalized progress by .05, not an old three-stage interval'
         );
         await page.locator('[data-background-form="1"]').click();
-        await page.waitForTimeout(150);
-        const beforeInterrupt = Number(
-          await page
-            .locator('[data-background-demo-canvas]')
-            .getAttribute('data-bg-displayed-progress')
-        );
-        await page.locator('[data-background-form="0"]').click();
-        const afterInterrupt = Number(
-          await page
-            .locator('[data-background-demo-canvas]')
-            .getAttribute('data-bg-displayed-progress')
-        );
+        // Wait for the tween to be genuinely mid-flight (a condition, not a fixed 150ms that a
+        // slow runner may not have rendered a single frame of).
+        await page.waitForFunction(() => {
+          const shown = Number(
+            document.querySelector('[data-background-demo-canvas]').dataset.bgDisplayedProgress
+          );
+          return shown > 1 / 6 + 0.05 + 0.01 && shown < 0.99;
+        });
+        // Read, act and read again inside ONE synchronous page task. An awaited Playwright
+        // click takes tens of milliseconds on a loaded runner, and a running tween moves
+        // 0.015 of progress in about 50ms, so reading across that gap measured the runner.
+        const interrupt = await page.locator('[data-background-form="0"]').evaluate((button) => {
+          const canvas = document.querySelector('[data-background-demo-canvas]');
+          const read = () => Number(canvas.dataset.bgDisplayedProgress);
+          const before = read();
+          button.click();
+          return { before, after: read() };
+        });
         assert.ok(
-          Math.abs(afterInterrupt - beforeInterrupt) < 0.015,
-          'interrupt starts from displayed pose'
+          Math.abs(interrupt.after - interrupt.before) < 0.015,
+          `interrupt starts from displayed pose: ${JSON.stringify(interrupt)}`
         );
-        await page.locator('[data-background-play]').click();
-        const resumed = Number(
-          await page
-            .locator('[data-background-demo-canvas]')
-            .getAttribute('data-bg-displayed-progress')
-        );
+        const resume = await page.locator('[data-background-play]').evaluate((button) => {
+          const canvas = document.querySelector('[data-background-demo-canvas]');
+          const read = () => Number(canvas.dataset.bgDisplayedProgress);
+          const before = read();
+          button.click();
+          return { before, after: read() };
+        });
         assert.ok(
-          Math.abs(resumed - afterInterrupt) < 0.015,
-          'resume preserves displayed progress'
+          Math.abs(resume.after - resume.before) < 0.015,
+          `resume preserves displayed progress: ${JSON.stringify(resume)}`
         );
         await page.locator('[data-background-play]').click();
         await page.locator('[data-background-scrub]').evaluate((input) => {
@@ -723,8 +1184,8 @@ try {
             'false'
           );
         }
-        await completePlayback(page);
-        await minimumQuality(page, label);
+        await completePlayback(browser, name, phone);
+        await minimumQuality(browser, name, phone, label);
         await page.locator('[data-background-reset]').click();
         const resetImage = await page
           .locator('[data-background-demo-canvas]')
@@ -868,6 +1329,7 @@ try {
         await page.waitForTimeout(300);
         assert.equal(await page.locator('[data-background-play]').isDisabled(), true);
         await still(page, true);
+        await assertEffects(page, { demo: true, amount: 0, phone });
         await page.locator('[data-background-step]').click();
         assert.equal(await displayed(page), 0.05, 'single step remains usable in reduced motion');
         await page.keyboard.press('Escape');
