@@ -36,9 +36,10 @@ export const MORPH_STAGES: readonly {
   },
   {
     id: 'signal',
-    label: 'Expression profile',
+    label: 'Splice-aware expression',
     progress: 2 / 3,
-    description: 'An illustrative non-normalized expression signal along genomic position.',
+    description:
+      'An illustrative RNA-seq view of the same gene: read coverage piles up on the exons, and junction reads arc across the introns, with a few skipping an exon. Heights and read counts are invented, not data.',
   },
   {
     id: 'network',

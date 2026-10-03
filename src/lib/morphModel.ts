@@ -12,6 +12,7 @@ import {
   sampleDistributionParticle,
 } from './morphTargets';
 import { sampleRnaParticle } from './morphSplice';
+import { sampleLocusParticle } from './morphLocus';
 export { storyProgress, playbackProgress, playbackTime } from './morphStory';
 
 export interface MorphPoint {
@@ -245,62 +246,6 @@ export function sampleCell(
     }
   }
 }
-export function signalHeight(t: number): number {
-  const peak = (center: number, width: number, height: number) =>
-    height * Math.exp(-(((t - center) / width) ** 2));
-  return 0.025 + peak(0.24, 0.075, 0.43) + peak(0.57, 0.11, 0.62) + peak(0.8, 0.045, 0.22);
-}
-/** Structure-specific emergence: DNA stays in chromatin as its context appears. */
-export function cellReveal(role: MorphRole, progress: number): number {
-  const start =
-    role === 'chromatin'
-      ? 0
-      : role === 'nucleus' || role === 'nucleolus'
-        ? 0.12
-        : role === 'membrane'
-          ? 0.25
-          : 0.2;
-  return smoothstep((progress - start) / (0.48 - start));
-}
-/** Allocation-free sampler; the caller owns output and scratch points. */
-export function sampleStructureMorph(
-  particle: MorphAnchor,
-  progress: number,
-  time: number,
-  out: MorphPoint,
-  scratch: MorphPoint
-): void {
-  const p = clamp01(progress);
-  sampleCell(particle.role, particle.t, particle.variant, time, out);
-  if (p <= 0.5) {
-    const blend = smoothstep(p * 2);
-    if (particle.role !== 'chromatin') {
-      const zoom = 0.65 + 0.35 * blend;
-      out.x *= zoom;
-      out.y *= zoom;
-      out.z *= zoom;
-      out.alpha = cellReveal(particle.role, p);
-      return;
-    }
-    sampleDna(particle.t, particle.variant, time, scratch);
-    const curve = Math.sin(Math.PI * blend) * 0.1;
-    out.x = scratch.x + (out.x - scratch.x) * blend;
-    out.y = scratch.y + (out.y - scratch.y) * blend + curve * Math.sin(particle.t * TAU);
-    out.z = scratch.z + (out.z - scratch.z) * blend;
-    out.alpha = particle.role === 'chromatin' ? 1 : cellReveal(particle.role, p);
-  } else {
-    const blend = smoothstep((p - 0.5) * 2);
-    const x = -1 + 2 * particle.t;
-    const trace = particle.role === 'chromatin' || particle.role === 'membrane';
-    const y = 0.33 - (trace ? signalHeight(particle.t) : 0);
-    out.x += (x - out.x) * blend;
-    out.y +=
-      (y - out.y) * blend - Math.sin(Math.PI * blend) * 0.13 * Math.sin(particle.t * Math.PI);
-    out.z *= 1 - blend;
-    out.alpha = 1 - blend * (trace ? 0 : particle.role === 'cytoplasm' ? 0.65 : 0.88);
-  }
-}
-
 /** Particle material around anatomical anchors; outlines use the anchor sampler separately. */
 export function sampleCellParticle(p: MorphParticle, time: number, out: MorphPoint): void {
   sampleCell(p.role, p.t, p.variant, time, out);
@@ -410,15 +355,6 @@ function sampleDnaParticle(p: MorphParticle, time: number, out: MorphPoint): voi
   }
 }
 
-/** Existing expression material: a non-normalized multi-peak genomic signal. */
-export function sampleSignalParticle(p: MorphParticle, out: MorphPoint): void {
-  const ridge = p.role === 'chromatin';
-  out.x = -1 + 2 * p.t;
-  out.y = 0.33 - signalHeight(p.t) * (ridge ? 0.96 + p.u * 0.04 : p.u);
-  out.z = 0;
-  out.alpha = ridge ? 0.85 : 0.28 + p.v * 0.2;
-}
-
 /** Canonical sampling seam shared by endpoint checks and the adjacent-target morph. */
 export function sampleMorphTarget(
   p: MorphParticle,
@@ -441,7 +377,7 @@ export function sampleMorphTarget(
       sampleCellParticle(p, clock, out);
       break;
     case 'signal':
-      sampleSignalParticle(p, out);
+      sampleLocusParticle(p, out);
       break;
     case 'network':
       sampleNetworkParticle(p, out);

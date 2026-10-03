@@ -12,7 +12,6 @@ import {
   sampleMorph,
   sampleDna,
   sampleCell,
-  signalHeight,
   smoothstep,
   TAU,
   type MorphPoint,
@@ -45,6 +44,17 @@ import {
   spliceosomeCenter,
   templatePoint,
 } from './morphSplice';
+import {
+  JUNCTIONS,
+  STRIP_HALF,
+  Y_BASE,
+  coverageHeight,
+  junctionPoint,
+  junctionWidth,
+  locusAnchors,
+  locusDotClass,
+  locusX,
+} from './morphLocus';
 import { PROTEIN_SECONDARY_STRUCTURE } from '../data/morphProtein';
 import type { SceneRenderer } from './sceneRenderer';
 import { fitHorizontal } from './morphLighting';
@@ -57,6 +67,15 @@ import {
   bokehDot,
   type LifeClock,
 } from './morphLife';
+/** What a scene asks the explorer to caption; the optional fields are the locus scene's. */
+interface Caption {
+  label: string;
+  x: number;
+  y: number;
+  side: 'above' | 'below';
+  short?: string;
+  room?: number;
+}
 const PROJECTED_EXTENTS = [0.74, 0.5, 1.1, 0.86, 0.46, 0.7, 0.51];
 // The RNA scene draws its own overlay (drawSplicing), so it is not among these.
 const ACCENT_STAGES = ['protein', 'network', 'distribution'] as const;
@@ -68,7 +87,10 @@ const STRUCTURE_LABELS = [
   ],
   ['Ubiquitin · 1UBQ chain A', 'Helix, sheets and loops · experimental backbone'],
   ['Cell · membrane and nucleus', 'Chromatin, mitochondria and ER'],
-  ['Illustrative expression profile', 'Genomic position → · non-normalized signal'],
+  [
+    'Splice-aware expression · illustrative',
+    'Coverage on exons · arcs are junction reads, thicker = more reads',
+  ],
   ['Generic neural model · five layers', '4 → 6 → 8 → 6 → 3 · not Shorkie'],
   ['Standard-normal probability density', 'Standardized response → · illustrative'],
 ];
@@ -101,6 +123,7 @@ export function createMorphRenderer(
   const splice = newSpliceState();
   // The ink of each particle while the RNA scene is up: fixed per particle, so decided once.
   const rnaClasses = Uint8Array.from(particles, (p) => rnaDotClass(p));
+  const locusClasses = Uint8Array.from(particles, (p) => locusDotClass(p));
   let historyReady = false,
     darkLight = false,
     paletteVersion = 0;
@@ -110,7 +133,8 @@ export function createMorphRenderer(
     packetCount = 0,
     bokehCount = 0,
     spliceCount = 0,
-    sparkCount = 0;
+    sparkCount = 0,
+    junctionCount = 0;
   // Linked buckets: six depth bands × three inks × three sizes × twelve opacities.
   // Build once per frame without sorting, allocating arrays, or drawing each dot separately.
   const bucketHeads = new Int32Array(6 * 3 * 3 * 12);
@@ -380,44 +404,116 @@ export function createMorphRenderer(
     }
     context.restore();
   }
-  function drawSignal() {
+  /**
+   * The coverage scene, drawn through the particles: the baseline carrying the gene model (exons as
+   * boxes), the coverage outline, and the junction arcs hanging below it with a stroke width that
+   * grows with the read count. Every curve comes from morphLocus, the same functions that place the
+   * dots, so an arc cannot start anywhere but on an exon boundary.
+   */
+  function drawLocus() {
     const weight = stageWeight(displayed, 'signal');
     if (weight < 0.005) return;
+    const base = opacity() * weight;
+    context.save();
     context.beginPath();
-    for (let i = 0; i <= 160; i++) {
-      const t = i / 160;
-      const x = originX + (-1 + 2 * t) * scale,
-        y = originY + (0.33 - signalHeight(t)) * scale;
-      if (!i) context.moveTo(x, y);
-      else context.lineTo(x, y);
+    for (let i = 0; i <= 240; i++) {
+      const g = i / 240;
+      point.x = locusX(g);
+      point.y = Y_BASE - coverageHeight(g);
+      point.z = 0;
+      project(point);
+      if (!i) context.moveTo(point.x, point.y);
+      else context.lineTo(point.x, point.y);
     }
     context.strokeStyle = accent;
     context.lineWidth = demo ? 2.1 : 1.3;
-    context.globalAlpha = opacity() * weight * 0.18;
+    context.globalAlpha = base * 0.3;
     context.stroke();
-    context.lineTo(originX + scale, originY + 0.33 * scale);
-    context.lineTo(originX - scale, originY + 0.33 * scale);
+    for (const g of [1, 0]) {
+      point.x = locusX(g);
+      point.y = Y_BASE;
+      point.z = 0;
+      project(point);
+      context.lineTo(point.x, point.y);
+    }
     context.closePath();
     context.fillStyle = accent;
-    context.globalAlpha = opacity() * weight * 0.025;
+    context.globalAlpha = base * 0.08;
     context.fill();
+    // The gene model on the baseline: a thin line for the introns, a box for each exon.
+    point.x = locusX(0);
+    point.y = Y_BASE;
+    point.z = 0;
+    project(point);
+    const lineX0 = point.x,
+      lineY = point.y;
+    point.x = locusX(1);
+    point.y = Y_BASE;
+    project(point);
     context.beginPath();
-    context.moveTo(originX - scale, originY + scale * 0.33);
-    context.lineTo(originX + scale, originY + scale * 0.33);
-    context.globalAlpha = opacity() * weight * 0.35;
-    context.lineWidth = 0.8;
+    context.moveTo(lineX0, lineY);
+    context.lineTo(point.x, point.y);
+    context.strokeStyle = ink;
+    context.lineWidth = 0.9;
+    context.globalAlpha = base * 0.3;
     context.stroke();
+    context.lineCap = 'butt';
+    context.strokeStyle = accent;
+    context.lineWidth = Math.max(3, 2 * STRIP_HALF * scale);
+    context.globalAlpha = base * 0.6;
+    for (const element of GENE) {
+      if (element.kind !== 'exon') continue;
+      context.beginPath();
+      for (const g of [element.start, element.end]) {
+        point.x = locusX(g);
+        point.y = Y_BASE;
+        point.z = 0;
+        project(point);
+        if (g === element.start) context.moveTo(point.x, point.y);
+        else context.lineTo(point.x, point.y);
+      }
+      context.stroke();
+    }
+    context.lineCap = 'round';
+    // Junction reads: one arc each, thicker for more reads, the skipping read the faintest.
+    context.strokeStyle = highlight;
+    for (const junction of JUNCTIONS) {
+      context.beginPath();
+      for (let i = 0; i <= 48; i++) {
+        junctionPoint(junction, i / 48, point);
+        project(point);
+        if (!i) context.moveTo(point.x, point.y);
+        else context.lineTo(point.x, point.y);
+      }
+      context.lineWidth = junctionWidth(junction) * (demo ? 1.25 : 1);
+      context.globalAlpha = base * (junction.skips ? 0.4 : 0.55);
+      context.stroke();
+      junctionCount++;
+    }
+    // A read head scans along the locus, riding the coverage.
     const t = (clock / 12) % 1;
+    point.x = locusX(t);
+    point.y = Y_BASE - coverageHeight(t);
+    point.z = 0;
+    project(point);
+    const headX = point.x,
+      headY = point.y;
+    point.x = locusX(t);
+    point.y = Y_BASE;
+    project(point);
     context.beginPath();
-    context.arc(
-      originX + (-1 + 2 * t) * scale,
-      originY + (0.33 - signalHeight(t)) * scale,
-      demo ? 3 : 2,
-      0,
-      TAU
-    );
-    context.globalAlpha = opacity() * weight * 0.7;
+    context.moveTo(headX, headY);
+    context.lineTo(point.x, point.y);
+    context.strokeStyle = highlight;
+    context.lineWidth = 0.8;
+    context.globalAlpha = base * 0.3;
+    context.stroke();
+    context.beginPath();
+    context.arc(headX, headY, demo ? 3.6 : 2.6, 0, TAU);
+    context.fillStyle = highlight;
+    context.globalAlpha = base * 0.9;
     context.fill();
+    context.restore();
   }
   /**
    * The RNA scene, drawn through the particles: the template's two strands, the polymerase, the
@@ -521,11 +617,18 @@ export function createMorphRenderer(
     }
     context.restore();
   }
-  /** Captions for the RNA scene in the explorer's "Show structures" mode: only what is on screen. */
-  function drawSpliceCaptions() {
+  /**
+   * Captions for the RNA and coverage scenes in the explorer's "Show structures" mode: only what is
+   * on screen, placed against the same functions that place the dots, and dropped when one would
+   * land on another rather than printed over it.
+   */
+  function drawStageCaptions() {
     if (!demo || !labels) return;
-    const weight = stageWeight(displayed, 'rna');
+    const rna = stageWeight(displayed, 'rna');
+    const locus = stageWeight(displayed, 'signal');
+    const weight = Math.max(rna, locus);
     if (weight < 0.9) return;
+    const anchors: readonly Caption[] = rna >= locus ? spliceAnchors(splice) : locusAnchors();
     context.save();
     context.font = '10.5px system-ui';
     context.textAlign = 'center';
@@ -534,12 +637,16 @@ export function createMorphRenderer(
     context.lineWidth = 0.8;
     const fade = 0.85 * smoothstep((weight - 0.9) / 0.1);
     const taken: number[][] = [];
-    for (const anchor of spliceAnchors(splice)) {
+    for (const anchor of anchors) {
       point.x = anchor.x;
       point.y = anchor.y;
       point.z = 0;
       project(point);
-      const half = context.measureText(anchor.label).width / 2 + 3;
+      // A caption wider than the room its structure leaves uses its shorter form, when it has one.
+      let text = anchor.label;
+      if (anchor.short && anchor.room !== undefined)
+        if (context.measureText(text).width > anchor.room * scale) text = anchor.short;
+      const half = context.measureText(text).width / 2 + 3;
       const x = Math.max(half + 8, Math.min(width - half - 8, point.x));
       const y = anchor.side === 'above' ? point.y - 7 : point.y + 13;
       const box = [x - half, y - 11, x + half, y + 3];
@@ -552,7 +659,7 @@ export function createMorphRenderer(
       context.lineTo(point.x, anchor.side === 'above' ? y + 3 : y - 10);
       context.stroke();
       context.globalAlpha = fade;
-      context.fillText(anchor.label, x, y);
+      context.fillText(text, x, y);
     }
     context.restore();
   }
@@ -646,7 +753,7 @@ export function createMorphRenderer(
     life.time = clock;
     life.amount = canAnimate() ? (motion === 'calm' ? 0.45 : 1) : 0;
     glowCount = streakCount = rainCount = packetCount = bokehCount = 0;
-    spliceCount = sparkCount = 0;
+    spliceCount = sparkCount = junctionCount = 0;
     computeSplice(clock, splice);
     layout();
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -669,8 +776,14 @@ export function createMorphRenderer(
     }
     bucketHeads.fill(-1);
     let visible = 0;
-    // Past halfway into the RNA scene every dot takes the ink of what it is: exon, intron, template.
-    const rnaOwn = stageWeight(displayed, 'rna') >= 0.5;
+    // Past halfway into the RNA scene every dot takes the ink of what it is (exon, intron, template),
+    // and likewise in the coverage scene (coverage, junction read).
+    const ownClasses =
+      stageWeight(displayed, 'rna') >= 0.5
+        ? rnaClasses
+        : stageWeight(displayed, 'signal') >= 0.5
+          ? locusClasses
+          : null;
     for (let i = 0; i < particles.length; i++) {
       const p = particles[i];
       const visibility = particleVisibility(p, previousQuality, quality, qualityAge / 0.4);
@@ -705,14 +818,14 @@ export function createMorphRenderer(
       const shade = Math.max(0, Math.min(11, Math.round(alpha * 12) - 1));
       const size = Math.max(0, Math.min(2, Math.floor((p.size - 0.6) / 0.3)));
       const warm = (p.role === 'chromatin' && p.u > 0.82) || (p.role === 'cytoplasm' && p.u > 0.7);
-      const color = rnaOwn ? rnaClasses[i] : p.role === 'nucleolus' ? 1 : warm ? 2 : 0;
+      const color = ownClasses ? ownClasses[i] : p.role === 'nucleolus' ? 1 : warm ? 2 : 0;
       const bucket = ((depth * 3 + color) * 3 + size) * 12 + shade;
       nextParticle[i] = bucketHeads[bucket];
       bucketHeads[bucket] = i;
     }
     drawDna(true);
     drawCell();
-    drawSignal();
+    drawLocus();
     drawSplicing();
     drawTargetAccents();
     drawStreaks();
@@ -739,7 +852,7 @@ export function createMorphRenderer(
     drawLights();
     drawStageLife();
     drawLabels();
-    drawSpliceCaptions();
+    drawStageCaptions();
     context.globalAlpha = 1;
     if (mask) {
       context.globalCompositeOperation = 'destination-out';
@@ -766,6 +879,7 @@ export function createMorphRenderer(
     canvas.dataset.bgSplice = String(spliceCount);
     canvas.dataset.bgSparks = String(sparkCount);
     canvas.dataset.bgSplicePhase = splice.phase.toFixed(3);
+    canvas.dataset.bgJunctions = String(junctionCount);
     canvas.dataset.bgPalette = String(paletteVersion);
     canvas.dataset.bgLightBlend = darkLight ? 'lighter' : 'source-over';
     canvas.dataset.bgWarmInk = highlight;

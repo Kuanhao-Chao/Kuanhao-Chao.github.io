@@ -14,7 +14,6 @@ import {
   sampleDna,
   sampleMorph,
   sampleMorphTarget,
-  signalHeight,
   springStep,
   storyProgress,
   visibleParticle,
@@ -208,8 +207,7 @@ describe('dimensional genome-to-cell story', () => {
     expect(a[1]).toBeCloseTo(b[1], 10);
     expect(Math.abs(a[0])).toBeLessThan(0.002);
   });
-  it('keeps expression positive and scroll chapters monotone', () => {
-    for (let i = 0; i <= 100; i++) expect(signalHeight(i / 100)).toBeGreaterThan(0);
+  it('keeps scroll chapters monotone', () => {
     const chapters = MORPH_STAGES.map((stage, i) => ({
       id: stage.id,
       center: 100 + i * 400,
