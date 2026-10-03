@@ -1091,10 +1091,14 @@ try {
         await still(page, true);
         await page.screenshot({ path: join(artifacts, `${label}-morph-switch-demo.png`) });
         await page.keyboard.press('Escape');
-        assert.equal(await page.locator('[data-background-dialog]').isVisible(), false);
-        assert.equal(
-          await page.locator('[data-top-theme-btn]').evaluate((e) => e === document.activeElement),
-          true
+        // Escape closes the dialog through its cancel event, which an engine delivers on its own
+        // rendering cycle (headless WebKit on the CI runner: still open on the very next line).
+        // Wait for the effect, then for focus to come back, instead of reading both at once.
+        await page.locator('[data-background-dialog]').waitFor({ state: 'hidden' });
+        await page.waitForFunction(
+          () => document.querySelector('[data-top-theme-btn]') === document.activeElement,
+          undefined,
+          { timeout: 20_000, polling: 100 }
         );
         assert.equal(
           await page.evaluate(() => scrollY),
