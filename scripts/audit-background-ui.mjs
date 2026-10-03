@@ -168,6 +168,7 @@ async function still(page, demo = false, { quiet = 400, within = 6_000 } = {}) {
           ...c.dataset,
           playLabel: document.querySelector('[data-background-play]')?.textContent,
           hidden: document.hidden,
+          ambientTicks: document.querySelector('[data-art-bg-canvas]')?.dataset.bgTicks,
         }));
       assert.fail(
         `paused renderer must not continue drawing: still ticking after ${within}ms: ${JSON.stringify(state)}`
@@ -608,6 +609,57 @@ async function slowCallbacks(browser, engine, phone) {
     );
     console.log(
       `[background-ui] ${engine}-${phone ? 'phone' : 'desktop'} slow callbacks: transition done within 7 frames of 180 ms, autoplay at ${shown.toFixed(3)} after 3.42 s`
+    );
+  } finally {
+    await context.close();
+  }
+}
+// A press that outlasts a status refresh must still click. The explorer rewrites its labels every
+// 500 ms, and replacing the Play button's text node between a mousedown and its mouseup makes
+// WebKit drop the click (the pointer events arrive, the click does not; Chromium delivers it). On
+// the Linux CI runner a single frame outlasts the gap between the two events, so the pause
+// choreography lost one Play click in five (run 37121815429, seven failures with the page's own
+// event log showing one click for two). Raw mouse events and the fake clock make it exact: the
+// refresh fires inside the press. It also asserts the cause directly, in both engines.
+async function slowPress(browser, engine, phone) {
+  const { context, page } = await openClockedExplorer(browser, engine, phone);
+  try {
+    await pausedAtDna(page);
+    const play = page.locator('[data-background-play]');
+    await play.evaluate((button) => {
+      button.firstChild.__kept = true;
+    });
+    await page.clock.fastForward(1200);
+    assert.equal(
+      await play.evaluate((button) => button.firstChild?.__kept === true),
+      true,
+      'a label refresh must not replace the Play button text node'
+    );
+    const press = async () => {
+      await play.evaluate((button) => button.scrollIntoView({ block: 'nearest' }));
+      const box = await play.boundingBox();
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      await page.clock.fastForward(600);
+      await page.mouse.up();
+    };
+    await press();
+    assert.equal(
+      await play.textContent(),
+      'Pause',
+      'a press that outlasts a status refresh still starts playback'
+    );
+    await press();
+    assert.equal(
+      await play.textContent(),
+      'Play',
+      'a press that outlasts a status refresh still pauses'
+    );
+    const before = await frames(page, true);
+    await page.clock.fastForward(1000);
+    assert.equal(await frames(page, true), before, 'the explorer stays still after the pause');
+    console.log(
+      `[background-ui] ${engine}-${phone ? 'phone' : 'desktop'} slow press: the Play label keeps its text node and a 600 ms press clicks`
     );
   } finally {
     await context.close();
@@ -1087,6 +1139,7 @@ try {
           await stirAndReset(browser, name, phone);
           await effectLifecycle(browser, name, phone);
           await slowCallbacks(browser, name, phone);
+          await slowPress(browser, name, phone);
           console.log(`[background-ui] ${label} virtual-time scenarios passed`);
         }
         continue;
@@ -1516,6 +1569,7 @@ try {
         await stirAndReset(browser, name, phone);
         await effectLifecycle(browser, name, phone);
         await slowCallbacks(browser, name, phone);
+        await slowPress(browser, name, phone);
         await page.locator('[data-background-reset]').click();
         const snapshot = () =>
           page.locator('[data-background-demo-canvas]').evaluate((c) => ({
@@ -1580,6 +1634,17 @@ try {
           matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', () =>
             note('reduced-motion', String(matchMedia('(prefers-reduced-motion: reduce)').matches))
           );
+          // An exception in a click handler would leave the explorer in its old state with a
+          // stale label, which looks exactly like a pause that did not take.
+          window.addEventListener('error', (event) => note('error', String(event.message)));
+          window.addEventListener('unhandledrejection', (event) =>
+            note('rejection', String(event.reason))
+          );
+        });
+        const consoleLines = [];
+        page.on('console', (message) => {
+          if (['error', 'warning'].includes(message.type()))
+            consoleLines.push(`${message.type()}: ${message.text()}`.slice(0, 200));
         });
         // BACKGROUND_UI_PAUSE_REPEAT=<n> repeats the choreography n times per page. It exists to
         // gather the failure above faster on a CI matrix (every round prints its trace); a normal
@@ -1626,7 +1691,7 @@ try {
           } catch (error) {
             const events = await page.evaluate(() => window.__events);
             throw new Error(
-              `${error.message} after ${JSON.stringify(trace)}; page events [ms, type, detail]: ${JSON.stringify(events)}`
+              `${error.message} after ${JSON.stringify(trace)}; page events [ms, type, detail]: ${JSON.stringify(events)}; console: ${JSON.stringify(consoleLines.slice(-8))}; page errors so far: ${JSON.stringify(errors.slice(-5))}`
             );
           }
         }

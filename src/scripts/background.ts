@@ -6,6 +6,7 @@ import {
   resolveBackground,
   type BackgroundPreference,
 } from '../lib/backgroundModel';
+import { setLabel } from '../lib/domLabel';
 import { getLivingCellsEngine } from '../lib/livingCellsEngine';
 import type { SceneRenderer } from '../lib/sceneRenderer';
 import {
@@ -72,22 +73,22 @@ function notify() {
         button.disabled = attribute === 'motion' && preference.scene === 'off';
       });
   }
-  const hint = $('[data-background-hint]');
-  if (hint)
-    hint.textContent =
-      preference.scene === 'off'
-        ? 'All decorative backgrounds are hidden.'
-        : reduced()
-          ? 'Reduced motion is enabled. Showing a still composition.'
-          : preference.motion === 'paused'
-            ? 'The scene is paused. Your reading stays still.'
-            : preference.motion === 'calm'
-              ? 'Gentler motion and lower contrast while you read.'
-              : 'Quiet motion in the background. Your choice is remembered.';
+  setLabel(
+    $('[data-background-hint]'),
+    preference.scene === 'off'
+      ? 'All decorative backgrounds are hidden.'
+      : reduced()
+        ? 'Reduced motion is enabled. Showing a still composition.'
+        : preference.motion === 'paused'
+          ? 'The scene is paused. Your reading stays still.'
+          : preference.motion === 'calm'
+            ? 'Gentler motion and lower contrast while you read.'
+            : 'Quiet motion in the background. Your choice is remembered.'
+  );
   const explore = $<HTMLButtonElement>('[data-background-explore]');
   if (explore) {
     explore.disabled = preference.scene === 'off' || !active();
-    explore.textContent = preference.scene === 'cells' ? 'Open Cell Lab ↗' : 'Explore background ↗';
+    setLabel(explore, preference.scene === 'cells' ? 'Open Cell Lab ↗' : 'Explore background ↗');
   }
 }
 function applyAmbientRunning() {
@@ -305,11 +306,13 @@ function updateDemoStatus(announce = false) {
   const status = $('[data-background-demo-status]');
   if (status) {
     status.setAttribute('aria-live', announce ? 'polite' : 'off');
-    status.textContent = demo?.status() || '';
+    setLabel(status, demo?.status() || '');
   }
   const play = $<HTMLButtonElement>('[data-background-play]');
   if (play) {
-    play.textContent = demoPlaying ? 'Pause' : 'Play';
+    // setLabel, not textContent: replacing this button's text node every 500 ms made WebKit drop
+    // any click that straddled a refresh (see src/lib/domLabel.ts).
+    setLabel(play, demoPlaying ? 'Pause' : 'Play');
     play.disabled = reduced();
   }
   const stir = $<HTMLButtonElement>('[data-background-stir]');
