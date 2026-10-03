@@ -130,7 +130,13 @@ html[data-theme='parchment'] .term {
 }
 /* The traffic lights keep their macOS colours in both themes — they are a
    convention, not part of the palette. `button` needs the reset because these are
-   real controls now, not decorative spans. */
+   real controls now, not decorative spans.
+   `background: transparent` is load-bearing: `appearance: none` strips the native
+   look but not the UA button face, so the two <button> dots (close, minimise) drew a
+   grey disc behind their 0.72rem dot (rgb(239,239,239) light, rgb(107,107,107) dark in
+   Chromium) while the zoom dot, an <a>, drew none, and only two of the three looked
+   highlighted. There is no hover or focus-visible highlight on purpose either: the dot
+   stays as drawn, and a keyboard user gets the outline below. */
 .term-dot {
   position: relative;
   display: grid;
@@ -140,10 +146,10 @@ html[data-theme='parchment'] .term {
   padding: 0;
   border: 0;
   border-radius: 50%;
+  background: transparent;
   flex: none;
   appearance: none;
   cursor: pointer;
-  transition: transform var(--transition), box-shadow var(--transition);
 }
 .term-dot::before {
   width: 0.72rem;
@@ -151,7 +157,6 @@ html[data-theme='parchment'] .term {
   content: '';
   border-radius: 50%;
   background: var(--term-dot-color);
-  transition: transform var(--transition), box-shadow var(--transition);
 }
 .term-dot:disabled {
   cursor: default;
@@ -165,35 +170,8 @@ a.term-dot:focus-visible {
    mounting and a button on the other. The target is large enough for touch while
    the pseudo-element keeps the familiar macOS-sized traffic light. */
 .term-dot--close { --term-dot-color: #e5695b; }
-.term-dot--close:hover,
-.term-dot--close:focus-visible {
-  transform: none;
-}
-.term-dot--close:hover::before,
-.term-dot--close:focus-visible::before {
-  transform: scale(1.2);
-  box-shadow: 0 0 0 3px rgba(229, 105, 91, 0.28);
-}
 .term-dot--min { --term-dot-color: #e0b451; }
-.term-dot--min:hover,
-.term-dot--min:focus-visible {
-  transform: none;
-}
-.term-dot--min:hover::before,
-.term-dot--min:focus-visible::before {
-  transform: scale(1.2);
-  box-shadow: 0 0 0 3px rgba(224, 180, 81, 0.3);
-}
 .term-dot--zoom { --term-dot-color: #6cc06c; }
-.term-dot--zoom:not(:disabled):hover,
-.term-dot--zoom:not(:disabled):focus-visible {
-  transform: none;
-}
-.term-dot--zoom:not(:disabled):hover::before,
-.term-dot--zoom:not(:disabled):focus-visible::before {
-  transform: scale(1.2);
-  box-shadow: 0 0 0 3px rgba(108, 192, 108, 0.3);
-}
 .term-bar-title {
   min-width: 0;
   flex: 1;
