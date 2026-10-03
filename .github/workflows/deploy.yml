@@ -56,8 +56,12 @@ jobs:
         timeout-minutes: 5
         run: npm run audit:cells:ci
 
+      # 15, not 8. This step runs both engines at once and is bounded by WebKit, which on this
+      # runner delivers animation frames at only 1-8 Hz and takes 2.5-3.5x as long as a laptop in
+      # the same sections (a dry run of this branch, run 37103759488, and a probe, 37104648024).
+      # The cap is there to stop a hang, not to grade a healthy run, so it sits well clear of one.
       - name: Audit switchable backgrounds
-        timeout-minutes: 8
+        timeout-minutes: 15
         run: npm run audit:background:ci
 
       # 12, not 5, and matching the deep-dive step below. The previous SUCCESSFUL run of this
