@@ -89,6 +89,11 @@ it('shares smooth finite stage weights, descriptions and explicit transition tim
   expect(story.stageWeight(0.5, 'dna')).toBe(0);
   expect(story.stageDescription(1)).toMatch(/not measured or calibrated Shorkie uncertainty/);
   expect(story.stageDescription(5 / 6)).toMatch(/not Shorkie/);
+  // The splicing scene says what it is and what it is not, in the status line a reader hears.
+  expect(story.stageDescription(1 / 6)).toMatch(/co-transcriptional splicing/i);
+  expect(story.stageDescription(1 / 6)).toMatch(/introns/);
+  expect(story.stageDescription(1 / 6)).toMatch(/invented/);
+  expect(story.stageDescription(1 / 6)).toMatch(/not a simulation/);
   expect(story.transitionDuration(0, 1)).toBeCloseTo(5.4, 12);
   expect(story.transitionDuration(1 / 6, 1 / 3)).toBeCloseTo(0.9, 12);
   expect(story.transitionDuration(0.5, 0.5)).toBe(0.15);

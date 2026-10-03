@@ -1,24 +1,32 @@
 /**
  * Co-transcriptional splicing: a pure model of one repeating, illustrative transcript.
  *
- * RNA polymerase II walks along a three-exon gene on a double-helix template and the nascent RNA
- * grows above it. A spliceosome gathers on each intron as soon as its 3' end has been made, while
- * the polymerase is still working further downstream (that is what co-transcriptional means), the
- * intron loops out of the strand into a lariat, and the exons on either side are joined. The
- * finished mRNA carries a 5' cap and a poly-A tail and leaves.
+ * RNA polymerase II walks along a three-exon gene on a double-helix template, and the RNA peels
+ * off the DNA right behind it, lifting from the helix to a row above. A spliceosome gathers on each
+ * intron as soon as its 3' end has been made, while the polymerase is still working further
+ * downstream (that is what co-transcriptional means), the intron loops out of the strand into a
+ * lariat, and the exons on either side are joined. The finished mRNA carries a 5' cap and a poly-A
+ * tail and leaves.
  *
- * Everything on screen is a function of the clock, and the geometry is derived rather than drawn
- * by eye. Exons and introns are drawn at their gene coordinates, so the unspliced RNA lies exactly
- * over the DNA it was copied from. An intron is a circular arc of conserved length whose chord
- * shrinks from that length to zero: solving theta / sin(theta) = length / chord gives a flat
- * intron, then an omega-shaped bulge, then a closed circle sitting on the junction, which is a
- * lariat loop, with no hand-tuned curve anywhere. Sizes and timing are invented for legibility, it
- * is one transcript repeating, and nothing here simulates a spliceosome.
+ * Before the polymerase reaches it, every piece of the transcript sits on the template where it is
+ * encoded, so the gene's exons and introns are lit up on the DNA ahead of the enzyme, and being
+ * copied is literally a lift-off from the helix. The same goes for the spliceosome: its parts wait
+ * above their intron and rise to its neck to assemble.
  *
- * Static states need no special case. The loop's phase is offset so that clock 0 is the poster
- * (the first intron half way through looping out, the polymerase part way along the second exon),
- * which is what reduced motion, Paused and the static fallback therefore show, while a running
- * clock starts from the poster and carries on without a jump, and Pause freezes where it is.
+ * Everything on screen is a function of the clock, and the geometry is derived rather than drawn by
+ * eye. Exons and introns are drawn at their gene coordinates, so the unspliced RNA lies exactly over
+ * the DNA it was copied from. The RNA hangs from the polymerase, so its length is measured back from
+ * the growing end, shortened by every intron already cut, and the older end slides toward the
+ * polymerase as introns come out. An intron is a circular arc of conserved length whose chord
+ * shrinks from that length to zero: solving theta / sin(theta) = length / chord gives a flat intron,
+ * then an omega-shaped bulge, then a closed circle sitting on the junction, which is a lariat loop,
+ * with no hand-tuned curve anywhere. Sizes and timing are invented for legibility, it is one
+ * transcript repeating, and nothing here simulates a spliceosome.
+ *
+ * Static states need no special case. The loop's phase is offset so that clock 0 is the poster (the
+ * first intron half way through looping out, the polymerase part way along the second exon), which
+ * is what reduced motion, Paused and the static fallback therefore show, while a running clock
+ * starts from the poster and carries on without a jump, and Pause freezes where it is.
  */
 import { smootherstep } from './morphStory';
 import type { MorphParticle, MorphPoint } from './morphModel';
@@ -80,26 +88,34 @@ export function elementAt(g: number): GeneElement {
 
 /* ----------------------------------------------------------------- the scene -- */
 
-/** Drawing coordinates: x to the right, y down, everything within about +-0.5 vertically. */
-export const GENE_X0 = -0.92;
-export const GENE_X1 = 0.92;
+/**
+ * Drawing coordinates: x to the right, y down, everything within about +-0.5 vertically. The gene
+ * stops short of the right edge because the finished mRNA hangs from the polymerase's last position
+ * and its poly-A tail grows beyond it.
+ */
+export const GENE_X0 = -0.86;
+export const GENE_X1 = 0.74;
 export const GENE_WIDTH = GENE_X1 - GENE_X0;
 export const Y_TEMPLATE = 0.32;
 export const Y_RNA = 0.04;
 export const Y_POL = 0.3;
-const Y_EXIT = Y_POL - 0.05;
 const TEMPLATE_AMPLITUDE = 0.045;
 const TEMPLATE_TURNS = 3.3;
 const WAVE = 0.011;
-/** The finished mRNA drifts away from where it was made. */
-const EXPORT_DX = 0.2;
-const EXPORT_DY = 0.1;
+/** How much of the gene behind the polymerase is still lifting off the helix. */
+const PEEL = 0.06;
+/** The spliceosome's parts wait this far above the helix, over their intron. */
+const POOL_RISE = 0.085;
+/** The finished mRNA leaves the way it came, upward. */
+const EXPORT_DX = -0.05;
+const EXPORT_DY = 0.22;
 /** A released lariat drifts up and away, and which way depends on the intron. */
 const LARIAT_DRIFT = [
   { x: -0.12, y: 0.2 },
   { x: 0.1, y: 0.2 },
 ] as const;
-export const POLY_A_COUNT = 12;
+export const POLY_A_COUNT = 10;
+const POLY_A_STEP = 0.022;
 export const SPARKS_PER_INTRON = 6;
 
 /* ------------------------------------------------------------------ timeline -- */
@@ -133,7 +149,7 @@ export interface IntronState {
   assemble: number;
   /** The lariat leaves and the spliceosome comes apart, 0 to 1. */
   release: number;
-  /** assemble x (1 - release): how present the spliceosome is. */
+  /** assemble x (1 - release): how far the spliceosome has risen to the neck of the loop. */
   spliceosome: number;
   /** x of its 5' splice site on the RNA row, and the straight distance to its 3' one. */
   x0: number;
@@ -147,21 +163,25 @@ export interface IntronState {
 export interface SpliceState {
   clock: number;
   phase: number;
-  /** The fraction of the gene the polymerase has copied. */
+  /** The fraction of the gene the polymerase has copied, and where it stands. */
   sigma: number;
   polX: number;
-  /** Visibility of the RNA and of the polymerase with its stalk. */
+  /**
+   * How far along the gene the strand has lifted off the helix: the polymerase's own position while
+   * it works, then a little past the end once it lets go, so the last stretch of the finished mRNA
+   * rises with the rest instead of staying bent down toward an enzyme that has left.
+   */
+  peelTo: number;
+  /** Visibility of the RNA, of the polymerase, and of the template-bound parts before and after their turn. */
   rnaAlpha: number;
   polAlpha: number;
+  templateAlpha: number;
   cap: number;
   polyA: number;
   /** The finished mRNA leaving, 0 to 1. */
   exportT: number;
-  /** The gene fraction removed so far, and the shift that centres the shortened RNA. */
+  /** The gene fraction removed so far. */
   excised: number;
-  shift: number;
-  /** x of the growing end of the RNA. */
-  tipX: number;
   introns: [IntronState, IntronState];
 }
 
@@ -184,40 +204,40 @@ export function newSpliceState(): SpliceState {
     phase: 0,
     sigma: 0,
     polX: GENE_X0,
+    peelTo: 0,
     rnaAlpha: 0,
     polAlpha: 0,
+    templateAlpha: 0,
     cap: 0,
     polyA: 0,
     exportT: 0,
     excised: 0,
-    shift: 0,
-    tipX: GENE_X0,
     introns: [newIntron(), newIntron()],
   };
 }
 
 /**
- * Where the RNA lies along its row. The RNA is as long as the gene copied so far minus the introns
- * already cut out, centred between its two ends so the finished mRNA sits in the middle: the 5'
- * end moves right by half of what was removed and the growing end lags the polymerase by the same,
- * which keeps the thread between them short.
+ * Where the RNA lies along its row: the RNA hangs from the polymerase, so a point is as far back
+ * from it as the contour between them, which is the gene between them minus any intron already cut
+ * out of that stretch. Before any cut that is exactly the gene's own coordinate.
  */
 function backboneX(g: number, state: SpliceState): number {
-  let contour = g;
+  let contour = state.sigma - g;
   for (let k = 0; k < 2; k++) {
     const intron = INTRONS[k];
-    contour -= state.introns[k].m * Math.max(0, Math.min(intron.len, g - intron.start));
+    const overlap = Math.min(intron.end, state.sigma) - Math.max(intron.start, g);
+    if (overlap > 0) contour -= state.introns[k].m * overlap;
   }
-  return GENE_X0 + GENE_WIDTH * (contour + state.excised / 2);
+  return state.polX - GENE_WIDTH * contour;
 }
 
 /** theta / sin(theta) = length / chord, solved by bisection (it increases from 1 to infinity). */
-function solveArc(length: number, chord: number, intoTheta: IntronState): void {
+function solveArc(length: number, chord: number, into: IntronState): void {
   const gap = Math.max(chord, length * 1e-4);
   const ratio = length / gap;
   if (ratio <= 1 + 1e-9) {
-    intoTheta.theta = 0;
-    intoTheta.radius = 0;
+    into.theta = 0;
+    into.radius = 0;
     return;
   }
   let low = 1e-9,
@@ -228,9 +248,9 @@ function solveArc(length: number, chord: number, intoTheta: IntronState): void {
     else high = mid;
   }
   const theta = (low + high) / 2;
-  intoTheta.theta = theta;
+  into.theta = theta;
   // From the arc length 2 R theta, which stays exact as the chord (and sin theta) goes to zero.
-  intoTheta.radius = length / (2 * theta);
+  into.radius = length / (2 * theta);
 }
 
 /** The whole splicing state for a clock value. Allocation-free when given an output object. */
@@ -242,11 +262,17 @@ export function computeSplice(time: number, out: SpliceState = newSpliceState())
   out.phase = phase;
   out.sigma = sigma;
   out.polX = GENE_X0 + GENE_WIDTH * sigma;
-  // Both are zero at phase 0 and at phase 1, so the scene's one jump (the loop wrapping) is unseen.
+  out.peelTo = sigma + PEEL * smooth((phase - TRANSCRIBE_TO) / 0.05);
+  // The RNA and the polymerase are gone at phase 0 and at phase 1, so the scene's one jump (the loop
+  // wrapping, when every piece goes back to waiting on the template) is unseen.
   out.rnaAlpha = smooth((phase - TRANSCRIBE_FROM) / 0.03) * (1 - smooth((phase - 0.94) / 0.05));
   out.polAlpha = smooth(phase / TRANSCRIBE_FROM) * (1 - smooth((phase - TRANSCRIBE_TO) / 0.06));
+  // The template-bound parts (a piece waiting its turn, a spliceosome's parts) fade in just after the
+  // wrap and out just before it, rather than popping at it.
+  out.templateAlpha = smooth(phase / 0.05) * (1 - smooth((phase - 0.96) / 0.04));
   out.cap = smooth((phase - phaseOfSigma(GENE[0].end)) / 0.03);
-  out.polyA = smooth((phase - 0.76) / 0.08);
+  // After the polymerase has let go and the last stretch has lifted, so the tail grows from a free end.
+  out.polyA = smooth((phase - 0.79) / 0.08);
   out.exportT = smootherstep((phase - 0.92) / 0.07);
   let excised = 0;
   for (let k = 0; k < 2; k++) {
@@ -261,14 +287,12 @@ export function computeSplice(time: number, out: SpliceState = newSpliceState())
     excised += state.m * intron.len;
   }
   out.excised = excised;
-  out.shift = (GENE_WIDTH * excised) / 2;
   for (let k = 0; k < 2; k++) {
     const state = out.introns[k];
     state.x0 = backboneX(INTRONS[k].start, out);
     state.chord = state.length * (1 - state.m);
     solveArc(state.length, state.chord, state);
   }
-  out.tipX = backboneX(sigma, out);
   return out;
 }
 
@@ -288,6 +312,9 @@ function spliceAt(time: number): SpliceState {
 /* ------------------------------------------------------------------ geometry -- */
 
 const lariatFade = (state: IntronState): number => 1 - smooth((state.release - 0.35) / 0.65);
+/** How visible intron k still is: a released lariat lingers, then fades as it drifts off. */
+export const lariatVisibility = (state: SpliceState, k: number): number =>
+  lariatFade(state.introns[k]);
 
 /** A point on intron k, tau from its 5' splice site (0) to its 3' one (1). */
 export function intronPoint(state: SpliceState, k: number, tau: number, out: MorphPoint): void {
@@ -308,7 +335,7 @@ export function intronPoint(state: SpliceState, k: number, tau: number, out: Mor
   out.z = 0;
 }
 
-/** A point on the RNA, g being the gene fraction it was copied from. */
+/** A point on the RNA row, g being the gene fraction it was copied from. */
 export function rnaPoint(g: number, state: SpliceState, out: MorphPoint): void {
   const element = elementAt(g);
   if (element.kind === 'intron')
@@ -321,6 +348,50 @@ export function rnaPoint(g: number, state: SpliceState, out: MorphPoint): void {
   out.x += state.exportT * EXPORT_DX;
   out.y += Math.sin(out.x * 11 + state.clock * 0.9) * WAVE - state.exportT * EXPORT_DY;
   out.alpha = 1;
+}
+
+/**
+ * Where a piece of the transcript is drawn, g being the gene fraction it was copied from and strand
+ * the helix strand it waits on: on the template until the polymerase reaches it, lifting off behind
+ * it, then on the RNA row. Returns how far it has lifted (0 on the helix, 1 on the row). The
+ * particles and the strokes drawn through them both go through here, so they cannot disagree.
+ */
+const waiting: MorphPoint = { x: 0, y: 0, z: 0, alpha: 1 };
+export function strandPoint(
+  g: number,
+  strand: number,
+  state: SpliceState,
+  out: MorphPoint
+): number {
+  templatePoint(g, strand, state, waiting);
+  rnaPoint(g, state, out);
+  const lifted = smootherstep((state.peelTo - g) / PEEL);
+  out.x = waiting.x + (out.x - waiting.x) * lifted;
+  out.y = waiting.y + (out.y - waiting.y) * lifted - 0.05 * Math.sin(Math.PI * lifted);
+  out.z = waiting.z * (1 - lifted);
+  return lifted;
+}
+
+/** How much of an element has been copied so far: the gene fraction its drawn stroke reaches. */
+export const copiedTo = (element: GeneElement, state: SpliceState): number =>
+  Math.min(element.end, state.sigma);
+
+/**
+ * The i-th of `steps` points along a drawn element, from where it starts to as far as it has been
+ * copied (see copiedTo). It stops just short of the element's own end, because an element is half
+ * open: a gene fraction at its end is the NEXT element's first point, and for an intron that has
+ * left as a lariat that is a long way off, which drew a straight line to it from every junction.
+ */
+export function elementPoint(
+  element: GeneElement,
+  i: number,
+  steps: number,
+  state: SpliceState,
+  out: MorphPoint
+): void {
+  const from = element.start;
+  const g = Math.min(from + ((copiedTo(element, state) - from) * i) / steps, element.end - 1e-9);
+  strandPoint(g, 0, state, out);
 }
 
 /** One strand of the double helix the polymerase is walking along. */
@@ -338,29 +409,16 @@ export function templatePoint(
   out.alpha = 1;
 }
 
-/** The thread from the growing end of the RNA down into the polymerase, s from the RNA to it. */
-export function stalkPoint(s: number, state: SpliceState, out: MorphPoint): void {
-  const t = unit(s);
-  const x0 = state.tipX,
-    y0 = Y_RNA;
-  const x3 = state.polX + 0.015,
-    y3 = Y_EXIT;
-  // Leaves the RNA along its row and arrives at the polymerase from above.
-  const x1 = x0 + 0.6 * (x3 - x0),
-    y1 = y0;
-  const x2 = x3,
-    y2 = y0 + 0.55 * (y3 - y0);
-  const a = (1 - t) ** 3,
-    b = 3 * (1 - t) ** 2 * t,
-    c = 3 * (1 - t) * t ** 2,
-    d = t ** 3;
-  out.x = a * x0 + b * x1 + c * x2 + d * x3;
-  out.y = a * y0 + b * y1 + c * y2 + d * y3;
+/** Where intron k's spliceosome waits, above the helix over the intron it will be needed on. */
+export function spliceosomePool(k: number, out: MorphPoint): void {
+  const intron = INTRONS[k];
+  out.x = GENE_X0 + GENE_WIDTH * (intron.start + intron.len / 2);
+  out.y = Y_TEMPLATE - POOL_RISE;
   out.z = 0;
   out.alpha = 1;
 }
 
-/** The neck of intron k's loop, where the spliceosome sits. */
+/** The neck of intron k's loop, where the spliceosome sits once it has gathered. */
 export function spliceosomeCenter(state: SpliceState, k: number, out: MorphPoint): void {
   const intron = state.introns[k];
   out.x = intron.x0 + intron.chord / 2 + state.exportT * EXPORT_DX;
@@ -378,7 +436,7 @@ export function capPoint(state: SpliceState, out: MorphPoint): void {
 export function polyAPoint(index: number, state: SpliceState, out: MorphPoint): void {
   rnaPoint(1, state, out);
   const j = Math.max(0, Math.min(POLY_A_COUNT - 1, Math.floor(finite(index))));
-  out.x += 0.024 * (j + 1);
+  out.x += POLY_A_STEP * (j + 1);
   // A slight wave and a slow droop, so the tail reads as a tail and not a ruler.
   out.y += 0.012 * Math.sin(j * 0.9) + 0.00016 * j * j;
 }
@@ -386,12 +444,7 @@ export function polyAPoint(index: number, state: SpliceState, out: MorphPoint): 
 export const polyAVisible = (state: SpliceState): number => Math.round(POLY_A_COUNT * state.polyA);
 
 /** A spark thrown off when the exons ligate, for intron k, i of SPARKS_PER_INTRON. */
-export function spliceSpark(
-  state: SpliceState,
-  k: number,
-  i: number,
-  out: MorphPoint
-): void {
+export function spliceSpark(state: SpliceState, k: number, i: number, out: MorphPoint): void {
   const intron = state.introns[k];
   const burst = unit((intron.m - SPARK_FROM) / (1 - SPARK_FROM));
   spliceosomeCenter(state, k, out);
@@ -422,45 +475,49 @@ export function rnaDotClass(p: MorphParticle): 0 | 1 | 2 {
 const within = (p: MorphParticle, from: number, to: number): number =>
   unit((p.u - from) / (to - from));
 
+const pool: MorphPoint = { x: 0, y: 0, z: 0, alpha: 1 };
+
 export function sampleRnaParticle(p: MorphParticle, time: number, out: MorphPoint): void {
   const state = spliceAt(time);
   if (p.u < STRAND_END) {
     const element = elementAt(p.t);
-    rnaPoint(p.t, state, out);
     const exon = element.kind === 'exon';
-    const radius = (exon ? 0.021 : 0.011) * Math.sqrt(within(p, 0, STRAND_END));
+    // Not yet copied, the piece sits on the template where it is encoded, dim, so the gene's exons
+    // and introns show on the DNA ahead of the polymerase. As the polymerase passes it lifts off.
+    const peeled = strandPoint(p.t, p.v < 0.5 ? 0 : 1, state, out);
+    // Beads on the helix until copied, then a strand: thick for an exon, thin for an intron.
+    const spread = (exon ? 0.021 : 0.011) * peeled + 0.006 * (1 - peeled);
+    const radius = spread * Math.sqrt(within(p, 0, STRAND_END));
     const angle = p.v * TAU;
     out.x += Math.cos(angle) * radius;
     out.y += Math.sin(angle) * radius;
-    out.z = Math.sin(p.phase) * radius * 0.8;
-    // The newest RNA draws itself as the polymerase passes, and a released lariat fades.
-    const emerge = smootherstep((state.sigma - p.t) / 0.025);
+    out.z += Math.sin(p.phase) * radius * 0.8;
+    const onRna = (exon ? 0.6 + 0.35 * p.v : 0.4 + 0.3 * p.v) * state.rnaAlpha;
     const fade = exon ? 1 : lariatFade(state.introns[element.id === 'I1' ? 0 : 1]);
-    out.alpha = (exon ? 0.6 + 0.35 * p.v : 0.4 + 0.3 * p.v) * emerge * fade * state.rnaAlpha;
+    out.alpha = (0.2 + 0.14 * p.v) * state.templateAlpha * (1 - peeled) + onRna * fade * peeled;
   } else if (p.u < TEMPLATE_END) {
     templatePoint(p.t, p.v < 0.5 ? 0 : 1, state, out);
     out.alpha = 0.3 + 0.25 * (p.phase / TAU);
   } else if (p.u < POL_END) {
-    if (p.v < 0.6) {
-      const angle = p.phase;
-      const radius = Math.sqrt(within(p, TEMPLATE_END, POL_END));
-      out.x = state.polX + 0.07 * radius * Math.cos(angle);
-      out.y = Y_POL + 0.056 * radius * Math.sin(angle);
-      out.z = 0.05 * Math.sin(p.v * TAU * 1.6);
-      out.alpha = state.polAlpha * (0.5 + 0.35 * (1 - radius));
-    } else {
-      stalkPoint(p.t, state, out);
-      out.x += Math.cos(p.phase) * 0.006;
-      out.y += Math.sin(p.phase) * 0.006;
-      out.alpha = state.polAlpha * 0.55;
-    }
+    // The polymerase: a small cloud riding the template just behind the peel.
+    const radius = Math.sqrt(within(p, TEMPLATE_END, POL_END));
+    out.x = state.polX + 0.07 * radius * Math.cos(p.phase);
+    out.y = Y_POL + 0.056 * radius * Math.sin(p.phase);
+    out.z = 0.05 * Math.sin(p.v * TAU * 1.6);
+    out.alpha = state.polAlpha * (0.3 + 0.3 * (1 - radius));
   } else {
+    // A spliceosome part: waits above its intron on the template, rises to the neck of the loop
+    // to assemble, and goes back when the lariat leaves.
     const k = p.v < 0.5 ? 0 : 1;
-    const radius = Math.sqrt(within(p, POL_END, 1));
+    const gathered = smootherstep(state.introns[k].spliceosome);
+    spliceosomePool(k, pool);
     spliceosomeCenter(state, k, out);
-    out.x += 0.045 * radius * Math.cos(p.phase);
-    out.y += 0.04 * radius * Math.sin(p.phase);
-    out.alpha = state.introns[k].spliceosome * (0.55 + 0.35 * (1 - radius)) * state.rnaAlpha;
+    const radius = Math.sqrt(within(p, POL_END, 1));
+    const spread = 0.07 - 0.03 * gathered;
+    out.x = pool.x + (out.x - pool.x) * gathered + spread * radius * Math.cos(p.phase);
+    out.y = pool.y + (out.y - pool.y) * gathered + 0.8 * spread * radius * Math.sin(p.phase);
+    out.z = 0;
+    out.alpha = (0.1 + 0.62 * gathered * (0.6 + 0.4 * (1 - radius))) * state.templateAlpha;
   }
 }
 

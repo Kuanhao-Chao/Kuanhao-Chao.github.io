@@ -20,7 +20,6 @@ import {
 } from './morphModel';
 import { MORPH_STAGES, stageWeight, stageDescription, transitionDuration } from './morphStory';
 import {
-  sampleRnaBackbone,
   sampleProteinBackbone,
   sampleNetworkNode,
   sampleNetworkEdge,
@@ -28,6 +27,24 @@ import {
   NETWORK_EDGES,
   normalDensity,
 } from './morphTargets';
+import {
+  GENE,
+  SPARKS_PER_INTRON,
+  Y_POL,
+  capPoint,
+  computeSplice,
+  copiedTo,
+  elementPoint,
+  lariatVisibility,
+  newSpliceState,
+  polyAPoint,
+  polyAVisible,
+  rnaDotClass,
+  spliceAnchors,
+  spliceSpark,
+  spliceosomeCenter,
+  templatePoint,
+} from './morphSplice';
 import { PROTEIN_SECONDARY_STRUCTURE } from '../data/morphProtein';
 import type { SceneRenderer } from './sceneRenderer';
 import { fitHorizontal } from './morphLighting';
@@ -40,11 +57,15 @@ import {
   bokehDot,
   type LifeClock,
 } from './morphLife';
-const PROJECTED_EXTENTS = [0.74, 0.62, 1.1, 0.86, 0.46, 0.7, 0.51];
-const ACCENT_STAGES = ['rna', 'protein', 'network', 'distribution'] as const;
+const PROJECTED_EXTENTS = [0.74, 0.5, 1.1, 0.86, 0.46, 0.7, 0.51];
+// The RNA scene draws its own overlay (drawSplicing), so it is not among these.
+const ACCENT_STAGES = ['protein', 'network', 'distribution'] as const;
 const STRUCTURE_LABELS = [
   ['DNA · paired strands', 'Representative genetic information'],
-  ['RNA · single transcript', 'Local bends and hairpins'],
+  [
+    'RNA · co-transcriptional splicing',
+    'Introns loop out as exons join · illustrative, not to scale',
+  ],
   ['Ubiquitin · 1UBQ chain A', 'Helix, sheets and loops · experimental backbone'],
   ['Cell · membrane and nucleus', 'Chromatin, mitochondria and ER'],
   ['Illustrative expression profile', 'Genomic position → · non-normalized signal'],
@@ -77,6 +98,9 @@ export function createMorphRenderer(
   const rain = { x: 0, y: 0, alpha: 0 };
   const bokeh = { x: 0, y: 0, radius: 0, alpha: 0 };
   const lights = [document.createElement('canvas'), document.createElement('canvas')];
+  const splice = newSpliceState();
+  // The ink of each particle while the RNA scene is up: fixed per particle, so decided once.
+  const rnaClasses = Uint8Array.from(particles, (p) => rnaDotClass(p));
   let historyReady = false,
     darkLight = false,
     paletteVersion = 0;
@@ -84,7 +108,9 @@ export function createMorphRenderer(
     streakCount = 0,
     rainCount = 0,
     packetCount = 0,
-    bokehCount = 0;
+    bokehCount = 0,
+    spliceCount = 0,
+    sparkCount = 0;
   // Linked buckets: six depth bands × three inks × three sizes × twelve opacities.
   // Build once per frame without sorting, allocating arrays, or drawing each dot separately.
   const bucketHeads = new Int32Array(6 * 3 * 3 * 12);
@@ -393,6 +419,143 @@ export function createMorphRenderer(
     context.globalAlpha = opacity() * weight * 0.7;
     context.fill();
   }
+  /**
+   * The RNA scene, drawn through the particles: the template's two strands, the polymerase, the
+   * transcript (exons thick and in the accent ink, introns thin and warm), the cap, the poly-A tail
+   * and a ring where each spliceosome has gathered. Every curve comes from morphSplice, the same
+   * functions that place the dots, so a stroke cannot wander off the material it outlines.
+   */
+  function drawSplicing() {
+    const weight = stageWeight(displayed, 'rna');
+    if (weight < 0.005) return;
+    const base = opacity() * weight;
+    context.save();
+    context.strokeStyle = ink;
+    context.lineWidth = demo ? 1.3 : 0.9;
+    context.globalAlpha = base * 0.16;
+    for (let strand = 0; strand < 2; strand++) {
+      context.beginPath();
+      for (let i = 0; i <= 110; i++) {
+        templatePoint(i / 110, strand, splice, point);
+        project(point);
+        if (!i) context.moveTo(point.x, point.y);
+        else context.lineTo(point.x, point.y);
+      }
+      context.stroke();
+    }
+    if (splice.polAlpha > 0.01) {
+      point.x = splice.polX;
+      point.y = Y_POL;
+      point.z = 0;
+      project(point);
+      context.beginPath();
+      context.ellipse(point.x, point.y, 0.075 * scale, 0.06 * scale, 0, 0, TAU);
+      context.fillStyle = ink;
+      context.globalAlpha = base * splice.polAlpha * 0.06;
+      context.fill();
+      context.lineWidth = demo ? 1.6 : 1.1;
+      context.globalAlpha = base * splice.polAlpha * 0.4;
+      context.stroke();
+    }
+    for (const element of GENE) {
+      if (copiedTo(element, splice) <= element.start) continue;
+      const exon = element.kind === 'exon';
+      const visibility =
+        splice.rnaAlpha * (exon ? 1 : lariatVisibility(splice, element.id === 'I1' ? 0 : 1));
+      if (visibility < 0.01) continue;
+      // Dense enough that the steep lift-off at the polymerase is a curve and not a corner.
+      const steps = exon ? 28 : 56;
+      context.beginPath();
+      for (let i = 0; i <= steps; i++) {
+        elementPoint(element, i, steps, splice, point);
+        project(point);
+        if (!i) context.moveTo(point.x, point.y);
+        else context.lineTo(point.x, point.y);
+      }
+      context.strokeStyle = exon ? accent : highlight;
+      context.lineWidth = exon ? (demo ? 3.2 : 2) : demo ? 1.5 : 1;
+      context.globalAlpha = base * visibility * (exon ? 0.34 : 0.32);
+      context.stroke();
+    }
+    if (splice.cap > 0.01 && splice.rnaAlpha > 0.01) {
+      capPoint(splice, point);
+      project(point);
+      context.beginPath();
+      context.arc(point.x, point.y, demo ? 4.2 : 3, 0, TAU);
+      context.fillStyle = highlight;
+      context.globalAlpha = base * splice.cap * splice.rnaAlpha * 0.8;
+      context.fill();
+      context.strokeStyle = ink;
+      context.lineWidth = 0.8;
+      context.globalAlpha = base * splice.cap * splice.rnaAlpha * 0.35;
+      context.stroke();
+    }
+    const tail = polyAVisible(splice);
+    if (tail > 0 && splice.rnaAlpha > 0.01) {
+      const radius = demo ? 2 : 1.4;
+      context.beginPath();
+      for (let j = 0; j < tail; j++) {
+        polyAPoint(j, splice, point);
+        project(point);
+        context.moveTo(point.x + radius, point.y);
+        context.arc(point.x, point.y, radius, 0, TAU);
+      }
+      context.fillStyle = highlight;
+      context.globalAlpha = base * splice.rnaAlpha * 0.75;
+      context.fill();
+    }
+    for (let k = 0; k < 2; k++) {
+      const gathered = splice.introns[k].spliceosome;
+      if (gathered < 0.05) continue;
+      spliceosomeCenter(splice, k, point);
+      project(point);
+      context.beginPath();
+      context.arc(point.x, point.y, 0.036 * scale, 0, TAU);
+      context.fillStyle = highlight;
+      context.globalAlpha = base * gathered * 0.1;
+      context.fill();
+      context.strokeStyle = ink;
+      context.lineWidth = demo ? 1.6 : 1.1;
+      context.globalAlpha = base * gathered * 0.5;
+      context.stroke();
+    }
+    context.restore();
+  }
+  /** Captions for the RNA scene in the explorer's "Show structures" mode: only what is on screen. */
+  function drawSpliceCaptions() {
+    if (!demo || !labels) return;
+    const weight = stageWeight(displayed, 'rna');
+    if (weight < 0.9) return;
+    context.save();
+    context.font = '10.5px system-ui';
+    context.textAlign = 'center';
+    context.fillStyle = ink;
+    context.strokeStyle = ink;
+    context.lineWidth = 0.8;
+    const fade = 0.85 * smoothstep((weight - 0.9) / 0.1);
+    const taken: number[][] = [];
+    for (const anchor of spliceAnchors(splice)) {
+      point.x = anchor.x;
+      point.y = anchor.y;
+      point.z = 0;
+      project(point);
+      const half = context.measureText(anchor.label).width / 2 + 3;
+      const x = Math.max(half + 8, Math.min(width - half - 8, point.x));
+      const y = anchor.side === 'above' ? point.y - 7 : point.y + 13;
+      const box = [x - half, y - 11, x + half, y + 3];
+      if (taken.some((t) => box[0] < t[2] && box[2] > t[0] && box[1] < t[3] && box[3] > t[1]))
+        continue;
+      taken.push(box);
+      context.globalAlpha = fade * 0.4;
+      context.beginPath();
+      context.moveTo(point.x, point.y + (anchor.side === 'above' ? -2 : 2));
+      context.lineTo(point.x, anchor.side === 'above' ? y + 3 : y - 10);
+      context.stroke();
+      context.globalAlpha = fade;
+      context.fillText(anchor.label, x, y);
+    }
+    context.restore();
+  }
   function drawLabels() {
     if (!demo || !labels) return;
     context.font = '11px system-ui';
@@ -439,8 +602,7 @@ export function createMorphRenderer(
       context.beginPath();
       for (let i = 0; i <= 192; i++) {
         const t = i / 192;
-        if (id === 'rna') sampleRnaBackbone(t, clock, point);
-        else if (id === 'protein') sampleProteinBackbone(t, point);
+        if (id === 'protein') sampleProteinBackbone(t, point);
         else {
           point.x = -1 + 2 * t;
           point.y = 0.33 - normalDensity(point.x * 3.5) * 1.85;
@@ -484,6 +646,8 @@ export function createMorphRenderer(
     life.time = clock;
     life.amount = canAnimate() ? (motion === 'calm' ? 0.45 : 1) : 0;
     glowCount = streakCount = rainCount = packetCount = bokehCount = 0;
+    spliceCount = sparkCount = 0;
+    computeSplice(clock, splice);
     layout();
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
     context.clearRect(0, 0, width, height);
@@ -505,6 +669,8 @@ export function createMorphRenderer(
     }
     bucketHeads.fill(-1);
     let visible = 0;
+    // Past halfway into the RNA scene every dot takes the ink of what it is: exon, intron, template.
+    const rnaOwn = stageWeight(displayed, 'rna') >= 0.5;
     for (let i = 0; i < particles.length; i++) {
       const p = particles[i];
       const visibility = particleVisibility(p, previousQuality, quality, qualityAge / 0.4);
@@ -539,7 +705,7 @@ export function createMorphRenderer(
       const shade = Math.max(0, Math.min(11, Math.round(alpha * 12) - 1));
       const size = Math.max(0, Math.min(2, Math.floor((p.size - 0.6) / 0.3)));
       const warm = (p.role === 'chromatin' && p.u > 0.82) || (p.role === 'cytoplasm' && p.u > 0.7);
-      const color = p.role === 'nucleolus' ? 1 : warm ? 2 : 0;
+      const color = rnaOwn ? rnaClasses[i] : p.role === 'nucleolus' ? 1 : warm ? 2 : 0;
       const bucket = ((depth * 3 + color) * 3 + size) * 12 + shade;
       nextParticle[i] = bucketHeads[bucket];
       bucketHeads[bucket] = i;
@@ -547,6 +713,7 @@ export function createMorphRenderer(
     drawDna(true);
     drawCell();
     drawSignal();
+    drawSplicing();
     drawTargetAccents();
     drawStreaks();
     const dotScale = demo ? Math.max(0.85, Math.min(1.35, scale / 220)) : 0.9;
@@ -572,6 +739,7 @@ export function createMorphRenderer(
     drawLights();
     drawStageLife();
     drawLabels();
+    drawSpliceCaptions();
     context.globalAlpha = 1;
     if (mask) {
       context.globalCompositeOperation = 'destination-out';
@@ -595,6 +763,9 @@ export function createMorphRenderer(
     canvas.dataset.bgRain = String(rainCount);
     canvas.dataset.bgPackets = String(packetCount);
     canvas.dataset.bgBokeh = String(bokehCount);
+    canvas.dataset.bgSplice = String(spliceCount);
+    canvas.dataset.bgSparks = String(sparkCount);
+    canvas.dataset.bgSplicePhase = splice.phase.toFixed(3);
     canvas.dataset.bgPalette = String(paletteVersion);
     canvas.dataset.bgLightBlend = darkLight ? 'lighter' : 'source-over';
     canvas.dataset.bgWarmInk = highlight;
@@ -695,6 +866,36 @@ export function createMorphRenderer(
         packetCount++;
       }
       context.fill();
+    }
+    const rna = stageWeight(displayed, 'rna');
+    if (rna > 0.005) {
+      for (let k = 0; k < 2; k++) {
+        const gathered = splice.introns[k].spliceosome;
+        if (gathered > 0.05) {
+          // A glow where the spliceosome has gathered on its intron.
+          spliceosomeCenter(splice, k, point);
+          project(point);
+          const radius = (demo ? 17 : 12) * (0.75 + 0.25 * gathered);
+          context.save();
+          context.globalCompositeOperation = darkLight ? 'lighter' : 'source-over';
+          context.globalAlpha = life.amount * rna * gathered * (darkLight ? 0.55 : 0.35);
+          context.drawImage(lights[1], point.x - radius, point.y - radius, radius * 2, radius * 2);
+          context.restore();
+          spliceCount++;
+        }
+        // And a burst of sparks as the exons ligate.
+        for (let i = 0; i < SPARKS_PER_INTRON; i++) {
+          spliceSpark(splice, k, i, point);
+          const sparkAlpha = point.alpha;
+          if (sparkAlpha < 0.03) continue;
+          project(point);
+          context.globalAlpha = life.amount * rna * sparkAlpha * 0.9;
+          context.beginPath();
+          context.arc(point.x, point.y, demo ? 2.2 : 1.6, 0, TAU);
+          context.fill();
+          sparkCount++;
+        }
+      }
     }
     const density = stageWeight(displayed, 'distribution');
     if (density > 0.005) {

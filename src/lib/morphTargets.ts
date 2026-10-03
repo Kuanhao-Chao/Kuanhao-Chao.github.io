@@ -1,31 +1,7 @@
 import type { MorphParticle, MorphPoint } from './morphModel';
 import { PROTEIN_RESIDUES, PROTEIN_SECONDARY_STRUCTURE } from '../data/morphProtein';
 
-const TAU = Math.PI * 2;
 const unit = (value: number) => Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
-
-/** A single parametric transcript: local reversals form connected hairpins. */
-export function sampleRnaBackbone(t: number, time: number, out: MorphPoint): void {
-  const s = unit(t);
-  const phase = s * Math.PI * 6;
-  const envelope = Math.sin(s * Math.PI) ** 2;
-  out.x = -0.94 + 1.88 * s + 0.15 * envelope * Math.sin(phase);
-  out.y = 0.34 * Math.sin(s * Math.PI * 2) + 0.2 * envelope * Math.cos(phase);
-  out.z =
-    0.09 * Math.sin(phase) +
-    0.012 * envelope * Math.sin((Number.isFinite(time) ? time : 0) * 0.2 + phase);
-  out.alpha = 1;
-}
-
-export function sampleRnaParticle(p: MorphParticle, time: number, out: MorphPoint): void {
-  sampleRnaBackbone(p.t, time, out);
-  const angle = p.v * TAU;
-  const radius = 0.027 * Math.sqrt(p.u);
-  out.x += Math.cos(angle) * radius;
-  out.y += Math.sin(angle) * radius;
-  out.z += Math.sin(p.phase) * radius;
-  out.alpha = 0.55 + 0.4 * p.v;
-}
 
 // Translation, a right-handed 90-degree rotation about X, and ONE uniform scale.
 // Preserve the source coordinates above: no axis-wise rescaling or fold deformation.

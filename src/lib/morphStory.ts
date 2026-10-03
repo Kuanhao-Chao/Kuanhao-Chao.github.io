@@ -15,10 +15,10 @@ export const MORPH_STAGES: readonly {
   },
   {
     id: 'rna',
-    label: 'RNA',
+    label: 'RNA splicing',
     progress: 1 / 6,
     description:
-      'A representative single transcript with local hairpins; transcription copies genetic information.',
+      'Co-transcriptional splicing, illustrated: RNA polymerase II copies a gene while spliceosomes loop its introns out as lariats and join the exons, and the finished mRNA gets a 5′ cap and a poly-A tail. Sizes and timing are invented, one transcript repeats, and it is not a simulation.',
   },
   {
     id: 'protein',

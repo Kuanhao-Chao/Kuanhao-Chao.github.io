@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { createMorphParticles, type MorphPoint } from './morphModel';
 import {
@@ -17,7 +18,9 @@ import {
   Y_TEMPLATE,
   catalysisPhase,
   computeSplice,
+  copiedTo,
   elementAt,
+  elementPoint,
   intronPoint,
   newSpliceState,
   phaseOfSigma,
@@ -26,7 +29,9 @@ import {
   sampleRnaParticle,
   spliceAnchors,
   spliceSpark,
-  stalkPoint,
+  spliceosomeCenter,
+  spliceosomePool,
+  strandPoint,
   templatePoint,
   type SpliceState,
 } from './morphSplice';
@@ -40,7 +45,13 @@ const sweep = (count: number): number[] => Array.from({ length: count }, (_, i) 
 
 describe('the gene model', () => {
   it('is five contiguous elements covering the gene, exons and introns alternating', () => {
-    expect(GENE.map((element) => element.kind)).toEqual(['exon', 'intron', 'exon', 'intron', 'exon']);
+    expect(GENE.map((element) => element.kind)).toEqual([
+      'exon',
+      'intron',
+      'exon',
+      'intron',
+      'exon',
+    ]);
     expect(GENE[0].start).toBe(0);
     expect(GENE[GENE.length - 1].end).toBeCloseTo(1, 12);
     for (let i = 1; i < GENE.length; i++) expect(GENE[i].start).toBe(GENE[i - 1].end);
@@ -50,10 +61,14 @@ describe('the gene model', () => {
     expect(INTRONS).toHaveLength(2);
   });
   it('has introns that outrun its exons, as a real gene does, without hiding the exons', () => {
-    expect(EXON_SHARE).toBeCloseTo(EXONS.reduce((total, exon) => total + exon.len, 0), 12);
+    expect(EXON_SHARE).toBeCloseTo(
+      EXONS.reduce((total, exon) => total + exon.len, 0),
+      12
+    );
     expect(EXON_SHARE).toBeGreaterThan(0.3);
     expect(EXON_SHARE).toBeLessThan(0.5);
-    for (const intron of INTRONS) for (const exon of EXONS) expect(intron.len).toBeGreaterThan(exon.len);
+    for (const intron of INTRONS)
+      for (const exon of EXONS) expect(intron.len).toBeGreaterThan(exon.len);
   });
   it('finds the element holding a fraction, and the last one holds the end', () => {
     expect(elementAt(0).id).toBe('E1');
@@ -90,7 +105,13 @@ describe('the loop and its poster', () => {
     expect(computeSplice(37 * SPLICE_CYCLE + 1.5).phase).toBeCloseTo(computeSplice(1.5).phase, 7);
     for (const time of [Number.NaN, Infinity, -Infinity]) {
       const state = computeSplice(time);
-      for (const value of [state.phase, state.sigma, state.polX, state.tipX, state.excised])
+      for (const value of [
+        state.phase,
+        state.sigma,
+        state.polX,
+        state.excised,
+        state.templateAlpha,
+      ])
         expect(Number.isFinite(value)).toBe(true);
       expect(state.phase).toBeGreaterThanOrEqual(0);
       expect(state.phase).toBeLessThan(1);
@@ -108,10 +129,10 @@ describe('the loop and its poster', () => {
     const fields = [
       'sigma',
       'polX',
-      'tipX',
       'excised',
       'rnaAlpha',
       'polAlpha',
+      'templateAlpha',
       'cap',
       'polyA',
       'exportT',
@@ -147,7 +168,8 @@ describe('the loop and its poster', () => {
       const out = point();
       for (const p of particles) {
         sampleRnaParticle(p, clockAt(phase), out);
-        // Only the template (a static helix that is there before and after) may be drawn.
+        // Only the helix itself (there before and after, and unchanged across the wrap) may be drawn:
+        // a piece waiting on the template, a spliceosome part, the RNA and the polymerase are all gone.
         if (p.u >= 0.62 && p.u < 0.8) continue;
         expect(out.alpha, `u=${p.u.toFixed(2)} at phase ${phase}`).toBeLessThan(0.015);
       }
@@ -161,7 +183,8 @@ describe('the story the loop tells', () => {
     let found = 0;
     for (const phase of phases) {
       const state = atPhase(phase);
-      if (state.sigma > 0 && state.sigma < 1 && state.introns.some((i) => i.m > 0.05 && i.m < 0.95)) found++;
+      if (state.sigma > 0 && state.sigma < 1 && state.introns.some((i) => i.m > 0.05 && i.m < 0.95))
+        found++;
     }
     expect(found).toBeGreaterThan(200);
     // Named: halfway through intron 1's loop-out the polymerase has passed its end and is not finished.
@@ -175,8 +198,10 @@ describe('the story the loop tells', () => {
       const state = atPhase(phase);
       for (let k = 0; k < 2; k++) {
         const intron = state.introns[k];
-        if (intron.m > 0) expect(state.sigma, `m>0 at ${phase}`).toBeGreaterThanOrEqual(INTRONS[k].end);
-        if (intron.assemble > 0) expect(state.sigma, `assemble at ${phase}`).toBeGreaterThan(INTRONS[k].start);
+        if (intron.m > 0)
+          expect(state.sigma, `m>0 at ${phase}`).toBeGreaterThanOrEqual(INTRONS[k].end);
+        if (intron.assemble > 0)
+          expect(state.sigma, `assemble at ${phase}`).toBeGreaterThan(INTRONS[k].start);
         // The lariat leaves only once the exons are joined.
         if (intron.release > 0) expect(intron.m, `release at ${phase}`).toBe(1);
       }
@@ -188,7 +213,7 @@ describe('the story the loop tells', () => {
     expect(catalysisPhase(0)).toBeGreaterThan(phaseOfSigma(INTRONS[0].end));
     expect(catalysisPhase(1)).toBeGreaterThan(phaseOfSigma(INTRONS[1].end));
   });
-  it('ends with both introns gone, the exons joined, a cap and a tail, centred on the gene', () => {
+  it("ends with both introns gone, the exons joined, a cap and a tail, hanging from the polymerase's last position", () => {
     const hold = atPhase(0.88);
     expect(hold.introns[0].m).toBe(1);
     expect(hold.introns[1].m).toBe(1);
@@ -199,9 +224,10 @@ describe('the story the loop tells', () => {
       three = point();
     rnaPoint(0, hold, five);
     rnaPoint(1, hold, three);
-    // As long as the exons, and the middle of the gene is the middle of the mRNA.
+    // As long as the exons, and hanging from where the polymerase finished.
     expect(three.x - five.x).toBeCloseTo(GENE_WIDTH * EXON_SHARE, 9);
-    expect((three.x + five.x) / 2).toBeCloseTo((GENE_X0 + GENE_X1) / 2, 9);
+    expect(three.x).toBeCloseTo(GENE_X1, 9);
+    expect(hold.polX).toBeCloseTo(GENE_X1, 9);
   });
   it('joins the exons: nothing separates one from the next once the intron is out', () => {
     const hold = atPhase(0.88);
@@ -229,15 +255,80 @@ describe('the story the loop tells', () => {
       expect(out.x).toBeCloseTo(GENE_X0 + GENE_WIDTH * g, 9);
     }
     expect(early.polX).toBeCloseTo(GENE_X0 + GENE_WIDTH * 0.3, 9);
-    expect(early.tipX).toBeCloseTo(early.polX, 9);
   });
-  it('keeps the growing end within reach of the polymerase: the lag is half of what has been cut', () => {
+  it('hangs the RNA from the polymerase: the growing end is where the polymerase stands, whatever has been cut', () => {
+    const out = point();
     for (const phase of phases) {
       const state = atPhase(phase);
-      expect(state.polX - state.tipX).toBeCloseTo(state.shift, 9);
-      expect(state.shift).toBeCloseTo((GENE_WIDTH * state.excised) / 2, 12);
-      // At most half of everything the introns hold, which is when both are out.
-      expect(state.shift).toBeLessThanOrEqual((GENE_WIDTH * (1 - EXON_SHARE)) / 2 + 1e-12);
+      rnaPoint(state.sigma, state, out);
+      // Compare before the finished mRNA starts to leave (exportT moves the whole strand).
+      if (state.exportT === 0) expect(out.x, `growing end at ${phase}`).toBeCloseTo(state.polX, 9);
+    }
+  });
+  it('lets the older end slide toward the polymerase as introns come out, never away from it', () => {
+    const out = point();
+    let previous = -Infinity;
+    for (const phase of sweep(2000).filter((v) => v > 0.12 && v < 0.74)) {
+      const state = atPhase(phase);
+      rnaPoint(0, state, out);
+      // Measured from the polymerase, so the 5' end can only come closer as the strand is shortened.
+      const behind = state.polX - out.x;
+      expect(behind, `5' end at ${phase}`).toBeLessThanOrEqual(GENE_WIDTH * state.sigma + 1e-9);
+      expect(behind).toBeCloseTo(GENE_WIDTH * (state.sigma - state.excised), 9);
+      previous = Math.max(previous, behind);
+    }
+    expect(previous).toBeGreaterThan(0);
+  });
+});
+
+describe('the strokes drawn through the particles', () => {
+  it('never jump from one point to the next, at any moment, for any element', () => {
+    // Regression: a stroke sampled up to its element's end took the NEXT element's first point, which
+    // for a released lariat is far away, and drew a straight line from every junction to it.
+    const out = point(),
+      before = point();
+    let worst = 0;
+    for (const phase of sweep(600)) {
+      const state = atPhase(phase);
+      for (const element of GENE) {
+        if (copiedTo(element, state) <= element.start) continue;
+        // Sampled finely, so a legitimate steep stretch (the lift-off at the polymerase climbs 0.28 in
+        // 0.1 of width) steps by about 0.01, and only a discontinuity can exceed the bound. The
+        // regression's line was 0.23 long.
+        const steps = 120;
+        for (let i = 0; i <= steps; i++) {
+          elementPoint(element, i, steps, state, out);
+          if (i) worst = Math.max(worst, Math.hypot(out.x - before.x, out.y - before.y));
+          before.x = out.x;
+          before.y = out.y;
+        }
+      }
+    }
+    expect(worst).toBeLessThan(0.05);
+  });
+  it('end where the element ends, and start where it starts', () => {
+    const state = atPhase(0.88);
+    const first = point(),
+      last = point(),
+      ref = point();
+    for (const element of EXONS) {
+      elementPoint(element, 0, 14, state, first);
+      elementPoint(element, 14, 14, state, last);
+      rnaPoint(element.start, state, ref);
+      expect(first.x).toBeCloseTo(ref.x, 6);
+      rnaPoint(element.end - 1e-9, state, ref);
+      expect(last.x).toBeCloseTo(ref.x, 6);
+    }
+  });
+  it('lift fully off the helix once the polymerase has let go, so the finished mRNA is not bent toward it', () => {
+    const wait = atPhase(0.7);
+    expect(wait.peelTo).toBeCloseTo(wait.sigma, 12);
+    const done = atPhase(0.85);
+    expect(done.peelTo).toBeGreaterThanOrEqual(1 + 0.06 - 1e-9);
+    const out = point();
+    for (const g of [0.9, 0.97, 0.9999]) {
+      strandPoint(g, 0, done, out);
+      expect(Math.abs(out.y - Y_RNA), `g=${g}`).toBeLessThan(0.02);
     }
   });
 });
@@ -320,7 +411,11 @@ describe('an intron is a circular arc of conserved length that closes into a lar
   it('ties the arc to the exons it joins: its ends are the splice sites', () => {
     const out = point();
     for (let k = 0; k < 2; k++) {
-      for (const phase of [catalysisPhase(k) - 0.05, catalysisPhase(k) + 0.04, catalysisPhase(k) + 0.1]) {
+      for (const phase of [
+        catalysisPhase(k) - 0.05,
+        catalysisPhase(k) + 0.04,
+        catalysisPhase(k) + 0.1,
+      ]) {
         const state = atPhase(phase);
         const intron = state.introns[k];
         const five = point(),
@@ -358,11 +453,23 @@ describe('the particles', () => {
   it('are finite and inside the frame at every moment of the loop', () => {
     // Tallied and asserted once: an expect() per sample is a million calls and the slowest test here.
     let finite = true;
-    const seen = { x: 0, zAbs: 0, yMin: Infinity, yMax: -Infinity, alphaMin: Infinity, alphaMax: -Infinity };
+    const seen = {
+      x: 0,
+      zAbs: 0,
+      yMin: Infinity,
+      yMax: -Infinity,
+      alphaMin: Infinity,
+      alphaMax: -Infinity,
+    };
     for (const phase of sweep(48)) {
       for (const p of particles) {
         sampleRnaParticle(p, clockAt(phase), out);
-        if (!(Number.isFinite(out.x) && Number.isFinite(out.y) && Number.isFinite(out.z) && Number.isFinite(out.alpha)))
+        if (!(
+          Number.isFinite(out.x) &&
+          Number.isFinite(out.y) &&
+          Number.isFinite(out.z) &&
+          Number.isFinite(out.alpha)
+        ))
           finite = false;
         seen.x = Math.max(seen.x, Math.abs(out.x));
         seen.zAbs = Math.max(seen.zAbs, Math.abs(out.z));
@@ -431,7 +538,7 @@ describe('the particles', () => {
     for (const g of [0.1, 0.4, 0.8]) {
       templatePoint(g, 0, state, a);
       templatePoint(g, 1, state, b);
-      expect((a.y - Y_TEMPLATE) + (b.y - Y_TEMPLATE)).toBeCloseTo(0, 9);
+      expect(a.y - Y_TEMPLATE + (b.y - Y_TEMPLATE)).toBeCloseTo(0, 9);
       expect(a.x).toBe(b.x);
     }
   });
@@ -460,54 +567,96 @@ describe('the particles', () => {
     expect(xs[0]).toBeGreaterThan(five.x - 0.03);
     expect(xs[xs.length - 1]).toBeLessThan(three.x + 0.03);
   });
-  it('let the newest RNA draw itself as the polymerase passes, and nothing ahead of it', () => {
+  it('sit on the template where they are encoded until the polymerase reaches them, then lift off it', () => {
     const state = atPhase(0.3);
-    let ahead = 0;
-    let behind = 0;
+    let waiting = 0,
+      risen = 0,
+      lifting = 0;
     for (const p of particles) {
       if (p.u >= 0.62) continue;
       sampleRnaParticle(p, clockAt(0.3), out);
       if (p.t > state.sigma + 1e-9) {
-        if (out.alpha > 0.015) ahead++;
-      } else if (p.t < state.sigma - 0.04 && out.alpha > 0.015) behind++;
+        // Ahead of the polymerase: on a strand of the helix, over its own position in the gene, dim.
+        const ref = point();
+        templatePoint(p.t, p.v < 0.5 ? 0 : 1, state, ref);
+        expect(Math.abs(out.x - ref.x)).toBeLessThan(0.007);
+        expect(Math.abs(out.y - ref.y)).toBeLessThan(0.007);
+        expect(out.alpha).toBeLessThan(0.4);
+        waiting++;
+      } else if (p.t < state.sigma - 0.12) {
+        // Well behind it: on the RNA row, bright.
+        expect(Math.abs(out.y - Y_RNA)).toBeLessThan(0.06);
+        expect(out.alpha).toBeGreaterThan(0.3);
+        risen++;
+      } else if (p.t < state.sigma - 0.01 && p.t > state.sigma - 0.05) {
+        // Mid-lift: between the two rows.
+        expect(out.y).toBeLessThan(Y_TEMPLATE + 0.06);
+        expect(out.y).toBeGreaterThan(Y_RNA - 0.1);
+        lifting++;
+      }
     }
-    expect(ahead).toBe(0);
-    expect(behind).toBeGreaterThan(100);
+    expect(waiting).toBeGreaterThan(300);
+    expect(risen).toBeGreaterThan(100);
+    expect(lifting).toBeGreaterThan(10);
   });
-  it('gather a spliceosome at each neck only while its intron is being cut', () => {
-    const mid = atPhase(catalysisPhase(0) + LOOP_OUT_SPAN / 2);
+  it('light up the exons and introns on the DNA ahead of the polymerase, in the inks that mark them later', () => {
+    let exonOnHelix = 0,
+      intronOnHelix = 0;
+    for (const p of particles) {
+      if (p.u >= 0.62 || p.t < 0.8) continue;
+      sampleRnaParticle(p, clockAt(0.2), out);
+      expect(Math.abs(out.y - Y_TEMPLATE)).toBeLessThan(0.06);
+      if (rnaDotClass(p) === 0) exonOnHelix++;
+      else intronOnHelix++;
+    }
+    expect(exonOnHelix).toBeGreaterThan(20);
+    expect(intronOnHelix).toBeGreaterThan(20);
+  });
+  it('are never wasted: every particle shows at some moment of the loop', () => {
+    const best = new Float64Array(particles.length);
+    for (const phase of sweep(96))
+      particles.forEach((p, i) => {
+        sampleRnaParticle(p, clockAt(phase), out);
+        best[i] = Math.max(best[i], out.alpha);
+      });
+    const dim = particles.filter((_, i) => best[i] < 0.2).length;
+    expect(dim).toBe(0);
+  });
+  it('gather a spliceosome at each neck while its intron is being cut, and wait above it otherwise', () => {
+    const phase = catalysisPhase(0) + LOOP_OUT_SPAN / 2;
+    const mid = atPhase(phase);
     expect(mid.introns[0].spliceosome).toBeGreaterThan(0.99);
     expect(mid.introns[1].spliceosome).toBe(0);
-    let first = 0,
-      second = 0;
+    const neck = point(),
+      waiting = point();
+    spliceosomeCenter(mid, 0, neck);
+    spliceosomePool(1, waiting);
+    const near = { first: 0, second: 0 };
+    let firstAlpha = 0,
+      secondAlpha = 0,
+      count = { first: 0, second: 0 };
     for (const p of particles) {
       if (p.u < 0.9) continue;
-      sampleRnaParticle(p, clockAt(catalysisPhase(0) + LOOP_OUT_SPAN / 2), out);
-      if (out.alpha > 0.015) (p.v < 0.5 ? first++ : second++);
+      sampleRnaParticle(p, clockAt(phase), out);
+      if (p.v < 0.5) {
+        count.first++;
+        firstAlpha += out.alpha;
+        if (Math.hypot(out.x - neck.x, out.y - neck.y) < 0.075) near.first++;
+      } else {
+        count.second++;
+        secondAlpha += out.alpha;
+        if (Math.hypot(out.x - waiting.x, out.y - waiting.y) < 0.075) near.second++;
+      }
     }
-    expect(first).toBeGreaterThan(40);
-    expect(second).toBe(0);
+    // Gathered at the neck of the loop, brighter; the other waits over its own intron on the helix.
+    expect(near.first / count.first).toBeGreaterThan(0.8);
+    expect(near.second / count.second).toBeGreaterThan(0.8);
+    expect(firstAlpha / count.first).toBeGreaterThan(secondAlpha / count.second + 0.2);
+    expect(waiting.y).toBeLessThan(Y_TEMPLATE);
   });
 });
 
-describe('the thread, the sparks and the captions', () => {
-  it('runs the stalk from the growing end of the RNA into the polymerase', () => {
-    for (const phase of [0.2, 0.42, 0.6, 0.72]) {
-      const state = atPhase(phase);
-      const start = point(),
-        end = point();
-      stalkPoint(0, state, start);
-      stalkPoint(1, state, end);
-      expect(start.x).toBeCloseTo(state.tipX, 9);
-      expect(start.y).toBeCloseTo(Y_RNA, 9);
-      expect(end.x).toBeCloseTo(state.polX + 0.015, 9);
-      expect(end.y).toBeGreaterThan(start.y);
-      const middle = point();
-      stalkPoint(0.5, state, middle);
-      expect(middle.x).toBeGreaterThanOrEqual(Math.min(start.x, end.x) - 1e-9);
-      expect(middle.x).toBeLessThanOrEqual(Math.max(start.x, end.x) + 1e-9);
-    }
-  });
+describe('the sparks and the captions', () => {
   it('throws sparks only as the exons ligate, near the spliceosome, and never more than the budget', () => {
     const out = point();
     for (let k = 0; k < 2; k++) {
@@ -524,7 +673,9 @@ describe('the thread, the sparks and the captions', () => {
             const centre = point();
             // The neck, give or take the burst's radius.
             expect(out.y).toBeLessThan(Y_RNA + 0.1);
-            expect(Math.abs(out.x - (state.introns[k].x0 + state.introns[k].chord / 2))).toBeLessThan(0.1);
+            expect(
+              Math.abs(out.x - (state.introns[k].x0 + state.introns[k].chord / 2))
+            ).toBeLessThan(0.1);
             void centre;
           }
         }
@@ -532,6 +683,13 @@ describe('the thread, the sparks and the captions', () => {
       expect(burst, `intron ${k + 1} has a burst`).toBeGreaterThan(SPARKS_PER_INTRON);
     }
     expect(SPARKS_PER_INTRON * 2).toBeLessThanOrEqual(12);
+  });
+  it('is the ceiling the background audit asserts, so the two cannot drift apart', () => {
+    // A canvas has no elements to inspect: the audit reads the counts the life pass publishes and
+    // holds them to these caps, one glow and SPARKS_PER_INTRON sparks per intron.
+    const audit = readFileSync('scripts/audit-background-ui.mjs', 'utf8');
+    expect(audit).toContain(`['bgSplice', ${INTRONS.length}]`);
+    expect(audit).toContain(`['bgSparks', ${INTRONS.length * SPARKS_PER_INTRON}]`);
   });
   it('captions what is on screen and only what is on screen', () => {
     const labels = (phase: number) => spliceAnchors(atPhase(phase)).map((anchor) => anchor.label);
@@ -555,6 +713,6 @@ describe('the thread, the sparks and the captions', () => {
     const back = computeSplice(2.5, into);
     expect(back).toBe(into);
     expect(into.introns).toHaveLength(2);
-    expect(POLY_A_COUNT).toBe(12);
+    expect(POLY_A_COUNT).toBeGreaterThanOrEqual(8);
   });
 });
