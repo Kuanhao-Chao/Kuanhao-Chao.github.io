@@ -1865,10 +1865,23 @@ async function auditHomeComposite(page, scope, profile, baseline) {
   assertCadence(`${scope}/home`, cadence, profile, baseline, 'home');
   assertEngineTimings(`${scope}/home`, await snapshot(page));
 
-  // Exercise the real, below-the-fold transcript only after measuring the
-  // initial homepage composite; clicking it intentionally stops the terminal
-  // demo and should never leak through to an ambient cell.
+  // The homepage terminal starts collapsed under "About my name", so a reader opens it first,
+  // through its own restore control. That click and the transcript click after it must both stay
+  // inside the card (neither may reach an ambient cell), so measure before either, and only
+  // after the initial composite has been sampled: opening it intentionally ends the typed demo.
   const terminalStart = await snapshot(page);
+  const restore = page.locator('[data-terminal-min]');
+  check(
+    scope,
+    (await restore.getAttribute('aria-expanded')) === 'false',
+    'homepage terminal did not start collapsed'
+  );
+  await restore.scrollIntoViewIfNeeded();
+  if (profile.touch) await restore.tap();
+  else await restore.click();
+  await page.waitForFunction(
+    () => !document.querySelector('.term--inline')?.classList.contains('term--min')
+  );
   const terminalScreen = page.locator('[data-terminal-screen]').filter({ visible: true }).first();
   await terminalScreen.scrollIntoViewIfNeeded();
   const terminalBox = await terminalScreen.boundingBox();
