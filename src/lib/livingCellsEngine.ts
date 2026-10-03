@@ -829,7 +829,7 @@ export class LivingCellsEngine {
         // and a legacy stored `calm` would have quietly failed it.
         timeScale: 1.0,
         isPaused: false,
-        visualAlpha: calm ? 0.38 : 0.6,
+        visualAlpha: calm ? 0.45 : 0.75,
         darkContrast: false,
         viscosity: calm ? 1.9 : 1.0,
         temperature: calm ? 0.4 : 1.0,
@@ -3604,7 +3604,7 @@ export class LivingCellsEngine {
   private effectiveAlpha(opacity = 1): number {
     const modeAlpha =
       this.isAmbientLike()
-        ? 0.6
+        ? this.mode === 'calm' ? 0.45 : 0.75
         : (this.simParams.visualAlpha ?? 1.0);
     return BASE_ALPHA * modeAlpha * this.visualScale * opacity;
   }
@@ -4426,6 +4426,13 @@ export class LivingCellsEngine {
       : `rgba(${accent}, ${fillBase * level * alpha})`;
     this.ctx.fill();
 
+    // Ambient-only edge light reuses the current membrane path. Broad, low-alpha
+    // strokes avoid per-cell blur buffers and leave Lab's original paint intact.
+    if (!isLab && dark) {
+      this.ctx.lineWidth = 3.2;
+      this.ctx.strokeStyle = `rgba(${glow}, ${0.03 * alpha})`;
+      this.ctx.stroke();
+    }
     this.ctx.lineWidth = grabbed ? 1.65 : hovered ? 1.4 : isLab ? 1.45 : 1.15;
     const strokeBase = isLab
       ? (grabbed ? 0.24 : hovered ? 0.20 : 0.165)
@@ -4437,6 +4444,11 @@ export class LivingCellsEngine {
       ? `hsla(${glow}, ${strokeBase * 1.6 * level * alpha})`
       : `rgba(${dark ? glow : ink}, ${strokeBase * level * alpha})`;
     this.ctx.stroke();
+    if (!isLab) {
+      this.ctx.lineWidth = 0.65;
+      this.ctx.strokeStyle = `rgba(${dark ? glow : ink}, ${0.10 * level * alpha})`;
+      this.ctx.stroke();
+    }
   }
 
   private installDebug(): void {

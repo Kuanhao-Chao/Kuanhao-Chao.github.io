@@ -67,16 +67,24 @@
 
     let INK = [20, 20, 20];
     let TEAL = [46, 110, 94];
+    const paletteCanvas = document.createElement('canvas');
+    paletteCanvas.width = paletteCanvas.height = 1;
+    const paletteContext = paletteCanvas.getContext('2d', { willReadFrequently: true });
 
     function cssRgb(name: string, fallback: number[]) {
       const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-      const parts = raw.split(',').map((part) => Number(part.trim()));
-      return parts.length === 3 && parts.every(Number.isFinite) ? parts : fallback;
+      if (!paletteContext || !raw) return fallback;
+      // Resolve the same native color tokens as Cells/morph, including CRT overrides.
+      // The browser handles hex/rgb/hsl here, once per palette refresh, not per frame.
+      paletteContext.clearRect(0, 0, 1, 1);
+      paletteContext.fillStyle = raw;
+      paletteContext.fillRect(0, 0, 1, 1);
+      return Array.from(paletteContext.getImageData(0, 0, 1, 1).data).slice(0, 3);
     }
 
     function refreshPalette() {
-      INK = cssRgb('--rgb-ink', [20, 20, 20]);
-      TEAL = cssRgb('--rgb-accent', [46, 110, 94]);
+      INK = cssRgb('--color-ink', [20, 20, 20]);
+      TEAL = cssRgb('--color-accent', [46, 110, 94]);
       rebuildGlyphAtlas();
       if (spine.length) draw(false);
     }
@@ -618,6 +626,7 @@
     if (textEl) ro.observe(textEl);
     document.addEventListener('visibilitychange', onVisChange);
     document.addEventListener('khc:theme-change', onThemeChange);
+    document.addEventListener('khc:crt-change', onThemeChange);
     document.addEventListener('khc:background-change', onBackgroundChange);
     const io = new IntersectionObserver(
       (entries) => {
@@ -669,6 +678,7 @@
         }
         document.removeEventListener('visibilitychange', onVisChange);
         document.removeEventListener('khc:theme-change', onThemeChange);
+        document.removeEventListener('khc:crt-change', onThemeChange);
         document.removeEventListener('khc:background-change', onBackgroundChange);
         reduce.removeEventListener('change', onReduceChange);
       },

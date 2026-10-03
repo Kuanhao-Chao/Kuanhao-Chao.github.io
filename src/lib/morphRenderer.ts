@@ -30,6 +30,16 @@ import {
 } from './morphTargets';
 import { PROTEIN_SECONDARY_STRUCTURE } from '../data/morphProtein';
 import type { SceneRenderer } from './sceneRenderer';
+import { fitHorizontal } from './morphLighting';
+import {
+  readHead,
+  networkPackets,
+  rainSample,
+  turntableYaw,
+  streakStrength,
+  bokehDot,
+  type LifeClock,
+} from './morphLife';
 const PROJECTED_EXTENTS = [0.74, 0.62, 1.1, 0.86, 0.46, 0.7, 0.51];
 const ACCENT_STAGES = ['rna', 'protein', 'network', 'distribution'] as const;
 const STRUCTURE_LABELS = [
@@ -60,6 +70,21 @@ export function createMorphRenderer(
   // Screen coordinates/depth/opacity and normalized interaction displacements.
   const positions = new Float32Array(particles.length * 4);
   const offsets = new Float32Array(particles.length * 4);
+  const previous = new Float32Array(particles.length * 3);
+  const streakBands = new Uint8Array(particles.length);
+  const life: LifeClock = { time: 0, amount: 0 };
+  const packet = { t: 0, alpha: 0 };
+  const rain = { x: 0, y: 0, alpha: 0 };
+  const bokeh = { x: 0, y: 0, radius: 0, alpha: 0 };
+  const lights = [document.createElement('canvas'), document.createElement('canvas')];
+  let historyReady = false,
+    darkLight = false,
+    paletteVersion = 0;
+  let glowCount = 0,
+    streakCount = 0,
+    rainCount = 0,
+    packetCount = 0,
+    bokehCount = 0;
   // Linked buckets: six depth bands × three inks × three sizes × twelve opacities.
   // Build once per frame without sorting, allocating arrays, or drawing each dot separately.
   const bucketHeads = new Int32Array(6 * 3 * 3 * 12);
@@ -76,7 +101,7 @@ export function createMorphRenderer(
   const chapterHeights = new Float64Array(7);
   let chapterHeight = 240,
     accent = '#2e6e5e',
-    highlight = '#a6683c',
+    highlight = accent,
     ink = '#141414',
     surface = '#fafaf8';
   let motion: BackgroundMotion = 'ambient';
@@ -125,6 +150,7 @@ export function createMorphRenderer(
     perspective = 1 - stageWeight(displayed, 'protein');
     const restraint = motion === 'calm' ? 0.45 : 1;
     yaw = dimensional * restraint * (Math.sin(clock * 0.075) * 0.09 + pointerX * 0.16);
+    yaw += stageWeight(displayed, 'protein') * turntableYaw(life);
     pitch = dimensional * restraint * (Math.sin(clock * 0.061) * 0.035 + pointerY * 0.09);
     // Conservative projected half-heights include idle rotation and depth, with a
     // bounded allowance between targets. Every axis uses the same fitting scale.
@@ -154,6 +180,14 @@ export function createMorphRenderer(
       originX = width * (coarse ? 0.74 : 0.8);
       originY = height * (coarse ? 0.27 : 0.46);
       scale = Math.min(width * (coarse ? 0.38 : 0.23), height * 0.27);
+    }
+    if (stageWeight(displayed, 'dna') > 0) {
+      // |x| <= .98, radial extent .24, yaw <= .25: conservative projected
+      // half-width 1.18 includes perspective, particle spread and a thin stroke.
+      // Fit the complete rigid view, never individual scientific coordinates.
+      const fit = fitHorizontal(width, originX, scale, 1.18);
+      originX = fit.origin;
+      scale = fit.scale;
     }
   }
   function project(p: MorphPoint) {
@@ -211,8 +245,11 @@ export function createMorphRenderer(
       sampleDna(t, 0, clock, point);
       project(point);
       if (point.z < 0 !== back) continue;
-      context.globalAlpha = opacity() * weight * (t > 0.39 && t < 0.54 ? 0.13 : 0.05);
-      context.strokeStyle = t > 0.39 && t < 0.54 ? ink : accent;
+      context.globalAlpha = opacity() * weight * (t > 0.39 && t < 0.54 ? 0.2 : 0.12);
+      const gradient = context.createLinearGradient(point.x, point.y, other.x, other.y);
+      gradient.addColorStop(0, accent);
+      gradient.addColorStop(1, highlight);
+      context.strokeStyle = gradient;
       context.lineWidth = demo ? 1.6 : 1;
       context.beginPath();
       context.moveTo(point.x, point.y);
@@ -226,8 +263,8 @@ export function createMorphRenderer(
         sampleDna(i / 96, strand, clock, point);
         project(point);
         if (i && point.z < 0 === back) {
-          context.globalAlpha = opacity() * weight * (back ? 0.07 : 0.16);
-          context.strokeStyle = accent;
+          context.globalAlpha = opacity() * weight * (back ? 0.12 : 0.25);
+          context.strokeStyle = strand ? highlight : accent;
           context.lineWidth = demo ? (back ? 1.6 : 2.6) : back ? 1 : 1.5;
           context.beginPath();
           context.moveTo(previousX, previousY);
@@ -237,6 +274,16 @@ export function createMorphRenderer(
         previousX = point.x;
         previousY = point.y;
       }
+    }
+    if (!back && life.amount) {
+      readHead(life, packet);
+      sampleDna(packet.t, 0, clock, point);
+      project(point);
+      context.globalAlpha = packet.alpha * weight * 0.7;
+      context.fillStyle = highlight;
+      context.beginPath();
+      context.arc(point.x, point.y, demo ? 3 : 2.3, 0, TAU);
+      context.fill();
     }
   }
   function drawCell() {
@@ -431,11 +478,18 @@ export function createMorphRenderer(
   }
   function draw() {
     if (disposed) return;
+    // Play/ambient running owns this clock. A stopped explorer can still tween
+    // or Stir, but keeps its decorative phase so it settles to the same image.
+    // Motion Paused, hidden, reduced and static fallback suppress every new pass.
+    life.time = clock;
+    life.amount = canAnimate() ? (motion === 'calm' ? 0.45 : 1) : 0;
+    glowCount = streakCount = rainCount = packetCount = bokehCount = 0;
     layout();
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
     context.clearRect(0, 0, width, height);
     context.lineCap = 'round';
     context.lineJoin = 'round';
+    drawBokeh();
     const introBlend = smoothstep(introAge / 1.5);
     // A few quiet braided streams add depth without filling reading areas with noise.
     const atmosphere = coarse ? 96 : 240;
@@ -494,6 +548,7 @@ export function createMorphRenderer(
     drawCell();
     drawSignal();
     drawTargetAccents();
+    drawStreaks();
     const dotScale = demo ? Math.max(0.85, Math.min(1.35, scale / 220)) : 0.9;
     for (let bucket = 0; bucket < bucketHeads.length; bucket++) {
       if (bucket === bucketHeads.length / 2) drawDna(false);
@@ -514,6 +569,8 @@ export function createMorphRenderer(
       }
       context.fill();
     }
+    drawLights();
+    drawStageLife();
     drawLabels();
     context.globalAlpha = 1;
     if (mask) {
@@ -532,6 +589,130 @@ export function createMorphRenderer(
     canvas.dataset.bgPointer = hover.toFixed(3);
     canvas.dataset.bgInteractions = String(interactionCount);
     canvas.dataset.bgFrames = String(Number(canvas.dataset.bgFrames || 0) + 1);
+    canvas.dataset.bgLife = String(life.amount);
+    canvas.dataset.bgGlow = String(glowCount);
+    canvas.dataset.bgStreaks = String(streakCount);
+    canvas.dataset.bgRain = String(rainCount);
+    canvas.dataset.bgPackets = String(packetCount);
+    canvas.dataset.bgBokeh = String(bokehCount);
+    canvas.dataset.bgPalette = String(paletteVersion);
+    canvas.dataset.bgLightBlend = darkLight ? 'lighter' : 'source-over';
+    canvas.dataset.bgWarmInk = highlight;
+    for (let i = 0; i < particles.length; i++) {
+      previous[i * 3] = positions[i * 4];
+      previous[i * 3 + 1] = positions[i * 4 + 1];
+      previous[i * 3 + 2] = positions[i * 4 + 3];
+    }
+    historyReady = !!life.amount;
+  }
+  function drawBokeh() {
+    if (!life.amount || !paletteVersion) return;
+    context.save();
+    context.globalCompositeOperation = darkLight ? 'lighter' : 'source-over';
+    for (let i = 0; i < (coarse ? 12 : 28); i++) {
+      bokehDot(i, life, bokeh);
+      const x = ((bokeh.x + 1) / 2) * width + pointerX * 10 * 1.6;
+      const y = ((bokeh.y + 1) / 2) * height + pointerY * 10 * 1.6;
+      context.globalAlpha = bokeh.alpha;
+      context.drawImage(
+        lights[i % 2],
+        x - bokeh.radius,
+        y - bokeh.radius,
+        bokeh.radius * 2,
+        bokeh.radius * 2
+      );
+      bokehCount++;
+    }
+    context.restore();
+  }
+  function drawLights() {
+    if (!life.amount || !paletteVersion) return;
+    context.save();
+    context.globalCompositeOperation = darkLight ? 'lighter' : 'source-over';
+    const cap = coarse ? 100 : 250;
+    const stride = Math.ceil(particles.length / cap);
+    for (let i = 0; i < particles.length && glowCount < cap; i += stride) {
+      const alpha = positions[i * 4 + 3];
+      if (alpha <= 0.015) continue;
+      const radius = demo ? 6 : 4;
+      context.globalAlpha = life.amount * alpha * (darkLight ? 0.3 : 0.15);
+      context.drawImage(
+        lights[i % 2],
+        positions[i * 4] - radius,
+        positions[i * 4 + 1] - radius,
+        radius * 2,
+        radius * 2
+      );
+      glowCount++;
+    }
+    context.restore();
+  }
+  function drawStreaks() {
+    const transitioning = !!tween || Math.abs(displayed * 6 - Math.round(displayed * 6)) > 0.002;
+    if (!life.amount || quality < 0.6 || !historyReady || !transitioning) return;
+    streakBands.fill(0);
+    const cap = Math.floor(particles.length / 3);
+    for (let i = 0; i < particles.length && streakCount < cap; i += 3) {
+      if (positions[i * 4 + 3] <= 0.015 || previous[i * 3 + 2] <= 0.015) continue;
+      const strength = streakStrength(
+        positions[i * 4] - previous[i * 3],
+        positions[i * 4 + 1] - previous[i * 3 + 1],
+        life
+      );
+      if (strength < life.amount * 0.02) continue;
+      streakBands[i] = strength > life.amount * 0.3 ? 2 : 1;
+      streakCount++;
+    }
+    context.save();
+    context.strokeStyle = accent;
+    context.lineWidth = 0.8;
+    for (let band = 1; band <= 2; band++) {
+      context.globalAlpha = life.amount * (band === 1 ? 0.06 : 0.14);
+      context.beginPath();
+      for (let i = 0; i < particles.length; i += 3)
+        if (streakBands[i] === band) {
+          context.moveTo(previous[i * 3], previous[i * 3 + 1]);
+          context.lineTo(positions[i * 4], positions[i * 4 + 1]);
+        }
+      context.stroke();
+    }
+    context.restore();
+  }
+  function drawStageLife() {
+    if (!life.amount) return;
+    context.save();
+    context.fillStyle = highlight;
+    const network = stageWeight(displayed, 'network');
+    if (network > 0.005) {
+      context.globalAlpha = life.amount * network * 0.65;
+      context.beginPath();
+      for (let edge = 0; edge < Math.min(NETWORK_EDGES.length, coarse ? 24 : 48); edge++) {
+        networkPackets(edge, life, packet);
+        sampleNetworkEdge(edge, packet.t, point);
+        project(point);
+        context.moveTo(point.x + 2, point.y);
+        context.arc(point.x, point.y, 2, 0, TAU);
+        packetCount++;
+      }
+      context.fill();
+    }
+    const density = stageWeight(displayed, 'distribution');
+    if (density > 0.005) {
+      context.globalAlpha = life.amount * density * 0.35;
+      context.beginPath();
+      for (let i = 0; i < (coarse ? 32 : 64); i++) {
+        rainSample(i, life, rain);
+        point.x = rain.x;
+        point.y = -0.48 + rain.y * 0.81;
+        point.z = 0;
+        project(point);
+        context.moveTo(point.x + 1.3, point.y);
+        context.arc(point.x, point.y, 1.3, 0, TAU);
+        rainCount++;
+      }
+      context.fill();
+    }
+    context.restore();
   }
   function update(dt: number, now: number, wallDt: number) {
     qualityAge = Math.min(0.4, qualityAge + dt);
@@ -629,6 +810,7 @@ export function createMorphRenderer(
     const next = value && canAnimate();
     if (next === running && next) return;
     running = next;
+    historyReady = false;
     cancelAnimationFrame(raf);
     raf = 0;
     last = performance.now();
@@ -645,8 +827,8 @@ export function createMorphRenderer(
       if (reduced()) {
         introAge = 1.5;
         displayed = progress;
-        draw();
       }
+      if (!canAnimate()) draw();
     } else if (demo) {
       if (tween) playbackAge = playbackTime(displayed);
       tween = null;
@@ -655,6 +837,8 @@ export function createMorphRenderer(
     schedule();
   }
   function setProgress(value: number, options?: { transition?: 'immediate' | 'smooth' }) {
+    if (options?.transition === 'immediate' || Math.abs(value - progress) > 0.18)
+      historyReady = false;
     progress = clamp01(Number.isFinite(value) ? value : 0);
     if (progress > 0.02) introAge = 1.5;
     playbackAge = playbackTime(progress);
@@ -669,6 +853,7 @@ export function createMorphRenderer(
     draw();
   }
   function resize() {
+    historyReady = false;
     width = Math.max(1, canvas.clientWidth);
     height = Math.max(1, canvas.clientHeight);
     dpr = Math.min(devicePixelRatio || 1, coarse ? 1.5 : 2);
@@ -688,12 +873,25 @@ export function createMorphRenderer(
     ink = style.getPropertyValue('--color-ink').trim() || '#141414';
     surface = style.getPropertyValue('--color-surface').trim() || '#fafaf8';
     const theme = document.documentElement.dataset.theme;
-    highlight = !theme || theme === 'light' || theme === 'parchment' ? '#a6683c' : '#e3b57b';
+    highlight = style.getPropertyValue('--color-badge-warm-text').trim() || accent;
     const crt = document.documentElement.dataset.crtMode;
     if (crt && crt !== 'off') {
       accent = ink = crt === 'amber' ? '#ffb000' : crt === 'green' ? '#33ff33' : '#38fdf8';
       highlight = accent;
     }
+    darkLight = (!!crt && crt !== 'off') || (!!theme && !['light', 'parchment'].includes(theme));
+    for (let i = 0; i < lights.length; i++) {
+      const sprite = lights[i];
+      sprite.width = sprite.height = 32;
+      const light = sprite.getContext('2d')!;
+      const gradient = light.createRadialGradient(16, 16, 0, 16, 16, 16);
+      gradient.addColorStop(0, i ? highlight : accent);
+      gradient.addColorStop(1, 'transparent');
+      light.fillStyle = gradient;
+      light.fillRect(0, 0, 32, 32);
+    }
+    paletteVersion++;
+    historyReady = false;
     draw();
   }
   resize();
@@ -715,6 +913,7 @@ export function createMorphRenderer(
       }
     },
     reset() {
+      historyReady = false;
       tween = null;
       pointerPresent = false;
       pointerX = pointerY = targetX = targetY = hover = 0;
@@ -725,6 +924,7 @@ export function createMorphRenderer(
       draw();
     },
     setMotion(value) {
+      historyReady = false;
       motion = value;
       if (value === 'paused') {
         setRunning(false);
