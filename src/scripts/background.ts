@@ -630,6 +630,19 @@ export function initBackground() {
   );
   window.addEventListener('scroll', scheduleMask, { passive: true });
   document.addEventListener('toggle', collectBounds, true);
+  // Sections marked [data-reveal] ease up by 10px as they scroll into view (global.css). Their boxes
+  // are measured with that transform in effect, so until something re-measured them the mask sat
+  // 10px low: the top edge of an image or the genome browser was only half cleared, and a text
+  // box's feathered edge sat below its text. A transform changes no layout, so neither the resize
+  // observer nor a resize event notices; the end of the transition is the moment the boxes settle.
+  document.addEventListener(
+    'transitionend',
+    (event) => {
+      if (event.propertyName === 'transform' && (event.target as Element).matches?.('[data-reveal]'))
+        collectBounds();
+    },
+    true
+  );
   window.addEventListener('storage', (event) => {
     if (event.key === BACKGROUND_KEY) {
       closeDemo();
