@@ -144,11 +144,26 @@ async function frames(page, demo = false) {
     .locator(demo ? '[data-background-demo-canvas]' : '[data-art-bg-canvas]')
     .evaluate((c) => Number(c.dataset.bgTicks || 0));
 }
-async function still(page, demo = false) {
-  await page.waitForTimeout(150);
-  const before = await frames(page, demo);
-  await page.waitForTimeout(400);
-  assert.equal(await frames(page, demo), before, 'paused renderer must not continue drawing');
+// "Not drawing" is a quiet window, not an offset from now. A pause reaches the renderer through an
+// event the engine delivers on its own cycle (headless WebKit on the CI runner: two or three ticks
+// late), so wait for the ticks to stop and then require the whole window to stay quiet. A renderer
+// that never stops still fails, after `within`.
+async function still(page, demo = false, { quiet = 400, within = 6_000 } = {}) {
+  let last = await frames(page, demo);
+  let since = Date.now();
+  const deadline = since + within;
+  while (Date.now() - since < quiet) {
+    await page.waitForTimeout(50);
+    const now = await frames(page, demo);
+    if (now !== last) {
+      last = now;
+      since = Date.now();
+    }
+    assert.ok(
+      Date.now() <= deadline,
+      `paused renderer must not continue drawing: still ticking after ${within}ms (${last} ticks)`
+    );
+  }
 }
 // "It is animating" is a condition, not a rate. A fixed wait followed by a tick count asserts a
 // minimum frame rate, which says something about the runner (Linux WebKit's software rasteriser
@@ -249,7 +264,15 @@ async function luminousChecks(browser, name) {
       await assertReadingClearance(page);
       if (width === 390 || width === 1440) {
         await choose(page, 'motion', 'calm');
-        await page.waitForTimeout(150);
+        // The next frame carries the new amplitude; wait for it instead of sleeping 150 ms. On a
+        // timeout the stale read below fails the check with its usual message.
+        await page
+          .waitForFunction(
+            () => document.querySelector('[data-art-bg-canvas]').dataset.bgLife === '0.45',
+            undefined,
+            { timeout: 20_000, polling: 100 }
+          )
+          .catch(() => {});
         const calm = await page
           .locator('[data-art-bg-canvas]')
           .evaluate((c) => ({ lightAlpha: c.getContext('2d').__lightAlpha, ...c.dataset }));
@@ -389,143 +412,156 @@ async function assertEffects(
   }
   return state;
 }
-async function effectLifecycleChecks(page, phone) {
-  const canvas = page.locator('[data-background-demo-canvas]');
-  await scrub(page, 0);
-  const first = await page.locator(`[data-background-form="${1 / 6}"]`).evaluate((button) => {
-    button.click();
-    return Number(document.querySelector('[data-background-demo-canvas]').dataset.bgStreaks);
-  });
-  assert.equal(first, 0, 'starting a form tween never teleports a streak');
-  await page.waitForFunction(
-    () => Number(document.querySelector('[data-background-demo-canvas]').dataset.bgStreaks) > 0
-  );
-  const transition = await assertEffects(page, { demo: true, phone });
-  console.log(
-    `[background-ui] transition ${phone ? 'phone' : 'desktop'} streaks=${transition.bgStreaks} renderMs=${transition.bgRenderMs} quality=${transition.bgQuality}`
-  );
-  await scrub(page, 1);
-  assert.equal(
-    await canvas.getAttribute('data-bg-streaks'),
-    '0',
-    'discontinuous scrub clears history'
-  );
-  await assertEffects(page, { demo: true, phone, stage: 'distribution' });
-  await scrub(page, 5 / 6);
-  await assertEffects(page, { demo: true, phone, stage: 'network' });
-  const lightImage = await canvas.evaluate((c) => c.toDataURL());
-  const initial = Number(await canvas.getAttribute('data-bg-palette'));
-  await page.evaluate(() => window.__khcTheme.set('dark'));
-  await page.waitForFunction(
-    (previous) =>
-      Number(document.querySelector('[data-background-demo-canvas]').dataset.bgPalette) > previous,
-    initial
-  );
-  assert.equal(await canvas.getAttribute('data-bg-light-blend'), 'lighter');
-  assert.notEqual(
-    await canvas.evaluate((c) => c.toDataURL()),
-    lightImage,
-    'palette repaint changes actual pixels'
-  );
-  const dark = Number(await canvas.getAttribute('data-bg-palette'));
-  await page.locator('[data-background-play]').click();
-  await page.waitForTimeout(250);
-  assert.equal(
-    Number(await canvas.getAttribute('data-bg-palette')),
-    dark,
-    'animation frames reuse cached sprites'
-  );
-  await page.evaluate(() => window.__khcCrt.set('amber'));
-  await page.waitForFunction(
-    (previous) =>
-      Number(document.querySelector('[data-background-demo-canvas]').dataset.bgPalette) > previous,
-    dark
-  );
-  assert.equal(await canvas.getAttribute('data-bg-warm-ink'), '#ffb000');
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  // The change reaches the page as a media-query event, which WebKit delivers on its rendering
-  // cycle (1-8 Hz on the CI runner), so wait for the effect itself rather than a fixed 100 ms.
-  await page.waitForFunction(
-    () => document.querySelector('[data-background-demo-canvas]').dataset.bgLife === '0',
-    undefined,
-    { timeout: 20_000, polling: 100 }
-  );
-  await assertEffects(page, { demo: true, phone, amount: 0 });
-  await page.emulateMedia({ reducedMotion: 'no-preference' });
-  // matchMedia lags the emulation by a rendering cycle too, and the draw forced below reads it.
-  await page.waitForFunction(
-    () => !matchMedia('(prefers-reduced-motion: reduce)').matches,
-    undefined,
-    {
-      timeout: 20_000,
-      polling: 100,
+// The effect lifecycle, on a fresh page under the fake clock (see openClockedExplorer). It used to
+// run on the profile's own page, where a slow runner had already stepped the explorer's adaptive
+// quality below 0.6 (streaks are off there by design) and where "a streak appears" was a poll for
+// a state that lasts the handful of frames a 0.9 s tween gets at 1-8 Hz. Frames are explicit here
+// and quality cannot move, so every count is exact on any runner.
+async function effectLifecycle(browser, engine, phone) {
+  const { context, page } = await openClockedExplorer(browser, engine, phone);
+  try {
+    const canvas = page.locator('[data-background-demo-canvas]');
+    const eventually = (check, argument) =>
+      page.waitForFunction(check, argument, { timeout: 20_000, polling: 100 });
+    await pausedAtDna(page);
+    const first = await page.locator(`[data-background-form="${1 / 6}"]`).evaluate((button) => {
+      button.click();
+      return Number(document.querySelector('[data-background-demo-canvas]').dataset.bgStreaks);
+    });
+    assert.equal(first, 0, 'starting a form tween never teleports a streak');
+    // One explicit frame per step. The tween lasts under a second and the renderer clamps a step
+    // to 80 ms, so a dozen frames cover all of it; the first is its slowest, which is why a single
+    // jump proves nothing about whether streaks ever appear.
+    let transition;
+    let stepped = 0;
+    for (; stepped < 12; stepped++) {
+      await page.clock.fastForward(100);
+      transition = await assertEffects(page, { demo: true, phone });
+      if (Number(transition.bgStreaks) > 0) break;
     }
-  );
-  await page.evaluate(() => {
-    window.__khcCrt.set('off');
-    window.__khcTheme.set('light');
-  });
-  await assertEffects(page, { demo: true, phone });
-  const hidden = await page.evaluate(() => {
-    try {
-      Object.defineProperty(document, 'hidden', { configurable: true, value: true });
-      document.dispatchEvent(new Event('visibilitychange'));
-      return { ...document.querySelector('[data-background-demo-canvas]').dataset };
-    } finally {
-      delete document.hidden;
-      document.dispatchEvent(new Event('visibilitychange'));
-    }
-  });
-  assert.equal(Number(hidden.bgLife), 0, 'hidden-document suspension repaints zero life');
-  assert.equal(Number(hidden.bgGlow), 0, 'hidden-document suspension removes light effects');
-  await page.locator('[data-background-reset]').click();
-  assert.equal(
-    await canvas.getAttribute('data-bg-streaks'),
-    '0',
-    'reset clears transition history'
-  );
-  await scrub(page, 0);
-  await page.evaluate(() => {
-    const saved = {
-      raf: requestAnimationFrame,
-      cancel: cancelAnimationFrame,
-      now: performance.now.bind(performance),
-    };
-    let callback = null,
-      time = saved.now(),
-      cost = 0;
-    window.requestAnimationFrame = (next) => {
-      callback = next;
-      return -1;
-    };
-    window.cancelAnimationFrame = () => {
-      callback = null;
-    };
-    try {
-      document.querySelector('[data-background-play]').click();
-      performance.now = () => saved.now() + (cost += 40);
-      for (let i = 0; i < 300 && callback; i++) {
-        const frame = callback;
-        callback = null;
-        frame((time += 100));
+    assert.ok(
+      Number(transition.bgStreaks) > 0,
+      `a form transition draws streaks within ${stepped} frames: ${JSON.stringify(transition)}`
+    );
+    console.log(
+      `[background-ui] transition ${phone ? 'phone' : 'desktop'} streaks=${transition.bgStreaks} renderMs=${transition.bgRenderMs} quality=${transition.bgQuality}`
+    );
+    await scrub(page, 1);
+    assert.equal(
+      await canvas.getAttribute('data-bg-streaks'),
+      '0',
+      'discontinuous scrub clears history'
+    );
+    await assertEffects(page, { demo: true, phone, stage: 'distribution' });
+    await scrub(page, 5 / 6);
+    await assertEffects(page, { demo: true, phone, stage: 'network' });
+    const lightImage = await canvas.evaluate((c) => c.toDataURL());
+    const initial = Number(await canvas.getAttribute('data-bg-palette'));
+    await page.evaluate(() => window.__khcTheme.set('dark'));
+    await eventually(
+      (previous) =>
+        Number(document.querySelector('[data-background-demo-canvas]').dataset.bgPalette) >
+        previous,
+      initial
+    );
+    assert.equal(await canvas.getAttribute('data-bg-light-blend'), 'lighter');
+    assert.notEqual(
+      await canvas.evaluate((c) => c.toDataURL()),
+      lightImage,
+      'palette repaint changes actual pixels'
+    );
+    const dark = Number(await canvas.getAttribute('data-bg-palette'));
+    await pressDemo(page, 'play');
+    await page.clock.fastForward(250);
+    assert.equal(
+      Number(await canvas.getAttribute('data-bg-palette')),
+      dark,
+      'animation frames reuse cached sprites'
+    );
+    await page.evaluate(() => window.__khcCrt.set('amber'));
+    await eventually(
+      (previous) =>
+        Number(document.querySelector('[data-background-demo-canvas]').dataset.bgPalette) >
+        previous,
+      dark
+    );
+    assert.equal(await canvas.getAttribute('data-bg-warm-ink'), '#ffb000');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    // The change reaches the page as a media-query event, which an engine delivers on its own
+    // rendering cycle, so wait for the effect itself rather than for a fixed sleep.
+    await eventually(
+      () => document.querySelector('[data-background-demo-canvas]').dataset.bgLife === '0'
+    );
+    await assertEffects(page, { demo: true, phone, amount: 0 });
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    // matchMedia lags the emulation by a rendering cycle too, and the draw forced below reads it.
+    await eventually(() => !matchMedia('(prefers-reduced-motion: reduce)').matches);
+    await page.evaluate(() => {
+      window.__khcCrt.set('off');
+      window.__khcTheme.set('light');
+    });
+    await assertEffects(page, { demo: true, phone });
+    const hidden = await page.evaluate(() => {
+      try {
+        Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+        document.dispatchEvent(new Event('visibilitychange'));
+        return { ...document.querySelector('[data-background-demo-canvas]').dataset };
+      } finally {
+        delete document.hidden;
+        document.dispatchEvent(new Event('visibilitychange'));
       }
-    } finally {
-      window.requestAnimationFrame = saved.raf;
-      window.cancelAnimationFrame = saved.cancel;
-      performance.now = saved.now;
-    }
-  });
-  assert.equal(
-    await canvas.getAttribute('data-bg-fallback'),
-    'static',
-    'exercise measured-cost static fallback'
-  );
-  await assertEffects(page, { demo: true, phone, amount: 0 });
-  await page.locator('[data-background-close]').click();
-  await openAppearance(page);
-  await page.locator('[data-background-explore]').click();
-  await page.locator('[data-background-dialog]').waitFor({ state: 'visible' });
-  await scrub(page, 0);
+    });
+    assert.equal(Number(hidden.bgLife), 0, 'hidden-document suspension repaints zero life');
+    assert.equal(Number(hidden.bgGlow), 0, 'hidden-document suspension removes light effects');
+    await pressDemo(page, 'reset');
+    assert.equal(
+      await canvas.getAttribute('data-bg-streaks'),
+      '0',
+      'reset clears transition history'
+    );
+    await scrub(page, 0);
+    await page.evaluate(() => {
+      const saved = {
+        raf: requestAnimationFrame,
+        cancel: cancelAnimationFrame,
+        now: performance.now.bind(performance),
+      };
+      let callback = null,
+        time = saved.now(),
+        cost = 0;
+      window.requestAnimationFrame = (next) => {
+        callback = next;
+        return -1;
+      };
+      window.cancelAnimationFrame = () => {
+        callback = null;
+      };
+      try {
+        document.querySelector('[data-background-play]').click();
+        performance.now = () => saved.now() + (cost += 40);
+        for (let i = 0; i < 300 && callback; i++) {
+          const frame = callback;
+          callback = null;
+          frame((time += 100));
+        }
+      } finally {
+        window.requestAnimationFrame = saved.raf;
+        window.cancelAnimationFrame = saved.cancel;
+        performance.now = saved.now;
+      }
+    });
+    assert.equal(
+      await canvas.getAttribute('data-bg-fallback'),
+      'static',
+      'exercise measured-cost static fallback'
+    );
+    await assertEffects(page, { demo: true, phone, amount: 0 });
+    console.log(
+      `[background-ui] ${engine}-${phone ? 'phone' : 'desktop'} effect lifecycle: exact under the fake clock`
+    );
+  } finally {
+    await context.close();
+  }
 }
 async function migrationChecks(browser, name) {
   for (const [saved, legacy, expected] of [
@@ -989,20 +1025,7 @@ try {
     const browser = await launch(name);
     try {
       if (process.env.BACKGROUND_UI_EFFECT_ONLY === '1') {
-        const context = await browser.newContext({
-          baseURL,
-          viewport: { width: 1440, height: 1000 },
-        });
-        try {
-          const page = await context.newPage();
-          await page.goto('/?cell-audit=1');
-          await choose(page, 'scene', 'morph');
-          await page.locator('[data-background-explore]').click();
-          await page.locator('[data-background-dialog]').waitFor({ state: 'visible' });
-          await effectLifecycleChecks(page, false);
-        } finally {
-          await context.close();
-        }
+        await effectLifecycle(browser, name, false);
         continue;
       }
       if (process.env.BACKGROUND_UI_CLOCK_ONLY === '1') {
@@ -1012,6 +1035,7 @@ try {
           await completePlayback(browser, name, phone);
           await minimumQuality(browser, name, phone, label);
           await stirAndReset(browser, name, phone);
+          await effectLifecycle(browser, name, phone);
           console.log(`[background-ui] ${label} virtual-time scenarios passed`);
         }
         continue;
@@ -1214,7 +1238,6 @@ try {
         await openAppearance(page);
         await page.locator('[data-background-explore]').click();
         await page.locator('[data-background-dialog]').waitFor({ state: 'visible' });
-        await effectLifecycleChecks(page, phone);
         await page.locator('[data-background-scrub]').evaluate((input) => {
           input.value = '0';
           input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -1478,6 +1501,7 @@ try {
         await completePlayback(browser, name, phone);
         await minimumQuality(browser, name, phone, label);
         await stirAndReset(browser, name, phone);
+        await effectLifecycle(browser, name, phone);
         await page.locator('[data-background-reset]').click();
         const snapshot = () =>
           page.locator('[data-background-demo-canvas]').evaluate((c) => ({
