@@ -65,6 +65,32 @@ async function throttleCpu(context, page, engine) {
   const session = await context.newCDPSession(page);
   await session.send('Emulation.setCPUThrottlingRate', { rate: cpuThrottle });
 }
+// Emulates a compositor that hands out frames slowly. Measured on the CI runner (a CI probe,
+// run 37104648024): headless WebKit on Linux delivers requestAnimationFrame at 1-8 Hz, where a
+// laptop gives 30-120, and the renderer's own cost there is only 4-11 ms, so it is the
+// compositor, not the page. BACKGROUND_UI_SLOW_FRAMES=250 replaces requestAnimationFrame with a
+// 250 ms timer in every page this audit opens (the fake-clock scenarios excepted). An assertion
+// that quietly assumes a frame rate, such as "more than 5 ticks in 1.2 s", fails here.
+const slowFrames = Number(process.env.BACKGROUND_UI_SLOW_FRAMES || 0);
+assert.ok(
+  Number.isFinite(slowFrames) && slowFrames >= 0,
+  'BACKGROUND_UI_SLOW_FRAMES must be a number of milliseconds >= 0'
+);
+async function launch(name) {
+  const browser = await { chromium, webkit }[name].launch();
+  browser.newContextPlain = browser.newContext.bind(browser);
+  if (slowFrames > 0)
+    browser.newContext = async (options) => {
+      const context = await browser.newContextPlain(options);
+      await context.addInitScript((delay) => {
+        window.requestAnimationFrame = (callback) =>
+          window.setTimeout(() => callback(performance.now()), delay);
+        window.cancelAnimationFrame = (id) => window.clearTimeout(id);
+      }, slowFrames);
+      return context;
+    };
+  return browser;
+}
 const errors = [];
 // Independent approved order and exact canonical values, not read from production metadata.
 const forms = [
@@ -95,6 +121,30 @@ async function still(page, demo = false) {
   const before = await frames(page, demo);
   await page.waitForTimeout(400);
   assert.equal(await frames(page, demo), before, 'paused renderer must not continue drawing');
+}
+// "It is animating" is a condition, not a rate. A fixed wait followed by a tick count asserts a
+// minimum frame rate, which says something about the runner (Linux WebKit's software rasteriser
+// ticks far more slowly than a laptop) and nothing about the page. Wait for the condition, and
+// name the state if it never holds.
+async function drawn(page, { atLeast, more, demo = false, within = 20_000 }) {
+  const selector = demo ? '[data-background-demo-canvas]' : '[data-art-bg-canvas]';
+  const target = atLeast ?? (await frames(page, demo)) + more;
+  try {
+    await page.waitForFunction(
+      ([canvas, ticks]) => Number(document.querySelector(canvas)?.dataset.bgTicks || 0) >= ticks,
+      [selector, target],
+      { timeout: within, polling: 100 }
+    );
+  } catch {
+    const state = await page.locator(selector).evaluate((canvas) => ({
+      ...canvas.dataset,
+      hidden: document.hidden,
+      selectedChars: getSelection()?.toString().length ?? 0,
+    }));
+    throw new Error(
+      `${selector} reached fewer than ${target} ticks in ${within}ms: ${JSON.stringify(state)}`
+    );
+  }
 }
 async function luminousChecks(browser, name) {
   const failures = [];
@@ -553,7 +603,7 @@ async function displayed(page) {
 // moved the story by however long the harness took, and let real frame cost steer adaptive
 // quality, so the outcome depended on CPU speed three separate ways.
 async function openClockedExplorer(browser, engine, phone) {
-  const context = await browser.newContext({
+  const context = await browser.newContextPlain({
     baseURL,
     viewport: phone ? { width: 390, height: 844 } : { width: 1440, height: 1000 },
     hasTouch: phone,
@@ -717,7 +767,7 @@ async function minimumQuality(browser, engine, phone, label) {
 }
 try {
   for (const name of engines) {
-    const browser = await { chromium, webkit }[name].launch();
+    const browser = await launch(name);
     try {
       if (process.env.BACKGROUND_UI_EFFECT_ONLY === '1') {
         const context = await browser.newContext({
@@ -786,15 +836,13 @@ try {
         assert.equal(await page.evaluate(() => window.__khcCellsDebug.snapshot().attached), false);
         await page.keyboard.press('Escape');
         await page.waitForTimeout(1200);
-        assert.ok((await frames(page)) > 5);
+        await drawn(page, { atLeast: 6 });
         await page.screenshot({ path: join(artifacts, `${label}-morph-switch.png`) });
         await choose(page, 'motion', 'paused');
         await still(page);
         await assertEffects(page, { amount: 0, phone });
         await choose(page, 'motion', 'calm');
-        const start = await frames(page);
-        await page.waitForTimeout(300);
-        assert.ok((await frames(page)) > start);
+        await drawn(page, { more: 1 });
         const scrollBefore = await page.evaluate(() => scrollY);
         await page.locator('[data-background-explore]').click();
         await page.locator('[data-background-dialog]').waitFor({ state: 'visible' });
@@ -850,7 +898,7 @@ try {
         );
         await page.evaluate(() => scrollTo(0, 0));
         await page.waitForTimeout(700);
-        assert.ok((await frames(page)) > 5, 'particle scene must animate');
+        await drawn(page, { atLeast: 6 });
         const ambientDensity = await page
           .locator('[data-art-bg-canvas]')
           .evaluate((c) => ({ ...c.dataset }));
