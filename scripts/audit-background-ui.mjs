@@ -159,10 +159,20 @@ async function still(page, demo = false, { quiet = 400, within = 6_000 } = {}) {
       last = now;
       since = Date.now();
     }
-    assert.ok(
-      Date.now() <= deadline,
-      `paused renderer must not continue drawing: still ticking after ${within}ms (${last} ticks)`
-    );
+    if (Date.now() > deadline) {
+      // Name the state. A renderer that never goes quiet is either not paused (the button says
+      // so) or paused and drawing anyway, and those are different defects.
+      const state = await page
+        .locator(demo ? '[data-background-demo-canvas]' : '[data-art-bg-canvas]')
+        .evaluate((c) => ({
+          ...c.dataset,
+          playLabel: document.querySelector('[data-background-play]')?.textContent,
+          hidden: document.hidden,
+        }));
+      assert.fail(
+        `paused renderer must not continue drawing: still ticking after ${within}ms: ${JSON.stringify(state)}`
+      );
+    }
   }
 }
 // "It is animating" is a condition, not a rate. A fixed wait followed by a tick count asserts a
@@ -558,6 +568,46 @@ async function effectLifecycle(browser, engine, phone) {
     await assertEffects(page, { demo: true, phone, amount: 0 });
     console.log(
       `[background-ui] ${engine}-${phone ? 'phone' : 'desktop'} effect lifecycle: exact under the fake clock`
+    );
+  } finally {
+    await context.close();
+  }
+}
+// The explorer's story and its tweens follow WALL time, not the renderer's 80 ms step cap: a
+// browser that delivers a frame only every 180 ms (a loaded phone) must still finish a .9 s
+// transition in about a second and reach the same pose after the same hold. This used to be
+// measured on the profile's own page, with requestAnimationFrame replaced by a 180 ms timer and
+// real sleeps of 1.25 s and 3.4 s, which asked a loaded CI runner to keep those timers within a
+// few hundred milliseconds of the page (it did not: run 37120306144). Under the fake clock a frame
+// is exactly 180 ms, so the pose after 3.42 s of play is a number, not a race.
+async function slowCallbacks(browser, engine, phone) {
+  const { context, page } = await openClockedExplorer(browser, engine, phone);
+  try {
+    const canvas = page.locator('[data-background-demo-canvas]');
+    const advance = async (count) => {
+      for (let i = 0; i < count; i++) await page.clock.fastForward(180);
+    };
+    await pausedAtDna(page);
+    await page.locator(`[data-background-form="${1 / 6}"]`).evaluate((button) => button.click());
+    // 1.26 s. A step capped at 80 ms would need twelve frames for a .9 s transition.
+    await advance(7);
+    assert.equal(
+      await canvas.getAttribute('data-bg-transitioning'),
+      'false',
+      'an adjacent .9s transition completes on wall time even under slow callbacks'
+    );
+    assert.equal(await canvas.getAttribute('data-bg-stage'), 'rna');
+    await pressDemo(page, 'reset');
+    await pressDemo(page, 'play');
+    // 3.42 s of play: the 2 s hold, then 1.42 s into the 3 s transition to RNA.
+    await advance(19);
+    const shown = await displayed(page);
+    assert.ok(
+      shown > 0.04 && shown < 0.13,
+      `autoplay follows the 2s hold and 3s transition on wall time under slow callbacks (displayed ${shown})`
+    );
+    console.log(
+      `[background-ui] ${engine}-${phone ? 'phone' : 'desktop'} slow callbacks: transition done within 7 frames of 180 ms, autoplay at ${shown.toFixed(3)} after 3.42 s`
     );
   } finally {
     await context.close();
@@ -1029,13 +1079,14 @@ try {
         continue;
       }
       if (process.env.BACKGROUND_UI_CLOCK_ONLY === '1') {
-        // Just the two virtual-time scenarios: the fast loop for harness work.
+        // Just the virtual-time scenarios: the fast loop for harness work.
         for (const phone of process.env.BACKGROUND_UI_PHONE_ONLY === '1' ? [true] : [false, true]) {
           const label = `${name}-${phone ? 'phone' : 'desktop'}`;
           await completePlayback(browser, name, phone);
           await minimumQuality(browser, name, phone, label);
           await stirAndReset(browser, name, phone);
           await effectLifecycle(browser, name, phone);
+          await slowCallbacks(browser, name, phone);
           console.log(`[background-ui] ${label} virtual-time scenarios passed`);
         }
         continue;
@@ -1241,44 +1292,6 @@ try {
         await page.locator('[data-background-scrub]').evaluate((input) => {
           input.value = '0';
           input.dispatchEvent(new Event('input', { bubbles: true }));
-        });
-        await page.evaluate(() => {
-          window.__backgroundTimingRaf = [
-            window.requestAnimationFrame,
-            window.cancelAnimationFrame,
-          ];
-          window.requestAnimationFrame = (callback) =>
-            window.setTimeout(() => callback(performance.now()), 180);
-          window.cancelAnimationFrame = (id) => window.clearTimeout(id);
-        });
-        await page.locator(`[data-background-form="${1 / 6}"]`).click();
-        await page.waitForTimeout(1250);
-        assert.equal(
-          await page.locator('[data-background-demo-canvas]').getAttribute('data-bg-transitioning'),
-          'false',
-          'an adjacent .9s transition completes on wall time even under slow callbacks'
-        );
-        assert.equal(
-          await page.locator('[data-background-demo-canvas]').getAttribute('data-bg-stage'),
-          'rna'
-        );
-        await page.locator('[data-background-reset]').click();
-        await page.locator('[data-background-play]').click();
-        await page.waitForTimeout(3400);
-        const slowPlayback = Number(
-          await page
-            .locator('[data-background-demo-canvas]')
-            .getAttribute('data-bg-displayed-progress')
-        );
-        assert.ok(
-          slowPlayback > 0.04 && slowPlayback < 0.13,
-          'autoplay follows the 2s hold and 3s transition on wall time under slow callbacks'
-        );
-        await page.locator('[data-background-play]').click();
-        await page.evaluate(() => {
-          [window.requestAnimationFrame, window.cancelAnimationFrame] =
-            window.__backgroundTimingRaf;
-          delete window.__backgroundTimingRaf;
         });
         await page.locator('[data-background-scrub]').evaluate((input) => {
           input.value = String(1 / 6);
@@ -1502,6 +1515,7 @@ try {
         await minimumQuality(browser, name, phone, label);
         await stirAndReset(browser, name, phone);
         await effectLifecycle(browser, name, phone);
+        await slowCallbacks(browser, name, phone);
         await page.locator('[data-background-reset]').click();
         const snapshot = () =>
           page.locator('[data-background-demo-canvas]').evaluate((c) => ({
@@ -1537,12 +1551,85 @@ try {
           console.log(
             `[background-ui] ${label} reset pixel comparison skipped: adaptive quality moved (quality ${resetSnapshot.quality} -> ${afterReset.quality}, visible ${resetSnapshot.visible} -> ${afterReset.visible}); asserted exactly under the fake clock`
           );
-        await page.locator('[data-background-form="0"]').click();
-        await page.waitForTimeout(150);
-        await page.locator('[data-background-play]').click();
-        await page.waitForTimeout(200);
-        await page.locator('[data-background-play]').click();
-        await still(page, true);
+        // Form, resume, pause. Each step is recorded because on the CI runner this is the one place
+        // a "paused" explorer was still drawing seconds later (five failures, none reproducible on
+        // a laptop), and the final state alone does not say whether a click went missing.
+        await page.evaluate(() => {
+          // A timeline of what the page was actually told, from the page's own side.
+          window.__events = [];
+          const note = (type, detail = '') =>
+            window.__events.push([Math.round(performance.now()), type, detail]);
+          document.addEventListener(
+            'click',
+            (event) => {
+              const button = event.target.closest?.('button');
+              note(
+                'click',
+                button
+                  ? button.hasAttribute('data-background-play')
+                    ? 'play'
+                    : (button.textContent || '').trim().slice(0, 14)
+                  : event.target.tagName
+              );
+            },
+            true
+          );
+          document.addEventListener('visibilitychange', () =>
+            note('visibility', document.visibilityState)
+          );
+          matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', () =>
+            note('reduced-motion', String(matchMedia('(prefers-reduced-motion: reduce)').matches))
+          );
+        });
+        // BACKGROUND_UI_PAUSE_REPEAT=<n> repeats the choreography n times per page. It exists to
+        // gather the failure above faster on a CI matrix (every round prints its trace); a normal
+        // run does it once.
+        const rounds = Number(process.env.BACKGROUND_UI_PAUSE_REPEAT || 1);
+        for (let round = 1; round <= rounds; round++) {
+          if (round > 1) await page.locator('[data-background-reset]').click();
+          await page.evaluate(() => {
+            window.__events.length = 0;
+          });
+          const trace = [];
+          const mark = async (step) =>
+            trace.push([
+              step,
+              ...(await page.evaluate(() => {
+                const c = document.querySelector('[data-background-demo-canvas]');
+                const play = document.querySelector('[data-background-play]');
+                return [
+                  Math.round(performance.now()),
+                  play.textContent,
+                  play.disabled,
+                  window.__events.filter((event) => event[2] === 'play').length,
+                  Number(c.dataset.bgTicks),
+                  c.dataset.bgTransitioning,
+                  c.dataset.bgDisplayedProgress,
+                  document.hidden,
+                ];
+              })),
+            ]);
+          await mark('before');
+          await page.locator('[data-background-form="0"]').click();
+          await mark('form 0');
+          await page.waitForTimeout(150);
+          await page.locator('[data-background-play]').click();
+          await mark('play');
+          await page.waitForTimeout(200);
+          await page.locator('[data-background-play]').click();
+          await mark('pause');
+          console.log(
+            `[background-ui] ${label} pause choreography ${round}/${rounds} [step, ms, label, disabled, play clicks, ticks, transitioning, displayed, hidden]: ${JSON.stringify(trace)}`
+          );
+          try {
+            await still(page, true);
+          } catch (error) {
+            const events = await page.evaluate(() => window.__events);
+            throw new Error(
+              `${error.message} after ${JSON.stringify(trace)}; page events [ms, type, detail]: ${JSON.stringify(events)}`
+            );
+          }
+        }
         await page.locator('[data-background-reset]').click();
         assert.equal(
           await page
