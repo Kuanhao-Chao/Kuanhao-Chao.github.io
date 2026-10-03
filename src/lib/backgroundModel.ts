@@ -8,18 +8,36 @@ export interface BackgroundPreference {
 export const BACKGROUND_KEY = 'khc-background-v1';
 export const SCENES = ['cells', 'morph', 'off'] as const;
 export const MOTIONS = ['ambient', 'calm', 'paused'] as const;
+/** What a visitor with no saved choice sees. Its visible name, Sequence → Function, lives with the controls. */
+export const DEFAULT_SCENE: BackgroundScene = 'morph';
+/**
+ * Written once this release's default has been applied. The build before it saved its own default,
+ * Cells, to storage for every visitor on their first load, so a saved Cells looked exactly like a
+ * chosen one: changing DEFAULT_SCENE alone would have changed nothing for anyone who had already
+ * visited. Until the flag exists a saved Cells is moved to the default once; after it, a saved
+ * Cells is a choice and stays. The value is a version, so a later change of default can reuse the
+ * mechanism by changing the string. SiteBackground.astro mirrors this rule in its inline script.
+ */
+export const BACKGROUND_DEFAULT_KEY = 'khc-background-default';
+export const DEFAULT_SCENE_VERSION = 'sequence-function-1';
 
-export function resolveBackground(raw: string | null, legacy: string | null): BackgroundPreference {
+export function resolveBackground(
+  raw: string | null,
+  legacy: string | null,
+  seenDefault: string | null
+): BackgroundPreference {
   try {
     const value = JSON.parse(raw || 'null');
     if (value && MOTIONS.includes(value.motion)) {
-      return { scene: SCENES.includes(value.scene) ? value.scene : 'cells', motion: value.motion };
+      let scene: BackgroundScene = SCENES.includes(value.scene) ? value.scene : DEFAULT_SCENE;
+      if (scene === 'cells' && seenDefault !== DEFAULT_SCENE_VERSION) scene = DEFAULT_SCENE;
+      return { scene, motion: value.motion };
     }
   } catch {
     /* Invalid or old storage falls back to the legacy preference. */
   }
   return {
-    scene: legacy === 'off' ? 'off' : 'cells',
+    scene: legacy === 'off' ? 'off' : DEFAULT_SCENE,
     motion: legacy === 'calm' ? 'calm' : 'ambient',
   };
 }

@@ -1,7 +1,9 @@
 ---
+import { DEFAULT_SCENE } from '../lib/backgroundModel';
+// The default scene first. `morph` is the stored id and Sequence → Function the name a visitor reads.
 const scenes = [
+  ['morph', 'Sequence → Function'],
   ['cells', 'Cells'],
-  ['morph', 'Genome → Cell'],
   ['off', 'Off'],
 ];
 const motions = [
@@ -19,8 +21,8 @@ const motions = [
         <button
           type="button"
           role="radio"
-          aria-checked={value === 'cells' ? 'true' : 'false'}
-          tabindex={value === 'cells' ? 0 : -1}
+          aria-checked={value === DEFAULT_SCENE ? 'true' : 'false'}
+          tabindex={value === DEFAULT_SCENE ? 0 : -1}
           data-background-scene={value}
         >
           {label}

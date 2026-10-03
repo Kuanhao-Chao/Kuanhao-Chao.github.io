@@ -1,29 +1,36 @@
 ---
 /**
- * Decorative backgrounds on ordinary content pages: existing Cells (default),
- * Genome to Cell, or Off. One controller owns preferences and
- * lifecycle; the dedicated labs retain their own canvases and settings.
+ * Decorative backgrounds on ordinary content pages: Sequence → Function (the default; stored as
+ * `morph`), Cells, or Off. One controller owns preferences and lifecycle; the dedicated labs
+ * retain their own canvases and settings.
  */
 import CellStatusChip from './CellStatusChip.astro';
 import BackgroundExplorer from './BackgroundExplorer.astro';
 ---
 
 <script is:inline>
-  // Set before the hero mounts: a saved Off/alternate scene must never flash cells.
+  // Set before the hero mounts: a saved Off/alternate scene must never flash the wrong scene.
+  // This is resolveBackground (src/lib/backgroundModel.ts) written out by hand, because an inline
+  // script cannot import; backgroundModel.test.ts runs this very text against it. It reads storage
+  // and never writes it: initBackground does that, once, after hydration.
   try {
     let saved = null;
     try {
       saved = JSON.parse(localStorage.getItem('khc-background-v1') || 'null');
     } catch {}
     const legacy = localStorage.getItem('khc-cell-mode');
+    const seen = localStorage.getItem('khc-background-default');
     const valid = saved && ['ambient', 'calm', 'paused'].includes(saved.motion);
-    document.documentElement.dataset.backgroundScene = valid
+    let scene = valid
       ? ['cells', 'morph', 'off'].includes(saved.scene)
         ? saved.scene
-        : 'cells'
+        : 'morph'
       : legacy === 'off'
         ? 'off'
-        : 'cells';
+        : 'morph';
+    // A saved Cells from before this default existed is moved once (see BACKGROUND_DEFAULT_KEY).
+    if (valid && scene === 'cells' && seen !== 'sequence-function-1') scene = 'morph';
+    document.documentElement.dataset.backgroundScene = scene;
     document.documentElement.dataset.backgroundMotion = valid
       ? saved.motion
       : legacy === 'calm'

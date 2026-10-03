@@ -120,6 +120,17 @@ async function launch(name) {
   return browser;
 }
 const errors = [];
+// The flag initBackground writes once this release's default has been applied (see
+// BACKGROUND_DEFAULT_KEY in src/lib/backgroundModel.ts); spelled out here, not imported, so the
+// audit stays independent of the production constant it checks.
+const DEFAULT_FLAG = 'sequence-function-1';
+// A returning visitor who chose Cells after this release: the flag makes the choice stick instead of
+// being moved to the new default. Conditional, so a page that reloads mid-test keeps what it chose.
+const seedChosenCells = (flag) => {
+  if (localStorage.getItem('khc-background-v1') !== null) return;
+  localStorage.setItem('khc-background-v1', JSON.stringify({ scene: 'cells', motion: 'ambient' }));
+  localStorage.setItem('khc-background-default', flag);
+};
 // Independent approved order and exact canonical values, not read from production metadata.
 const forms = [
   ['dna', 0],
@@ -560,12 +571,7 @@ async function veilChecks(browser, name) {
       isMobile: phone,
     });
     try {
-      await cells.addInitScript(() => {
-        localStorage.setItem(
-          'khc-background-v1',
-          JSON.stringify({ scene: 'cells', motion: 'ambient' })
-        );
-      });
+      await cells.addInitScript(seedChosenCells, DEFAULT_FLAG);
       const page = await cells.newPage();
       page.on('pageerror', (e) => errors.push(`${label}-veil-cells: ${e.message}`));
       await page.goto('/?cell-audit=1');
@@ -856,25 +862,38 @@ async function slowPress(browser, engine, phone) {
   }
 }
 async function migrationChecks(browser, name) {
-  for (const [saved, legacy, expected] of [
-    [{ scene: 'flow', motion: 'calm' }, null, { scene: 'cells', motion: 'calm' }],
-    [{ scene: 'landscape', motion: 'paused' }, null, { scene: 'cells', motion: 'paused' }],
-    [{ scene: 'future', motion: 'calm' }, 'off', { scene: 'cells', motion: 'calm' }],
-    [{ scene: 'future', motion: 'paused' }, 'off', { scene: 'cells', motion: 'paused' }],
-    [{ scene: 'morph', motion: 'paused' }, null, { scene: 'morph', motion: 'paused' }],
-    [{ scene: 'off', motion: 'calm' }, null, { scene: 'off', motion: 'calm' }],
-    ['{broken', 'calm', { scene: 'cells', motion: 'calm' }],
-    [null, 'off', { scene: 'off', motion: 'ambient' }],
-  ]) {
+  // [saved choice, legacy cell mode, the default-applied flag, what must come out]
+  const cases = [
+    // Retired scenes become the default and keep a valid saved motion.
+    [{ scene: 'flow', motion: 'calm' }, null, DEFAULT_FLAG, { scene: 'morph', motion: 'calm' }],
+    [{ scene: 'landscape', motion: 'paused' }, null, DEFAULT_FLAG, { scene: 'morph', motion: 'paused' }],
+    [{ scene: 'future', motion: 'calm' }, 'off', DEFAULT_FLAG, { scene: 'morph', motion: 'calm' }],
+    [{ scene: 'future', motion: 'paused' }, 'off', DEFAULT_FLAG, { scene: 'morph', motion: 'paused' }],
+    // Explicit choices that are never moved, with or without the flag.
+    [{ scene: 'morph', motion: 'paused' }, null, null, { scene: 'morph', motion: 'paused' }],
+    [{ scene: 'off', motion: 'calm' }, null, null, { scene: 'off', motion: 'calm' }],
+    [{ scene: 'off', motion: 'paused' }, null, DEFAULT_FLAG, { scene: 'off', motion: 'paused' }],
+    // Storage that does not parse, or no storage at all.
+    ['{broken', 'calm', DEFAULT_FLAG, { scene: 'morph', motion: 'calm' }],
+    [null, 'off', null, { scene: 'off', motion: 'ambient' }],
+    [null, null, null, { scene: 'morph', motion: 'ambient' }],
+    // The old build saved Cells for everyone: moved once, and a Cells chosen afterwards stays.
+    [{ scene: 'cells', motion: 'ambient' }, null, null, { scene: 'morph', motion: 'ambient' }],
+    [{ scene: 'cells', motion: 'calm' }, null, null, { scene: 'morph', motion: 'calm' }],
+    [{ scene: 'cells', motion: 'paused' }, null, DEFAULT_FLAG, { scene: 'cells', motion: 'paused' }],
+    [{ scene: 'cells', motion: 'calm' }, null, DEFAULT_FLAG, { scene: 'cells', motion: 'calm' }],
+  ];
+  for (const [saved, legacy, flag, expected] of cases) {
     const context = await browser.newContext({ baseURL });
     try {
       const raw = typeof saved === 'string' || saved === null ? saved : JSON.stringify(saved);
       await context.addInitScript(
-        ({ raw, legacy }) => {
+        ({ raw, legacy, flag }) => {
           if (raw !== null) localStorage.setItem('khc-background-v1', raw);
           if (legacy !== null) localStorage.setItem('khc-cell-mode', legacy);
+          if (flag !== null) localStorage.setItem('khc-background-default', flag);
         },
-        { raw, legacy }
+        { raw, legacy, flag }
       );
       const page = await context.newPage();
       page.on('pageerror', (e) => errors.push(`${name}-migration: ${e.message}`));
@@ -896,7 +915,7 @@ async function migrationChecks(browser, name) {
             motion: document.documentElement.dataset.backgroundMotion,
           })),
           expected,
-          `pre-hydration resolution: ${raw}`
+          `pre-hydration resolution: ${raw} / ${legacy} / ${flag}`
         );
         assert.equal(
           await page.evaluate(() => document.documentElement.dataset.backgroundExploring),
@@ -907,6 +926,11 @@ async function migrationChecks(browser, name) {
           await page.evaluate(() => localStorage.getItem('khc-background-v1')),
           raw,
           'early paint must not silently rewrite storage'
+        );
+        assert.equal(
+          await page.evaluate(() => localStorage.getItem('khc-background-default')),
+          flag,
+          'early paint must not set the default-applied flag either'
         );
       } finally {
         releaseModules();
@@ -920,12 +944,17 @@ async function migrationChecks(browser, name) {
           motion: document.documentElement.dataset.backgroundMotion,
         })),
         expected,
-        `hydrated resolution: ${raw}`
+        `hydrated resolution: ${raw} / ${legacy} / ${flag}`
       );
       assert.deepEqual(
         await page.evaluate(() => JSON.parse(localStorage.getItem('khc-background-v1'))),
         expected,
         'hydration persists the migrated choice without losing motion'
+      );
+      assert.equal(
+        await page.evaluate(() => localStorage.getItem('khc-background-default')),
+        DEFAULT_FLAG,
+        'hydration records that this release default has been applied'
       );
       assert.equal(
         await page
@@ -944,12 +973,30 @@ async function migrationChecks(browser, name) {
         const snapshot = await page.evaluate(() => window.__khcCellsDebug.snapshot());
         assert.equal(snapshot.running, expected.motion !== 'paused');
         assert.equal(snapshot.mode, expected.motion === 'calm' ? 'calm' : 'ambient');
+        assert.equal(await page.locator('[data-art-bg-canvas]').isVisible(), false);
+      }
+      if (expected.scene === 'morph') {
+        // The default really draws: the artwork canvas is up and the Cells engine is not attached.
+        await page.waitForFunction(
+          () => document.querySelector('[data-art-bg-canvas]')?.dataset.bgScene === 'morph'
+        );
+        assert.equal(await page.locator('[data-art-bg-canvas]').isVisible(), true);
+        assert.equal(await page.locator('[data-site-bg-canvas]').isVisible(), false);
+        // The Cells engine installs its debug hook when it attaches, so on a page that never showed
+        // Cells there is no hook at all: absent and detached both mean "not running".
+        assert.notEqual(
+          await page.evaluate(() => window.__khcCellsDebug?.snapshot().attached),
+          true,
+          'the default scene must not attach the Cells engine'
+        );
       }
     } finally {
       await context.close();
     }
   }
-  console.log(`[background-ui] ${name} pre-hydration + hydrated migration: 8 cases passed`);
+  console.log(
+    `[background-ui] ${name} pre-hydration + hydrated migration: ${cases.length} cases passed`
+  );
 }
 async function scrub(page, progress) {
   await page.locator('[data-background-scrub]').evaluate((input, value) => {
@@ -1324,6 +1371,10 @@ try {
         await veilChecks(browser, name);
         continue;
       }
+      if (process.env.BACKGROUND_UI_MIGRATION_ONLY === '1') {
+        await migrationChecks(browser, name);
+        continue;
+      }
       if (process.env.BACKGROUND_UI_CLOCK_ONLY === '1') {
         // Just the virtual-time scenarios: the fast loop for harness work.
         for (const phone of process.env.BACKGROUND_UI_PHONE_ONLY === '1' ? [true] : [false, true]) {
@@ -1352,6 +1403,9 @@ try {
           isMobile: phone,
           deviceScaleFactor: phone ? 3 : 1,
         });
+        // This profile starts from a returning visitor who chose Cells, so it still exercises the
+        // switch away from the Cells engine; the default itself is asserted by migrationChecks.
+        await context.addInitScript(seedChosenCells, DEFAULT_FLAG);
         const page = await context.newPage();
         await throttleCpu(context, page, name);
         page.on('pageerror', (e) => errors.push(`${label}: ${e.message}`));
@@ -1369,8 +1423,8 @@ try {
           await page
             .locator('button[data-background-scene]')
             .evaluateAll((buttons) => buttons.map((button) => button.dataset.backgroundScene)),
-          ['cells', 'morph', 'off'],
-          'only the two supported scenes and accessibility Off are offered'
+          ['morph', 'cells', 'off'],
+          'the default scene first, then Cells, then accessibility Off'
         );
         await page.waitForFunction(() => window.__khcCellsDebug?.snapshot().running);
         await choose(page, 'scene', 'morph');
@@ -2091,13 +2145,22 @@ try {
           );
           await page.locator('[data-background-close]').click();
           await openAppearance(page);
-          await page.locator('button[data-background-scene="cells"]').focus();
+          await page.locator('button[data-background-scene="morph"]').focus();
           await page.keyboard.press('ArrowRight');
+          assert.equal(
+            await page
+              .locator('button[data-background-scene="cells"]')
+              .getAttribute('aria-checked'),
+            'true',
+            'ArrowRight moves from the default scene to Cells'
+          );
+          await page.keyboard.press('ArrowLeft');
           assert.equal(
             await page
               .locator('button[data-background-scene="morph"]')
               .getAttribute('aria-checked'),
-            'true'
+            'true',
+            'and ArrowLeft returns to it'
           );
           await page.locator('[data-background-explore]').click();
           assert.ok(
@@ -2122,7 +2185,15 @@ try {
       });
       const page = await context.newPage();
       page.on('pageerror', (e) => errors.push(`${name}-storage: ${e.message}`));
-      await page.goto('/');
+      await page.goto('/?cell-audit=1');
+      // No storage at all still opens on the default, in memory, and the controls still switch.
+      await page.waitForFunction(
+        () => document.querySelector('[data-art-bg-canvas]')?.dataset.bgScene === 'morph'
+      );
+      assert.equal(await page.locator('[data-art-bg-canvas]').isVisible(), true);
+      await choose(page, 'scene', 'cells');
+      await page.waitForFunction(() => window.__khcCellsDebug.snapshot().running);
+      assert.equal(await page.locator('[data-art-bg-canvas]').isVisible(), false);
       await choose(page, 'scene', 'morph');
       assert.equal(await page.locator('[data-art-bg-canvas]').isVisible(), true);
       await choose(page, 'motion', 'paused');
