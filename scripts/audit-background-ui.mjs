@@ -766,6 +766,61 @@ async function completePlayback(browser, engine, phone) {
     await context.close();
   }
 }
+// Say HOW two canvas captures differ. A bare "images are not equal" costs a CI round trip every
+// time it fails on a runner you cannot touch: how many pixels, where, by how much.
+async function describeImageDifference(page, first, second) {
+  return page.evaluate(
+    async ([a, b]) => {
+      const pixels = async (source) => {
+        const image = new Image();
+        await new Promise((resolve, reject) => {
+          image.onload = resolve;
+          image.onerror = reject;
+          image.src = source;
+        });
+        const canvas = document.createElement('canvas');
+        canvas.width = image.width;
+        canvas.height = image.height;
+        const context = canvas.getContext('2d');
+        context.drawImage(image, 0, 0);
+        return context.getImageData(0, 0, canvas.width, canvas.height);
+      };
+      const [x, y] = await Promise.all([pixels(a), pixels(b)]);
+      if (x.width !== y.width || x.height !== y.height)
+        return { sizes: [x.width, x.height, y.width, y.height] };
+      let differing = 0,
+        maxDelta = 0,
+        minX = Infinity,
+        minY = Infinity,
+        maxX = -1,
+        maxY = -1;
+      for (let row = 0; row < x.height; row++)
+        for (let col = 0; col < x.width; col++) {
+          const i = (row * x.width + col) * 4;
+          const delta = Math.max(
+            Math.abs(x.data[i] - y.data[i]),
+            Math.abs(x.data[i + 1] - y.data[i + 1]),
+            Math.abs(x.data[i + 2] - y.data[i + 2]),
+            Math.abs(x.data[i + 3] - y.data[i + 3])
+          );
+          if (!delta) continue;
+          differing++;
+          maxDelta = Math.max(maxDelta, delta);
+          minX = Math.min(minX, col);
+          minY = Math.min(minY, row);
+          maxX = Math.max(maxX, col);
+          maxY = Math.max(maxY, row);
+        }
+      return {
+        size: [x.width, x.height],
+        differing,
+        maxDelta,
+        box: differing ? [minX, minY, maxX, maxY] : null,
+      };
+    },
+    [first, second]
+  );
+}
 // Exact pixel equality across frames, asserted where it is deterministic. Under the fake clock a
 // frame costs 0 ms, so adaptive quality cannot move between two captures on any runner. The
 // real-time versions of these two checks (in the profile) compare only when the adaptive state
@@ -778,6 +833,30 @@ async function stirAndReset(browser, engine, phone) {
   try {
     const canvas = page.locator('[data-background-demo-canvas]');
     const image = () => canvas.evaluate((c) => c.toDataURL());
+    const state = () =>
+      canvas.evaluate((c) =>
+        Object.fromEntries(
+          [
+            'bgQuality',
+            'bgVisible',
+            'bgGlow',
+            'bgBokeh',
+            'bgStreaks',
+            'bgLife',
+            'bgPointer',
+            'bgInteractions',
+            'bgDisplayedProgress',
+            'bgTransitioning',
+            'bgTicks',
+          ].map((key) => [key, c.dataset[key]])
+        )
+      );
+    const sameImage = async (actual, expected, what, was, now) => {
+      if (actual === expected) return;
+      throw new Error(
+        `${what} (${label}): ${JSON.stringify(await describeImageDifference(page, actual, expected))} state ${JSON.stringify({ was, now })}`
+      );
+    };
     const labels = (on) =>
       page.locator('[data-background-labels]').evaluate((input, checked) => {
         input.checked = checked;
@@ -789,6 +868,7 @@ async function stirAndReset(browser, engine, phone) {
     await scrub(page, 0.5);
     await labels(true);
     const resting = await image();
+    const restingState = await state();
     const interactions = Number(await canvas.getAttribute('data-bg-interactions'));
     await pressDemo(page, 'stir');
     await page.clock.fastForward(100);
@@ -805,16 +885,19 @@ async function stirAndReset(browser, engine, phone) {
     );
     // Frames 180 ms apart, like a loaded phone: the disturbance still ends on wall time.
     for (let i = 0; i < 12; i++) await page.clock.fastForward(180);
-    assert.equal(
+    await sameImage(
       await image(),
       resting,
-      `a paused form must return exactly to its resting composition (${label})`
+      'a paused form must return exactly to its resting composition',
+      restingState,
+      await state()
     );
     const ticks = await frames(page, true);
     await page.clock.fastForward(1000);
     assert.equal(await frames(page, true), ticks, 'paused renderer must not continue drawing');
     // Reset from a disturbed finale restores canonical DNA exactly.
     await labels(false);
+    const canonicalState = await state();
     await scrub(page, 1);
     await pressDemo(page, 'stir');
     await page.clock.fastForward(100);
@@ -825,10 +908,12 @@ async function stirAndReset(browser, engine, phone) {
       'reset returns from a disturbed finale to canonical DNA'
     );
     assert.equal(await canvas.getAttribute('data-bg-transitioning'), 'false');
-    assert.equal(
+    await sameImage(
       await image(),
       canonical,
-      `reset restores exact unstirred geometry and decorative clock (${label})`
+      'reset restores exact unstirred geometry and decorative clock',
+      canonicalState,
+      await state()
     );
     console.log(`[background-ui] ${label} stir and reset: exact under the fake clock`);
   } finally {
