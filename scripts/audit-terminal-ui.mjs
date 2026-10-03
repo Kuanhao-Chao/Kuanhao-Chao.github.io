@@ -143,6 +143,70 @@ async function assertLayout(page, scope, profile) {
   if (!profile.mobile && result.keybarDisplay !== 'none') fail(scope, 'desktop shortcut bar is visible');
 }
 
+// The three traffic lights are controls, not highlighted buttons. The two <button> dots used to keep
+// the browser's own button face (a grey disc: rgb(239,239,239) light and rgb(107,107,107) dark in
+// Chromium, rgb(192,192,192) in WebKit) while the <a> zoom dot kept none, so only two of three looked
+// highlighted, and hover and focus grew a ring and scaled the dot as well. None of that may return.
+// What stays is the keyboard-only outline, which is an accessibility requirement and not a highlight.
+async function assertWindowControls(page, scope) {
+  const dots = page.locator('.term-bar .term-dot');
+  const count = await dots.count();
+  if (count !== 3) {
+    fail(scope, `expected three window controls, found ${count}`);
+    return;
+  }
+  const read = (index) =>
+    dots.nth(index).evaluate((element) => {
+      const host = getComputedStyle(element);
+      const dot = getComputedStyle(element, '::before');
+      return {
+        kind: [...element.classList].find((name) => name.startsWith('term-dot--')),
+        tag: element.tagName,
+        background: host.backgroundColor,
+        hostShadow: host.boxShadow,
+        dotShadow: dot.boxShadow,
+        hostTransform: host.transform,
+        dotTransform: dot.transform,
+      };
+    });
+  const isTransparent = (colour) => /^rgba\(0, 0, 0, 0\)$|^transparent$/.test(colour);
+  const isRest = (transform) => transform === 'none' || transform === 'matrix(1, 0, 0, 1, 0, 0)';
+  for (let index = 0; index < 3; index += 1) {
+    for (const state of ['at rest', 'hovered']) {
+      if (state === 'hovered') await dots.nth(index).hover();
+      const dot = await read(index);
+      const label = `${dot.kind} (${dot.tag}) ${state}`;
+      if (!isTransparent(dot.background)) fail(scope, `${label} paints a ${dot.background} background`);
+      if (dot.hostShadow !== 'none' || dot.dotShadow !== 'none') {
+        fail(scope, `${label} draws a ring: ${dot.hostShadow} / ${dot.dotShadow}`);
+      }
+      if (!isRest(dot.hostTransform) || !isRest(dot.dotTransform)) {
+        fail(scope, `${label} is scaled: ${dot.hostTransform} / ${dot.dotTransform}`);
+      }
+    }
+    await page.mouse.move(0, 0);
+  }
+  // A keyboard user still sees where focus is. Shift-Tab then Tab arrives by keyboard, which is what
+  // makes :focus-visible match; an engine that does not Tab to controls is reported, not failed.
+  let ringed = 0;
+  for (let index = 0; index < 3; index += 1) {
+    await dots.nth(index).focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    const ring = await dots.nth(index).evaluate((element) => ({
+      focused: document.activeElement === element,
+      style: getComputedStyle(element).outlineStyle,
+      width: parseFloat(getComputedStyle(element).outlineWidth),
+    }));
+    if (!ring.focused) continue;
+    if (ring.style === 'none' || ring.width < 2) {
+      fail(scope, `window control ${index} lost its keyboard focus ring (${ring.style} ${ring.width}px)`);
+    } else ringed += 1;
+  }
+  if (!ringed) console.log(`[terminal-ui] ${scope}: no window control is reachable by Tab in this engine; focus ring not measured`);
+  await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
+}
+
 async function runCommand(page, scope, command, profile) {
   await page.evaluate(async (line) => {
     await window.__terminal.submit('clear');
@@ -490,6 +554,7 @@ async function auditPage(page, scope, profile, route) {
   });
   await page.waitForFunction(() => !window.__terminal.booting());
   await assertLayout(page, scope, profile);
+  await assertWindowControls(page, scope);
 
   for (const command of commands) await runCommand(page, scope, command, profile);
   await assertScrollBehavior(page, scope, profile, route);
