@@ -821,6 +821,25 @@ async function describeImageDifference(page, first, second) {
     [first, second]
   );
 }
+// Two renders of one state are not always bit-identical. Chromium always is. Headless WebKit on
+// the CI runner differs from the FIRST draw of a form by up to 5 pixels (levels off by up to 102)
+// in 360,000, while warm redraws are byte-identical to each other (a CI probe, run 37117585115,
+// and the audit failures of run 37117300113). SAME_IMAGE_TOLERANCE is the fraction of pixels that
+// may differ: 0.05%, over twenty times that jitter. A residual displacement moves thousands: a
+// mutation that stops clearing the spring offsets after a stir changes 2,018 of 229,000.
+const SAME_IMAGE_TOLERANCE = 0.0005;
+async function assertSameImage(page, actual, expected, what, detail = {}) {
+  if (actual === expected) return 0;
+  const difference = await describeImageDifference(page, actual, expected);
+  const allowed = difference.size
+    ? Math.floor(difference.size[0] * difference.size[1] * SAME_IMAGE_TOLERANCE)
+    : 0;
+  if (!difference.size || difference.differing > allowed)
+    throw new Error(
+      `${what}: ${JSON.stringify(difference)}, at most ${allowed} may differ; ${JSON.stringify(detail)}`
+    );
+  return difference.differing;
+}
 // Exact pixel equality across frames, asserted where it is deterministic. Under the fake clock a
 // frame costs 0 ms, so adaptive quality cannot move between two captures on any runner. The
 // real-time versions of these two checks (in the profile) compare only when the adaptive state
@@ -851,10 +870,11 @@ async function stirAndReset(browser, engine, phone) {
           ].map((key) => [key, c.dataset[key]])
         )
       );
+    let jitter = 0;
     const sameImage = async (actual, expected, what, was, now) => {
-      if (actual === expected) return;
-      throw new Error(
-        `${what} (${label}): ${JSON.stringify(await describeImageDifference(page, actual, expected))} state ${JSON.stringify({ was, now })}`
+      jitter = Math.max(
+        jitter,
+        await assertSameImage(page, actual, expected, `${what} (${label})`, { was, now })
       );
     };
     const labels = (on) =>
@@ -915,7 +935,9 @@ async function stirAndReset(browser, engine, phone) {
       canonicalState,
       await state()
     );
-    console.log(`[background-ui] ${label} stir and reset: exact under the fake clock`);
+    console.log(
+      `[background-ui] ${label} stir and reset: exact under the fake clock (${jitter} px of rasteriser jitter at most)`
+    );
   } finally {
     await context.close();
   }
@@ -1365,9 +1387,12 @@ try {
           restingState.bgQuality === settledState.bgQuality &&
           restingState.bgVisible === settledState.bgVisible
         )
-          assert.ok(
-            settledImage === restingImage,
-            `a paused form must return exactly to its resting composition: ${JSON.stringify({ restingState, settledState })}`
+          await assertSameImage(
+            page,
+            settledImage,
+            restingImage,
+            'a paused form must return exactly to its resting composition',
+            { restingState, settledState }
           );
         else
           console.log(
@@ -1474,7 +1499,8 @@ try {
           afterReset.quality === resetSnapshot.quality &&
           afterReset.visible === resetSnapshot.visible
         )
-          assert.equal(
+          await assertSameImage(
+            page,
             afterReset.image,
             resetSnapshot.image,
             'reset restores exact unstirred geometry and decorative clock'
