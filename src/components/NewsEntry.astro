@@ -23,6 +23,7 @@ const searchText = `${d.title} ${entry.body ?? ''} ${d.location ?? ''}`.toLowerC
   data-year={d.date.getUTCFullYear()}
   data-ts={d.date.getTime()}
   data-search={searchText}
+  data-veiled={variant === 'card' ? '' : undefined}
 >
   <div class="news-meta">
     <time datetime={d.date.toISOString()}>{dateLabel}</time>
@@ -102,6 +103,10 @@ const searchText = `${d.title} ${entry.body ?? ''} ${d.location ?? ''}`.toLowerC
   }
   .news--card:hover {
     border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-rule));
+  }
+  /* The veil: see ResearchCard.astro. Only the homepage uses this variant. */
+  :global(html[data-background-scene='morph']) .news--card {
+    background: color-mix(in srgb, var(--color-surface) var(--veil-fill), transparent);
   }
   .news--card .news-meta {
     flex-direction: row;

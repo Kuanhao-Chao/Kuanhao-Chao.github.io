@@ -359,41 +359,231 @@ async function luminousChecks(browser, name) {
   assert.deepEqual(failures, [], 'fitted luminous DNA');
   console.log(`[background-ui] ${name} luminous fit: 6 widths passed`);
 }
-async function assertReadingClearance(page) {
-  const measured = await page.evaluate(() => {
-    const canvas = document.querySelector('[data-art-bg-canvas]');
-    const ctx = canvas.getContext('2d');
-    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-    const ratio = canvas.width / canvas.clientWidth;
-    let max = 0,
-      count = 0;
-    for (const element of document.querySelectorAll(
-      'main h1, main h2, main p, main [data-terminal]'
-    )) {
-      const r = element.getBoundingClientRect();
-      for (
-        let y = Math.max(0, Math.ceil(r.top + 2));
-        y < Math.min(innerHeight, r.bottom - 2);
-        y += 5
-      )
+// Reading clearance, split by what sits in front of the art. Objects (the terminal) stay fully
+// cleared. Text on the homepage lets through at most the veil: the same number the CSS token holds
+// and the mask publishes as data-bg-veil. Everywhere else the veil is 0 and text is cleared as before.
+function clearanceCap(veil) {
+  // One 8-bit unit for the mask's scaling to the backing store, one for the feathered edge's rounding.
+  return veil > 0 ? Math.ceil(veil * 255) + 2 : 1;
+}
+async function sampleArtAlpha(page, selector, { within } = {}) {
+  return page.evaluate(
+    ([selector, within]) => {
+      const canvas = document.querySelector('[data-art-bg-canvas]');
+      const ctx = canvas.getContext('2d');
+      const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      const ratio = canvas.width / canvas.clientWidth;
+      const box = within
+        ? {
+            left: innerWidth / 2 - within[0],
+            right: innerWidth / 2 + within[0],
+            top: innerHeight / 2 - within[1],
+            bottom: innerHeight / 2 + within[1],
+          }
+        : { left: 0, right: innerWidth, top: 0, bottom: innerHeight };
+      let max = 0,
+        count = 0,
+        lit = 0;
+      for (const element of document.querySelectorAll(selector)) {
+        const r = element.getBoundingClientRect();
+        const step = within ? 2 : 5;
         for (
-          let x = Math.max(0, Math.ceil(r.left + 2));
-          x < Math.min(innerWidth, r.right - 2);
-          x += 5
-        ) {
-          max = Math.max(
-            max,
-            pixels[(Math.floor(y * ratio) * canvas.width + Math.floor(x * ratio)) * 4 + 3]
-          );
-          count++;
-        }
-    }
-    return { max, count };
-  });
-  assert.ok(measured.count > 100, 'sample actual visible reading areas');
+          let y = Math.max(box.top, Math.ceil(r.top + 2));
+          y < Math.min(box.bottom, r.bottom - 2);
+          y += step
+        )
+          for (
+            let x = Math.max(box.left, Math.ceil(r.left + 2));
+            x < Math.min(box.right, r.right - 2);
+            x += step
+          ) {
+            const alpha =
+              pixels[(Math.floor(y * ratio) * canvas.width + Math.floor(x * ratio)) * 4 + 3];
+            max = Math.max(max, alpha);
+            if (alpha > 3) lit++;
+            count++;
+          }
+      }
+      return { max, count, lit, veil: Number(canvas.dataset.bgVeil) };
+    },
+    [selector, within ?? null]
+  );
+}
+async function assertReadingClearance(page) {
+  const text = await sampleArtAlpha(page, 'main h1, main h2, main p');
+  const objects = await sampleArtAlpha(page, 'main [data-terminal]');
+  assert.ok(text.count > 100, 'sample actual visible reading areas');
+  // The terminal can be below the fold in a short or narrow profile; veilChecks samples a real
+  // object (the software logos) with the art behind it, so an empty sample here proves nothing wrong.
   // The CSS-resolution mask is scaled to the DPR backing store: permit one
-  // 8-bit alpha rounding unit, not a visible light pass over reading material.
-  assert.ok(measured.max <= 1, `reading-clearance mask alpha ${measured.max}/255`);
+  // 8-bit alpha rounding unit, not a visible light pass over an object.
+  assert.ok(objects.max <= 1, `terminal clearance mask alpha ${objects.max}/255`);
+  assert.ok(
+    text.max <= clearanceCap(text.veil),
+    `reading-clearance mask alpha ${text.max}/255 exceeds the veil cap ${clearanceCap(text.veil)} (veil ${text.veil})`
+  );
+}
+// The reading veil, on its own fresh pages. The homepage lets a fixed fraction of the art through
+// text and translucent cards; a veiled card is translucent in CSS and so is NOT also erased by the
+// mask (that would attenuate twice); objects stay cleared; other pages are unchanged; Cells and Off
+// keep opaque cards. Each probe puts one element at the viewport centre, where the art always is
+// on the homepage after the hero, and samples only the central box the art can reach.
+async function veilChecks(browser, name) {
+  for (const phone of [false, true]) {
+    const label = `${name}-${phone ? 'phone' : 'desktop'}`;
+    const margins = {};
+    const context = await browser.newContext({
+      baseURL,
+      viewport: phone ? { width: 390, height: 844 } : { width: 1440, height: 900 },
+      hasTouch: phone,
+      isMobile: phone,
+      deviceScaleFactor: phone ? 2 : 1,
+    });
+    try {
+      await context.addInitScript(() => {
+        localStorage.setItem(
+          'khc-background-v1',
+          JSON.stringify({ scene: 'morph', motion: 'ambient' })
+        );
+      });
+      const page = await context.newPage();
+      await throttleCpu(context, page, name);
+      page.on('pageerror', (e) => errors.push(`${label}-veil: ${e.message}`));
+      await page.goto('/?cell-audit=1');
+      await page.waitForFunction(
+        () => document.querySelector('[data-art-bg-canvas]')?.dataset.bgSoft !== undefined,
+        undefined,
+        { timeout: 30_000 }
+      );
+      await drawn(page, { atLeast: 3 });
+      const state = await page.evaluate(() => {
+        const canvas = document.querySelector('[data-art-bg-canvas]');
+        const root = getComputedStyle(document.documentElement);
+        const fill = (selector) => {
+          const colour = getComputedStyle(document.querySelector(selector)).backgroundColor;
+          const match = /rgba?\(([^)]*)\)|color\(srgb ([^)]*)\)/.exec(colour);
+          const parts = (match?.[1] ?? match?.[2] ?? '').split(/[ ,/]+/).filter(Boolean);
+          return parts.length > 3 ? Number(parts[3]) : 1;
+        };
+        return {
+          token: root.getPropertyValue('--art-through').trim(),
+          veil: canvas.dataset.bgVeil,
+          soft: Number(canvas.dataset.bgSoft),
+          solid: Number(canvas.dataset.bgSolid),
+          research: fill('.rcard--home'),
+          tool: fill('.home-tool'),
+          news: fill('.news--card'),
+        };
+      });
+      const through = Number(state.token);
+      assert.equal(Number(state.veil), through, `${label}: the mask reads the token (${JSON.stringify(state)})`);
+      assert.ok(state.soft > 20 && state.solid > 5, `${label}: the mask has both kinds: ${JSON.stringify(state)}`);
+      for (const card of ['research', 'tool', 'news'])
+        assert.ok(
+          Math.abs(state[card] - (1 - through)) < 0.02,
+          `${label}: a veiled ${card} card fills at ${state[card]}, expected ${1 - through}`
+        );
+      const cap = clearanceCap(through);
+      const central = phone ? [150, 120] : [200, 120];
+      let target = null;
+      const centre = async (selector) => {
+        target = selector;
+        await page.evaluate((s) => {
+          const el = document.querySelector(s);
+          const r = el.getBoundingClientRect();
+          window.scrollTo({ top: window.scrollY + r.top + r.height / 2 - innerHeight / 2, behavior: 'instant' });
+        }, selector);
+      };
+      // A [data-reveal] section eases up by 10px as it appears and the mask re-measures when that
+      // transition ends, so wait for the section to be in place, then for frames drawn after it.
+      const settle = async () => {
+        await page.waitForFunction(
+          (s) => {
+            const section = document.querySelector(s)?.closest('[data-reveal]');
+            if (!section) return true;
+            const style = getComputedStyle(section);
+            return style.opacity === '1' && (style.transform === 'none' || style.transform === 'matrix(1, 0, 0, 1, 0, 0)');
+          },
+          target,
+          { timeout: 10_000, polling: 100 }
+        );
+        await drawn(page, { more: 4 });
+      };
+      // Text: some art, never more than the veil.
+      await centre('.home-pubs');
+      await settle();
+      const text = await sampleArtAlpha(page, '.home-pubs li', { within: central });
+      margins.text = text.max;
+      assert.ok(text.count > 200, `${label}: ${text.count} text pixels sampled at the art`);
+      assert.ok(text.lit > 0 && text.max > 3, `${label}: the art shows through text (max ${text.max}, lit ${text.lit})`);
+      assert.ok(text.max <= cap, `${label}: text lets through ${text.max}/255, cap ${cap}`);
+      // A veiled card: the mask leaves the art whole behind its text (the card's own fill does the
+      // veiling), so the canvas is brighter there than text may be. Erasing it twice would not be.
+      await centre('.home-research');
+      await settle();
+      const card = await sampleArtAlpha(page, '.rcard--home', { within: central });
+      margins.card = card.max;
+      assert.ok(card.count > 200, `${label}: ${card.count} card pixels sampled at the art`);
+      assert.ok(
+        card.max > cap,
+        `${label}: the mask is also erasing behind a veiled card (canvas ${card.max}/255, text cap ${cap}): attenuated twice`
+      );
+      // Objects stay cleared whatever is behind them: the software logos, with the art centred on them.
+      await centre('.home-tools');
+      await settle();
+      const logos = await sampleArtAlpha(page, '.home-tools img', { within: central });
+      assert.ok(logos.count > 20, `${label}: ${logos.count} logo pixels sampled at the art`);
+      assert.ok(logos.max <= 1, `${label}: an image is fully cleared (${logos.max}/255)`);
+      // Other pages are unchanged: no veil, text fully cleared.
+      await page.goto('/research/?cell-audit=1');
+      await page.waitForFunction(
+        () => document.querySelector('[data-art-bg-canvas]')?.dataset.bgSoft !== undefined,
+        undefined,
+        { timeout: 30_000 }
+      );
+      await drawn(page, { atLeast: 3 });
+      const other = await page.evaluate(() => {
+        const canvas = document.querySelector('[data-art-bg-canvas]');
+        return { veil: canvas.dataset.bgVeil, soft: canvas.dataset.bgSoft };
+      });
+      assert.deepEqual(other, { veil: '0.00', soft: '0' }, `${label}: /research/ keeps the solid mask`);
+      const prose = await sampleArtAlpha(page, 'main h1, main h2, main p');
+      assert.ok(prose.max <= 1, `${label}: /research/ text stays fully cleared (${prose.max}/255)`);
+    } finally {
+      await context.close();
+    }
+    // Cells keeps opaque cards: the translucency is the Sequence → Function scene's alone.
+    const cells = await browser.newContext({
+      baseURL,
+      viewport: phone ? { width: 390, height: 844 } : { width: 1440, height: 900 },
+      hasTouch: phone,
+      isMobile: phone,
+    });
+    try {
+      await cells.addInitScript(() => {
+        localStorage.setItem(
+          'khc-background-v1',
+          JSON.stringify({ scene: 'cells', motion: 'ambient' })
+        );
+      });
+      const page = await cells.newPage();
+      page.on('pageerror', (e) => errors.push(`${label}-veil-cells: ${e.message}`));
+      await page.goto('/?cell-audit=1');
+      await page.waitForFunction(() => document.documentElement.dataset.backgroundScene === 'cells');
+      const opaque = await page.evaluate(() =>
+        ['.rcard--home', '.home-tool', '.news--card'].map(
+          (s) => getComputedStyle(document.querySelector(s)).backgroundColor
+        )
+      );
+      for (const colour of opaque)
+        assert.ok(!/rgba\([^)]*,\s*0?\.\d+\)|\/\s*0?\.\d+\)/.test(colour), `${label}: Cells cards stay opaque (${colour})`);
+    } finally {
+      await cells.close();
+    }
+    console.log(
+      `[background-ui] ${label} reading veil: text ${margins.text}/255 (cap ${clearanceCap(0.3)}), veiled card ${margins.card}/255 unmasked, objects cleared, other pages solid, Cells opaque`
+    );
+  }
 }
 async function assertEffects(
   page,
@@ -1130,6 +1320,10 @@ try {
         await effectLifecycle(browser, name, false);
         continue;
       }
+      if (process.env.BACKGROUND_UI_VEIL_ONLY === '1') {
+        await veilChecks(browser, name);
+        continue;
+      }
       if (process.env.BACKGROUND_UI_CLOCK_ONLY === '1') {
         // Just the virtual-time scenarios: the fast loop for harness work.
         for (const phone of process.env.BACKGROUND_UI_PHONE_ONLY === '1' ? [true] : [false, true]) {
@@ -1145,6 +1339,7 @@ try {
         continue;
       }
       await luminousChecks(browser, name);
+      await veilChecks(browser, name);
       if (process.env.BACKGROUND_UI_LIGHT_ONLY === '1') continue;
       await migrationChecks(browser, name);
       for (const phone of process.env.BACKGROUND_UI_PHONE_ONLY === '1' ? [true] : [false, true]) {

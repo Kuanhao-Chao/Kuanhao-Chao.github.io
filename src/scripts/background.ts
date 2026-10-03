@@ -7,6 +7,13 @@ import {
   type BackgroundPreference,
 } from '../lib/backgroundModel';
 import { setLabel } from '../lib/domLabel';
+import {
+  SOFT_SELECTOR,
+  SOLID_SELECTOR,
+  readVeil,
+  softEraseAlpha,
+  type VeilKind,
+} from '../lib/readingVeil';
 import { getLivingCellsEngine } from '../lib/livingCellsEngine';
 import type { SceneRenderer } from '../lib/sceneRenderer';
 import {
@@ -23,8 +30,11 @@ let generation = 0;
 let installed = false;
 let resizeObserver: ResizeObserver | null = null;
 let maskRaf = 0;
-let bounds: Array<{ x: number; y: number; w: number; h: number }> = [];
+let bounds: Array<{ x: number; y: number; w: number; h: number; kind: VeilKind }> = [];
 let mask: HTMLCanvasElement | null = null;
+// The soft boxes are painted here, opaque, and laid on `mask` once; `veil` is 0 off the homepage.
+let veilLayer: HTMLCanvasElement | null = null;
+let veil = 0;
 let demo: SceneRenderer | null = null;
 let demoGeneration = 0;
 let demoPlaying = false;
@@ -110,18 +120,31 @@ function applyRunning() {
 function collectBounds() {
   bounds = [];
   if (!canvas || !renderer) return;
-  const selector =
-    'main h1, main h2, main h3, main h4, main h5, main h6, main a, main label, main p, main li, main dt, main dd, main blockquote, main pre, main table, main button, main input, main select, main summary, main img, main canvas, main iframe, main video, main audio, main [data-terminal], main [data-cell-protected], main [data-background-protected], header.site-header, footer';
-  document.querySelectorAll<HTMLElement>(selector).forEach((element) => {
-    if (element.closest('[data-background-dialog]')) return;
-    // Closed <details> descendants can retain nonempty client rects in some
-    // engines even though only their summary is painted. Do not erase art for them.
-    if (element.closest('details:not([open]) > :not(summary)')) return;
-    for (const r of element.getClientRects()) {
-      if (r.width && r.height)
-        bounds.push({ x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height });
-    }
-  });
+  // Homepage only: every other page keeps the fully cleared reading area.
+  veil = readVeil(
+    getComputedStyle(document.documentElement).getPropertyValue('--art-through'),
+    location.pathname === '/'
+  );
+  const collect = (selector: string, kind: VeilKind) =>
+    document.querySelectorAll<HTMLElement>(selector).forEach((element) => {
+      if (element.closest('[data-background-dialog]')) return;
+      // Closed <details> descendants can retain nonempty client rects in some
+      // engines even though only their summary is painted. Do not erase art for them.
+      if (element.closest('details:not([open]) > :not(summary)')) return;
+      // A veiled card is translucent in CSS. Erasing the art behind its text as well would
+      // attenuate it twice (0.3 x 0.3), so text inside one is left to the card.
+      if (kind === 'soft' && element.closest('[data-veiled]')) return;
+      for (const r of element.getClientRects()) {
+        if (r.width && r.height)
+          bounds.push({ x: r.left + scrollX, y: r.top + scrollY, w: r.width, h: r.height, kind });
+      }
+    });
+  collect(SOFT_SELECTOR, veil > 0 ? 'soft' : 'solid');
+  collect(SOLID_SELECTOR, 'solid');
+  // A canvas has no elements to inspect: publish what the mask is made of for the audit.
+  canvas.dataset.bgVeil = veil.toFixed(2);
+  canvas.dataset.bgSoft = String(bounds.filter((rect) => rect.kind === 'soft').length);
+  canvas.dataset.bgSolid = String(bounds.filter((rect) => rect.kind === 'solid').length);
   storyChapters = [];
   for (const stage of MORPH_STAGES) {
     const element = document.querySelector<HTMLElement>(`[data-background-stage="${stage.id}"]`);
@@ -143,6 +166,19 @@ function updateStory() {
       : 0.5;
   if (Math.abs((renderer.getProgress?.() ?? -1) - progress) > 0.002) renderer.setProgress(progress);
 }
+function paintRects(ctx: CanvasRenderingContext2D, kind: VeilKind, w: number, h: number) {
+  ctx.shadowColor = '#000';
+  ctx.shadowBlur = 18;
+  ctx.fillStyle = '#000';
+  for (const rect of bounds) {
+    if (rect.kind !== kind) continue;
+    const x = rect.x - scrollX,
+      y = rect.y - scrollY;
+    if (y > h + 30 || y + rect.h < -30 || x > w + 30 || x + rect.w < -30) continue;
+    ctx.fillRect(x - 6, y - 6, rect.w + 12, rect.h + 12);
+  }
+  ctx.shadowBlur = 0;
+}
 function paintMask() {
   maskRaf = 0;
   if (!canvas || !renderer || !mask) return;
@@ -155,16 +191,25 @@ function paintMask() {
   const ctx = mask.getContext('2d');
   if (!ctx) return;
   ctx.clearRect(0, 0, w, h);
-  for (const rect of bounds) {
-    const x = rect.x - scrollX,
-      y = rect.y - scrollY;
-    if (y > h + 30 || y + rect.h < -30 || x > w + 30 || x + rect.w < -30) continue;
-    ctx.shadowColor = '#000';
-    ctx.shadowBlur = 18;
-    ctx.fillStyle = '#000';
-    ctx.fillRect(x - 6, y - 6, rect.w + 12, rect.h + 12);
+  if (veil > 0 && veilLayer && w && h) {
+    // The union of the soft boxes, painted opaque on a layer of its own and laid on the mask ONCE at
+    // (1 - veil). Painting each box at that alpha would stack wherever boxes nest (a p in an li in
+    // an a) and darken to 1 - veil^n, which is the solid clearance this exists to relax.
+    if (veilLayer.width !== w || veilLayer.height !== h) {
+      veilLayer.width = w;
+      veilLayer.height = h;
+    }
+    const layer = veilLayer.getContext('2d');
+    if (layer) {
+      layer.clearRect(0, 0, w, h);
+      paintRects(layer, 'soft', w, h);
+      ctx.globalAlpha = softEraseAlpha(veil);
+      ctx.drawImage(veilLayer, 0, 0);
+      ctx.globalAlpha = 1;
+    }
   }
-  ctx.shadowBlur = 0;
+  // Objects, controls, media, the terminal and the chrome stay fully cleared, on top of the veil.
+  paintRects(ctx, 'solid', w, h);
   updateStory();
   // The fixed header does not move with the document-coordinate boxes above.
   const header = $('.site-header');
@@ -217,6 +262,8 @@ function detach() {
   getLivingCellsEngine().detach();
   canvas = null;
   mask = null;
+  veilLayer = null;
+  veil = 0;
   bounds = [];
   storyChapters = [];
   cancelAnimationFrame(maskRaf);
@@ -258,6 +305,7 @@ async function attach() {
       );
       renderer.setMotion(preference.motion);
       mask = document.createElement('canvas');
+      veilLayer = document.createElement('canvas');
       collectBounds();
       resizeObserver = new ResizeObserver(collectBounds);
       resizeObserver.observe(document.body);
@@ -632,8 +680,8 @@ export function initBackground() {
   document.addEventListener('toggle', collectBounds, true);
   // Sections marked [data-reveal] ease up by 10px as they scroll into view (global.css). Their boxes
   // are measured with that transform in effect, so until something re-measured them the mask sat
-  // 10px low: the top edge of an image or the genome browser was only half cleared, and a text
-  // box's feathered edge sat below its text. A transform changes no layout, so neither the resize
+  // 10px low: the top edge of an image or the genome browser was only half cleared, and the veil's
+  // feathered edge sat below its text. A transform changes no layout, so neither the resize
   // observer nor a resize event notices; the end of the transition is the moment the boxes settle.
   document.addEventListener(
     'transitionend',

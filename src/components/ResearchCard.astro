@@ -16,7 +16,7 @@ const blogLinks = showPosts ? await resolveRelatedPosts(d.relatedPosts.map((r) =
 ---
 {
   variant === 'home' ? (
-    <article class="rcard rcard--home">
+    <article class="rcard rcard--home" data-veiled>
       <a href={href} class="rcard-home-link">
         <span class="rcard-media">
           <ResearchMotif id={entry.id} class="research-motif" />
@@ -81,6 +81,15 @@ const blogLinks = showPosts ? await resolveRelatedPosts(d.relatedPosts.map((r) =
 
   .rcard--home {
     background: var(--color-surface);
+  }
+  /* Sequence → Function lets the background art show through each card at the veil strength
+     (--art-through in tokens.css, --veil-fill its complement). `data-veiled` on the card tells the
+     reading mask not to erase the art behind its text as well, which would attenuate it twice. */
+  :global(html[data-background-scene='morph']) .rcard--home {
+    background: color-mix(in srgb, var(--color-surface) var(--veil-fill), transparent);
+  }
+  :global(html[data-background-scene='morph']) .rcard-home-link:hover {
+    background: color-mix(in srgb, var(--color-accent) 4%, transparent);
   }
   .rcard-home-link {
     display: flex;

@@ -81,6 +81,14 @@
   --gutter: clamp(1.25rem, 4vw, 2.5rem);
 
   --transition: 160ms ease;
+
+  /* The homepage reading veil: how much of the background art may show through text and cards.
+     ONE number. src/scripts/background.ts reads --art-through for the text mask, and the
+     translucent homepage cards fill with --veil-fill, its complement as a percentage for
+     color-mix, so the two layers cannot disagree. 0 restores the fully cleared reading area.
+     Tune by eye within 0.25-0.40; src/lib/readingVeil.test.ts pins the pairing. */
+  --art-through: 0.3;
+  --veil-fill: calc((1 - var(--art-through)) * 100%);
 }
 
 :root[data-theme='dark'] {
