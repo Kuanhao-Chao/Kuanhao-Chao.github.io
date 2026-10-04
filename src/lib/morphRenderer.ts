@@ -24,7 +24,6 @@ import {
   sampleNetworkEdge,
   NETWORK_NODE_COUNT,
   NETWORK_EDGES,
-  normalDensity,
 } from './morphTargets';
 import {
   GENE,
@@ -55,13 +54,28 @@ import {
   locusDotClass,
   locusX,
 } from './morphLocus';
+import {
+  ATTN_X0,
+  ATTN_X1,
+  HUB_X,
+  PULSE_SLOTS,
+  SITES,
+  Y_SEQ,
+  arcAlpha,
+  arcPoint,
+  arcWidth,
+  attentionAnchors,
+  attentionDotClass,
+  nodeRadius,
+  pulseEnvelope,
+} from './morphAttention';
 import { PROTEIN_SECONDARY_STRUCTURE } from '../data/morphProtein';
 import type { SceneRenderer } from './sceneRenderer';
 import { fitHorizontal } from './morphLighting';
 import {
   readHead,
   networkPackets,
-  rainSample,
+  attentionPulse,
   turntableYaw,
   streakStrength,
   bokehDot,
@@ -76,9 +90,9 @@ interface Caption {
   short?: string;
   room?: number;
 }
-const PROJECTED_EXTENTS = [0.74, 0.5, 1.1, 0.86, 0.46, 0.7, 0.51];
-// The RNA scene draws its own overlay (drawSplicing), so it is not among these.
-const ACCENT_STAGES = ['protein', 'network', 'distribution'] as const;
+const PROJECTED_EXTENTS = [0.74, 0.5, 1.1, 0.86, 0.46, 0.7, 0.46];
+// The RNA, coverage and attention scenes draw their own overlays, so they are not among these.
+const ACCENT_STAGES = ['protein', 'network'] as const;
 const STRUCTURE_LABELS = [
   ['DNA · paired strands', 'Representative genetic information'],
   [
@@ -92,7 +106,10 @@ const STRUCTURE_LABELS = [
     'Coverage on exons · arcs are junction reads, thicker = more reads',
   ],
   ['Generic neural model · five layers', '4 → 6 → 8 → 6 → 3 · not Shorkie'],
-  ['Standard-normal probability density', 'Standardized response → · illustrative'],
+  [
+    'Attention arcs · illustrative',
+    'One promoter weighs nine distal sites · arc width = attention, weights sum to 1',
+  ],
 ];
 
 /** Layered Canvas2D illustration; anatomy and particle geometry share one sampler. */
@@ -117,24 +134,25 @@ export function createMorphRenderer(
   const streakBands = new Uint8Array(particles.length);
   const life: LifeClock = { time: 0, amount: 0 };
   const packet = { t: 0, alpha: 0 };
-  const rain = { x: 0, y: 0, alpha: 0 };
   const bokeh = { x: 0, y: 0, radius: 0, alpha: 0 };
   const lights = [document.createElement('canvas'), document.createElement('canvas')];
   const splice = newSpliceState();
   // The ink of each particle while the RNA scene is up: fixed per particle, so decided once.
   const rnaClasses = Uint8Array.from(particles, (p) => rnaDotClass(p));
   const locusClasses = Uint8Array.from(particles, (p) => locusDotClass(p));
+  const attentionClasses = Uint8Array.from(particles, (p) => attentionDotClass(p));
   let historyReady = false,
     darkLight = false,
     paletteVersion = 0;
   let glowCount = 0,
     streakCount = 0,
-    rainCount = 0,
+    pulseCount = 0,
     packetCount = 0,
     bokehCount = 0,
     spliceCount = 0,
     sparkCount = 0,
-    junctionCount = 0;
+    junctionCount = 0,
+    arcCount = 0;
   // Linked buckets: six depth bands × three inks × three sizes × twelve opacities.
   // Build once per frame without sorting, allocating arrays, or drawing each dot separately.
   const bucketHeads = new Int32Array(6 * 3 * 3 * 12);
@@ -195,8 +213,7 @@ export function createMorphRenderer(
     canvas.dataset.bgFallback !== 'static';
 
   function layout() {
-    const dimensional =
-      1 - stageWeight(displayed, 'signal') - stageWeight(displayed, 'distribution');
+    const dimensional = 1 - stageWeight(displayed, 'signal') - stageWeight(displayed, 'attention');
     perspective = 1 - stageWeight(displayed, 'protein');
     const restraint = motion === 'calm' ? 0.45 : 1;
     yaw = dimensional * restraint * (Math.sin(clock * 0.075) * 0.09 + pointerX * 0.16);
@@ -516,6 +533,81 @@ export function createMorphRenderer(
     context.restore();
   }
   /**
+   * The attention scene, drawn through the particles: the sequence with faint ticks, the promoter and
+   * the nine sites as rings, and an arc from the promoter to each site, bolder for more attention and
+   * warm for the strongest. Every curve comes from morphAttention, the same functions that place the
+   * dots, so an arc cannot leave anywhere but the promoter.
+   */
+  function drawAttention() {
+    const weight = stageWeight(displayed, 'attention');
+    if (weight < 0.005) return;
+    const base = opacity() * weight;
+    context.save();
+    point.x = ATTN_X0;
+    point.y = Y_SEQ;
+    point.z = 0;
+    project(point);
+    const lineX = point.x,
+      lineY = point.y;
+    point.x = ATTN_X1;
+    point.y = Y_SEQ;
+    project(point);
+    context.beginPath();
+    context.moveTo(lineX, lineY);
+    context.lineTo(point.x, point.y);
+    context.strokeStyle = ink;
+    context.lineWidth = 0.9;
+    context.globalAlpha = base * 0.3;
+    context.stroke();
+    // A tick every 0.04 of the sequence, a longer one every fifth.
+    context.beginPath();
+    for (let i = 0; i <= 46; i++) {
+      const reach = i % 5 === 0 ? 0.014 : 0.007;
+      const x = ATTN_X0 + ((ATTN_X1 - ATTN_X0) * i) / 46;
+      for (const y of [Y_SEQ - reach, Y_SEQ + reach]) {
+        point.x = x;
+        point.y = y;
+        point.z = 0;
+        project(point);
+        if (y < Y_SEQ) context.moveTo(point.x, point.y);
+        else context.lineTo(point.x, point.y);
+      }
+    }
+    context.globalAlpha = base * 0.2;
+    context.stroke();
+    for (let k = 0; k < SITES.length; k++) {
+      context.beginPath();
+      for (let i = 0; i <= 56; i++) {
+        arcPoint(k, i / 56, point);
+        project(point);
+        if (!i) context.moveTo(point.x, point.y);
+        else context.lineTo(point.x, point.y);
+      }
+      context.strokeStyle = SITES[k].hot ? highlight : accent;
+      context.lineWidth = arcWidth(k) * (demo ? 1.25 : 1);
+      context.globalAlpha = base * arcAlpha(k);
+      context.stroke();
+      arcCount++;
+    }
+    for (let node = 0; node <= SITES.length; node++) {
+      const hot = node === 0 || SITES[node - 1].hot;
+      point.x = node === 0 ? HUB_X : SITES[node - 1].x;
+      point.y = Y_SEQ;
+      point.z = 0;
+      project(point);
+      context.beginPath();
+      context.arc(point.x, point.y, nodeRadius(node) * scale, 0, TAU);
+      context.fillStyle = hot ? highlight : accent;
+      context.globalAlpha = base * (node === 0 ? 0.28 : 0.2);
+      context.fill();
+      context.strokeStyle = hot ? highlight : accent;
+      context.lineWidth = demo ? 1.4 : 1;
+      context.globalAlpha = base * (node === 0 ? 0.7 : 0.5);
+      context.stroke();
+    }
+    context.restore();
+  }
+  /**
    * The RNA scene, drawn through the particles: the template's two strands, the polymerase, the
    * transcript (exons thick and in the accent ink, introns thin and warm), the cap, the poly-A tail
    * and a ring where each spliceosome has gathered. Every curve comes from morphSplice, the same
@@ -618,7 +710,7 @@ export function createMorphRenderer(
     context.restore();
   }
   /**
-   * Captions for the RNA and coverage scenes in the explorer's "Show structures" mode: only what is
+   * Captions for the RNA, coverage and attention scenes in the explorer's "Show structures" mode: only what is
    * on screen, placed against the same functions that place the dots, and dropped when one would
    * land on another rather than printed over it.
    */
@@ -626,9 +718,15 @@ export function createMorphRenderer(
     if (!demo || !labels) return;
     const rna = stageWeight(displayed, 'rna');
     const locus = stageWeight(displayed, 'signal');
-    const weight = Math.max(rna, locus);
+    const attention = stageWeight(displayed, 'attention');
+    const weight = Math.max(rna, locus, attention);
     if (weight < 0.9) return;
-    const anchors: readonly Caption[] = rna >= locus ? spliceAnchors(splice) : locusAnchors();
+    const anchors: readonly Caption[] =
+      weight === rna
+        ? spliceAnchors(splice)
+        : weight === locus
+          ? locusAnchors()
+          : attentionAnchors();
     context.save();
     context.font = '10.5px system-ui';
     context.textAlign = 'center';
@@ -708,13 +806,7 @@ export function createMorphRenderer(
       }
       context.beginPath();
       for (let i = 0; i <= 192; i++) {
-        const t = i / 192;
-        if (id === 'protein') sampleProteinBackbone(t, point);
-        else {
-          point.x = -1 + 2 * t;
-          point.y = 0.33 - normalDensity(point.x * 3.5) * 1.85;
-          point.z = 0;
-        }
+        sampleProteinBackbone(i / 192, point);
         project(point);
         if (!i) context.moveTo(point.x, point.y);
         else context.lineTo(point.x, point.y);
@@ -737,12 +829,6 @@ export function createMorphRenderer(
           context.stroke();
         }
       }
-      if (id === 'distribution') {
-        context.beginPath();
-        context.moveTo(originX - scale, originY + scale * 0.33);
-        context.lineTo(originX + scale, originY + scale * 0.33);
-        context.stroke();
-      }
     }
   }
   function draw() {
@@ -752,8 +838,8 @@ export function createMorphRenderer(
     // Motion Paused, hidden, reduced and static fallback suppress every new pass.
     life.time = clock;
     life.amount = canAnimate() ? (motion === 'calm' ? 0.45 : 1) : 0;
-    glowCount = streakCount = rainCount = packetCount = bokehCount = 0;
-    spliceCount = sparkCount = junctionCount = 0;
+    glowCount = streakCount = pulseCount = packetCount = bokehCount = 0;
+    spliceCount = sparkCount = junctionCount = arcCount = 0;
     computeSplice(clock, splice);
     layout();
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -777,13 +863,15 @@ export function createMorphRenderer(
     bucketHeads.fill(-1);
     let visible = 0;
     // Past halfway into the RNA scene every dot takes the ink of what it is (exon, intron, template),
-    // and likewise in the coverage scene (coverage, junction read).
+    // and likewise in the coverage scene (coverage, junction read) and the attention scene.
     const ownClasses =
       stageWeight(displayed, 'rna') >= 0.5
         ? rnaClasses
         : stageWeight(displayed, 'signal') >= 0.5
           ? locusClasses
-          : null;
+          : stageWeight(displayed, 'attention') >= 0.5
+            ? attentionClasses
+            : null;
     for (let i = 0; i < particles.length; i++) {
       const p = particles[i];
       const visibility = particleVisibility(p, previousQuality, quality, qualityAge / 0.4);
@@ -826,6 +914,7 @@ export function createMorphRenderer(
     drawDna(true);
     drawCell();
     drawLocus();
+    drawAttention();
     drawSplicing();
     drawTargetAccents();
     drawStreaks();
@@ -873,13 +962,14 @@ export function createMorphRenderer(
     canvas.dataset.bgLife = String(life.amount);
     canvas.dataset.bgGlow = String(glowCount);
     canvas.dataset.bgStreaks = String(streakCount);
-    canvas.dataset.bgRain = String(rainCount);
+    canvas.dataset.bgPulses = String(pulseCount);
     canvas.dataset.bgPackets = String(packetCount);
     canvas.dataset.bgBokeh = String(bokehCount);
     canvas.dataset.bgSplice = String(spliceCount);
     canvas.dataset.bgSparks = String(sparkCount);
     canvas.dataset.bgSplicePhase = splice.phase.toFixed(3);
     canvas.dataset.bgJunctions = String(junctionCount);
+    canvas.dataset.bgArcs = String(arcCount);
     canvas.dataset.bgPalette = String(paletteVersion);
     canvas.dataset.bgLightBlend = darkLight ? 'lighter' : 'source-over';
     canvas.dataset.bgWarmInk = highlight;
@@ -1011,21 +1101,25 @@ export function createMorphRenderer(
         }
       }
     }
-    const density = stageWeight(displayed, 'distribution');
-    if (density > 0.005) {
-      context.globalAlpha = life.amount * density * 0.35;
-      context.beginPath();
-      for (let i = 0; i < (coarse ? 32 : 64); i++) {
-        rainSample(i, life, rain);
-        point.x = rain.x;
-        point.y = -0.48 + rain.y * 0.81;
-        point.z = 0;
+    const attention = stageWeight(displayed, 'attention');
+    if (attention > 0.005) {
+      // Warm pulses leave the promoter along the arcs: one a period on every arc, and a second on the
+      // strongest, so a phone, which draws the first six slots, keeps the strongest arcs.
+      context.fillStyle = highlight;
+      const slots = coarse ? 6 : PULSE_SLOTS.length;
+      for (let s = 0; s < slots; s++) {
+        const [arc, lane] = PULSE_SLOTS[s];
+        attentionPulse(arc, lane, life, packet);
+        const alpha = life.amount * attention * pulseEnvelope(packet.t) * 0.85;
+        if (alpha < 0.02) continue;
+        arcPoint(arc, packet.t, point);
         project(point);
-        context.moveTo(point.x + 1.3, point.y);
-        context.arc(point.x, point.y, 1.3, 0, TAU);
-        rainCount++;
+        context.globalAlpha = alpha;
+        context.beginPath();
+        context.arc(point.x, point.y, demo ? 3 : 2.2, 0, TAU);
+        context.fill();
+        pulseCount++;
       }
-      context.fill();
     }
     context.restore();
   }

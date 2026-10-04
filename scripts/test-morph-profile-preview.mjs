@@ -30,7 +30,7 @@ try {
       const html = await response.text();
       assert.equal(response.status, 200);
       assert.ok(
-        html.includes('data-background-stage="distribution"'),
+        html.includes('data-background-stage="attention"'),
         'selected URL serves the built seven-stage site'
       );
       assert.ok(!html.includes('foreign-preview-collision-fixture'));

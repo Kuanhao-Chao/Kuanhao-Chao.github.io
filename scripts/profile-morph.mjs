@@ -6,7 +6,7 @@ import { chromium } from 'playwright';
 import { preview } from 'astro';
 
 // Run after a build, on its own: concurrent browser suites contaminate timings.
-const stages = ['dna', 'rna', 'protein', 'cell', 'signal', 'network', 'distribution'];
+const stages = ['dna', 'rna', 'protein', 'cell', 'signal', 'network', 'attention'];
 const poses = Array.from({ length: 13 }, (_, i) => ({
   progress: i / 12,
   name: i % 2 ? `${stages[(i - 1) / 2]}→${stages[(i + 1) / 2]}` : stages[i / 2],

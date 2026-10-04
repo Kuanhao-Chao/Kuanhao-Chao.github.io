@@ -423,14 +423,14 @@ async function openDemo() {
   $('[data-background-close]')?.focus();
   $('[data-background-demo-title]')!.textContent = 'Sequence to Function';
   $('[data-background-description]')!.textContent =
-    'Explore seven particle forms: DNA, RNA splicing, folded protein, cell, splice-aware expression, neural model and probability distribution. Move your pointer while playing to shift the view, or tap or use Stir particles. Scrub between forms and show structure labels for a closer look.';
+    'Explore seven particle forms: DNA, RNA splicing, folded protein, cell, splice-aware expression, neural model and attention arcs. Move your pointer while playing to shift the view, or tap or use Stir particles. Scrub between forms and show structure labels for a closer look.';
   $('[data-background-morph-legend]')!.hidden = false;
   $('[data-background-morph-controls]')!.hidden = false;
   const structureLabels = $<HTMLInputElement>('[data-background-labels]');
   if (structureLabels) structureLabels.checked = false;
   surface.setAttribute(
     'aria-label',
-    'Seven particle forms: DNA, RNA splicing, folded protein, cell, splice-aware expression, neural model and probability distribution; controls below'
+    'Seven particle forms: DNA, RNA splicing, folded protein, cell, splice-aware expression, neural model and attention arcs; controls below'
   );
   notify();
   applyRunning();

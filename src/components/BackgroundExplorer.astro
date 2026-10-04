@@ -1,15 +1,7 @@
 ---
 import { MORPH_STAGES } from '../lib/morphStory';
 import { PROTEIN_SOURCE } from '../data/morphProtein';
-const controlLabels = [
-  'DNA',
-  'RNA',
-  'Protein',
-  'Cell',
-  'Expression',
-  'Neural model',
-  'Distribution',
-];
+const controlLabels = ['DNA', 'RNA', 'Protein', 'Cell', 'Expression', 'Neural model', 'Attention'];
 ---
 
 <dialog class="background-dialog" data-background-dialog aria-labelledby="background-demo-title">
@@ -57,7 +49,7 @@ const controlLabels = [
           max="1"
           step="any"
           value="0"
-          aria-label="Scrub DNA, RNA, folded protein, cell, expression, neural model and probability distribution"
+          aria-label="Scrub DNA, RNA splicing, folded protein, cell, splice-aware expression, neural model and attention arcs"
         />
       </label>
       <label class="background-label-toggle">
@@ -69,17 +61,15 @@ const controlLabels = [
   <p class="background-demo-status" data-background-demo-status role="status" aria-live="polite">
   </p>
   <p class="background-demo-key" data-background-morph-legend hidden>
-    DNA → RNA splicing → folded protein → cell → splice-aware expression → neural model →
-    probability distribution. Protein: <a
-      href={PROTEIN_SOURCE.url}
-      target="_blank"
-      rel="noopener noreferrer">Ubiquitin {PROTEIN_SOURCE.entry}, chain {PROTEIN_SOURCE.chain}</a
+    DNA → RNA splicing → folded protein → cell → splice-aware expression → neural model → attention
+    arcs. Protein: <a href={PROTEIN_SOURCE.url} target="_blank" rel="noopener noreferrer"
+      >Ubiquitin {PROTEIN_SOURCE.entry}, chain {PROTEIN_SOURCE.chain}</a
     >, experimental C-alpha coordinates ({PROTEIN_SOURCE.license}; extracted {
       PROTEIN_SOURCE.extractionDate
     }). Transitions illustrate information flow, not ribosome activity or folding dynamics. The
-    neural model is generic, not Shorkie’s architecture; the normalized standard-normal density is
-    illustrative, not measured or calibrated Shorkie uncertainty. Dots are drawing material, not
-    tracked atoms.
+    neural model is generic, not Shorkie’s architecture, and the splicing, expression and attention
+    scenes are illustrative: their sizes, read counts and weights are invented, and the attention is
+    not Shorkie’s. Dots are drawing material, not tracked atoms.
   </p>
 </dialog>
 <style>

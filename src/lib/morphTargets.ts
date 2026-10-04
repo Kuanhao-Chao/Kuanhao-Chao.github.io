@@ -163,16 +163,3 @@ export function sampleNetworkParticle(p: MorphParticle, out: MorphPoint): void {
   out.z += (p.v * 2 - 1) * radius;
   out.alpha = cloud ? 0.72 + p.v * 0.25 : 0.25 + p.u * 0.23;
 }
-
-export function normalDensity(x: number): number {
-  return Math.exp((-x * x) / 2) / Math.sqrt(2 * Math.PI);
-}
-
-/** Standardized response [-3.5,3.5] -> drawing X [-1,1]; density, not measured uncertainty. */
-export function sampleDistributionParticle(p: MorphParticle, out: MorphPoint): void {
-  const ridge = p.role === 'chromatin';
-  out.x = -1 + unit(p.t) * 2;
-  out.y = 0.33 - normalDensity(out.x * 3.5) * 1.85 * (ridge ? 0.97 + p.u * 0.03 : p.u);
-  out.z = 0;
-  out.alpha = ridge ? 0.9 : 0.27 + p.v * 0.22;
-}
