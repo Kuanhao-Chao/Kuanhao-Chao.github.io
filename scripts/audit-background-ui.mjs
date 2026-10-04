@@ -139,7 +139,7 @@ const forms = [
   ['cell', 0.5],
   ['signal', 2 / 3],
   ['network', 5 / 6],
-  ['distribution', 1],
+  ['attention', 1],
 ];
 async function openAppearance(page) {
   const button = page.locator('[data-top-theme-btn]');
@@ -604,7 +604,9 @@ async function assertEffects(
     ['bgBokeh', phone ? 12 : 28],
     ['bgStreaks', Math.floor(Number(state.bgAllocated) / 3)],
     ['bgPackets', phone ? 24 : 48],
-    ['bgRain', phone ? 32 : 64],
+    // Twelve pulses, one a period on each of nine arcs and a second on the strongest three; a phone
+    // draws the first six slots, which are exactly the strongest arcs (morphAttention.test.ts).
+    ['bgPulses', phone ? 6 : 12],
     // Two introns, each with one glow and SPARKS_PER_INTRON (6) ligation sparks: a structural
     // ceiling, which morphSplice.test.ts ties to the model so the two cannot drift apart.
     ['bgSplice', 2],
@@ -619,7 +621,8 @@ async function assertEffects(
   if (amount) {
     assert.ok(Number(state.bgGlow) > 0 && Number(state.bgBokeh) > 0, 'active frame has lights');
     if (stage === 'network') assert.ok(Number(state.bgPackets) > 0, 'network has edge packets');
-    if (stage === 'distribution') assert.ok(Number(state.bgRain) > 0, 'density has quantile rain');
+    if (stage === 'attention')
+      assert.ok(Number(state.bgPulses) > 0, 'attention has pulses leaving the promoter');
   }
   return state;
 }
@@ -663,7 +666,7 @@ async function effectLifecycle(browser, engine, phone) {
       '0',
       'discontinuous scrub clears history'
     );
-    await assertEffects(page, { demo: true, phone, stage: 'distribution' });
+    await assertEffects(page, { demo: true, phone, stage: 'attention' });
     await scrub(page, 5 / 6);
     await assertEffects(page, { demo: true, phone, stage: 'network' });
     const lightImage = await canvas.evaluate((c) => c.toDataURL());
@@ -860,6 +863,33 @@ async function locusScene(browser, engine, phone) {
     assert.equal(Number((await read()).bgJunctions), 0, 'the RNA scene draws no junction arcs');
     console.log(
       `[background-ui] ${engine}-${phone ? 'phone' : 'desktop'} coverage scene: 3 junction arcs on stage 5, none elsewhere`
+    );
+  } finally {
+    await context.close();
+  }
+}
+// The attention scene (stage 7) publishes what it drew too: nine arcs when it owns the frame, none
+// anywhere else, and warm pulses leaving the promoter within the caps.
+async function attentionScene(browser, engine, phone) {
+  const { context, page } = await openClockedExplorer(browser, engine, phone);
+  try {
+    const canvas = page.locator('[data-background-demo-canvas]');
+    const read = () => canvas.evaluate((c) => ({ ...c.dataset }));
+    await pausedAtDna(page);
+    assert.equal(Number((await read()).bgArcs), 0, 'DNA draws no attention arcs');
+    await scrub(page, 1);
+    const attention = await read();
+    assert.equal(attention.bgStage, 'attention', 'the scrub lands on the attention scene');
+    assert.equal(Number(attention.bgArcs), 9, 'one arc from the promoter to each of nine sites');
+    assert.equal(Number(attention.bgJunctions), 0, 'the coverage scene’s arcs are not drawn here');
+    assert.ok(Number(attention.bgPulses) > 0, 'pulses leave the promoter');
+    await assertEffects(page, { demo: true, phone, stage: 'attention' });
+    await scrub(page, 5 / 6);
+    const network = await read();
+    assert.equal(Number(network.bgArcs), 0, 'the network draws no attention arcs');
+    assert.equal(Number(network.bgPulses), 0, 'the network draws no attention pulses');
+    console.log(
+      `[background-ui] ${engine}-${phone ? 'phone' : 'desktop'} attention scene: 9 arcs and ${attention.bgPulses} pulses on stage 7, none elsewhere`
     );
   } finally {
     await context.close();
@@ -1462,6 +1492,7 @@ try {
         await effectLifecycle(browser, name, false);
         await spliceLifecycle(browser, name, false);
         await locusScene(browser, name, false);
+        await attentionScene(browser, name, false);
         continue;
       }
       if (process.env.BACKGROUND_UI_SCENES_ONLY === '1') {
@@ -1469,6 +1500,7 @@ try {
         for (const phone of [false, true]) {
           await spliceLifecycle(browser, name, phone);
           await locusScene(browser, name, phone);
+          await attentionScene(browser, name, phone);
         }
         continue;
       }
@@ -1490,6 +1522,7 @@ try {
           await effectLifecycle(browser, name, phone);
           await spliceLifecycle(browser, name, phone);
           await locusScene(browser, name, phone);
+          await attentionScene(browser, name, phone);
           await slowCallbacks(browser, name, phone);
           await slowPress(browser, name, phone);
           console.log(`[background-ui] ${label} virtual-time scenarios passed`);
@@ -1862,7 +1895,7 @@ try {
         await page.waitForFunction(() =>
           document
             .querySelector('[data-background-demo-status]')
-            .textContent.includes('standard-normal probability density')
+            .textContent.includes('attention pattern')
         );
         await still(page, true);
         await page.screenshot({ path: join(artifacts, `${label}-morph-demo.png`) });
@@ -1874,15 +1907,15 @@ try {
             input.value = String(value);
             input.dispatchEvent(new Event('input', { bubbles: true }));
           }, progress);
-          const density = await page
+          const pose = await page
             .locator('[data-background-demo-canvas]')
             .evaluate((c) => ({ ...c.dataset }));
-          assert.equal(Number(density.bgAllocated), phone ? 1600 : 5000);
+          assert.equal(Number(pose.bgAllocated), phone ? 1600 : 5000);
           assert.ok(
-            Number(density.bgVisible) >= Number(density.bgAllocated) * 0.3,
+            Number(pose.bgVisible) >= Number(pose.bgAllocated) * 0.3,
             `particle participation must survive at progress ${progress}`
           );
-          assert.ok(Math.abs(Number(density.bgDisplayedProgress) - progress) < 0.001);
+          assert.ok(Math.abs(Number(pose.bgDisplayedProgress) - progress) < 0.001);
           await page
             .locator('[data-background-demo-canvas]')
             .screenshot({ path: join(artifacts, `${label}-morph-pose-${progress}.png`) });
@@ -1926,6 +1959,7 @@ try {
         await effectLifecycle(browser, name, phone);
         await spliceLifecycle(browser, name, phone);
         await locusScene(browser, name, phone);
+        await attentionScene(browser, name, phone);
         await slowCallbacks(browser, name, phone);
         await slowPress(browser, name, phone);
         await page.locator('[data-background-reset]').click();
@@ -2230,6 +2264,18 @@ try {
             Number(await page.locator('[data-background-demo-canvas]').getAttribute('data-bg-junctions')),
             id === 'signal' ? 3 : 0,
             `junction arcs at rest on ${id}`
+          );
+          assert.equal(
+            Number(await page.locator('[data-background-demo-canvas]').getAttribute('data-bg-arcs')),
+            id === 'attention' ? 9 : 0,
+            `attention arcs at rest on ${id}`
+          );
+          assert.equal(
+            Number(
+              await page.locator('[data-background-demo-canvas]').getAttribute('data-bg-pulses')
+            ),
+            0,
+            `no pulses in reduced motion on ${id}`
           );
           if (id === 'rna') {
             const still = await page

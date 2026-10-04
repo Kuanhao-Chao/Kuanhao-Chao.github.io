@@ -20,16 +20,14 @@ import {
   type MorphPoint,
 } from './morphModel';
 import { MORPH_STAGES } from './morphStory';
-import {
-  sampleProteinParticle,
-  sampleNetworkParticle,
-  sampleDistributionParticle,
-} from './morphTargets';
+import { sampleProteinParticle, sampleNetworkParticle } from './morphTargets';
 import { sampleRnaParticle } from './morphSplice';
+import { sampleLocusParticle } from './morphLocus';
+import { sampleAttentionParticle } from './morphAttention';
 
 const point = (): MorphPoint => ({ x: 0, y: 0, z: 0, alpha: 1 });
 describe('dimensional genome-to-cell story', () => {
-  it('keeps decorative streams subdued and removes them from expression and distribution', () => {
+  it('keeps decorative streams subdued and removes them from the coverage and attention scenes', () => {
     const out = point(),
       again = point();
     for (const progress of [0, 1 / 6, 1 / 3, 0.5, 2 / 3, 5 / 6, 1]) {
@@ -220,7 +218,7 @@ describe('dimensional genome-to-cell story', () => {
     expect(values.at(-1)).toBe(1);
     expect(values.every((value, i) => !i || value >= values[i - 1])).toBe(true);
   });
-  it('lands exactly on independently sampled canonical RNA, protein, Cell, network and density', () => {
+  it('lands exactly on independently sampled canonical RNA, protein, Cell, coverage, network and attention', () => {
     const out = point(),
       expected = point(),
       scratch = point();
@@ -234,8 +232,9 @@ describe('dimensional genome-to-cell story', () => {
         [1 / 6, (out: MorphPoint) => sampleRnaParticle(p, 3, out)],
         [1 / 3, (out: MorphPoint) => sampleProteinParticle(p, out)],
         [0.5, (out: MorphPoint) => sampleCellParticle(p, 3, out)],
+        [2 / 3, (out: MorphPoint) => sampleLocusParticle(p, out)],
         [5 / 6, (out: MorphPoint) => sampleNetworkParticle(p, out)],
-        [1, (out: MorphPoint) => sampleDistributionParticle(p, out)],
+        [1, (out: MorphPoint) => sampleAttentionParticle(p, out)],
       ] as const) {
         sampleMorph(p, progress, 3, out, scratch);
         sampler(expected);

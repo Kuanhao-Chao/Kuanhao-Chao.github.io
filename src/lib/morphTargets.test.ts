@@ -1,6 +1,8 @@
 import { expect, it } from 'vitest';
 import * as targets from './morphTargets';
 import { createMorphParticles, type MorphPoint } from './morphModel';
+import { sampleAttentionParticle } from './morphAttention';
+import { sampleLocusParticle } from './morphLocus';
 const point = (): MorphPoint => ({ x: 0, y: 0, z: 0, alpha: 1 });
 
 it('bundles all 76 unchanged chain-A C-alpha records with source secondary structure', async () => {
@@ -68,7 +70,8 @@ it('fills every new form deterministically with bounded material and finite ribb
   const samplers = [
     targets.sampleProteinParticle,
     targets.sampleNetworkParticle,
-    targets.sampleDistributionParticle,
+    sampleLocusParticle,
+    sampleAttentionParticle,
   ];
   const centers: number[][] = [];
   for (const sampler of samplers) {
@@ -124,27 +127,4 @@ it('uses five node layers and sparse adjacent-only connections that reach every 
     expect(edge.y).toBeCloseTo((a.y + b.y) / 2, 12);
   });
   expect(connected.size).toBe(27);
-});
-
-it('has one positive symmetric normalized standard-normal density, not an expression signal', () => {
-  expect(targets.normalDensity(0)).toBeCloseTo(0.3989422804014327, 12);
-  expect(targets.normalDensity(1)).toBeCloseTo(0.24197072451914337, 12);
-  let area = 0;
-  for (let x = -8; x < 8; x += 0.001) area += targets.normalDensity(x + 0.0005) * 0.001;
-  expect(area).toBeCloseTo(1, 6);
-  for (let x = 0; x <= 3.5; x += 0.01) {
-    expect(targets.normalDensity(x)).toBeGreaterThan(0);
-    expect(targets.normalDensity(x)).toBe(targets.normalDensity(-x));
-    expect(targets.normalDensity(x + 0.01)).toBeLessThan(targets.normalDensity(x));
-  }
-  const out = point();
-  const p = createMorphParticles(100).at(-1)!;
-  targets.sampleDistributionParticle({ ...p, t: 0, u: 0 }, out);
-  expect(out.x).toBe(-1);
-  expect(out.y).toBeCloseTo(0.33, 12);
-  expect(out.z).toBe(0);
-  targets.sampleDistributionParticle({ ...p, t: 1, u: 0 }, out);
-  expect(out.x).toBe(1);
-  targets.sampleDistributionParticle({ ...p, t: 0.5, u: 1 }, out);
-  expect(out.y).toBeLessThan(-0.3);
 });

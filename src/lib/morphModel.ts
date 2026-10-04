@@ -6,13 +6,10 @@ import {
   stageWeight,
   type MorphStageId,
 } from './morphStory';
-import {
-  sampleProteinParticle,
-  sampleNetworkParticle,
-  sampleDistributionParticle,
-} from './morphTargets';
+import { sampleProteinParticle, sampleNetworkParticle } from './morphTargets';
 import { sampleRnaParticle } from './morphSplice';
 import { sampleLocusParticle } from './morphLocus';
+import { sampleAttentionParticle } from './morphAttention';
 export { storyProgress, playbackProgress, playbackTime } from './morphStory';
 
 export interface MorphPoint {
@@ -382,8 +379,8 @@ export function sampleMorphTarget(
     case 'network':
       sampleNetworkParticle(p, out);
       break;
-    case 'distribution':
-      sampleDistributionParticle(p, out);
+    case 'attention':
+      sampleAttentionParticle(p, out);
       break;
   }
 }

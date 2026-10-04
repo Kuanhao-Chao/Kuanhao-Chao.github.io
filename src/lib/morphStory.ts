@@ -1,6 +1,5 @@
 /** One scientific vocabulary and canonical ordering for all story consumers. */
-export type MorphStageId =
-  'dna' | 'rna' | 'protein' | 'cell' | 'signal' | 'network' | 'distribution';
+export type MorphStageId = 'dna' | 'rna' | 'protein' | 'cell' | 'signal' | 'network' | 'attention';
 export const MORPH_STAGES: readonly {
   id: MorphStageId;
   label: string;
@@ -48,11 +47,11 @@ export const MORPH_STAGES: readonly {
     description: 'An illustrative five-layer neural model, not Shorkie’s actual architecture.',
   },
   {
-    id: 'distribution',
-    label: 'Probability distribution',
+    id: 'attention',
+    label: 'Attention arcs',
     progress: 1,
     description:
-      'An illustrative normalized standard-normal probability density of a standardized response, not measured or calibrated Shorkie uncertainty.',
+      'An illustrative attention pattern: one promoter weighs nine distant DNA sites, a few of them most, with weights that sum to one. Positions and weights are invented; this is not Shorkie’s attention.',
   },
 ];
 

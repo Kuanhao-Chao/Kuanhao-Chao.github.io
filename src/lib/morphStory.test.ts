@@ -8,7 +8,7 @@ const chapters = [
   { id: 'cell', center: 1300, holdRadius: 40 },
   { id: 'signal', center: 1700, holdRadius: 40 },
   { id: 'network', center: 2100, holdRadius: 40 },
-  { id: 'distribution', center: 2500, holdRadius: 40 },
+  { id: 'attention', center: 2500, holdRadius: 40 },
 ] as const;
 
 it('exposes the seven canonical story stages with Cell at the quiet midpoint', async () => {
@@ -20,7 +20,7 @@ it('exposes the seven canonical story stages with Cell at the quiet midpoint', a
     ['cell', 0.5],
     ['signal', 2 / 3],
     ['network', 5 / 6],
-    ['distribution', 1],
+    ['attention', 1],
   ]);
 });
 
@@ -87,7 +87,12 @@ it('shares smooth finite stage weights, descriptions and explicit transition tim
   }
   expect(story.stageWeight(0.5, 'cell')).toBe(1);
   expect(story.stageWeight(0.5, 'dna')).toBe(0);
-  expect(story.stageDescription(1)).toMatch(/not measured or calibrated Shorkie uncertainty/);
+  // The attention scene says what it shows and that it is invented, and no longer claims a density.
+  expect(story.stageDescription(1)).toMatch(/attention/);
+  expect(story.stageDescription(1)).toMatch(/promoter/);
+  expect(story.stageDescription(1)).toMatch(/invented/);
+  expect(story.stageDescription(1)).toMatch(/not Shorkie’s attention/);
+  expect(story.stageDescription(1)).not.toMatch(/probability|standard-normal|uncertainty/);
   expect(story.stageDescription(5 / 6)).toMatch(/not Shorkie/);
   // The splicing scene says what it is and what it is not, in the status line a reader hears.
   expect(story.stageDescription(1 / 6)).toMatch(/co-transcriptional splicing/i);
