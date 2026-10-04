@@ -375,6 +375,29 @@ async function luminousChecks(browser, name) {
 // and the mask publishes as data-bg-veil. Everywhere else the veil is 0 and text is cleared as before.
 // The most art alpha allowed behind text where the mask is solid (see veilChecks).
 const SOLID_CAP = 8;
+// A [data-reveal] section eases up by 10px over 550 ms as it appears, and the reading mask re-measures
+// only when that transition ends, so for roughly 300 ms after a page loads the text has moved away
+// from a mask still holding its old position: measured 27 to 28/255 of art behind text on a page with
+// a solid mask, then 0 the moment the transitions finish (CI matrix attempt 8 sampled inside that
+// window). Wait for every revealing section in view to be in place, then for frames drawn after the
+// re-measure.
+async function revealsSettled(page) {
+  await page.waitForFunction(
+    () =>
+      [...document.querySelectorAll('[data-reveal]')].every((section) => {
+        const r = section.getBoundingClientRect();
+        if (r.bottom < 0 || r.top > innerHeight) return true;
+        const style = getComputedStyle(section);
+        return (
+          style.opacity === '1' &&
+          (style.transform === 'none' || style.transform === 'matrix(1, 0, 0, 1, 0, 0)')
+        );
+      }),
+    undefined,
+    { timeout: 10_000, polling: 100 }
+  );
+  await drawn(page, { more: 4 });
+}
 function clearanceCap(veil) {
   // One 8-bit unit for the mask's scaling to the backing store, one for the feathered edge's rounding.
   return veil > 0 ? Math.ceil(veil * 255) + 2 : 1;
@@ -555,6 +578,7 @@ async function veilChecks(browser, name) {
         { timeout: 30_000 }
       );
       await drawn(page, { atLeast: 3 });
+      await revealsSettled(page);
       const other = await page.evaluate(() => {
         const canvas = document.querySelector('[data-art-bg-canvas]');
         return { veil: canvas.dataset.bgVeil, soft: canvas.dataset.bgSoft };
