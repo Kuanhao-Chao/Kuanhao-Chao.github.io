@@ -229,11 +229,18 @@ export function createMorphRenderer(
       chapterHeight += chapterHeights[i] * weight;
     }
     extent += 0.14 * Math.sin(displayed * 6 * Math.PI) ** 2;
+    // The splicing, coverage and attention scenes are wide and short (about 1.7 to 1.8 units across
+    // against 0.8 high), so they may use a little more of the width than the rest: on a phone the
+    // width is what limits them, and they were filling under 60% of it.
+    const wide =
+      stageWeight(displayed, 'rna') +
+      stageWeight(displayed, 'signal') +
+      stageWeight(displayed, 'attention');
     if (demo) {
       originX = width * 0.5;
       originY = height * 0.51;
       scale = Math.min(
-        width * (labels ? 0.36 : 0.43),
+        width * ((labels ? 0.36 : 0.43) + 0.07 * wide),
         (height - (labels ? 80 : 32)) / (2 * extent)
       );
     } else if (home) {
@@ -241,7 +248,7 @@ export function createMorphRenderer(
       originX = width * ((coarse ? 0.74 : 0.79) * (1 - shift) + 0.5 * shift);
       originY = height * ((coarse ? 0.25 : 0.24) * (1 - shift) + 0.5 * shift);
       const start = Math.min(width * (coarse ? 0.36 : 0.24), height * (coarse ? 0.22 : 0.25));
-      const end = Math.min(width * 0.4, (chapterHeight - 32) / (2 * extent));
+      const end = Math.min(width * (0.4 + 0.07 * wide), (chapterHeight - 32) / (2 * extent));
       scale = start + (end - start) * shift;
     } else {
       originX = width * (coarse ? 0.74 : 0.8);
