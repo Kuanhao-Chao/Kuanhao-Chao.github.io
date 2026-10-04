@@ -373,6 +373,8 @@ async function luminousChecks(browser, name) {
 // Reading clearance, split by what sits in front of the art. Objects (the terminal) stay fully
 // cleared. Text on the homepage lets through at most the veil: the same number the CSS token holds
 // and the mask publishes as data-bg-veil. Everywhere else the veil is 0 and text is cleared as before.
+// The most art alpha allowed behind text where the mask is solid (see veilChecks).
+const SOLID_CAP = 8;
 function clearanceCap(veil) {
   // One 8-bit unit for the mask's scaling to the backing store, one for the feathered edge's rounding.
   return veil > 0 ? Math.ceil(veil * 255) + 2 : 1;
@@ -559,7 +561,15 @@ async function veilChecks(browser, name) {
       });
       assert.deepEqual(other, { veil: '0.00', soft: '0' }, `${label}: /research/ keeps the solid mask`);
       const prose = await sampleArtAlpha(page, 'main h1, main h2, main p');
-      assert.ok(prose.max <= 1, `${label}: /research/ text stays fully cleared (${prose.max}/255)`);
+      margins.prose = prose.max;
+      // Not exactly zero: the mask is a blurred rectangle, so the feathered edge of a thin heading can
+      // leave a few levels wherever a dot happens to sit (measured on the previous build of this page:
+      // 4/255 at an H2's top edge; 0 to 2 here). A tenth of the veil's own cap is what still separates
+      // a solid mask from a veiled one: a veil here would read about 70.
+      assert.ok(
+        prose.max <= SOLID_CAP,
+        `${label}: /research/ text stays cleared (${prose.max}/255, cap ${SOLID_CAP})`
+      );
     } finally {
       await context.close();
     }
@@ -587,7 +597,7 @@ async function veilChecks(browser, name) {
       await cells.close();
     }
     console.log(
-      `[background-ui] ${label} reading veil: text ${margins.text}/255 (cap ${clearanceCap(0.3)}), veiled card ${margins.card}/255 unmasked, objects cleared, other pages solid, Cells opaque`
+      `[background-ui] ${label} reading veil: text ${margins.text}/255 (cap ${clearanceCap(0.3)}), veiled card ${margins.card}/255 unmasked, objects cleared, other pages solid (${margins.prose}/255, cap ${SOLID_CAP}), Cells opaque`
     );
   }
 }
@@ -1731,6 +1741,15 @@ try {
         await openAppearance(page);
         await page.locator('[data-background-explore]').click();
         await page.locator('[data-background-dialog]').waitFor({ state: 'visible' });
+        // The explorer's renderer exists only after a dynamic import that finishes AFTER the dialog is
+        // visible, and a scrub that lands before it is lost (the renderer then starts at DNA, and the
+        // step below reads 0.05 instead of 1/6 + 0.05). It passed on a quiet machine and failed under
+        // load, so wait for the renderer's first frame, as the virtual-time scenarios do.
+        await page.waitForFunction(
+          () => document.querySelector('[data-background-demo-canvas]')?.dataset.bgFrames,
+          undefined,
+          { timeout: 30_000 }
+        );
         await page.locator('[data-background-scrub]').evaluate((input) => {
           input.value = '0';
           input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -1740,16 +1759,14 @@ try {
           input.dispatchEvent(new Event('input', { bubbles: true }));
         });
         await page.locator('[data-background-step]').click();
+        const stepped = Number(
+          await page
+            .locator('[data-background-demo-canvas]')
+            .getAttribute('data-bg-displayed-progress')
+        );
         assert.ok(
-          Math.abs(
-            Number(
-              await page
-                .locator('[data-background-demo-canvas]')
-                .getAttribute('data-bg-displayed-progress')
-            ) -
-              (1 / 6 + 0.05)
-          ) < 0.001,
-          'single step advances normalized progress by .05, not an old three-stage interval'
+          Math.abs(stepped - (1 / 6 + 0.05)) < 0.001,
+          `single step advances normalized progress by .05, not an old three-stage interval (displayed ${stepped}, expected ${(1 / 6 + 0.05).toFixed(4)})`
         );
         await page.locator('[data-background-form="1"]').click();
         // Wait for the tween to be genuinely mid-flight (a condition, not a fixed 150ms that a
