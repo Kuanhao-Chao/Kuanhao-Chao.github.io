@@ -29,6 +29,8 @@ const publications = defineCollection({
       dateBasis: z.enum(['publication', 'announcement']).default('publication'),
       type: z.enum(['journal', 'conference', 'preprint', 'thesis']),
       status: z.enum(['published', 'preprint', 'accepted']).default('published'),
+      // An external destination replaces the title link and opts out of a detail page.
+      externalUrl: z.url().optional(),
       doi: z.url().optional(),
       // The earlier posting of the same work, when `doi` names a later record of it -- an
       // eLife reviewed preprint is a version of a bioRxiv preprint, and readers (and citation

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { CollectionEntry } from 'astro:content';
 import {
+  hasPublicationDetail,
   publicationDateLabel,
+  publicationHref,
   publicationLinks,
   publicationRecordMetadata,
   publicationSearchText,
@@ -23,6 +25,41 @@ const paper = {
   data: 'https://huggingface.co/datasets/illumina-ai/SpliceAI2-data',
   news: 'https://www.illumina.com/science/genomics-research/articles/spliceai2.html',
 } as unknown as Data;
+
+describe('publication destinations', () => {
+  it('keeps existing publication titles linked to their local detail pages', () => {
+    const entry = { id: '2024-08-splam', data: paper };
+    expect(publicationHref(entry)).toBe('/publications/splam/');
+    expect(hasPublicationDetail(entry.data)).toBe(true);
+  });
+
+  it('links external-only records directly to their manuscript without generating a detail page', () => {
+    const entry = {
+      id: '2026-10-spliceai2',
+      data: { ...paper, externalUrl: paper.pdf },
+    };
+    expect(publicationHref(entry)).toBe(paper.pdf);
+    expect(hasPublicationDetail(entry.data)).toBe(false);
+  });
+
+  it('honors the explicit external destination even when another source URL is present', () => {
+    const entry = {
+      id: '2026-10-spliceai2',
+      data: { ...paper, externalUrl: paper.pdf, doi: 'https://doi.org/10.1234/paper' },
+    };
+    expect(publicationHref(entry)).toBe(paper.pdf);
+  });
+
+  it('omits only external-only records from the detail-page route set', () => {
+    const entries = [
+      { id: '2024-08-splam', data: paper },
+      { id: '2026-10-spliceai2', data: { ...paper, externalUrl: paper.pdf } },
+    ];
+    expect(
+      entries.filter((entry) => hasPublicationDetail(entry.data)).map((entry) => entry.id)
+    ).toEqual(['2024-08-splam']);
+  });
+});
 
 describe('publication resources and search', () => {
   it('distinguishes model weights from precomputed predictions', () => {

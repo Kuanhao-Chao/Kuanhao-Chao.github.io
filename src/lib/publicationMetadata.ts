@@ -1,8 +1,19 @@
 import type { CollectionEntry } from 'astro:content';
 import { preprintLabel, publicationSourceUrl } from './citationText';
 import { fullDate } from './format';
+import { pubSlug } from './slug';
 
 type PublicationData = CollectionEntry<'publications'>['data'];
+
+/** Every publication title uses the same destination, including search and terminal links. */
+export function publicationHref(entry: Pick<CollectionEntry<'publications'>, 'id' | 'data'>) {
+  return entry.data.externalUrl ?? `/publications/${pubSlug(entry.id)}/`;
+}
+
+/** External-only records remain listed and citable without generating a local detail page. */
+export function hasPublicationDetail(data: Pick<PublicationData, 'externalUrl'>) {
+  return !data.externalUrl;
+}
 
 /** Shared by listing cards and detail pages so resource labels cannot drift. */
 export function publicationLinks(data: PublicationData) {

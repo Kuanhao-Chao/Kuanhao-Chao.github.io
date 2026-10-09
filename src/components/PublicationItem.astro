@@ -1,10 +1,9 @@
 ---
 import Icon from './Icon.astro';
 import CitationTools from './CitationTools.astro';
-import { pubSlug } from '../lib/slug';
 import { resolveRelatedPosts } from '../lib/relatedPosts';
 import { publicationCitation, publicationRis } from '../lib/citationText';
-import { publicationLinks, publicationSearchText } from '../lib/publicationMetadata';
+import { publicationHref, publicationLinks, publicationSearchText } from '../lib/publicationMetadata';
 import type { CollectionEntry } from 'astro:content';
 
 interface Props {
@@ -16,7 +15,6 @@ const { pub, compact = false, showPosts = false } = Astro.props;
 const d = pub.data;
 const blogLinks = showPosts ? await resolveRelatedPosts(d.relatedPosts.map((r) => r.id)) : [];
 const year = d.date.getFullYear();
-const slug = pubSlug(pub.id);
 
 // Highlight the site owner's name within the author list.
 const OWNER = 'Kuan-Hao Chao';
@@ -45,7 +43,7 @@ const citation = publicationCitation(d);
 
   <div class="pub-body">
     <h3 class="pub-title">
-      <a href={`/publications/${slug}/`}>{d.title}</a>
+      <a href={publicationHref(pub)}>{d.title}</a>
     </h3>
 
     <p class="pub-authors">

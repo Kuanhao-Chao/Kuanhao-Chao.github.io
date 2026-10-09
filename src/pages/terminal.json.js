@@ -1,5 +1,6 @@
 import { getCollection } from 'astro:content';
 import { pubSlug } from '../lib/slug.ts';
+import { publicationHref } from '../lib/publicationMetadata.ts';
 import { site, identity, socials } from '../data/site.ts';
 import {
   experience,
@@ -151,7 +152,7 @@ export async function GET() {
       .join('');
     add(`/home/khc/publications/${slug}.txt`, {
       title: d.title,
-      href: `/publications/${slug}/`,
+      href: publicationHref(entry),
       keywords: `${d.type} ${d.venue} paper publication ${year(d.date)}`,
       body: [
         d.title,

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
 import { describe, expect, it } from 'vitest';
 import { authorNames } from './citationText';
+import { hasPublicationDetail, publicationHref } from './publicationMetadata';
 import { pubSlug } from './slug';
 
 function content(path: string) {
@@ -65,12 +66,15 @@ describe('SpliceAI2 publication content contract', () => {
     expect(data).not.toHaveProperty('doi');
     expect(data).not.toHaveProperty('selectedOrder');
     expect(data.abstract).toContain('SpliceAI2');
-    expect(body).toContain('original posting date');
+    expect(data.externalUrl).toBe(pdf);
+    expect(publicationHref({ id, data })).toBe(pdf);
+    expect(hasPublicationDetail(data)).toBe(false);
+    expect(body.trim()).toBe('');
     expect(pubSlug(id)).toBe('spliceai2');
   });
 
   it('links code, documentation, models, and data to the correct official resources', () => {
-    const { data, body } = content(`publications/${id}.md`);
+    const { data } = content(`publications/${id}.md`);
     expect(data.pdf).toBe(pdf);
     expect(data.code).toBe('https://github.com/Illumina/SpliceAI2');
     expect(data.docs).toBe('https://github.com/Illumina/SpliceAI2#installation');
@@ -79,9 +83,6 @@ describe('SpliceAI2 publication content contract', () => {
     expect(data.news).toBe(
       'https://www.illumina.com/science/genomics-research/articles/introducing-spliceai2--the-next-generation-of-splicing-and-trans.html'
     );
-    expect(body).toContain('https://github.com/Illumina/SpliceAI2/blob/main/LICENSE');
-    expect(body).toMatch(/terms/i);
-    expect(body).toMatch(/not (?:a )?diagnostic yield/i);
   });
 
   it('exports every author in BibTeX without contribution marks or a fictitious DOI', () => {
@@ -102,7 +103,10 @@ describe('SpliceAI2 publication content contract', () => {
     );
     expect(data.relatedPublications[2].resourceLabel).toBe('SpliceAI2 preprint');
     expect(data.references.some((ref: { url?: string }) => ref.url === pdf)).toBe(true);
-    expect(body).toContain('/publications/spliceai2/');
+    expect(body).toContain(pdf);
+    expect(body).not.toContain('/publications/spliceai2/');
+    expect(body).not.toContain('contributing to model development and implementation');
+    expect(body).not.toContain('I co-authored');
     expect(body).toContain('https://huggingface.co/illumina-ai/SpliceAI2');
     expect(body).toContain('https://huggingface.co/datasets/illumina-ai/SpliceAI2-data');
     expect(body.match(/^## Future directions$/gm)).toHaveLength(1);
@@ -111,12 +115,44 @@ describe('SpliceAI2 publication content contract', () => {
     );
   });
 
-  it('announces the release through homepage news and links to the internal paper page', () => {
+  it('uses the approved gratitude wording and links news directly to the preprint', () => {
     const { data, body } = content('news/2026-10-08-spliceai2-preprint.md');
     expect(data.category).toBe('publication');
     expect(String(data.date)).toBe('2026-10-08');
-    expect(data.link).toBe('https://khchao.com/publications/spliceai2/');
+    expect(data.link).toBe(pdf);
     expect(data.draft).not.toBe(true);
+    expect(body).toContain(
+      "I'm honored to have been part of the SpliceAI2 team, and grateful to Kishore Jaganathan for the opportunity."
+    );
+    expect(body).toContain(
+      `[A unified framework for quantitative splicing and transcript prediction](${pdf})`
+    );
+    expect(body).not.toContain('/publications/spliceai2/');
+    expect(body).not.toContain('I co-authored');
     expect(body).toContain('https://github.com/Illumina/SpliceAI2');
+  });
+
+  it('uses the shared title destination in every publication-link consumer', () => {
+    for (const path of [
+      '../components/PublicationItem.astro',
+      '../components/ResearchWorkList.astro',
+      '../components/TalksList.astro',
+      '../pages/search.json.js',
+      '../pages/terminal.json.js',
+    ]) {
+      const source = readFileSync(new URL(path, import.meta.url), 'utf8');
+      expect(source, path).toMatch(/href[:=]\s*\{?publicationHref\((?:pub|entry)\)/);
+    }
+    const route = readFileSync(
+      new URL('../pages/publications/[...slug].astro', import.meta.url),
+      'utf8'
+    );
+    expect(route).toContain('.filter((entry) => hasPublicationDetail(entry.data))');
+  });
+
+  it('replaces the old detail URL with an external preprint redirect', () => {
+    const config = readFileSync(new URL('../../astro.config.mjs', import.meta.url), 'utf8');
+    const redirect = config.match(/'\/publications\/spliceai2':\s*'([^']+)'/);
+    expect(redirect?.[1]).toBe(pdf);
   });
 });
