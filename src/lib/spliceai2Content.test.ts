@@ -96,23 +96,21 @@ describe('SpliceAI2 publication content contract', () => {
     expect(data.bibtex).toContain(pdf);
   });
 
-  it('adds related work without changing the established primary research resources', () => {
+  it('keeps SpliceAI2 as related work only, without a body section or numbered reference', () => {
     const { data, body } = content('research/splice-sites.mdx');
     expect(data.relatedPublications.map((ref: { publication: string }) => ref.publication)).toEqual(
       ['2024-08-splam', '2025-06-openspliceai', id]
     );
     expect(data.relatedPublications[2].resourceLabel).toBe('SpliceAI2 preprint');
-    expect(data.references.some((ref: { url?: string }) => ref.url === pdf)).toBe(true);
-    expect(body).toContain(pdf);
+    expect(data.references.some((ref: { url?: string }) => ref.url === pdf)).toBe(false);
+    expect(body).not.toContain('### Quantitative splicing');
+    expect(body).not.toContain(pdf);
+    expect(body).not.toContain('https://huggingface.co/illumina-ai/SpliceAI2');
+    expect(body).not.toContain('https://huggingface.co/datasets/illumina-ai/SpliceAI2-data');
     expect(body).not.toContain('/publications/spliceai2/');
     expect(body).not.toContain('contributing to model development and implementation');
     expect(body).not.toContain('I co-authored');
-    expect(body).toContain('https://huggingface.co/illumina-ai/SpliceAI2');
-    expect(body).toContain('https://huggingface.co/datasets/illumina-ai/SpliceAI2-data');
     expect(body.match(/^## Future directions$/gm)).toHaveLength(1);
-    expect(body.indexOf('### Quantitative splicing')).toBeLessThan(
-      body.indexOf('## Future directions')
-    );
   });
 
   it('uses the approved gratitude wording and links news directly to the preprint', () => {
