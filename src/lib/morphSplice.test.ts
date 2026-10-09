@@ -151,7 +151,10 @@ describe('local DNA opening during transcription', () => {
   });
   it('joins the paired helix with zero opening slope and curvature at each bubble edge', () => {
     const state = atPhase(phaseOfSigma(0.5));
-    const h = 1e-5;
+    // At a quintic boundary the central slope's residual is O(h²), not exactly zero at finite h.
+    // Use a smaller step and also require convergence, so a real slope/curvature discontinuity
+    // cannot be hidden by the tolerance. The narrower .035 edge needs the finer sampling.
+    const h = 1e-6;
     for (const edge of [state.sigma - BUBBLE_BACK, state.sigma + BUBBLE_FRONT]) {
       const left = transcriptionOpen(edge - h, state);
       const center = transcriptionOpen(edge, state);
@@ -159,6 +162,13 @@ describe('local DNA opening during transcription', () => {
       expect(center).toBeCloseTo(0, 12);
       expect(Math.abs((right - left) / (2 * h))).toBeLessThan(1e-5);
       expect(Math.abs((right - 2 * center + left) / (h * h))).toBeLessThan(3);
+      const coarseH = 4 * h;
+      const coarseLeft = transcriptionOpen(edge - coarseH, state);
+      const coarseRight = transcriptionOpen(edge + coarseH, state);
+      const coarseSlope = Math.abs((coarseRight - coarseLeft) / (2 * coarseH));
+      const coarseCurvature = Math.abs((coarseRight - 2 * center + coarseLeft) / coarseH ** 2);
+      expect(Math.abs((right - left) / (2 * h))).toBeLessThan(coarseSlope * 0.1 + 1e-9);
+      expect(Math.abs((right - 2 * center + left) / h ** 2)).toBeLessThan(coarseCurvature * 0.3 + 0.002);
     }
     const temporalStep = 1e-6;
     for (const phase of [0.01, 0.04, 0.74, 0.8]) {
