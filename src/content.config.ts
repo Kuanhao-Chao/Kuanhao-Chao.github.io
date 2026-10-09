@@ -24,6 +24,9 @@ const publications = defineCollection({
       issue: z.string().optional(),
       pages: z.string().optional(),
       date: z.coerce.date(),
+      // Some manuscripts have a dated launch announcement but no verified posting
+      // date. Keep that date for ordering without claiming it is datePublished.
+      dateBasis: z.enum(['publication', 'announcement']).default('publication'),
       type: z.enum(['journal', 'conference', 'preprint', 'thesis']),
       status: z.enum(['published', 'preprint', 'accepted']).default('published'),
       doi: z.url().optional(),
@@ -34,6 +37,8 @@ const publications = defineCollection({
       pdf: z.url().optional(),
       code: z.url().optional(),
       docs: z.url().optional(),
+      // Model weights are distinct from a paper's datasets or precomputed scores.
+      models: z.url().optional(),
       lab: z.url().optional(),
       slides: z.url().optional(),
       poster: z.url().optional(),

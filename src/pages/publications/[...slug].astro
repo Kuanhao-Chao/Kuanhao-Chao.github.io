@@ -5,13 +5,12 @@ import Prose from '../../components/Prose.astro';
 import CitationTools from '../../components/CitationTools.astro';
 import { pubSlug } from '../../lib/slug';
 import { resolveRelatedPosts } from '../../lib/relatedPosts';
-import { fullDate } from '../../lib/format';
 import {
   authorNames,
-  preprintLabel,
   publicationCitation,
   publicationRis,
 } from '../../lib/citationText';
+import { publicationDateLabel, publicationLinks, publicationRecordMetadata } from '../../lib/publicationMetadata';
 import { site } from '../../data/site';
 
 export async function getStaticPaths() {
@@ -39,24 +38,12 @@ const authorParts = d.authors.split(OWNER);
 const eyebrow = [typeLabel, d.venue].filter(Boolean).join(' · ');
 const statusLabel = { published: null, preprint: 'Preprint', accepted: 'In press' }[d.status];
 const meta = [
-  fullDate(d.date),
+  publicationDateLabel(d),
   statusLabel,
   d.advisors.length ? `Advised by ${d.advisors.join(' & ')}` : null,
 ].filter(Boolean) as string[];
 
-const links = [
-  { label: 'DOI', icon: 'link', href: d.doi },
-  { label: d.preprint ? preprintLabel(d.preprint) : '', icon: 'external', href: d.preprint },
-  { label: 'PDF', icon: 'file', href: d.pdf },
-  { label: 'Code', icon: 'code', href: d.code },
-  { label: 'Docs', icon: 'book', href: d.docs },
-  { label: 'Lab', icon: 'sparkles', href: d.lab },
-  { label: 'Slides', icon: 'slides', href: d.slides },
-  { label: 'Poster', icon: 'image', href: d.poster },
-  { label: 'Talk', icon: 'play', href: d.video },
-  { label: 'News', icon: 'external', href: d.news },
-  { label: 'Data', icon: 'database', href: d.data },
-].filter((l): l is { label: string; icon: string; href: string } => Boolean(l.href));
+const links = publicationLinks(d);
 
 const description = d.abstract
   ? d.abstract.replace(/\s+/g, ' ').trim().slice(0, 155)
@@ -85,16 +72,12 @@ const articleLd = {
   headline: d.title,
   name: d.title,
   author: authorLd,
-  datePublished: d.date.toISOString().slice(0, 10),
+  ...publicationRecordMetadata(d),
   isPartOf: isPartOfLd,
   ...(d.pages ? { pagination: d.pages } : {}),
   inLanguage: 'en',
   url: canonical,
   mainEntityOfPage: canonical,
-  // Every record of the work: a reviewed preprint's DOI first, then the posting it versions.
-  ...(d.doi
-    ? { sameAs: d.preprint ? [d.doi, d.preprint] : d.doi, identifier: d.doi }
-    : {}),
   ...(d.abstract ? { abstract: d.abstract } : {}),
 };
 

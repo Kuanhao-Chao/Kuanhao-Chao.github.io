@@ -3,7 +3,8 @@ import Icon from './Icon.astro';
 import CitationTools from './CitationTools.astro';
 import { pubSlug } from '../lib/slug';
 import { resolveRelatedPosts } from '../lib/relatedPosts';
-import { preprintLabel, publicationCitation, publicationRis } from '../lib/citationText';
+import { publicationCitation, publicationRis } from '../lib/citationText';
+import { publicationLinks, publicationSearchText } from '../lib/publicationMetadata';
 import type { CollectionEntry } from 'astro:content';
 
 interface Props {
@@ -28,21 +29,8 @@ const inPress = d.status === 'accepted';
 const tagLabel = inPress ? 'In press' : typeLabel;
 const tagClass = inPress ? 'tag--accepted' : `tag--${d.type}`;
 
-const links = [
-  { key: 'doi', label: 'DOI', icon: 'link', href: d.doi },
-  { key: 'preprint', label: d.preprint ? preprintLabel(d.preprint) : '', icon: 'external', href: d.preprint },
-  { key: 'pdf', label: 'PDF', icon: 'file', href: d.pdf },
-  { key: 'code', label: 'Code', icon: 'code', href: d.code },
-  { key: 'docs', label: 'Docs', icon: 'book', href: d.docs },
-  { key: 'lab', label: 'Lab', icon: 'sparkles', href: d.lab },
-  { key: 'slides', label: 'Slides', icon: 'slides', href: d.slides },
-  { key: 'poster', label: 'Poster', icon: 'image', href: d.poster },
-  { key: 'video', label: 'Talk', icon: 'play', href: d.video },
-  { key: 'news', label: 'News', icon: 'external', href: d.news },
-  { key: 'data', label: 'Data', icon: 'database', href: d.data },
-].filter((l) => l.href);
-
-const searchText = `${d.title} ${d.authors} ${d.venue}`.toLowerCase();
+const links = publicationLinks(d);
+const searchText = publicationSearchText(d);
 const citation = publicationCitation(d);
 ---
 <article

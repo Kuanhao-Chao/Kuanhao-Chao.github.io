@@ -3,6 +3,7 @@ import { preview } from 'astro';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
+import os from 'node:os';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 
@@ -11,7 +12,9 @@ const TEST_ROUTES = [
   '/',
   '/cv',
   '/research',
+  '/research/splice-sites',
   '/publications',
+  '/publications/spliceai2',
   '/software',
   '/news',
   '/posts',
@@ -55,6 +58,10 @@ const VIEWPORTS = [
 ];
 
 async function main() {
+  // Keep focused regressions fast: --routes=/research/splice-sites,/publications/spliceai2
+  const routeArg = process.argv.find((arg) => arg.startsWith('--routes='));
+  const routes = routeArg ? routeArg.slice('--routes='.length).split(',').filter(Boolean) : TEST_ROUTES;
+  if (!routes.length) throw new Error('At least one route is required.');
   const previewServer = await preview({
     root: ROOT,
     server: { port: 4339 }
@@ -69,12 +76,13 @@ async function main() {
     await page.setViewportSize({ width: vp.width, height: vp.height });
     console.log(`\n--- Auditing Viewport: ${vp.name} (${vp.width}x${vp.height}) ---`);
 
-    for (const route of TEST_ROUTES) {
+    for (const route of routes) {
       const url = `http://localhost:4339${route}`;
       try {
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
         // Wait a tiny bit for fonts and layout
         await page.waitForTimeout(200);
+        await page.evaluate(() => document.fonts.ready);
 
         // Check horizontal overflow
         const overflow = await page.evaluate(() => {
@@ -183,10 +191,11 @@ async function main() {
   console.log(JSON.stringify(issues, null, 2));
 
   // Write issues to an artifact scratch file
-  fs.writeFileSync(
-    '/Users/chaokuan-hao/.gemini/antigravity-cli/brain/7f11aa1c-5b3b-44de-bfd9-1ce4fbc93a1c/scratch/responsive_audit_results.json',
-    JSON.stringify(issues, null, 2)
-  );
+  const artifactDir = fs.mkdtempSync(path.join(os.tmpdir(), 'khc-responsive-audit-'));
+  const artifactPath = path.join(artifactDir, 'responsive_audit_results.json');
+  fs.writeFileSync(artifactPath, JSON.stringify(issues, null, 2));
+  console.log(`Audit details: ${artifactPath}`);
+  if (issues.length) process.exitCode = 1;
 }
 
 main().catch(err => {

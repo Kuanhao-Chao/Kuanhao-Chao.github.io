@@ -62,17 +62,19 @@ import Icon from '../components/Icon.astro';
     padding: 0;
     border-top: 1px solid var(--color-rule);
   }
-  .result {
+  /* Results are inserted by JavaScript and do not carry Astro scope attributes. */
+  .site-search :global(.result) {
     padding-block: var(--space-5);
     border-bottom: 1px solid var(--color-rule);
+    overflow-wrap: anywhere;
   }
-  .result-top {
+  .site-search :global(.result-top) {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 0.45rem 0.65rem;
   }
-  .result-type {
+  .site-search :global(.result-type) {
     font-size: 0.66rem;
     text-transform: uppercase;
     letter-spacing: 0.1em;
@@ -83,24 +85,24 @@ import Icon from '../components/Icon.astro';
     padding: 0.12em 0.55em;
     background: color-mix(in srgb, var(--color-accent) 8%, transparent);
   }
-  .result-date {
+  .site-search :global(.result-date) {
     font-size: var(--fs-meta);
     color: var(--color-muted);
   }
-  .result-title {
+  .site-search :global(.result-title) {
     margin-top: 0.45rem;
     font-size: 1.1rem;
     font-weight: var(--fw-semibold);
     line-height: 1.35;
   }
-  .result-title a {
+  .site-search :global(.result-title a) {
     color: var(--color-ink);
   }
-  .result-title a:hover {
+  .site-search :global(.result-title a:hover) {
     color: var(--color-accent);
     text-decoration: none;
   }
-  .result-desc {
+  .site-search :global(.result-desc) {
     margin-top: 0.35rem;
     font-size: var(--fs-small);
     display: -webkit-box;
@@ -109,7 +111,7 @@ import Icon from '../components/Icon.astro';
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  .result-tags {
+  .site-search :global(.result-tags) {
     list-style: none;
     margin: 0.65rem 0 0;
     padding: 0;
@@ -117,7 +119,7 @@ import Icon from '../components/Icon.astro';
     flex-wrap: wrap;
     gap: 0.35rem;
   }
-  .result-tags li {
+  .site-search :global(.result-tags li) {
     font-size: var(--fs-meta);
     color: var(--color-muted);
     border: 1px solid var(--color-rule);
