@@ -96,6 +96,9 @@ it('shares smooth finite stage weights, descriptions and explicit transition tim
   expect(story.stageDescription(5 / 6)).toMatch(/not Shorkie/);
   // The splicing scene says what it is and what it is not, in the status line a reader hears.
   expect(story.stageDescription(1 / 6)).toMatch(/co-transcriptional splicing/i);
+  expect(story.stageDescription(1 / 6)).toMatch(/local DNA bubble/);
+  expect(story.stageDescription(1 / 6)).toMatch(/one template strand/);
+  expect(story.stageDescription(1 / 6)).toMatch(/DNA re-pairs/);
   expect(story.stageDescription(1 / 6)).toMatch(/introns/);
   expect(story.stageDescription(1 / 6)).toMatch(/invented/);
   expect(story.stageDescription(1 / 6)).toMatch(/not a simulation/);

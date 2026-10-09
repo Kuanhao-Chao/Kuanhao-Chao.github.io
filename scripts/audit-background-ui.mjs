@@ -804,6 +804,17 @@ async function effectLifecycle(browser, engine, phone) {
       'exercise measured-cost static fallback'
     );
     await assertEffects(page, { demo: true, phone, amount: 0 });
+    await pressDemo(page, 'reset');
+    await scrub(page, 1 / 6);
+    const staticRna = await canvas.evaluate((c) => ({ ...c.dataset }));
+    assert.equal(staticRna.bgFallback, 'static', 'Reset does not bypass the static fallback');
+    assert.equal(staticRna.bgSplicePhase, '0.420', 'static RNA shows the reset poster');
+    assert.equal(staticRna.bgTranscriptionOpen, '1.000', 'static geometry retains the open DNA');
+    assert.ok(Number(staticRna.bgTranscriptionGap) > 8, 'the static opening is legible');
+    await assertEffects(page, { demo: true, phone, amount: 0, stage: 'rna' });
+    await canvas.screenshot({
+      path: join(artifacts, `${engine}-${phone ? 'phone' : 'desktop'}-transcription-static.png`),
+    });
     console.log(
       `[background-ui] ${engine}-${phone ? 'phone' : 'desktop'} effect lifecycle: exact under the fake clock`
     );
@@ -827,6 +838,8 @@ async function spliceLifecycle(browser, engine, phone) {
     const poster = await read();
     assert.equal(poster.bgStage, 'rna', 'the scrub lands on the RNA scene');
     assert.equal(poster.bgSplicePhase, '0.420', 'clock 0 is the poster phase');
+    assert.equal(poster.bgTranscriptionOpen, '1.000', 'the poster includes an open DNA bubble');
+    assert.ok(Number(poster.bgTranscriptionGap) > 8, 'the DNA opening is legible in the viewport');
     assert.ok(Number(poster.bgSplice) >= 1, 'the poster has a spliceosome gathered mid-splice');
     assert.equal(Number(poster.bgSparks), 0, 'the poster is before the first ligation');
     await assertEffects(page, { demo: true, phone, stage: 'rna' });
@@ -847,12 +860,16 @@ async function spliceLifecycle(browser, engine, phone) {
       'the explorer is paused'
     );
     const frozen = await phaseNow();
+    const frozenOpening = (await read()).bgTranscriptionOpen;
+    const frozenPosition = (await read()).bgTranscriptionX;
     // A paused explorer draws no frames of its own, so frames alone would pass against a loop that
     // kept drifting. A scrub forces a real draw while paused, and it must show the same phase.
     await scrub(page, 1 / 6);
     assert.equal(await phaseNow(), frozen, 'a draw while paused shows the phase it stopped at');
     for (let i = 0; i < 4; i++) await page.clock.fastForward(100);
     assert.equal(await phaseNow(), frozen, 'Pause freezes the loop where it stands');
+    assert.equal((await read()).bgTranscriptionOpen, frozenOpening, 'Pause freezes DNA opening');
+    assert.equal((await read()).bgTranscriptionX, frozenPosition, 'Pause freezes the bubble position');
     await pressDemo(page, 'reset');
     assert.equal((await read()).bgSplicePhase, '0.420', 'Reset returns the loop to the poster');
     // Reduced motion keeps the poster and draws none of its effects. The change reaches the page
@@ -867,12 +884,77 @@ async function spliceLifecycle(browser, engine, phone) {
     const reduced = await read();
     assert.equal(reduced.bgStage, 'rna', 'the RNA scene is still reachable in reduced motion');
     assert.equal(reduced.bgSplicePhase, '0.420', 'reduced motion shows the poster');
+    assert.equal(reduced.bgTranscriptionOpen, '1.000', 'reduced motion keeps the structural DNA opening');
     assert.equal(Number(reduced.bgSplice), 0, 'reduced motion draws no spliceosome glow');
     assert.equal(Number(reduced.bgSparks), 0, 'reduced motion draws no ligation sparks');
     assert.ok(Number(reduced.bgVisible) > 0, 'the poster still draws the RNA scene');
     console.log(
       `[background-ui] ${engine}-${phone ? 'phone' : 'desktop'} splice lifecycle: poster 0.420, ${first.toFixed(3)} after one frame, ${running.toFixed(3)} after nine, frozen on pause`
     );
+  } finally {
+    await context.close();
+  }
+}
+// Advance the actual decorative clock, not a replacement sampler. Scrubbing pins the form and
+// stops story playback after each frame; Play resumes it for exactly the next 80ms. All frames
+// use the existing fake clock, so the result does not depend on compositor speed.
+async function transcriptionLifecycle(browser, engine, phone) {
+  const { context, page } = await openClockedExplorer(browser, engine, phone);
+  const label = `${engine}-${phone ? 'phone' : 'desktop'}`;
+  try {
+    await pausedAtDna(page);
+    await scrub(page, 1 / 6);
+    const canvas = page.locator('[data-background-demo-canvas]');
+    const read = () => canvas.evaluate((c) => ({ ...c.dataset }));
+    const advanceTo = async (predicate, what) => {
+      for (let step = 0; step < 200; step++) {
+        const state = await read();
+        if (predicate(Number(state.bgSplicePhase))) return state;
+        await pressDemo(page, 'play');
+        await frameAfter(page, 80, what);
+        await scrub(page, 1 / 6);
+      }
+      throw new Error(`${label}: transcription did not reach ${what}: ${JSON.stringify(await read())}`);
+    };
+    const capture = async (name) => {
+      const state = await read();
+      assert.equal(state.bgStage, 'rna', `${name} is captured in the RNA stage`);
+      await canvas.screenshot({ path: join(artifacts, `${label}-transcription-${name}.png`) });
+      return state;
+    };
+    const poster = await capture('elongation');
+    assert.equal(poster.bgTranscriptionOpen, '1.000');
+    assert.ok(Number(poster.bgTranscriptionGap) > 8);
+    const labels = page.locator('[data-background-labels]');
+    await labels.evaluate((input) => {
+      input.checked = true;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await capture('structures');
+    await labels.evaluate((input) => {
+      input.checked = false;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    const releasing = await advanceTo((phase) => phase >= 0.76 && phase < 0.785, 'polymerase release');
+    assert.ok(Number(releasing.bgTranscriptionOpen) > 0 && Number(releasing.bgTranscriptionOpen) < 1);
+    assert.ok(Number(releasing.bgTranscriptionX) > Number(poster.bgTranscriptionX), 'the bubble travels with Pol II');
+    await capture('release');
+    await advanceTo((phase) => phase >= 0.82 && phase < 0.9, 're-paired DNA');
+    assert.equal((await capture('repaired')).bgTranscriptionOpen, '0.000');
+    await advanceTo((phase) => phase < 0.01, 'closed DNA before the next transcript');
+    assert.equal((await capture('before-opening')).bgTranscriptionOpen, '0.000');
+    const opening = await advanceTo((phase) => phase >= 0.02 && phase < 0.035, 'opening before RNA synthesis');
+    assert.ok(Number(opening.bgTranscriptionOpen) > 0 && Number(opening.bgTranscriptionOpen) < 1);
+    await capture('opening');
+    const started = await advanceTo((phase) => phase >= 0.08 && phase < 0.1, 'new transcript elongation');
+    assert.equal(started.bgTranscriptionOpen, '1.000');
+    assert.ok(Number(started.bgTranscriptionGap) > 8);
+    await capture('new-transcript');
+    await scrub(page, 0);
+    const dna = await read();
+    assert.equal(dna.bgTranscriptionOpen, '0.000', 'no RNA bubble overlay in the DNA stage');
+    assert.equal(dna.bgTranscriptionGap, '0.00', 'no RNA geometry diagnostics outside its stage');
+    console.log(`[background-ui] ${label} transcription: local opening, moving bubble, release, re-pairing and restart`);
   } finally {
     await context.close();
   }
@@ -1525,6 +1607,7 @@ try {
       if (process.env.BACKGROUND_UI_EFFECT_ONLY === '1') {
         await effectLifecycle(browser, name, false);
         await spliceLifecycle(browser, name, false);
+        await transcriptionLifecycle(browser, name, false);
         await locusScene(browser, name, false);
         await attentionScene(browser, name, false);
         continue;
@@ -1533,6 +1616,7 @@ try {
         // The RNA and coverage scenes alone: the fast loop while those are being worked on.
         for (const phone of [false, true]) {
           await spliceLifecycle(browser, name, phone);
+          await transcriptionLifecycle(browser, name, phone);
           await locusScene(browser, name, phone);
           await attentionScene(browser, name, phone);
         }
@@ -1555,6 +1639,7 @@ try {
           await stirAndReset(browser, name, phone);
           await effectLifecycle(browser, name, phone);
           await spliceLifecycle(browser, name, phone);
+          await transcriptionLifecycle(browser, name, phone);
           await locusScene(browser, name, phone);
           await attentionScene(browser, name, phone);
           await slowCallbacks(browser, name, phone);
@@ -1999,6 +2084,7 @@ try {
         await stirAndReset(browser, name, phone);
         await effectLifecycle(browser, name, phone);
         await spliceLifecycle(browser, name, phone);
+        await transcriptionLifecycle(browser, name, phone);
         await locusScene(browser, name, phone);
         await attentionScene(browser, name, phone);
         await slowCallbacks(browser, name, phone);

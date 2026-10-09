@@ -17,7 +17,7 @@ export const MORPH_STAGES: readonly {
     label: 'RNA splicing',
     progress: 1 / 6,
     description:
-      'Co-transcriptional splicing, illustrated: RNA polymerase II copies a gene while spliceosomes loop its introns out as lariats and join the exons, and the finished mRNA gets a 5′ cap and a poly-A tail. Sizes and timing are invented, one transcript repeats, and it is not a simulation.',
+      'Co-transcriptional splicing, illustrated: RNA polymerase II opens a local DNA bubble and copies one template strand. New RNA emerges while DNA re-pairs behind the enzyme; spliceosomes loop introns out as lariats and join the exons. A 5′ cap and a poly-A tail mark the processed mRNA. Sizes and timing are invented, one transcript repeats, and it is not a simulation.',
   },
   {
     id: 'protein',
