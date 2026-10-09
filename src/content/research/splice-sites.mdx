@@ -28,8 +28,6 @@ references:
     doi: 'https://doi.org/10.1186/s13059-024-03379-4'
   - text: 'Chao, K.-H. et al. OpenSpliceAI provides an efficient modular implementation of SpliceAI enabling easy retraining across nonhuman species. eLife (2025).'
     doi: 'https://doi.org/10.7554/eLife.107454.3'
-  - text: 'Jaganathan, K. et al. A unified framework for quantitative splicing and transcript prediction. Unpublished manuscript (2026).'
-    url: 'https://assets.illumina.com/content/dam/illumina-marketing/images/genomics-research/articles/spliceai2/SpliceAI2.pdf'
 ---
 RNA splicing forms mature transcripts by removing introns and joining exons. Boundaries must be recognized at single-base precision, but the two boundary dinucleotides are not sufficient. Nearby motifs, broader context, cell state, and regulatory proteins influence which sites are used. Alternative choices create multiple isoforms; incorrect choices can disrupt a protein or contribute to disease.
 
@@ -58,14 +56,6 @@ Applied to spliced alignments, Splam removes low-scoring junctions and reads whi
 **OpenSpliceAI** ([Chao et al., 2025](https://doi.org/10.7554/eLife.107454.3)) rebuilds the SpliceAI architecture in PyTorch and exposes data preparation, training, transfer learning, genome-scale prediction, and variant scoring. Its contribution is to turn a strong fixed model into a platform that can be inspected, reproduced, and adapted.
 
 We used that capability to train and transfer models for non-human species. In mouse, zebrafish, honeybee, and *Arabidopsis*, models trained on the target species outperformed direct application of the human model, and transfer from a human checkpoint converged faster and more stably than training from random weights. The same software also supports variant-effect prediction, where the reference and alternate alleles are compared to identify gained or lost donor and acceptor signals.
-
-### Quantitative splicing and transcript-level modeling
-
-**SpliceAI2** ([Jaganathan et al., 2026, preprint](https://assets.illumina.com/content/dam/illumina-marketing/images/genomics-research/articles/spliceai2/SpliceAI2.pdf)) brings splice-site usage, donor–acceptor junction usage, and transcript prediction into a unified framework. Short-read RNA-seq supplies evidence about individual splicing events, while long-read RNA-seq helps connect those events into transcript paths. This extends the question from recognizing a credible boundary to predicting the relative usage of alternative splicing choices and the isoforms they form.
-
-The reported evaluations include splice-altering variant assays, splicing quantitative trait loci, population constraint, and disease-associated gene panels. The distinction between prediction tasks still matters: transcript-reconstruction benchmarks concern selected genes and internal splice structure, and the tissue-specific extension conditions on regulator expression rather than DNA alone. Predicted splicing changes are evidence for interpretation, not a direct probability of pathogenicity or a measured diagnostic yield.
-
-The official release includes [code and usage instructions](https://github.com/Illumina/SpliceAI2), [model weights](https://huggingface.co/illumina-ai/SpliceAI2), and [precomputed predictions](https://huggingface.co/datasets/illumina-ai/SpliceAI2-data). Model and data access are subject to Illumina's terms. SpliceAI2 complements the distinct goals of Splam's alignment filtering and OpenSpliceAI's retrainable cross-species prediction; it is not a replacement for either workflow.
 
 ## Future directions
 
