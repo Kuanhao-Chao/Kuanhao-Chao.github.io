@@ -64,6 +64,15 @@ jobs:
         timeout-minutes: 20
         run: npm run audit:background:ci
 
+      - name: Upload background animation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: background-animation-audit
+          path: /tmp/khc-background-*/
+          if-no-files-found: ignore
+          retention-days: 7
+
       # 12, not 5, and matching the deep-dive step below. The previous SUCCESSFUL run of this
       # step took 4 min 46 s against a 5 min cap -- fourteen seconds of margin -- so it failed on
       # the next commit whatever that commit contained. The smoke run itself was trimmed at the

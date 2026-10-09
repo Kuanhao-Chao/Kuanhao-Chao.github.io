@@ -97,7 +97,7 @@ const STRUCTURE_LABELS = [
   ['DNA · paired strands', 'Representative genetic information'],
   [
     'RNA · co-transcriptional splicing',
-    'Introns loop out as exons join · illustrative, not to scale',
+    'DNA opens locally · introns loop out · illustrative, not to scale',
   ],
   ['Ubiquitin · 1UBQ chain A', 'Helix, sheets and loops · experimental backbone'],
   ['Cell · membrane and nucleus', 'Chromatin, mitochondria and ER'],
@@ -152,7 +152,8 @@ export function createMorphRenderer(
     spliceCount = 0,
     sparkCount = 0,
     junctionCount = 0,
-    arcCount = 0;
+    arcCount = 0,
+    transcriptionGap = 0;
   // Linked buckets: six depth bands × three inks × three sizes × twelve opacities.
   // Build once per frame without sorting, allocating arrays, or drawing each dot separately.
   const bucketHeads = new Int32Array(6 * 3 * 3 * 12);
@@ -625,6 +626,13 @@ export function createMorphRenderer(
     if (weight < 0.005) return;
     const base = opacity() * weight;
     context.save();
+    // Read the projected separation from the same strand samples the DNA strokes draw. This is
+    // structural geometry, not a life effect: a paused/reduced-motion poster still has a bubble.
+    templatePoint(splice.sigma, 0, splice, scratch);
+    templatePoint(splice.sigma, 1, splice, other);
+    project(scratch);
+    project(other);
+    transcriptionGap = Math.hypot(scratch.x - other.x, scratch.y - other.y);
     context.strokeStyle = ink;
     context.lineWidth = demo ? 1.3 : 0.9;
     context.globalAlpha = base * 0.16;
@@ -646,10 +654,10 @@ export function createMorphRenderer(
       context.beginPath();
       context.ellipse(point.x, point.y, 0.075 * scale, 0.06 * scale, 0, 0, TAU);
       context.fillStyle = ink;
-      context.globalAlpha = base * splice.polAlpha * 0.06;
+      context.globalAlpha = base * splice.polAlpha * 0.04;
       context.fill();
       context.lineWidth = demo ? 1.6 : 1.1;
-      context.globalAlpha = base * splice.polAlpha * 0.4;
+      context.globalAlpha = base * splice.polAlpha * 0.32;
       context.stroke();
     }
     for (const element of GENE) {
@@ -847,6 +855,7 @@ export function createMorphRenderer(
     life.amount = canAnimate() ? (motion === 'calm' ? 0.45 : 1) : 0;
     glowCount = streakCount = pulseCount = packetCount = bokehCount = 0;
     spliceCount = sparkCount = junctionCount = arcCount = 0;
+    transcriptionGap = 0;
     computeSplice(clock, splice);
     layout();
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -975,6 +984,10 @@ export function createMorphRenderer(
     canvas.dataset.bgSplice = String(spliceCount);
     canvas.dataset.bgSparks = String(sparkCount);
     canvas.dataset.bgSplicePhase = splice.phase.toFixed(3);
+    const rnaVisible = stageWeight(displayed, 'rna') >= 0.005;
+    canvas.dataset.bgTranscriptionOpen = (rnaVisible ? splice.bubbleOpen : 0).toFixed(3);
+    canvas.dataset.bgTranscriptionGap = transcriptionGap.toFixed(2);
+    canvas.dataset.bgTranscriptionX = (rnaVisible ? splice.polX : 0).toFixed(3);
     canvas.dataset.bgJunctions = String(junctionCount);
     canvas.dataset.bgArcs = String(arcCount);
     canvas.dataset.bgPalette = String(paletteVersion);

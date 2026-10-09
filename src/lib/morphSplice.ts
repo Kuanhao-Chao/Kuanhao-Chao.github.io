@@ -1,17 +1,18 @@
 /**
  * Co-transcriptional splicing: a pure model of one repeating, illustrative transcript.
  *
- * RNA polymerase II walks along a three-exon gene on a double-helix template, and the RNA peels
- * off the DNA right behind it, lifting from the helix to a row above. A spliceosome gathers on each
+ * RNA polymerase II opens a small, moving bubble along a three-exon gene. Only one exposed DNA
+ * strand templates the RNA: its growing 3' end stays in a short RNA-DNA hybrid inside the enzyme,
+ * the older RNA peels away, and the two DNA strands re-pair behind it. A spliceosome gathers on each
  * intron as soon as its 3' end has been made, while the polymerase is still working further
  * downstream (that is what co-transcriptional means), the intron loops out of the strand into a
  * lariat, and the exons on either side are joined. The finished mRNA carries a 5' cap and a poly-A
  * tail and leaves.
  *
- * Before the polymerase reaches it, every piece of the transcript sits on the template where it is
- * encoded, so the gene's exons and introns are lit up on the DNA ahead of the enzyme, and being
- * copied is literally a lift-off from the helix. The same goes for the spliceosome: its parts wait
- * above their intron and rise to its neck to assemble.
+ * Before the polymerase reaches it, coloured drawing material marks the gene's exons and introns
+ * on the template; it is not pre-existing RNA, or DNA being consumed. The persistent DNA has its
+ * own two strands. The same drawing convention places spliceosome parts above their intron before
+ * they rise to its neck to assemble.
  *
  * Everything on screen is a function of the clock, and the geometry is derived rather than drawn by
  * eye. Exons and introns are drawn at their gene coordinates, so the unspliced RNA lies exactly over
@@ -102,6 +103,14 @@ export const Y_POL = 0.3;
 const TEMPLATE_AMPLITUDE = 0.045;
 const TEMPLATE_TURNS = 3.3;
 const WAVE = 0.011;
+/** Gene-fraction extents of an enlarged, illustrative bubble, not a count of melted bases. */
+export const BUBBLE_BACK = 0.075;
+export const BUBBLE_FRONT = 0.035;
+/** The two exposed strands separate in the drawing plane so the opening is legible on phones. */
+export const BUBBLE_HALF_GAP = 0.085;
+/** A short RNA-DNA hybrid behind the active site; its drawing scale is also illustrative. */
+export const HYBRID_SPAN = 0.016;
+export const RNA_TEMPLATE_GAP = 0.012;
 /** How much of the gene behind the polymerase is still lifting off the helix. */
 const PEEL = 0.06;
 /** The spliceosome's parts wait this far above the helix, over their intron. */
@@ -166,6 +175,8 @@ export interface SpliceState {
   /** The fraction of the gene the polymerase has copied, and where it stands. */
   sigma: number;
   polX: number;
+  /** Local DNA opening, 0 to 1: established before synthesis, closed during polymerase release. */
+  bubbleOpen: number;
   /**
    * How far along the gene the strand has lifted off the helix: the polymerase's own position while
    * it works, then a little past the end once it lets go, so the last stretch of the finished mRNA
@@ -204,6 +215,7 @@ export function newSpliceState(): SpliceState {
     phase: 0,
     sigma: 0,
     polX: GENE_X0,
+    bubbleOpen: 0,
     peelTo: 0,
     rnaAlpha: 0,
     polAlpha: 0,
@@ -262,6 +274,9 @@ export function computeSplice(time: number, out: SpliceState = newSpliceState())
   out.phase = phase;
   out.sigma = sigma;
   out.polX = GENE_X0 + GENE_WIDTH * sigma;
+  out.bubbleOpen =
+    smootherstep((phase - 0.01) / (TRANSCRIBE_FROM - 0.01)) *
+    (1 - smootherstep((phase - TRANSCRIBE_TO) / 0.06));
   out.peelTo = sigma + PEEL * smooth((phase - TRANSCRIBE_TO) / 0.05);
   // The RNA and the polymerase are gone at phase 0 and at phase 1, so the scene's one jump (the loop
   // wrapping, when every piece goes back to waiting on the template) is unseen.
@@ -365,7 +380,12 @@ export function strandPoint(
 ): number {
   templatePoint(g, strand, state, waiting);
   rnaPoint(g, state, out);
-  const lifted = smootherstep((state.peelTo - g) / PEEL);
+  // The last short segment remains paired with the template, rather than RNA rising immediately
+  // from a closed helix. Its small offset appears smoothly as the annotated gene enters Pol II;
+  // ahead of that it is still just drawing material marking the DNA. The RNA sampler uses strand 0.
+  const binding = state.bubbleOpen * smootherstep((state.sigma + HYBRID_SPAN - g) / HYBRID_SPAN);
+  waiting.y += RNA_TEMPLATE_GAP * binding;
+  const lifted = smootherstep((state.peelTo - g - HYBRID_SPAN * state.bubbleOpen) / PEEL);
   out.x = waiting.x + (out.x - waiting.x) * lifted;
   out.y = waiting.y + (out.y - waiting.y) * lifted - 0.05 * Math.sin(Math.PI * lifted);
   out.z = waiting.z * (1 - lifted);
@@ -394,7 +414,18 @@ export function elementPoint(
   strandPoint(g, 0, state, out);
 }
 
-/** One strand of the double helix the polymerase is walking along. */
+/** A compact quintic window: its value, slope and curvature vanish at both bubble edges. */
+export function transcriptionOpen(g: number, state: SpliceState): number {
+  const behind = state.sigma - unit(g);
+  const extent = behind >= 0 ? BUBBLE_BACK : BUBBLE_FRONT;
+  return state.bubbleOpen * (1 - smootherstep(Math.abs(behind) / extent));
+}
+
+/**
+ * Persistent DNA: paired ahead and behind, locally unwound at Pol II. The helix's rotating depth
+ * flattens only inside the opening; template strand 0 takes the upper exposed path, strand 1 the
+ * lower bypass. Both dots and strokes use this sampler, including paused/reduced-motion posters.
+ */
 export function templatePoint(
   g: number,
   strand: number,
@@ -403,9 +434,12 @@ export function templatePoint(
 ): void {
   const fraction = unit(g);
   const turn = fraction * TAU * TEMPLATE_TURNS + strand * Math.PI + state.clock * 0.35;
+  const opened = transcriptionOpen(fraction, state);
+  const exposedY = strand === 0 ? -BUBBLE_HALF_GAP : BUBBLE_HALF_GAP;
   out.x = GENE_X0 + GENE_WIDTH * fraction;
-  out.y = Y_TEMPLATE + Math.cos(turn) * TEMPLATE_AMPLITUDE;
-  out.z = Math.sin(turn) * TEMPLATE_AMPLITUDE;
+  out.y =
+    Y_TEMPLATE + Math.cos(turn) * TEMPLATE_AMPLITUDE * (1 - opened) + exposedY * opened;
+  out.z = Math.sin(turn) * TEMPLATE_AMPLITUDE * (1 - opened);
   out.alpha = 1;
 }
 
@@ -484,7 +518,7 @@ export function sampleRnaParticle(p: MorphParticle, time: number, out: MorphPoin
     const exon = element.kind === 'exon';
     // Not yet copied, the piece sits on the template where it is encoded, dim, so the gene's exons
     // and introns show on the DNA ahead of the polymerase. As the polymerase passes it lifts off.
-    const peeled = strandPoint(p.t, p.v < 0.5 ? 0 : 1, state, out);
+    const peeled = strandPoint(p.t, 0, state, out);
     // Beads on the helix until copied, then a strand: thick for an exon, thin for an intron.
     const spread = (exon ? 0.021 : 0.011) * peeled + 0.006 * (1 - peeled);
     const radius = spread * Math.sqrt(within(p, 0, STRAND_END));
@@ -504,7 +538,8 @@ export function sampleRnaParticle(p: MorphParticle, time: number, out: MorphPoin
     out.x = state.polX + 0.07 * radius * Math.cos(p.phase);
     out.y = Y_POL + 0.056 * radius * Math.sin(p.phase);
     out.z = 0.05 * Math.sin(p.v * TAU * 1.6);
-    out.alpha = state.polAlpha * (0.3 + 0.3 * (1 - radius));
+    // Keep the enzyme porous enough to see the exposed DNA and the nascent RNA inside it.
+    out.alpha = state.polAlpha * (0.22 + 0.2 * (1 - radius));
   } else {
     // A spliceosome part: waits above its intron on the template, rises to the neck of the loop
     // to assemble, and goes back when the lariat leaves.
@@ -542,6 +577,8 @@ export function spliceAnchors(state: SpliceState): SpliceAnchor[] {
     found.push({ label, side, x, y });
   };
   if (state.polAlpha > 0.5) add('RNA Pol II', 'below', state.polX, Y_POL + 0.07);
+  if (state.bubbleOpen > 0.5)
+    add('Transcription bubble', 'above', state.polX, Y_TEMPLATE - BUBBLE_HALF_GAP - 0.025);
   if (state.rnaAlpha > 0.5) {
     const exon = EXONS.find((element) => state.sigma > element.end) ?? EXONS[0];
     rnaPoint((exon.start + exon.end) / 2, state, point);

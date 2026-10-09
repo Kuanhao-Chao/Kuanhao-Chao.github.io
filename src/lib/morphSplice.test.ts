@@ -2,6 +2,9 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { createMorphParticles, type MorphPoint } from './morphModel';
 import {
+  BUBBLE_BACK,
+  BUBBLE_FRONT,
+  BUBBLE_HALF_GAP,
   EXONS,
   EXON_SHARE,
   GENE,
@@ -9,12 +12,15 @@ import {
   GENE_X0,
   GENE_X1,
   INTRONS,
+  HYBRID_SPAN,
   LOOP_OUT_SPAN,
   POLY_A_COUNT,
+  RNA_TEMPLATE_GAP,
   SPARKS_PER_INTRON,
   SPLICE_CYCLE,
   SPLICE_POSTER_PHASE,
   Y_RNA,
+  Y_POL,
   Y_TEMPLATE,
   catalysisPhase,
   computeSplice,
@@ -33,6 +39,7 @@ import {
   spliceosomePool,
   strandPoint,
   templatePoint,
+  transcriptionOpen,
   type SpliceState,
 } from './morphSplice';
 
@@ -81,6 +88,127 @@ describe('the gene model', () => {
   });
 });
 
+describe('local DNA opening during transcription', () => {
+  const separation = (state: SpliceState, g: number): number => {
+    const a = point(),
+      b = point();
+    templatePoint(g, 0, state, a);
+    templatePoint(g, 1, state, b);
+    return Math.hypot(a.y - b.y, a.z - b.z);
+  };
+  it('opens both strands around the moving polymerase, not the whole DNA molecule', () => {
+    for (const sigma of [0.15, 0.45, 0.85]) {
+      const state = atPhase(phaseOfSigma(sigma));
+      expect(transcriptionOpen(state.sigma, state)).toBeCloseTo(1, 12);
+      expect(separation(state, state.sigma)).toBeCloseTo(2 * BUBBLE_HALF_GAP, 12);
+      // This is the original symptom: an active polymerase used to leave the helix unchanged.
+      expect(separation(state, state.sigma)).toBeGreaterThan(0.09 * 1.5);
+      const closed = { ...state, bubbleOpen: 0 };
+      for (const g of [sigma - BUBBLE_BACK - 0.01, sigma + BUBBLE_FRONT + 0.01]) {
+        for (const strand of [0, 1]) {
+          const actual = point(),
+            paired = point();
+          templatePoint(g, strand, state, actual);
+          templatePoint(g, strand, closed, paired);
+          expect(actual).toEqual(paired);
+        }
+      }
+    }
+  });
+  it('re-pairs a fixed DNA position once the polymerase has passed it', () => {
+    const g = 0.35;
+    const during = atPhase(phaseOfSigma(g));
+    const after = atPhase(phaseOfSigma(g + BUBBLE_BACK + 0.02));
+    expect(separation(during, g)).toBeGreaterThan(0.135);
+    expect(transcriptionOpen(g, after)).toBe(0);
+    expect(separation(after, g)).toBeCloseTo(0.09, 12);
+    for (const phase of [0, 0.85, 1 - 1e-9]) {
+      const state = atPhase(phase);
+      expect(state.bubbleOpen).toBe(0);
+      for (const fraction of [0, 0.4, 1])
+        expect(separation(state, fraction)).toBeCloseTo(0.09, 12);
+    }
+  });
+  it('opens before RNA synthesis and closes smoothly as the polymerase leaves', () => {
+    expect(atPhase(0.01).bubbleOpen).toBeCloseTo(0, 10);
+    expect(atPhase(0.025).bubbleOpen).toBeCloseTo(0.5, 10);
+    expect(atPhase(0.04).bubbleOpen).toBeCloseTo(1, 10);
+    expect(atPhase(0.04).rnaAlpha).toBeCloseTo(0, 10);
+    expect(atPhase(0.74).bubbleOpen).toBeCloseTo(1, 10);
+    expect(atPhase(0.77).bubbleOpen).toBeCloseTo(0.5, 10);
+    expect(atPhase(0.8).bubbleOpen).toBeCloseTo(0, 10);
+    for (const time of [Number.NaN, Infinity, -Infinity, -100, 1234]) {
+      const state = computeSplice(time);
+      expect(Number.isFinite(state.bubbleOpen)).toBe(true);
+      expect(state.bubbleOpen).toBeGreaterThanOrEqual(0);
+      expect(state.bubbleOpen).toBeLessThanOrEqual(1);
+      for (const g of [Number.NaN, Infinity, -Infinity, -1, 2]) {
+        const out = point();
+        templatePoint(g, 0, state, out);
+        expect(Object.values(out).every(Number.isFinite)).toBe(true);
+      }
+    }
+  });
+  it('joins the paired helix with zero opening slope and curvature at each bubble edge', () => {
+    const state = atPhase(phaseOfSigma(0.5));
+    const h = 1e-5;
+    for (const edge of [state.sigma - BUBBLE_BACK, state.sigma + BUBBLE_FRONT]) {
+      const left = transcriptionOpen(edge - h, state);
+      const center = transcriptionOpen(edge, state);
+      const right = transcriptionOpen(edge + h, state);
+      expect(center).toBeCloseTo(0, 12);
+      expect(Math.abs((right - left) / (2 * h))).toBeLessThan(1e-5);
+      expect(Math.abs((right - 2 * center + left) / (h * h))).toBeLessThan(3);
+    }
+    const temporalStep = 1e-6;
+    for (const phase of [0.01, 0.04, 0.74, 0.8]) {
+      const left = atPhase(phase - temporalStep).bubbleOpen;
+      const center = atPhase(phase).bubbleOpen;
+      const right = atPhase(phase + temporalStep).bubbleOpen;
+      expect(Math.abs((right - left) / (2 * temporalStep))).toBeLessThan(1e-5);
+      expect(Math.abs((right - 2 * center + left) / temporalStep ** 2)).toBeLessThan(1);
+    }
+  });
+  it('holds a short nascent RNA segment next to one exposed template, with its 3′ end inside Pol II', () => {
+    const state = atPhase(phaseOfSigma(0.5));
+    const out = point(),
+      template = point();
+    for (const g of [state.sigma - HYBRID_SPAN / 2, state.sigma]) {
+      expect(strandPoint(g, 0, state, out)).toBe(0);
+      templatePoint(g, 0, state, template);
+      expect(out.x).toBeCloseTo(template.x, 12);
+      expect(out.y - template.y).toBeCloseTo(RNA_TEMPLATE_GAP, 12);
+      expect(out.z).toBeCloseTo(template.z, 12);
+    }
+    expect(out.x).toBeCloseTo(state.polX, 12);
+    expect(Math.abs(out.y - Y_POL)).toBeLessThan(0.06);
+    const mature = atPhase(0.85);
+    strandPoint(1, 0, mature, out);
+    const free = point();
+    rnaPoint(1, mature, free);
+    expect(out.x).toBeCloseTo(free.x, 10);
+    expect(out.y).toBeCloseTo(free.y, 10);
+    expect(out.z).toBeCloseTo(free.z, 10);
+  });
+  it('places template particles on exactly the same opened geometry as the DNA strokes', () => {
+    const state = atPhase(0.42);
+    const particles = createMorphParticles(1200);
+    const out = point(),
+      expected = point();
+    let opened = 0;
+    for (const p of particles) {
+      if (p.u < 0.62 || p.u >= 0.8) continue;
+      sampleRnaParticle(p, clockAt(0.42), out);
+      templatePoint(p.t, p.v < 0.5 ? 0 : 1, state, expected);
+      expect(out.x).toBe(expected.x);
+      expect(out.y).toBe(expected.y);
+      expect(out.z).toBe(expected.z);
+      if (transcriptionOpen(p.t, state) > 0.5) opened++;
+    }
+    expect(opened).toBeGreaterThan(0);
+  });
+});
+
 describe('the loop and its poster', () => {
   it('shows the poster at clock 0: the first intron half way out while the polymerase is on the second exon', () => {
     const state = computeSplice(0);
@@ -95,6 +223,7 @@ describe('the loop and its poster', () => {
     expect(state.cap).toBeGreaterThan(0.99);
     expect(state.rnaAlpha).toBeGreaterThan(0.99);
     expect(state.polAlpha).toBeGreaterThan(0.99);
+    expect(state.bubbleOpen).toBe(1);
     expect(state.polyA).toBe(0);
     expect(state.exportT).toBe(0);
   });
@@ -136,6 +265,7 @@ describe('the loop and its poster', () => {
       'cap',
       'polyA',
       'exportT',
+      'bubbleOpen',
     ] as const;
     let previous = atPhase(0);
     const worst: Record<string, number> = {};
@@ -151,11 +281,12 @@ describe('the loop and its poster', () => {
           );
       previous = state;
     }
-    // The quickest ramp in the model is 0.03 of a loop (the cap, and the RNA fading in), and a
-    // smoothstep over it has slope 1.5 / 0.03 = 50 per unit phase, so one 1/4000 step moves it by
-    // 0.0125 at most. A pop is a jump of order 1, which is a hundred times that.
+    // The quickest ramps take 0.03 of a loop. Cubic cap/RNA ramps step by at most 0.0125;
+    // the quintic bubble ramp by 1.875 / (0.03 * 4000) = 0.015625. A pop is of order 1.
     for (const [field, step] of Object.entries(worst))
-      expect(step, field).toBeLessThan(field.startsWith('chord') ? 0.01 : 0.015);
+      expect(step, field).toBeLessThan(
+        field.startsWith('chord') ? 0.01 : field === 'bubbleOpen' ? 0.017 : 0.015
+      );
   });
   it('makes the loop wrap invisible: the RNA and the polymerase are gone at phase 0 and 1', () => {
     for (const phase of [0, 1 - 1e-9]) {
@@ -519,7 +650,7 @@ describe('the particles', () => {
     sampleRnaParticle(p, 3.7, again);
     expect(again).toEqual(first);
   });
-  it('draw the template as a double helix along the gene, wherever the polymerase is', () => {
+  it('keep both DNA strands, paired outside the local transcription bubble', () => {
     const state = atPhase(0.5);
     const strands: number[][] = [[], []];
     for (const p of particles) {
@@ -527,12 +658,12 @@ describe('the particles', () => {
       sampleRnaParticle(p, clockAt(0.5), out);
       expect(out.x).toBeGreaterThanOrEqual(GENE_X0 - 1e-9);
       expect(out.x).toBeLessThanOrEqual(GENE_X1 + 1e-9);
-      expect(Math.abs(out.y - Y_TEMPLATE)).toBeLessThanOrEqual(0.0451);
+      expect(Math.abs(out.y - Y_TEMPLATE)).toBeLessThanOrEqual(BUBBLE_HALF_GAP + 0.0001);
       strands[p.v < 0.5 ? 0 : 1].push(out.y);
     }
     expect(strands[0].length).toBeGreaterThan(100);
     expect(strands[1].length).toBeGreaterThan(100);
-    // Two strands half a turn apart: opposite sides of the axis at the same position.
+    // Opposite sides of the same axis, whether paired or opened.
     const a = point(),
       b = point();
     for (const g of [0.1, 0.4, 0.8]) {
@@ -576,9 +707,10 @@ describe('the particles', () => {
       if (p.u >= 0.62) continue;
       sampleRnaParticle(p, clockAt(0.3), out);
       if (p.t > state.sigma + 1e-9) {
-        // Ahead of the polymerase: on a strand of the helix, over its own position in the gene, dim.
+        // Ahead: dim gene annotations on the one template strand. Near the active site the small
+        // RNA offset blends in smoothly; these dots are drawing material, not pre-existing RNA.
         const ref = point();
-        templatePoint(p.t, p.v < 0.5 ? 0 : 1, state, ref);
+        strandPoint(p.t, 0, state, ref);
         expect(Math.abs(out.x - ref.x)).toBeLessThan(0.007);
         expect(Math.abs(out.y - ref.y)).toBeLessThan(0.007);
         expect(out.alpha).toBeLessThan(0.4);
@@ -694,13 +826,21 @@ describe('the sparks and the captions', () => {
   it('captions what is on screen and only what is on screen', () => {
     const labels = (phase: number) => spliceAnchors(atPhase(phase)).map((anchor) => anchor.label);
     const poster = labels(SPLICE_POSTER_PHASE);
-    for (const label of ['RNA Pol II', 'exon', '5′ cap', 'spliceosome', 'intron (lariat)'])
+    for (const label of [
+      'RNA Pol II',
+      'Transcription bubble',
+      'exon',
+      '5′ cap',
+      'spliceosome',
+      'intron (lariat)',
+    ])
       expect(poster).toContain(label);
     expect(poster).not.toContain('poly-A tail');
     const hold = labels(0.88);
     expect(hold).toContain('poly-A tail');
     expect(hold).toContain('5′ cap');
     expect(hold).not.toContain('RNA Pol II');
+    expect(hold).not.toContain('Transcription bubble');
     expect(hold).not.toContain('spliceosome');
     expect(labels(0)).toEqual([]);
     for (const anchor of spliceAnchors(atPhase(0.5))) {
