@@ -2,7 +2,7 @@
 import PresentationItem from './PresentationItem.astro';
 import Icon from './Icon.astro';
 import { getCollection } from 'astro:content';
-import { pubSlug } from '../lib/slug';
+import { publicationHref } from '../lib/publicationMetadata';
 import { projects, type ProjectLink } from '../data/projects';
 import type { CollectionEntry } from 'astro:content';
 
@@ -30,7 +30,7 @@ const resourceGroupsFor = (entry: CollectionEntry<'presentations'>) =>
     };
     const paper = pubData.doi ?? pubData.pdf;
     if (paper) add({ label: 'Paper', icon: 'link', href: paper });
-    add({ label: 'Publication', icon: 'file', href: `/publications/${pubSlug(pub.id)}/` });
+    add({ label: 'Publication', icon: 'file', href: publicationHref(pub) });
     if (pubData.pdf && pubData.pdf !== paper)
       add({ label: 'PDF', icon: 'file', href: pubData.pdf });
     if (pubData.code) add({ label: 'Code', icon: 'code', href: pubData.code });

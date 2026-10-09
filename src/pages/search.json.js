@@ -1,5 +1,5 @@
 import { getCollection } from 'astro:content';
-import { pubSlug } from '../lib/slug.ts';
+import { publicationHref } from '../lib/publicationMetadata.ts';
 import { software } from '../data/cv.ts';
 import { projects } from '../data/projects.ts';
 import { ALGORITHMS } from '../data/algorithms.ts';
@@ -88,7 +88,7 @@ export async function GET() {
       type: 'Publication',
       title: entry.data.title,
       description: compact(entry.data.abstract ?? `${entry.data.venue} ${entry.data.authors}`),
-      href: `/publications/${pubSlug(entry.id)}/`,
+      href: publicationHref(entry),
       date: iso(entry.data.date),
       tags: [entry.data.type, entry.data.venue],
       search: compact(

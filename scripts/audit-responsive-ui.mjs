@@ -14,7 +14,7 @@ const TEST_ROUTES = [
   '/research',
   '/research/splice-sites',
   '/publications',
-  '/publications/spliceai2',
+  '/publications/shorkie',
   '/software',
   '/news',
   '/posts',
@@ -58,7 +58,7 @@ const VIEWPORTS = [
 ];
 
 async function main() {
-  // Keep focused regressions fast: --routes=/research/splice-sites,/publications/spliceai2
+  // Keep focused regressions fast: --routes=/research/splice-sites,/publications/shorkie
   const routeArg = process.argv.find((arg) => arg.startsWith('--routes='));
   const routes = routeArg ? routeArg.slice('--routes='.length).split(',').filter(Boolean) : TEST_ROUTES;
   if (!routes.length) throw new Error('At least one route is required.');

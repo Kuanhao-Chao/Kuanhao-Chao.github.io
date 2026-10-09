@@ -10,12 +10,14 @@ import {
   publicationCitation,
   publicationRis,
 } from '../../lib/citationText';
-import { publicationDateLabel, publicationLinks, publicationRecordMetadata } from '../../lib/publicationMetadata';
+import { hasPublicationDetail, publicationDateLabel, publicationLinks, publicationRecordMetadata } from '../../lib/publicationMetadata';
 import { site } from '../../data/site';
 
 export async function getStaticPaths() {
   const entries = await getCollection('publications');
-  return entries.map((entry) => ({ params: { slug: pubSlug(entry.id) }, props: { entry } }));
+  return entries
+    .filter((entry) => hasPublicationDetail(entry.data))
+    .map((entry) => ({ params: { slug: pubSlug(entry.id) }, props: { entry } }));
 }
 
 const { entry } = Astro.props;

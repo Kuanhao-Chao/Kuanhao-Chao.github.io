@@ -1,5 +1,5 @@
 ---
-import { pubSlug } from '../lib/slug';
+import { publicationHref } from '../lib/publicationMetadata';
 import type { RelatedPostLink } from '../lib/relatedPosts';
 import type { CollectionEntry } from 'astro:content';
 
@@ -25,7 +25,7 @@ const { contributions, posts = [] } = Astro.props;
         {contributions.map(({ entry, note }) => (
           <article class="work-item">
             <p class="work-meta eyebrow">{entry.data.date.getUTCFullYear()} · {entry.data.venue}</p>
-            <h4><a href={`/publications/${pubSlug(entry.id)}/`}>{entry.data.title}</a></h4>
+            <h4><a href={publicationHref(entry)}>{entry.data.title}</a></h4>
             <p class="work-note muted">{note}</p>
           </article>
         ))}
