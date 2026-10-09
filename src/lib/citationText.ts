@@ -38,10 +38,15 @@ export function preprintLabel(url: string): string {
   return 'Preprint';
 }
 
+/** A DOI is preferred; a hosted manuscript is still a citable record without one. */
+export function publicationSourceUrl(data: Pick<PublicationData, 'doi' | 'pdf' | 'preprint'>) {
+  return data.doi ?? data.pdf ?? data.preprint;
+}
+
 export function publicationCitation(data: PublicationData) {
   const year = data.date.getUTCFullYear();
-  const doi = data.doi ? ` ${data.doi}` : '';
-  return `${cleanAuthors(data.authors)} (${year}). ${data.title}. ${venueWithDetail(data)}.${doi}`;
+  const source = publicationSourceUrl(data);
+  return `${cleanAuthors(data.authors)} (${year}). ${data.title}. ${venueWithDetail(data)}.${source ? ` ${source}` : ''}`;
 }
 
 // RIS export (EndNote/Zotero/Mendeley import format). Names are kept in their given
@@ -71,8 +76,9 @@ export function publicationRis(data: PublicationData) {
   }
   if (data.doi) {
     lines.push(`DO  - ${data.doi.replace(/^https?:\/\/(dx\.)?doi\.org\//i, '')}`);
-    lines.push(`UR  - ${data.doi}`);
   }
+  const source = publicationSourceUrl(data);
+  if (source) lines.push(`UR  - ${source}`);
   lines.push('ER  - ');
   return lines.join('\n');
 }

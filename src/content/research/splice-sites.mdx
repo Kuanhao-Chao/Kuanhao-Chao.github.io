@@ -1,7 +1,7 @@
 ---
 title: 'Learning the rules of RNA splicing'
 area: 'RNA splicing'
-summary: 'I develop computational models of splice sites and junctions, with an emphasis on sequence context, cross-species transfer, variant effects, and reliable evidence for transcript reconstruction.'
+summary: 'I develop computational models of splice sites, junctions, and transcript usage, with an emphasis on sequence context, cross-species transfer, variant effects, and reliable evidence for transcript reconstruction.'
 image: ../../assets/research/splice-overview.jpg
 status: ongoing
 advisors: ['Steven L. Salzberg', 'Mihaela Pertea']
@@ -15,6 +15,9 @@ relatedPublications:
   - publication: '2025-06-openspliceai'
     note: 'An efficient, modular PyTorch implementation of SpliceAI that supports training, transfer learning, genome-scale prediction, and variant scoring across species.'
     resourceLabel: 'OpenSpliceAI paper'
+  - publication: '2026-10-spliceai2'
+    note: 'A unified quantitative model of splice-site usage, splice-junction usage, and transcript isoforms, with experimental and population-based evaluation of variant effects.'
+    resourceLabel: 'SpliceAI2 preprint'
 relatedReports: ['openspliceai-technical-report']
 references:
   - text: 'Jaganathan, K. et al. Predicting splicing from primary sequence with deep learning. Cell (2019).'
@@ -25,10 +28,12 @@ references:
     doi: 'https://doi.org/10.1186/s13059-024-03379-4'
   - text: 'Chao, K.-H. et al. OpenSpliceAI provides an efficient modular implementation of SpliceAI enabling easy retraining across nonhuman species. eLife (2025).'
     doi: 'https://doi.org/10.7554/eLife.107454.3'
+  - text: 'Jaganathan, K. et al. A unified framework for quantitative splicing and transcript prediction. Unpublished manuscript (2026).'
+    url: 'https://assets.illumina.com/content/dam/illumina-marketing/images/genomics-research/articles/spliceai2/SpliceAI2.pdf'
 ---
 RNA splicing forms mature transcripts by removing introns and joining exons. Boundaries must be recognized at single-base precision, but the two boundary dinucleotides are not sufficient. Nearby motifs, broader context, cell state, and regulatory proteins influence which sites are used. Alternative choices create multiple isoforms; incorrect choices can disrupt a protein or contribute to disease.
 
-Computationally, we want to identify donor and acceptor sites, estimate variant effects, and determine which RNA-seq junctions reflect transcripts rather than alignment artifacts. We also need models that can adapt beyond human. These tasks share sequence context but require different data and evaluation.
+Computationally, we want to identify donor and acceptor sites, estimate variant effects, and determine which RNA-seq junctions reflect transcripts rather than alignment artifacts. Beyond recognizing sites, we want to estimate how often particular junctions are used and how those choices combine into transcript isoforms. We also need models that can adapt beyond human. These tasks share sequence context but require different data and evaluation.
 
 Models such as [SpliceAI (Jaganathan et al., 2019)](https://doi.org/10.1016/j.cell.2018.12.015) established the value of long sequence context, while [Pangolin (Zeng and Li, 2022)](https://doi.org/10.1186/s13059-022-02664-4) extended prediction toward tissue-specific usage. I study how recognizers can become open, testable components of alignment, annotation, and variant-interpretation workflows.
 
@@ -54,6 +59,14 @@ Applied to spliced alignments, Splam removes low-scoring junctions and reads whi
 
 We used that capability to train and transfer models for non-human species. In mouse, zebrafish, honeybee, and *Arabidopsis*, models trained on the target species outperformed direct application of the human model, and transfer from a human checkpoint converged faster and more stably than training from random weights. The same software also supports variant-effect prediction, where the reference and alternate alleles are compared to identify gained or lost donor and acceptor signals.
 
+### Quantitative splicing and transcript-level modeling
+
+At Illumina, I co-authored **SpliceAI2** ([Jaganathan et al., 2026, preprint](/publications/spliceai2/)), contributing to model development and implementation. It brings splice-site usage, donor–acceptor junction usage, and transcript prediction into a unified framework. Short-read RNA-seq supplies evidence about individual splicing events, while long-read RNA-seq helps connect those events into transcript paths. This extends the question from recognizing a credible boundary to predicting the relative usage of alternative splicing choices and the isoforms they form.
+
+The reported evaluations include splice-altering variant assays, splicing quantitative trait loci, population constraint, and disease-associated gene panels. The distinction between prediction tasks still matters: transcript-reconstruction benchmarks concern selected genes and internal splice structure, and the tissue-specific extension conditions on regulator expression rather than DNA alone. Predicted splicing changes are evidence for interpretation, not a direct probability of pathogenicity or a measured diagnostic yield.
+
+The official release includes [code and usage instructions](https://github.com/Illumina/SpliceAI2), [model weights](https://huggingface.co/illumina-ai/SpliceAI2), and [precomputed predictions](https://huggingface.co/datasets/illumina-ai/SpliceAI2-data). Model and data access are subject to Illumina's terms. SpliceAI2 complements the distinct goals of Splam's alignment filtering and OpenSpliceAI's retrainable cross-species prediction; it is not a replacement for either workflow.
+
 ## Future directions
 
-A splice-site score is evidence, not a verdict. It earns its place when it is calibrated for the decision it serves, combined with RNA-seq support rather than substituted for it, and judged by whether the resulting transcripts are better — not by classification accuracy on a held-out set. That is the stack I am working toward: recognizers retrainable for the species at hand, scores that mean the same thing from one model to the next, and a path from any prediction back to the model, dataset, and downstream test that produced it.
+A splice-site score is evidence, not a verdict. It earns its place when it is calibrated for the decision it serves, combined with RNA-seq support rather than substituted for it, and judged by whether the resulting transcripts are better — not by classification accuracy on a held-out set. That is the stack I am working toward: recognizers retrainable for the species at hand, quantitative predictions evaluated in the relevant biological context, and a path from any prediction back to the model, dataset, and downstream test that produced it.

@@ -132,6 +132,8 @@ const breadcrumbLd = {
   }
   .research-references a {
     font-weight: var(--fw-medium);
-    white-space: nowrap;
+    /* Hosted preprints may have long URLs rather than compact DOI locators. */
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 </style>
