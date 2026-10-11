@@ -1,6 +1,6 @@
 /**
  * Wavefront Alignment Algorithm (WFA) Engine
- * Exact gap-affine sequence alignment running in O(s · d) time.
+ * Exact gap-affine alignment. Original WFA: O(n*s) time, O(s²) memory (fixed penalties).
  * Computes furthest-reaching offsets along diagonals with free LCP extensions.
  */
 
@@ -63,6 +63,21 @@ export interface WfaResult {
   mismatches: number;
   gaps: number;
   length: number;
+  stateUpdates: number;
+  characterComparisons: number;
+  trace: WfaTrace[];
+}
+
+export interface WfaTrace {
+  phase: 'initialize' | 'gap' | 'mismatch' | 'extend' | 'traceback' | 'done';
+  score: number;
+  k: number;
+  i: number;
+  j: number;
+  type: WfaComponentType;
+  stateUpdates: number;
+  characterComparisons: number;
+  explanation: string;
 }
 
 /**
@@ -73,7 +88,7 @@ export function computeLcp(seq1: string, seq2: string, h: number, k: number): nu
   const m = seq1.length;
   const n = seq2.length;
 
-  while (h + len < m && h + k + len < n && seq1[h + len] === seq2[h + k + len]) {
+  while (h + len >= 0 && h + k + len >= 0 && h + len < m && h + k + len < n && seq1[h + len] === seq2[h + k + len]) {
     len++;
   }
   return len;
@@ -87,8 +102,11 @@ export function runWfaAlignment(
   rawSeq2: string,
   penalties: WfaPenalties = DEFAULT_WFA_PENALTIES,
 ): WfaResult {
-  const seq1 = (rawSeq1 || 'ACGTAGCTA').trim().toUpperCase().replace(/[^A-Z]/g, '');
-  const seq2 = (rawSeq2 || 'ACGTCGCTA').trim().toUpperCase().replace(/[^A-Z]/g, '');
+  const seq1 = rawSeq1.trim().toUpperCase();
+  const seq2 = rawSeq2.trim().toUpperCase();
+  if (!/^[A-Z]*$/.test(seq1 + seq2)) throw new Error('Sequences must contain letters only.');
+  if (Math.max(seq1.length, seq2.length) > 200) throw new Error('Teaching WFA is limited to 200 letters per sequence.');
+  if (!Number.isInteger(penalties.mismatch) || penalties.mismatch <= 0 || !Number.isInteger(penalties.gapExtend) || penalties.gapExtend <= 0 || !Number.isInteger(penalties.gapOpen) || penalties.gapOpen < 0) throw new Error('WFA requires positive integer mismatch/extension penalties and a non-negative integer opening penalty.');
 
   const m = seq1.length;
   const n = seq2.length;
@@ -114,13 +132,34 @@ export function runWfaAlignment(
 
   const steps: WfaStepRecord[] = [];
   const visitedCells = new Set<string>();
+  const trace: WfaTrace[] = [];
+  let stateUpdates = 0;
+  let characterComparisons = 0;
+  const valid = (h: number, k: number) => Number.isFinite(h) && h >= 0 && h <= m && h + k >= 0 && h + k <= n;
+  const record = (phase: WfaTrace['phase'], s: number, k: number, i: number, type: WfaComponentType, explanation: string) => {
+    trace.push({ phase, score: s, k, i, j: i + k, type, stateUpdates, characterComparisons, explanation });
+  };
+  const extend = (h: number, k: number, s: number) => {
+    let length = 0;
+    while (h + length < m && h + k + length < n) {
+      characterComparisons++;
+      const same = seq1[h + length] === seq2[h + k + length];
+      record('extend', s, k, h + length, 'M', `Compare ${seq1[h + length]} / ${seq2[h + k + length]}: ${same ? 'match; advance both coordinates at zero penalty' : 'mismatch; stop this LCP'}. Comparisons still take computation.`);
+      if (!same) break;
+      length++;
+    }
+    return length;
+  };
 
   // Step 0: Initialize M_0[0]
   M_table.set(0, new Map());
   I_table.set(0, new Map());
   D_table.set(0, new Map());
 
-  const lcp0 = computeLcp(seq1, seq2, 0, 0);
+  stateUpdates++;
+  record('initialize', 0, 0, 0, 'M', 'M₀[0] starts at (0,0); k = j − i, and the stored offset is i.');
+  const lcp0 = extend(0, 0, 0);
+  record('extend', 0, 0, lcp0, 'M', `Initial LCP complete: ${lcp0} matches at zero penalty.`);
   const node0: WavefrontNode = {
     s: 0,
     k: 0,
@@ -161,7 +200,9 @@ export function runWfaAlignment(
   }
 
   // Iterate increasing penalty score s = 1, 2, ...
-  let maxScoreCap = 200; // Safety cap
+  // A concrete complete alignment bounds the required score; never report an unfinished run as score zero.
+  const difference = Math.abs(m - n);
+  const maxScoreCap = Math.min(m, n) * x + (difference ? o + difference * e : 0);
   for (let s = 1; s <= maxScoreCap && endScore === -1; s++) {
     const m_map = new Map<number, WavefrontNode>();
     const i_map = new Map<number, WavefrontNode>();
@@ -186,20 +227,22 @@ export function runWfaAlignment(
       let prevI_s = s - oe;
       let prevI_type: WfaComponentType = 'M';
 
-      if (s >= oe && getM(s - oe, k - 1) >= 0) {
-        bestI = getM(s - oe, k - 1) + 1;
+      if (s >= oe && valid(getM(s - oe, k - 1), k)) {
+        bestI = getM(s - oe, k - 1);
         iOrigin = 'gap_open';
         prevI_s = s - oe;
         prevI_type = 'M';
       }
-      if (s >= e && getI(s - e, k - 1) + 1 > bestI) {
-        bestI = getI(s - e, k - 1) + 1;
+      if (s >= e && valid(getI(s - e, k - 1), k) && getI(s - e, k - 1) > bestI) {
+        bestI = getI(s - e, k - 1);
         iOrigin = 'gap_extend';
         prevI_s = s - e;
         prevI_type = 'I';
       }
 
       if (bestI >= 0) {
+        stateUpdates++;
+        record('gap', s, k, bestI, 'I', `I consumes a query letter: j increases, i stays ${bestI}, k increases by 1. ${iOrigin === 'gap_open' ? `Open: ${o}+${e}` : `Extend: ${e}`}.`);
         i_map.set(k, {
           s,
           k,
@@ -219,20 +262,22 @@ export function runWfaAlignment(
       let prevD_s = s - oe;
       let prevD_type: WfaComponentType = 'M';
 
-      if (s >= oe && getM(s - oe, k + 1) >= 0) {
-        bestD = getM(s - oe, k + 1);
+      if (s >= oe && valid(getM(s - oe, k + 1) + 1, k)) {
+        bestD = getM(s - oe, k + 1) + 1;
         dOrigin = 'gap_open';
         prevD_s = s - oe;
         prevD_type = 'M';
       }
-      if (s >= e && getD(s - e, k + 1) > bestD) {
-        bestD = getD(s - e, k + 1);
+      if (s >= e && valid(getD(s - e, k + 1) + 1, k) && getD(s - e, k + 1) + 1 > bestD) {
+        bestD = getD(s - e, k + 1) + 1;
         dOrigin = 'gap_extend';
         prevD_s = s - e;
         prevD_type = 'D';
       }
 
       if (bestD >= 0) {
+        stateUpdates++;
+        record('gap', s, k, bestD, 'D', `D consumes a target letter: i increases to ${bestD}, j stays fixed, k decreases by 1. ${dOrigin === 'gap_open' ? `Open: ${o}+${e}` : `Extend: ${e}`}.`);
         d_map.set(k, {
           s,
           k,
@@ -254,7 +299,7 @@ export function runWfaAlignment(
       let prevM_type: WfaComponentType = 'M';
 
       // From mismatch
-      if (s >= x && getM(s - x, k) >= 0) {
+      if (s >= x && valid(getM(s - x, k) + 1, k)) {
         bestM = getM(s - x, k) + 1;
         mOrigin = 'mismatch';
         prevM_s = s - x;
@@ -282,8 +327,11 @@ export function runWfaAlignment(
 
       if (bestM >= 0 && bestM <= m && bestM + k >= 0 && bestM + k <= n) {
         // Free LCP extension along diagonal k
-        const lcp = computeLcp(seq1, seq2, bestM, k);
+        stateUpdates++;
+        record(prevM_type === 'M' ? 'mismatch' : 'gap', s, k, bestM, 'M', `M chooses the furthest valid offset ${bestM} from ${prevM_type} at score ${prevM_s}; now extend equal letters.`);
+        const lcp = extend(bestM, k, s);
         const finalOffset = Math.min(m, bestM + lcp);
+        record('extend', s, k, finalOffset, 'M', `LCP complete: ${lcp} matches; stored M offset ${finalOffset}.`);
 
         m_map.set(k, {
           s,
@@ -334,7 +382,8 @@ export function runWfaAlignment(
     }
   }
 
-  const finalScore = endScore >= 0 ? endScore : 0;
+  if (endScore < 0) throw new Error('WFA did not reach the endpoint within a proven alignment bound.');
+  const finalScore = endScore;
 
   // Reconstruct Traceback Path
   const tracebackPath: [number, number][] = [];
@@ -392,34 +441,19 @@ export function runWfaAlignment(
       matchLineRev += '.';
       curI--;
       curJ--;
-    } else if (currNode.type === 'I' && curI > 0) {
-      aligned1Rev += seq1[curI - 1];
-      aligned2Rev += '-';
-      matchLineRev += ' ';
-      curI--;
-    } else if (currNode.type === 'D' && curJ > 0) {
+    } else if (currNode.type === 'I' && curJ > 0) {
       aligned1Rev += '-';
       aligned2Rev += seq2[curJ - 1];
       matchLineRev += ' ';
       curJ--;
-    } else if (curI > 0 && curJ > 0 && curI === curJ) {
-      // Fallback match step
-      aligned1Rev += seq1[curI - 1];
-      aligned2Rev += seq2[curJ - 1];
-      matchLineRev += seq1[curI - 1] === seq2[curJ - 1] ? '|' : '.';
-      curI--;
-      curJ--;
-    } else if (curI > 0) {
+    } else if (currNode.type === 'D' && curI > 0) {
       aligned1Rev += seq1[curI - 1];
       aligned2Rev += '-';
       matchLineRev += ' ';
       curI--;
-    } else if (curJ > 0) {
-      aligned1Rev += '-';
-      aligned2Rev += seq2[curJ - 1];
-      matchLineRev += ' ';
-      curJ--;
     }
+    // M -> I/D is a zero-consumption state switch, NOT another gap character.
+    record('traceback', currS, curJ - curI, curI, currType, `Follow the recorded ${currType} predecessor without inventing fallback letters.`);
 
     currS = prevS;
     currK = prevK;
@@ -432,6 +466,7 @@ export function runWfaAlignment(
   }
 
   tracebackPath.push([0, 0]);
+  if (curI !== 0 || curJ !== 0) throw new Error('Incomplete WFA traceback.');
 
   const aligned1 = aligned1Rev.split('').reverse().join('');
   const aligned2 = aligned2Rev.split('').reverse().join('');
@@ -474,5 +509,8 @@ export function runWfaAlignment(
     mismatches,
     gaps,
     length,
+    stateUpdates,
+    characterComparisons,
+    trace: [...trace, { phase: 'done', score: finalScore, k: targetK, i: m, j: n, type: 'M', stateUpdates, characterComparisons, explanation: `Endpoint (${m},${n}) reached with minimum penalty ${finalScore}.` }],
   };
 }

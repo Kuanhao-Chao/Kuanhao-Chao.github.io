@@ -2,6 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { runAlgorithmDuel, DUEL_PRESETS } from './algorithmDuel';
 
 describe('Algorithm Duel & Benchmark Engine', () => {
+  it('compares the same affine objective rather than different scoring schemes', () => {
+    const result = runAlgorithmDuel('ACGT', 'ACGGT');
+    expect(-result.nwResult.score).toBe(4);
+    expect(result.wfaResult.finalScore).toBe(4);
+  });
   it('runs identical sequence duel where WFA achieves dramatic speedup', () => {
     const res = runAlgorithmDuel('ACGTAGCTAGTCGATCGAT', 'ACGTAGCTAGTCGATCGAT');
     expect(res.winner).toBe('wfa');
@@ -33,10 +38,15 @@ describe('Algorithm Duel & Benchmark Engine', () => {
     }
   });
 
-  it('handles empty or degenerate sequences gracefully with sensible defaults', () => {
+  it('does not silently replace genuine empty sequences with examples', () => {
     const res = runAlgorithmDuel('', '');
-    expect(res.seq1).toBe('ACGTAGCTA');
-    expect(res.seq2).toBe('ACGTCGCTA');
+    expect(res.seq1).toBe('');
+    expect(res.seq2).toBe('');
     expect(res.steps.length).toBeGreaterThan(0);
+  });
+  it('derives synchronized counters from the actual recorded computations', () => {
+    const res = runAlgorithmDuel('ACGT', 'ACGGT');
+    expect(res.steps[0].nw).toMatchObject({ i: 0, j: 0, cellsEvaluated: 1 });
+    expect(res.steps.at(-1)?.wfa.cellsEvaluated).toBe(res.wfaResult.stateUpdates);
   });
 });

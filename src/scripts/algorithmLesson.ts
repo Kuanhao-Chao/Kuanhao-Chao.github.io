@@ -88,6 +88,7 @@ function init(root: HTMLElement) {
       const body = el.createTBody();
       for (let r = 0; r < table.rows.length; r++) {
         const row = body.insertRow(); const th = document.createElement('th'); th.scope = 'row'; th.textContent = table.rows[r]; row.append(th);
+        if (table.hideFutureRows) row.dataset.lessonRowFrame = String(Math.min(...table.cells.filter(cell => cell.row === r).map(cell => cell.revealAt)));
         for (let c = 0; c < table.columns.length; c++) {
           const cell = table.cells.find(cell => cell.row === r && cell.column === c);
           const td = row.insertCell();
@@ -179,6 +180,16 @@ function init(root: HTMLElement) {
     for (const edge of run.graph?.edges ?? []) {
       const el = edgeItems.get(edge.id)!; el.style.visibility = edge.revealAt <= playback.index ? 'visible' : 'hidden';
       el.classList.toggle('is-active', step.active.includes(edge.id)); el.classList.toggle('is-removed', step.removed?.includes(edge.id) ?? false);
+    }
+    views.querySelectorAll<HTMLElement>('[data-lesson-row-frame]').forEach(row => row.hidden = Number(row.dataset.lessonRowFrame) > playback.index);
+    for (const region of views.querySelectorAll<HTMLElement>('.algo-scroll')) {
+      const active = region.querySelector<HTMLElement>('.is-active');
+      if (!active) continue;
+      const box = region.getBoundingClientRect(); const itemBox = active.getBoundingClientRect();
+      if (itemBox.bottom > box.bottom) region.scrollTop += itemBox.bottom - box.bottom + 8;
+      if (itemBox.top < box.top) region.scrollTop -= box.top - itemBox.top + 8;
+      if (itemBox.right > box.right) region.scrollLeft += itemBox.right - box.right + 8;
+      if (itemBox.left < box.left) region.scrollLeft -= box.left - itemBox.left + 8;
     }
     root.querySelectorAll<HTMLElement>('[data-lesson-code-line]').forEach(el => el.classList.toggle('is-active', Number(el.dataset.lessonCodeLine) === step.line));
     answer.hidden = !step.result; answer.textContent = step.result ?? ''; transport();
