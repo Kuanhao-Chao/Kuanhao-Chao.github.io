@@ -1,0 +1,97 @@
+---
+import PageLayout from '../layouts/PageLayout.astro';
+import Katex from './Katex.astro';
+import { ALGORITHM_LESSONS } from '../data/algorithmLessons';
+import '../styles/algorithmLessons.css';
+interface Props { id: string }
+const lesson = ALGORITHM_LESSONS[Astro.props.id];
+if (!lesson) throw new Error(`Missing lesson: ${Astro.props.id}`);
+---
+<PageLayout title={lesson.title} eyebrow="Algorithms · Learn by doing" lead={lesson.lead} noindex={true}>
+  <article class="algo-lesson" data-algorithm-lesson={lesson.id}>
+    <nav class="algo-nav" aria-label="Lesson navigation">
+      <a href="/algorithms/">← Algorithm catalog</a>
+      <a href="#intuition">Intuition</a><a href="#worked-example">Worked example</a>
+      <a href="#explore">Explore</a><a href="#mathematics">Mathematics</a><a href="#practice">Practice</a>
+    </nav>
+    <p class="algo-prerequisites"><strong>Before you start:</strong> {lesson.prerequisites}</p>
+    <section id="intuition" class="algo-prose">
+      <h2>The idea before the equations</h2>
+      {lesson.intuition.map(text => <p>{text}</p>)}
+    </section>
+    <section id="worked-example" class="algo-example">
+      <p class="eyebrow">A small example you can verify</p>
+      <h2>Work through it by hand</h2><p>{lesson.example.input}</p>
+      <ol>{lesson.example.steps.map(step => <li>{step}</li>)}</ol>
+      <details><summary>Predict first: {lesson.example.question}</summary><p>{lesson.example.answer}</p></details>
+    </section>
+    <section id="explore" class="algo-explore" aria-labelledby="explore-title">
+      <h2 id="explore-title">Explore the computation</h2>
+      <p>{lesson.scope}</p>
+      <noscript><p>The written lesson and exercises work without JavaScript. Enable JavaScript to compute and step through custom examples.</p></noscript>
+      <form class="algo-inputs" data-lesson-inputs novalidate>
+        {lesson.inputs.map(input => <div class:list={['algo-field', input.type === 'textarea' && 'algo-field--wide']}>
+          <label for={`lesson-${input.id}`}>{input.label}</label>
+          {input.type === 'select' ? <select id={`lesson-${input.id}`} name={input.id}>
+            {input.options?.map(option => <option value={option.value} selected={input.value === option.value}>{option.label}</option>)}
+          </select> : input.type === 'textarea' ? <textarea id={`lesson-${input.id}`} name={input.id} rows={4} spellcheck={false}>{input.value}</textarea> : <input id={`lesson-${input.id}`} name={input.id} type={input.type} value={input.value} min={input.min} max={input.type === 'number' ? input.max : undefined} step="1" spellcheck={false} autocomplete="off" />}
+          {input.help && <small>{input.help}</small>}
+        </div>)}
+        <div class="algo-presets algo-field--wide">
+          <button type="submit" class="algo-primary">Build example</button>
+          {lesson.presets.map((preset, index) => <button type="button" data-lesson-preset={index}>{preset.label}</button>)}
+        </div>
+      </form>
+      <p class="algo-error" data-lesson-error role="alert" hidden></p>
+      <div class="algo-transport" aria-label="Computation playback">
+        <button type="button" data-lesson-reset>Reset</button>
+        <button type="button" data-lesson-previous>← Previous</button>
+        <button type="button" data-lesson-play>Play</button>
+        <button type="button" data-lesson-next>Next →</button>
+        <button type="button" data-lesson-result>Show result</button>
+        <label>Speed <select data-lesson-speed><option value="1200">Slow</option><option value="650" selected>Normal</option><option value="250">Fast</option></select></label>
+        <label class="algo-seek">Step <input type="range" min="0" max="1" value="0" data-lesson-seek /><output data-lesson-position>0 / 0</output></label>
+      </div>
+      <div class="algo-stage" data-lesson-stage aria-live="polite" aria-atomic="true">
+        <span class="algo-phase" data-lesson-phase>Ready</span>
+        <h3 data-lesson-title>Build an example to begin</h3>
+        <p data-lesson-explanation>No computation is playing automatically.</p>
+        <dl class="algo-metrics" data-lesson-metrics></dl>
+      </div>
+      <p class="algo-legend">Solid outline = current step; dashed outline = predecessor. “·” means not computed yet. Select a revealed cell or point to inspect it; arrow keys move within a table or diagram.</p>
+      <div class="algo-views" data-lesson-views></div>
+      <aside class="algo-inspector" aria-labelledby="inspector-title">
+        <h3 id="inspector-title">Pinned inspector</h3>
+        <p data-lesson-inspector>Tap, click, or focus a revealed item. Its explanation stays here while you compare other steps.</p>
+        {lesson.id === 'ism' && <div class="algo-presets"><button type="button" data-ism-apply disabled>Apply previewed mutation</button><button type="button" data-ism-undo disabled>Undo</button><button type="button" data-ism-reference>Reset reference</button></div>}
+      </aside>
+      <details class="algo-code" open><summary>Pseudocode: follow the highlighted operation</summary>
+        <ol>{lesson.pseudocode.map((line, index) => <li data-lesson-code-line={index}><code>{line}</code></li>)}</ol>
+      </details>
+      <pre class="algo-result" data-lesson-answer hidden aria-label="Computed result"></pre>
+    </section>
+    <section id="mathematics" class="algo-prose">
+      <h2>From intuition to mathematics</h2>
+      {lesson.sections.map((section, index) => <details class="algo-math" open={index === 0}>
+        <summary>{section.title}</summary>
+        {section.text.map(text => <p>{text}</p>)}
+        {section.math && <Katex tex={section.math} display={true} />}
+      </details>)}
+      <h3>What does it cost?</h3><p>{lesson.complexity}</p>
+      <h3>What this demonstration does—and does not—show</h3>
+      <ul>{lesson.limitations.map(text => <li>{text}</li>)}</ul>
+    </section>
+    <section id="practice" class="algo-prose">
+      <h2>Check your understanding</h2>
+      {lesson.exercises.map((exercise, index) => <div class="algo-exercise"><h3>Exercise {index + 1}</h3><p>{exercise.question}</p><details><summary>Reveal a worked answer</summary><p>{exercise.answer}</p></details></div>)}
+    </section>
+    <section class="algo-prose"><h2>Read the original sources</h2>
+      <ul>{lesson.references.map(reference => <li><a href={reference.href}>{reference.title}</a> — {reference.note}</li>)}</ul>
+      <h3>Continue learning</h3><ul>{lesson.related.map(link => <li><a href={link.href}>{link.title}</a></li>)}</ul>
+    </section>
+  </article>
+</PageLayout>
+<script>
+  import { mountAlgorithmLessons } from '../scripts/algorithmLesson';
+  mountAlgorithmLessons();
+</script>

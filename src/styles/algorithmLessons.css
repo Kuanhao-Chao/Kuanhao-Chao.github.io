@@ -1,0 +1,91 @@
+.algo-lesson { min-width: 0; max-width: 100%; }
+.algo-lesson section { scroll-margin-top: 6rem; margin-block: var(--space-12); }
+.algo-nav { display: flex; flex-wrap: wrap; gap: .7rem 1.2rem; font-size: var(--fs-small); }
+.algo-prerequisites { margin-block: var(--space-6); max-width: var(--measure); }
+.algo-prose { max-width: 78ch; }
+.algo-prose p, .algo-example p { margin-block: 1rem; }
+.algo-lesson li { margin-block: .65rem; }
+.algo-lesson ul, .algo-lesson ol { padding-left: 1.5rem; }
+.algo-example { padding: clamp(1rem, 3vw, 2rem); border-left: 3px solid var(--color-accent); background: var(--color-surface); }
+.algo-example h2 { font-size: var(--fs-h3); }
+.algo-lesson summary { cursor: pointer; font-weight: 600; padding-block: .8rem; }
+.algo-lesson details { overflow-wrap: anywhere; }
+.algo-math { border-block-end: 1px solid var(--color-rule); padding-bottom: .75rem; }
+.algo-math .katex-wrap { max-width: 100%; overflow-x: auto; padding-block: .6rem; }
+.algo-inputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 1rem; margin-block: 1.5rem; }
+.algo-field { min-width: 0; display: flex; flex-direction: column; gap: .4rem; }
+.algo-field--wide { grid-column: 1 / -1; }
+.algo-field label, .algo-transport label { font-size: var(--fs-small); font-weight: 600; }
+.algo-field small { color: var(--color-muted); font-size: var(--fs-meta); }
+.algo-lesson input:not([type='range']), .algo-lesson select, .algo-lesson textarea {
+  max-width: 100%; min-width: 0; width: 100%; padding: .65rem; font: inherit;
+  border: 1px solid var(--color-rule); color: var(--color-ink); background: var(--color-surface); border-radius: var(--radius);
+}
+.algo-lesson textarea { font-family: var(--font-mono); }
+.algo-lesson button { min-height: 44px; padding: .55rem .85rem; font: inherit; font-size: var(--fs-small); color: var(--color-ink); background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: var(--radius); cursor: pointer; }
+.algo-lesson .algo-primary { background: var(--color-accent); color: var(--color-on-accent); }
+.algo-lesson button:disabled { cursor: default; opacity: .5; }
+.algo-lesson :is(button, input, select, textarea, summary, [role='button']):focus-visible { outline: 3px solid var(--color-accent); outline-offset: 3px; }
+.algo-presets, .algo-transport { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.algo-transport { padding: 1rem; border-block: 1px solid var(--color-rule); }
+.algo-transport label { display: flex; align-items: center; gap: .4rem; }
+.algo-transport select { width: auto; }
+.algo-transport .algo-seek { width: 100%; flex-wrap: wrap; }
+.algo-seek input { flex: 1; min-width: 60px; accent-color: var(--color-accent); }
+.algo-seek output { font: .8rem var(--font-mono); min-width: 6rem; text-align: right; }
+.algo-stage { padding: 1.25rem; margin-block: 1rem; background: var(--color-surface); border: 1px solid var(--color-rule); }
+.algo-phase { text-transform: uppercase; letter-spacing: .08em; font: 600 .75rem var(--font-body); color: var(--color-accent); }
+.algo-stage h3 { margin-block: .5rem; }
+.algo-metrics { display: flex; flex-wrap: wrap; gap: .75rem 1.5rem; margin-top: 1rem; }
+.algo-metrics div { display: grid; gap: .2rem; }
+.algo-metrics dt { font-size: var(--fs-meta); color: var(--color-muted); }
+.algo-metrics dd { margin: 0; font-family: var(--font-mono); }
+.algo-legend { color: var(--color-muted); font-size: var(--fs-small); }
+.algo-views { display: grid; gap: 1.25rem; margin-block: 1rem; min-width: 0; }
+.algo-scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; border: 1px solid var(--color-rule); }
+.algo-table { width: max-content; min-width: 100%; border-collapse: collapse; font: .8rem var(--font-mono); }
+.algo-table caption { text-align: left; padding: .8rem; font: 600 var(--fs-small) var(--font-body); }
+.algo-table th { padding: .55rem; text-align: left; background: var(--color-surface); font-weight: 600; }
+.algo-table td { padding: 0; border: 1px solid var(--color-rule); }
+.algo-table td button { border: none; border-radius: 0; min-width: 44px; width: 100%; font: .8rem var(--font-mono); white-space: nowrap; padding: .5rem; }
+.algo-item[data-tone='positive'] { background: color-mix(in srgb, var(--color-accent) 20%, var(--color-surface)); }
+.algo-item[data-tone='negative'] { background: color-mix(in srgb, #b45150 20%, var(--color-surface)); }
+.algo-item.is-active { outline: 3px solid var(--color-accent); outline-offset: -3px; }
+.algo-item.is-predecessor { outline: 2px dashed var(--color-accent); outline-offset: -3px; }
+.algo-item.is-removed { opacity: .25; text-decoration: line-through; }
+.algo-inspector { padding: 1rem; border-left: 3px solid var(--color-accent); background: var(--color-surface); }
+.algo-inspector p { margin-block: .75rem; white-space: pre-wrap; }
+.algo-code { margin-block: 1.25rem; }
+.algo-code li { margin: 0; padding: .45rem .5rem; font-size: .83rem; }
+.algo-code li.is-active { background: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg)); }
+.algo-result { max-width: 100%; overflow-x: auto; padding: 1rem; background: var(--color-surface); border: 1px solid var(--color-rule); font: .85rem/1.7 var(--font-mono); }
+.algo-exercise { margin-block: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--color-rule); }
+.algo-exercise h3 { font-size: 1rem; }
+.algo-error { color: #b45150; border: 1px solid currentColor; padding: 1rem; }
+.algo-figure { min-width: 0; margin: 0; }
+.algo-figure figcaption { padding-block: .5rem; font-weight: 600; }
+.algo-svg { display: block; width: 100%; height: auto; background: var(--color-surface); border: 1px solid var(--color-rule); }
+.algo-svg text { fill: var(--color-ink); font: 13px var(--font-mono); pointer-events: none; }
+.algo-svg .algo-axis { stroke: var(--color-muted); fill: none; }
+.algo-svg .algo-edge { stroke: var(--color-muted); stroke-width: 2; fill: none; }
+.algo-svg .algo-node circle, .algo-svg .algo-point circle { fill: var(--color-surface); stroke: var(--color-accent); stroke-width: 2; }
+.algo-svg .algo-item { cursor: pointer; }
+.algo-svg .algo-item.is-active circle { fill: var(--color-accent); stroke-width: 4; }
+.algo-svg .algo-item.is-active text { fill: var(--color-on-accent); }
+.algo-svg .algo-edge.is-active { stroke: var(--color-accent); stroke-width: 4; }
+.algo-svg .algo-item.is-predecessor circle { stroke-dasharray: 4 3; stroke-width: 3; }
+.algo-svg .algo-edge.is-removed { stroke: #b45150; stroke-dasharray: 5 4; opacity: .3; }
+.algo-svg .algo-item.is-removed { opacity: .25; }
+.algo-svg .algo-point[data-tone='negative'] circle { fill: #b45150; }
+.algo-svg .algo-point[data-tone='positive'] circle { fill: var(--color-accent); }
+.algo-svg [role='button']:focus-visible { outline: none; }
+.algo-svg [role='button']:focus-visible circle { stroke: var(--color-ink); stroke-width: 5; }
+@media (max-width: 600px) {
+  .algo-lesson section { margin-block: 2rem; }
+  .algo-transport { padding: .6rem 0; }
+  .algo-transport button { flex: 1 0 auto; }
+  .algo-svg text { font-size: 14px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .algo-item, .algo-edge { transition: background-color 120ms ease, fill 120ms ease, stroke 120ms ease, opacity 120ms ease; }
+}
