@@ -20,6 +20,7 @@ export interface Minimizer {
   hash: number;
   windowIndex: number;
 }
+export interface MinimizerWindow { windowIndex: number; start: number; end: number; winnerPos: number; candidates: Kmer[] }
 
 export interface Anchor {
   id: number;
@@ -39,6 +40,7 @@ export interface DpPredecessorEvaluation {
   matchBonus: number;
   gapPenalty: number;
   candidateScore: number;
+  rejection?: string;
 }
 
 export interface DpStep {
@@ -66,6 +68,8 @@ export interface Minimap2Result {
   queryKmers: Kmer[];
   targetMinimizers: Minimizer[];
   queryMinimizers: Minimizer[];
+  targetWindows: MinimizerWindow[];
+  queryWindows: MinimizerWindow[];
   anchors: Anchor[];
   steps: DpStep[];
   chains: CollinearChain[];
@@ -89,6 +93,7 @@ export function hashKmer(kmer: string): number {
  * Extract all k-mers from a sequence.
  */
 export function extractKmers(seq: string, k: number): Kmer[] {
+  if (!Number.isInteger(k) || k < 1) throw new Error('k must be a positive integer.');
   const kmers: Kmer[] = [];
   if (seq.length < k) return kmers;
   for (let i = 0; i <= seq.length - k; i++) {
@@ -109,10 +114,12 @@ export function extractMinimizers(
   seq: string,
   w: number,
   k: number,
-): { kmers: Kmer[]; minimizers: Minimizer[] } {
+): { kmers: Kmer[]; minimizers: Minimizer[]; windows: MinimizerWindow[] } {
+  if (!Number.isInteger(w) || w < 1) throw new Error('w must be a positive integer.');
   const kmers = extractKmers(seq, k);
   const minimizers: Minimizer[] = [];
-  if (kmers.length === 0) return { kmers, minimizers };
+  const windows: MinimizerWindow[] = [];
+  if (kmers.length === 0) return { kmers, minimizers, windows };
 
   const numWindows = Math.max(1, kmers.length - w + 1);
 
@@ -125,6 +132,7 @@ export function extractMinimizers(
         minKmer = kmers[j];
       }
     }
+    windows.push({ windowIndex: win, start: win, end: windowEnd, winnerPos: minKmer.pos, candidates: kmers.slice(win, windowEnd) });
 
     // Avoid duplicate adjacent identical minimizers
     const last = minimizers[minimizers.length - 1];
@@ -138,7 +146,7 @@ export function extractMinimizers(
     }
   }
 
-  return { kmers, minimizers };
+  return { kmers, minimizers, windows };
 }
 
 /**
@@ -186,15 +194,17 @@ export function runCollinearChaining(
   k: number,
   maxDistance = 50,
 ): Minimap2Result {
-  const cleanTarget = target.trim().toUpperCase().replace(/[^ACGT]/g, '');
-  const cleanQuery = query.trim().toUpperCase().replace(/[^ACGT]/g, '');
+  const cleanTarget = target.trim().toUpperCase();
+  const cleanQuery = query.trim().toUpperCase();
+  if (!/^[ACGT]*$/.test(cleanTarget + cleanQuery)) throw new Error('Use ACGT letters only; invalid letters are not removed.');
+  if (!Number.isInteger(maxDistance) || maxDistance < 1) throw new Error('Maximum distance must be a positive integer.');
 
-  const { kmers: targetKmers, minimizers: targetMinimizers } = extractMinimizers(
+  const { kmers: targetKmers, minimizers: targetMinimizers, windows: targetWindows } = extractMinimizers(
     cleanTarget,
     w,
     k,
   );
-  const { kmers: queryKmers, minimizers: queryMinimizers } = extractMinimizers(
+  const { kmers: queryKmers, minimizers: queryMinimizers, windows: queryWindows } = extractMinimizers(
     cleanQuery,
     w,
     k,
@@ -202,6 +212,7 @@ export function runCollinearChaining(
 
   const anchors = findAnchors(targetMinimizers, queryMinimizers);
   const numAnchors = anchors.length;
+  if (numAnchors > 256) throw new Error('More than 256 repeated-seed anchors: shorten the teaching sequences or increase k/w. Nothing was truncated.');
 
   if (numAnchors === 0) {
     return {
@@ -213,6 +224,8 @@ export function runCollinearChaining(
       queryKmers,
       targetMinimizers,
       queryMinimizers,
+      targetWindows,
+      queryWindows,
       anchors: [],
       steps: [],
       chains: [],
@@ -225,12 +238,12 @@ export function runCollinearChaining(
   const steps: DpStep[] = [];
 
   // Minimap2 DP recurrence:
-  // S(i) = k + max_{j < i, x_j < x_i, y_j < y_i} (S(j) + min(Δx, Δy, k) - α(gap))
+  // S(i) = max{k, max_j(S(j) + min(Δx, Δy, k) - beta(j,i))}
   // gap = |Δx - Δy|
   // α(gap) = 0.5 * gap + 0.05 * max(Δx, Δy)
   for (let i = 0; i < numAnchors; i++) {
     const cur = anchors[i];
-    let bestPrevScore = 0;
+    let bestPrevScore = k;
     let bestPrevId: number | null = null;
     const candidates: DpPredecessorEvaluation[] = [];
 
@@ -239,14 +252,18 @@ export function runCollinearChaining(
       const deltaX = cur.x - prev.x;
       const deltaY = cur.y - prev.y;
 
-      // Collinear strictly increasing condition
+      // Retain rejected evaluations so the teaching trace explains the restriction.
+      const dist = Math.max(deltaX, deltaY);
+      if (deltaX <= 0 || deltaY <= 0 || dist > maxDistance) {
+        candidates.push({ predId: j, predAnchor: prev, deltaX, deltaY, gap: Math.abs(deltaX - deltaY), dist, matchBonus: 0, gapPenalty: 0, candidateScore: -Infinity, rejection: deltaX <= 0 || deltaY <= 0 ? 'Both coordinates must be strictly increasing.' : `Distance ${dist} exceeds maximum ${maxDistance}.` });
+      }
       if (deltaX > 0 && deltaY > 0) {
         const dist = Math.max(deltaX, deltaY);
         if (dist <= maxDistance) {
           const gap = Math.abs(deltaX - deltaY);
           const matchBonus = Math.min(deltaX, deltaY, k);
-          const gapPenalty = Math.round((0.5 * gap + 0.05 * dist) * 10) / 10;
-          const candidateScore = Math.max(0, scores[j] + matchBonus - gapPenalty);
+          const gapPenalty = 0.5 * gap + 0.05 * dist;
+          const candidateScore = scores[j] + matchBonus - gapPenalty;
 
           candidates.push({
             predId: j,
@@ -268,14 +285,14 @@ export function runCollinearChaining(
       }
     }
 
-    scores[i] = k + bestPrevScore;
+    scores[i] = bestPrevScore;
     backpointers[i] = bestPrevId;
 
     let formulaText = `S[${i}] = ${k} (base anchor length)`;
     if (bestPrevId !== null) {
       const bestCand = candidates.find((c) => c.predId === bestPrevId);
       if (bestCand) {
-        formulaText = `S[${i}] = ${k} + S[${bestPrevId}](${scores[bestPrevId]}) + bonus(${bestCand.matchBonus}) - gapPenalty(${bestCand.gapPenalty}) = ${scores[i]}`;
+        formulaText = `S[${i}] = max(${k}, S[${bestPrevId}](${scores[bestPrevId]}) + newCoverage(${bestCand.matchBonus}) - beta(${bestCand.gapPenalty})) = ${scores[i]}`;
       }
     }
 
@@ -328,6 +345,8 @@ export function runCollinearChaining(
     queryKmers,
     targetMinimizers,
     queryMinimizers,
+    targetWindows,
+    queryWindows,
     anchors,
     steps,
     chains,
