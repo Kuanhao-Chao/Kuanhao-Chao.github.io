@@ -97,7 +97,7 @@ export function generateLayoutAndConsensus(reads: ReadRecord[], edges: OverlapEd
     let edge: OverlapEdge | undefined = first;
     while (edge && !visited.has(edge.id)) {
       visited.add(edge.id);
-      const read = readMap.get(edge.to)!; const offset = sequence.length - edge.overlapLen;
+      const read: ReadRecord = readMap.get(edge.to)!; const offset = sequence.length - edge.overlapLen;
       sequence += edge.overhang; readPath.push(read.id);
       tiling.push({ readId: read.id, readName: read.name, start: offset, end: offset + read.length, sequence: read.sequence });
       edge = incoming.get(read.id)!.length === 1 && outgoing.get(read.id)!.length === 1 ? outgoing.get(read.id)![0] : undefined;

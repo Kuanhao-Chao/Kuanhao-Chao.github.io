@@ -46,7 +46,8 @@ export interface LessonPoint {
 }
 export interface LessonChart {
   id: string; label: string; xLabel: string; yLabel: string; points: LessonPoint[];
-  xMax: number; yMax: number; diagonal?: boolean; threshold?: number;
+  xMax: number; yMax: number; xMin?: number; yMin?: number; diagonal?: boolean; threshold?: number;
+  lines?: { x1: number; y1: number; x2: number; y2: number; label: string; revealAt: number }[];
 }
 export interface LessonFrame {
   phase: string; title: string; explanation: string; line: number;

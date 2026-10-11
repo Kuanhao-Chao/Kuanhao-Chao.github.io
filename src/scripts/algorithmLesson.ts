@@ -130,15 +130,21 @@ function init(root: HTMLElement) {
       const figure = document.createElement('figure'); figure.className = 'algo-figure';
       const caption = document.createElement('figcaption'); caption.textContent = chart.label;
       const el = svg('svg', { viewBox: '0 0 760 360', role: 'group', 'aria-label': chart.label }); el.classList.add('algo-svg'); el.dataset.gridKeys = 'diagram';
-      const sx = (x: number) => 68 + x / (chart.xMax || 1) * 652;
-      const sy = (y: number) => 300 - y / (chart.yMax || 1) * 260;
+      const xMin = chart.xMin ?? 0, yMin = chart.yMin ?? 0;
+      const sx = (x: number) => 68 + (x - xMin) / (chart.xMax - xMin || 1) * 652;
+      const sy = (y: number) => 300 - (y - yMin) / (chart.yMax - yMin || 1) * 260;
       const axes = svg('path', { d: 'M 68 30 V 300 H 730' }); axes.classList.add('algo-axis'); el.append(axes);
       for (let t = 0; t <= 4; t++) {
-        const value = chart.yMax * t / 4; const text = svg('text', { x: '58', y: String(sy(value) + 4), 'text-anchor': 'end' }); text.textContent = value.toFixed(1); el.append(text);
-        const xv = chart.xMax * t / 4; const xt = svg('text', { x: String(sx(xv)), y: '320', 'text-anchor': 'middle' }); xt.textContent = xv.toFixed(1); el.append(xt);
+        const value = yMin + (chart.yMax - yMin) * t / 4; const text = svg('text', { x: '58', y: String(sy(value) + 4), 'text-anchor': 'end' }); text.textContent = value.toFixed(1); el.append(text);
+        const xv = xMin + (chart.xMax - xMin) * t / 4; const xt = svg('text', { x: String(sx(xv)), y: '320', 'text-anchor': 'middle' }); xt.textContent = xv.toFixed(1); el.append(xt);
       }
       if (chart.diagonal) { const line = svg('path', { d: `M ${sx(0)} ${sy(0)} L ${sx(Math.min(chart.xMax, chart.yMax))} ${sy(Math.min(chart.xMax, chart.yMax))}` }); line.classList.add('algo-axis'); el.append(line); }
       if (chart.threshold !== undefined) { const line = svg('path', { d: `M 68 ${sy(chart.threshold)} H 720`, 'stroke-dasharray': '4 4' }); line.classList.add('algo-axis'); el.append(line); }
+      for (const segment of chart.lines ?? []) {
+        const line = svg('path', { d: `M ${sx(segment.x1)} ${sy(segment.y1)} L ${sx(segment.x2)} ${sy(segment.y2)}` });
+        line.classList.add('algo-axis'); line.dataset.lessonRevealFrame = String(segment.revealAt);
+        const title = svg('title'); title.textContent = segment.label; line.append(title); el.append(line);
+      }
       for (const [index, point] of chart.points.entries()) {
         const group = svg('g', { transform: `translate(${sx(point.x)} ${sy(point.y)})`, role: 'button', tabindex: index === 0 ? '0' : '-1', 'aria-label': point.label });
         group.classList.add('algo-item', 'algo-point'); group.dataset.inspect = point.id; group.dataset.tone = point.tone ?? 'neutral';
@@ -183,6 +189,7 @@ function init(root: HTMLElement) {
       el.classList.toggle('is-active', step.active.includes(edge.id)); el.classList.toggle('is-removed', step.removed?.includes(edge.id) ?? false);
     }
     views.querySelectorAll<HTMLElement>('[data-lesson-row-frame]').forEach(row => row.hidden = Number(row.dataset.lessonRowFrame) > playback.index);
+    views.querySelectorAll<SVGElement>('[data-lesson-reveal-frame]').forEach(el => el.style.visibility = Number(el.dataset.lessonRevealFrame) > playback.index ? 'hidden' : 'visible');
     for (const region of views.querySelectorAll<HTMLElement>('.algo-scroll')) {
       const active = region.querySelector<HTMLElement>('.is-active');
       if (!active) continue;
@@ -196,15 +203,17 @@ function init(root: HTMLElement) {
     answer.hidden = !step.result; answer.textContent = step.result ?? ''; transport();
     if (!playback.playing && timer !== undefined) { clearInterval(timer); timer = undefined; }
   }
-  function inspect(id: string) {
+  function inspect(id: string, activate = false) {
     const item = items.get(id); if (!item || !playback.valid) return;
     if (item.data.revealAt > playback.index) { inspector.textContent = 'This item has not been computed yet. Advance the trace to reveal its value.'; return; }
     inspector.textContent = item.data.detail;
     const cell = item.data as LessonCell;
     selectedMutation = cell.mutation;
     const apply = root.querySelector<HTMLButtonElement>('[data-ism-apply]'); if (apply) apply.disabled = !selectedMutation;
-    if ('action' in item.data && item.data.action) {
+    if (activate && 'action' in item.data && item.data.action) {
       const detail = item.data.detail; field(item.data.action.input).value = item.data.action.value; build(true); inspector.textContent = detail;
+      const replacement = items.get(id)?.element;
+      if (replacement) { replacement.setAttribute('tabindex', '0'); (replacement as HTMLElement).focus(); }
     }
   }
   function startTimer() {
@@ -220,13 +229,13 @@ function init(root: HTMLElement) {
       for (const input of definition.inputs) field(input.id).value = preset.values[input.id] ?? input.value;
       if (definition.id === 'ism') { reference = field('sequence').value; history.length = 0; }
       build();
-    } else if (target?.dataset.inspect) inspect(target.dataset.inspect);
+    } else if (target?.dataset.inspect) inspect(target.dataset.inspect, true);
   });
   on(views, 'focusin', event => { const target = event.target as HTMLElement; if (target.dataset.inspect) inspect(target.dataset.inspect); });
   on(views, 'keydown', event => {
     const e = event as KeyboardEvent; const target = e.target as HTMLElement;
     const grid = target.closest<HTMLElement>('[data-grid-keys]'); if (!grid || !target.dataset.inspect) return;
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inspect(target.dataset.inspect); return; }
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inspect(target.dataset.inspect, true); return; }
     if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return;
     const candidates = [...grid.querySelectorAll<HTMLElement | SVGElement>('[data-inspect]')].filter(el => el.style.visibility !== 'hidden');
     let next: HTMLElement | SVGElement | undefined;
