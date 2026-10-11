@@ -89,9 +89,12 @@ it('shares smooth finite stage weights, descriptions and explicit transition tim
   expect(story.stageWeight(0.5, 'dna')).toBe(0);
   // The attention scene says what it shows and that it is invented, and no longer claims a density.
   expect(story.stageDescription(1)).toMatch(/attention/);
-  expect(story.stageDescription(1)).toMatch(/promoter/);
-  expect(story.stageDescription(1)).toMatch(/invented/);
-  expect(story.stageDescription(1)).toMatch(/not Shorkie’s attention/);
+  expect(story.stageDescription(1)).toMatch(/MA0359.3/);
+  expect(story.stageDescription(1)).toMatch(/information content/);
+  expect(story.stageDescription(1)).toMatch(/incoming/);
+  expect(story.stageDescription(1, 'attention')).toMatch(/promoter/);
+  expect(story.stageDescription(1, 'attention')).toMatch(/invented/);
+  expect(story.stageDescription(1, 'attention')).toMatch(/not Shorkie’s attention/);
   expect(story.stageDescription(1)).not.toMatch(/probability|standard-normal|uncertainty/);
   expect(story.stageDescription(5 / 6)).toMatch(/not Shorkie/);
   // The splicing scene says what it is and what it is not, in the status line a reader hears.

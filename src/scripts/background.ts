@@ -10,6 +10,8 @@ import {
   type BackgroundPreference,
 } from '../lib/backgroundModel';
 import { setLabel } from '../lib/domLabel';
+import { FINALE_KEY, resolveFinale } from '../lib/morphFinalePreference';
+import type { FinaleVariant } from '../lib/morphFinale';
 import {
   SOFT_SELECTOR,
   SOLID_SELECTOR,
@@ -27,6 +29,7 @@ import {
 } from '../lib/morphStory';
 
 let preference: BackgroundPreference = { scene: DEFAULT_SCENE, motion: 'ambient' };
+let finale: FinaleVariant = 'motif';
 let renderer: SceneRenderer | null = null;
 let canvas: HTMLCanvasElement | null = null;
 let generation = 0;
@@ -60,6 +63,7 @@ function readPreference() {
       localStorage.getItem('khc-cell-mode'),
       localStorage.getItem(BACKGROUND_DEFAULT_KEY)
     );
+    finale = resolveFinale(localStorage.getItem(FINALE_KEY));
   } catch {
     /* Keep the in-memory choice when storage is unavailable. */
   }
@@ -68,6 +72,7 @@ function notify() {
   const root = document.documentElement;
   root.dataset.backgroundScene = preference.scene;
   root.dataset.backgroundMotion = preference.motion;
+  root.dataset.morphFinale = finale;
   root.dataset.backgroundExploring = String(!!dialog?.open);
   document.dispatchEvent(
     new CustomEvent('khc:background-change', {
@@ -104,6 +109,32 @@ function notify() {
     explore.disabled = preference.scene === 'off' || !active();
     setLabel(explore, preference.scene === 'cells' ? 'Open Cell Lab ↗' : 'Explore background ↗');
   }
+}
+function syncFinaleLabels() {
+  const name = finale === 'motif' ? 'Rap1 DNA motif' : 'attention arcs';
+  const button = $<HTMLButtonElement>('[data-background-form="1"]');
+  if (button) {
+    setLabel(button, finale === 'motif' ? 'Motif' : 'Attention');
+    button.title = stageDescription(1, finale);
+  }
+  const description = `Explore seven particle forms: DNA, RNA splicing, folded protein, cell, splice-aware expression, neural model and ${name}. Scrub between forms and show structure labels for a closer look. Hover or tap motif positions to explore their links; use Left/Right, Home/End when the canvas is focused.`;
+  setLabel($('[data-background-description]'), description);
+  $('[data-background-demo-canvas]')?.setAttribute(
+    'aria-label',
+    `Seven particle forms ending in ${name}; controls below`
+  );
+  $('[data-background-scrub]')?.setAttribute(
+    'aria-label',
+    `Scrub DNA, RNA splicing, folded protein, cell, splice-aware expression, neural model and ${name}`
+  );
+}
+function changeFinale(next: FinaleVariant, transition: 'smooth' | 'immediate' = 'smooth') {
+  finale = next;
+  renderer?.configure({ finaleVariant: finale, finaleTransition: transition });
+  demo?.configure({ finaleVariant: finale, finaleTransition: transition });
+  notify();
+  syncFinaleLabels();
+  updateDemoStatus(true);
 }
 function applyAmbientRunning() {
   const suspended =
@@ -228,13 +259,13 @@ function scheduleMask() {
 }
 /** Only exposed artwork reacts; never capture a control, text selection, or touch scroll. */
 function ambientPoint(event: PointerEvent) {
+  const staticMotif = finale === 'motif' && (renderer?.getProgress?.() ?? 0) >= 0.98;
   if (
     preference.scene !== 'morph' ||
     !renderer ||
     !canvas ||
     dialog?.open ||
-    preference.motion === 'paused' ||
-    reduced() ||
+    ((preference.motion === 'paused' || reduced()) && !staticMotif) ||
     document.hidden ||
     selecting ||
     location.pathname !== '/' ||
@@ -250,6 +281,10 @@ function ambientPoint(event: PointerEvent) {
     return null;
   const x = event.clientX + scrollX,
     y = event.clientY + scrollY;
+  if (staticMotif && storyChapters.length === 7) {
+    const chapter = storyChapters[6];
+    if (Math.abs(y - chapter.center) > chapter.holdRadius * 2.5) return null;
+  }
   if (bounds.some((r) => x >= r.x - 8 && x <= r.x + r.w + 8 && y >= r.y - 8 && y <= r.y + r.h + 8))
     return null;
   const rect = canvas.getBoundingClientRect();
@@ -307,6 +342,7 @@ async function attach() {
         location.pathname === '/',
         location.pathname === '/' && scrollY < 40 && !reduced() && preference.motion === 'ambient'
       );
+      renderer.configure({ finaleVariant: finale });
       renderer.setMotion(preference.motion);
       mask = document.createElement('canvas');
       veilLayer = document.createElement('canvas');
@@ -373,7 +409,7 @@ function updateDemoStatus(announce = false) {
   const scrub = $<HTMLInputElement>('[data-background-scrub]');
   if (scrub && progress !== undefined) {
     scrub.value = String(progress);
-    scrub.setAttribute('aria-valuetext', stageDescription(progress));
+    scrub.setAttribute('aria-valuetext', stageDescription(progress, finale));
   }
   document.querySelectorAll<HTMLButtonElement>('[data-background-form]').forEach((button) => {
     const selected =
@@ -422,22 +458,18 @@ async function openDemo() {
   host.showModal();
   $('[data-background-close]')?.focus();
   $('[data-background-demo-title]')!.textContent = 'Sequence to Function';
-  $('[data-background-description]')!.textContent =
-    'Explore seven particle forms: DNA, RNA splicing, folded protein, cell, splice-aware expression, neural model and attention arcs. Move your pointer while playing to shift the view, or tap or use Stir particles. Scrub between forms and show structure labels for a closer look.';
+  syncFinaleLabels();
   $('[data-background-morph-legend]')!.hidden = false;
   $('[data-background-morph-controls]')!.hidden = false;
   const structureLabels = $<HTMLInputElement>('[data-background-labels]');
   if (structureLabels) structureLabels.checked = false;
-  surface.setAttribute(
-    'aria-label',
-    'Seven particle forms: DNA, RNA splicing, folded protein, cell, splice-aware expression, neural model and attention arcs; controls below'
-  );
   notify();
   applyRunning();
   try {
     const { createMorphRenderer } = await import('../lib/morphRenderer');
     if (token !== demoGeneration || !dialog?.open) return;
     demo = createMorphRenderer(surface, true);
+    demo.configure({ finaleVariant: finale });
     demoPlaying = !reduced();
     applyRunning();
     updateDemoStatus(true);
@@ -506,9 +538,36 @@ function bindDemo() {
     });
   host.querySelector('[data-background-stir]')?.addEventListener('click', () => {
     const surface = $<HTMLCanvasElement>('[data-background-demo-canvas]');
-    if (surface) demo?.interact(surface.clientWidth / 2, surface.clientHeight / 2);
+    if (surface)
+      demo?.interact(surface.clientWidth / 2, surface.clientHeight / 2, { animate: true });
   });
   const surface = host.querySelector<HTMLCanvasElement>('[data-background-demo-canvas]')!;
+  surface.addEventListener('khc:motif-focus', (event) => {
+    const detail = (event as CustomEvent<{ description: string }>).detail;
+    setLabel(host.querySelector('[data-motif-announcement]'), detail.description);
+  });
+  surface.addEventListener('keydown', (event) => {
+    if (
+      !demo ||
+      finale !== 'motif' ||
+      (demo.getProgress?.() ?? 0) < 0.98 ||
+      !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)
+    )
+      return;
+    event.preventDefault();
+    const position = Number(surface.dataset.bgMotifFocus ?? -1);
+    const next =
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? 11
+          : position < 0
+            ? event.key === 'ArrowLeft'
+              ? 11
+              : 0
+            : (position + (event.key === 'ArrowLeft' ? -1 : 1) + 12) % 12;
+    demo.configure({ motifFocus: next });
+  });
   let down: { x: number; y: number } | null = null;
   surface.addEventListener('pointerdown', (e) => {
     down = { x: e.clientX, y: e.clientY };
@@ -527,7 +586,7 @@ function bindDemo() {
   surface.addEventListener(
     'pointermove',
     (e) => {
-      if (e.pointerType === 'mouse' && preference.scene === 'morph' && demoPlaying) {
+      if (e.pointerType === 'mouse' && preference.scene === 'morph') {
         const r = surface.getBoundingClientRect();
         demo?.setPointer?.({ x: e.clientX - r.left, y: e.clientY - r.top });
         return;
@@ -596,6 +655,7 @@ export function initBackground() {
     const next = (event as Event & { newDocument: Document }).newDocument.documentElement;
     next.dataset.backgroundScene = preference.scene;
     next.dataset.backgroundMotion = preference.motion;
+    next.dataset.morphFinale = finale;
     detach();
   });
   document.addEventListener('astro:page-load', onPage);
@@ -682,7 +742,15 @@ export function initBackground() {
     },
     { passive: true }
   );
-  window.addEventListener('scroll', scheduleMask, { passive: true });
+  window.addEventListener(
+    'scroll',
+    () => {
+      ambientDown = null;
+      renderer?.configure({ motifFocus: -1 });
+      scheduleMask();
+    },
+    { passive: true }
+  );
   document.addEventListener('toggle', collectBounds, true);
   // Sections marked [data-reveal] ease up by 10px as they scroll into view (global.css). Their boxes
   // are measured with that transform in effect, so until something re-measured them the mask sat
@@ -692,18 +760,32 @@ export function initBackground() {
   document.addEventListener(
     'transitionend',
     (event) => {
-      if (event.propertyName === 'transform' && (event.target as Element).matches?.('[data-reveal]'))
+      if (
+        event.propertyName === 'transform' &&
+        (event.target as Element).matches?.('[data-reveal]')
+      )
         collectBounds();
     },
     true
   );
   window.addEventListener('storage', (event) => {
+    if (event.key === FINALE_KEY || event.key === null) {
+      changeFinale(resolveFinale(event.newValue), 'smooth');
+    }
     if (event.key === BACKGROUND_KEY) {
       closeDemo();
       selecting = false;
       document.documentElement.dataset.backgroundSwitching = 'false';
       readPreference();
       void attach();
+    }
+  });
+  window.addEventListener('khc:toggle-motif-finale', () => {
+    changeFinale(finale === 'motif' ? 'attention' : 'motif');
+    try {
+      localStorage.setItem(FINALE_KEY, finale);
+    } catch {
+      /* Session-only choice. */
     }
   });
   void document.fonts.ready.then(collectBounds);

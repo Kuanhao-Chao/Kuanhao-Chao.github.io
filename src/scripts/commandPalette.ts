@@ -394,6 +394,15 @@ const STATIC_ACTIONS: CommandItem[] = [
     ],
   },
   {
+    id: 'act-motif-finale',
+    category: 'Actions',
+    title: 'Switch DNA motif / attention finale',
+    subtitle: "Change the Sequence → Function finale (or type 'motif' outside inputs)",
+    badge: 'Easter Egg',
+    action: () => window.dispatchEvent(new CustomEvent('khc:toggle-motif-finale')),
+    keywords: ['motif', 'attention', 'rap1', 'logo', 'finale', 'background', 'easter egg'],
+  },
+  {
     id: 'act-dna-rain',
     category: 'Actions',
     title: 'Launch Matrix DNA Rain',

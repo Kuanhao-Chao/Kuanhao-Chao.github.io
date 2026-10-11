@@ -50,7 +50,9 @@
 }
 
 :root[data-crt-mode] body {
-  background-color: var(--crt-bg) !important;
+  /* The root paints --color-bg. Keep the body transparent so the fixed
+     z-index:-1 artwork stays visible, just as it does in the other themes. */
+  background-color: transparent !important;
   color: var(--crt-phosphor) !important;
   text-shadow: 0 0 3px var(--crt-glow), 0 0 8px var(--crt-glow);
   font-family: var(--font-mono, monospace) !important;

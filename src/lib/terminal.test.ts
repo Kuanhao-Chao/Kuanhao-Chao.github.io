@@ -1308,6 +1308,11 @@ describe('unix utilities and content navigation commands', () => {
 
   it('handles easter egg commands and custom event effects', () => {
     const state = shell();
+    expect(exec(state, 'motif').effect).toEqual({
+      type: 'custom',
+      eventName: 'khc:toggle-motif-finale',
+    });
+    expect(joined(exec(state, 'eggs').lines)).toContain('motif');
 
     // crispr & cas9 alias
     const crisprOut = exec(state, 'crispr');

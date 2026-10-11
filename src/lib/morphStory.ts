@@ -1,5 +1,8 @@
 /** One scientific vocabulary and canonical ordering for all story consumers. */
 export type MorphStageId = 'dna' | 'rna' | 'protein' | 'cell' | 'signal' | 'network' | 'attention';
+import type { FinaleVariant } from './morphFinale';
+const ATTENTION_DESCRIPTION =
+  'An illustrative attention pattern: one promoter weighs nine distant DNA sites, a few of them most, with weights that sum to one. Positions and weights are invented; this is not Shorkie’s attention.';
 export const MORPH_STAGES: readonly {
   id: MorphStageId;
   label: string;
@@ -48,10 +51,10 @@ export const MORPH_STAGES: readonly {
   },
   {
     id: 'attention',
-    label: 'Attention arcs',
+    label: 'Rap1 DNA motif',
     progress: 1,
     description:
-      'An illustrative attention pattern: one promoter weighs nine distant DNA sites, a few of them most, with weights that sum to one. Positions and weights are invented; this is not Shorkie’s attention.',
+      'Rap1 DNA motif, JASPAR MA0359.3: twelve positions from budding yeast. Letter heights show nucleotide frequency × information content, not regulatory importance. Hover or tap a position to highlight outgoing (solid) and incoming (dashed) links from a fixed illustrative attention head.',
   },
 ];
 
@@ -117,7 +120,9 @@ export function stageWeight(progress: number, id: MorphStageId): number {
   return index === from ? 1 - blend : index === from + 1 ? blend : 0;
 }
 
-export function stageDescription(progress: number): string {
+export function stageDescription(progress: number, finale: FinaleVariant = 'motif'): string {
+  if (Math.round(finiteProgress(progress) * 6) === 6 && finale === 'attention')
+    return ATTENTION_DESCRIPTION;
   return MORPH_STAGES[Math.round(finiteProgress(progress) * 6)].description;
 }
 
