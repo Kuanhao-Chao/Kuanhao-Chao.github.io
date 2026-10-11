@@ -66,14 +66,7 @@ export interface GWASPreset {
   prsWeights?: { rsid: string; weight: number }[];
 }
 
-export interface RegressionStats {
-  beta: number;
-  se: number;
-  tStat: number;
-  pValue: number;
-  rSquared: number;
-  n: number;
-}
+export type { RegressionStats } from './gwasStats';
 
 export interface QQPoint {
   expected: number; // -log10(p_expected)
@@ -99,93 +92,7 @@ export interface GWASResult {
 
 // ------------------------------------------------------------- Statistics --
 
-/**
- * Computes Ordinary Least Squares (OLS) single-variant linear regression:
- * y = α + x * β + Z * γ + ε
- */
-export function computeLinearRegression(
-  x: number[],
-  y: number[],
-  covariates?: number[][]
-): RegressionStats {
-  const n = x.length;
-  if (n < 3) {
-    return { beta: 0, se: 1, tStat: 0, pValue: 1, rSquared: 0, n };
-  }
-
-  // If covariates provided (e.g. PC1, PC2), residualize y and x first (Frisch-Waugh-Lovell theorem)
-  let adjX = x;
-  let adjY = y;
-
-  if (covariates && covariates.length > 0 && covariates[0].length === n) {
-    adjX = residualize(x, covariates);
-    adjY = residualize(y, covariates);
-  }
-
-  let sumX = 0;
-  let sumY = 0;
-  for (let i = 0; i < n; i++) {
-    sumX += adjX[i];
-    sumY += adjY[i];
-  }
-  const meanX = sumX / n;
-  const meanY = sumY / n;
-
-  let ssXX = 0;
-  let ssYY = 0;
-  let ssXY = 0;
-
-  for (let i = 0; i < n; i++) {
-    const dx = adjX[i] - meanX;
-    const dy = adjY[i] - meanY;
-    ssXX += dx * dx;
-    ssYY += dy * dy;
-    ssXY += dx * dy;
-  }
-
-  if (ssXX <= 1e-12 || ssYY <= 1e-12) {
-    return { beta: 0, se: 1, tStat: 0, pValue: 1, rSquared: 0, n };
-  }
-
-  const beta = ssXY / ssXX;
-  const ssRes = Math.max(0, ssYY - beta * ssXY);
-  const df = Math.max(1, n - (covariates ? covariates.length + 2 : 2));
-  const s2 = ssRes / df;
-  const se = Math.sqrt(Math.max(1e-15, s2 / ssXX));
-  const tStat = beta / se;
-  const pValue = tDistPValue(Math.abs(tStat), df);
-  const rSquared = Math.max(0, Math.min(1, (ssXY * ssXY) / (ssXX * ssYY)));
-
-  return { beta, se, tStat, pValue, rSquared, n };
-}
-
-/**
- * Residualize vector v against an array of covariate vectors Z using OLS projection.
- */
-function residualize(v: number[], covariates: number[][]): number[] {
-  const n = v.length;
-  let res = [...v];
-  const meanV = v.reduce((a, b) => a + b, 0) / n;
-  res = res.map((val) => val - meanV);
-
-  for (const cov of covariates) {
-    const meanC = cov.reduce((a, b) => a + b, 0) / n;
-    let dotCV = 0;
-    let dotCC = 0;
-    for (let i = 0; i < n; i++) {
-      const dc = cov[i] - meanC;
-      dotCV += dc * res[i];
-      dotCC += dc * dc;
-    }
-    if (dotCC > 1e-12) {
-      const gamma = dotCV / dotCC;
-      for (let i = 0; i < n; i++) {
-        res[i] -= gamma * (cov[i] - meanC);
-      }
-    }
-  }
-  return res;
-}
+export { computeLinearRegression } from './gwasStats';
 
 /**
  * Approximate two-tailed p-value for Student's t distribution.
