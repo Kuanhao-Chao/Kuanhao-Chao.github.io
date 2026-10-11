@@ -60,12 +60,11 @@ export interface SearchTrace {
  * Standardize text: uppercase and ensure trailing '$' sentinel.
  */
 export function sanitizeReferenceText(input: string): string {
-  let cleaned = input.trim().toUpperCase().replace(/[^A-Z0-9$]/g, '');
-  if (!cleaned) cleaned = 'BANANA';
-  if (!cleaned.endsWith('$')) {
-    cleaned = cleaned.replace(/\$/g, '') + '$';
-  }
-  return cleaned;
+  const cleaned = input.trim().toUpperCase();
+  if (!/^[A-Z0-9$]*$/.test(cleaned)) throw new Error('Reference must contain letters or digits, with an optional terminal sentinel $.');
+  const sentinels = [...cleaned].filter(ch => ch === '$').length;
+  if (sentinels > 1 || (sentinels === 1 && !cleaned.endsWith('$'))) throw new Error('Use exactly one terminal sentinel $, or omit it to append one.');
+  return cleaned.endsWith('$') ? cleaned : cleaned + '$';
 }
 
 /**
@@ -177,8 +176,10 @@ export function buildBwt(rawText: string): BwtIndex {
 /**
  * Execute step-by-step FM-Index backward search for a given pattern.
  */
-export function bwtBackwardSearch(index: BwtIndex, query: string): SearchTrace {
+export function bwtBackwardSearch(index: BwtIndex, query: string, options: { locate?: boolean } = {}): SearchTrace {
   const pattern = query.trim().toUpperCase();
+  if (pattern.includes('$')) throw new Error('Ordinary substring queries cannot contain the sentinel $.');
+  if (!/^[A-Z0-9]*$/.test(pattern)) throw new Error('Query must contain letters or digits only.');
   const n = index.length;
 
   if (!pattern) {
@@ -188,7 +189,7 @@ export function bwtBackwardSearch(index: BwtIndex, query: string): SearchTrace {
       steps: [],
       isFound: true,
       matchCount: n,
-      finalPositions: [...index.sa].sort((a, b) => a - b),
+      finalPositions: options.locate === false ? [] : [...index.sa].sort((a, b) => a - b),
     };
   }
 
@@ -235,7 +236,7 @@ export function bwtBackwardSearch(index: BwtIndex, query: string): SearchTrace {
     const isMatch = spNew <= epNew;
 
     const querySuffix = pattern.slice(j);
-    const matchPositions = isMatch ? index.sa.slice(spNew, epNew + 1).sort((a, b) => a - b) : [];
+    const matchPositions = isMatch && options.locate !== false ? index.sa.slice(spNew, epNew + 1).sort((a, b) => a - b) : [];
 
     const formulaSpText = `sp = C['${char}'] + Occ('${char}', ${spPrev}) = ${cVal} + ${occSp} = ${spNew}`;
     const formulaEpText = `ep = C['${char}'] + Occ('${char}', ${epPrev + 1}) - 1 = ${cVal} + ${occEpPlus1} - 1 = ${epNew}`;
@@ -267,7 +268,7 @@ export function bwtBackwardSearch(index: BwtIndex, query: string): SearchTrace {
 
   const isFound = sp <= ep;
   const matchCount = isFound ? ep - sp + 1 : 0;
-  const finalPositions = isFound ? index.sa.slice(sp, ep + 1).sort((a, b) => a - b) : [];
+  const finalPositions = isFound && options.locate !== false ? index.sa.slice(sp, ep + 1).sort((a, b) => a - b) : [];
 
   return {
     pattern,
@@ -288,6 +289,22 @@ export function lfMapping(index: BwtIndex, lRowIndex: number): number {
   const cVal = index.cTable[char] ?? 0;
   const occCount = index.occMatrix[char]?.[lRowIndex] ?? 0;
   return cVal + occCount;
+}
+
+/** Sample by suffix position, so LF decrements toward a sample within spacing−1 hops. */
+export function sampleSuffixArray(index: BwtIndex, spacing: number): Map<number, number> {
+  if (!Number.isInteger(spacing) || spacing < 1) throw new Error('Sampling spacing must be a positive integer.');
+  return new Map(index.sa.flatMap((position, row) => position % spacing === 0 ? [[row, position] as [number, number]] : []));
+}
+export function locateSampled(index: BwtIndex, row: number, spacing: number, samples = sampleSuffixArray(index, spacing)): { position: number; rows: number[]; sampledPosition: number } {
+  if (!Number.isInteger(row) || row < 0 || row >= index.length) throw new Error('Invalid suffix-array row.');
+  const rows = [row];
+  while (!samples.has(row)) {
+    row = lfMapping(index, row); rows.push(row);
+    if (rows.length > index.length) throw new Error('LF did not reach a suffix-position sample.');
+  }
+  const sampledPosition = samples.get(row)!;
+  return { position: (sampledPosition + rows.length - 1) % index.length, rows, sampledPosition };
 }
 
 /**
