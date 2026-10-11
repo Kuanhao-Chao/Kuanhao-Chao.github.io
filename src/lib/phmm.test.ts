@@ -18,6 +18,49 @@ describe('Profile Hidden Markov Models (pHMMs)', () => {
     expect(arrVal).toBeCloseTo(-1000 + Math.log(3), 4);
   });
 
+  it('sums deletion paths and agrees with the backward beginning value', () => {
+    const model = createPlan7ModelFromMSA(['ACG', 'ACG'], 'tiny', DNA_ALPHABET);
+    for (const query of ['', 'AG', 'ACCG', 'ACG']) {
+      const v = runViterbi(model, query);
+      const fb = runForwardBackward(model, query);
+      expect(fb.logLikelihood).toBeGreaterThanOrEqual(v.logScore - 1e-12);
+      expect(fb.backwardM[0][0]).toBeCloseTo(fb.logLikelihood, 10);
+    }
+  });
+
+  it('normalizes emitting-state occupancy for every query residue', () => {
+    const model = createPlan7ModelFromMSA(['ACG', 'A-G'], 'tiny', DNA_ALPHABET);
+    const fb = runForwardBackward(model, 'ACCG');
+    for (let i = 1; i <= 4; i++) {
+      const total = fb.posteriorM[i].reduce((a,b)=>a+b,0) + (fb as typeof fb & {posteriorI:number[][]}).posteriorI[i].reduce((a,b)=>a+b,0);
+      expect(total).toBeCloseTo(1, 10);
+    }
+  });
+
+  it('rejects ragged, invalid and all-gap MSAs', () => {
+    expect(()=>createPlan7ModelFromMSA(['AC', 'A'], 'bad', DNA_ALPHABET)).toThrow();
+    expect(()=>createPlan7ModelFromMSA(['A!'], 'bad', DNA_ALPHABET)).toThrow();
+    expect(()=>createPlan7ModelFromMSA(['--'], 'bad', DNA_ALPHABET)).toThrow();
+  });
+
+  it('matches hand-enumerated one-column path probabilities including End', () => {
+    const model = createPlan7ModelFromMSA(['A','A'], 'one', DNA_ALPHABET);
+    // e_M(A)=2.1/2.4=.875; inserts emit A with probability .25.
+    expect(Math.exp(runForwardBackward(model, '').logLikelihood)).toBeCloseTo(.07, 12);
+    expect(Math.exp(runForwardBackward(model, 'A').logLikelihood)).toBeCloseTo(.85*.875*.92, 12);
+    const mThenI=.85*.875*.08*.25*.6;
+    const iThenM=.08*.25*.6*.875*.92;
+    expect(Math.exp(runForwardBackward(model, 'AA').logLikelihood)).toBeCloseTo(mThenI+iThenM, 12);
+    expect(Math.exp(runViterbi(model, 'AA').logScore)).toBeCloseTo(Math.max(mThenI,iThenM), 12);
+  });
+
+  it('keeps zero transition probabilities impossible', () => {
+    const model = createPlan7ModelFromMSA(['A'], 'one', DNA_ALPHABET);
+    model.transitions.MM[0]=0; model.transitions.MD[0]=.92;
+    expect(runForwardBackward(model,'A').logLikelihood).toBe(-Infinity);
+    expect(runViterbi(model,'A').viterbiPath).toEqual([]);
+  });
+
   it('builds Plan 7 model from DNA Multiple Sequence Alignment', () => {
     const msa = [
       'TATAAA',
