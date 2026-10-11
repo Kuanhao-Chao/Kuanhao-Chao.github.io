@@ -40,6 +40,7 @@ if (!lesson) throw new Error(`Missing lesson: ${Astro.props.id}`);
         <div class="algo-presets algo-field--wide">
           <button type="submit" class="algo-primary">Build example</button>
           {lesson.presets.map((preset, index) => <button type="button" data-lesson-preset={index}>{preset.label}</button>)}
+          {lesson.id === 'debruijn' && <button type="button" data-cleaning-undo>Undo cleaning preview</button>}
         </div>
       </form>
       <p class="algo-error" data-lesson-error role="alert" hidden></p>
