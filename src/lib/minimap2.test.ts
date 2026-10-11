@@ -8,6 +8,12 @@ import {
 } from './minimap2';
 
 describe('Minimap2 Minimizer Sampling & Collinear Chaining', () => {
+  it('rewards only newly covered bases rather than double-counting the starting anchor', () => {
+    const result = runCollinearChaining('ACGT', 'ACGT', 1, 3);
+    // First anchor covers 3; the overlapping second adds 1 minus beta=0.05.
+    expect(result.bestChain?.score).toBeCloseTo(3.95);
+    expect(result.bestChain?.score).toBeLessThanOrEqual(4);
+  });
   it('computes deterministic k-mer hashes', () => {
     const h1 = hashKmer('ACG');
     const h2 = hashKmer('ACG');
@@ -16,6 +22,13 @@ describe('Minimap2 Minimizer Sampling & Collinear Chaining', () => {
     expect(typeof h1).toBe('number');
     expect(h1).toBeGreaterThanOrEqual(0);
     expect(h1).not.toBe(h3);
+  });
+  it('records every minimizer window and rejects invalid input rather than sanitizing it', () => {
+    const sampled = extractMinimizers('ACGT', 2, 3);
+    expect(sampled.windows).toHaveLength(1);
+    expect(sampled.windows[0].winnerPos).toBe(sampled.minimizers[0].pos);
+    expect(() => runCollinearChaining('A!CG', 'ACG', 2, 3)).toThrow(/ACGT/);
+    expect(() => extractMinimizers('ACGT', 0, 3)).toThrow(/positive/);
   });
 
   it('extracts all k-mers from sequence', () => {
@@ -52,6 +65,11 @@ describe('Minimap2 Minimizer Sampling & Collinear Chaining', () => {
       expect(target.slice(a.x, a.x + 3)).toBe(a.kmer);
       expect(query.slice(a.y, a.y + 3)).toBe(a.kmer);
     }
+  });
+  it('explains rejected predecessors, not just compatible candidates', () => {
+    const result = runCollinearChaining('ACAC', 'ACAC', 1, 2);
+    expect(result.steps[1].candidates).toHaveLength(1);
+    expect(result.steps[1].candidates[0].rejection).toMatch(/increasing/);
   });
 
   it('chains anchors into a maximal collinear chain along diagonal', () => {
