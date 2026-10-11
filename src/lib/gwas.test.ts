@@ -17,7 +17,7 @@ describe('GWAS Statistical Engine', () => {
       const y = [2.5, 2.4, 3.3, 3.2, 4.1, 4.2, 2.6, 3.4, 4.0, 2.5, 3.3, 4.1];
       const res = computeLinearRegression(x, y);
 
-      expect(res.beta).toBeCloseTo(0.80, 2);
+      expect(res.beta).toBeCloseTo(0.8, 2);
       expect(res.pValue).toBeLessThan(0.0001);
       expect(res.rSquared).toBeGreaterThan(0.95);
       expect(res.se).toBeGreaterThan(0);
@@ -41,15 +41,16 @@ describe('GWAS Statistical Engine', () => {
       const adj = computeLinearRegression(x, y, [pc1]);
 
       expect(unadj.beta).toBeGreaterThan(5); // Apparent spurious association
-      expect(adj.beta).toBeCloseTo(0, 4);    // Vanishes once PC1 is conditioned out
+      expect(adj.beta).toBeCloseTo(0, 4); // Vanishes once PC1 is conditioned out
     });
 
     it('projects correlated covariates jointly, independent of their order', () => {
-      const x=[0,1,2,0,1,2,0,1,2,1];
-      const z1=[1,2,3,4,5,6,7,8,9,10],z2=[1,1,4,4,4,8,7,7,11,10];
-      const y=x.map((v,i)=>5+1.7*v+2*z1[i]-3*z2[i]);
-      expect(computeLinearRegression(x,y,[z1,z2]).beta).toBeCloseTo(1.7,10);
-      expect(computeLinearRegression(x,y,[z2,z1]).beta).toBeCloseTo(1.7,10);
+      const x = [0, 1, 2, 0, 1, 2, 0, 1, 2, 1];
+      const z1 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        z2 = [1, 1, 4, 4, 4, 8, 7, 7, 11, 10];
+      const y = x.map((v, i) => 5 + 1.7 * v + 2 * z1[i] - 3 * z2[i]);
+      expect(computeLinearRegression(x, y, [z1, z2]).beta).toBeCloseTo(1.7, 10);
+      expect(computeLinearRegression(x, y, [z2, z1]).beta).toBeCloseTo(1.7, 10);
     });
   });
 

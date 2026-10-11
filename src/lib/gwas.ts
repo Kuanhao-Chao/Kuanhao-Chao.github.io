@@ -42,8 +42,8 @@ export interface CohortIndividual {
   pc1: number;
   pc2: number;
   genotypes: number[]; // 0, 1, 2 minor allele count per SNP
-  phenotype: number;   // Continuous trait or liability
-  isCase: boolean;     // Binary case (1) or control (0)
+  phenotype: number; // Continuous trait or liability
+  isCase: boolean; // Binary case (1) or control (0)
 }
 
 export interface GWASPreset {
@@ -55,7 +55,7 @@ export interface GWASPreset {
   description: string;
   clinicalNote: string;
   heritability: number; // h² (e.g. 0.45)
-  sampleSize: number;   // N
+  sampleSize: number; // N
   leadLociCount: number;
   leadGenes: string[];
   lambdaGCUnadjusted: number;
@@ -87,7 +87,7 @@ export interface GWASResult {
   adjustedForPCA: boolean;
   totalSNPs: number;
   significantCount: number; // p < 5e-8
-  suggestiveCount: number;  // 5e-8 <= p < 1e-5
+  suggestiveCount: number; // 5e-8 <= p < 1e-5
 }
 
 // ------------------------------------------------------------- Statistics --
@@ -146,7 +146,7 @@ function incompleteBeta(x: number, a: number, b: number): number {
   const maxIt = 100;
   const eps = 1e-12;
   let c = 1.0;
-  let d = 1.0 - (a + b) * x / (a + 1.0);
+  let d = 1.0 - ((a + b) * x) / (a + 1.0);
   if (Math.abs(d) < eps) d = eps;
   d = 1.0 / d;
   let h = d;
@@ -178,14 +178,8 @@ function incompleteBeta(x: number, a: number, b: number): number {
 function logGamma(x: number): number {
   const g = 7;
   const p = [
-    0.99999999999980993,
-    676.5203681218851,
-    -1259.1392167224028,
-    771.32342877765313,
-    -176.61502916214059,
-    12.507343278686905,
-    -0.13857109526572012,
-    9.9843695780195716e-6,
+    0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313,
+    -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6,
     1.5056327351493116e-7,
   ];
   if (x < 0.5) return Math.log(Math.PI / Math.sin(Math.PI * x)) - logGamma(1 - x);
@@ -249,9 +243,7 @@ export function computeGenomicInflation(pValues: number[]): number {
   chiSquares.sort((a, b) => a - b);
   const mid = Math.floor(chiSquares.length / 2);
   const median =
-    chiSquares.length % 2 !== 0
-      ? chiSquares[mid]
-      : (chiSquares[mid - 1] + chiSquares[mid]) / 2.0;
+    chiSquares.length % 2 !== 0 ? chiSquares[mid] : (chiSquares[mid - 1] + chiSquares[mid]) / 2.0;
 
   return Number((median / 0.4549364231137603).toFixed(3));
 }
@@ -264,27 +256,11 @@ function invNormalCdf(p: number): number {
   if (p >= 1) return 8.0;
   if (p === 0.5) return 0.0;
 
-  const a = [
-    2.50662823884,
-    -18.61500062529,
-    41.39119773534,
-    -25.44106049637,
-  ];
-  const b = [
-    -8.4735109309,
-    23.08336743743,
-    -21.06224101826,
-    3.13082909833,
-  ];
+  const a = [2.50662823884, -18.61500062529, 41.39119773534, -25.44106049637];
+  const b = [-8.4735109309, 23.08336743743, -21.06224101826, 3.13082909833];
   const c = [
-    0.3374754822726147,
-    0.9761690190917186,
-    0.1607979714918209,
-    0.027643881033086358,
-    0.0038405729373609,
-    0.0003951896511919,
-    0.0000321767881768,
-    0.0000002888167364,
+    0.3374754822726147, 0.9761690190917186, 0.1607979714918209, 0.027643881033086358,
+    0.0038405729373609, 0.0003951896511919, 0.0000321767881768, 0.0000002888167364,
     0.0000003960315187,
   ];
 
@@ -325,7 +301,8 @@ export function computeQQQuantiles(snps: SNP[]): QQPoint[] {
     const alpha = rank;
     const betaParam = m - rank + 1;
     const mean = alpha / (alpha + betaParam);
-    const variance = (alpha * betaParam) / (Math.pow(alpha + betaParam, 2) * (alpha + betaParam + 1));
+    const variance =
+      (alpha * betaParam) / (Math.pow(alpha + betaParam, 2) * (alpha + betaParam + 1));
     const sd = Math.sqrt(variance);
     const pLower = Math.max(1e-15, mean - 1.96 * sd);
     const pUpper = Math.min(1.0, mean + 1.96 * sd);
@@ -376,14 +353,23 @@ function createSeededRandom(seed: number = 42): () => number {
  * Generates synthetic genome-wide chromosomes with high-density lead loci and background null noise.
  */
 function createSyntheticGenome(
-  leadDefinitions: { chr: number; pos: number; rsid: string; gene: string; beta: number; maf: number; consequence: string; name: string }[],
+  leadDefinitions: {
+    chr: number;
+    pos: number;
+    rsid: string;
+    gene: string;
+    beta: number;
+    maf: number;
+    consequence: string;
+    name: string;
+  }[],
   backgroundCountPerChr: number = 30,
   seed: number = 1001
 ): { chromosomes: Chromosome[]; allSnps: SNP[] } {
   const rand = createSeededRandom(seed);
   const chrLengthsMb = [
-    248, 242, 198, 190, 181, 170, 159, 145, 138, 133,
-    135, 133, 114, 107, 101, 90, 83, 80, 58, 64, 46, 50,
+    248, 242, 198, 190, 181, 170, 159, 145, 138, 133, 135, 133, 114, 107, 101, 90, 83, 80, 58, 64,
+    46, 50,
   ];
 
   const chromosomes: Chromosome[] = [];
@@ -400,7 +386,9 @@ function createSyntheticGenome(
 
     // 1. Add background null/polygenic SNPs
     for (let s = 0; s < backgroundCountPerChr; s++) {
-      const posMb = Number(((s + 0.5) * (lenMb / backgroundCountPerChr) + (rand() * 0.8 - 0.4)).toFixed(3));
+      const posMb = Number(
+        ((s + 0.5) * (lenMb / backgroundCountPerChr) + (rand() * 0.8 - 0.4)).toFixed(3)
+      );
       const posBp = Math.floor(posMb * 1_000_000);
       const maf = Number((0.05 + rand() * 0.45).toFixed(2));
 
@@ -410,7 +398,7 @@ function createSyntheticGenome(
       const zNull = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
       const se = Number((0.02 + rand() * 0.015).toFixed(4));
       const beta = Number((zNull * se).toFixed(4));
-      const tStat = Number((zNull).toFixed(2));
+      const tStat = Number(zNull.toFixed(2));
       const pVal = Math.max(1e-300, tDistPValue(Math.abs(zNull), 5000));
       const negLogP = Number((-Math.log10(pVal)).toFixed(2));
 
@@ -477,7 +465,10 @@ function createSyntheticGenome(
       for (const offset of flankOffsets) {
         const flankPos = Math.max(10_000, leadPosBp + offset);
         const distKb = Math.abs(offset) / 1000;
-        const r2 = Math.max(0.05, Number((Math.exp(-distKb / 60) * (0.85 + rand() * 0.15)).toFixed(2)));
+        const r2 = Math.max(
+          0.05,
+          Number((Math.exp(-distKb / 60) * (0.85 + rand() * 0.15)).toFixed(2))
+        );
         const flankBeta = Number((lead.beta * Math.sqrt(r2) + (rand() - 0.5) * 0.04).toFixed(4));
         const flankSe = Number((se * (1 + (1 - r2) * 0.3)).toFixed(4));
         const flankT = Number((flankBeta / flankSe).toFixed(2));
@@ -580,43 +571,268 @@ function createSampleCohort(numIndividuals: number = 60): CohortIndividual[] {
 // ------------------------------------------------------------- Catalog Presets --
 
 const T2D_LEADS = [
-  { chr: 10, pos: 114758349, rsid: 'rs7903146', gene: 'TCF7L2', beta: 0.34, maf: 0.30, consequence: 'intron_variant (enhancer)', name: 'TCF7L2 Lead' },
-  { chr: 8, pos: 118185025, rsid: 'rs13266634', gene: 'SLC30A8', beta: 0.16, maf: 0.32, consequence: 'missense_variant (Arg325Trp)', name: 'Zinc Transporter' },
-  { chr: 6, pos: 20679790, rsid: 'rs7756992', gene: 'CDKAL1', beta: 0.18, maf: 0.28, consequence: 'intron_variant', name: 'CDKAL1 CDK5 Reg' },
-  { chr: 11, pos: 2845681, rsid: 'rs2237892', gene: 'KCNQ1', beta: 0.24, maf: 0.38, consequence: 'intron_variant', name: 'K+ Channel Voltage' },
-  { chr: 16, pos: 53801584, rsid: 'rs9939609', gene: 'FTO', beta: 0.15, maf: 0.42, consequence: 'intron_variant (IRX3/5 long-range)', name: 'FTO Adiposity' },
-  { chr: 3, pos: 185523000, rsid: 'rs1801282', gene: 'PPARG', beta: -0.19, maf: 0.12, consequence: 'missense_variant (Pro12Ala)', name: 'PPARG Protective' },
+  {
+    chr: 10,
+    pos: 114758349,
+    rsid: 'rs7903146',
+    gene: 'TCF7L2',
+    beta: 0.34,
+    maf: 0.3,
+    consequence: 'intron_variant (enhancer)',
+    name: 'TCF7L2 Lead',
+  },
+  {
+    chr: 8,
+    pos: 118185025,
+    rsid: 'rs13266634',
+    gene: 'SLC30A8',
+    beta: 0.16,
+    maf: 0.32,
+    consequence: 'missense_variant (Arg325Trp)',
+    name: 'Zinc Transporter',
+  },
+  {
+    chr: 6,
+    pos: 20679790,
+    rsid: 'rs7756992',
+    gene: 'CDKAL1',
+    beta: 0.18,
+    maf: 0.28,
+    consequence: 'intron_variant',
+    name: 'CDKAL1 CDK5 Reg',
+  },
+  {
+    chr: 11,
+    pos: 2845681,
+    rsid: 'rs2237892',
+    gene: 'KCNQ1',
+    beta: 0.24,
+    maf: 0.38,
+    consequence: 'intron_variant',
+    name: 'K+ Channel Voltage',
+  },
+  {
+    chr: 16,
+    pos: 53801584,
+    rsid: 'rs9939609',
+    gene: 'FTO',
+    beta: 0.15,
+    maf: 0.42,
+    consequence: 'intron_variant (IRX3/5 long-range)',
+    name: 'FTO Adiposity',
+  },
+  {
+    chr: 3,
+    pos: 185523000,
+    rsid: 'rs1801282',
+    gene: 'PPARG',
+    beta: -0.19,
+    maf: 0.12,
+    consequence: 'missense_variant (Pro12Ala)',
+    name: 'PPARG Protective',
+  },
 ];
 
 const LDL_LEADS = [
-  { chr: 1, pos: 55505647, rsid: 'rs11591147', gene: 'PCSK9', beta: -0.48, maf: 0.02, consequence: 'missense_variant (R46L Loss of Function)', name: 'PCSK9 LoF' },
-  { chr: 19, pos: 11200038, rsid: 'rs688', gene: 'LDLR', beta: 0.31, maf: 0.44, consequence: 'synonymous_variant (Exon 12 splicing)', name: 'LDL Receptor' },
-  { chr: 2, pos: 21229000, rsid: 'rs515135', gene: 'APOB', beta: 0.28, maf: 0.18, consequence: 'intron_variant', name: 'Apolipoprotein B' },
-  { chr: 1, pos: 109817590, rsid: 'rs12740374', gene: 'SORT1', beta: -0.36, maf: 0.22, consequence: '3_prime_UTR_variant (C/EBP motif)', name: 'Sortilin Hepatic' },
-  { chr: 5, pos: 74652140, rsid: 'rs12654264', gene: 'HMGCR', beta: -0.22, maf: 0.39, consequence: 'intron_variant (Statin Target)', name: 'HMGCR Reductase' },
+  {
+    chr: 1,
+    pos: 55505647,
+    rsid: 'rs11591147',
+    gene: 'PCSK9',
+    beta: -0.48,
+    maf: 0.02,
+    consequence: 'missense_variant (R46L Loss of Function)',
+    name: 'PCSK9 LoF',
+  },
+  {
+    chr: 19,
+    pos: 11200038,
+    rsid: 'rs688',
+    gene: 'LDLR',
+    beta: 0.31,
+    maf: 0.44,
+    consequence: 'synonymous_variant (Exon 12 splicing)',
+    name: 'LDL Receptor',
+  },
+  {
+    chr: 2,
+    pos: 21229000,
+    rsid: 'rs515135',
+    gene: 'APOB',
+    beta: 0.28,
+    maf: 0.18,
+    consequence: 'intron_variant',
+    name: 'Apolipoprotein B',
+  },
+  {
+    chr: 1,
+    pos: 109817590,
+    rsid: 'rs12740374',
+    gene: 'SORT1',
+    beta: -0.36,
+    maf: 0.22,
+    consequence: '3_prime_UTR_variant (C/EBP motif)',
+    name: 'Sortilin Hepatic',
+  },
+  {
+    chr: 5,
+    pos: 74652140,
+    rsid: 'rs12654264',
+    gene: 'HMGCR',
+    beta: -0.22,
+    maf: 0.39,
+    consequence: 'intron_variant (Statin Target)',
+    name: 'HMGCR Reductase',
+  },
 ];
 
 const AD_LEADS = [
-  { chr: 19, pos: 45411941, rsid: 'rs429358', gene: 'APOE', beta: 0.68, maf: 0.15, consequence: 'missense_variant (Cys112Arg, ε4 allele)', name: 'APOE-ε4 Major Locus' },
-  { chr: 2, pos: 127890000, rsid: 'rs744373', gene: 'BIN1', beta: 0.22, maf: 0.37, consequence: 'upstream_gene_variant', name: 'Bridging Integrator 1' },
-  { chr: 6, pos: 41129200, rsid: 'rs75932628', gene: 'TREM2', beta: 0.52, maf: 0.01, consequence: 'missense_variant (Arg47His Microglia)', name: 'TREM2 Microglia' },
-  { chr: 8, pos: 27464000, rsid: 'rs11136000', gene: 'CLU', beta: -0.18, maf: 0.36, consequence: 'intron_variant', name: 'Clusterin Protective' },
-  { chr: 11, pos: 85850000, rsid: 'rs3851179', gene: 'PICALM', beta: -0.16, maf: 0.46, consequence: 'upstream_gene_variant', name: 'Clathrin Assembly' },
+  {
+    chr: 19,
+    pos: 45411941,
+    rsid: 'rs429358',
+    gene: 'APOE',
+    beta: 0.68,
+    maf: 0.15,
+    consequence: 'missense_variant (Cys112Arg, ε4 allele)',
+    name: 'APOE-ε4 Major Locus',
+  },
+  {
+    chr: 2,
+    pos: 127890000,
+    rsid: 'rs744373',
+    gene: 'BIN1',
+    beta: 0.22,
+    maf: 0.37,
+    consequence: 'upstream_gene_variant',
+    name: 'Bridging Integrator 1',
+  },
+  {
+    chr: 6,
+    pos: 41129200,
+    rsid: 'rs75932628',
+    gene: 'TREM2',
+    beta: 0.52,
+    maf: 0.01,
+    consequence: 'missense_variant (Arg47His Microglia)',
+    name: 'TREM2 Microglia',
+  },
+  {
+    chr: 8,
+    pos: 27464000,
+    rsid: 'rs11136000',
+    gene: 'CLU',
+    beta: -0.18,
+    maf: 0.36,
+    consequence: 'intron_variant',
+    name: 'Clusterin Protective',
+  },
+  {
+    chr: 11,
+    pos: 85850000,
+    rsid: 'rs3851179',
+    gene: 'PICALM',
+    beta: -0.16,
+    maf: 0.46,
+    consequence: 'upstream_gene_variant',
+    name: 'Clathrin Assembly',
+  },
 ];
 
 const HEIGHT_LEADS = [
-  { chr: 12, pos: 66200000, rsid: 'rs1042725', gene: 'HMGA2', beta: 0.18, maf: 0.48, consequence: 'intron_variant', name: 'HMGA2 Chromatin' },
-  { chr: 20, pos: 34020000, rsid: 'rs143383', gene: 'GDF5', beta: -0.14, maf: 0.38, consequence: '5_prime_UTR_variant', name: 'Growth Diff Factor 5' },
-  { chr: 4, pos: 17950000, rsid: 'rs11728284', gene: 'LCORL', beta: 0.16, maf: 0.32, consequence: 'intron_variant', name: 'LCORL Transcription' },
-  { chr: 3, pos: 141150000, rsid: 'rs6763931', gene: 'ZBTB38', beta: 0.13, maf: 0.44, consequence: 'intron_variant', name: 'Zinc Finger ZBTB38' },
-  { chr: 2, pos: 56120000, rsid: 'rs11124483', gene: 'EFEMP1', beta: 0.12, maf: 0.29, consequence: 'intron_variant', name: 'Extracellular Matrix' },
-  { chr: 7, pos: 28100000, rsid: 'rs780094', gene: 'GCKR', beta: -0.11, maf: 0.40, consequence: 'intron_variant', name: 'Glucokinase Reg' },
+  {
+    chr: 12,
+    pos: 66200000,
+    rsid: 'rs1042725',
+    gene: 'HMGA2',
+    beta: 0.18,
+    maf: 0.48,
+    consequence: 'intron_variant',
+    name: 'HMGA2 Chromatin',
+  },
+  {
+    chr: 20,
+    pos: 34020000,
+    rsid: 'rs143383',
+    gene: 'GDF5',
+    beta: -0.14,
+    maf: 0.38,
+    consequence: '5_prime_UTR_variant',
+    name: 'Growth Diff Factor 5',
+  },
+  {
+    chr: 4,
+    pos: 17950000,
+    rsid: 'rs11728284',
+    gene: 'LCORL',
+    beta: 0.16,
+    maf: 0.32,
+    consequence: 'intron_variant',
+    name: 'LCORL Transcription',
+  },
+  {
+    chr: 3,
+    pos: 141150000,
+    rsid: 'rs6763931',
+    gene: 'ZBTB38',
+    beta: 0.13,
+    maf: 0.44,
+    consequence: 'intron_variant',
+    name: 'Zinc Finger ZBTB38',
+  },
+  {
+    chr: 2,
+    pos: 56120000,
+    rsid: 'rs11124483',
+    gene: 'EFEMP1',
+    beta: 0.12,
+    maf: 0.29,
+    consequence: 'intron_variant',
+    name: 'Extracellular Matrix',
+  },
+  {
+    chr: 7,
+    pos: 28100000,
+    rsid: 'rs780094',
+    gene: 'GCKR',
+    beta: -0.11,
+    maf: 0.4,
+    consequence: 'intron_variant',
+    name: 'Glucokinase Reg',
+  },
 ];
 
 const STRATIFIED_LEADS = [
-  { chr: 15, pos: 28350000, rsid: 'rs1426654', gene: 'SLC24A5', beta: 0.46, maf: 0.50, consequence: 'missense_variant (Ancestry Informative)', name: 'Ancestry Stratified Marker' },
-  { chr: 2, pos: 136608646, rsid: 'rs4988235', gene: 'LCT', beta: 0.42, maf: 0.48, consequence: 'upstream_variant (Lactase Persistence)', name: 'LCT Ancestry Divergent' },
-  { chr: 11, pos: 5248232, rsid: 'rs334', gene: 'HBB', beta: 0.38, maf: 0.08, consequence: 'missense_variant (Sickle Cell HbS)', name: 'HBB Geographic Drift' },
+  {
+    chr: 15,
+    pos: 28350000,
+    rsid: 'rs1426654',
+    gene: 'SLC24A5',
+    beta: 0.46,
+    maf: 0.5,
+    consequence: 'missense_variant (Ancestry Informative)',
+    name: 'Ancestry Stratified Marker',
+  },
+  {
+    chr: 2,
+    pos: 136608646,
+    rsid: 'rs4988235',
+    gene: 'LCT',
+    beta: 0.42,
+    maf: 0.48,
+    consequence: 'upstream_variant (Lactase Persistence)',
+    name: 'LCT Ancestry Divergent',
+  },
+  {
+    chr: 11,
+    pos: 5248232,
+    rsid: 'rs334',
+    gene: 'HBB',
+    beta: 0.38,
+    maf: 0.08,
+    consequence: 'missense_variant (Sickle Cell HbS)',
+    name: 'HBB Geographic Drift',
+  },
 ];
 
 export const GWAS_PRESETS: GWASPreset[] = [
@@ -708,7 +924,7 @@ export const GWAS_PRESETS: GWASPreset[] = [
       'Archetypal polygenic trait with thousands of contributing variants. Demonstrates Fisher’s infinitesimal model and Boyle-Li-Pritchard’s omnigenic architecture.',
     clinicalNote:
       'No single common SNP explains >0.5% of height variance; genome-wide polygenic scores (PRS) combining >10,000 variants achieve r² ~ 0.40 prediction accuracy.',
-    heritability: 0.80,
+    heritability: 0.8,
     sampleSize: 450_000,
     leadLociCount: 6,
     leadGenes: ['HMGA2', 'GDF5', 'LCORL', 'ZBTB38', 'EFEMP1', 'GCKR'],

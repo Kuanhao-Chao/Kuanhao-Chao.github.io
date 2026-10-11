@@ -47,17 +47,21 @@ describe('In Silico Mutagenesis (ISM) & Splice Site Engine', () => {
   });
 
   it('rejects empty, malformed and insufficient-window inputs', () => {
-    expect(()=>computeIsm('')).toThrow();
-    expect(()=>computeIsm('CAG!GTAAGT','donor',3)).toThrow();
-    expect(()=>computeIsm('CAGGTAAGT','donor',0)).toThrow();
+    expect(() => computeIsm('')).toThrow();
+    expect(() => computeIsm('CAG!GTAAGT', 'donor', 3)).toThrow();
+    expect(() => computeIsm('CAGGTAAGT', 'donor', 0)).toThrow();
   });
 
   it('defines importance as the mean absolute alternative delta, including gains', () => {
-    const res=computeIsm('CAGATAAGT','donor',3);
+    const res = computeIsm('CAGATAAGT', 'donor', 3);
     for (const pos of res.positions) {
-      const expected=Object.values(pos.mutations).filter(m=>m.base!==pos.refBase).reduce((n,m)=>n+Math.abs(m.delta),0)/3;
-      expect(pos.importance).toBeCloseTo(expected,12);
-      for (const mutation of Object.values(pos.mutations)) expect(mutation.delta).toBeCloseTo(mutation.score-res.primaryRefScore,12);
+      const expected =
+        Object.values(pos.mutations)
+          .filter((m) => m.base !== pos.refBase)
+          .reduce((n, m) => n + Math.abs(m.delta), 0) / 3;
+      expect(pos.importance).toBeCloseTo(expected, 12);
+      for (const mutation of Object.values(pos.mutations))
+        expect(mutation.delta).toBeCloseTo(mutation.score - res.primaryRefScore, 12);
     }
     expect(res.positions[3].mutations.G.delta).toBeGreaterThan(0);
   });

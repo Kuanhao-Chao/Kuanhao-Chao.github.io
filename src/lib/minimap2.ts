@@ -20,7 +20,13 @@ export interface Minimizer {
   hash: number;
   windowIndex: number;
 }
-export interface MinimizerWindow { windowIndex: number; start: number; end: number; winnerPos: number; candidates: Kmer[] }
+export interface MinimizerWindow {
+  windowIndex: number;
+  start: number;
+  end: number;
+  winnerPos: number;
+  candidates: Kmer[];
+}
 
 export interface Anchor {
   id: number;
@@ -113,7 +119,7 @@ export function extractKmers(seq: string, k: number): Kmer[] {
 export function extractMinimizers(
   seq: string,
   w: number,
-  k: number,
+  k: number
 ): { kmers: Kmer[]; minimizers: Minimizer[]; windows: MinimizerWindow[] } {
   if (!Number.isInteger(w) || w < 1) throw new Error('w must be a positive integer.');
   const kmers = extractKmers(seq, k);
@@ -132,7 +138,13 @@ export function extractMinimizers(
         minKmer = kmers[j];
       }
     }
-    windows.push({ windowIndex: win, start: win, end: windowEnd, winnerPos: minKmer.pos, candidates: kmers.slice(win, windowEnd) });
+    windows.push({
+      windowIndex: win,
+      start: win,
+      end: windowEnd,
+      winnerPos: minKmer.pos,
+      candidates: kmers.slice(win, windowEnd),
+    });
 
     // Avoid duplicate adjacent identical minimizers
     const last = minimizers[minimizers.length - 1];
@@ -152,10 +164,7 @@ export function extractMinimizers(
 /**
  * Find exact matching anchors between Target and Query minimizers.
  */
-export function findAnchors(
-  targetMinimizers: Minimizer[],
-  queryMinimizers: Minimizer[],
-): Anchor[] {
+export function findAnchors(targetMinimizers: Minimizer[], queryMinimizers: Minimizer[]): Anchor[] {
   const rawAnchors: Omit<Anchor, 'id'>[] = [];
 
   for (const tMin of targetMinimizers) {
@@ -192,27 +201,32 @@ export function runCollinearChaining(
   query: string,
   w: number,
   k: number,
-  maxDistance = 50,
+  maxDistance = 50
 ): Minimap2Result {
   const cleanTarget = target.trim().toUpperCase();
   const cleanQuery = query.trim().toUpperCase();
-  if (!/^[ACGT]*$/.test(cleanTarget + cleanQuery)) throw new Error('Use ACGT letters only; invalid letters are not removed.');
-  if (!Number.isInteger(maxDistance) || maxDistance < 1) throw new Error('Maximum distance must be a positive integer.');
+  if (!/^[ACGT]*$/.test(cleanTarget + cleanQuery))
+    throw new Error('Use ACGT letters only; invalid letters are not removed.');
+  if (!Number.isInteger(maxDistance) || maxDistance < 1)
+    throw new Error('Maximum distance must be a positive integer.');
 
-  const { kmers: targetKmers, minimizers: targetMinimizers, windows: targetWindows } = extractMinimizers(
-    cleanTarget,
-    w,
-    k,
-  );
-  const { kmers: queryKmers, minimizers: queryMinimizers, windows: queryWindows } = extractMinimizers(
-    cleanQuery,
-    w,
-    k,
-  );
+  const {
+    kmers: targetKmers,
+    minimizers: targetMinimizers,
+    windows: targetWindows,
+  } = extractMinimizers(cleanTarget, w, k);
+  const {
+    kmers: queryKmers,
+    minimizers: queryMinimizers,
+    windows: queryWindows,
+  } = extractMinimizers(cleanQuery, w, k);
 
   const anchors = findAnchors(targetMinimizers, queryMinimizers);
   const numAnchors = anchors.length;
-  if (numAnchors > 256) throw new Error('More than 256 repeated-seed anchors: shorten the teaching sequences or increase k/w. Nothing was truncated.');
+  if (numAnchors > 256)
+    throw new Error(
+      'More than 256 repeated-seed anchors: shorten the teaching sequences or increase k/w. Nothing was truncated.'
+    );
 
   if (numAnchors === 0) {
     return {
@@ -255,7 +269,21 @@ export function runCollinearChaining(
       // Retain rejected evaluations so the teaching trace explains the restriction.
       const dist = Math.max(deltaX, deltaY);
       if (deltaX <= 0 || deltaY <= 0 || dist > maxDistance) {
-        candidates.push({ predId: j, predAnchor: prev, deltaX, deltaY, gap: Math.abs(deltaX - deltaY), dist, matchBonus: 0, gapPenalty: 0, candidateScore: -Infinity, rejection: deltaX <= 0 || deltaY <= 0 ? 'Both coordinates must be strictly increasing.' : `Distance ${dist} exceeds maximum ${maxDistance}.` });
+        candidates.push({
+          predId: j,
+          predAnchor: prev,
+          deltaX,
+          deltaY,
+          gap: Math.abs(deltaX - deltaY),
+          dist,
+          matchBonus: 0,
+          gapPenalty: 0,
+          candidateScore: -Infinity,
+          rejection:
+            deltaX <= 0 || deltaY <= 0
+              ? 'Both coordinates must be strictly increasing.'
+              : `Distance ${dist} exceeds maximum ${maxDistance}.`,
+        });
       }
       if (deltaX > 0 && deltaY > 0) {
         const dist = Math.max(deltaX, deltaY);
@@ -313,7 +341,7 @@ export function runCollinearChaining(
 
   // Sort anchor indices by score descending
   const sortedIndices = Array.from({ length: numAnchors }, (_, idx) => idx).sort(
-    (a, b) => scores[b] - scores[a],
+    (a, b) => scores[b] - scores[a]
   );
 
   for (const startIdx of sortedIndices) {

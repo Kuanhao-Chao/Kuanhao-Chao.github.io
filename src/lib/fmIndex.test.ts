@@ -75,11 +75,12 @@ describe('FM-Index & BWT core algorithm', () => {
       const located = locateSampled(idx, 2, 3); // suffix position 3 is itself sampled
       expect(located.position).toBe(3);
       expect(located.rows).toEqual([2]);
-      for (let row = 0; row < idx.length; row++) for (const spacing of [1, 2, 3, 4]) {
-        const r = locateSampled(idx, row, spacing);
-        expect(r.position).toBe(idx.sa[row]);
-        expect(r.rows.length - 1).toBeLessThan(spacing);
-      }
+      for (let row = 0; row < idx.length; row++)
+        for (const spacing of [1, 2, 3, 4]) {
+          const r = locateSampled(idx, row, spacing);
+          expect(r.position).toBe(idx.sa[row]);
+          expect(r.rows.length - 1).toBeLessThan(spacing);
+        }
     });
 
     it('recovers original text via LF-mapping walk', () => {
@@ -93,7 +94,11 @@ describe('FM-Index & BWT core algorithm', () => {
       const result = bwtBackwardSearch(idx, 'ANA', { locate: false });
       expect(result.matchCount).toBe(2);
       expect(result.finalPositions).toEqual([]);
-      expect(result.steps.map(s => [s.sp, s.ep])).toEqual([[1, 3], [5, 6], [2, 3]]);
+      expect(result.steps.map((s) => [s.sp, s.ep])).toEqual([
+        [1, 3],
+        [5, 6],
+        [2, 3],
+      ]);
     });
 
     it('finds single match for BAN', () => {

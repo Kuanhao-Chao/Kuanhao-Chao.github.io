@@ -88,7 +88,13 @@ export function computeLcp(seq1: string, seq2: string, h: number, k: number): nu
   const m = seq1.length;
   const n = seq2.length;
 
-  while (h + len >= 0 && h + k + len >= 0 && h + len < m && h + k + len < n && seq1[h + len] === seq2[h + k + len]) {
+  while (
+    h + len >= 0 &&
+    h + k + len >= 0 &&
+    h + len < m &&
+    h + k + len < n &&
+    seq1[h + len] === seq2[h + k + len]
+  ) {
     len++;
   }
   return len;
@@ -100,13 +106,24 @@ export function computeLcp(seq1: string, seq2: string, h: number, k: number): nu
 export function runWfaAlignment(
   rawSeq1: string,
   rawSeq2: string,
-  penalties: WfaPenalties = DEFAULT_WFA_PENALTIES,
+  penalties: WfaPenalties = DEFAULT_WFA_PENALTIES
 ): WfaResult {
   const seq1 = rawSeq1.trim().toUpperCase();
   const seq2 = rawSeq2.trim().toUpperCase();
   if (!/^[A-Z]*$/.test(seq1 + seq2)) throw new Error('Sequences must contain letters only.');
-  if (Math.max(seq1.length, seq2.length) > 200) throw new Error('Teaching WFA is limited to 200 letters per sequence.');
-  if (!Number.isInteger(penalties.mismatch) || penalties.mismatch <= 0 || !Number.isInteger(penalties.gapExtend) || penalties.gapExtend <= 0 || !Number.isInteger(penalties.gapOpen) || penalties.gapOpen < 0) throw new Error('WFA requires positive integer mismatch/extension penalties and a non-negative integer opening penalty.');
+  if (Math.max(seq1.length, seq2.length) > 200)
+    throw new Error('Teaching WFA is limited to 200 letters per sequence.');
+  if (
+    !Number.isInteger(penalties.mismatch) ||
+    penalties.mismatch <= 0 ||
+    !Number.isInteger(penalties.gapExtend) ||
+    penalties.gapExtend <= 0 ||
+    !Number.isInteger(penalties.gapOpen) ||
+    penalties.gapOpen < 0
+  )
+    throw new Error(
+      'WFA requires positive integer mismatch/extension penalties and a non-negative integer opening penalty.'
+    );
 
   const m = seq1.length;
   const n = seq2.length;
@@ -135,16 +152,41 @@ export function runWfaAlignment(
   const trace: WfaTrace[] = [];
   let stateUpdates = 0;
   let characterComparisons = 0;
-  const valid = (h: number, k: number) => Number.isFinite(h) && h >= 0 && h <= m && h + k >= 0 && h + k <= n;
-  const record = (phase: WfaTrace['phase'], s: number, k: number, i: number, type: WfaComponentType, explanation: string) => {
-    trace.push({ phase, score: s, k, i, j: i + k, type, stateUpdates, characterComparisons, explanation });
+  const valid = (h: number, k: number) =>
+    Number.isFinite(h) && h >= 0 && h <= m && h + k >= 0 && h + k <= n;
+  const record = (
+    phase: WfaTrace['phase'],
+    s: number,
+    k: number,
+    i: number,
+    type: WfaComponentType,
+    explanation: string
+  ) => {
+    trace.push({
+      phase,
+      score: s,
+      k,
+      i,
+      j: i + k,
+      type,
+      stateUpdates,
+      characterComparisons,
+      explanation,
+    });
   };
   const extend = (h: number, k: number, s: number) => {
     let length = 0;
     while (h + length < m && h + k + length < n) {
       characterComparisons++;
       const same = seq1[h + length] === seq2[h + k + length];
-      record('extend', s, k, h + length, 'M', `Compare ${seq1[h + length]} / ${seq2[h + k + length]}: ${same ? 'match; advance both coordinates at zero penalty' : 'mismatch; stop this LCP'}. Comparisons still take computation.`);
+      record(
+        'extend',
+        s,
+        k,
+        h + length,
+        'M',
+        `Compare ${seq1[h + length]} / ${seq2[h + k + length]}: ${same ? 'match; advance both coordinates at zero penalty' : 'mismatch; stop this LCP'}. Comparisons still take computation.`
+      );
       if (!same) break;
       length++;
     }
@@ -157,7 +199,14 @@ export function runWfaAlignment(
   D_table.set(0, new Map());
 
   stateUpdates++;
-  record('initialize', 0, 0, 0, 'M', 'M₀[0] starts at (0,0); k = j − i, and the stored offset is i.');
+  record(
+    'initialize',
+    0,
+    0,
+    0,
+    'M',
+    'M₀[0] starts at (0,0); k = j − i, and the stored offset is i.'
+  );
   const lcp0 = extend(0, 0, 0);
   record('extend', 0, 0, lcp0, 'M', `Initial LCP complete: ${lcp0} matches at zero penalty.`);
   const node0: WavefrontNode = {
@@ -242,7 +291,14 @@ export function runWfaAlignment(
 
       if (bestI >= 0) {
         stateUpdates++;
-        record('gap', s, k, bestI, 'I', `I consumes a query letter: j increases, i stays ${bestI}, k increases by 1. ${iOrigin === 'gap_open' ? `Open: ${o}+${e}` : `Extend: ${e}`}.`);
+        record(
+          'gap',
+          s,
+          k,
+          bestI,
+          'I',
+          `I consumes a query letter: j increases, i stays ${bestI}, k increases by 1. ${iOrigin === 'gap_open' ? `Open: ${o}+${e}` : `Extend: ${e}`}.`
+        );
         i_map.set(k, {
           s,
           k,
@@ -277,7 +333,14 @@ export function runWfaAlignment(
 
       if (bestD >= 0) {
         stateUpdates++;
-        record('gap', s, k, bestD, 'D', `D consumes a target letter: i increases to ${bestD}, j stays fixed, k decreases by 1. ${dOrigin === 'gap_open' ? `Open: ${o}+${e}` : `Extend: ${e}`}.`);
+        record(
+          'gap',
+          s,
+          k,
+          bestD,
+          'D',
+          `D consumes a target letter: i increases to ${bestD}, j stays fixed, k decreases by 1. ${dOrigin === 'gap_open' ? `Open: ${o}+${e}` : `Extend: ${e}`}.`
+        );
         d_map.set(k, {
           s,
           k,
@@ -328,10 +391,24 @@ export function runWfaAlignment(
       if (bestM >= 0 && bestM <= m && bestM + k >= 0 && bestM + k <= n) {
         // Free LCP extension along diagonal k
         stateUpdates++;
-        record(prevM_type === 'M' ? 'mismatch' : 'gap', s, k, bestM, 'M', `M chooses the furthest valid offset ${bestM} from ${prevM_type} at score ${prevM_s}; now extend equal letters.`);
+        record(
+          prevM_type === 'M' ? 'mismatch' : 'gap',
+          s,
+          k,
+          bestM,
+          'M',
+          `M chooses the furthest valid offset ${bestM} from ${prevM_type} at score ${prevM_s}; now extend equal letters.`
+        );
         const lcp = extend(bestM, k, s);
         const finalOffset = Math.min(m, bestM + lcp);
-        record('extend', s, k, finalOffset, 'M', `LCP complete: ${lcp} matches; stored M offset ${finalOffset}.`);
+        record(
+          'extend',
+          s,
+          k,
+          finalOffset,
+          'M',
+          `LCP complete: ${lcp} matches; stored M offset ${finalOffset}.`
+        );
 
         m_map.set(k, {
           s,
@@ -382,7 +459,8 @@ export function runWfaAlignment(
     }
   }
 
-  if (endScore < 0) throw new Error('WFA did not reach the endpoint within a proven alignment bound.');
+  if (endScore < 0)
+    throw new Error('WFA did not reach the endpoint within a proven alignment bound.');
   const finalScore = endScore;
 
   // Reconstruct Traceback Path
@@ -391,9 +469,7 @@ export function runWfaAlignment(
   let currK = targetK;
   let currType: WfaComponentType = endComponent;
 
-  let currNode = (
-    currType === 'M' ? M_table : currType === 'I' ? I_table : D_table
-  )
+  let currNode = (currType === 'M' ? M_table : currType === 'I' ? I_table : D_table)
     .get(currS)
     ?.get(currK);
 
@@ -453,14 +529,19 @@ export function runWfaAlignment(
       curI--;
     }
     // M -> I/D is a zero-consumption state switch, NOT another gap character.
-    record('traceback', currS, curJ - curI, curI, currType, `Follow the recorded ${currType} predecessor without inventing fallback letters.`);
+    record(
+      'traceback',
+      currS,
+      curJ - curI,
+      curI,
+      currType,
+      `Follow the recorded ${currType} predecessor without inventing fallback letters.`
+    );
 
     currS = prevS;
     currK = prevK;
     currType = prevType;
-    currNode = (
-      currType === 'M' ? M_table : currType === 'I' ? I_table : D_table
-    )
+    currNode = (currType === 'M' ? M_table : currType === 'I' ? I_table : D_table)
       .get(currS)
       ?.get(currK);
   }
@@ -511,6 +592,19 @@ export function runWfaAlignment(
     length,
     stateUpdates,
     characterComparisons,
-    trace: [...trace, { phase: 'done', score: finalScore, k: targetK, i: m, j: n, type: 'M', stateUpdates, characterComparisons, explanation: `Endpoint (${m},${n}) reached with minimum penalty ${finalScore}.` }],
+    trace: [
+      ...trace,
+      {
+        phase: 'done',
+        score: finalScore,
+        k: targetK,
+        i: m,
+        j: n,
+        type: 'M',
+        stateUpdates,
+        characterComparisons,
+        explanation: `Endpoint (${m},${n}) reached with minimum penalty ${finalScore}.`,
+      },
+    ],
   };
 }

@@ -49,7 +49,8 @@ export const DUEL_PRESETS: DuelPreset[] = [
     badge: 'WFA 1-Step Win',
     seq1: 'ACGTAGCTAGTCGATCGAT',
     seq2: 'ACGTAGCTAGTCGATCGAT',
-    description: 'WFA finishes in exactly 1 score wavefront (s=0) via greedy LCP extension in O(N) time, while standard DP must evaluate all N² cells.',
+    description:
+      'WFA finishes in exactly 1 score wavefront (s=0) via greedy LCP extension in O(N) time, while standard DP must evaluate all N² cells.',
   },
   {
     id: 'single-snp',
@@ -57,7 +58,8 @@ export const DUEL_PRESETS: DuelPreset[] = [
     badge: 'High Similarity',
     seq1: 'ACGTAGCTAGTCGATCGAT',
     seq2: 'ACGTCGCTAGTCGATCGAT',
-    description: 'Sequence difference d=1. WFA only explores 3 diagonals around k=0, achieving ~15x work reduction over full 2D dynamic programming.',
+    description:
+      'Sequence difference d=1. WFA only explores 3 diagonals around k=0, achieving ~15x work reduction over full 2D dynamic programming.',
   },
   {
     id: 'insertion-gap',
@@ -65,7 +67,8 @@ export const DUEL_PRESETS: DuelPreset[] = [
     badge: 'Gotoh Affine Gap',
     seq1: 'ACGTAGCTAAGTCGATCGATC',
     seq2: 'ACGTAGCTACCCCAGTCGATCGATC',
-    description: 'A 4bp insertion introduces a diagonal shift k=4. WFA opens and extends the gap along diagonal k without touching irrelevant matrix quadrants.',
+    description:
+      'A 4bp insertion introduces a diagonal shift k=4. WFA opens and extends the gap along diagonal k without touching irrelevant matrix quadrants.',
   },
   {
     id: 'divergent',
@@ -73,7 +76,8 @@ export const DUEL_PRESETS: DuelPreset[] = [
     badge: 'Moderate Divergence',
     seq1: 'ACGTACGTGACGTGATCG',
     seq2: 'ACATACCTGAGTTATTCG',
-    description: 'Demonstrates wavefront frontier expansion as multiple mismatches branch into neighboring diagonals.',
+    description:
+      'Demonstrates wavefront frontier expansion as multiple mismatches branch into neighboring diagonals.',
   },
 ];
 
@@ -96,12 +100,15 @@ export function runAlgorithmDuel(rawSeq1: string, rawSeq2: string): DuelResult {
   const seq2 = rawSeq2.trim().toUpperCase();
   if (!/^[A-Z]*$/.test(seq1 + seq2)) throw new Error('Sequences must contain letters only.');
   const nwResult = computePairwiseAlignment(seq1, seq2, 'global', 'affine', {
-    match: 0, mismatch: -2, gapOpen: -4, gapExtend: -1,
+    match: 0,
+    mismatch: -2,
+    gapOpen: -4,
+    gapExtend: -1,
   });
   const wfaResult = runWfaAlignment(seq1, seq2, { mismatch: 2, gapOpen: 3, gapExtend: 1 });
   if (-nwResult.score !== wfaResult.finalScore) throw new Error('Alignment objectives disagree.');
-  const dpTrace = nwResult.trace.filter(s => s.phase === 'initialize' || s.phase === 'fill');
-  const wfTrace = wfaResult.trace.filter(s => s.phase !== 'traceback' && s.phase !== 'done');
+  const dpTrace = nwResult.trace.filter((s) => s.phase === 'initialize' || s.phase === 'fill');
+  const wfTrace = wfaResult.trace.filter((s) => s.phase !== 'traceback' && s.phase !== 'done');
   const totalNwCells = dpTrace.length;
   // Kept for legacy callers: these are distinct visited coordinates, NOT timing units.
   const totalWfaCells = wfaResult.cellsEvaluated;
@@ -112,26 +119,40 @@ export function runAlgorithmDuel(rawSeq1: string, rawSeq2: string): DuelResult {
     steps.push({
       stepIndex: index + 1,
       nw: {
-        i: dp.i, j: dp.j, score: dp.score,
-        cellsEvaluated: Math.min(index + 1, dpTrace.length), totalCells: totalNwCells,
-        pseudocodeLine: dp.phase === 'initialize' ? 0 : 3, activeFormula: dp.explanation,
+        i: dp.i,
+        j: dp.j,
+        score: dp.score,
+        cellsEvaluated: Math.min(index + 1, dpTrace.length),
+        totalCells: totalNwCells,
+        pseudocodeLine: dp.phase === 'initialize' ? 0 : 3,
+        activeFormula: dp.explanation,
         isDone: index >= dpTrace.length - 1,
       },
       wfa: {
-        score: wf.score, diagonal: wf.k, offset: wf.i,
+        score: wf.score,
+        diagonal: wf.k,
+        offset: wf.i,
         lcpExtended: wf.phase === 'extend' ? 1 : 0,
         cellsEvaluated: wf.stateUpdates,
         pseudocodeLine: wf.phase === 'initialize' ? 0 : wf.phase === 'extend' ? 4 : 2,
-        activeFormula: wf.explanation, isDone: index >= wfTrace.length - 1,
+        activeFormula: wf.explanation,
+        isDone: index >= wfTrace.length - 1,
       },
     });
   }
   const winner = totalWfaCells < totalNwCells ? 'wfa' : totalWfaCells > totalNwCells ? 'nw' : 'tie';
   return {
-    seq1, seq2, nwResult, wfaResult, totalNwCells, totalWfaCells,
+    seq1,
+    seq2,
+    nwResult,
+    wfaResult,
+    totalNwCells,
+    totalWfaCells,
     speedupRatio: Number((totalNwCells / Math.max(1, totalWfaCells)).toFixed(1)),
-    divergenceDistance: wfaResult.mismatches + wfaResult.gaps, winner,
-    winnerExplanation: 'Wavefront Alignment and affine DP solve the same objective. Stored cells, state updates, and character comparisons are different units; their counts are not a wall-clock speedup.',
+    divergenceDistance: wfaResult.mismatches + wfaResult.gaps,
+    winner,
+    winnerExplanation:
+      'Wavefront Alignment and affine DP solve the same objective. Stored cells, state updates, and character comparisons are different units; their counts are not a wall-clock speedup.',
     steps,
   };
 }

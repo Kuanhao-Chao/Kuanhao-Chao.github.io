@@ -98,6 +98,19 @@ jobs:
       - name: Audit indexing
         run: npm run audit:indexing
 
+      - name: Audit educational algorithms across browsers
+        timeout-minutes: 12
+        run: npm run audit:algorithms:ci
+
+      - name: Upload algorithm lesson evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: algorithm-lesson-audit
+          path: /tmp/khc-algorithms-*/
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Audit deep-dive references and datasets
         run: npm run audit:refs:offline && npm run audit:datasets:offline
 

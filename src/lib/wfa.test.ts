@@ -44,25 +44,34 @@ describe('Wavefront Alignment Algorithm (WFA)', () => {
 
   it('matches an independent affine DP and faithfully rescores traceback across short sequences', () => {
     const words = ['', 'A', 'C', 'AA', 'AC', 'CA', 'CC', 'ACA', 'AAC', 'CAC', 'ACCC'];
-    for (const a of words) for (const b of words) {
-      const w = runWfaAlignment(a, b);
-      const dp = computePairwiseAlignment(a, b, 'global', 'affine', { match: 0, mismatch: -2, gapOpen: -4, gapExtend: -1 });
-      expect(w.finalScore, `${a}/${b}`).toBe(-dp.score || 0);
-      expect(w.aligned1.replaceAll('-', '')).toBe(a);
-      expect(w.aligned2.replaceAll('-', '')).toBe(b);
-      let cost = 0; let previous = '';
-      for (let k = 0; k < w.length; k++) {
-        const gap = w.aligned1[k] === '-' ? 'I' : w.aligned2[k] === '-' ? 'D' : '';
-        cost += gap ? (gap === previous ? 1 : 4) : w.aligned1[k] === w.aligned2[k] ? 0 : 2;
-        previous = gap;
+    for (const a of words)
+      for (const b of words) {
+        const w = runWfaAlignment(a, b);
+        const dp = computePairwiseAlignment(a, b, 'global', 'affine', {
+          match: 0,
+          mismatch: -2,
+          gapOpen: -4,
+          gapExtend: -1,
+        });
+        expect(w.finalScore, `${a}/${b}`).toBe(-dp.score || 0);
+        expect(w.aligned1.replaceAll('-', '')).toBe(a);
+        expect(w.aligned2.replaceAll('-', '')).toBe(b);
+        let cost = 0;
+        let previous = '';
+        for (let k = 0; k < w.length; k++) {
+          const gap = w.aligned1[k] === '-' ? 'I' : w.aligned2[k] === '-' ? 'D' : '';
+          cost += gap ? (gap === previous ? 1 : 4) : w.aligned1[k] === w.aligned2[k] ? 0 : 2;
+          previous = gap;
+        }
+        expect(cost, `${a}/${b} traceback`).toBe(w.finalScore);
       }
-      expect(cost, `${a}/${b} traceback`).toBe(w.finalScore);
-    }
   });
 
   it('uses a proven bound rather than a fixed 200-score cap and rejects invalid penalties', () => {
     expect(runWfaAlignment('A'.repeat(101), 'C'.repeat(101)).finalScore).toBe(202);
-    expect(() => runWfaAlignment('A', 'C', { mismatch: 0, gapOpen: 3, gapExtend: 1 })).toThrow(/positive/);
+    expect(() => runWfaAlignment('A', 'C', { mismatch: 0, gapOpen: 3, gapExtend: 1 })).toThrow(
+      /positive/
+    );
     expect(runWfaAlignment('ACGT', 'ACGT').characterComparisons).toBe(4);
   });
 });
