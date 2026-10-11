@@ -6,6 +6,7 @@ import { chromium, firefox, webkit } from 'playwright';
 import { preview } from 'astro';
 
 const ci = process.argv.includes('--ci');
+const lifecycleOnly = process.argv.includes('--lifecycle-only');
 const server = ci
   ? await preview({ root: process.cwd(), server: { host: '127.0.0.1', port: 4358 } })
   : null;
@@ -16,6 +17,27 @@ const results = [];
 const selector = '[data-art-bg-canvas]';
 const demoSelector = '[data-background-demo-canvas]';
 const engines = (process.env.MOTIF_AUDIT_BROWSERS || 'chromium,firefox,webkit').split(',');
+const widths = lifecycleOnly
+  ? []
+  : (process.env.MOTIF_AUDIT_WIDTHS || '320,390,768,1440').split(',').map(Number);
+async function navigate(page, link, pathname) {
+  const previous = await page.evaluate(() => window.__motifAuditPageLoads);
+  assert(Number.isInteger(previous), 'Astro lifecycle probe is missing');
+  await link.click();
+  await page.waitForURL((url) => url.pathname === pathname);
+  // ClientRouter updates the URL before its scripts and transition finish.
+  // Wait for the real lifecycle so the next click reaches the new document,
+  // not a transition overlay or a footer that is still being scrolled.
+  await page.waitForFunction(
+    ({ previous, pathname }) =>
+      location.pathname === pathname &&
+      window.__motifAuditPageLoads > previous &&
+      !document.documentElement.hasAttribute('data-astro-transition') &&
+      !document.documentElement.hasAttribute('data-astro-transition-fallback'),
+    { previous, pathname }
+  );
+  await page.evaluate(() => document.fonts.ready);
+}
 async function settle(page, variant = 'motif', demo = false) {
   await page.waitForFunction(
     ({ selector, variant }) => {
@@ -80,9 +102,7 @@ try {
   for (const engine of engines) {
     const browser = await { chromium, firefox, webkit }[engine].launch();
     try {
-      for (const width of (process.env.MOTIF_AUDIT_WIDTHS || '320,390,768,1440')
-        .split(',')
-        .map(Number)) {
+      for (const width of widths) {
         const phone = width < 640;
         const context = await browser.newContext({
           baseURL,
@@ -295,6 +315,10 @@ try {
       for (const denied of [false, true]) {
         const context = await browser.newContext({ baseURL });
         await context.addInitScript((denied) => {
+          window.__motifAuditPageLoads = 0;
+          document.addEventListener('astro:page-load', () => {
+            window.__motifAuditPageLoads += 1;
+          });
           if (denied)
             for (const name of ['getItem', 'setItem'])
               Storage.prototype[name] = () => {
@@ -309,7 +333,7 @@ try {
           await page.keyboard.type('motif');
           await settle(page, 'attention');
           if (denied) {
-            await page.locator('header a[href="/research/"]').first().click();
+            await navigate(page, page.locator('header a[href="/research/"]').first(), '/research/');
             await settle(page, 'attention');
           } else {
             const second = await context.newPage();
@@ -362,14 +386,16 @@ try {
               0,
               'NN Lab owns a standalone navigation'
             );
-            await page.locator('.nn-nav-links a[href="/deep_dives/"]').click();
-            await page.waitForURL('**/deep_dives/');
+            await navigate(
+              page,
+              page.locator('.nn-nav-links a[href="/deep_dives/"]'),
+              '/deep_dives/'
+            );
             assert.equal(
               await page.locator('[data-nav-labs-trigger]').getAttribute('aria-current'),
               null
             );
-            await page.locator('footer a[href="/shorkie-lab/"]').click();
-            await page.waitForURL('**/shorkie-lab/');
+            await navigate(page, page.locator('footer a[href="/shorkie-lab/"]'), '/shorkie-lab/');
             await page.waitForFunction(
               () =>
                 document.querySelector('[data-nav-labs-trigger]').getAttribute('aria-current') ===
