@@ -1,333 +1,146 @@
-/**
- * Interactive Pairwise Alignment Engine:
- * - Needleman-Wunsch (Global Alignment)
- * - Smith-Waterman (Local Alignment)
- * - Semi-Global (End-Free Fitting)
- * - Linear & Affine Gap Penalties (Gotoh 3-Matrix DP Formulation)
- */
-
+/** Exact alignment teaching engine. Scores are maximized; the first gap base costs gapOpen. */
 export type AlignmentMode = 'global' | 'local' | 'semiglobal';
 export type GapModel = 'linear' | 'affine';
-
-export interface AlignmentScoring {
-  match: number;
-  mismatch: number;
-  gapOpen: number; // e.g. -3 (cost to open a gap)
-  gapExtend: number; // e.g. -1 (cost to extend a gap)
-}
-
+export type AlignmentState = 'M' | 'I' | 'D';
+export interface AlignmentScoring { match: number; mismatch: number; gapOpen: number; gapExtend: number }
 export type DpDirection = 'diag' | 'up' | 'left' | 'zero';
-
 export interface DpCell {
-  i: number;
-  j: number;
-  char1: string;
-  char2: string;
-  score: number;
-  diagScore: number;
-  upScore: number;
-  leftScore: number;
-  directions: DpDirection[];
-  isTrace: boolean;
-  formulaText: string;
+  i: number; j: number; char1: string; char2: string; score: number;
+  diagScore: number; upScore: number; leftScore: number;
+  directions: DpDirection[]; isTrace: boolean; formulaText: string;
 }
-
+export interface AlignmentTrace {
+  phase: 'initialize' | 'fill' | 'traceback' | 'done';
+  i: number; j: number; state: AlignmentState; score: number; explanation: string;
+}
 export interface AlignmentResult {
-  seq1: string;
-  seq2: string;
-  mode: AlignmentMode;
-  gapModel: GapModel;
-  scoring: AlignmentScoring;
+  seq1: string; seq2: string; mode: AlignmentMode; gapModel: GapModel; scoring: AlignmentScoring;
   matrix: DpCell[][];
+  /** M is the best score including gap endings; I consumes target, D consumes query. */
+  states: Record<AlignmentState, number[][]>;
+  trace: AlignmentTrace[];
   maxCell: { i: number; j: number; score: number };
-  tracebackPath: [number, number][];
-  aligned1: string;
-  aligned2: string;
-  matchLine: string;
-  score: number;
-  identity: number;
-  matches: number;
-  mismatches: number;
-  gaps: number;
-  length: number;
+  tracebackPath: [number, number][]; tracebackStates: AlignmentState[];
+  aligned1: string; aligned2: string; matchLine: string; score: number; identity: number;
+  matches: number; mismatches: number; gaps: number; length: number;
+  targetStart: number; targetEnd: number; queryStart: number; queryEnd: number;
 }
+export const DEFAULT_SCORING: AlignmentScoring = { match: 2, mismatch: -1, gapOpen: -3, gapExtend: -1 };
 
-export const DEFAULT_SCORING: AlignmentScoring = {
-  match: 2,
-  mismatch: -1,
-  gapOpen: -3,
-  gapExtend: -1,
-};
-
-/**
- * Compute full 2D dynamic programming pairwise alignment matrix and traceback.
- */
 export function computePairwiseAlignment(
-  rawSeq1: string,
-  rawSeq2: string,
-  mode: AlignmentMode = 'global',
-  gapModel: GapModel = 'linear',
-  scoring: AlignmentScoring = DEFAULT_SCORING,
+  rawSeq1: string, rawSeq2: string, mode: AlignmentMode = 'global',
+  gapModel: GapModel = 'linear', scoring: AlignmentScoring = DEFAULT_SCORING,
 ): AlignmentResult {
-  const seq1 = (rawSeq1 || 'ACGTAGCTA').trim().toUpperCase().replace(/[^A-Z]/g, '');
-  const seq2 = (rawSeq2 || 'ACGTCGCTA').trim().toUpperCase().replace(/[^A-Z]/g, '');
-
+  const seq1 = rawSeq1.trim().toUpperCase();
+  const seq2 = rawSeq2.trim().toUpperCase();
+  if (!/^[A-Z]*$/.test(seq1 + seq2)) throw new Error('Sequences must contain letters only.');
+  if (Math.max(seq1.length, seq2.length) > 200) throw new Error('Teaching alignment is limited to 200 letters per sequence.');
+  if (!Object.values(scoring).every(Number.isFinite) || scoring.gapOpen > 0 || scoring.gapExtend > 0) throw new Error('Use finite scores and non-positive gap scores.');
   const m = seq1.length;
   const n = seq2.length;
-
-  const matchScore = scoring.match;
-  const mismatchScore = scoring.mismatch;
-  const gapOpen = scoring.gapOpen;
-  const gapExtend = scoring.gapExtend;
-
-  // Initialize matrix of DpCell
-  const matrix: DpCell[][] = [];
-  for (let i = 0; i <= m; i++) {
-    const row: DpCell[] = [];
-    for (let j = 0; j <= n; j++) {
-      row.push({
-        i,
-        j,
-        char1: i > 0 ? seq1[i - 1] : '-',
-        char2: j > 0 ? seq2[j - 1] : '-',
-        score: 0,
-        diagScore: -Infinity,
-        upScore: -Infinity,
-        leftScore: -Infinity,
-        directions: [],
-        isTrace: false,
-        formulaText: '',
-      });
-    }
-    matrix.push(row);
-  }
-
-  // Linear vs Affine Matrices for Gotoh calculation
-  const M: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(-Infinity));
-  const Ix: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(-Infinity));
-  const Iy: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(-Infinity));
-
-  // Initialize (0, 0)
-  M[0][0] = 0;
-  matrix[0][0].score = 0;
-  matrix[0][0].formulaText = 'Origin cell (0, 0) initialized to 0.';
-
-  // Boundary conditions
+  const make = () => Array.from({ length: m + 1 }, () => Array<number>(n + 1).fill(-Infinity));
+  const M = make(); const I = make(); const D = make();
+  const matrix: DpCell[][] = Array.from({ length: m + 1 }, (_, i) => Array.from({ length: n + 1 }, (_, j) => ({
+    i, j, char1: seq1[i - 1] ?? '-', char2: seq2[j - 1] ?? '-', score: -Infinity,
+    diagScore: -Infinity, upScore: -Infinity, leftScore: -Infinity, directions: [], isTrace: false, formulaText: '',
+  })));
+  const trace: AlignmentTrace[] = [];
+  const gap = (length: number) => gapModel === 'linear' ? length * scoring.gapOpen : scoring.gapOpen + (length - 1) * scoring.gapExtend;
+  const record = (phase: AlignmentTrace['phase'], i: number, j: number, state: AlignmentState = 'M', explanation = matrix[i][j].formulaText) => {
+    trace.push({ phase, i, j, state, score: ({ M, I, D })[state][i][j], explanation });
+  };
+  M[0][0] = matrix[0][0].score = 0;
+  matrix[0][0].formulaText = 'Empty prefixes: score 0. No letters have been aligned.';
+  record('initialize', 0, 0);
   for (let i = 1; i <= m; i++) {
-    if (mode === 'local' || mode === 'semiglobal') {
-      matrix[i][0].score = 0;
-      matrix[i][0].formulaText = `${mode} alignment: free start gap on target.`;
-    } else {
-      // Global
-      if (gapModel === 'linear') {
-        const cost = i * gapOpen;
-        matrix[i][0].score = cost;
-        matrix[i][0].upScore = cost;
-        matrix[i][0].directions = ['up'];
-        matrix[i][0].formulaText = `Linear gap penalty: ${i} × (${gapOpen}) = ${cost}`;
-      } else {
-        const cost = gapOpen + (i - 1) * gapExtend;
-        matrix[i][0].score = cost;
-        matrix[i][0].upScore = cost;
-        matrix[i][0].directions = ['up'];
-        matrix[i][0].formulaText = `Affine gap: ${gapOpen} + ${i - 1} × (${gapExtend}) = ${cost}`;
-      }
-    }
-    Ix[i][0] = matrix[i][0].score;
+    const free = mode !== 'global';
+    M[i][0] = matrix[i][0].score = free ? 0 : gap(i);
+    if (!free) I[i][0] = M[i][0];
+    matrix[i][0].upScore = I[i][0];
+    matrix[i][0].directions = free ? ['zero'] : ['up'];
+    matrix[i][0].formulaText = free ? 'A target prefix can be skipped for free.' : `Empty query: a gap of length ${i} scores ${gap(i)}.`;
+    record('initialize', i, 0);
   }
-
   for (let j = 1; j <= n; j++) {
-    if (mode === 'local') {
-      matrix[0][j].score = 0;
-      matrix[0][j].formulaText = 'Local alignment: free start gap on query.';
-    } else {
-      if (gapModel === 'linear') {
-        const cost = j * gapOpen;
-        matrix[0][j].score = cost;
-        matrix[0][j].leftScore = cost;
-        matrix[0][j].directions = ['left'];
-        matrix[0][j].formulaText = `Linear gap penalty: ${j} × (${gapOpen}) = ${cost}`;
-      } else {
-        const cost = gapOpen + (j - 1) * gapExtend;
-        matrix[0][j].score = cost;
-        matrix[0][j].leftScore = cost;
-        matrix[0][j].directions = ['left'];
-        matrix[0][j].formulaText = `Affine gap: ${gapOpen} + ${j - 1} × (${gapExtend}) = ${cost}`;
-      }
-    }
-    Iy[0][j] = matrix[0][j].score;
+    const free = mode === 'local';
+    M[0][j] = matrix[0][j].score = free ? 0 : gap(j);
+    if (!free) D[0][j] = M[0][j];
+    matrix[0][j].leftScore = D[0][j];
+    matrix[0][j].directions = free ? ['zero'] : ['left'];
+    matrix[0][j].formulaText = free ? 'Local alignment can skip a query prefix.' : `Empty target: all ${j} query letters must be paid for (${gap(j)}).`;
+    record('initialize', 0, j);
   }
-
-  let maxCell = { i: 0, j: 0, score: -Infinity };
-
-  // Fill Matrix
+  let maxCell = { i: 0, j: 0, score: 0 };
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
-      const c1 = seq1[i - 1];
-      const c2 = seq2[j - 1];
-      const isMatch = c1 === c2;
-      const substScore = isMatch ? matchScore : mismatchScore;
-
-      const prevDiagScore = matrix[i - 1][j - 1].score;
-      const diagVal = prevDiagScore + substScore;
-
-      let upVal: number;
-      let leftVal: number;
-
-      if (gapModel === 'linear') {
-        upVal = matrix[i - 1][j].score + gapOpen;
-        leftVal = matrix[i][j - 1].score + gapOpen;
-      } else {
-        // Gotoh Affine formulation
-        Ix[i][j] = Math.max(matrix[i - 1][j].score + gapOpen, Ix[i - 1][j] + gapExtend);
-        Iy[i][j] = Math.max(matrix[i][j - 1].score + gapOpen, Iy[i][j - 1] + gapExtend);
-        upVal = Ix[i][j];
-        leftVal = Iy[i][j];
+      const cell = matrix[i][j];
+      const substitution = seq1[i - 1] === seq2[j - 1] ? scoring.match : scoring.mismatch;
+      const extension = gapModel === 'affine' ? scoring.gapExtend : scoring.gapOpen;
+      I[i][j] = Math.max(M[i - 1][j] + scoring.gapOpen, I[i - 1][j] + extension);
+      D[i][j] = Math.max(M[i][j - 1] + scoring.gapOpen, D[i][j - 1] + extension);
+      cell.diagScore = M[i - 1][j - 1] + substitution;
+      cell.upScore = I[i][j]; cell.leftScore = D[i][j];
+      M[i][j] = cell.score = Math.max(cell.diagScore, cell.upScore, cell.leftScore, mode === 'local' ? 0 : -Infinity);
+      if (mode === 'local' && cell.score === 0) cell.directions.push('zero');
+      else {
+        if (cell.diagScore === cell.score) cell.directions.push('diag');
+        if (cell.upScore === cell.score) cell.directions.push('up');
+        if (cell.leftScore === cell.score) cell.directions.push('left');
       }
-
-      matrix[i][j].diagScore = diagVal;
-      matrix[i][j].upScore = upVal;
-      matrix[i][j].leftScore = leftVal;
-
-      let bestScore: number;
-      const directions: DpDirection[] = [];
-
-      if (mode === 'local') {
-        bestScore = Math.max(0, diagVal, upVal, leftVal);
-        if (bestScore === 0) {
-          directions.push('zero');
-        } else {
-          if (diagVal === bestScore) directions.push('diag');
-          if (upVal === bestScore) directions.push('up');
-          if (leftVal === bestScore) directions.push('left');
-        }
-      } else {
-        bestScore = Math.max(diagVal, upVal, leftVal);
-        if (diagVal === bestScore) directions.push('diag');
-        if (upVal === bestScore) directions.push('up');
-        if (leftVal === bestScore) directions.push('left');
-      }
-
-      matrix[i][j].score = bestScore;
-      matrix[i][j].directions = directions;
-
-      const subOp = isMatch ? `+${matchScore} (match)` : `${mismatchScore} (mismatch)`;
-      matrix[i][j].formulaText = `H[${i},${j}] = max(Diag: ${prevDiagScore}${subOp} = ${diagVal}, Up: ${upVal}, Left: ${leftVal}${mode === 'local' ? ', Zero: 0' : ''}) = ${bestScore}`;
-
-      if (bestScore > maxCell.score) {
-        maxCell = { i, j, score: bestScore };
-      }
+      cell.formulaText = `M[${i},${j}] = max(diagonal ${M[i - 1][j - 1]} + ${substitution} = ${cell.diagScore}, I ${cell.upScore}, D ${cell.leftScore}${mode === 'local' ? ', restart 0' : ''}) = ${cell.score}. ${cell.directions.length > 1 ? 'Tied predecessors: more than one optimum is possible.' : ''}`;
+      record('fill', i, j);
+      if (cell.score > maxCell.score) maxCell = { i, j, score: cell.score };
     }
   }
-
-  // Determine Traceback Start Position
-  let traceI = m;
-  let traceJ = n;
-
-  if (mode === 'local') {
-    traceI = maxCell.i;
-    traceJ = maxCell.j;
-  } else if (mode === 'semiglobal') {
-    // Max on bottom row or rightmost column
-    let bestSemi = -Infinity;
-    for (let j = 0; j <= n; j++) {
-      if (matrix[m][j].score > bestSemi) {
-        bestSemi = matrix[m][j].score;
-        traceI = m;
-        traceJ = j;
-      }
-    }
-    for (let i = 0; i <= m; i++) {
-      if (matrix[i][n].score > bestSemi) {
-        bestSemi = matrix[i][n].score;
-        traceI = i;
-        traceJ = n;
-      }
-    }
+  let i = mode === 'local' ? maxCell.i : m;
+  let j = mode === 'local' ? maxCell.j : n;
+  if (mode === 'semiglobal') {
+    // Fitting: consume the ENTIRE query; target suffix is free.
+    i = 0;
+    for (let r = 1; r <= m; r++) if (M[r][n] > M[i][n]) i = r;
   }
-
-  // Traceback
-  const tracebackPath: [number, number][] = [];
-  let currI = traceI;
-  let currJ = traceJ;
-  let aligned1Rev = '';
-  let aligned2Rev = '';
-  let matchLineRev = '';
-
-  while (currI > 0 || currJ > 0) {
-    tracebackPath.push([currI, currJ]);
-    matrix[currI][currJ].isTrace = true;
-
-    if (mode === 'local' && matrix[currI][currJ].score === 0) {
-      break;
+  const targetEnd = i; const queryEnd = j; const score = M[i][j];
+  let state: AlignmentState = 'M';
+  const tracebackPath: [number, number][] = []; const tracebackStates: AlignmentState[] = [];
+  const a: string[] = []; const b: string[] = [];
+  while (i > 0 || j > 0) {
+    if ((mode === 'semiglobal' && j === 0) || (mode === 'local' && state === 'M' && M[i][j] === 0)) break;
+    const dirs = matrix[i][j].directions;
+    if (state === 'M') {
+      if (i > 0 && j > 0 && dirs.includes('diag')) {
+        record('traceback', i, j, state, `Consume ${seq1[i - 1]} / ${seq2[j - 1]} diagonally.`);
+        tracebackPath.push([i, j]); tracebackStates.push(state);
+        a.push(seq1[--i]); b.push(seq2[--j]);
+        continue;
+      }
+      state = dirs.includes('up') ? 'I' : 'D';
     }
-
-    const cell = matrix[currI][currJ];
-    const dirs = cell.directions;
-
-    if (currI > 0 && currJ > 0 && dirs.includes('diag')) {
-      const c1 = seq1[currI - 1];
-      const c2 = seq2[currJ - 1];
-      aligned1Rev += c1;
-      aligned2Rev += c2;
-      matchLineRev += c1 === c2 ? '|' : '.';
-      currI--;
-      currJ--;
-    } else if (currI > 0 && (dirs.includes('up') || currJ === 0)) {
-      aligned1Rev += seq1[currI - 1];
-      aligned2Rev += '-';
-      matchLineRev += ' ';
-      currI--;
-    } else if (currJ > 0 && (dirs.includes('left') || currI === 0)) {
-      aligned1Rev += '-';
-      aligned2Rev += seq2[currJ - 1];
-      matchLineRev += ' ';
-      currJ--;
+    record('traceback', i, j, state, `Consume one ${state === 'I' ? 'target' : 'query'} letter in gap state ${state}; opening and extending have different costs.`);
+    tracebackPath.push([i, j]); tracebackStates.push(state);
+    const extension = gapModel === 'affine' ? scoring.gapExtend : scoring.gapOpen;
+    if (state === 'I') {
+      const extend = i > 0 && I[i][j] === I[i - 1][j] + extension;
+      a.push(seq1[--i]); b.push('-'); state = extend ? 'I' : 'M';
     } else {
-      break;
+      const extend = j > 0 && D[i][j] === D[i][j - 1] + extension;
+      a.push('-'); b.push(seq2[--j]); state = extend ? 'D' : 'M';
     }
   }
-
-  tracebackPath.push([currI, currJ]);
-  matrix[currI][currJ].isTrace = true;
-
-  const aligned1 = aligned1Rev.split('').reverse().join('');
-  const aligned2 = aligned2Rev.split('').reverse().join('');
-  const matchLine = matchLineRev.split('').reverse().join('');
-
-  let matches = 0;
-  let mismatches = 0;
-  let gaps = 0;
-
-  for (let k = 0; k < aligned1.length; k++) {
-    const a = aligned1[k];
-    const b = aligned2[k];
-    if (a === '-' || b === '-') gaps++;
-    else if (a === b) matches++;
-    else mismatches++;
-  }
-
-  const length = aligned1.length;
-  const identity = length > 0 ? Math.round((matches / length) * 1000) / 10 : 0;
-  const finalScore = mode === 'local' ? maxCell.score : matrix[traceI][traceJ].score;
-
+  tracebackPath.push([i, j]); tracebackStates.push('M');
+  for (const [r, c] of tracebackPath) matrix[r][c].isTrace = true;
+  a.reverse(); b.reverse();
+  const aligned1 = a.join(''); const aligned2 = b.join('');
+  let matches = 0; let mismatches = 0; let gaps = 0;
+  const matchLine = a.map((letter, k) => {
+    if (letter === '-' || b[k] === '-') { gaps++; return ' '; }
+    if (letter === b[k]) { matches++; return '|'; }
+    mismatches++; return '.';
+  }).join('');
+  trace.push({ phase: 'done', i: targetEnd, j: queryEnd, state: 'M', score, explanation: `One optimal alignment scores ${score}. Ties can yield different equally good alignments.` });
   return {
-    seq1,
-    seq2,
-    mode,
-    gapModel,
-    scoring,
-    matrix,
-    maxCell,
-    tracebackPath,
-    aligned1,
-    aligned2,
-    matchLine,
-    score: finalScore,
-    identity,
-    matches,
-    mismatches,
-    gaps,
-    length,
+    seq1, seq2, mode, gapModel, scoring, matrix, states: { M, I, D }, trace, maxCell,
+    tracebackPath, tracebackStates, aligned1, aligned2, matchLine, score,
+    identity: a.length ? Math.round(matches / a.length * 1000) / 10 : 0,
+    matches, mismatches, gaps, length: a.length, targetStart: i, targetEnd, queryStart: j, queryEnd,
   };
 }
