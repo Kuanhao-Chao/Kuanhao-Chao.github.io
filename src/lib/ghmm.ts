@@ -1,49 +1,23 @@
-/**
- * Generalized Hidden Markov Models (GHMMs / Semi-Markov HMMs) Engine
- * Ab Initio Gene Finding (GENSCAN / AUGUSTUS style)
- * - Explicit State Duration Distributions f_q(d)
- * - Exon-Intron State Machine (Initial, Internal, Terminal, Single Exons & Introns)
- * - Splicing Signals (ATG, GT donor, AG acceptor, TAA/TAG/TGA stop codons)
- * - 3-Periodic Coding Potential Scoring & Reading Frame Tracking
- * - Protein Translation
+/** Restricted, forward-strand, one-complete-gene semi-Markov teaching scorer.
+ * Normalized duration/transition terms plus handcrafted rewards: not a
+ * calibrated sequence likelihood or production GENSCAN/AUGUSTUS predictor.
  */
-
-export type GhmmStateType =
-  | 'Intergenic'
-  | 'Exon_Init'
-  | 'Intron'
-  | 'Exon_Int'
-  | 'Exon_Term'
-  | 'Exon_Single';
-
+export type GhmmStateType='Intergenic'|'Exon_Init'|'Intron'|'Exon_Int'|'Exon_Term'|'Exon_Single';
 export interface GeneFeature {
-  id: string;
-  type: 'exon' | 'intron' | 'intergenic';
-  subType: GhmmStateType;
-  start: number; // 1-based inclusive start
-  end: number;   // 1-based inclusive end
-  length: number;
-  sequence: string;
-  score: number;
-  readingFrame?: number; // 0, 1, 2
+  id:string;type:'exon'|'intron'|'intergenic';subType:GhmmStateType;
+  start:number;end:number;length:number;sequence:string;score:number;readingFrame?:number;
 }
-
+export interface GeneCandidate {
+  start:number;end:number;state:GhmmStateType;previous:string;key:string;
+  pendingBefore:string;pendingAfter:string;durationScore:number;transitionScore:number;
+  sensorScore:number;total:number;valid:boolean;selected:boolean;reason:string;
+}
 export interface GhmmResult {
-  sequence: string;
-  features: GeneFeature[];
-  cdsSequence: string;
-  proteinTranslation: string;
-  totalScore: number;
-  exonCount: number;
-  intronCount: number;
-  stats: {
-    gcPercent: number;
-    totalLen: number;
-    codingLen: number;
-  };
+  sequence:string;features:GeneFeature[];cdsSequence:string;proteinTranslation:string;
+  totalScore:number;exonCount:number;intronCount:number;
+  candidates:GeneCandidate[];durationLimit:number;
+  stats:{gcPercent:number;totalLen:number;codingLen:number};
 }
-
-/** Standard Codon Translation Table */
 export const CODON_TABLE: Record<string, string> = {
   ATA: 'I', ATC: 'I', ATT: 'I', ATG: 'M',
   ACA: 'T', ACC: 'T', ACG: 'T', ACT: 'T',
@@ -65,377 +39,100 @@ export const CODON_TABLE: Record<string, string> = {
 
 export const STOP_CODONS = new Set(['TAA', 'TAG', 'TGA']);
 
-/**
- * Translate CDS nucleotide sequence to amino acids.
- */
-export function translateDnaToProtein(cds: string): string {
-  const clean = cds.toUpperCase().replace(/[^A-Z]/g, '');
-  let protein = '';
-  for (let i = 0; i + 2 < clean.length; i += 3) {
-    const codon = clean.substring(i, i + 3);
-    const aa = CODON_TABLE[codon] || '?';
-    if (aa === '*') break;
-    protein += aa;
-  }
+
+export function translateDnaToProtein(cds:string):string {
+  const seq=cds.trim().toUpperCase(); let protein='';
+  if(!/^[ACGT]*$/.test(seq)) throw new Error('Translation accepts ACGT only.');
+  for(let i=0;i+2<seq.length;i+=3){const aa=CODON_TABLE[seq.slice(i,i+3)];if(aa==='*')break;protein+=aa;}
   return protein;
 }
-
-/**
- * Evaluate explicit state duration log-probability f_q(d).
- */
-export function evaluateDurationScore(state: GhmmStateType, d: number): number {
-  if (state === 'Intergenic') {
-    // Broad background: peak around 15 bp for demo, min 3
-    if (d < 3) return -100;
-    const mu = 15;
-    return -0.5 * Math.pow((d - mu) / 10, 2);
+const minDuration:Record<GhmmStateType,number>={Intergenic:1,Exon_Init:3,Intron:8,Exon_Int:1,Exon_Term:1,Exon_Single:6};
+const durationCache=new Map<string,number[]>();
+export function evaluateDurationScore(state:GhmmStateType,d:number,max=36):number {
+  if(state==='Intergenic')return d===1?0:-Infinity;
+  if(!Number.isInteger(d)||d<minDuration[state]||d>max)return -Infinity;
+  const key=state+':'+max;
+  if(!durationCache.has(key)){
+    const mu=state==='Intron'?14:15,sigma=state==='Intron'?8:6;
+    const weights=Array.from({length:max+1},(_,i)=>i>=minDuration[state]?Math.exp(-.5*((i-mu)/sigma)**2):0);
+    const z=weights.reduce((a,b)=>a+b,0);
+    durationCache.set(key,weights.map(w=>w?Math.log(w/z):-Infinity));
   }
-
-  if (state === 'Exon_Init' || state === 'Exon_Int' || state === 'Exon_Term' || state === 'Exon_Single') {
-    // Exons: biological length peak around 12-24 bp in small demo, min 6, rarely < 6
-    if (d < 6) return -200;
-    const mu = 15;
-    const sigma = 6;
-    return -0.5 * Math.pow((d - mu) / sigma, 2) - Math.log(sigma);
-  }
-
-  if (state === 'Intron') {
-    // Introns: sharp minimum length threshold (d >= 8), log-normal peak around 12-18 bp
-    if (d < 8) return -300;
-    const mu = 14;
-    const sigma = 8;
-    return -0.5 * Math.pow((d - mu) / sigma, 2) - Math.log(sigma);
-  }
-
-  return 0;
+  return durationCache.get(key)![d];
 }
-
-/**
- * Evaluate biological emission and signal score for a candidate substring.
- */
-export function scoreSegmentEmission(
-  seq: string,
-  startIdx: number, // 0-based
-  len: number,
-  state: GhmmStateType,
-): { score: number; isValid: boolean } {
-  const sub = seq.substring(startIdx, startIdx + len);
-  if (sub.length !== len) return { score: -1000, isValid: false };
-
-  let signalScore = 0;
-
-  if (state === 'Intergenic') {
-    // Neutral background
-    return { score: len * 0.1, isValid: true };
-  }
-
-  if (state === 'Exon_Init') {
-    // Must start with Start Codon ATG
-    if (!sub.startsWith('ATG')) return { score: -500, isValid: false };
-    // Must end with Splice Donor GT
-    if (!sub.endsWith('GT')) return { score: -500, isValid: false };
-    // Check for premature stop codons in reading frame 0
-    for (let c = 0; c + 2 < len - 2; c += 3) {
-      const codon = sub.substring(c, c + 3);
-      if (STOP_CODONS.has(codon)) return { score: -800, isValid: false };
+function appendCoding(pending:string,sub:string,terminal:boolean):{valid:boolean;pending:string;reason:string} {
+  let carry=pending;
+  for(let i=0;i<sub.length;i++){
+    carry+=sub[i];
+    if(carry.length===3){
+      if(STOP_CODONS.has(carry)){
+        if(!terminal||i!==sub.length-1)return{valid:false,pending:carry,reason:'Premature in-frame stop, including codons spanning a splice junction.'};
+        return{valid:true,pending:'',reason:'Complete terminal stop in frame.'};
+      }
+      carry='';
     }
-    signalScore += 25.0; // Strong start + donor signal bonus
-    return { score: signalScore + len * 0.8, isValid: true };
   }
-
-  if (state === 'Intron') {
-    // Intron body flanked by donor GT and acceptor AG
-    // In canonical model, Intron starts after donor GT and ends with acceptor AG
-    if (!sub.endsWith('AG')) return { score: -500, isValid: false };
-    signalScore += 18.0; // Acceptor AG bonus
-    return { score: signalScore + len * 0.2, isValid: true };
-  }
-
-  if (state === 'Exon_Int') {
-    // Internal exon: flanked by acceptor AG (prior) and donor GT (end)
-    if (!sub.endsWith('GT')) return { score: -500, isValid: false };
-    // Check for premature stop codons
-    for (let c = 0; c + 2 < len - 2; c += 3) {
-      const codon = sub.substring(c, c + 3);
-      if (STOP_CODONS.has(codon)) return { score: -800, isValid: false };
-    }
-    signalScore += 20.0;
-    return { score: signalScore + len * 0.8, isValid: true };
-  }
-
-  if (state === 'Exon_Term') {
-    // Terminal exon ends with stop codon (TAA, TAG, TGA)
-    const endCodon = sub.substring(len - 3);
-    if (!STOP_CODONS.has(endCodon)) return { score: -500, isValid: false };
-    // Check for premature internal stops
-    for (let c = 0; c + 2 < len - 3; c += 3) {
-      const codon = sub.substring(c, c + 3);
-      if (STOP_CODONS.has(codon)) return { score: -800, isValid: false };
-    }
-    signalScore += 22.0;
-    return { score: signalScore + len * 0.8, isValid: true };
-  }
-
-  if (state === 'Exon_Single') {
-    // Single exon gene: Starts with ATG, ends with Stop Codon
-    if (!sub.startsWith('ATG')) return { score: -500, isValid: false };
-    const endCodon = sub.substring(len - 3);
-    if (!STOP_CODONS.has(endCodon)) return { score: -500, isValid: false };
-    for (let c = 0; c + 2 < len - 3; c += 3) {
-      const codon = sub.substring(c, c + 3);
-      if (STOP_CODONS.has(codon)) return { score: -800, isValid: false };
-    }
-    signalScore += 30.0;
-    return { score: signalScore + len * 0.9, isValid: true };
-  }
-
-  return { score: -1000, isValid: false };
+  return terminal?{valid:false,pending:carry,reason:'No terminal stop completing the inherited reading frame.'}:{valid:true,pending:carry,reason:'Coding continuation; retain partial-codon bases.'};
 }
-
-/**
- * Valid GHMM State Transitions:
- * Intergenic -> Exon_Init, Exon_Single, Intergenic
- * Exon_Init -> Intron
- * Intron -> Exon_Int, Exon_Term
- * Exon_Int -> Intron
- * Exon_Term -> Intergenic
- * Exon_Single -> Intergenic
- */
-export const STATE_TRANSITIONS: Record<GhmmStateType, { next: GhmmStateType; logProb: number }[]> = {
-  Intergenic: [
-    { next: 'Intergenic', logProb: -0.1 },
-    { next: 'Exon_Init', logProb: -0.6 },
-    { next: 'Exon_Single', logProb: -1.2 },
-  ],
-  Exon_Init: [
-    { next: 'Intron', logProb: 0.0 },
-  ],
-  Intron: [
-    { next: 'Exon_Int', logProb: -0.5 },
-    { next: 'Exon_Term', logProb: -0.7 },
-  ],
-  Exon_Int: [
-    { next: 'Intron', logProb: 0.0 },
-  ],
-  Exon_Term: [
-    { next: 'Intergenic', logProb: 0.0 },
-  ],
-  Exon_Single: [
-    { next: 'Intergenic', logProb: 0.0 },
-  ],
+export function scoreSegmentEmission(seq:string,startIdx:number,len:number,state:GhmmStateType):{score:number;isValid:boolean} {
+  const sub=seq.slice(startIdx,startIdx+len);
+  if(sub.length!==len)return{score:-Infinity,isValid:false};
+  if(state==='Intergenic')return{score:0,isValid:true};
+  if(state==='Intron')return{score:6,isValid:len>=8&&sub.startsWith('GT')&&sub.endsWith('AG')};
+  const initial=state==='Exon_Init'||state==='Exon_Single';
+  const terminal=state==='Exon_Term'||state==='Exon_Single';
+  const valid=(!initial||sub.startsWith('ATG'))&&appendCoding('',sub,terminal).valid;
+  return{score:.8*len+(initial?3:0)+(terminal?3:0),isValid:valid};
+}
+export const STATE_TRANSITIONS:Record<GhmmStateType,{next:GhmmStateType;logProb:number}[]>={
+  Intergenic:[{next:'Intergenic',logProb:Math.log(.98)},{next:'Exon_Init',logProb:Math.log(.01)},{next:'Exon_Single',logProb:Math.log(.01)}],
+  Exon_Init:[{next:'Intron',logProb:0}],Intron:[{next:'Exon_Int',logProb:Math.log(.5)},{next:'Exon_Term',logProb:Math.log(.5)}],
+  Exon_Int:[{next:'Intron',logProb:0}],Exon_Term:[{next:'Intergenic',logProb:0}],Exon_Single:[{next:'Intergenic',logProb:0}],
 };
-
-const ALL_STATES: GhmmStateType[] = [
-  'Intergenic',
-  'Exon_Init',
-  'Intron',
-  'Exon_Int',
-  'Exon_Term',
-  'Exon_Single',
-];
-
-/**
- * Execute Semi-Markov Viterbi Dynamic Programming for Gene Finding.
- */
-export function runGhmmGeneFinder(dnaInput: string): GhmmResult {
-  const seq = dnaInput.toUpperCase().replace(/[^A-Z]/g, '');
-  const N = seq.length;
-
-  if (N < 6) {
-    return {
-      sequence: seq,
-      features: [],
-      cdsSequence: '',
-      proteinTranslation: '',
-      totalScore: 0,
-      exonCount: 0,
-      intronCount: 0,
-      stats: { gcPercent: 0, totalLen: N, codingLen: 0 },
-    };
-  }
-
-  // DP State Table: V[i][q] = best score ending at position i in state q
-  const V: Record<GhmmStateType, number[]> = {
-    Intergenic: new Array(N + 1).fill(-Infinity),
-    Exon_Init: new Array(N + 1).fill(-Infinity),
-    Intron: new Array(N + 1).fill(-Infinity),
-    Exon_Int: new Array(N + 1).fill(-Infinity),
-    Exon_Term: new Array(N + 1).fill(-Infinity),
-    Exon_Single: new Array(N + 1).fill(-Infinity),
-  };
-
-  // Traceback Pointers: Best duration d and best previous state q'
-  const traceD: Record<GhmmStateType, number[]> = {
-    Intergenic: new Array(N + 1).fill(0),
-    Exon_Init: new Array(N + 1).fill(0),
-    Intron: new Array(N + 1).fill(0),
-    Exon_Int: new Array(N + 1).fill(0),
-    Exon_Term: new Array(N + 1).fill(0),
-    Exon_Single: new Array(N + 1).fill(0),
-  };
-
-  const tracePrev: Record<GhmmStateType, GhmmStateType[]> = {
-    Intergenic: new Array(N + 1).fill('Intergenic'),
-    Exon_Init: new Array(N + 1).fill('Intergenic'),
-    Intron: new Array(N + 1).fill('Exon_Init'),
-    Exon_Int: new Array(N + 1).fill('Intron'),
-    Exon_Term: new Array(N + 1).fill('Intron'),
-    Exon_Single: new Array(N + 1).fill('Intergenic'),
-  };
-
-  // Base state at position 0
-  V['Intergenic'][0] = 0;
-
-  // Duration search ranges per state
-  const minDuration: Record<GhmmStateType, number> = {
-    Intergenic: 3,
-    Exon_Init: 6,
-    Intron: 8,
-    Exon_Int: 6,
-    Exon_Term: 6,
-    Exon_Single: 9,
-  };
-
-  const maxDuration: Record<GhmmStateType, number> = {
-    Intergenic: 40,
-    Exon_Init: 36,
-    Intron: 40,
-    Exon_Int: 36,
-    Exon_Term: 36,
-    Exon_Single: 60,
-  };
-
-  // Semi-Markov DP Fill: loop over end position i
-  for (let i = 3; i <= N; i++) {
-    for (const q of ALL_STATES) {
-      const minD = minDuration[q];
-      const maxD = Math.min(i, maxDuration[q]);
-
-      for (let d = minD; d <= maxD; d++) {
-        const startIdx = i - d; // 0-based start
-
-        const { score: emitScore, isValid } = scoreSegmentEmission(seq, startIdx, d, q);
-        if (!isValid) continue;
-
-        const durScore = evaluateDurationScore(q, d);
-
-        // Find best predecessor state q'
-        for (const qPrev of ALL_STATES) {
-          const prevScore = V[qPrev][startIdx];
-          if (prevScore === -Infinity) continue;
-
-          // Check if transition qPrev -> q is valid
-          const transObj = STATE_TRANSITIONS[qPrev].find((t) => t.next === q);
-          if (!transObj) continue;
-
-          const candidate = prevScore + transObj.logProb + durScore + emitScore;
-
-          if (candidate > V[q][i]) {
-            V[q][i] = candidate;
-            traceD[q][i] = d;
-            tracePrev[q][i] = qPrev;
-          }
-        }
-      }
+interface Entry {score:number;pos:number;key:string;pending:string;previous?:Entry;feature?:GeneFeature}
+export function runGhmmGeneFinder(dnaInput:string,durationLimit=36):GhmmResult {
+  const seq=dnaInput.trim().toUpperCase(),N=seq.length;
+  if(!/^[ACGT]*$/.test(seq))throw new Error('DNA must contain ACGT only; no characters were stripped.');
+  if(N>160)throw new Error('Teaching limit: 160 bases.');
+  if(!Number.isInteger(durationLimit)||durationLimit<8||durationLimit>80)throw new Error('Duration limit must be an integer from 8 to 80.');
+  const cells=Array.from({length:N+1},()=>new Map<string,Entry>());
+  cells[0].set('Before',{score:0,pos:0,key:'Before',pending:''});
+  const candidates:GeneCandidate[]=[];
+  const put=(entry:Entry)=>{const current=cells[entry.pos].get(entry.key);if(!current||entry.score>current.score){cells[entry.pos].set(entry.key,entry);return true;}return false;};
+  for(let start=0;start<N;start++)for(const previous of cells[start].values()){
+    const before=previous.key==='Before',after=previous.key==='After',exon=previous.key.startsWith('Exon:'),intron=previous.key.startsWith('Intron:');
+    if(before||after){
+      const local=before?Math.log(.98):0;
+      put({score:previous.score+local,pos:start+1,key:previous.key,pending:'',previous,
+        feature:{id:'',type:'intergenic',subType:'Intergenic',start:start+1,end:start+1,length:1,sequence:seq[start],score:local}});
+      if(after)continue;
+    }
+    const nextStates:GhmmStateType[]=before?['Exon_Init','Exon_Single']:exon?['Intron']:intron?['Exon_Int','Exon_Term']:[];
+    for(const state of nextStates)for(let d=minDuration[state];d<=Math.min(durationLimit,N-start);d++){
+      const sub=seq.slice(start,start+d),isIntron=state==='Intron',initial=state==='Exon_Init'||state==='Exon_Single',terminal=state==='Exon_Term'||state==='Exon_Single';
+      const check=isIntron?{valid:sub.startsWith('GT')&&sub.endsWith('AG'),pending:previous.pending,reason:'Intron must include both GT donor and AG acceptor.'}:
+        initial&&!sub.startsWith('ATG')?{valid:false,pending:'',reason:'Initial coding segment must start with ATG.'}:appendCoding(previous.pending,sub,terminal);
+      const key=isIntron?'Intron:'+check.pending:terminal?'After':'Exon:'+check.pending;
+      const durationScore=evaluateDurationScore(state,d,durationLimit);
+      const transitionScore=before?Math.log(.01):intron?Math.log(.5):0;
+      const sensorScore=isIntron?6:.8*d+(initial?3:0)+(terminal?3:0);
+      const total=check.valid?previous.score+durationScore+transitionScore+sensorScore:-Infinity;
+      const candidate:GeneCandidate={start,end:start+d,state,previous:previous.key,key,pendingBefore:previous.pending,pendingAfter:check.pending,durationScore,transitionScore,sensorScore,total,valid:check.valid,selected:false,reason:check.reason};
+      if(check.valid)candidate.selected=put({score:total,pos:start+d,key,pending:check.pending,previous,feature:{id:'',type:isIntron?'intron':'exon',subType:state,start:start+1,end:start+d,length:d,sequence:sub,score:durationScore+transitionScore+sensorScore,readingFrame:previous.pending.length}});
+      candidates.push(candidate);
     }
   }
-
-  // Find best terminating state at position N
-  let bestFinalState: GhmmStateType = 'Intergenic';
-  let bestFinalScore = V['Intergenic'][N];
-
-  for (const q of ALL_STATES) {
-    if (V[q][N] > bestFinalScore) {
-      bestFinalScore = V[q][N];
-      bestFinalState = q;
-    }
-  }
-
-  // Traceback features
-  const featuresRev: GeneFeature[] = [];
-  let currPos = N;
-  let currState = bestFinalState;
-  let featCounter = 0;
-
-  while (currPos > 0) {
-    const d = traceD[currState][currPos];
-    const prevQ = tracePrev[currState][currPos];
-
-    if (d <= 0) {
-      // Fallback unsegmented remainder
-      break;
-    }
-
-    const start1Based = currPos - d + 1;
-    const end1Based = currPos;
-    const subSeq = seq.substring(start1Based - 1, end1Based);
-
-    featCounter++;
-    const isExon = currState.startsWith('Exon');
-    const isIntron = currState === 'Intron';
-
-    featuresRev.push({
-      id: `feat_${featCounter}`,
-      type: isExon ? 'exon' : isIntron ? 'intron' : 'intergenic',
-      subType: currState,
-      start: start1Based,
-      end: end1Based,
-      length: d,
-      sequence: subSeq,
-      score: V[currState][currPos],
-    });
-
-    currPos -= d;
-    currState = prevQ;
-  }
-
-  const features = featuresRev.reverse();
-  features.forEach((f, idx) => (f.id = `feat_${idx + 1}`));
-
-  // Extract CDS sequence from exons
-  let cdsSequence = '';
-  let codingLen = 0;
-  let exonCount = 0;
-  let intronCount = 0;
-
-  features.forEach((f) => {
-    if (f.type === 'exon') {
-      exonCount++;
-      // If Initial/Internal exon ends with donor GT, remove the 2bp splice signal from translated CDS
-      let exonCds = f.sequence;
-      if (f.subType === 'Exon_Init' || f.subType === 'Exon_Int') {
-        if (exonCds.endsWith('GT')) {
-          exonCds = exonCds.substring(0, exonCds.length - 2);
-        }
-      }
-      cdsSequence += exonCds;
-      codingLen += exonCds.length;
-    } else if (f.type === 'intron') {
-      intronCount++;
-    }
-  });
-
-  const proteinTranslation = translateDnaToProtein(cdsSequence);
-
-  // GC Content
-  let gcCount = 0;
-  for (let i = 0; i < N; i++) {
-    if (seq[i] === 'G' || seq[i] === 'C') gcCount++;
-  }
-  const gcPercent = (gcCount / N) * 100;
-
-  return {
-    sequence: seq,
-    features,
-    cdsSequence,
-    proteinTranslation,
-    totalScore: bestFinalScore > -1e5 ? bestFinalScore : 0,
-    exonCount,
-    intronCount,
-    stats: {
-      gcPercent,
-      totalLen: N,
-      codingLen,
-    },
-  };
+  // Exon/Intron states are never legal final states: a gene must have stopped.
+  const noGene=cells[N].get('Before')!;
+  const complete=cells[N].get('After');
+  let entry=complete&&complete.score>noGene.score?complete:noGene;
+  const totalScore=entry.score;const reverse:GeneFeature[]=[];
+  while(entry.previous){reverse.push(entry.feature!);entry=entry.previous;}
+  const raw=reverse.reverse();const features:GeneFeature[]=[];
+  for(const f of raw){const last=features.at(-1);if(f.type==='intergenic'&&last?.type==='intergenic'){last.end=f.end;last.length++;last.sequence+=f.sequence;last.score+=f.score;}else features.push({...f});}
+  features.forEach((f,i)=>f.id='feature_'+(i+1));
+  const cdsSequence=features.filter(f=>f.type==='exon').map(f=>f.sequence).join('');
+  return{sequence:seq,features,cdsSequence,proteinTranslation:translateDnaToProtein(cdsSequence),totalScore,
+    exonCount:features.filter(f=>f.type==='exon').length,intronCount:features.filter(f=>f.type==='intron').length,candidates,durationLimit,
+    stats:{gcPercent:N?[...seq].filter(c=>'GC'.includes(c)).length/N*100:0,totalLen:N,codingLen:cdsSequence.length}};
 }

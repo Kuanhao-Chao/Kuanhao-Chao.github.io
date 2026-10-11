@@ -39,6 +39,39 @@ describe('Generalized Hidden Markov Models (GHMMs) for Gene Finding', () => {
     expect(prot).toBe('MAK');
   });
 
+  it('requires both canonical dinucleotides within the intron', () => {
+    expect(scoreSegmentEmission('CCAACCCCAG',0,10,'Intron').isValid).toBe(false);
+  });
+
+  it('returns only complete coding genes, never an unfinished initial exon', () => {
+    expect(runGhmmGeneFinder('AAAAATGGCCAAAGT').cdsSequence).toBe('');
+  });
+
+  it('carries a partial codon across a canonical intron', () => {
+    const result = runGhmmGeneFinder('ATGG'+'GTCCCCAG'+'CCTAA');
+    expect(result.cdsSequence).toBe('ATGGCCTAA');
+    expect(result.proteinTranslation).toBe('MA');
+    const intron = result.features.find(f=>f.type==='intron')!;
+    expect(intron.sequence).toBe('GTCCCCAG');
+    expect(intron.start).toBe(5);
+    expect(intron.end).toBe(12);
+  });
+
+  it('rejects an internal stop assembled across the splice junction', () => {
+    const result=runGhmmGeneFinder('ATGTA'+'GTCCCCAG'+'ATTTTAA');
+    const rejected = result.candidates.find(c=>c.start===13 && c.end===20 && c.state==='Exon_Term' && c.pendingBefore==='TA');
+    expect(rejected?.valid).toBe(false);
+    expect(rejected?.reason).toMatch(/Premature/);
+    // A shorter alternative ATG-TAG gene is legal; reject the invalid path,
+    // not every other gene that this unconstrained sequence can also encode.
+    expect(result.cdsSequence).not.toBe('ATGTAATTTTAA');
+  });
+
+  it('normalizes the declared bounded duration distribution', () => {
+    const total=Array.from({length:36},(_,i)=>Math.exp(evaluateDurationScore('Exon_Init',i+1))).reduce((a,b)=>a+b,0);
+    expect(total).toBeCloseTo(1,10);
+  });
+
   it('accurately predicts multi-exon eukaryotic gene structure', () => {
     // Construct synthetic gene:
     // Intergenic: AAAAA (5bp)
@@ -55,11 +88,24 @@ describe('Generalized Hidden Markov Models (GHMMs) for Gene Finding', () => {
     expect(result.stats.totalLen).toBe(geneDna.length);
   });
 
-  it('identifies single-exon prokaryotic genes', () => {
+  it('identifies a complete single-exon coding sequence', () => {
     const sglGene = 'ATGGCCAAAGCGTAA';
     const result = runGhmmGeneFinder(sglGene);
 
     expect(result.features.length).toBeGreaterThan(0);
     expect(result.proteinTranslation).toBe('MAKA');
+  });
+
+  it('keeps complete CDS invariants and a local score ledger', () => {
+    for (const seq of ['ATGGGTCCCCAGCCTAA', 'ATGGCCAAAGCGTAA', 'AAAA', '', 'ATGTAG']) {
+      const result=runGhmmGeneFinder(seq);
+      expect(result.features.reduce((sum,f)=>sum+f.score,0)).toBeCloseTo(result.totalScore,10);
+      if (!result.cdsSequence) continue;
+      expect(result.cdsSequence.startsWith('ATG')).toBe(true);
+      expect(result.cdsSequence.length%3).toBe(0);
+      const codons=result.cdsSequence.match(/.{3}/g)!;
+      expect(['TAA','TAG','TGA']).toContain(codons.at(-1));
+      expect(codons.slice(0,-1).some(c=>['TAA','TAG','TGA'].includes(c))).toBe(false);
+    }
   });
 });
