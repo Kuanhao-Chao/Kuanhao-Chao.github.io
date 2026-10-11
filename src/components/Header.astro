@@ -7,18 +7,8 @@ const path = Astro.url.pathname;
 const isActive = (href: string) =>
   href === '/' ? path === '/' : path.startsWith(href.replace(/\/$/, ''));
 
-const labPrefixes = [
-  '/algorithms',
-  '/shorkie-lab',
-  '/lab',
-  '/nn-lab',
-  '/deep_dives',
-  '/terminal',
-  '/fun-lab',
-];
-const isLabActive = labPrefixes.some((prefix) =>
-  prefix === '/lab' ? path === '/lab' || path.startsWith('/lab/') : path.startsWith(prefix)
-);
+const labPrefixes = labNavItems.map((item) => item.href.replace(/\/$/, ''));
+const isLabActive = labPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 
 // Header (desktop + mobile) shows primary items only; footer keeps the full nav.
 const headerNav = nav.filter((item) => !item.footerOnly);
@@ -61,7 +51,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
           <div class="nav-labs-popover" data-nav-labs-popover role="menu" hidden>
             <div class="nav-labs-header">
               <span class="eyebrow">Interactive Labs & Tools</span>
-              <span class="nav-labs-count">8 Explorations</span>
+              <span class="nav-labs-count">{labNavItems.length} Explorations</span>
             </div>
             <div class="nav-labs-grid">
               {
@@ -1705,15 +1695,10 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       else a.removeAttribute('aria-current');
     }
 
-    const isLab = [
-      '/algorithms',
-      '/shorkie-lab',
-      '/lab',
-      '/nn-lab',
-      '/deep_dives',
-      '/terminal',
-      '/fun-lab',
-    ].some((p) => (p === '/lab' ? currentPath === '/lab' || currentPath.startsWith('/lab/') : currentPath.startsWith(p)));
+    const isLab = Array.from(document.querySelectorAll<HTMLAnchorElement>('.nav-lab-card')).some((link) => {
+      const prefix = link.getAttribute('href')?.replace(/\/$/, '');
+      return !!prefix && (currentPath === prefix || currentPath.startsWith(`${prefix}/`));
+    });
 
     if (labsTriggerEl) {
       if (isLab) labsTriggerEl.setAttribute('aria-current', 'page');
