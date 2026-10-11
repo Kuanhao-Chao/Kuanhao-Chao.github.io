@@ -1,7 +1,27 @@
 import { describe, it, expect } from 'vitest';
-import { computePairwiseAlignment, DEFAULT_SCORING } from './pairwiseAlignment';
+import {
+  computePairwiseAlignment,
+  alignmentScoreLedger,
+  DEFAULT_SCORING,
+} from './pairwiseAlignment';
 
 describe('Pairwise Alignment Engine', () => {
+  it('makes first-base and extension contributions visible in a score ledger', () => {
+    const ledger = alignmentScoreLedger('ACCCG', 'A---G', 'affine', DEFAULT_SCORING);
+    expect(ledger.map((c) => c.contribution)).toEqual([2, -3, -1, -1, 2]);
+    expect(ledger.at(-1)?.total).toBe(-1);
+    expect(() => alignmentScoreLedger('--', 'A-', 'linear', DEFAULT_SCORING)).toThrow();
+  });
+  it('rejects gap parameters that would let an aggregate state reopen a gap too cheaply', () => {
+    expect(() =>
+      computePairwiseAlignment('A', 'AAAA', 'global', 'affine', {
+        match: 2,
+        mismatch: -1,
+        gapOpen: -1,
+        gapExtend: -3,
+      })
+    ).toThrow(/first gap/i);
+  });
   it('keeps affine traceback in its gap state so the displayed alignment rescoring equals the optimum', () => {
     const res = computePairwiseAlignment('A', 'AAC', 'global', 'affine');
     expect(res.score).toBe(-2); // One match (+2), one length-two gap (-3-1).
@@ -10,7 +30,7 @@ describe('Pairwise Alignment Engine', () => {
     let previousGap = '';
     for (let k = 0; k < res.length; k++) {
       const gap = res.aligned1[k] === '-' ? 'I' : res.aligned2[k] === '-' ? 'D' : '';
-      score += gap ? (gap === previousGap ? -1 : -3) : (res.aligned1[k] === res.aligned2[k] ? 2 : -1);
+      score += gap ? (gap === previousGap ? -1 : -3) : res.aligned1[k] === res.aligned2[k] ? 2 : -1;
       previousGap = gap;
     }
     expect(score).toBe(res.score);
@@ -42,7 +62,13 @@ describe('Pairwise Alignment Engine', () => {
   });
 
   it('computes Needleman-Wunsch global alignment with mismatch and indel', () => {
-    const res = computePairwiseAlignment('ACGTAGCTA', 'ACGTCGCTA', 'global', 'linear', DEFAULT_SCORING);
+    const res = computePairwiseAlignment(
+      'ACGTAGCTA',
+      'ACGTCGCTA',
+      'global',
+      'linear',
+      DEFAULT_SCORING
+    );
     expect(res.aligned1.length).toBe(9);
     expect(res.aligned2.length).toBe(9);
     expect(res.matches).toBe(8);

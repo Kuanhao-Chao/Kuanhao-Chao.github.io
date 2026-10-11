@@ -61,9 +61,13 @@ export interface SearchTrace {
  */
 export function sanitizeReferenceText(input: string): string {
   const cleaned = input.trim().toUpperCase();
-  if (!/^[A-Z0-9$]*$/.test(cleaned)) throw new Error('Reference must contain letters or digits, with an optional terminal sentinel $.');
-  const sentinels = [...cleaned].filter(ch => ch === '$').length;
-  if (sentinels > 1 || (sentinels === 1 && !cleaned.endsWith('$'))) throw new Error('Use exactly one terminal sentinel $, or omit it to append one.');
+  if (!/^[A-Z0-9$]*$/.test(cleaned))
+    throw new Error(
+      'Reference must contain letters or digits, with an optional terminal sentinel $.'
+    );
+  const sentinels = [...cleaned].filter((ch) => ch === '$').length;
+  if (sentinels > 1 || (sentinels === 1 && !cleaned.endsWith('$')))
+    throw new Error('Use exactly one terminal sentinel $, or omit it to append one.');
   return cleaned.endsWith('$') ? cleaned : cleaned + '$';
 }
 
@@ -176,9 +180,14 @@ export function buildBwt(rawText: string): BwtIndex {
 /**
  * Execute step-by-step FM-Index backward search for a given pattern.
  */
-export function bwtBackwardSearch(index: BwtIndex, query: string, options: { locate?: boolean } = {}): SearchTrace {
+export function bwtBackwardSearch(
+  index: BwtIndex,
+  query: string,
+  options: { locate?: boolean } = {}
+): SearchTrace {
   const pattern = query.trim().toUpperCase();
-  if (pattern.includes('$')) throw new Error('Ordinary substring queries cannot contain the sentinel $.');
+  if (pattern.includes('$'))
+    throw new Error('Ordinary substring queries cannot contain the sentinel $.');
   if (!/^[A-Z0-9]*$/.test(pattern)) throw new Error('Query must contain letters or digits only.');
   const n = index.length;
 
@@ -236,7 +245,10 @@ export function bwtBackwardSearch(index: BwtIndex, query: string, options: { loc
     const isMatch = spNew <= epNew;
 
     const querySuffix = pattern.slice(j);
-    const matchPositions = isMatch && options.locate !== false ? index.sa.slice(spNew, epNew + 1).sort((a, b) => a - b) : [];
+    const matchPositions =
+      isMatch && options.locate !== false
+        ? index.sa.slice(spNew, epNew + 1).sort((a, b) => a - b)
+        : [];
 
     const formulaSpText = `sp = C['${char}'] + Occ('${char}', ${spPrev}) = ${cVal} + ${occSp} = ${spNew}`;
     const formulaEpText = `ep = C['${char}'] + Occ('${char}', ${epPrev + 1}) - 1 = ${cVal} + ${occEpPlus1} - 1 = ${epNew}`;
@@ -268,7 +280,8 @@ export function bwtBackwardSearch(index: BwtIndex, query: string, options: { loc
 
   const isFound = sp <= ep;
   const matchCount = isFound ? ep - sp + 1 : 0;
-  const finalPositions = isFound && options.locate !== false ? index.sa.slice(sp, ep + 1).sort((a, b) => a - b) : [];
+  const finalPositions =
+    isFound && options.locate !== false ? index.sa.slice(sp, ep + 1).sort((a, b) => a - b) : [];
 
   return {
     pattern,
@@ -293,14 +306,26 @@ export function lfMapping(index: BwtIndex, lRowIndex: number): number {
 
 /** Sample by suffix position, so LF decrements toward a sample within spacing−1 hops. */
 export function sampleSuffixArray(index: BwtIndex, spacing: number): Map<number, number> {
-  if (!Number.isInteger(spacing) || spacing < 1) throw new Error('Sampling spacing must be a positive integer.');
-  return new Map(index.sa.flatMap((position, row) => position % spacing === 0 ? [[row, position] as [number, number]] : []));
+  if (!Number.isInteger(spacing) || spacing < 1)
+    throw new Error('Sampling spacing must be a positive integer.');
+  return new Map(
+    index.sa.flatMap((position, row) =>
+      position % spacing === 0 ? [[row, position] as [number, number]] : []
+    )
+  );
 }
-export function locateSampled(index: BwtIndex, row: number, spacing: number, samples = sampleSuffixArray(index, spacing)): { position: number; rows: number[]; sampledPosition: number } {
-  if (!Number.isInteger(row) || row < 0 || row >= index.length) throw new Error('Invalid suffix-array row.');
+export function locateSampled(
+  index: BwtIndex,
+  row: number,
+  spacing: number,
+  samples = sampleSuffixArray(index, spacing)
+): { position: number; rows: number[]; sampledPosition: number } {
+  if (!Number.isInteger(row) || row < 0 || row >= index.length)
+    throw new Error('Invalid suffix-array row.');
   const rows = [row];
   while (!samples.has(row)) {
-    row = lfMapping(index, row); rows.push(row);
+    row = lfMapping(index, row);
+    rows.push(row);
     if (rows.length > index.length) throw new Error('LF did not reach a suffix-position sample.');
   }
   const sampledPosition = samples.get(row)!;

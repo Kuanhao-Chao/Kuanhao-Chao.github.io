@@ -4,6 +4,8 @@
  * the bio, role, social handles, or menu.
  */
 
+import { ALGORITHMS } from './algorithms';
+
 const bioParagraphs = [
   'I’m a Senior Deep Learning/AI Engineer at the Illumina AI Lab. I develop machine-learning models and open-source software to understand gene regulation, RNA splicing, and the effects of genetic variation. My work spans sequence-to-function modeling and DNA language models, alongside methods for genome annotation and pangenome analysis.',
   'I earned my Ph.D. in Computer Science from Johns Hopkins University in August 2025, advised by Steven Salzberg and Mihaela Pertea at the Center for Computational Biology. I also hold a B.S. in Electrical Engineering from National Taiwan University.',
@@ -177,9 +179,9 @@ export const labNavItems: LabNavItem[] = [
     id: 'algorithms',
     title: 'Algorithms',
     href: '/algorithms/',
-    sub: '12 interactive genomic & ML visualizers',
+    sub: `${ALGORITHMS.filter((a) => a.href.startsWith('/algorithms/')).length} educational lessons + linked explorations`,
     icon: '⚡',
-    badge: '12 tools',
+    badge: `${ALGORITHMS.length} explorations`,
   },
   {
     id: 'shorkie-lab',

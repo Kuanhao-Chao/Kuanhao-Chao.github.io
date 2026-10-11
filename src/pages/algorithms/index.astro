@@ -2,7 +2,12 @@
 import PageLayout from '../../layouts/PageLayout.astro';
 import Icon from '../../components/Icon.astro';
 import AlgorithmLogo from '../../components/AlgorithmLogo.astro';
-import { ALGORITHMS, ALGORITHM_CATEGORIES, type AlgorithmEntry } from '../../data/algorithms';
+import {
+  ALGORITHMS,
+  ALGORITHM_CATEGORIES,
+  ALGORITHM_LEARNING_PATHS,
+  type AlgorithmEntry,
+} from '../../data/algorithms';
 
 const categories = ALGORITHM_CATEGORIES;
 const algorithms: AlgorithmEntry[] = ALGORITHMS;
@@ -10,11 +15,39 @@ const algorithms: AlgorithmEntry[] = ALGORITHMS;
 
 <PageLayout
   title="Algorithms"
-  eyebrow="Interactive Visualizers & Concepts"
-  lead="Interactive explorations of fundamental computational biology algorithms — from long-read minimizer chaining and FM-index exact matching to Wheeler graph pangenomics, sequence alignment, and neural in silico mutagenesis."
-  description="Interactive computational biology algorithm visualizers by Kuan-Hao Chao: Minimap2 minimizer chaining, FM-Index BWT backward search, Wheeler graphs, sequence alignment, and neural splice models."
+  eyebrow="Learn, inspect, and test your understanding"
+  lead="Step-by-step computational biology lessons: intuition, worked examples, actual computation traces, equations, limitations, and practice. Begin with a learning path or search the catalog."
+  description="Educational computational biology algorithms: alignment, BWT search, assembly graphs, profile HMMs, gene grammar, synthetic mutagenesis and cohort-derived GWAS."
   noindex={true}
 >
+  <section class="learning-paths" aria-labelledby="learning-paths-title">
+    <h2 id="learning-paths-title">Choose a learning path</h2>
+    <p>
+      {
+        `${algorithms.filter((a) => a.href.startsWith('/algorithms/')).length} standalone lessons, plus ${algorithms.filter((a) => !a.href.startsWith('/algorithms/')).length} linked explorations: the Wheelie post and Shorkie Lab. Teaching implementations are explicitly distinguished from production methods.`
+      }
+    </p>
+    <div class="learning-path-grid">
+      {
+        ALGORITHM_LEARNING_PATHS.map((path) => (
+          <article>
+            <h3>{path.title}</h3>
+            <p>{path.foundation}</p>
+            <ol>
+              {path.ids.map((id) => {
+                const algorithm = algorithms.find((a) => a.id === id)!;
+                return (
+                  <li>
+                    <a href={algorithm.href}>{algorithm.shortTitle ?? algorithm.title}</a>
+                  </li>
+                );
+              })}
+            </ol>
+          </article>
+        ))
+      }
+    </div>
+  </section>
   <section class="algo-section" aria-label="Bioinformatics Algorithm Catalog">
     <div class="algo-tools" data-algo-tools>
       <div class="algo-filters" role="group" aria-label="Filter algorithms by category">
@@ -37,7 +70,7 @@ const algorithms: AlgorithmEntry[] = ALGORITHMS;
           <Icon name="search" size={18} />
           <input
             type="search"
-            placeholder="Search algorithms, complexity, CLI…"
+            placeholder="Search concepts, methods, complexity…"
             data-search-input
             aria-label="Search algorithms"
           />
@@ -53,6 +86,8 @@ const algorithms: AlgorithmEntry[] = ALGORITHMS;
         </label>
       </div>
     </div>
+
+    <p data-algo-count aria-live="polite">{`${algorithms.length} explorations shown`}</p>
 
     <div class="algo-index" data-algo-list>
       {
@@ -139,11 +174,59 @@ const algorithms: AlgorithmEntry[] = ALGORITHMS;
       }
     </div>
 
-    <p class="algo-empty" data-algo-empty hidden>No algorithms match your filter or search query.</p>
+    <p class="algo-empty" data-algo-empty hidden>
+      No algorithms match your filter or search query.
+    </p>
   </section>
 </PageLayout>
 
 <style>
+  .learning-paths {
+    margin-block: var(--space-8);
+  }
+  .learning-path-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+    gap: var(--space-5);
+  }
+  .learning-path-grid article {
+    padding: var(--space-5);
+    border: 1px solid var(--color-rule);
+    background: var(--color-surface);
+  }
+  .learning-path-grid h3 {
+    font-size: var(--fs-h3);
+    margin-top: 0;
+  }
+  .learning-path-grid p {
+    font-size: var(--fs-small);
+    color: var(--color-muted);
+  }
+  .learning-path-grid ol {
+    padding-left: 1.25rem;
+  }
+  .learning-path-grid li {
+    padding-block: 0.4rem;
+  }
+  .learning-path-grid a {
+    display: inline-block;
+    padding-block: 0.3rem;
+  }
+  .filter-pill,
+  .sort select,
+  .algo-link {
+    min-height: 44px;
+  }
+  .algo-card-body {
+    min-width: 0;
+  }
+  .algo-metric-badge {
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+  .algo-metric-badge code {
+    overflow-wrap: anywhere;
+  }
   .algo-section {
     display: flex;
     flex-direction: column;
@@ -492,6 +575,9 @@ const algorithms: AlgorithmEntry[] = ALGORITHMS;
     const list = document.querySelector<HTMLElement>('[data-algo-list]');
     const empty = document.querySelector<HTMLElement>('[data-algo-empty]');
     if (!root || !list || !empty) return;
+    if (root.dataset.bound) return;
+    root.dataset.bound = 'true';
+    const count = document.querySelector<HTMLElement>('[data-algo-count]');
 
     const filterBtns = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-filter]'));
     const searchInput = root.querySelector<HTMLInputElement>('[data-search-input]');
@@ -520,6 +606,7 @@ const algorithms: AlgorithmEntry[] = ALGORITHMS;
       if (empty) {
         empty.hidden = visibleCount > 0;
       }
+      if (count) count.textContent = `${visibleCount} of ${cards.length} explorations shown`;
 
       // Sorting
       const sorted = [...cards].sort((a, b) => {

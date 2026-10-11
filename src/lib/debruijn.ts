@@ -37,7 +37,14 @@ export interface EulerianResult {
   statusText: string;
   trace?: EulerianTrace[];
 }
-export interface EulerianTrace { phase: 'start' | 'consume' | 'backtrack'; node: string; edge?: string; stack: string[]; reversePath: string[]; consumed: number }
+export interface EulerianTrace {
+  phase: 'start' | 'consume' | 'backtrack';
+  node: string;
+  edge?: string;
+  stack: string[];
+  reversePath: string[];
+  consumed: number;
+}
 
 export interface Unitig {
   id: string;
@@ -70,14 +77,16 @@ export interface DbgGraph {
 export function buildDeBruijnGraph(
   input: string | string[],
   k: number = 4,
-  dataMode: 'multiset' | 'coverage' = 'multiset',
+  dataMode: 'multiset' | 'coverage' = 'multiset'
 ): DbgGraph {
   const reads: string[] = Array.isArray(input)
     ? input.map((r) => r.trim().toUpperCase()).filter(Boolean)
     : [input.trim().toUpperCase()].filter(Boolean);
 
-  if (!Number.isInteger(k) || k < 2 || k > 8) throw new Error('k must be an integer between 2 and 8; it is not silently clamped.');
-  if (reads.some(read => !/^[ACGTN]+$/.test(read))) throw new Error('Reads must use ACGTN letters only; N is a literal symbol, not a wildcard.');
+  if (!Number.isInteger(k) || k < 2 || k > 8)
+    throw new Error('k must be an integer between 2 and 8; it is not silently clamped.');
+  if (reads.some((read) => !/^[ACGTN]+$/.test(read)))
+    throw new Error('Reads must use ACGTN letters only; N is a literal symbol, not a wildcard.');
   const safeK = k;
   const nodes = new Map<string, DbgNode>();
   const edges = new Map<string, DbgEdge>();
@@ -189,7 +198,15 @@ export function buildDeBruijnGraph(
 export function findEulerianPath(graph: DbgGraph): EulerianResult {
   const { nodes, edges } = graph;
   refreshDegrees(graph);
-  if (graph.dataMode === 'coverage') return { isEulerian: false, pathNodes: [], pathEdges: [], assembledSeq: '', statusText: 'Coverage counts observations, not genomic copies. Inspect topology and unitigs; genome-copy Euler traversal is disabled in this mode.' };
+  if (graph.dataMode === 'coverage')
+    return {
+      isEulerian: false,
+      pathNodes: [],
+      pathEdges: [],
+      assembledSeq: '',
+      statusText:
+        'Coverage counts observations, not genomic copies. Inspect topology and unitigs; genome-copy Euler traversal is disabled in this mode.',
+    };
   if (nodes.size === 0 || edges.size === 0) {
     return {
       isEulerian: false,
@@ -278,7 +295,9 @@ export function findEulerianPath(graph: DbgGraph): EulerianResult {
   const edgeStack: string[] = [];
   const pathEdgesRev: string[] = [];
   let consumed = 0;
-  const trace: EulerianTrace[] = [{ phase: 'start', node: startNode, stack: [...stack], reversePath: [], consumed }];
+  const trace: EulerianTrace[] = [
+    { phase: 'start', node: startNode, stack: [...stack], reversePath: [], consumed },
+  ];
 
   while (stack.length > 0) {
     const u = stack[stack.length - 1];
@@ -289,14 +308,27 @@ export function findEulerianPath(graph: DbgGraph): EulerianResult {
       stack.push(next.to);
       edgeStack.push(next.edgeId);
       consumed++;
-      trace.push({ phase: 'consume', node: next.to, edge: next.edgeId, stack: [...stack], reversePath: [...pathNodesRev], consumed });
+      trace.push({
+        phase: 'consume',
+        node: next.to,
+        edge: next.edgeId,
+        stack: [...stack],
+        reversePath: [...pathNodesRev],
+        consumed,
+      });
     } else {
       const popped = stack.pop()!;
       pathNodesRev.push(popped);
       if (edgeStack.length > 0) {
         pathEdgesRev.push(edgeStack.pop()!);
       }
-      trace.push({ phase: 'backtrack', node: popped, stack: [...stack], reversePath: [...pathNodesRev], consumed });
+      trace.push({
+        phase: 'backtrack',
+        node: popped,
+        stack: [...stack],
+        reversePath: [...pathNodesRev],
+        consumed,
+      });
     }
   }
 
@@ -338,35 +370,62 @@ export function findEulerianPath(graph: DbgGraph): EulerianResult {
 /**
  * Tip Clipping: Prune dead-end spurs.
  */
-export function clipTips(graph: DbgGraph, maxTipLen = 3): { clippedEdges: string[]; clippedNodes: string[] } {
-  if (!Number.isInteger(maxTipLen) || maxTipLen < 1) throw new Error('Tip length must be positive.');
-  const active = [...graph.edges.values()].filter(edge => !edge.isRemoved);
-  const outgoing = (id: string) => active.filter(e => e.from === id);
-  const incoming = (id: string) => active.filter(e => e.to === id);
-  const clippedEdges = new Set<string>(); const clippedNodes = new Set<string>();
-  for (const id of graph.nodes.keys()) for (const reverse of [false, true]) {
-    const branches = reverse ? incoming(id) : outgoing(id);
-    if (branches.length < 2) continue; // A normal contig end is NOT a branch-attached tip.
-    for (const first of branches) {
-      const path = [first]; const seen = new Set([id]); let node = reverse ? first.from : first.to;
-      let deadEnd = false;
-      while (path.length <= maxTipLen && !seen.has(node)) {
-        seen.add(node);
-        const inList = reverse ? outgoing(node) : incoming(node);
-        const outList = reverse ? incoming(node) : outgoing(node);
-        if (inList.length !== 1) break;
-        if (!outList.length) { deadEnd = true; break; }
-        if (outList.length !== 1 || path.length === maxTipLen) break;
-        const next = outList[0]; path.push(next); node = reverse ? next.from : next.to;
+export function clipTips(
+  graph: DbgGraph,
+  maxTipLen = 3
+): { clippedEdges: string[]; clippedNodes: string[] } {
+  if (!Number.isInteger(maxTipLen) || maxTipLen < 1)
+    throw new Error('Tip length must be positive.');
+  const active = [...graph.edges.values()].filter((edge) => !edge.isRemoved);
+  const outgoing = (id: string) => active.filter((e) => e.from === id);
+  const incoming = (id: string) => active.filter((e) => e.to === id);
+  const clippedEdges = new Set<string>();
+  const clippedNodes = new Set<string>();
+  for (const id of graph.nodes.keys())
+    for (const reverse of [false, true]) {
+      const branches = reverse ? incoming(id) : outgoing(id);
+      if (branches.length < 2) continue; // A normal contig end is NOT a branch-attached tip.
+      for (const first of branches) {
+        const path = [first];
+        const seen = new Set([id]);
+        let node = reverse ? first.from : first.to;
+        let deadEnd = false;
+        while (path.length <= maxTipLen && !seen.has(node)) {
+          seen.add(node);
+          const inList = reverse ? outgoing(node) : incoming(node);
+          const outList = reverse ? incoming(node) : outgoing(node);
+          if (inList.length !== 1) break;
+          if (!outList.length) {
+            deadEnd = true;
+            break;
+          }
+          if (outList.length !== 1 || path.length === maxTipLen) break;
+          const next = outList[0];
+          path.push(next);
+          node = reverse ? next.from : next.to;
+        }
+        const support = Math.max(...path.map((e) => e.coverage));
+        if (
+          !deadEnd ||
+          support > 1 ||
+          !branches.some((e) => e.id !== first.id && e.coverage > support)
+        )
+          continue;
+        for (const edge of path) {
+          clippedEdges.add(edge.id);
+          clippedNodes.add(reverse ? edge.from : edge.to);
+        }
       }
-      const support = Math.max(...path.map(e => e.coverage));
-      if (!deadEnd || support > 1 || !branches.some(e => e.id !== first.id && e.coverage > support)) continue;
-      for (const edge of path) { clippedEdges.add(edge.id); clippedNodes.add(reverse ? edge.from : edge.to); }
     }
+  for (const id of clippedEdges) {
+    const edge = graph.edges.get(id)!;
+    edge.isRemoved = true;
+    edge.isTip = true;
   }
-  for (const id of clippedEdges) { const edge = graph.edges.get(id)!; edge.isRemoved = true; edge.isTip = true; }
   refreshDegrees(graph);
-  graph.eulerian = findEulerianPath(graph); graph.unitigs = compactUnitigs(graph); computeStats(graph);
+  graph.eulerian = findEulerianPath(graph);
+  graph.unitigs = compactUnitigs(graph);
+  computeStats(graph);
   return { clippedEdges: [...clippedEdges], clippedNodes: [...clippedNodes] };
 }
 
@@ -375,7 +434,7 @@ export function clipTips(graph: DbgGraph, maxTipLen = 3): { clippedEdges: string
  */
 export function popBubbles(
   graph: DbgGraph,
-  maxBubbleDepth: number = 8,
+  maxBubbleDepth: number = 8
 ): { poppedEdges: string[]; consensusEdges: string[] } {
   const { nodes, edges } = graph;
   const poppedEdges: string[] = [];
@@ -399,7 +458,12 @@ export function popBubbles(
 
       for (const branchEdge of activeOut) {
         const branchPaths: PathRecord[] = [];
-        const queue: { currNode: string; edgeList: string[]; nodeList: string[]; totalCov: number }[] = [
+        const queue: {
+          currNode: string;
+          edgeList: string[];
+          nodeList: string[];
+          totalCov: number;
+        }[] = [
           {
             currNode: branchEdge.to,
             edgeList: [branchEdge.id],
@@ -453,11 +517,15 @@ export function popBubbles(
                 const avgCov1 = p1.totalCov / p1.edgeList.length;
                 const avgCov2 = p2.totalCov / p2.edgeList.length;
                 if (Math.abs(avgCov1 - avgCov2) < 1e-12) continue; // Equal-support variation is not an error.
-                if (p1.edgeList.some(id => p2.edgeList.includes(id))) continue;
-                const simpleInterior = (path: PathRecord) => path.nodeList.slice(1, -1).every(id => {
-                  const node = nodes.get(id)!;
-                  return node.inEdges.filter(e => !edges.get(e)?.isRemoved).length === 1 && node.outEdges.filter(e => !edges.get(e)?.isRemoved).length === 1;
-                });
+                if (p1.edgeList.some((id) => p2.edgeList.includes(id))) continue;
+                const simpleInterior = (path: PathRecord) =>
+                  path.nodeList.slice(1, -1).every((id) => {
+                    const node = nodes.get(id)!;
+                    return (
+                      node.inEdges.filter((e) => !edges.get(e)?.isRemoved).length === 1 &&
+                      node.outEdges.filter((e) => !edges.get(e)?.isRemoved).length === 1
+                    );
+                  });
                 if (!simpleInterior(p1) || !simpleInterior(p2)) continue;
 
                 const winner = avgCov1 >= avgCov2 ? p1 : p2;
@@ -504,7 +572,7 @@ export function popBubbles(
  */
 export function filterLowCoverage(
   graph: DbgGraph,
-  minCoverage: number,
+  minCoverage: number
 ): { removedEdges: string[] } {
   const { nodes, edges } = graph;
   const removedEdges: string[] = [];
@@ -538,22 +606,44 @@ export function filterLowCoverage(
  * Unitig Compaction: Merges linear unbranched chains of nodes.
  */
 export function compactUnitigs(graph: DbgGraph): Unitig[] {
-  const active = [...graph.edges.values()].filter(edge => !edge.isRemoved);
-  const outgoing = new Map<string, DbgEdge[]>(); const incoming = new Map<string, DbgEdge[]>();
-  for (const id of graph.nodes.keys()) { outgoing.set(id, []); incoming.set(id, []); }
-  for (const edge of active) { outgoing.get(edge.from)!.push(edge); incoming.get(edge.to)!.push(edge); }
-  const visited = new Set<string>(); const unitigs: Unitig[] = [];
+  const active = [...graph.edges.values()].filter((edge) => !edge.isRemoved);
+  const outgoing = new Map<string, DbgEdge[]>();
+  const incoming = new Map<string, DbgEdge[]>();
+  for (const id of graph.nodes.keys()) {
+    outgoing.set(id, []);
+    incoming.set(id, []);
+  }
+  for (const edge of active) {
+    outgoing.get(edge.from)!.push(edge);
+    incoming.get(edge.to)!.push(edge);
+  }
+  const visited = new Set<string>();
+  const unitigs: Unitig[] = [];
   function walk(first: DbgEdge) {
-    let edge = first; let sequence = first.from; const nodes = [first.from]; const edges: string[] = [];
+    let edge = first;
+    let sequence = first.from;
+    const nodes = [first.from];
+    const edges: string[] = [];
     let coverage = 0;
     while (!visited.has(edge.id)) {
-      visited.add(edge.id); edges.push(edge.id); nodes.push(edge.to);
-      sequence += edge.kmer.at(-1); coverage += edge.coverage;
+      visited.add(edge.id);
+      edges.push(edge.id);
+      nodes.push(edge.to);
+      sequence += edge.kmer.at(-1);
+      coverage += edge.coverage;
       const next = outgoing.get(edge.to)!;
-      if (incoming.get(edge.to)!.length !== 1 || next.length !== 1 || visited.has(next[0].id)) break;
+      if (incoming.get(edge.to)!.length !== 1 || next.length !== 1 || visited.has(next[0].id))
+        break;
       edge = next[0];
     }
-    unitigs.push({ id: `unitig_${unitigs.length + 1}`, sequence, length: sequence.length, nodes, edges, avgCoverage: coverage / edges.length });
+    unitigs.push({
+      id: `unitig_${unitigs.length + 1}`,
+      sequence,
+      length: sequence.length,
+      nodes,
+      edges,
+      avgCoverage: coverage / edges.length,
+    });
   }
   for (const id of graph.nodes.keys()) {
     if (incoming.get(id)!.length === 1 && outgoing.get(id)!.length === 1) continue;
@@ -590,20 +680,44 @@ function computeStats(graph: DbgGraph) {
 }
 
 function refreshDegrees(graph: DbgGraph) {
-  for (const node of graph.nodes.values()) { node.inDeg = 0; node.outDeg = 0; node.inEdges = []; node.outEdges = []; }
-  for (const edge of graph.edges.values()) if (!edge.isRemoved) {
-    const from = graph.nodes.get(edge.from)!; const to = graph.nodes.get(edge.to)!;
-    from.outEdges.push(edge.id); to.inEdges.push(edge.id); from.outDeg += edge.multiplicity ?? 1; to.inDeg += edge.multiplicity ?? 1;
+  for (const node of graph.nodes.values()) {
+    node.inDeg = 0;
+    node.outDeg = 0;
+    node.inEdges = [];
+    node.outEdges = [];
   }
+  for (const edge of graph.edges.values())
+    if (!edge.isRemoved) {
+      const from = graph.nodes.get(edge.from)!;
+      const to = graph.nodes.get(edge.to)!;
+      from.outEdges.push(edge.id);
+      to.inEdges.push(edge.id);
+      from.outDeg += edge.multiplicity ?? 1;
+      to.inDeg += edge.multiplicity ?? 1;
+    }
 }
 
 /** Reversible UI preview: callers retain the untouched original graph. */
-export function previewGraphCleaning(graph: DbgGraph, operation: 'none' | 'tips' | 'bubbles' | 'coverage', parameter = 3): { graph: DbgGraph; removedEdges: string[]; reason: string } {
+export function previewGraphCleaning(
+  graph: DbgGraph,
+  operation: 'none' | 'tips' | 'bubbles' | 'coverage',
+  parameter = 3
+): { graph: DbgGraph; removedEdges: string[]; reason: string } {
   const preview = structuredClone(graph);
   let removedEdges: string[] = [];
   let reason = 'No edges removed.';
-  if (operation === 'tips') { removedEdges = clipTips(preview, parameter).clippedEdges; reason = `Branch-attached dead-end path ≤${parameter} edges; maximum support 1 and a stronger competing branch. May still remove real sequence.`; }
-  if (operation === 'bubbles') { removedEdges = popBubbles(preview, parameter).poppedEdges; reason = 'Simple paths meet at one sink, spell alternative sequences, and have unequal average support. Lower-support path previewed; ties preserved. This is not variant calling.'; }
-  if (operation === 'coverage') { removedEdges = filterLowCoverage(preview, parameter).removedEdges; reason = `Observed edge support below ${parameter}; not evidence that the sequence is biologically false.`; }
+  if (operation === 'tips') {
+    removedEdges = clipTips(preview, parameter).clippedEdges;
+    reason = `Branch-attached dead-end path ≤${parameter} edges; maximum support 1 and a stronger competing branch. May still remove real sequence.`;
+  }
+  if (operation === 'bubbles') {
+    removedEdges = popBubbles(preview, parameter).poppedEdges;
+    reason =
+      'Simple paths meet at one sink, spell alternative sequences, and have unequal average support. Lower-support path previewed; ties preserved. This is not variant calling.';
+  }
+  if (operation === 'coverage') {
+    removedEdges = filterLowCoverage(preview, parameter).removedEdges;
+    reason = `Observed edge support below ${parameter}; not evidence that the sequence is biologically false.`;
+  }
   return { graph: preview, removedEdges, reason };
 }
