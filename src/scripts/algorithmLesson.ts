@@ -253,6 +253,7 @@ function init(root: HTMLElement) {
     on(q('[data-ism-undo]'), 'click', () => { const previous = history.pop(); if (previous !== undefined) { field('sequence').value = previous; build(); } });
     on(q('[data-ism-reference]'), 'click', () => { field('sequence').value = reference; history.length = 0; build(); });
   }
+  if (definition.id === 'debruijn') on(q('[data-cleaning-undo]'), 'click', () => { field('cleaning').value = 'none'; build(); });
   build();
   return () => { stop(); lifetime.abort(); items.clear(); edgeItems.clear(); };
 }
