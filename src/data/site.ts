@@ -191,25 +191,11 @@ export const labNavItems: LabNavItem[] = [
     icon: '🧠',
   },
   {
-    id: 'nn-lab',
-    title: 'NN Lab',
-    href: '/nn-lab/',
-    sub: 'Transformer attention & Mamba SSM',
-    icon: '📐',
-  },
-  {
     id: 'cell-lab',
     title: 'Cell Lab',
     href: '/lab',
     sub: 'In silico cellular microcosm simulation',
     icon: '🔬',
-  },
-  {
-    id: 'deep-dives',
-    title: 'Deep Dives',
-    href: '/deep_dives/',
-    sub: 'First-principles ML & genomics curricula',
-    icon: '📚',
   },
   {
     id: 'terminal',
