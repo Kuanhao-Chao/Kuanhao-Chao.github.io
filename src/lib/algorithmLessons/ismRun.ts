@@ -1,10 +1,10 @@
-import { computeIsm, explainSyntheticSpliceScore, DONOR_PWM, ACCEPTOR_PWM } from '../ism';
+import { computeIsm, DONOR_PWM, ACCEPTOR_PWM } from '../ism';
 import type { LessonRun, LessonValues, LessonFrame, LessonTable } from '../algorithmLessonTypes';
 import { numberText, frame } from './common';
 
 export function ismRun(v: LessonValues): LessonRun {
   const r = computeIsm(v.sequence, v.type as 'donor' | 'acceptor', Number(v.junction));
-  const terms = explainSyntheticSpliceScore(r.sequence, r.junctionIndex, r.siteType);
+  const terms = r.scoringDetails;
   const frames: LessonFrame[] = [
     frame(
       'initialize',

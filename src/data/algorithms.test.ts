@@ -72,4 +72,16 @@ describe('Algorithms Catalog & Taxonomy Invariants', () => {
       }
     }
   });
+
+  it('provides the test-prediction equality guide on the actual prediction chart', () => {
+    const values = Object.fromEntries(
+      ALGORITHM_LESSONS.gwas.inputs.map((input) => [input.id, input.value])
+    );
+    const chart = runAlgorithmLesson('gwas', values).charts?.find(
+      (chart) => chart.id === 'prediction'
+    );
+    expect(chart?.diagonal).toBe(true);
+    expect(chart?.xMin).toBeLessThan(0);
+    expect(chart?.yMin).toBeLessThan(0);
+  });
 });

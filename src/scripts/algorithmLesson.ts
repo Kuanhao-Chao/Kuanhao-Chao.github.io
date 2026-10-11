@@ -1,4 +1,5 @@
 import { runAlgorithmLesson } from '../lib/algorithmLessonRuns';
+import { graphConnection } from '../lib/algorithmLessons/common';
 import { LessonPlayback } from '../lib/lessonPlayback';
 import type {
   LessonRun,
@@ -135,7 +136,7 @@ function init(root: HTMLElement) {
       region.setAttribute('role', 'region');
       region.setAttribute(
         'aria-label',
-        `${label}; scroll locally on small screens; item arrow keys inspect the diagram`
+        `${label}; scroll locally when needed; item arrow keys inspect the diagram`
       );
       region.append(element);
       return region;
@@ -143,6 +144,7 @@ function init(root: HTMLElement) {
     for (const table of run.tables ?? []) {
       const region = document.createElement('div');
       region.className = 'algo-scroll';
+      region.tabIndex = 0;
       region.setAttribute('role', 'region');
       region.setAttribute('aria-label', `${table.label}; scroll horizontally when needed`);
       const el = document.createElement('table');
@@ -181,8 +183,7 @@ function init(root: HTMLElement) {
           button.dataset.inspect = cell.id;
           button.dataset.row = String(r);
           button.dataset.column = String(c);
-          button.tabIndex = r === 0 && c === 0 ? 0 : -1;
-          if (cell.tone) button.dataset.tone = cell.tone;
+          button.tabIndex = -1;
           td.append(button);
           items.set(cell.id, { element: button, data: cell });
         }
@@ -192,17 +193,23 @@ function init(root: HTMLElement) {
     }
     if (run.graph) {
       const graph = run.graph;
+      // Manual model diagrams share this renderer too; reserve clearance for
+      // self-loop curves even if their own coordinates start close to the top.
+      const offsetY = Math.max(0, 85 - Math.min(...graph.nodes.map((node) => node.y)));
+      const nodes = graph.nodes.map((node) => ({ ...node, y: node.y + offsetY }));
       const figure = document.createElement('figure');
       figure.className = 'algo-figure';
       const caption = document.createElement('figcaption');
       caption.textContent = 'Graph: edges represent explicit transitions, not decorative motion.';
-      const graphHeight = Math.max(360, ...graph.nodes.map((node) => node.y + 55));
+      const graphWidth = Math.max(760, ...nodes.map((node) => node.x + 65));
+      const graphHeight = Math.max(360, ...nodes.map((node) => node.y + 55));
       const el = svg('svg', {
-        viewBox: `0 0 760 ${graphHeight}`,
+        viewBox: `0 0 ${graphWidth} ${graphHeight}`,
         role: 'group',
         'aria-label': 'Algorithm graph; select nodes to inspect',
       });
       el.classList.add('algo-svg');
+      el.style.setProperty('--lesson-diagram-width', `${graphWidth}px`);
       el.dataset.gridKeys = 'diagram';
       const defs = svg('defs');
       const markerId = `arrow-${definition.id}`;
@@ -219,13 +226,15 @@ function init(root: HTMLElement) {
       defs.append(marker);
       el.append(defs);
       for (const edge of graph.edges) {
-        const from = graph.nodes.find((node) => node.id === edge.from)!;
-        const to = graph.nodes.find((node) => node.id === edge.to)!;
+        const from = nodes.find((node) => node.id === edge.from)!;
+        const to = nodes.find((node) => node.id === edge.to)!;
+        const shape = graphConnection(
+          from,
+          to,
+          graph.edges.some((other) => other.from === edge.to && other.to === edge.from)
+        );
         const path = svg('path', {
-          d:
-            from.id === to.id
-              ? `M ${from.x - 15} ${from.y - 18} C ${from.x - 65} ${from.y - 80},${from.x + 65} ${from.y - 80},${from.x + 15} ${from.y - 18}`
-              : `M ${from.x + (to.x > from.x ? 27 : -27)} ${from.y} Q ${(from.x + to.x) / 2} ${(from.y + to.y) / 2 - 18} ${to.x + (to.x > from.x ? -30 : 30)} ${to.y}`,
+          d: shape.path,
           'marker-end': `url(#${markerId})`,
         });
         const connection = svg('g');
@@ -237,15 +246,15 @@ function init(root: HTMLElement) {
         connection.append(path);
         edgeItems.set(edge.id, connection);
         const label = svg('text', {
-          x: String((from.x + to.x) / 2),
-          y: String((from.y + to.y) / 2 - 22),
+          x: String(shape.labelX),
+          y: String(shape.labelY),
           'text-anchor': 'middle',
         });
         label.textContent = edge.label;
         connection.append(label);
         el.append(connection);
       }
-      graph.nodes.forEach((node, index) => {
+      nodes.forEach((node, index) => {
         const group = svg('g', {
           transform: `translate(${node.x} ${node.y})`,
           role: 'button',
@@ -290,10 +299,13 @@ function init(root: HTMLElement) {
         el.append(xt);
       }
       if (chart.diagonal) {
+        const start = Math.max(xMin, yMin),
+          end = Math.min(chart.xMax, chart.yMax);
         const line = svg('path', {
-          d: `M ${sx(0)} ${sy(0)} L ${sx(Math.min(chart.xMax, chart.yMax))} ${sy(Math.min(chart.xMax, chart.yMax))}`,
+          d: start <= end ? `M ${sx(start)} ${sy(start)} L ${sx(end)} ${sy(end)}` : '',
         });
         line.classList.add('algo-axis');
+        line.dataset.lessonDiagonal = 'true';
         el.append(line);
       }
       if (chart.threshold !== undefined) {
@@ -385,6 +397,7 @@ function init(root: HTMLElement) {
     }
     for (const [id, { element, data }] of items) {
       const revealed = data.revealAt <= playback.index;
+      element.dataset.tone = revealed && 'tone' in data ? (data.tone ?? 'neutral') : 'neutral';
       if (element instanceof HTMLButtonElement) {
         const cell = data as LessonCell;
         element.textContent = revealed ? cell.value : '·';
@@ -418,6 +431,18 @@ function init(root: HTMLElement) {
           (el.style.visibility =
             Number(el.dataset.lessonRevealFrame) > playback.index ? 'hidden' : 'visible')
       );
+    // Sparse tables may lack (0,0); journals may hide the previous tab stop on
+    // rewind. Every visible grid gets one real entry, or a focusable empty region.
+    for (const grid of views.querySelectorAll<HTMLElement>('[data-grid-keys]')) {
+      const all = [...grid.querySelectorAll<HTMLElement | SVGElement>('[data-inspect]')];
+      const visible = all.filter(
+        (el) => el.style.visibility !== 'hidden' && !el.closest('tr[hidden]')
+      );
+      const entry = visible.find((el) => el.getAttribute('tabindex') === '0') ?? visible[0];
+      all.forEach((el) => el.setAttribute('tabindex', el === entry ? '0' : '-1'));
+      if (grid.dataset.gridKeys === 'table')
+        grid.closest<HTMLElement>('.algo-scroll')!.tabIndex = entry ? -1 : 0;
+    }
     for (const region of views.querySelectorAll<HTMLElement>('.algo-scroll')) {
       const active = region.querySelector<HTMLElement>('.is-active');
       if (!active) continue;
@@ -507,12 +532,26 @@ function init(root: HTMLElement) {
       // visible point rather than whichever SVG hit disk was painted last.
       if (target.classList.contains('algo-point')) {
         const pointer = event as MouseEvent;
-        let distance = Infinity;
-        for (const point of target.closest('svg')!.querySelectorAll<SVGGraphicsElement>('.algo-point')) {
+        const clickedBox = target.getBoundingClientRect();
+        let distance = Math.hypot(
+          pointer.clientX - (clickedBox.left + clickedBox.width / 2),
+          pointer.clientY - (clickedBox.top + clickedBox.height / 2)
+        );
+        for (const point of target
+          .closest('svg')!
+          .querySelectorAll<SVGGraphicsElement>('.algo-point')) {
           if (point.style.visibility === 'hidden') continue;
           const box = point.getBoundingClientRect();
-          const d = Math.hypot(pointer.clientX - (box.left + box.width / 2), pointer.clientY - (box.top + box.height / 2));
-          if (d < distance) { distance = d; id = point.dataset.inspect!; }
+          const d = Math.hypot(
+            pointer.clientX - (box.left + box.width / 2),
+            pointer.clientY - (box.top + box.height / 2)
+          );
+          // Keep the actually clicked event on exact-coordinate ties. WFA can
+          // legitimately revisit the same endpoint at distinct trace stages.
+          if (d < distance - 1e-7) {
+            distance = d;
+            id = point.dataset.inspect!;
+          }
         }
       }
       inspect(id, true);

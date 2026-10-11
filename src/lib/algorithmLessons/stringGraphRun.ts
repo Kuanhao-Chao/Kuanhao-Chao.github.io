@@ -97,7 +97,7 @@ export function stringGraphRun(v: LessonValues): LessonRun {
         label: r.id,
         ...pos.get(r.id)!,
         revealAt: nodeAt.get(r.id)!,
-        detail: `${r.sequence}; length ${r.length}. ${r.isContained ? `Contained in ${r.containedIn}.` : 'Retained.'}`,
+        detail: `${r.sequence}; length ${r.length}. Containment is evaluated in the later containment events; read records remain inspectable.`,
       })),
       edges: result.rawEdges.map((e) => ({
         id: e.id,

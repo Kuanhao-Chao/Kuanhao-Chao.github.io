@@ -100,14 +100,14 @@ export function debruijnRun(v: LessonValues): LessonRun {
       label: id,
       ...positions.get(id)!,
       revealAt: nodeAt(id),
-      detail: `${id}: ${edges.filter((e) => e.to === id).length} distinct incoming, ${edges.filter((e) => e.from === id).length} distinct outgoing edges before preview. Repeated coverage is not a topological branch.`,
+      detail: `${id}: a distinct (k−1)-mer vertex. Its incoming and outgoing edges appear as construction advances. Repeated coverage is not a topological branch.`,
     })),
     edges: edges.map((e) => ({
       id: e.id,
       from: e.from,
       to: e.to,
       label: e.kmer,
-      detail: `${e.kmer}, observed support ${e.coverage}; ${preview.removedEdges.includes(e.id) ? preview.reason : 'retained'}`,
+      detail: `${e.kmer}, observed support ${e.coverage}. Cleaning decisions are explained in the later preview events; input observations do not change.`,
       revealAt: at.get(e.id)!,
     })),
   };
@@ -126,7 +126,7 @@ export function debruijnRun(v: LessonValues): LessonRun {
             row,
             column: c,
             value: String(value),
-            detail: `${e.kmer}: ${e.from}→${e.to}. ${preview.removedEdges.includes(e.id) ? preview.reason : 'Retained.'}`,
+            detail: `${e.kmer}: ${e.from}→${e.to}; ${e.coverage} observed occurrence(s), ideal copies ${e.multiplicity ?? 'unknown'}. No cleaning decision is shown before its preview event.`,
             revealAt: at.get(e.id)!,
           }))
         ),
