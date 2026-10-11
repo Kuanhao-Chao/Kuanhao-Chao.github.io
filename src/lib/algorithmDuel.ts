@@ -92,140 +92,46 @@ export interface DuelResult {
 }
 
 export function runAlgorithmDuel(rawSeq1: string, rawSeq2: string): DuelResult {
-  const seq1 = (rawSeq1 || 'ACGTAGCTA').trim().toUpperCase().replace(/[^ACGTU]/g, '');
-  const seq2 = (rawSeq2 || 'ACGTCGCTA').trim().toUpperCase().replace(/[^ACGTU]/g, '');
-
-  const s1 = seq1 || 'A';
-  const s2 = seq2 || 'A';
-
-  const m = s1.length;
-  const n = s2.length;
-  const totalNwCells = (m + 1) * (n + 1);
-
-  const nwResult = computePairwiseAlignment(s1, s2, 'global', 'linear', {
-    match: 2,
-    mismatch: -1,
-    gapOpen: -2,
-    gapExtend: -2,
+  const seq1 = rawSeq1.trim().toUpperCase();
+  const seq2 = rawSeq2.trim().toUpperCase();
+  if (!/^[A-Z]*$/.test(seq1 + seq2)) throw new Error('Sequences must contain letters only.');
+  const nwResult = computePairwiseAlignment(seq1, seq2, 'global', 'affine', {
+    match: 0, mismatch: -2, gapOpen: -4, gapExtend: -1,
   });
-
-  const wfaResult = runWfaAlignment(s1, s2, {
-    mismatch: 2,
-    gapOpen: 3,
-    gapExtend: 1,
-  });
-
-  const totalWfaCells = Math.max(1, wfaResult.cellsEvaluated);
-  const speedupRatio = Number((totalNwCells / totalWfaCells).toFixed(1));
-  const divergenceDistance = wfaResult.mismatches + wfaResult.gaps;
-
-  // Build step-by-step synchronized execution simulation
+  const wfaResult = runWfaAlignment(seq1, seq2, { mismatch: 2, gapOpen: 3, gapExtend: 1 });
+  if (-nwResult.score !== wfaResult.finalScore) throw new Error('Alignment objectives disagree.');
+  const dpTrace = nwResult.trace.filter(s => s.phase === 'initialize' || s.phase === 'fill');
+  const wfTrace = wfaResult.trace.filter(s => s.phase !== 'traceback' && s.phase !== 'done');
+  const totalNwCells = dpTrace.length;
+  // Kept for legacy callers: these are distinct visited coordinates, NOT timing units.
+  const totalWfaCells = wfaResult.cellsEvaluated;
   const steps: DuelStep[] = [];
-  const maxSteps = Math.max(totalNwCells, wfaResult.steps.length * 4, 1);
-
-  let nwCellCount = 0;
-  let currentNwI = 0;
-  let currentNwJ = 0;
-
-  let currentWfaStepIdx = 0;
-  let currentWfaDiagIdx = 0;
-
-  for (let s = 0; s < maxSteps; s++) {
-    // Progress NW cell by cell
-    if (nwCellCount < totalNwCells) {
-      nwCellCount++;
-      currentNwJ++;
-      if (currentNwJ > n) {
-        currentNwJ = 0;
-        currentNwI++;
-      }
-    }
-    const nwDone = nwCellCount >= totalNwCells;
-    const nwLine = nwDone ? 6 : (currentNwI === 0 || currentNwJ === 0) ? 1 : 5;
-    const nwFormula = nwDone
-      ? 'Traceback optimal alignment path from dp[m][n] to dp[0][0]'
-      : (currentNwI === 0 || currentNwJ === 0)
-        ? `dp[${currentNwI}][${currentNwJ}] = Base gap initialization`
-        : `dp[${currentNwI}][${currentNwJ}] = max(diag, up, left)`;
-
-    // Progress WFA frontier by frontier
-    let wfaScore = 0;
-    let wfaDiag = 0;
-    let wfaOffset = 0;
-    let wfaLcp = 0;
-    let wfaDone = false;
-
-    if (wfaResult.steps.length > 0) {
-      const stepRec = wfaResult.steps[Math.min(currentWfaStepIdx, wfaResult.steps.length - 1)];
-      wfaScore = stepRec.score;
-      if (stepRec.frontiers.length > 0) {
-        const f = stepRec.frontiers[Math.min(currentWfaDiagIdx, stepRec.frontiers.length - 1)];
-        wfaDiag = f.k;
-        wfaOffset = f.offset;
-        wfaLcp = f.lcpExtended;
-      }
-
-      currentWfaDiagIdx++;
-      if (currentWfaDiagIdx >= stepRec.frontiers.length) {
-        currentWfaDiagIdx = 0;
-        currentWfaStepIdx++;
-      }
-      wfaDone = currentWfaStepIdx >= wfaResult.steps.length;
-    } else {
-      wfaDone = true;
-    }
-
-    const wfaLine = wfaDone ? 6 : wfaScore === 0 ? 1 : wfaLcp > 0 ? 5 : 4;
-    const wfaFormula = wfaDone
-      ? `Alignment reached target (m=${m}, n=${n}). Traceback along diagonal wavefronts.`
-      : wfaScore === 0
-        ? `W[0][0] = 0 + LCP("${s1}", "${s2}") = ${wfaOffset}`
-        : `W[s=${wfaScore}][k=${wfaDiag}] = offset ${wfaOffset} (+${wfaLcp} LCP match)`;
-
+  for (let index = 0; index < Math.max(dpTrace.length, wfTrace.length); index++) {
+    const dp = dpTrace[Math.min(index, dpTrace.length - 1)];
+    const wf = wfTrace[Math.min(index, wfTrace.length - 1)];
     steps.push({
-      stepIndex: s + 1,
+      stepIndex: index + 1,
       nw: {
-        i: Math.min(currentNwI, m),
-        j: Math.min(currentNwJ, n),
-        score: nwResult.matrix[Math.min(currentNwI, m)]?.[Math.min(currentNwJ, n)]?.score ?? 0,
-        cellsEvaluated: nwCellCount,
-        totalCells: totalNwCells,
-        pseudocodeLine: nwLine,
-        activeFormula: nwFormula,
-        isDone: nwDone,
+        i: dp.i, j: dp.j, score: dp.score,
+        cellsEvaluated: Math.min(index + 1, dpTrace.length), totalCells: totalNwCells,
+        pseudocodeLine: dp.phase === 'initialize' ? 0 : 3, activeFormula: dp.explanation,
+        isDone: index >= dpTrace.length - 1,
       },
       wfa: {
-        score: wfaScore,
-        diagonal: wfaDiag,
-        offset: wfaOffset,
-        lcpExtended: wfaLcp,
-        cellsEvaluated: Math.min(totalWfaCells, (currentWfaStepIdx + 1) * 3),
-        pseudocodeLine: wfaLine,
-        activeFormula: wfaFormula,
-        isDone: wfaDone,
+        score: wf.score, diagonal: wf.k, offset: wf.i,
+        lcpExtended: wf.phase === 'extend' ? 1 : 0,
+        cellsEvaluated: wf.stateUpdates,
+        pseudocodeLine: wf.phase === 'initialize' ? 0 : wf.phase === 'extend' ? 4 : 2,
+        activeFormula: wf.explanation, isDone: index >= wfTrace.length - 1,
       },
     });
-
-    if (nwDone && wfaDone) break;
   }
-
-  const winner: 'wfa' | 'nw' | 'tie' = totalWfaCells < totalNwCells ? 'wfa' : totalWfaCells > totalNwCells ? 'nw' : 'tie';
-  const winnerExplanation =
-    winner === 'wfa'
-      ? `Wavefront Alignment (WFA) wins with a ${speedupRatio}x work reduction! Because sequences have low divergence (d=${divergenceDistance}), WFA only computed ${totalWfaCells} diagonal cells instead of all ${totalNwCells} full 2D matrix cells.`
-      : `Both algorithms computed comparable operations for this sequence configuration.`;
-
+  const winner = totalWfaCells < totalNwCells ? 'wfa' : totalWfaCells > totalNwCells ? 'nw' : 'tie';
   return {
-    seq1: s1,
-    seq2: s2,
-    nwResult,
-    wfaResult,
-    totalNwCells,
-    totalWfaCells,
-    speedupRatio,
-    divergenceDistance,
-    winner,
-    winnerExplanation,
+    seq1, seq2, nwResult, wfaResult, totalNwCells, totalWfaCells,
+    speedupRatio: Number((totalNwCells / Math.max(1, totalWfaCells)).toFixed(1)),
+    divergenceDistance: wfaResult.mismatches + wfaResult.gaps, winner,
+    winnerExplanation: 'Wavefront Alignment and affine DP solve the same objective. Stored cells, state updates, and character comparisons are different units; their counts are not a wall-clock speedup.',
     steps,
   };
 }

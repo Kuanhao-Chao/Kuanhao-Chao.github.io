@@ -42,7 +42,7 @@
 .algo-metrics dd { margin: 0; font-family: var(--font-mono); }
 .algo-legend { color: var(--color-muted); font-size: var(--fs-small); }
 .algo-views { display: grid; gap: 1.25rem; margin-block: 1rem; min-width: 0; }
-.algo-scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; border: 1px solid var(--color-rule); }
+.algo-scroll { max-width: 100%; max-height: 30rem; overflow: auto; overscroll-behavior: contain; border: 1px solid var(--color-rule); }
 .algo-table { width: max-content; min-width: 100%; border-collapse: collapse; font: .8rem var(--font-mono); }
 .algo-table caption { text-align: left; padding: .8rem; font: 600 var(--fs-small) var(--font-body); }
 .algo-table th { padding: .55rem; text-align: left; background: var(--color-surface); font-weight: 600; }

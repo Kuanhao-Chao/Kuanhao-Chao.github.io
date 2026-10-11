@@ -30,6 +30,7 @@ export interface LessonCell {
 }
 export interface LessonTable {
   id: string; label: string; rows: string[]; columns: string[]; cells: LessonCell[];
+  hideFutureRows?: boolean;
 }
 export interface LessonNode {
   id: string; label: string; x: number; y: number; detail: string; revealAt: number;
