@@ -151,16 +151,59 @@ async function lessonSpecific(page, route) {
     const field = page.locator('[name=lead]');
     const marker = page.locator('[data-inspect="manhattan:0"]');
     const original = await field.inputValue();
+    // Linux WebKit can retain hidden computed visibility for an off-screen
+    // SVG point after it is revealed. Enter the visible chart before focusing
+    // it, as a keyboard user would, rather than sending keys to Show result.
+    await marker.scrollIntoViewIfNeeded();
     await marker.focus();
+    assert(
+      await marker.evaluate((point) => document.activeElement === point),
+      'GWAS marker did not receive keyboard focus'
+    );
     await page.keyboard.press('ArrowRight');
     assert.equal(await field.inputValue(), original, 'keyboard inspection changed lead');
-    await marker.press('Enter');
+    assert.equal(
+      await page.evaluate(() => document.activeElement?.dataset.inspect),
+      'manhattan:1',
+      'ArrowRight did not focus the next GWAS marker'
+    );
+    await page.keyboard.press('ArrowLeft');
+    assert.equal(await field.inputValue(), original, 'keyboard inspection changed lead');
+    assert(
+      await marker.evaluate((point) => document.activeElement === point),
+      'ArrowLeft did not return focus to the first GWAS marker'
+    );
+    await page.keyboard.press('Enter');
     assert.equal(await field.inputValue(), '1', 'keyboard activation did not select lead');
+    assert(
+      await marker.evaluate((point) => document.activeElement === point),
+      'GWAS redraw lost keyboard focus after Enter'
+    );
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await field.inputValue(), '1', 'keyboard inspection changed selected lead');
+    assert.equal(
+      await page.evaluate(() => document.activeElement?.dataset.inspect),
+      'manhattan:1',
+      'ArrowRight did not focus the next marker after GWAS redraw'
+    );
+    await page.keyboard.press('Space');
+    assert.equal(await field.inputValue(), '2', 'Space activation did not select focused lead');
+    assert.equal(
+      await page.evaluate(() => document.activeElement?.dataset.inspect),
+      'manhattan:1',
+      'GWAS redraw lost keyboard focus after Space'
+    );
     assert.equal(await page.locator('[data-lesson-play]').textContent(), 'Play');
     await page.locator('[data-inspect="manhattan:5"]').click();
     assert.equal(await field.inputValue(), '6', 'physical click did not select nearest marker');
     const ld = page.locator('[data-inspect="ld:5"]');
+    await ld.scrollIntoViewIfNeeded();
     await ld.focus();
+    assert(
+      await ld.evaluate((point) => document.activeElement === point),
+      'LD marker did not receive keyboard focus'
+    );
+    assert.equal(await field.inputValue(), '6', 'LD inspection changed selected lead');
     assert.match(await page.locator('[data-lesson-inspector]').textContent(), /r²=1\.000000/);
     assert(
       (await page.locator('svg [data-lesson-reveal-frame]:visible').count()) > 0,
