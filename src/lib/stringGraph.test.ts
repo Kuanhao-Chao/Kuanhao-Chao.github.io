@@ -22,6 +22,36 @@ describe('String Graphs & Overlap-Layout-Consensus (OLC)', () => {
     expect(res.containedReads).toContain('R2');
   });
 
+  it('retains a deterministic representative of identical reads', () => {
+    const res = buildOverlapGraph(['ACGTAC', 'ACGTAC'], 3);
+    expect(res.containedReads).toEqual(['R2']);
+    expect(res.unitigs.map(u => u.sequence)).toEqual(['ACGTAC']);
+  });
+
+  it('does not delete a shortcut when its spelling differs from the indirect path', () => {
+    const res = buildOverlapGraph(['CCCTTATTA', 'TTATTATTA', 'TTATTAGGG'], 3);
+    expect(res.reducedEdges.some(e => e.from === 'R1' && e.to === 'R3')).toBe(true);
+  });
+
+  it('removes only a label-and-placement-equivalent shortcut', () => {
+    const res = buildOverlapGraph(['AAACCCGGG', 'CCCGGGTTT', 'GGGTTTAAA'], 3);
+    expect(res.transitiveEdges.some(e => e.from === 'R1' && e.to === 'R3')).toBe(true);
+    for (const u of res.unitigs) for (const tile of u.tiling) {
+      expect(u.sequence.slice(tile.start, tile.end)).toBe(tile.sequence);
+    }
+  });
+
+  it('keeps disconnected cycles and isolated reads alongside linear paths', () => {
+    const res = buildOverlapGraph(['ATGAT', 'GATGA', 'TGATG', 'CCCCAA', 'AACCCC', 'TTTTTT'], 3);
+    const represented = new Set(res.unitigs.flatMap(u => u.readPath));
+    for (const read of res.reads.filter(r => !r.isContained)) expect(represented.has(read.id)).toBe(true);
+  });
+
+  it('rejects invalid input rather than silently stripping or clamping it', () => {
+    expect(() => buildOverlapGraph(['AC-GT'], 3)).toThrow();
+    expect(() => buildOverlapGraph(['ACGT'], 0)).toThrow();
+  });
+
   it('performs Myers transitive reduction removing shortcut edges', () => {
     // 3 overlapping reads in a linear path:
     // Read 1: GATTACA

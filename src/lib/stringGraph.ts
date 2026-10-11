@@ -1,388 +1,117 @@
 /**
- * String Graphs & Overlap-Layout-Consensus (OLC) Engine
- * - Prefix-Suffix Overlap Detection
- * - Contained Read Filtering
- * - Myers' Transitive Reduction (O(V + E) algorithm)
- * - Read Tiling Layout and Consensus Unitig Compaction
+ * Exact, forward-oriented overlap graph teaching engine.
+ * This uses exhaustive overlaps and local length-and-label-equivalent triangle
+ * reduction, not Myers' optimized full string-graph implementation.
  */
-
 export interface ReadRecord {
-  id: string;
-  name: string;
-  sequence: string;
-  length: number;
-  isContained?: boolean;
-  containedIn?: string;
+  id: string; name: string; sequence: string; length: number;
+  isContained?: boolean; containedIn?: string;
 }
-
 export interface OverlapEdge {
-  id: string;
-  from: string; // Source read ID
-  to: string; // Target read ID
-  overlapLen: number;
-  overhang: string; // Extension string added by target read
-  isTransitive?: boolean;
-  isRemoved?: boolean;
+  id: string; from: string; to: string; overlapLen: number; overhang: string;
+  isTransitive?: boolean; isRemoved?: boolean;
 }
-
 export interface UnitigTiling {
-  readId: string;
-  readName: string;
-  start: number;
-  end: number;
-  sequence: string;
+  readId: string; readName: string; start: number; end: number; sequence: string;
 }
-
 export interface Unitig {
-  id: string;
-  sequence: string;
-  length: number;
-  readPath: string[];
-  tiling: UnitigTiling[];
+  id: string; sequence: string; length: number; readPath: string[]; tiling: UnitigTiling[];
 }
-
+export interface ReductionCheck {
+  direct: string; via: [string, string]; directExtension: string;
+  indirectExtension: string; directShift: number; indirectShift: number;
+  equivalent: boolean;
+}
 export interface StringGraphResult {
-  minOverlap: number;
-  reads: ReadRecord[];
-  rawEdges: OverlapEdge[];
-  reducedEdges: OverlapEdge[];
-  transitiveEdges: OverlapEdge[];
-  containedReads: string[];
-  unitigs: Unitig[];
-  stats: {
-    numReads: number;
-    rawEdgeCount: number;
-    reducedEdgeCount: number;
-    transitiveRemoved: number;
-    n50: number;
-  };
+  minOverlap: number; reads: ReadRecord[]; rawEdges: OverlapEdge[];
+  reducedEdges: OverlapEdge[]; transitiveEdges: OverlapEdge[];
+  reductionChecks: ReductionCheck[]; containedReads: string[]; unitigs: Unitig[];
+  stats: { numReads: number; rawEdgeCount: number; reducedEdgeCount: number; transitiveRemoved: number; n50: number };
 }
-
-/**
- * Find exact suffix-prefix overlap where suffix of seqA matches prefix of seqB.
- */
-export function findPrefixSuffixOverlap(
-  seqA: string,
-  seqB: string,
-  minOverlap: number = 4,
-): { overlapLen: number; overhang: string } | null {
-  const maxPossible = Math.min(seqA.length - 1, seqB.length - 1);
-
-  for (let len = maxPossible; len >= minOverlap; len--) {
-    const suffixA = seqA.substring(seqA.length - len);
-    const prefixB = seqB.substring(0, len);
-
-    if (suffixA === prefixB) {
-      const overhang = seqB.substring(len);
-      return { overlapLen: len, overhang };
-    }
+export function findPrefixSuffixOverlap(seqA: string, seqB: string, minOverlap = 4): { overlapLen: number; overhang: string } | null {
+  for (let len = Math.min(seqA.length - 1, seqB.length - 1); len >= minOverlap; len--) {
+    if (seqA.slice(-len) === seqB.slice(0, len)) return { overlapLen: len, overhang: seqB.slice(len) };
   }
-
   return null;
 }
-
-/**
- * Build Overlap Graph and compute Myers' Transitive Reduction.
- */
-export function buildOverlapGraph(
-  rawReads: string[] | string,
-  minOverlap: number = 4,
-): StringGraphResult {
-  const lines = (Array.isArray(rawReads) ? rawReads : rawReads.split(/[\n,;]+/))
-    .map((s) => s.trim().toUpperCase().replace(/[^A-Z]/g, ''))
-    .filter(Boolean);
-
-  const safeOverlap = Math.max(3, minOverlap);
-
-  // 1. Initialize Read Records
-  const reads: ReadRecord[] = lines.map((seq, idx) => ({
-    id: `R${idx + 1}`,
-    name: `Read_${idx + 1}`,
-    sequence: seq,
-    length: seq.length,
-  }));
-
-  // 2. Identify Contained Reads (Reads completely contained in longer reads)
-  const containedReads: string[] = [];
+export function buildOverlapGraph(rawReads: string[] | string, minOverlap = 4): StringGraphResult {
+  if (!Number.isInteger(minOverlap) || minOverlap < 1) throw new Error('Minimum overlap must be a positive integer.');
+  const lines = (Array.isArray(rawReads) ? rawReads : rawReads.split(/[\n,;]+/)).map(s => s.trim().toUpperCase()).filter(Boolean);
+  if (lines.some(s => !/^[ACGTN]+$/.test(s))) throw new Error('Reads must contain ACGTN only. N is literal; no characters were stripped.');
+  if (lines.length > 24 || lines.some(s => s.length > 100)) throw new Error('Teaching limit: 24 reads of at most 100 bases.');
+  const reads: ReadRecord[] = lines.map((sequence, idx) => ({ id: `R${idx + 1}`, name: `Read_${idx + 1}`, sequence, length: sequence.length }));
   for (let i = 0; i < reads.length; i++) {
-    for (let j = 0; j < reads.length; j++) {
-      if (i !== j && reads[i].length <= reads[j].length) {
-        if (reads[j].sequence.includes(reads[i].sequence)) {
-          reads[i].isContained = true;
-          reads[i].containedIn = reads[j].id;
-          if (!containedReads.includes(reads[i].id)) {
-            containedReads.push(reads[i].id);
-          }
-          break;
-        }
-      }
-    }
+    // Strictly longer containers win; among identical copies keep the first.
+    const containers = reads.filter((r, j) => (r.length > reads[i].length || r.length === reads[i].length && j < i) && r.sequence.includes(reads[i].sequence));
+    containers.sort((a, b) => b.length - a.length || reads.indexOf(a) - reads.indexOf(b));
+    if (containers.length) { reads[i].isContained = true; reads[i].containedIn = containers[0].id; }
   }
-
-  const activeReads = reads.filter((r) => !r.isContained);
-
-  // 3. Compute All-vs-All Prefix-Suffix Overlaps
+  const active = reads.filter(r => !r.isContained);
   const rawEdges: OverlapEdge[] = [];
-  let edgeIdCounter = 0;
-
-  for (let i = 0; i < activeReads.length; i++) {
-    for (let j = 0; j < activeReads.length; j++) {
-      if (i !== j) {
-        const rA = activeReads[i];
-        const rB = activeReads[j];
-        const overlap = findPrefixSuffixOverlap(rA.sequence, rB.sequence, safeOverlap);
-
-        if (overlap && overlap.overhang.length > 0) {
-          edgeIdCounter++;
-          rawEdges.push({
-            id: `e_${edgeIdCounter}_${rA.id}_${rB.id}`,
-            from: rA.id,
-            to: rB.id,
-            overlapLen: overlap.overlapLen,
-            overhang: overlap.overhang,
-            isTransitive: false,
-            isRemoved: false,
-          });
-        }
-      }
-    }
+  for (const a of active) for (const b of active) if (a.id !== b.id) {
+    const overlap = findPrefixSuffixOverlap(a.sequence, b.sequence, minOverlap);
+    if (overlap) rawEdges.push({ id: `e_${a.id}_${b.id}`, from: a.id, to: b.id, ...overlap, isTransitive: false, isRemoved: false });
   }
-
-  // 4. Myers' O(V + E) Transitive Reduction
-  const { reducedEdges, transitiveEdges } = reduceTransitiveEdges(activeReads, rawEdges);
-
-  // 5. Generate Unitig Layout and Consensus
-  const unitigs = generateLayoutAndConsensus(activeReads, reducedEdges);
-
-  // 6. Compute Stats & N50
-  const lengths = unitigs.map((u) => u.length);
-  const totalLength = lengths.reduce((acc, l) => acc + l, 0);
-  let cumSum = 0;
-  let n50 = 0;
-  lengths.sort((a, b) => b - a);
-  for (const l of lengths) {
-    cumSum += l;
-    if (cumSum >= totalLength / 2) {
-      n50 = l;
-      break;
-    }
+  const { reducedEdges, transitiveEdges, checks } = reduceTransitiveEdges(active, rawEdges);
+  const unitigs = generateLayoutAndConsensus(active, reducedEdges);
+  const total = unitigs.reduce((n, u) => n + u.length, 0);
+  let sum = 0; let n50 = 0;
+  for (const u of unitigs) { sum += u.length; if (sum >= total / 2) { n50 = u.length; break; } }
+  return { minOverlap, reads, rawEdges, reducedEdges, transitiveEdges, reductionChecks: checks,
+    containedReads: reads.filter(r => r.isContained).map(r => r.id), unitigs,
+    stats: { numReads: active.length, rawEdgeCount: rawEdges.length, reducedEdgeCount: reducedEdges.length, transitiveRemoved: transitiveEdges.length, n50 } };
+}
+export function reduceTransitiveEdges(reads: ReadRecord[], edges: OverlapEdge[]): { reducedEdges: OverlapEdge[]; transitiveEdges: OverlapEdge[]; checks: ReductionCheck[] } {
+  const readMap = new Map(reads.map(r => [r.id, r]));
+  const adj = new Map(reads.map(r => [r.id, edges.filter(e => e.from === r.id)]));
+  const removed = new Set<string>(); const checks: ReductionCheck[] = [];
+  // Positive shifts strictly shorten witness edges, preventing circular removal
+  // dependencies. Removing triangles does not claim full transitive reduction.
+  for (const ab of edges) for (const bc of adj.get(ab.to) ?? []) {
+    const ac = adj.get(ab.from)?.find(e => e.to === bc.to);
+    if (!ac || ab.from === bc.to) continue;
+    const directShift = readMap.get(ac.from)!.length - ac.overlapLen;
+    const indirectShift = readMap.get(ab.from)!.length - ab.overlapLen + readMap.get(bc.from)!.length - bc.overlapLen;
+    const indirectExtension = ab.overhang + bc.overhang;
+    const equivalent = directShift === indirectShift && ac.overhang === indirectExtension;
+    checks.push({ direct: ac.id, via: [ab.id, bc.id], directExtension: ac.overhang, indirectExtension, directShift, indirectShift, equivalent });
+    if (equivalent) removed.add(ac.id);
   }
-
   return {
-    minOverlap: safeOverlap,
-    reads,
-    rawEdges,
-    reducedEdges,
-    transitiveEdges,
-    containedReads,
-    unitigs,
-    stats: {
-      numReads: activeReads.length,
-      rawEdgeCount: rawEdges.length,
-      reducedEdgeCount: reducedEdges.length,
-      transitiveRemoved: transitiveEdges.length,
-      n50: n50 || totalLength,
-    },
+    reducedEdges: edges.filter(e => !removed.has(e.id)).map(e => ({ ...e, isTransitive: false, isRemoved: false })),
+    transitiveEdges: edges.filter(e => removed.has(e.id)).map(e => ({ ...e, isTransitive: true, isRemoved: true })), checks,
   };
 }
-
-/**
- * Myers' 2005 Transitive Reduction Algorithm for Overlap Graphs.
- * An edge A -> C is transitive if there exists an edge A -> B and a path B -> C
- * such that length(A -> C) = length(A -> B) + length(B -> C).
- */
-export function reduceTransitiveEdges(
-  reads: ReadRecord[],
-  edges: OverlapEdge[],
-): { reducedEdges: OverlapEdge[]; transitiveEdges: OverlapEdge[] } {
-  // Map node -> outgoing edges
-  const adj = new Map<string, OverlapEdge[]>();
-  for (const r of reads) {
-    adj.set(r.id, []);
-  }
-  for (const e of edges) {
-    adj.get(e.from)?.push(e);
-  }
-
-  // Sort outgoing edges by overlap length descending (or overhang ascending)
-  for (const [, outEdges] of adj.entries()) {
-    outEdges.sort((a, b) => a.overhang.length - b.overhang.length);
-  }
-
-  const markedTransitive = new Set<string>();
-
-  for (const rA of reads) {
-    const outA = adj.get(rA.id) || [];
-    if (outA.length < 2) continue;
-
-    // For each neighbor B of A
-    for (const edgeAB of outA) {
-      const outB = adj.get(edgeAB.to) || [];
-
-      // For each neighbor C of B
-      for (const edgeBC of outB) {
-        // Look for direct edge A -> C
-        const directEdgeAC = outA.find((e) => e.to === edgeBC.to);
-        if (directEdgeAC) {
-          // Direct edge A -> C is transitively covered by A -> B -> C
-          markedTransitive.add(directEdgeAC.id);
-        }
-      }
+/** Historical API name retained; this spells exact paths, not noisy-read consensus. */
+export function generateLayoutAndConsensus(reads: ReadRecord[], edges: OverlapEdge[]): Unitig[] {
+  const readMap = new Map(reads.map(r => [r.id, r]));
+  const active = edges.filter(e => !e.isRemoved);
+  const incoming = new Map(reads.map(r => [r.id, active.filter(e => e.to === r.id)]));
+  const outgoing = new Map(reads.map(r => [r.id, active.filter(e => e.from === r.id)]));
+  const visited = new Set<string>(); const unitigs: Unitig[] = [];
+  const walk = (first: OverlapEdge) => {
+    const start = readMap.get(first.from)!;
+    let sequence = start.sequence;
+    const readPath = [start.id];
+    const tiling: UnitigTiling[] = [{ readId: start.id, readName: start.name, start: 0, end: start.length, sequence: start.sequence }];
+    let edge: OverlapEdge | undefined = first;
+    while (edge && !visited.has(edge.id)) {
+      visited.add(edge.id);
+      const read = readMap.get(edge.to)!; const offset = sequence.length - edge.overlapLen;
+      sequence += edge.overhang; readPath.push(read.id);
+      tiling.push({ readId: read.id, readName: read.name, start: offset, end: offset + read.length, sequence: read.sequence });
+      edge = incoming.get(read.id)!.length === 1 && outgoing.get(read.id)!.length === 1 ? outgoing.get(read.id)![0] : undefined;
     }
+    unitigs.push({ id: `unitig_${unitigs.length + 1}`, sequence, length: sequence.length, readPath, tiling });
+  };
+  for (const read of reads) if (incoming.get(read.id)!.length !== 1 || outgoing.get(read.id)!.length !== 1) {
+    for (const edge of outgoing.get(read.id)!) if (!visited.has(edge.id)) walk(edge);
   }
-
-  const reducedEdges: OverlapEdge[] = [];
-  const transitiveEdges: OverlapEdge[] = [];
-
-  for (const e of edges) {
-    if (markedTransitive.has(e.id)) {
-      const transCopy: OverlapEdge = { ...e, isTransitive: true, isRemoved: true };
-      transitiveEdges.push(transCopy);
-    } else {
-      reducedEdges.push({ ...e, isTransitive: false, isRemoved: false });
-    }
+  // Every remaining edge belongs to an otherwise unvisited cyclic component.
+  for (const edge of active) if (!visited.has(edge.id)) walk(edge);
+  for (const read of reads) if (!incoming.get(read.id)!.length && !outgoing.get(read.id)!.length) {
+    unitigs.push({ id: `unitig_${unitigs.length + 1}`, sequence: read.sequence, length: read.length, readPath: [read.id],
+      tiling: [{ readId: read.id, readName: read.name, start: 0, end: read.length, sequence: read.sequence }] });
   }
-
-  return { reducedEdges, transitiveEdges };
-}
-
-/**
- * Layout and Consensus generation from reduced string graph.
- */
-export function generateLayoutAndConsensus(
-  reads: ReadRecord[],
-  edges: OverlapEdge[],
-): Unitig[] {
-  const readMap = new Map<string, ReadRecord>();
-  reads.forEach((r) => readMap.set(r.id, r));
-
-  const inDeg = new Map<string, number>();
-  const outDeg = new Map<string, number>();
-  const adj = new Map<string, OverlapEdge[]>();
-
-  reads.forEach((r) => {
-    inDeg.set(r.id, 0);
-    outDeg.set(r.id, 0);
-    adj.set(r.id, []);
-  });
-
-  edges.forEach((e) => {
-    if (!e.isRemoved) {
-      inDeg.set(e.to, (inDeg.get(e.to) || 0) + 1);
-      outDeg.set(e.from, (outDeg.get(e.from) || 0) + 1);
-      adj.get(e.from)?.push(e);
-    }
-  });
-
-  // Find start nodes: inDeg === 0 or branching inDeg !== 1 / outDeg !== 1
-  const startNodes: string[] = [];
-  for (const r of reads) {
-    const inD = inDeg.get(r.id) || 0;
-    const outD = outDeg.get(r.id) || 0;
-    if (inD === 0 || inD !== 1 || outD !== 1) {
-      if (outD > 0) {
-        startNodes.push(r.id);
-      }
-    }
-  }
-
-  // Fallback for cycles
-  if (startNodes.length === 0 && reads.length > 0) {
-    startNodes.push(reads[0].id);
-  }
-
-  const unitigs: Unitig[] = [];
-  const visitedEdges = new Set<string>();
-  let unitigCounter = 0;
-
-  for (const startId of startNodes) {
-    const outList = adj.get(startId) || [];
-
-    for (const startEdge of outList) {
-      if (visitedEdges.has(startEdge.id)) continue;
-
-      unitigCounter++;
-      visitedEdges.add(startEdge.id);
-
-      const rStart = readMap.get(startId);
-      if (!rStart) continue;
-
-      const pathReads: string[] = [startId];
-      let seq = rStart.sequence;
-      const tiling: UnitigTiling[] = [
-        {
-          readId: rStart.id,
-          readName: rStart.name,
-          start: 0,
-          end: rStart.length,
-          sequence: rStart.sequence,
-        },
-      ];
-
-      let currOffset = 0;
-      let currEdge = startEdge;
-
-      while (currEdge) {
-        const nextRead = readMap.get(currEdge.to);
-        if (!nextRead) break;
-
-        pathReads.push(nextRead.id);
-        currOffset += rStart.length - currEdge.overlapLen; // shift
-
-        tiling.push({
-          readId: nextRead.id,
-          readName: nextRead.name,
-          start: seq.length - currEdge.overlapLen,
-          end: seq.length + currEdge.overhang.length,
-          sequence: nextRead.sequence,
-        });
-
-        seq += currEdge.overhang;
-
-        const nextOut = adj.get(nextRead.id) || [];
-        const nextIn = inDeg.get(nextRead.id) || 0;
-        const nextOutDeg = outDeg.get(nextRead.id) || 0;
-
-        // Stop if branch
-        if (nextIn === 1 && nextOutDeg === 1 && nextOut.length === 1 && !visitedEdges.has(nextOut[0].id)) {
-          currEdge = nextOut[0];
-          visitedEdges.add(currEdge.id);
-        } else {
-          break;
-        }
-      }
-
-      unitigs.push({
-        id: `unitig_${unitigCounter}`,
-        sequence: seq,
-        length: seq.length,
-        readPath: pathReads,
-        tiling,
-      });
-    }
-  }
-
-  // Fallback for single reads
-  if (unitigs.length === 0 && reads.length > 0) {
-    reads.forEach((r, idx) => {
-      unitigs.push({
-        id: `unitig_${idx + 1}`,
-        sequence: r.sequence,
-        length: r.length,
-        readPath: [r.id],
-        tiling: [
-          {
-            readId: r.id,
-            readName: r.name,
-            start: 0,
-            end: r.length,
-            sequence: r.sequence,
-          },
-        ],
-      });
-    });
-  }
-
-  unitigs.sort((a, b) => b.length - a.length);
-  return unitigs;
+  return unitigs.sort((a, b) => b.length - a.length);
 }
