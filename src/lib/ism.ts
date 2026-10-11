@@ -1,108 +1,30 @@
-/**
- * In Silico Mutagenesis (ISM) & Splice Site Neural Engine
- * Computes splice donor and acceptor probabilities, full 4 x L mutation matrices,
- * delta scores (ΔScore = P_mut - P_ref), and position importance profiles.
- *
- * Modeled after OpenSpliceAI (Genome Biology 2025) and Splam (Oxford Bioinformatics 2024).
+/** Synthetic splice-site scorer and exhaustive single-base mutagenesis.
+ * No learned checkpoint, human-locus validation or clinical interpretation.
  */
-
-export type SpliceSiteType = 'donor' | 'acceptor' | 'auto';
-
-export interface MutationScore {
-  base: string;
-  score: number;
-  delta: number; // P_mut - P_ref (Negative = Loss of Splice Site, Positive = Gain/Cryptic)
-  effectClass: 'disruption' | 'neutral' | 'gain';
-}
-
+export type SpliceSiteType='donor'|'acceptor'|'auto';
+export interface MutationScore {base:string;score:number;delta:number;effectClass:'disruption'|'neutral'|'gain'}
 export interface IsmPositionRecord {
-  index: number;
-  positionLabel: string; // e.g. "-3", "-2", "-1", "+1", "+2", "+3" relative to junction
-  refBase: string;
-  refScore: number;
-  importance: number; // Mean decrease across 3 alternative substitutions: mean(P_ref - P_mut)
-  mutations: Record<string, MutationScore>; // A, C, G, T
+  index:number;positionLabel:string;refBase:string;refScore:number;
+  importance:number;mutations:Record<string,MutationScore>;
 }
-
 export interface IsmPreset {
-  id: string;
-  name: string;
-  gene: string;
-  type: 'donor' | 'acceptor';
-  junctionCoord: number; // 0-based index of the junction
-  sequence: string;
-  description: string;
-  clinicalNote: string;
+  id:string;name:string;gene:string;type:'donor'|'acceptor';junctionCoord:number;
+  sequence:string;description:string;clinicalNote:string;
 }
-
 export interface IsmResult {
-  sequence: string;
-  siteType: 'donor' | 'acceptor';
-  junctionIndex: number;
-  refDonorScore: number;
-  refAcceptorScore: number;
-  primaryRefScore: number;
-  positions: IsmPositionRecord[];
-  maxImportance: number;
-  mostSensitivePosition: { index: number; label: string; importance: number; refBase: string };
-  mostDisruptiveMutation: { index: number; label: string; refBase: string; mutBase: string; delta: number };
+  sequence:string;siteType:'donor'|'acceptor';junctionIndex:number;refDonorScore:number;
+  refAcceptorScore:number;primaryRefScore:number;positions:IsmPositionRecord[];
+  evaluations:number;maxImportance:number;
+  mostSensitivePosition:{index:number;label:string;importance:number;refBase:string};
+  mostDisruptiveMutation:{index:number;label:string;refBase:string;mutBase:string;delta:number};
 }
-
-export const ISM_PRESETS: IsmPreset[] = [
-  {
-    id: 'u2surp-acceptor',
-    name: 'U2SURP Exon 9 Acceptor (Canonical)',
-    gene: 'U2SURP',
-    type: 'acceptor',
-    junctionCoord: 15,
-    sequence: 'TTTTTTTTCTTTCAGGTGAAG',
-    description: 'Published in OpenSpliceAI (Fig 6A). Canonical 3\' acceptor junction with extensive polypyrimidine tract and invariant AG dinucleotide.',
-    clinicalNote: 'Mutations at the -2/-1 AG dinucleotide drop acceptor probability from 0.96 to <0.02.',
-  },
-  {
-    id: 'dst-acceptor',
-    name: 'DST Exon 2 Acceptor (Canonical)',
-    gene: 'DST',
-    type: 'acceptor',
-    junctionCoord: 15,
-    sequence: 'CTTTCTCTCCCTCAGGCCAAG',
-    description: 'Published in OpenSpliceAI (Fig 6A). Pyrimidine-rich intron-exon junction with strong spliceosome U2AF65/U2AF35 binding.',
-    clinicalNote: 'High sensitivity across both the polypyrimidine tract and the invariant AG acceptor core.',
-  },
-  {
-    id: 'brca1-donor',
-    name: 'BRCA1 Exon 11 Donor (c.4357+1G>A Pathogenic)',
-    gene: 'BRCA1',
-    type: 'donor',
-    junctionCoord: 3,
-    sequence: 'CAGGTAAGTAAGT',
-    description: 'Canonical 5\' splice donor junction (CAG|GTAAGT). The c.4357+1G>A mutation in BRCA1 causes complete exon 11 skipping.',
-    clinicalNote: 'ClinVar Pathogenic variant. In silico +1G>A substitution results in severe splice loss (ΔScore = -0.92).',
-  },
-  {
-    id: 'cftr-cryptic',
-    name: 'CFTR Intron 19 Deep-Intronic Pseudoexon (c.3718-2477C>T)',
-    gene: 'CFTR',
-    type: 'donor',
-    junctionCoord: 3,
-    sequence: 'AATGTAAGTAAGT',
-    description: 'Deep intronic mutation in cystic fibrosis creating a de novo 5\' splice donor (AAT|GTAAGT), activating a 84bp cryptic pseudoexon.',
-    clinicalNote: 'ClinVar Pathogenic gain-of-function splice mutation. In silico C>T activates a donor site (ΔScore = +0.88).',
-  },
-  {
-    id: 'smn2-silencer',
-    name: 'SMN2 Exon 7 Intronic Splicing Silencer (ISS-N1)',
-    gene: 'SMN2',
-    type: 'donor',
-    junctionCoord: 3,
-    sequence: 'AAGGTAAGTATTC',
-    description: 'SMN2 exon 7 5\' splice site flanked by the downstream ISS-N1 silencer motif targeted by the antisense drug Nusinersen (Spinraza).',
-    clinicalNote: 'Illustrates how intronic splicing regulatory elements modulate adjacent splice site strength.',
-  },
+export const ISM_PRESETS:IsmPreset[]=[
+  {id:'synthetic-donor',name:'Synthetic canonical donor',gene:'Synthetic',type:'donor',junctionCoord:3,sequence:'CAGGTAAGTAAGT',description:'Handwritten motif example CAG|GTAAGT, with neutral trailing context.',clinicalNote:'Not a clinical variant or a validated human locus.'},
+  {id:'synthetic-acceptor',name:'Synthetic canonical acceptor',gene:'Synthetic',type:'acceptor',junctionCoord:14,sequence:'TTTTTTTTTTTTAGG',description:'Handwritten pyrimidine-rich context ending AG|G.',clinicalNote:'No biological or clinical calibration.'},
+  {id:'synthetic-weak',name:'Synthetic weak donor',gene:'Synthetic',type:'donor',junctionCoord:3,sequence:'CAGATAAGT',description:'A noncanonical first intronic base permits a positive score change on A→G.',clinicalNote:'Score gain is not evidence of a pathogenic gain-of-function variant.'},
 ];
-
-// Position Weight Matrices calibrated on human GENCODE / SpliceAI neural predictions
-const DONOR_PWM: Record<string, number>[] = [
+// Every weight below is a declared teaching choice, NOT a fitted frequency.
+export const DONOR_PWM: Record<string, number>[] = [
   { A: 0.35, C: 0.35, G: 0.15, T: 0.15 }, // -3 (Exon)
   { A: 0.60, C: 0.15, G: 0.15, T: 0.10 }, // -2 (Exon)
   { A: 0.10, C: 0.05, G: 0.80, T: 0.05 }, // -1 (Exon G)
@@ -114,7 +36,7 @@ const DONOR_PWM: Record<string, number>[] = [
   { A: 0.15, C: 0.15, G: 0.20, T: 0.50 }, // +6 (Intron T)
 ];
 
-const ACCEPTOR_PWM: Record<string, number>[] = [
+export const ACCEPTOR_PWM: Record<string, number>[] = [
   { A: 0.10, C: 0.45, G: 0.05, T: 0.40 }, // -14 (Poly-Y)
   { A: 0.10, C: 0.45, G: 0.05, T: 0.40 }, // -13 (Poly-Y)
   { A: 0.10, C: 0.45, G: 0.05, T: 0.40 }, // -12 (Poly-Y)
@@ -132,203 +54,58 @@ const ACCEPTOR_PWM: Record<string, number>[] = [
   { A: 0.25, C: 0.15, G: 0.55, T: 0.05 }, // +1 (Exon G)
 ];
 
-function scoreWindow(seq: string, pwm: Record<string, number>[], siteType: 'donor' | 'acceptor'): number {
-  if (seq.length < pwm.length) return 0;
-  let logOdds = 0;
-  for (let i = 0; i < pwm.length; i++) {
-    const base = seq[i] || 'N';
-    const prob = pwm[i][base] ?? 0.25;
-    logOdds += Math.log2(Math.max(prob, 0.001) / 0.25);
-  }
-  let score = 1 / (1 + Math.exp(-0.85 * (logOdds - 2.0)));
 
-  // Strict invariant core dinucleotide gating (GT for donor, AG for acceptor)
-  if (siteType === 'donor') {
-    // Window pos 3 is +1 (G), pos 4 is +2 (T)
-    const d1 = seq[3];
-    const d2 = seq[4];
-    const isCanonical = (d1 === 'G' && d2 === 'T') || (d1 === 'G' && d2 === 'C');
-    if (!isCanonical) {
-      score *= 0.03; // Severe knockout
-    }
-  } else {
-    // Window pos 12 is -2 (A), pos 13 is -1 (G)
-    const a1 = seq[12];
-    const a2 = seq[13];
-    const isCanonical = a1 === 'A' && a2 === 'G';
-    if (!isCanonical) {
-      score *= 0.03; // Severe knockout
-    }
-  }
-
-  return Math.min(0.99, Math.max(0.01, score));
+function validate(raw:string,junction:number,type:'donor'|'acceptor'):string {
+  const seq=raw.trim().toUpperCase();
+  if(!/^[ACGT]+$/.test(seq))throw new Error('Enter nonempty DNA using ACGT only. No fallback sequence or silent stripping.');
+  if(seq.length>120)throw new Error('Teaching ISM limit: 120 bases.');
+  const left=type==='donor'?3:14,right=type==='donor'?6:1;
+  if(!Number.isInteger(junction)||junction<left||junction+right>seq.length)throw new Error(`This ${type} scorer needs ${left} bases before and ${right} bases after the junction boundary.`);
+  return seq;
 }
-
-export function predictSpliceScores(
-  rawSequence: string,
-  junctionIndex: number,
-  type: 'donor' | 'acceptor'
-): { donorScore: number; acceptorScore: number } {
-  const seq = rawSequence.toUpperCase().replace(/U/g, 'T');
-  let donorScore = 0.01;
-  let acceptorScore = 0.01;
-
-  if (type === 'donor') {
-    const start = junctionIndex - 3;
-    const end = junctionIndex + 6;
-    if (start >= 0 && end <= seq.length) {
-      const windowSeq = seq.slice(start, end);
-      donorScore = scoreWindow(windowSeq, DONOR_PWM, 'donor');
-    }
-  } else {
-    const start = junctionIndex - 14;
-    const end = junctionIndex + 1;
-    if (start >= 0 && end <= seq.length) {
-      const windowSeq = seq.slice(start, end);
-      acceptorScore = scoreWindow(windowSeq, ACCEPTOR_PWM, 'acceptor');
-    }
-  }
-
-  return {
-    donorScore: Number(donorScore.toFixed(3)),
-    acceptorScore: Number(acceptorScore.toFixed(3)),
-  };
+export function explainSyntheticSpliceScore(raw:string,junction:number,type:'donor'|'acceptor') {
+  const seq=validate(raw,junction,type),pwm=type==='donor'?DONOR_PWM:ACCEPTOR_PWM;
+  const windowStart=junction-(type==='donor'?3:14);
+  const contributions=pwm.map((weights,i)=>({index:windowStart+i,base:seq[windowStart+i],weight:weights[seq[windowStart+i]],logOdds:Math.log2(Math.max(weights[seq[windowStart+i]],.001)/.25)}));
+  const logOdds=contributions.reduce((sum,c)=>sum+c.logOdds,0);
+  const core=type==='donor'?seq.slice(junction,junction+2):seq.slice(junction-2,junction);
+  const gate=type==='donor'?(core==='GT'||core==='GC'?1:.03):core==='AG'?1:.03;
+  const score=Math.min(.99,Math.max(.01,gate/(1+Math.exp(-.85*(logOdds-2)))));
+  return{windowStart,contributions,logOdds,gate,score};
 }
-
-export function computeIsm(
-  rawSequence: string,
-  preferredType: SpliceSiteType = 'auto',
-  customJunctionIndex?: number
-): IsmResult {
-  const seq = (rawSequence || 'CAGTAAGTAAGTA').trim().toUpperCase().replace(/[^ACGTU]/g, '').replace(/U/g, 'T');
-  const s = seq || 'CAGTAAGTA';
-
-  // Determine site type and junction coordinate
-  let siteType: 'donor' | 'acceptor' = 'donor';
-  let junctionIndex = customJunctionIndex ?? Math.floor(s.length / 2);
-
-  if (preferredType === 'donor') {
-    siteType = 'donor';
-  } else if (preferredType === 'acceptor') {
-    siteType = 'acceptor';
-  } else {
-    // Auto-detect: search for canonical GT (donor) or AG (acceptor)
-    const gtIdx = s.indexOf('GT');
-    const agIdx = s.indexOf('AG');
-    if (agIdx !== -1 && agIdx > 4) {
-      siteType = 'acceptor';
-      junctionIndex = agIdx + 2;
-    } else if (gtIdx !== -1) {
-      siteType = 'donor';
-      junctionIndex = gtIdx;
-    }
+export function predictSpliceScores(raw:string,junction:number,type:'donor'|'acceptor'):{donorScore:number;acceptorScore:number} {
+  const {score}=explainSyntheticSpliceScore(raw,junction,type);
+  return{donorScore:type==='donor'?score:0,acceptorScore:type==='acceptor'?score:0};
+}
+export function computeIsm(raw:string,preferredType:SpliceSiteType='auto',customJunctionIndex?:number):IsmResult {
+  const seq=raw.trim().toUpperCase();
+  let siteType:'donor'|'acceptor'=preferredType==='acceptor'?'acceptor':'donor';
+  let junctionIndex=customJunctionIndex;
+  if(preferredType==='auto'&&junctionIndex===undefined){
+    const donor=[...seq].findIndex((_,i)=>i>=3&&i+6<=seq.length&&seq.slice(i,i+2)==='GT');
+    const acceptor=[...seq].findIndex((_,i)=>i>=12&&i+3<=seq.length&&seq.slice(i,i+2)==='AG');
+    if(donor>=0)junctionIndex=donor;
+    else if(acceptor>=0){siteType='acceptor';junctionIndex=acceptor+2;}
   }
-
-  if (customJunctionIndex !== undefined) {
-    junctionIndex = customJunctionIndex;
-  }
-
-  // Reference prediction
-  const refScores = predictSpliceScores(s, junctionIndex, siteType);
-  const primaryRefScore = siteType === 'donor' ? refScores.donorScore : refScores.acceptorScore;
-
-  const positions: IsmPositionRecord[] = [];
-  let maxImportance = 0;
-  let mostSensitivePosIdx = 0;
-  let mostSensitiveImportance = -1;
-  let mostDisruptiveDelta = 1;
-  let mostDisruptiveRec = { index: 0, label: '', refBase: '', mutBase: '', delta: 0 };
-
-  const BASES = ['A', 'C', 'G', 'T'];
-
-  for (let i = 0; i < s.length; i++) {
-    const refBase = s[i];
-    const relOffset = i - junctionIndex;
-    const posLabel = relOffset >= 0 ? `+${relOffset + 1}` : `${relOffset}`;
-
-    const mutations: Record<string, MutationScore> = {};
-    let totalDecrease = 0;
-
-    for (const b of BASES) {
-      if (b === refBase) {
-        mutations[b] = {
-          base: b,
-          score: primaryRefScore,
-          delta: 0,
-          effectClass: 'neutral',
-        };
-      } else {
-        // Mutate sequence at position i
-        const mutSeq = s.slice(0, i) + b + s.slice(i + 1);
-        const mutScores = predictSpliceScores(mutSeq, junctionIndex, siteType);
-        const mutScore = siteType === 'donor' ? mutScores.donorScore : mutScores.acceptorScore;
-        const delta = Number((mutScore - primaryRefScore).toFixed(3));
-        const decrease = primaryRefScore - mutScore;
-        totalDecrease += Math.max(0, decrease);
-
-        const effectClass: 'disruption' | 'neutral' | 'gain' =
-          delta < -0.15 ? 'disruption' : delta > 0.15 ? 'gain' : 'neutral';
-
-        mutations[b] = {
-          base: b,
-          score: mutScore,
-          delta,
-          effectClass,
-        };
-
-        if (delta < mostDisruptiveDelta) {
-          mostDisruptiveDelta = delta;
-          mostDisruptiveRec = {
-            index: i,
-            label: posLabel,
-            refBase,
-            mutBase: b,
-            delta,
-          };
-        }
-      }
+  if(junctionIndex===undefined)throw new Error('Specify a junction boundary with a complete scoring window.');
+  validate(seq,junctionIndex,siteType);
+  const primaryRefScore=explainSyntheticSpliceScore(seq,junctionIndex,siteType).score;
+  const positions:IsmPositionRecord[]=[];
+  let lowest={index:0,label:'',refBase:seq[0],mutBase:seq[0],delta:Infinity};
+  for(let i=0;i<seq.length;i++){
+    const label=i<junctionIndex?String(i-junctionIndex):`+${i-junctionIndex+1}`;
+    const mutations:Record<string,MutationScore>={};let absoluteDelta=0;
+    for(const base of ['A','C','G','T']){
+      const score=base===seq[i]?primaryRefScore:explainSyntheticSpliceScore(seq.slice(0,i)+base+seq.slice(i+1),junctionIndex,siteType).score;
+      const delta=score-primaryRefScore;
+      mutations[base]={base,score,delta,effectClass:delta< -1e-12?'disruption':delta>1e-12?'gain':'neutral'};
+      if(base!==seq[i]){absoluteDelta+=Math.abs(delta);if(delta<lowest.delta)lowest={index:i,label,refBase:seq[i],mutBase:base,delta};}
     }
-
-    const importance = Number((totalDecrease / 3).toFixed(3));
-    if (importance > maxImportance) maxImportance = importance;
-
-    if (importance > mostSensitiveImportance) {
-      mostSensitiveImportance = importance;
-      mostSensitivePosIdx = i;
-    }
-
-    positions.push({
-      index: i,
-      positionLabel: posLabel,
-      refBase,
-      refScore: primaryRefScore,
-      importance,
-      mutations,
-    });
+    positions.push({index:i,positionLabel:label,refBase:seq[i],refScore:primaryRefScore,importance:absoluteDelta/3,mutations});
   }
-
-  const mostSensitivePos = positions[mostSensitivePosIdx] || {
-    index: 0,
-    positionLabel: '0',
-    importance: 0,
-    refBase: s[0] || 'A',
-  };
-
-  return {
-    sequence: s,
-    siteType,
-    junctionIndex,
-    refDonorScore: refScores.donorScore,
-    refAcceptorScore: refScores.acceptorScore,
-    primaryRefScore,
-    positions,
-    maxImportance: Math.max(maxImportance, 0.01),
-    mostSensitivePosition: {
-      index: mostSensitivePos.index,
-      label: mostSensitivePos.positionLabel,
-      importance: mostSensitivePos.importance,
-      refBase: mostSensitivePos.refBase,
-    },
-    mostDisruptiveMutation: mostDisruptiveRec,
-  };
+  const sensitive=positions.reduce((best,p)=>p.importance>best.importance?p:best,positions[0]);
+  return{sequence:seq,siteType,junctionIndex,refDonorScore:siteType==='donor'?primaryRefScore:0,refAcceptorScore:siteType==='acceptor'?primaryRefScore:0,
+    primaryRefScore,positions,evaluations:1+3*seq.length,maxImportance:sensitive.importance,
+    mostSensitivePosition:{index:sensitive.index,label:sensitive.positionLabel,importance:sensitive.importance,refBase:sensitive.refBase},
+    mostDisruptiveMutation:lowest};
 }

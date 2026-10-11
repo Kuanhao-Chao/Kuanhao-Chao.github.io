@@ -64,6 +64,7 @@ function init(root: HTMLElement) {
     const index = playback.index;
     stop(); clearInspector();
     try {
+      if (definition.id === 'ism') field('sequence').value = field('sequence').value.trim().toUpperCase();
       run = runAlgorithmLesson(definition.id, readValues());
       playback.load(run.frames.length);
       if (preserveIndex) playback.seek(index);
@@ -211,7 +212,7 @@ function init(root: HTMLElement) {
     timer = setInterval(() => { playback.next(); render(); }, Number(speed.value));
   }
   on(form, 'submit', event => { event.preventDefault(); if (definition.id === 'ism') { reference = field('sequence').value; history.length = 0; } build(); });
-  on(form, 'input', () => { if (definition.id === 'ism') history.length = 0; invalidate(); });
+  on(form, 'input', () => { if (definition.id === 'ism') { history.length = 0; q<HTMLButtonElement>('[data-ism-undo]').disabled = true; } invalidate(); });
   on(root, 'click', event => {
     const target = (event.target as Element).closest<HTMLElement>('[data-lesson-preset], [data-inspect]');
     if (target?.dataset.lessonPreset !== undefined) {
