@@ -26,6 +26,17 @@ describe('In Silico Mutagenesis (ISM) & Splice Site Engine', () => {
     expect(res.mostDisruptiveMutation.delta).toBeLessThan(0);
   });
 
+  it('returns the already evaluated reference explanation and counts only actual scoring calls', () => {
+    const res = computeIsm('CAGGTAAGTAAGT', 'donor', 3);
+    expect(res.evaluations).toBe(1 + 3 * res.sequence.length);
+    expect(res.scoringDetails?.score).toBe(res.primaryRefScore);
+    expect(res.scoringDetails?.contributions.map((c) => c.base).join('')).toBe('CAGGTAAGT');
+    expect(res.scoringDetails?.logOdds).toBeCloseTo(
+      res.scoringDetails?.contributions.reduce((sum, c) => sum + c.logOdds, 0) ?? NaN,
+      12
+    );
+  });
+
   it('shows synthetic score loss at donor +1G without clinical claims', () => {
     const res = computeIsm('CAGGTAAGTAAGT', 'donor', 3);
     const donorPlus1 = res.positions.find((p) => p.positionLabel === '+1');

@@ -151,14 +151,19 @@ export function reduceTransitiveEdges(
   edges: OverlapEdge[]
 ): { reducedEdges: OverlapEdge[]; transitiveEdges: OverlapEdge[]; checks: ReductionCheck[] } {
   const readMap = new Map(reads.map((r) => [r.id, r]));
-  const adj = new Map(reads.map((r) => [r.id, edges.filter((e) => e.from === r.id)]));
+  const adj = new Map(reads.map((r) => [r.id, [] as OverlapEdge[]]));
+  const directEdges = new Map<string, OverlapEdge>();
+  for (const edge of edges) {
+    adj.get(edge.from)!.push(edge);
+    directEdges.set(`${edge.from}->${edge.to}`, edge);
+  }
   const removed = new Set<string>();
   const checks: ReductionCheck[] = [];
   // Positive shifts strictly shorten witness edges, preventing circular removal
   // dependencies. Removing triangles does not claim full transitive reduction.
   for (const ab of edges)
     for (const bc of adj.get(ab.to) ?? []) {
-      const ac = adj.get(ab.from)?.find((e) => e.to === bc.to);
+      const ac = directEdges.get(`${ab.from}->${bc.to}`);
       if (!ac || ab.from === bc.to) continue;
       const directShift = readMap.get(ac.from)!.length - ac.overlapLen;
       const indirectShift =
@@ -190,8 +195,12 @@ export function reduceTransitiveEdges(
 export function generateLayoutAndConsensus(reads: ReadRecord[], edges: OverlapEdge[]): Unitig[] {
   const readMap = new Map(reads.map((r) => [r.id, r]));
   const active = edges.filter((e) => !e.isRemoved);
-  const incoming = new Map(reads.map((r) => [r.id, active.filter((e) => e.to === r.id)]));
-  const outgoing = new Map(reads.map((r) => [r.id, active.filter((e) => e.from === r.id)]));
+  const incoming = new Map(reads.map((r) => [r.id, [] as OverlapEdge[]]));
+  const outgoing = new Map(reads.map((r) => [r.id, [] as OverlapEdge[]]));
+  for (const edge of active) {
+    incoming.get(edge.to)!.push(edge);
+    outgoing.get(edge.from)!.push(edge);
+  }
   const visited = new Set<string>();
   const unitigs: Unitig[] = [];
   const walk = (first: OverlapEdge) => {

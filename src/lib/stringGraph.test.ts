@@ -51,7 +51,7 @@ describe('String Graphs & Overlap-Layout-Consensus (OLC)', () => {
     expect(() => buildOverlapGraph(['ACGT'], 0)).toThrow();
   });
 
-  it('performs Myers transitive reduction removing shortcut edges', () => {
+  it('keeps active reads when contained-read filtering precedes triangle reduction', () => {
     // 3 overlapping reads in a linear path:
     // Read 1: GATTACA
     // Read 2:   TTACAGAT

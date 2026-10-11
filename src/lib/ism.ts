@@ -33,6 +33,7 @@ export interface IsmResult {
   refDonorScore: number;
   refAcceptorScore: number;
   primaryRefScore: number;
+  scoringDetails: ReturnType<typeof explainSyntheticSpliceScore>;
   positions: IsmPositionRecord[];
   evaluations: number;
   maxImportance: number;
@@ -180,7 +181,9 @@ export function computeIsm(
   if (junctionIndex === undefined)
     throw new Error('Specify a junction boundary with a complete scoring window.');
   validate(seq, junctionIndex, siteType);
-  const primaryRefScore = explainSyntheticSpliceScore(seq, junctionIndex, siteType).score;
+  const scoringDetails = explainSyntheticSpliceScore(seq, junctionIndex, siteType);
+  const primaryRefScore = scoringDetails.score;
+  let evaluations = 1;
   const positions: IsmPositionRecord[] = [];
   let lowest = { index: 0, label: '', refBase: seq[0], mutBase: seq[0], delta: Infinity };
   for (let i = 0; i < seq.length; i++) {
@@ -188,14 +191,15 @@ export function computeIsm(
     const mutations: Record<string, MutationScore> = {};
     let absoluteDelta = 0;
     for (const base of ['A', 'C', 'G', 'T']) {
-      const score =
-        base === seq[i]
-          ? primaryRefScore
-          : explainSyntheticSpliceScore(
-              seq.slice(0, i) + base + seq.slice(i + 1),
-              junctionIndex,
-              siteType
-            ).score;
+      let score = primaryRefScore;
+      if (base !== seq[i]) {
+        score = explainSyntheticSpliceScore(
+          seq.slice(0, i) + base + seq.slice(i + 1),
+          junctionIndex,
+          siteType
+        ).score;
+        evaluations++;
+      }
       const delta = score - primaryRefScore;
       mutations[base] = {
         base,
@@ -229,8 +233,9 @@ export function computeIsm(
     refDonorScore: siteType === 'donor' ? primaryRefScore : 0,
     refAcceptorScore: siteType === 'acceptor' ? primaryRefScore : 0,
     primaryRefScore,
+    scoringDetails,
     positions,
-    evaluations: 1 + 3 * seq.length,
+    evaluations,
     maxImportance: sensitive.importance,
     mostSensitivePosition: {
       index: sensitive.index,

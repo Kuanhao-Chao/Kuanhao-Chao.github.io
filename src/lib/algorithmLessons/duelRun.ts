@@ -30,7 +30,7 @@ export function duelRun(v: LessonValues): LessonRun {
   const final = frame(
     'done',
     'Equal optimum costs—not a claimed timing winner',
-    result.winnerExplanation,
+    result.coordinateCountExplanation,
     5
   );
   final.metrics = [

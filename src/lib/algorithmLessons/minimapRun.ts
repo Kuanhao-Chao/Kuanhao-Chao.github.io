@@ -62,7 +62,7 @@ export function minimapRun(v: LessonValues): LessonRun {
           row,
           column: c,
           value: String(value),
-          detail: `${side} ${kmer.seq} at start ${kmer.pos}, hash ${kmer.hash}. ${windows.filter((w) => w.winnerPos === kmer.pos).length} windows select it.`,
+          detail: `${side} ${kmer.seq} at start ${kmer.pos}, hash ${kmer.hash}. Window selection is evaluated in later trace events.`,
           revealAt: reveal[row],
         }))
       ),

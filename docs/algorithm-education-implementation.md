@@ -72,6 +72,68 @@ splice-junction frame errors and correlated-covariate projection.
 The primary-source survey and method-specific limitations are recorded in
 `docs/algorithm-education-primary-sources.md` and cited on each lesson.
 
+### Final-review corrections
+
+- Future table values retain neutral colors until their computation is revealed;
+  rewind restores values, colors and keyboard entry points together.
+- Sparse and hidden-row tables retain one visible keyboard entry, or a focusable
+  empty region. Clicking coincident WFA events preserves the clicked event.
+- Graph arrows attach to circle boundaries. Reciprocal transitions and labels
+  are distinct, self-loops remain visible, and the gene grammar explicitly shows
+  separate Before/After backgrounds and complete-gene exits.
+- Supported large custom graphs retain all vertices and readable native spacing.
+  A 24-vertex path uses a 2,660px SVG inside a local scrolling region; it is not
+  compressed into overlapping circles or silently truncated.
+- Prediction equality guides cover negative as well as positive axis ranges.
+  The regression targets the independent-test prediction chart, not the QQ plot.
+- ISM reuses the executed reference scoring breakdown and counts actual scorer
+  calls. Duel names describe coordinate counts rather than runtime speedups.
+- String-graph adjacency and direct-edge lookup match the documented complexity.
+  Construction inspectors no longer reveal later containment/cleaning outcomes.
+- Browser checks await completed Astro navigation and actual inspector outcomes.
+  Pause checks observe longer than the selected interval, rather than racing
+  short traces that could finish before the pause click.
+- The WFA keyboard regression starts from a visible chart entry, exercises the
+  production End-key handler and asserts actual endpoint focus before Enter.
+  A browser probe confirmed that direct programmatic focus on a clipped SVG
+  point was an invalid audit path, not a failure of the real keyboard workflow.
+
+### Standards review
+
+No documented repository-standard violations remain. The independent review's
+misleading Duel naming concern and concrete graph/table accessibility concerns
+were resolved. One optional maintainability judgement remains: repeated
+ISM-specific branches could later be extracted from the shared controller.
+It is not a correctness or release blocker.
+
+### Spec review
+
+No unresolved blocking finding remains in the independent focused rechecks.
+Reproduced regressions cover premature outcome colors, coincident WFA inspection,
+the negative-range prediction guide and accepted-input graph compression.
+The reviewer independently confirmed the exact 24-node graph is preserved with
+110px minimum spacing and local scrolling.
+
+### Release gate results
+
+These local results are recorded before the release push. The matching GitHub
+Pages workflow and live-site checks determine the subsequent deployment outcome.
+
+| Gate                                     | Result                                                                                       |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Unit/content suite                       | 86 files; 4,393 passed, 350 existing skips                                                   |
+| Astro/content check                      | 0 errors, 0 warnings; 108 existing hints                                                     |
+| Production build and PDFs                | Passed; 195 pages built                                                                      |
+| Mandatory post-build indexing            | Passed for 8 live posts and 8 reports                                                        |
+| Built links                              | Passed; 0 warnings                                                                           |
+| Security                                 | Passed; inert JSON lesson configuration explicitly reviewed                                  |
+| Edited Astro whitespace                  | Passed; 0 swallowed spaces                                                                   |
+| Deep Dive shared-code regression         | Passed: 87 routes, 123 figures, 27 widgets; Chromium and WebKit                              |
+| References/datasets/interview curriculum | Passed offline; 3 pre-existing reference-metadata warnings                                   |
+| Large custom graph UI regression         | Passed; Chromium, Firefox, WebKit on desktop and phone                                       |
+| Complete lesson browser matrix           | Passed: 144 checks; 11 lessons + catalog, 3 engines × 4 screen sizes, final production build |
+| GitHub Actions and live deployment       | Pending push and verification                                                                |
+
 Deployment is not complete until GitHub Actions succeeds and live routes are
 checked. This document describes the acceptance criteria; it does not itself
 claim that a pending gate or deployment has succeeded.

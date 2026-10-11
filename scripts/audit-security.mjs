@@ -43,6 +43,10 @@ const SCAN_ROOTS = [
 ];
 
 const SAFE_SET_HTML_FILES = new Set([
+  // Reviewed inert application/json config, not rendered HTML: JSON.stringify
+  // of build-time lesson fields escapes every '<' as '\\u003c', so strings cannot
+  // close the script element. The controller uses JSON.parse and textContent.
+  'src/components/AlgorithmLesson.astro',
   'src/components/BaseHead.astro',
   'src/components/Han1GapClosing.astro',
   'src/components/HG002CopySearch.astro',
@@ -136,7 +140,14 @@ const SECRET_PATTERNS = [
   /\bsk-[A-Za-z0-9_-]{20,}\b/,
 ];
 
-const LIVE_PATHS = ['/', '/robots.txt', '/sitemap-index.xml', '/search/', '/reports/', '/housewarming/'];
+const LIVE_PATHS = [
+  '/',
+  '/robots.txt',
+  '/sitemap-index.xml',
+  '/search/',
+  '/reports/',
+  '/housewarming/',
+];
 
 function relPath(path) {
   return relative(ROOT, path).split(sep).join('/');
@@ -202,7 +213,9 @@ function scanBlankTargets(rel, text) {
     const relValue = tag.match(/\srel=["']([^"']*)["']/i)?.[1] ?? '';
     const tokens = new Set(relValue.toLowerCase().split(/\s+/).filter(Boolean));
     if (!tokens.has('noopener') || !tokens.has('noreferrer')) {
-      errors.push(`${rel}: target="_blank" link is missing rel="noopener noreferrer": ${tag.slice(0, 140)}`);
+      errors.push(
+        `${rel}: target="_blank" link is missing rel="noopener noreferrer": ${tag.slice(0, 140)}`
+      );
     }
   }
 }
@@ -228,7 +241,8 @@ function scanSecrets(rel, text) {
   if (rel === 'scripts/audit-security.mjs') return;
   for (const pattern of SECRET_PATTERNS) {
     const match = text.match(pattern);
-    if (match) errors.push(`${rel}: possible secret or credential in source: ${match[0].slice(0, 80)}`);
+    if (match)
+      errors.push(`${rel}: possible secret or credential in source: ${match[0].slice(0, 80)}`);
   }
 }
 
@@ -236,10 +250,14 @@ function scanHtmlSinks(rel, text) {
   if (rel === 'scripts/audit-security.mjs') return;
   if (rel.startsWith('dist/')) return;
   if (/\bset:html\b/.test(text) && !SAFE_SET_HTML_FILES.has(rel)) {
-    errors.push(`${rel}: unreviewed set:html sink; add a safe renderer or document it in audit-security.mjs.`);
+    errors.push(
+      `${rel}: unreviewed set:html sink; add a safe renderer or document it in audit-security.mjs.`
+    );
   }
   if (/\binnerHTML\b/.test(text) && !SAFE_INNER_HTML_FILES.has(rel)) {
-    errors.push(`${rel}: unreviewed innerHTML sink; prefer textContent or add an explicit sanitizer/review.`);
+    errors.push(
+      `${rel}: unreviewed innerHTML sink; prefer textContent or add an explicit sanitizer/review.`
+    );
   }
 }
 
@@ -266,7 +284,9 @@ function scanPrivacy(rel, text) {
 
 function scanInviteNoindex(rel, text) {
   if (!/^(public|dist)\/(housewarming|wedding|thesis-defense)\/index\.html$/.test(rel)) return;
-  if (!/<meta\s+name=["']robots["']\s+content=["'][^"']*noindex[^"']*nofollow[^"']*["']/i.test(text)) {
+  if (
+    !/<meta\s+name=["']robots["']\s+content=["'][^"']*noindex[^"']*nofollow[^"']*["']/i.test(text)
+  ) {
     errors.push(`${rel}: private/event page must include robots noindex,nofollow.`);
   }
 }
@@ -302,7 +322,10 @@ async function auditLiveSite() {
         errors.push(`live ${url}: did not return HTML.`);
         liveErrors += 1;
       }
-      if ((path === '/search/' || path === '/reports/' || path === '/housewarming/') && !/noindex/i.test(text)) {
+      if (
+        (path === '/search/' || path === '/reports/' || path === '/housewarming/') &&
+        !/noindex/i.test(text)
+      ) {
         errors.push(`live ${url}: expected noindex marker is missing.`);
         liveErrors += 1;
       }
@@ -327,7 +350,9 @@ async function auditLiveSite() {
     const response = await fetch('http://khchao.com/', { redirect: 'manual' });
     const location = response.headers.get('location') ?? '';
     if (![301, 302, 307, 308].includes(response.status) || !location.startsWith('https://')) {
-      warnings.push(`live http://khchao.com/: expected HTTPS redirect, got ${response.status} ${location}`);
+      warnings.push(
+        `live http://khchao.com/: expected HTTPS redirect, got ${response.status} ${location}`
+      );
     }
   } catch (error) {
     warnings.push(`live http://khchao.com/: redirect check failed: ${error.message}`);

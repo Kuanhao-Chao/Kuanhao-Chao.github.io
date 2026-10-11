@@ -48,6 +48,7 @@ export function ghmmRun(v: LessonValues): LessonRun {
     )
   );
   const featureAt: number[] = [];
+  const firstExon = r.features.find((feature) => feature.type === 'exon')?.start ?? Infinity;
   for (const [i, f] of r.features.entries()) {
     featureAt[i] = frames.length;
     frames.push(
@@ -56,7 +57,10 @@ export function ghmmRun(v: LessonValues): LessonRun {
         `${f.subType}: ${f.start}…${f.end}`,
         `1-based inclusive coordinates; local score ${numberText(f.score)}. ${f.type === 'intron' ? 'Both GT donor and AG acceptor remain intronic.' : f.type === 'exon' ? `Carry-in partial-codon length ${f.readingFrame}; append ${f.sequence} to spliced CDS.` : 'Intergenic flank is not translated.'}`,
         5,
-        [f.subType, ...Array.from({ length: 4 }, (_, c) => `feature:${i}:${c}`)]
+        [
+          f.type === 'intergenic' ? (f.start < firstExon ? 'Before' : 'After') : f.subType,
+          ...Array.from({ length: 4 }, (_, c) => `feature:${i}:${c}`),
+        ]
       )
     );
   }
@@ -64,17 +68,19 @@ export function ghmmRun(v: LessonValues): LessonRun {
     'done',
     r.cdsSequence ? 'Complete coding path recovered' : 'No complete gene beats the background',
     'Transcript codons, not genomic position modulo 3, determine translation. Every selected CDS starts ATG, ends in-frame at a stop, and contains no earlier in-frame stop.',
-    5
+    5,
+    [r.cdsSequence ? 'After' : 'Before']
   );
   done.result = `DNA ${r.sequence}\nSpliced CDS ${r.cdsSequence || 'none'}\nProtein ${r.proteinTranslation || 'none'} (terminal stop not included)\nWeighted score ${numberText(r.totalScore)}\n${r.exonCount} exons, ${r.intronCount} introns\nShown candidates end at prefix ${end}; ${r.candidates.length} segment/predecessor candidates were tested in the full computation.`;
   frames.push(done);
   const grammar = [
-    ['Intergenic', 65, 90],
-    ['Exon_Init', 255, 60],
-    ['Exon_Single', 255, 280],
-    ['Intron', 430, 130],
-    ['Exon_Int', 580, 55],
-    ['Exon_Term', 650, 240],
+    ['Before', 65, 100],
+    ['Exon_Init', 245, 125],
+    ['Exon_Single', 245, 365],
+    ['Intron', 420, 225],
+    ['Exon_Int', 580, 100],
+    ['Exon_Term', 580, 320],
+    ['After', 700, 450],
   ] as const;
   return {
     frames,
@@ -88,17 +94,23 @@ export function ghmmRun(v: LessonValues): LessonRun {
         detail:
           id === 'Intron'
             ? 'Canonical GT…AG belongs inside the intron; preserve pending coding bases across it.'
-            : id === 'Intergenic'
-              ? 'Before-gene and after-gene backgrounds are distinct internal states, so a second gene cannot start.'
-              : 'Coding state carries 0, 1 or 2 pending bases; the actual letters are retained, not just the phase.',
+            : id === 'Before'
+              ? 'Before-gene background: remain with weight .98 or enter Init/Single with weight .01 each. At prefix L this is the no-gene alternative.'
+              : id === 'After'
+                ? 'Only a completed terminal or single exon reaches this background. Subsequent bases remain here with weight 1; no second gene can start. At prefix L this is the complete-gene alternative.'
+                : 'Coding state carries 0, 1 or 2 pending bases; the actual letters are retained, not just the phase.',
       })),
       edges: [
-        ['Intergenic', 'Exon_Init', '.01'],
-        ['Intergenic', 'Exon_Single', '.01'],
+        ['Before', 'Before', '.98'],
+        ['Before', 'Exon_Init', '.01'],
+        ['Before', 'Exon_Single', '.01'],
         ['Exon_Init', 'Intron', '1'],
         ['Intron', 'Exon_Int', '.5'],
         ['Exon_Int', 'Intron', '1'],
         ['Intron', 'Exon_Term', '.5'],
+        ['Exon_Single', 'After', '1'],
+        ['Exon_Term', 'After', '1'],
+        ['After', 'After', '1'],
       ].map(([from, to, label], i) => ({
         id: `grammar:${i}`,
         from,
@@ -106,7 +118,7 @@ export function ghmmRun(v: LessonValues): LessonRun {
         label,
         revealAt: 0,
         detail:
-          'Grammar transition. Complete terminal/single exons lead to after-gene background; unfinished states cannot end.',
+          'Restricted semi-Markov grammar weight. Background loops consume one base; coding/intron states consume their declared durations. Only Before or After may terminate at prefix L.',
       })),
     },
     tables: [

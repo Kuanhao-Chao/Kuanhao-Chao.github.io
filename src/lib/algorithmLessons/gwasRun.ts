@@ -283,6 +283,7 @@ export function gwasRun(v: LessonValues): LessonRun {
       {
         id: 'prediction',
         label: 'Independent test prediction: no test outcomes used for weight selection',
+        diagonal: true,
         xLabel: 'Predicted quantitative phenotype',
         yLabel: 'Observed quantitative phenotype',
         xMin: predX.min,

@@ -1,24 +1,24 @@
 import { describe, it, expect } from 'vitest';
 import { runAlgorithmDuel, DUEL_PRESETS } from './algorithmDuel';
 
-describe('Algorithm Duel & Benchmark Engine', () => {
+describe('Affine DP and WFA recorded work comparison', () => {
   it('compares the same affine objective rather than different scoring schemes', () => {
     const result = runAlgorithmDuel('ACGT', 'ACGGT');
     expect(-result.nwResult.score).toBe(4);
     expect(result.wfaResult.finalScore).toBe(4);
   });
-  it('runs identical sequence duel where WFA achieves dramatic speedup', () => {
+  it('records fewer visited WFA coordinates without claiming measured speedup', () => {
     const res = runAlgorithmDuel('ACGTAGCTAGTCGATCGAT', 'ACGTAGCTAGTCGATCGAT');
-    expect(res.winner).toBe('wfa');
-    expect(res.speedupRatio).toBeGreaterThan(10);
+    expect(res.fewerVisitedCoordinates).toBe('wfa');
+    expect(res.dpToWfaCoordinateRatio).toBeGreaterThan(10);
     expect(res.divergenceDistance).toBe(0);
     expect(res.steps.length).toBeGreaterThan(0);
-    expect(res.winnerExplanation).toContain('Wavefront Alignment');
+    expect(res.coordinateCountExplanation).toContain('not a wall-clock speedup');
   });
 
   it('runs single SNP duel correctly', () => {
     const res = runAlgorithmDuel('ACGTAGCTA', 'ACGTCGCTA');
-    expect(res.winner).toBe('wfa');
+    expect(res.fewerVisitedCoordinates).toBe('wfa');
     expect(res.divergenceDistance).toBe(1);
     expect(res.totalNwCells).toBe(100);
     expect(res.totalWfaCells).toBeLessThan(res.totalNwCells);
@@ -26,7 +26,7 @@ describe('Algorithm Duel & Benchmark Engine', () => {
 
   it('runs insertion gap duel with diagonal shift', () => {
     const res = runAlgorithmDuel('ACGTAGCTA', 'ACGTAGCCCCCTA');
-    expect(res.winner).toBe('wfa');
+    expect(res.fewerVisitedCoordinates).toBe('wfa');
     expect(res.totalNwCells).toBe(140);
   });
 
@@ -34,7 +34,7 @@ describe('Algorithm Duel & Benchmark Engine', () => {
     for (const preset of DUEL_PRESETS) {
       const res = runAlgorithmDuel(preset.seq1, preset.seq2);
       expect(res.steps.length).toBeGreaterThan(0);
-      expect(res.speedupRatio).toBeGreaterThan(0);
+      expect(res.dpToWfaCoordinateRatio).toBeGreaterThan(0);
     }
   });
 

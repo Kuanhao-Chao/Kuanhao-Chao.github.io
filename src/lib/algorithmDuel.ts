@@ -1,7 +1,7 @@
 /**
- * Algorithm Duel & Benchmark Engine
- * Needleman-Wunsch DP (O(MN)) vs Wavefront Alignment WFA (O(s·d))
- * Pure computational engine for side-by-side simulation, live telemetry, and pseudocode stepping.
+ * Affine DP versus Wavefront Alignment: recorded computations, not a benchmark.
+ * DP takes O(MN); original WFA takes O(n·s) with an O(n) exact-match scan.
+ * State updates, distinct coordinates and letter comparisons are separate units.
  */
 
 import { computePairwiseAlignment, type AlignmentResult } from './pairwiseAlignment';
@@ -46,11 +46,11 @@ export const DUEL_PRESETS: DuelPreset[] = [
   {
     id: 'identical',
     name: 'Identical Sequences (0% Divergence)',
-    badge: 'WFA 1-Step Win',
+    badge: 'Zero-cost wavefront',
     seq1: 'ACGTAGCTAGTCGATCGAT',
     seq2: 'ACGTAGCTAGTCGATCGAT',
     description:
-      'WFA finishes in exactly 1 score wavefront (s=0) via greedy LCP extension in O(N) time, while standard DP must evaluate all N² cells.',
+      'WFA reaches the end at penalty s=0 using N letter comparisons. Affine DP initializes boundaries and evaluates each interior prefix pair. Neither animation duration nor coordinate count measures runtime.',
   },
   {
     id: 'single-snp',
@@ -59,7 +59,7 @@ export const DUEL_PRESETS: DuelPreset[] = [
     seq1: 'ACGTAGCTAGTCGATCGAT',
     seq2: 'ACGTCGCTAGTCGATCGAT',
     description:
-      'Sequence difference d=1. WFA only explores 3 diagonals around k=0, achieving ~15x work reduction over full 2D dynamic programming.',
+      'One substitution raises the optimum penalty to 2. Inspect the recorded states and comparisons rather than assuming a fixed speedup from sequence similarity.',
   },
   {
     id: 'insertion-gap',
@@ -68,11 +68,11 @@ export const DUEL_PRESETS: DuelPreset[] = [
     seq1: 'ACGTAGCTAAGTCGATCGATC',
     seq2: 'ACGTAGCTACCCCAGTCGATCGATC',
     description:
-      'A 4bp insertion introduces a diagonal shift k=4. WFA opens and extends the gap along diagonal k without touching irrelevant matrix quadrants.',
+      'A four-base insertion changes the final diagonal to k=4. Intermediate gap states advance one diagonal at a time; the declared affine cost is 3 + 4 × 1 = 7.',
   },
   {
     id: 'divergent',
-    name: 'Divergent Sequences (~15% Mismatches)',
+    name: 'Several substitutions',
     badge: 'Moderate Divergence',
     seq1: 'ACGTACGTGACGTGATCG',
     seq2: 'ACATACCTGAGTTATTCG',
@@ -88,10 +88,10 @@ export interface DuelResult {
   wfaResult: WfaResult;
   totalNwCells: number;
   totalWfaCells: number;
-  speedupRatio: number;
+  dpToWfaCoordinateRatio: number;
   divergenceDistance: number;
-  winner: 'wfa' | 'nw' | 'tie';
-  winnerExplanation: string;
+  fewerVisitedCoordinates: 'wfa' | 'nw' | 'tie';
+  coordinateCountExplanation: string;
   steps: DuelStep[];
 }
 
@@ -140,7 +140,8 @@ export function runAlgorithmDuel(rawSeq1: string, rawSeq2: string): DuelResult {
       },
     });
   }
-  const winner = totalWfaCells < totalNwCells ? 'wfa' : totalWfaCells > totalNwCells ? 'nw' : 'tie';
+  const fewerVisitedCoordinates =
+    totalWfaCells < totalNwCells ? 'wfa' : totalWfaCells > totalNwCells ? 'nw' : 'tie';
   return {
     seq1,
     seq2,
@@ -148,10 +149,10 @@ export function runAlgorithmDuel(rawSeq1: string, rawSeq2: string): DuelResult {
     wfaResult,
     totalNwCells,
     totalWfaCells,
-    speedupRatio: Number((totalNwCells / Math.max(1, totalWfaCells)).toFixed(1)),
+    dpToWfaCoordinateRatio: Number((totalNwCells / Math.max(1, totalWfaCells)).toFixed(1)),
     divergenceDistance: wfaResult.mismatches + wfaResult.gaps,
-    winner,
-    winnerExplanation:
+    fewerVisitedCoordinates,
+    coordinateCountExplanation:
       'Wavefront Alignment and affine DP solve the same objective. Stored cells, state updates, and character comparisons are different units; their counts are not a wall-clock speedup.',
     steps,
   };
