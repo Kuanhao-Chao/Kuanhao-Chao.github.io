@@ -3611,6 +3611,19 @@ export const COMMANDS: Record<string, Cmd> = {
     }),
   },
 
+  motif: {
+    summary: 'switch between the DNA motif and attention background finales',
+    run: () => ({
+      lines: [
+        {
+          text: 'Switching the Sequence → Function finale. Your choice is remembered; the background scene and motion stay unchanged.',
+          tone: 'ok',
+        },
+      ],
+      effect: { type: 'custom', eventName: 'khc:toggle-motif-finale' },
+    }),
+  },
+
   eggs: {
     summary: 'list all website secrets and easter eggs',
     run: () => [
@@ -3633,6 +3646,9 @@ export const COMMANDS: Record<string, Cmd> = {
       },
       {
         text: '  6. 🌧️ Matrix DNA Rain        `matrix` · Konami Code ↑↑↓↓←→←→BA · Cascading nucleotide rain',
+      },
+      {
+        text: '  7. 🧬 Secret Motif Finale     `motif` · Swap Rap1 sequence logo / attention arcs · Choice remembered',
       },
       { text: '' },
       {

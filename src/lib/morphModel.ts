@@ -10,6 +10,7 @@ import { sampleProteinParticle, sampleNetworkParticle } from './morphTargets';
 import { sampleRnaParticle } from './morphSplice';
 import { sampleLocusParticle } from './morphLocus';
 import { sampleAttentionParticle } from './morphAttention';
+import { sampleMotifParticle } from './morphFinale';
 export { storyProgress, playbackProgress, playbackTime } from './morphStory';
 
 export interface MorphPoint {
@@ -357,7 +358,8 @@ export function sampleMorphTarget(
   p: MorphParticle,
   id: MorphStageId,
   time: number,
-  out: MorphPoint
+  out: MorphPoint,
+  finaleMix = 0
 ): void {
   const clock = Number.isFinite(time) ? time : 0;
   switch (id) {
@@ -380,7 +382,18 @@ export function sampleMorphTarget(
       sampleNetworkParticle(p, out);
       break;
     case 'attention':
-      sampleAttentionParticle(p, out);
+      if (finaleMix >= 1) sampleAttentionParticle(p, out);
+      else {
+        sampleMotifParticle(p, out);
+        if (finaleMix > 0) {
+          const x = out.x, y = out.y, z = out.z, alpha = out.alpha;
+          sampleAttentionParticle(p, out);
+          out.x = x + (out.x - x) * finaleMix;
+          out.y = y + (out.y - y) * finaleMix;
+          out.z = z + (out.z - z) * finaleMix;
+          out.alpha = alpha + (out.alpha - alpha) * finaleMix;
+        }
+      }
       break;
   }
 }
@@ -391,18 +404,19 @@ export function sampleMorph(
   progress: number,
   time: number,
   out: MorphPoint,
-  scratch: MorphPoint
+  scratch: MorphPoint,
+  finaleMix = 0
 ): void {
   const stage = finiteProgress(progress) * 6;
   const from = Math.min(5, Math.floor(stage));
   const local = stage - from;
   // Copy canonical targets exactly, avoiding round-off from interpolation at arrivals.
   if (local === 0 || local === 1) {
-    sampleMorphTarget(p, MORPH_STAGES[from + local].id, time, out);
+    sampleMorphTarget(p, MORPH_STAGES[from + local].id, time, out, finaleMix);
     return;
   }
-  sampleMorphTarget(p, MORPH_STAGES[from].id, time, scratch);
-  sampleMorphTarget(p, MORPH_STAGES[from + 1].id, time, out);
+  sampleMorphTarget(p, MORPH_STAGES[from].id, time, scratch, finaleMix);
+  sampleMorphTarget(p, MORPH_STAGES[from + 1].id, time, out, finaleMix);
   const role = MORPH_ROLES.indexOf(p.role);
   const delay = role * 0.006 + p.u * 0.025;
   const blend = smootherstep((local - delay) / (1 - delay));

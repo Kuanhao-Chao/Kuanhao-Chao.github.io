@@ -236,7 +236,7 @@ describe('dimensional genome-to-cell story', () => {
         [5 / 6, (out: MorphPoint) => sampleNetworkParticle(p, out)],
         [1, (out: MorphPoint) => sampleAttentionParticle(p, out)],
       ] as const) {
-        sampleMorph(p, progress, 3, out, scratch);
+        sampleMorph(p, progress, 3, out, scratch, 1);
         sampler(expected);
         expect(out).toEqual(expected);
       }

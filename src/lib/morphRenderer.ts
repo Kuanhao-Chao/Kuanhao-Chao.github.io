@@ -70,6 +70,21 @@ import {
   pulseEnvelope,
 } from './morphAttention';
 import { PROTEIN_SECONDARY_STRUCTURE } from '../data/morphProtein';
+import {
+  BASES,
+  MOTIF_GLYPHS,
+  MOTIF_RAIL,
+  MOTIF_X0,
+  MOTIF_X1,
+  MOTIF_BASELINE,
+  motifParticleBase,
+  motifPositionAt,
+  motifLinks,
+  motifLinkPoint,
+  motifX,
+  type FinaleVariant,
+} from './morphFinale';
+import { finaleBlend } from './morphFinalePreference';
 import type { SceneRenderer } from './sceneRenderer';
 import { fitHorizontal } from './morphLighting';
 import {
@@ -91,6 +106,8 @@ interface Caption {
   room?: number;
 }
 const PROJECTED_EXTENTS = [0.74, 0.5, 1.1, 0.86, 0.46, 0.7, 0.46];
+const INCOMING_DASH = [3, 3],
+  SOLID_DASH: number[] = [];
 // The RNA, coverage and attention scenes draw their own overlays, so they are not among these.
 const ACCENT_STAGES = ['protein', 'network'] as const;
 const STRUCTURE_LABELS = [
@@ -141,6 +158,33 @@ export function createMorphRenderer(
   const rnaClasses = Uint8Array.from(particles, (p) => rnaDotClass(p));
   const locusClasses = Uint8Array.from(particles, (p) => locusDotClass(p));
   const attentionClasses = Uint8Array.from(particles, (p) => attentionDotClass(p));
+  const motifClasses = Uint8Array.from(particles, (p) => BASES.indexOf(motifParticleBase(p)) + 3);
+  // Cache normalized vector paths once. They keep counters and low-frequency
+  // letters readable even when adaptive quality removes most of the dots.
+  const motifPaths = MOTIF_GLYPHS.map((glyph) => {
+    const path = new Path2D();
+    for (const contour of glyph.contours) {
+      contour.forEach(([x, y], i) => {
+        const xx = glyph.x + x * glyph.width,
+          yy = glyph.y + y * glyph.height;
+        if (i) path.lineTo(xx, yy);
+        else path.moveTo(xx, yy);
+      });
+      path.closePath();
+    }
+    return path;
+  });
+  const motifInks = ['#38795d', '#487b9c', '#a27a3c', '#a45e70'];
+  const motifCaption: readonly Caption[] = [
+    { label: '1', x: motifX(0), y: 0.5, side: 'below' },
+    { label: '12', x: motifX(11), y: 0.5, side: 'below' },
+  ];
+  let finale: FinaleVariant = 'motif',
+    finaleMix = 0;
+  let finaleTween: { from: number; to: number; age: number } | null = null;
+  let motifFocus = -1,
+    selectionAge = 2,
+    focusTimer = 0;
   let historyReady = false,
     darkLight = false,
     paletteVersion = 0;
@@ -154,9 +198,9 @@ export function createMorphRenderer(
     junctionCount = 0,
     arcCount = 0,
     transcriptionGap = 0;
-  // Linked buckets: six depth bands × three inks × three sizes × twelve opacities.
+  // Linked buckets: six depth bands × seven inks × three sizes × twelve opacities.
   // Build once per frame without sorting, allocating arrays, or drawing each dot separately.
-  const bucketHeads = new Int32Array(6 * 3 * 3 * 12);
+  const bucketHeads = new Int32Array(6 * 7 * 3 * 12);
   const nextParticle = new Int32Array(particles.length);
   const point: MorphPoint = { x: 0, y: 0, z: 0, alpha: 1 };
   const scratch: MorphPoint = { ...point },
@@ -226,7 +270,9 @@ export function createMorphRenderer(
     chapterHeight = 0;
     for (let i = 0; i < MORPH_STAGES.length; i++) {
       const weight = stageWeight(displayed, MORPH_STAGES[i].id);
-      extent += PROJECTED_EXTENTS[i] * weight;
+      extent +=
+        (i === 6 ? 0.75 + (PROJECTED_EXTENTS[i] - 0.75) * finaleMix : PROJECTED_EXTENTS[i]) *
+        weight;
       chapterHeight += chapterHeights[i] * weight;
     }
     extent += 0.14 * Math.sin(displayed * 6 * Math.PI) ** 2;
@@ -263,6 +309,12 @@ export function createMorphRenderer(
       const fit = fitHorizontal(width, originX, scale, 1.18);
       originX = fit.origin;
       scale = fit.scale;
+    }
+    const motifWeight = stageWeight(displayed, 'attention') * (1 - finaleMix);
+    if (motifWeight > 0) {
+      const fit = fitHorizontal(width, originX, scale, 1.23);
+      scale += (fit.scale - scale) * motifWeight;
+      originX += (fit.origin - originX) * motifWeight;
     }
   }
   function project(p: MorphPoint) {
@@ -547,7 +599,7 @@ export function createMorphRenderer(
    * dots, so an arc cannot leave anywhere but the promoter.
    */
   function drawAttention() {
-    const weight = stageWeight(displayed, 'attention');
+    const weight = stageWeight(displayed, 'attention') * finaleMix;
     if (weight < 0.005) return;
     const base = opacity() * weight;
     context.save();
@@ -613,6 +665,90 @@ export function createMorphRenderer(
       context.globalAlpha = base * (node === 0 ? 0.7 : 0.5);
       context.stroke();
     }
+    context.restore();
+  }
+  function drawMotif() {
+    const weight = stageWeight(displayed, 'attention') * (1 - finaleMix);
+    if (weight < 0.005) return;
+    const base = opacity() * weight;
+    context.save();
+    // This scene is flat. Use one rigid transform, never independent x/y fitting.
+    context.translate(originX, originY);
+    context.scale(scale, scale);
+    for (let i = 0; i < MOTIF_GLYPHS.length; i++) {
+      const glyph = MOTIF_GLYPHS[i];
+      context.fillStyle = motifInks[BASES.indexOf(glyph.base)];
+      context.globalAlpha = base * (motifFocus === glyph.column ? 0.36 : 0.14);
+      context.fill(motifPaths[i], glyph.base === 'A' ? 'evenodd' : 'nonzero');
+      context.globalAlpha = base * (motifFocus === glyph.column ? 0.8 : 0.5);
+      context.lineWidth = 0.65 / scale;
+      context.strokeStyle = context.fillStyle;
+      context.stroke(motifPaths[i]);
+    }
+    context.beginPath();
+    context.moveTo(MOTIF_X0, MOTIF_BASELINE + 0.025);
+    context.lineTo(MOTIF_X1, MOTIF_BASELINE + 0.025);
+    context.globalAlpha = base * 0.18;
+    context.strokeStyle = ink;
+    context.lineWidth = 0.7 / scale;
+    context.stroke();
+    context.restore();
+    const links = motifLinks(motifFocus, coarse);
+    context.save();
+    for (const link of links) {
+      const selected = link.direction !== 'idle';
+      const incoming = link.direction === 'incoming';
+      context.strokeStyle = incoming ? highlight : accent;
+      context.fillStyle = context.strokeStyle;
+      context.lineWidth = selected ? 1.1 + link.weight * 2 : 0.65 + link.weight;
+      context.globalAlpha = base * (selected ? 0.75 : 0.2);
+      context.setLineDash(incoming ? INCOMING_DASH : SOLID_DASH);
+      context.beginPath();
+      for (let i = 0; i <= 40; i++) {
+        motifLinkPoint(link, i / 40, point);
+        // A flat diagram: match the cached paths exactly during adjacent transforms.
+        const x = originX + point.x * scale,
+          y = originY + point.y * scale;
+        if (i) context.lineTo(x, y);
+        else context.moveTo(x, y);
+      }
+      context.stroke();
+      arcCount++;
+      context.setLineDash(SOLID_DASH);
+      if (selected) {
+        motifLinkPoint(link, 0.94, point);
+        motifLinkPoint(link, 0.91, other);
+        const x = originX + point.x * scale,
+          y = originY + point.y * scale;
+        const angle = Math.atan2(point.y - other.y, point.x - other.x);
+        context.beginPath();
+        context.moveTo(x, y);
+        context.lineTo(x - 4 * Math.cos(angle - 0.5), y - 4 * Math.sin(angle - 0.5));
+        context.lineTo(x - 4 * Math.cos(angle + 0.5), y - 4 * Math.sin(angle + 0.5));
+        context.closePath();
+        context.fill();
+        // A single traversal after a new selection, never a repeating attention pulse.
+        if (life.amount && selectionAge < 1.1) {
+          const t = selectionAge / 1.1;
+          motifLinkPoint(link, t, point);
+          context.globalAlpha = base * life.amount * Math.sin(Math.PI * t) * 0.85;
+          context.beginPath();
+          context.arc(originX + point.x * scale, originY + point.y * scale, 2.1, 0, TAU);
+          context.fill();
+          pulseCount++;
+        }
+      }
+    }
+    context.globalAlpha = base * 0.55;
+    context.fillStyle = accent;
+    context.beginPath();
+    for (let i = 0; i < 12; i++) {
+      const x = originX + motifX(i) * scale,
+        y = originY + MOTIF_RAIL * scale;
+      context.moveTo(x + 1.4, y);
+      context.arc(x, y, motifFocus === i ? 2.2 : 1.4, 0, TAU);
+    }
+    context.fill();
     context.restore();
   }
   /**
@@ -741,7 +877,9 @@ export function createMorphRenderer(
         ? spliceAnchors(splice)
         : weight === locus
           ? locusAnchors()
-          : attentionAnchors();
+          : finale === 'motif'
+            ? motifCaption
+            : attentionAnchors();
     context.save();
     context.font = '10.5px system-ui';
     context.textAlign = 'center';
@@ -786,8 +924,22 @@ export function createMorphRenderer(
     context.fillStyle = ink;
     context.textAlign = 'center';
     // Dedicated top/bottom gutters remain clear even in the 320px phone dialog.
-    context.fillText(STRUCTURE_LABELS[index][0], width / 2, 22, width - 24);
-    context.fillText(STRUCTURE_LABELS[index][1], width / 2, height - 14, width - 24);
+    context.fillText(
+      index === 6 && finale === 'motif'
+        ? 'Rap1 · budding yeast · JASPAR MA0359.3'
+        : STRUCTURE_LABELS[index][0],
+      width / 2,
+      22,
+      width - 24
+    );
+    context.fillText(
+      index === 6 && finale === 'motif'
+        ? 'Letter height = frequency × information · solid: outgoing · dashed: incoming'
+        : STRUCTURE_LABELS[index][1],
+      width / 2,
+      height - 14,
+      width - 24
+    );
   }
   function drawTargetAccents() {
     for (const id of ACCENT_STAGES) {
@@ -857,6 +1009,7 @@ export function createMorphRenderer(
     spliceCount = sparkCount = junctionCount = arcCount = 0;
     transcriptionGap = 0;
     computeSplice(clock, splice);
+    if (stageWeight(displayed, 'attention') < 0.9 && motifFocus >= 0) clearMotifFocus();
     layout();
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
     context.clearRect(0, 0, width, height);
@@ -886,14 +1039,16 @@ export function createMorphRenderer(
         : stageWeight(displayed, 'signal') >= 0.5
           ? locusClasses
           : stageWeight(displayed, 'attention') >= 0.5
-            ? attentionClasses
+            ? finaleMix < 0.5
+              ? motifClasses
+              : attentionClasses
             : null;
     for (let i = 0; i < particles.length; i++) {
       const p = particles[i];
       const visibility = particleVisibility(p, previousQuality, quality, qualityAge / 0.4);
       positions[i * 4 + 3] = 0;
       if (visibility <= 0) continue;
-      sampleMorph(p, displayed, clock, point, scratch);
+      sampleMorph(p, displayed, clock, point, scratch, finaleMix);
       if (introBlend < 1 && displayed < 0.02) {
         point.x += Math.sin(i * 2.39) * (1 - introBlend) * 0.55;
         point.y += Math.cos(i * 1.73) * (1 - introBlend) * 0.5;
@@ -901,7 +1056,7 @@ export function createMorphRenderer(
       point.x += offsets[i * 4];
       point.y += offsets[i * 4 + 1];
       project(point);
-      if (hover > 0.01) {
+      if (hover > 0.01 && stageWeight(displayed, 'attention') * (1 - finaleMix) < 0.5) {
         const dx = point.x - hoverX,
           dy = point.y - hoverY;
         const distance = Math.hypot(dx, dy);
@@ -923,7 +1078,7 @@ export function createMorphRenderer(
       const size = Math.max(0, Math.min(2, Math.floor((p.size - 0.6) / 0.3)));
       const warm = (p.role === 'chromatin' && p.u > 0.82) || (p.role === 'cytoplasm' && p.u > 0.7);
       const color = ownClasses ? ownClasses[i] : p.role === 'nucleolus' ? 1 : warm ? 2 : 0;
-      const bucket = ((depth * 3 + color) * 3 + size) * 12 + shade;
+      const bucket = ((depth * 7 + color) * 3 + size) * 12 + shade;
       nextParticle[i] = bucketHeads[bucket];
       bucketHeads[bucket] = i;
     }
@@ -931,6 +1086,7 @@ export function createMorphRenderer(
     drawCell();
     drawLocus();
     drawAttention();
+    drawMotif();
     drawSplicing();
     drawTargetAccents();
     drawStreaks();
@@ -940,11 +1096,12 @@ export function createMorphRenderer(
       if (bucketHeads[bucket] < 0) continue;
       const shade = bucket % 12;
       const size = Math.floor(bucket / 12) % 3;
-      const color = Math.floor(bucket / 36) % 3;
-      const depth = Math.floor(bucket / 108);
+      const color = Math.floor(bucket / 36) % 7;
+      const depth = Math.floor(bucket / 252);
       const radius = (0.65 + size * 0.3) * dotScale * (0.85 + depth * 0.06);
       context.globalAlpha = opacity() * ((shade + 1) / 12);
-      context.fillStyle = color === 1 ? ink : color === 2 ? highlight : accent;
+      context.fillStyle =
+        color >= 3 ? motifInks[color - 3] : color === 1 ? ink : color === 2 ? highlight : accent;
       context.beginPath();
       for (let i = bucketHeads[bucket]; i >= 0; i = nextParticle[i]) {
         const x = positions[i * 4],
@@ -993,6 +1150,15 @@ export function createMorphRenderer(
     canvas.dataset.bgPalette = String(paletteVersion);
     canvas.dataset.bgLightBlend = darkLight ? 'lighter' : 'source-over';
     canvas.dataset.bgWarmInk = highlight;
+    canvas.dataset.bgFinale = finale;
+    canvas.dataset.bgFinaleMix = finaleMix.toFixed(3);
+    canvas.dataset.bgFinaleTransitioning = String(!!finaleTween);
+    canvas.dataset.bgMotifFocus = String(motifFocus);
+    canvas.dataset.bgMotifOutgoing = String(motifFocus >= 0 ? (coarse ? 1 : 2) : 0);
+    canvas.dataset.bgMotifIncoming = canvas.dataset.bgMotifOutgoing;
+    canvas.dataset.bgMotifX0 = (originX + MOTIF_X0 * scale).toFixed(2);
+    canvas.dataset.bgMotifX1 = (originX + MOTIF_X1 * scale).toFixed(2);
+    canvas.dataset.bgMotifY = (originY + 0.15 * scale).toFixed(2);
     for (let i = 0; i < particles.length; i++) {
       previous[i * 3] = positions[i * 4];
       previous[i * 3 + 1] = positions[i * 4 + 1];
@@ -1121,7 +1287,7 @@ export function createMorphRenderer(
         }
       }
     }
-    const attention = stageWeight(displayed, 'attention');
+    const attention = stageWeight(displayed, 'attention') * finaleMix;
     if (attention > 0.005) {
       // Warm pulses leave the promoter along the arcs: one a period on every arc, and a second on the
       // strongest, so a phone, which draws the first six slots, keeps the strongest arcs.
@@ -1149,6 +1315,12 @@ export function createMorphRenderer(
     pointerX += (targetX - pointerX) * follow;
     pointerY += (targetY - pointerY) * follow;
     hover += ((pointerPresent ? 1 : 0) - hover) * follow;
+    selectionAge = Math.min(2, selectionAge + wallDt);
+    if (finaleTween) {
+      finaleTween.age += wallDt;
+      finaleMix = finaleBlend(finaleTween.from, finaleTween.to, finaleTween.age);
+      if (finaleTween.age >= 0.75) finaleTween = null;
+    }
     if (running) {
       const speed = motion === 'calm' ? 0.45 : 1;
       clock += dt * speed;
@@ -1202,7 +1374,8 @@ export function createMorphRenderer(
   }
   function frame(now: number) {
     raf = 0;
-    if (!canAnimate() || (!running && !tween && !kickUntil)) return;
+    if (!canAnimate() || (!running && !tween && !kickUntil && !finaleTween && selectionAge >= 1.1))
+      return;
     const elapsed = last ? now - last : 1000 / fps;
     if (elapsed >= 1000 / fps - 0.5) {
       last = now;
@@ -1233,7 +1406,12 @@ export function createMorphRenderer(
     schedule();
   }
   function schedule() {
-    if (!raf && canAnimate() && (running || tween || kickUntil)) raf = requestAnimationFrame(frame);
+    if (
+      !raf &&
+      canAnimate() &&
+      (running || tween || kickUntil || finaleTween || selectionAge < 1.1)
+    )
+      raf = requestAnimationFrame(frame);
   }
   function setRunning(value: boolean) {
     const next = value && canAnimate();
@@ -1244,6 +1422,7 @@ export function createMorphRenderer(
     raf = 0;
     last = performance.now();
     if (!running) {
+      selectionAge = 2;
       pointerPresent = false;
       pointerX = pointerY = targetX = targetY = hover = 0;
       if (demo && tween) {
@@ -1258,6 +1437,11 @@ export function createMorphRenderer(
         displayed = progress;
       }
       if (!canAnimate()) draw();
+      if (!canAnimate() && finaleTween) {
+        finaleMix = finaleTween.to;
+        finaleTween = null;
+        draw();
+      }
     } else if (demo) {
       if (tween) playbackAge = playbackTime(displayed);
       tween = null;
@@ -1308,6 +1492,11 @@ export function createMorphRenderer(
       accent = ink = crt === 'amber' ? '#ffb000' : crt === 'green' ? '#33ff33' : '#38fdf8';
       highlight = accent;
     }
+    const dark = !!theme && !['light', 'parchment'].includes(theme);
+    const colors = dark
+      ? ['#8abb9e', '#8bb8d0', '#d6b56e', '#d59cad']
+      : ['#38795d', '#487b9c', '#a27a3c', '#a45e70'];
+    for (let i = 0; i < 4; i++) motifInks[i] = crt && crt !== 'off' ? accent : colors[i];
     darkLight = (!!crt && crt !== 'off') || (!!theme && !['light', 'parchment'].includes(theme));
     for (let i = 0; i < lights.length; i++) {
       const sprite = lights[i];
@@ -1323,6 +1512,45 @@ export function createMorphRenderer(
     historyReady = false;
     draw();
   }
+  function clearMotifFocus() {
+    clearTimeout(focusTimer);
+    focusTimer = 0;
+    motifFocus = -1;
+    selectionAge = 2;
+  }
+  function selectMotifFocus(position: number, touch = false, explicitMotion = false) {
+    if (disposed || stageWeight(displayed, 'attention') < 0.9 || finaleMix > 0.05) return;
+    const next = Number.isInteger(position) && position >= 0 && position < 12 ? position : -1;
+    if (next === motifFocus) return;
+    clearTimeout(focusTimer);
+    motifFocus = next;
+    selectionAge = next >= 0 && canAnimate() && (running || explicitMotion) ? 0 : 2;
+    offsets.fill(0);
+    pointerPresent = false;
+    hover = targetX = targetY = pointerX = pointerY = 0;
+    if (touch && next >= 0)
+      focusTimer = window.setTimeout(() => {
+        clearMotifFocus();
+        draw();
+      }, 4000);
+    const links = motifLinks(next, coarse);
+    const description =
+      next < 0
+        ? 'Motif selection cleared.'
+        : `Position ${next + 1} of 12. Outgoing to ${links
+            .filter((l) => l.direction === 'outgoing')
+            .map((l) => l.to + 1)
+            .join(', ')}; incoming from ${links
+            .filter((l) => l.direction === 'incoming')
+            .map((l) => l.from + 1)
+            .join(', ')}.`;
+    canvas.dispatchEvent(
+      new CustomEvent('khc:motif-focus', { detail: { position: next, description } })
+    );
+    last = performance.now();
+    draw();
+    schedule();
+  }
   resize();
   refreshPalette();
   return {
@@ -1332,6 +1560,12 @@ export function createMorphRenderer(
     setProgress,
     getProgress: () => (demo ? displayed : progress),
     setPointer(value) {
+      if (stageWeight(displayed, 'attention') >= 0.9 && finaleMix <= 0.05 && !coarse) {
+        selectMotifFocus(
+          value ? motifPositionAt((value.x - originX) / scale, (value.y - originY) / scale) : -1
+        );
+        return;
+      }
       if (!running || !canAnimate() || coarse) return;
       pointerPresent = !!value;
       targetX = value ? Math.max(-1, Math.min(1, (value.x - originX) / Math.max(1, scale))) : 0;
@@ -1342,6 +1576,7 @@ export function createMorphRenderer(
       }
     },
     reset() {
+      clearMotifFocus();
       historyReady = false;
       tween = null;
       pointerPresent = false;
@@ -1369,12 +1604,38 @@ export function createMorphRenderer(
       setProgress(Math.min(1, displayed + 0.05), { transition: 'immediate' });
     },
     configure(options) {
+      if (options.finaleVariant !== undefined) {
+        finale = options.finaleVariant;
+        const to = finale === 'attention' ? 1 : 0;
+        clearMotifFocus();
+        historyReady = false;
+        if (
+          options.finaleTransition === 'smooth' &&
+          canAnimate() &&
+          (!demo || running) &&
+          finaleMix !== to
+        ) {
+          finaleTween = { from: finaleMix, to, age: 0 };
+          last = performance.now();
+          schedule();
+        } else {
+          finaleMix = to;
+          finaleTween = null;
+        }
+        draw();
+      }
+      if (options.motifFocus !== undefined) selectMotifFocus(options.motifFocus);
       if (options.labels !== undefined) {
         labels = options.labels;
         draw();
       }
     },
-    interact(x, y) {
+    interact(x, y, options) {
+      if (stageWeight(displayed, 'attention') >= 0.9 && finaleMix <= 0.05) {
+        const hit = motifPositionAt((x - originX) / scale, (y - originY) / scale);
+        selectMotifFocus(hit === motifFocus ? -1 : hit, true, options?.animate);
+        return;
+      }
       if ((!demo && !running) || !canAnimate()) return;
       interactionCount++;
       const radius = Math.min(width, height) * 0.22;
@@ -1396,9 +1657,10 @@ export function createMorphRenderer(
       schedule();
     },
     status() {
-      return `${stageDescription(displayed)} ${tween ? `Moving toward: ${stageDescription(progress)} ` : ''}${labels ? 'Structure labels enabled. ' : ''}Relative scales are illustrative.`;
+      return `${stageDescription(displayed, finale)} ${tween ? `Moving toward: ${stageDescription(progress, finale)} ` : ''}${labels ? 'Structure labels enabled. ' : ''}Relative scales are illustrative.`;
     },
     dispose() {
+      clearMotifFocus();
       setRunning(false);
       disposed = true;
       mask = null;

@@ -31,6 +31,7 @@ const KONAMI_CODE = [
 ];
 
 const KEYWORD_MAP: Record<string, () => void> = {
+  motif: () => window.dispatchEvent(new CustomEvent('khc:toggle-motif-finale')),
   crispr: startCrisprMode,
   cas9: startCrisprMode,
   cut: startCrisprMode,
@@ -61,7 +62,11 @@ let konamiSequence: string[] = [];
 function onGlobalKeyDown(e: KeyboardEvent) {
   // Ignore input if user is typing in form inputs
   const tag = (e.target as HTMLElement | null)?.tagName;
-  const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement | null)?.isContentEditable;
+  const isInput =
+    tag === 'INPUT' ||
+    tag === 'TEXTAREA' ||
+    tag === 'SELECT' ||
+    (e.target as HTMLElement | null)?.isContentEditable;
   if (isInput) return;
 
   // 1. Keyword sequence detection
@@ -84,7 +89,10 @@ function onGlobalKeyDown(e: KeyboardEvent) {
   const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
   const expectedKey = KONAMI_CODE[konamiSequence.length];
 
-  if (key === expectedKey || (expectedKey && expectedKey.length === 1 && key === expectedKey.toLowerCase())) {
+  if (
+    key === expectedKey ||
+    (expectedKey && expectedKey.length === 1 && key === expectedKey.toLowerCase())
+  ) {
     konamiSequence.push(expectedKey);
     if (konamiSequence.length === KONAMI_CODE.length) {
       konamiSequence = [];

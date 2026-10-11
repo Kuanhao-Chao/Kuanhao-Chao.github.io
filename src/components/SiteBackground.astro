@@ -14,6 +14,8 @@ import BackgroundExplorer from './BackgroundExplorer.astro';
   // script cannot import; backgroundModel.test.ts runs this very text against it. It reads storage
   // and never writes it: initBackground does that, once, after hydration.
   try {
+    document.documentElement.dataset.morphFinale =
+      localStorage.getItem('khc-morph-finale-v1') === 'attention' ? 'attention' : 'motif';
     let saved = null;
     try {
       saved = JSON.parse(localStorage.getItem('khc-background-v1') || 'null');

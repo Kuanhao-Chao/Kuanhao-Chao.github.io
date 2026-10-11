@@ -1,7 +1,8 @@
 ---
 import { MORPH_STAGES } from '../lib/morphStory';
 import { PROTEIN_SOURCE } from '../data/morphProtein';
-const controlLabels = ['DNA', 'RNA', 'Protein', 'Cell', 'Expression', 'Neural model', 'Attention'];
+import { RAP1_SOURCE } from '../lib/morphFinale';
+const controlLabels = ['DNA', 'RNA', 'Protein', 'Cell', 'Expression', 'Neural model', 'Motif'];
 ---
 
 <dialog class="background-dialog" data-background-dialog aria-labelledby="background-demo-title">
@@ -16,9 +17,18 @@ const controlLabels = ['DNA', 'RNA', 'Protein', 'Cell', 'Expression', 'Neural mo
   </div>
   <p class="background-demo-description" data-background-description></p>
   <div class="background-demo-stage">
-    <canvas data-background-demo-canvas role="img" aria-label="Interactive background demonstration"
-    ></canvas>
+    <canvas
+      data-background-demo-canvas
+      role="img"
+      tabindex="0"
+      aria-label="Interactive background demonstration"
+      aria-describedby="motif-keyboard-help"></canvas>
   </div>
+  <p id="motif-keyboard-help" class="sr-only">
+    On the motif form, use Left and Right to explore positions, Home for the first, and End for the
+    last. Solid links are outgoing; dashed links are incoming.
+  </p>
+  <p class="sr-only" data-motif-announcement aria-live="polite" aria-atomic="true"></p>
   <div class="background-demo-controls">
     <div class="background-demo-actions">
       <button type="button" data-background-play>Pause</button>
@@ -49,7 +59,7 @@ const controlLabels = ['DNA', 'RNA', 'Protein', 'Cell', 'Expression', 'Neural mo
           max="1"
           step="any"
           value="0"
-          aria-label="Scrub DNA, RNA splicing, folded protein, cell, splice-aware expression, neural model and attention arcs"
+          aria-label="Scrub DNA, RNA splicing, folded protein, cell, splice-aware expression, neural model and Rap1 DNA motif"
         />
       </label>
       <label class="background-label-toggle">
@@ -61,9 +71,16 @@ const controlLabels = ['DNA', 'RNA', 'Protein', 'Cell', 'Expression', 'Neural mo
   <p class="background-demo-status" data-background-demo-status role="status" aria-live="polite">
   </p>
   <p class="background-demo-key" data-background-morph-legend hidden>
-    DNA → RNA splicing → folded protein → cell → splice-aware expression → neural model → attention
-    arcs. Protein: <a href={PROTEIN_SOURCE.url} target="_blank" rel="noopener noreferrer"
-      >Ubiquitin {PROTEIN_SOURCE.entry}, chain {PROTEIN_SOURCE.chain}</a
+    DNA → RNA splicing → folded protein → cell → splice-aware expression → neural model → DNA motif.
+    Motif: <a href={RAP1_SOURCE.url} target="_blank" rel="noopener noreferrer"
+      >{RAP1_SOURCE.name} {RAP1_SOURCE.id}</a
+    >, {RAP1_SOURCE.organism}, {RAP1_SOURCE.assay} ({RAP1_SOURCE.license}). Letter heights are
+    nucleotide frequency × information content, not regulatory importance. Solid links show outgoing
+    attention; dashed links show incoming attention, with their original row-normalized weights.
+    Links come from a fixed illustrative attention head; they do not change letter heights. Protein: <a
+      href={PROTEIN_SOURCE.url}
+      target="_blank"
+      rel="noopener noreferrer">Ubiquitin {PROTEIN_SOURCE.entry}, chain {PROTEIN_SOURCE.chain}</a
     >, experimental C-alpha coordinates ({PROTEIN_SOURCE.license}; extracted {
       PROTEIN_SOURCE.extractionDate
     }). Transitions illustrate information flow, not ribosome activity or folding dynamics. The

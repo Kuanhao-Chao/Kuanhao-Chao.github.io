@@ -79,7 +79,17 @@ assert.ok(
 );
 async function launch(name) {
   const browser = await { chromium, webkit }[name].launch();
-  browser.newContextPlain = browser.newContext.bind(browser);
+  const newContext = browser.newContext.bind(browser);
+  // Keep this seven-stage regression suite exercising the preserved original
+  // finale. The default motif, switching and input contracts have their own audit.
+  browser.newContextPlain = async (options) => {
+    const context = await newContext(options);
+    await context.addInitScript(() => {
+      try { localStorage.setItem('khc-morph-finale-v1', 'attention'); } catch {}
+    });
+    return context;
+  };
+  browser.newContext = browser.newContextPlain;
   if (slowFrames > 0)
     browser.newContext = async (options) => {
       const context = await browser.newContextPlain(options);

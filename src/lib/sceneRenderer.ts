@@ -1,4 +1,5 @@
 import type { BackgroundMotion, Point } from './backgroundModel';
+import type { FinaleVariant } from './morphFinale';
 
 /** The lifecycle seam for the particle scene adapter. */
 export interface SceneRenderer {
@@ -9,8 +10,13 @@ export interface SceneRenderer {
   setMask(mask: HTMLCanvasElement | null): void;
   reset(): void;
   step(): void;
-  configure(options: { labels?: boolean }): void;
-  interact(x: number, y: number): void;
+  configure(options: {
+    labels?: boolean;
+    finaleVariant?: FinaleVariant;
+    finaleTransition?: 'immediate' | 'smooth';
+    motifFocus?: number;
+  }): void;
+  interact(x: number, y: number, options?: { animate?: boolean }): void;
   /** Optional, passive hover input; null releases the pointer without changing playback. */
   setPointer?(point: Point | null): void;
   status(): string;

@@ -48,6 +48,9 @@ jobs:
         env:
           PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
 
+      - name: Audit indexing
+        run: npm run audit:indexing
+
       - name: Audit terminal scroll smoke
         timeout-minutes: 5
         run: npm run audit:terminal:ci
@@ -63,6 +66,19 @@ jobs:
       - name: Audit switchable backgrounds
         timeout-minutes: 20
         run: npm run audit:background:ci
+
+      - name: Audit motif finale across browsers
+        timeout-minutes: 10
+        run: npm run audit:motif:ci
+
+      - name: Upload motif finale evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: motif-finale-audit
+          path: /tmp/khc-motif-finale-*/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Upload background animation evidence
         if: always()
@@ -94,9 +110,6 @@ jobs:
           path: /tmp/genome-audit/
           if-no-files-found: ignore
           retention-days: 7
-
-      - name: Audit indexing
-        run: npm run audit:indexing
 
       - name: Audit educational algorithms across browsers
         timeout-minutes: 12

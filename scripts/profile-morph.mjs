@@ -10,7 +10,12 @@ const stages = ['dna', 'rna', 'protein', 'cell', 'signal', 'network', 'attention
 const poses = Array.from({ length: 13 }, (_, i) => ({
   progress: i / 12,
   name: i % 2 ? `${stages[(i - 1) / 2]}→${stages[(i + 1) / 2]}` : stages[i / 2],
+  finale: 'motif',
 }));
+poses.push(
+  { progress: 11 / 12, name: 'network→attention-alternate', finale: 'attention' },
+  { progress: 1, name: 'attention-alternate', finale: 'attention' }
+);
 const artifacts = await mkdtemp(join(tmpdir(), 'khc-morph-profile-'));
 console.log(`[profile-morph] Artifacts: ${artifacts}`);
 const results = [];
@@ -67,6 +72,15 @@ try {
         const selector =
           mode === 'ambient' ? '[data-art-bg-canvas]' : '[data-background-demo-canvas]';
         for (const pose of poses) {
+          await page.evaluate((variant) => {
+            if (document.documentElement.dataset.morphFinale !== variant)
+              window.dispatchEvent(new CustomEvent('khc:toggle-motif-finale'));
+          }, pose.finale);
+          await page.waitForFunction(
+            (selector) =>
+              document.querySelector(selector)?.dataset.bgFinaleTransitioning === 'false',
+            selector
+          );
           if (mode === 'explorer') {
             await page.locator('[data-background-scrub]').evaluate((input, progress) => {
               input.value = String(progress);
@@ -217,7 +231,7 @@ try {
       }
     }
   }
-  console.log(`[profile-morph] Passed 52 pose/mode/profile checks. Results: ${artifacts}`);
+  console.log(`[profile-morph] Passed ${results.length} pose/mode/profile checks. Results: ${artifacts}`);
 } finally {
   try {
     await browser?.close();
