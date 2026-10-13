@@ -13,6 +13,9 @@ function content(path: string) {
 }
 
 const id = '2026-10-spliceai2';
+const biorxiv =
+  'https://www.biorxiv.org/content/10.64898/2026.10.08.757673v1';
+const doi = 'https://doi.org/10.64898/2026.10.08.757673';
 const pdf =
   'https://assets.illumina.com/content/dam/illumina-marketing/images/genomics-research/articles/spliceai2/SpliceAI2.pdf';
 const authors = [
@@ -54,20 +57,21 @@ describe('SpliceAI2 publication content contract', () => {
     expect(data.authors).not.toMatch(/Kuan-Hao Chao[*†]/);
   });
 
-  it('is a nonfeatured preprint with an explicit announcement-date basis', () => {
+  it('is a nonfeatured preprint with a verified bioRxiv publication date', () => {
     const { data, body } = content(`publications/${id}.md`);
     expect(data).toMatchObject({
+      venue: 'bioRxiv',
       type: 'preprint',
       status: 'preprint',
-      dateBasis: 'announcement',
+      dateBasis: 'publication',
       featured: false,
+      doi,
     });
-    expect(String(data.date)).toBe('2026-10-08');
-    expect(data).not.toHaveProperty('doi');
+    expect(String(data.date)).toBe('2026-10-11');
     expect(data).not.toHaveProperty('selectedOrder');
     expect(data.abstract).toContain('SpliceAI2');
-    expect(data.externalUrl).toBe(pdf);
-    expect(publicationHref({ id, data })).toBe(pdf);
+    expect(data.externalUrl).toBe(biorxiv);
+    expect(publicationHref({ id, data })).toBe(biorxiv);
     expect(hasPublicationDetail(data)).toBe(false);
     expect(body.trim()).toBe('');
     expect(pubSlug(id)).toBe('spliceai2');
@@ -85,15 +89,16 @@ describe('SpliceAI2 publication content contract', () => {
     );
   });
 
-  it('exports every author in BibTeX without contribution marks or a fictitious DOI', () => {
+  it('exports every author in BibTeX with bioRxiv and DOI', () => {
     const { data } = content(`publications/${id}.md`);
     const authorField = data.bibtex.match(/author\s*=\s*\{([^}]+)\}/)[1];
     expect(authorField.split(/\s+and\s+/)).toHaveLength(19);
     expect(authorField).toContain('Chao, Kuan-Hao');
     expect(authorField).not.toMatch(/[*†]/);
-    expect(data.bibtex).toMatch(/@misc\{jaganathan2026spliceai2/);
-    expect(data.bibtex).not.toMatch(/\bdoi\s*=/i);
-    expect(data.bibtex).toContain(pdf);
+    expect(data.bibtex).toMatch(/@(?:article|misc)\{jaganathan2026spliceai2/);
+    expect(data.bibtex).toMatch(/journal\s*=\s*\{bioRxiv\}/);
+    expect(data.bibtex).toMatch(/doi\s*=\s*\{10\.64898\/2026\.10\.08\.757673\}/);
+    expect(data.bibtex).toContain(biorxiv);
   });
 
   it('keeps SpliceAI2 as related work only, without a body section or numbered reference', () => {
@@ -103,8 +108,10 @@ describe('SpliceAI2 publication content contract', () => {
     );
     expect(data.relatedPublications[2].resourceLabel).toBe('SpliceAI2 preprint');
     expect(data.references.some((ref: { url?: string }) => ref.url === pdf)).toBe(false);
+    expect(data.references.some((ref: { url?: string }) => ref.url === biorxiv)).toBe(false);
     expect(body).not.toContain('### Quantitative splicing');
     expect(body).not.toContain(pdf);
+    expect(body).not.toContain(biorxiv);
     expect(body).not.toContain('https://huggingface.co/illumina-ai/SpliceAI2');
     expect(body).not.toContain('https://huggingface.co/datasets/illumina-ai/SpliceAI2-data');
     expect(body).not.toContain('/publications/spliceai2/');
@@ -113,18 +120,20 @@ describe('SpliceAI2 publication content contract', () => {
     expect(body.match(/^## Future directions$/gm)).toHaveLength(1);
   });
 
-  it('uses the approved gratitude wording and links news directly to the preprint', () => {
+  it('uses the approved gratitude wording and links news to bioRxiv and Illumina PDF', () => {
     const { data, body } = content('news/2026-10-08-spliceai2-preprint.md');
     expect(data.category).toBe('publication');
     expect(String(data.date)).toBe('2026-10-08');
-    expect(data.link).toBe(pdf);
+    expect(data.link).toBe(biorxiv);
     expect(data.draft).not.toBe(true);
     expect(body).toContain(
       "I'm honored to have been part of the SpliceAI2 team, and grateful to Kishore Jaganathan for the opportunity."
     );
     expect(body).toContain(
-      `[A unified framework for quantitative splicing and transcript prediction](${pdf})`
+      `[A unified framework for quantitative splicing and transcript prediction](${biorxiv})`
     );
+    expect(body).toContain(`[Illumina PDF](${pdf})`);
+    expect(body).toContain('Update (October 11, 2026)');
     expect(body).not.toContain('/publications/spliceai2/');
     expect(body).not.toContain('I co-authored');
     expect(body).toContain('https://github.com/Illumina/SpliceAI2');
@@ -148,9 +157,9 @@ describe('SpliceAI2 publication content contract', () => {
     expect(route).toContain('.filter((entry) => hasPublicationDetail(entry.data))');
   });
 
-  it('replaces the old detail URL with an external preprint redirect', () => {
+  it('replaces the old detail URL with an external bioRxiv preprint redirect', () => {
     const config = readFileSync(new URL('../../astro.config.mjs', import.meta.url), 'utf8');
     const redirect = config.match(/'\/publications\/spliceai2':\s*'([^']+)'/);
-    expect(redirect?.[1]).toBe(pdf);
+    expect(redirect?.[1]).toBe(biorxiv);
   });
 });

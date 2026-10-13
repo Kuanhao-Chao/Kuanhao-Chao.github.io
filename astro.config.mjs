@@ -71,7 +71,7 @@ export default defineConfig({
   redirects: {
     // The paper links directly to its preprint; preserve bookmarks to the former detail page.
     '/publications/spliceai2':
-      'https://assets.illumina.com/content/dam/illumina-marketing/images/genomics-research/articles/spliceai2/SpliceAI2.pdf',
+      'https://www.biorxiv.org/content/10.64898/2026.10.08.757673v1',
     '/lab-for-fun': '/fun-lab/',
     // The playground moved under the Shorkie Lab hub when the language-model page joined it.
     // Renaming a route kills its URL and `audit:links` cannot see a path that simply stopped
