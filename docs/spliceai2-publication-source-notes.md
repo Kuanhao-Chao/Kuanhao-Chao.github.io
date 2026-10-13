@@ -1,12 +1,19 @@
 # SpliceAI2 publication source notes
 
-Verified 2026-10-08 for the website update. Primary sources were reviewed directly, including the complete 57-page manuscript, its methods and extended figures; the title page and Extended Data Fig. 5 were also inspected visually. All PDF page numbers below are human, 1-based page numbers. This note records evidence and editorial boundaries, not a new independent benchmark.
+Verified 2026-10-13 for the bioRxiv preprint update; initial release verified 2026-10-08. Primary sources were reviewed directly, including the complete 57-page manuscript, its methods and extended figures; the title page and Extended Data Fig. 5 were also inspected visually. All PDF page numbers below are human, 1-based page numbers. This note records evidence and editorial boundaries, not a new independent benchmark.
 
 ## Identity, status, and dates
 
-The exact title is **A unified framework for quantitative splicing and transcript prediction**. The upstream citation identifies an **unpublished manuscript (2026)**. Use the site's preprint type/status and year 2026; do not claim journal publication, peer review, acceptance, or a bioRxiv posting. No manuscript DOI or original posting date was established from the inspected first-party sources. Leave those unknown. [Official citation](https://github.com/Illumina/SpliceAI2#citation).
+The exact title is **A unified framework for quantitative splicing and transcript prediction**.
 
-The public launch was **October 8, 2026**, according to the dated Illumina press release. This supports an **Announced** date and a release-news item, not an exact manuscript `datePublished`. Do not substitute PDF metadata, repository creation, or Hugging Face modification timestamps for publication history. Keep the announcement date distinguishable from the bibliographic year in the rendered entry and structured metadata. [Illumina launch release](https://www.illumina.com/company/news-center/press-releases/press-release-details.html?newsid=29236).
+The preprint is posted on **bioRxiv** (version 1 posted **October 11, 2026**):
+- **bioRxiv page**: [https://www.biorxiv.org/content/10.64898/2026.10.08.757673v1](https://www.biorxiv.org/content/10.64898/2026.10.08.757673v1)
+- **DOI**: `https://doi.org/10.64898/2026.10.08.757673` (`10.64898/2026.10.08.757673`)
+- **Server**: bioRxiv, Category: genomics
+- **Preprint license**: CC BY-NC 4.0 (Creative Commons Attribution-NonCommercial 4.0 International)
+- **Status**: preprint (do not claim journal publication, acceptance, or peer review)
+
+The initial public launch was **October 8, 2026**, via the dated Illumina press release and hosted PDF. Keep the release announcement distinguishable from the bioRxiv publication/posting date in structured metadata (`dateBasis: publication`, date: 2026-10-11). [Illumina launch release](https://www.illumina.com/company/news-center/press-releases/press-release-details.html?newsid=29236). [bioRxiv metadata](https://api.biorxiv.org/details/biorxiv/10.64898/2026.10.08.757673).
 
 ## Authors and contribution markings
 
@@ -43,7 +50,8 @@ Prefer qualitative, benchmark-scoped website wording. Numerical claims need thei
 
 ## Official resources and access
 
-- [Manuscript PDF](https://assets.illumina.com/content/dam/illumina-marketing/images/genomics-research/articles/spliceai2/SpliceAI2.pdf).
+- [bioRxiv preprint (v1)](https://www.biorxiv.org/content/10.64898/2026.10.08.757673v1) (DOI: `10.64898/2026.10.08.757673`).
+- [Illumina manuscript PDF](https://assets.illumina.com/content/dam/illumina-marketing/images/genomics-research/articles/spliceai2/SpliceAI2.pdf).
 - [Code repository](https://github.com/Illumina/SpliceAI2).
 - [Docs: README installation and usage](https://github.com/Illumina/SpliceAI2#installation); no separate project documentation site was found.
 - [Models: Hugging Face weights](https://huggingface.co/illumina-ai/SpliceAI2).

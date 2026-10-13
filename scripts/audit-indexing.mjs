@@ -440,6 +440,7 @@ async function auditResearchResources() {
   const paperLinks = [
     { label: 'Splam paper', href: 'https://doi.org/10.1186/s13059-024-03379-4' },
     { label: 'OpenSpliceAI paper', href: 'https://doi.org/10.7554/eLife.107454.3' },
+    { label: 'SpliceAI2 preprint', href: 'https://www.biorxiv.org/content/10.64898/2026.10.08.757673v1' },
   ];
   const resourceBar =
     [...html.matchAll(/<div class="entry-links"[^>]*>[\s\S]*?<\/div>/g)]
