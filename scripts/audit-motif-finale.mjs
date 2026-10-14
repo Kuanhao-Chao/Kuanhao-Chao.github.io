@@ -120,10 +120,12 @@ try {
           assert.equal(await page.locator('.nav-lab-card').count(), 6);
           assert.equal(await page.locator('.mobile-lab-card').count(), 6);
           assert.equal(await page.locator('.nav-labs-count').textContent(), '6 Explorations');
-          for (const href of ['/nn-lab/', '/deep_dives/']) {
+          for (const href of ['/nn-lab/', '/fun-lab/']) {
             assert.equal(await page.locator(`header a[href="${href}"]`).count(), 0);
             assert.equal(await page.locator(`footer a[href="${href}"]`).count(), 1);
           }
+          assert.equal(await page.locator('header a[href="/deep_dives/"]').count(), 2);
+          assert.equal(await page.locator('footer a[href="/deep_dives/"]').count(), 1);
           await finaleWindow(page);
           const state = await page.locator(selector).evaluate((c) => ({ ...c.dataset }));
           assert.equal(state.bgArcs, '3');
@@ -248,7 +250,7 @@ try {
           await settle(page);
           await finaleWindow(page);
           await page.locator('[data-top-theme-btn]').click();
-          await page.locator('button[data-background-motion="paused"]').click();
+          await page.locator('[data-background-motion-select]').selectOption('paused');
           await page.locator('[data-top-theme-btn]').click();
           await finaleWindow(page);
           const pausedHit = await point(page, 2);
@@ -260,7 +262,7 @@ try {
           assert.equal(await page.locator(selector).getAttribute('data-bg-pulses'), '0');
           assert.equal(await page.locator(selector).getAttribute('data-bg-life'), '0');
           await page.locator('[data-top-theme-btn]').click();
-          await page.locator('button[data-background-motion="ambient"]').click();
+          await page.locator('[data-background-motion-select]').selectOption('ambient');
           await page.locator('[data-top-theme-btn]').click();
           // Interrupted switches must preserve the rendered blend, not snap to an endpoint.
           await page.evaluate(() =>
@@ -347,10 +349,11 @@ try {
             await settle(second);
             await second.close();
             await page.locator('[data-top-theme-btn]').click();
-            await page.locator('button[data-background-scene="off"]').click();
+            await page.locator('[data-background-scene-select]').selectOption('off');
             await page.waitForFunction(
               () => document.documentElement.dataset.backgroundScene === 'off'
             );
+            await page.locator('[data-top-theme-btn]').focus();
             const savedBackground = await page.evaluate(() =>
               localStorage.getItem('khc-background-v1')
             );
@@ -367,10 +370,11 @@ try {
               await page.evaluate(() => document.documentElement.dataset.backgroundScene),
               'off'
             );
-            await page.locator('button[data-background-scene="cells"]').click();
+            await page.locator('[data-background-scene-select]').selectOption('cells');
             await page.waitForFunction(
               () => document.documentElement.dataset.backgroundScene === 'cells'
             );
+            await page.locator('[data-top-theme-btn]').focus();
             await page.keyboard.type('motif');
             assert.equal(
               await page.evaluate(() => document.documentElement.dataset.backgroundScene),
@@ -393,7 +397,8 @@ try {
             );
             assert.equal(
               await page.locator('[data-nav-labs-trigger]').getAttribute('aria-current'),
-              null
+              'page',
+              'Deep Dives is included in the Labs disclosure again'
             );
             await navigate(page, page.locator('footer a[href="/shorkie-lab/"]'), '/shorkie-lab/');
             await page.waitForFunction(

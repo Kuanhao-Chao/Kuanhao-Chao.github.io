@@ -184,6 +184,13 @@ export const labNavItems: LabNavItem[] = [
     badge: `${ALGORITHMS.length} explorations`,
   },
   {
+    id: 'deep-dives',
+    title: 'Deep Dives',
+    href: '/deep_dives/',
+    sub: 'Step-by-step genomics and machine-learning guides',
+    icon: '📖',
+  },
+  {
     id: 'shorkie-lab',
     title: 'Shorkie Lab',
     href: '/shorkie-lab/',
@@ -204,13 +211,6 @@ export const labNavItems: LabNavItem[] = [
     sub: 'Interactive Unix shell with Workers AI',
     icon: '💻',
     badge: '$ shell',
-  },
-  {
-    id: 'fun-lab',
-    title: 'Fun Lab & Games',
-    href: '/fun-lab/',
-    sub: 'Chromatin 3D, Sonic Synth & 12 mini-games',
-    icon: '🎮',
   },
 ];
 

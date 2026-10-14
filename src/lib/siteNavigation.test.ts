@@ -6,12 +6,15 @@ describe('Labs navigation', () => {
     expect(labNavItems.map((item) => item.id)).toEqual([
       'genome-browser',
       'algorithms',
+      'deep-dives',
       'shorkie-lab',
       'cell-lab',
       'terminal',
-      'fun-lab',
     ]);
     expect(navLabs.map((item) => item.label)).toContain('NN Lab');
     expect(navLabs.map((item) => item.label)).toContain('Deep Dives');
+    expect(navLabs.map((item) => item.label)).toContain('Fun Lab');
+    expect(labNavItems.map((item) => item.href)).not.toContain('/fun-lab/');
+    expect(labNavItems.find((item) => item.id === 'deep-dives')?.href).toBe('/deep_dives/');
   });
 });

@@ -157,7 +157,7 @@ async function openAppearance(page) {
 }
 async function choose(page, kind, value) {
   await openAppearance(page);
-  await page.locator(`button[data-background-${kind}="${value}"]`).click();
+  await page.locator(`select[data-background-${kind}-select]`).selectOption(value);
   await page.waitForFunction(() => document.documentElement.dataset.backgroundSwitching !== 'true');
 }
 async function frames(page, demo = false) {
@@ -382,7 +382,7 @@ async function luminousChecks(browser, name) {
 }
 // Reading clearance, split by what sits in front of the art. Objects (the terminal) stay fully
 // cleared. Text on the homepage lets through at most the veil: the same number the CSS token holds
-// and the mask publishes as data-bg-veil. Everywhere else the veil is 0 and text is cleared as before.
+// and the mask publishes as data-bg-veil. Ordinary pages use a fainter reading veil.
 // The most art alpha allowed behind text where the mask is solid (see veilChecks).
 const SOLID_CAP = 8;
 // A [data-reveal] section eases up by 10px over 550 ms as it appears, and the reading mask re-measures
@@ -471,7 +471,7 @@ async function assertReadingClearance(page) {
 }
 // The reading veil, on its own fresh pages. The homepage lets a fixed fraction of the art through
 // text and translucent cards; a veiled card is translucent in CSS and so is NOT also erased by the
-// mask (that would attenuate twice); objects stay cleared; other pages are unchanged; Cells and Off
+// mask (that would attenuate twice); objects stay cleared; ordinary prose is fainter; Cells and Off
 // keep opaque cards. Each probe puts one element at the viewport centre, where the art always is
 // on the homepage after the hero, and samples only the central box the art can reach.
 async function veilChecks(browser, name) {
@@ -522,6 +522,7 @@ async function veilChecks(browser, name) {
         };
       });
       const through = Number(state.token);
+      assert.equal(through, 0.18, `${label}: homepage transmission is the approved 18%`);
       assert.equal(Number(state.veil), through, `${label}: the mask reads the token (${JSON.stringify(state)})`);
       assert.ok(state.soft > 20 && state.solid > 5, `${label}: the mask has both kinds: ${JSON.stringify(state)}`);
       for (const card of ['research', 'tool', 'news'])
@@ -580,7 +581,7 @@ async function veilChecks(browser, name) {
       const logos = await sampleArtAlpha(page, '.home-tools img', { within: central });
       assert.ok(logos.count > 20, `${label}: ${logos.count} logo pixels sampled at the art`);
       assert.ok(logos.max <= 1, `${label}: an image is fully cleared (${logos.max}/255)`);
-      // Other pages are unchanged: no veil, text fully cleared.
+      // Ordinary pages keep their quiet cell, with a fainter veil over running text.
       await page.goto('/research/?cell-audit=1');
       await page.waitForFunction(
         () => document.querySelector('[data-art-bg-canvas]')?.dataset.bgSoft !== undefined,
@@ -591,19 +592,78 @@ async function veilChecks(browser, name) {
       await revealsSettled(page);
       const other = await page.evaluate(() => {
         const canvas = document.querySelector('[data-art-bg-canvas]');
-        return { veil: canvas.dataset.bgVeil, soft: canvas.dataset.bgSoft };
+        return { veil: canvas.dataset.bgVeil, soft: Number(canvas.dataset.bgSoft) };
       });
-      assert.deepEqual(other, { veil: '0.00', soft: '0' }, `${label}: /research/ keeps the solid mask`);
+      assert.equal(other.veil, '0.10', `${label}: ordinary-page transmission is 10%`);
+      assert.ok(other.soft > 0, `${label}: ordinary prose has a soft mask`);
       const prose = await sampleArtAlpha(page, 'main h1, main h2, main p');
       margins.prose = prose.max;
-      // Not exactly zero: the mask is a blurred rectangle, so the feathered edge of a thin heading can
-      // leave a few levels wherever a dot happens to sit (measured on the previous build of this page:
-      // 4/255 at an H2's top edge; 0 to 2 here). A tenth of the veil's own cap is what still separates
-      // a solid mask from a veiled one: a veil here would read about 70.
       assert.ok(
-        prose.max <= SOLID_CAP,
-        `${label}: /research/ text stays cleared (${prose.max}/255, cap ${SOLID_CAP})`
+        prose.max <= clearanceCap(0.1),
+        `${label}: /research/ text stays faint (${prose.max}/255, cap ${clearanceCap(0.1)})`
       );
+      // Guarantee overlap with the cell instead of letting an empty art region pass as a veil.
+      // This DOM-only fixture exercises the real collector, renderer and backing-store pixels.
+      const previousSoft = other.soft;
+      await page.evaluate(() => {
+        const list = document.createElement('ul');
+        const item = document.createElement('li');
+        const probe = document.createElement('p');
+        probe.dataset.veilAudit = '';
+        probe.textContent = 'Reading remains quiet over the cell.';
+        Object.assign(list.style, {
+          position: 'fixed', left: '55vw', top: '15vh', width: '40vw', height: '65vh',
+          margin: '0', padding: '0', pointerEvents: 'none', background: 'transparent',
+        });
+        Object.assign(item.style, { width: '100%', height: '100%', listStyle: 'none' });
+        Object.assign(probe.style, { width: '100%', height: '100%', margin: '0' });
+        item.append(probe);
+        list.append(item);
+        document.querySelector('main').append(list);
+        // ResizeObserver must see a layout change to refresh the cached document rectangles.
+        document.body.style.paddingBottom = '1px';
+        window.dispatchEvent(new Event('resize'));
+      });
+      await page.waitForFunction(previous => Number(document.querySelector('[data-art-bg-canvas]')?.dataset.bgSoft) > previous, previousSoft);
+      await drawn(page, { more: 4 });
+      const overlap = await sampleArtAlpha(page, '[data-veil-audit]');
+      assert.ok(overlap.count > 200 && overlap.lit > 0, `${label}: actual art survives beneath prose: ${JSON.stringify(overlap)}`);
+      assert.ok(overlap.max <= clearanceCap(0.1), `${label}: nested reading bounds never exceed 28/255: ${JSON.stringify(overlap)}`);
+      margins.prose = Math.max(margins.prose, overlap.max);
+      const bright = await page.evaluate(() => {
+        const canvas = document.querySelector('[data-art-bg-canvas]');
+        const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+        const ratio = canvas.width / canvas.clientWidth;
+        const rect = document.querySelector('[data-veil-audit]').getBoundingClientRect();
+        let best = { x: rect.left + 40, y: rect.top + 40, alpha: 0 };
+        for (let y = rect.top + 34; y < Math.min(innerHeight - 34, rect.bottom - 34); y += 2)
+          for (let x = rect.left + 34; x < Math.min(innerWidth - 34, rect.right - 34); x += 2) {
+            const alpha = pixels[(Math.floor(y * ratio) * canvas.width + Math.floor(x * ratio)) * 4 + 3];
+            if (alpha > best.alpha) best = { x, y, alpha };
+          }
+        return best;
+      });
+      assert.ok(bright.alpha > 3, `${label}: protected-content probes overlap real artwork`);
+      for (const kind of ['svg', 'figure', 'code', 'katex', 'textarea', 'widget']) {
+        await page.evaluate(({ kind, x, y }) => {
+          document.querySelector('[data-solid-audit]')?.remove();
+          const element = kind === 'svg' ? document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+            : document.createElement(kind === 'katex' ? 'span' : kind === 'widget' ? 'div' : kind);
+          element.dataset.solidAudit = kind;
+          if (kind === 'katex') element.className = 'katex';
+          if (kind === 'widget') element.dataset.backgroundProtected = '';
+          Object.assign(element.style, {
+            display: 'block', position: 'fixed', left: `${x - 32}px`, top: `${y - 32}px`,
+            width: '64px', height: '64px', margin: '0', padding: '0', background: 'transparent',
+          });
+          document.querySelector('main').append(element);
+          window.dispatchEvent(new Event('resize'));
+        }, { kind, ...bright });
+        await drawn(page, { more: 4 });
+        const protectedPixels = await sampleArtAlpha(page, '[data-solid-audit]');
+        assert.ok(protectedPixels.count > 20 && protectedPixels.max <= 1,
+          `${label}: ${kind} remains fully protected: ${JSON.stringify(protectedPixels)}`);
+      }
     } finally {
       await context.close();
     }
@@ -631,7 +691,7 @@ async function veilChecks(browser, name) {
       await cells.close();
     }
     console.log(
-      `[background-ui] ${label} reading veil: text ${margins.text}/255 (cap ${clearanceCap(0.3)}), veiled card ${margins.card}/255 unmasked, objects cleared, other pages solid (${margins.prose}/255, cap ${SOLID_CAP}), Cells opaque`
+      `[background-ui] ${label} reading veil: text ${margins.text}/255 (cap ${clearanceCap(0.18)}), veiled card ${margins.card}/255 unmasked, objects cleared, ordinary prose ${margins.prose}/255 (cap ${clearanceCap(0.1)}), Cells opaque`
     );
   }
 }
@@ -1208,16 +1268,12 @@ async function migrationChecks(browser, name) {
         'hydration records that this release default has been applied'
       );
       assert.equal(
-        await page
-          .locator(`button[data-background-scene="${expected.scene}"]`)
-          .getAttribute('aria-checked'),
-        'true'
+        await page.locator('[data-background-scene-select]').inputValue(),
+        expected.scene
       );
       assert.equal(
-        await page
-          .locator(`button[data-background-motion="${expected.motion}"]`)
-          .getAttribute('aria-checked'),
-        'true'
+        await page.locator('[data-background-motion-select]').inputValue(),
+        expected.motion
       );
       if (expected.scene === 'cells') {
         await page.waitForFunction(() => window.__khcCellsDebug?.snapshot().attached);
@@ -1690,8 +1746,8 @@ try {
         );
         assert.deepEqual(
           await page
-            .locator('button[data-background-scene]')
-            .evaluateAll((buttons) => buttons.map((button) => button.dataset.backgroundScene)),
+            .locator('[data-background-scene-select] option')
+            .evaluateAll((options) => options.map((option) => option.value)),
           ['morph', 'cells', 'off'],
           'the default scene first, then Cells, then accessibility Off'
         );
@@ -2451,22 +2507,19 @@ try {
           );
           await page.locator('[data-background-close]').click();
           await openAppearance(page);
-          await page.locator('button[data-background-scene="morph"]').focus();
-          await page.keyboard.press('ArrowRight');
+          const scenes = page.locator('[data-background-scene-select]');
+          await scenes.focus();
+          await scenes.selectOption('cells');
           assert.equal(
-            await page
-              .locator('button[data-background-scene="cells"]')
-              .getAttribute('aria-checked'),
-            'true',
-            'ArrowRight moves from the default scene to Cells'
+            await scenes.inputValue(),
+            'cells',
+            'the native select changes from the default scene to Cells'
           );
-          await page.keyboard.press('ArrowLeft');
+          await scenes.selectOption('morph');
           assert.equal(
-            await page
-              .locator('button[data-background-scene="morph"]')
-              .getAttribute('aria-checked'),
-            'true',
-            'and ArrowLeft returns to it'
+            await scenes.inputValue(),
+            'morph',
+            'and returns to the default'
           );
           await page.locator('[data-background-explore]').click();
           assert.ok(
