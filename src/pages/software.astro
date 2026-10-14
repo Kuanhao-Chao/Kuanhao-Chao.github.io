@@ -4,6 +4,7 @@ import Icon from '../components/Icon.astro';
 import { Image } from 'astro:assets';
 import type { ImageMetadata } from 'astro';
 import { software, sideProjects, type SoftwareTool } from '../data/cv';
+import { gameGallery } from '../data/games';
 import { resolveRelatedPosts } from '../lib/relatedPosts';
 import { site } from '../data/site';
 import CrisprCommanderLogo from '../components/games/CrisprCommanderLogo.astro';
@@ -44,6 +45,11 @@ const tools = [...software].sort((a, b) => b.date.localeCompare(a.date));
 // Side-project links can be internal (a page on this site, navigated by the
 // ClientRouter) or external (a hosted build). Only external ones open a new tab.
 const isExternalUrl = (href: string) => /^https?:\/\//.test(href);
+const galleryLogos = { 'CRISPR Commander': CrisprCommanderLogo, 'Phage Defense': PhageDefenseLogo,
+  'Genome Jumper': GenomeJumperLogo, Proofreader: ProofreaderLogo, 'Dino Run': DinoRunLogo,
+  'Chinese Chess': ChineseChessLogo, BayRoute: BayRouteLogo, Minesweeper: MinesweeperLogo, '2048': Game2048Logo };
+const gallery = gameGallery.map((entry) => ({ ...entry, ...sideProjects.find((project) => project.name === entry.name)!, Logo: galleryLogos[entry.name] }));
+const otherProjects = sideProjects.filter((project) => !gameGallery.some((entry) => entry.name === project.name));
 
 // Structured data: one SoftwareSourceCode node per tool, linked to the Person node.
 const softwareLd = {
@@ -127,12 +133,31 @@ const toolBlog = await Promise.all(tools.map((t) => resolveRelatedPosts(t.posts 
   <section class="block">
     <h2 class="block-title">Side projects</h2>
     <p class="muted side-intro">
-      A few games I built for fun — browser games you can play right here, plus some older Unity
-      WebGL games.
+      Playful experiments in biology, strategy, and learning. These nine browser experiences support
+      keyboard and touch controls, optional sound, and a distraction-free Focus view. The biology games
+      are science-inspired arcade worlds, not molecular simulations.
     </p>
+    <ul class="game-gallery" aria-label="Browser games and learning labs">
+      {gallery.map(({ name, detail, url, category, controls, color, Logo }) => (
+        <li class="game-card" style={`--game-color: ${color}`}>
+          <a class="game-art" href={url} tabindex="-1" aria-hidden="true"><Logo size={100} /></a>
+          <div class="game-card-body">
+            <span class="game-category">{category}</span>
+            <h3 class="tool-name"><a href={url}>{name}</a></h3>
+            <p class="muted game-detail">{detail}</p>
+            <p class="game-controls muted">{controls}</p>
+            <a class="game-cta" href={url} aria-label={`${name === 'BayRoute' ? 'Explore' : 'Play'} ${name}`}>
+              <Icon name={name === 'BayRoute' ? 'book' : 'play'} size={15} />
+              {name === 'BayRoute' ? 'Explore the lab' : 'Play now'}
+            </a>
+          </div>
+        </li>
+      ))}
+    </ul>
+    <h3 class="other-projects-title">More experiments &amp; older games</h3>
     <ul class="tools">
       {
-        sideProjects.map((p) => (
+        otherProjects.map((p) => (
           <li class="tool">
             <div class="tool-main">
               <div class="tool-head">
@@ -258,6 +283,20 @@ const toolBlog = await Promise.all(tools.map((t) => resolveRelatedPosts(t.posts 
     margin-top: var(--space-4);
     font-size: var(--fs-small);
   }
+  .game-gallery { list-style: none; padding: 0; margin: 1.5rem 0 2rem; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+  .game-card { border: 1px solid var(--color-rule); border-radius: var(--radius-lg); overflow: hidden; background: var(--color-surface); display: flex; flex-direction: column; }
+  .game-art { min-height: 145px; display: grid; place-items: center; background: radial-gradient(ellipse at 30% 15%, #ffffff68, transparent 55%), repeating-linear-gradient(120deg, transparent 0 23px, #ffffff16 24px 25px), color-mix(in srgb, var(--game-color) 28%, var(--color-bg)); border-bottom: 1px solid var(--color-rule); }
+  .game-art :global(svg) { filter: drop-shadow(0 9px 12px #00000020); }
+  .game-card-body { padding: 1rem; display: flex; flex: 1; flex-direction: column; align-items: flex-start; }
+  .game-category { font-size: .72rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--color-muted); }
+  .game-card .tool-name { margin: .4rem 0; }
+  .game-detail { font-size: .86rem; line-height: 1.6; margin: 0 0 .8rem; }
+  .game-controls { margin: auto 0 .7rem; font-size: .75rem; }
+  .game-cta { display: inline-flex; align-items: center; gap: .4rem; min-height: 44px; border: 1px solid var(--color-rule); border-radius: var(--radius); padding: .5rem .8rem; color: var(--color-accent); font-weight: 600; font-size: .82rem; }
+  .game-cta:hover { background: color-mix(in srgb, var(--game-color) 12%, var(--color-bg)); }
+  .other-projects-title { font-size: 1.1rem; margin-top: 2rem; }
+  @media (max-width: 960px) { .game-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 540px) { .game-gallery { grid-template-columns: 1fr; } .game-art { min-height: 125px; } }
   .tools {
     list-style: none;
     margin: 0;

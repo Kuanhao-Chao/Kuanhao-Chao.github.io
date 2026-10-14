@@ -33,6 +33,7 @@
     "audit:narrow": "node scripts/audit-narrow.mjs",
     "audit:ml-interview": "node scripts/audit-ml-interview.mjs",
     "audit:games": "node scripts/audit-game-ui.mjs",
+    "audit:games:ci": "node scripts/audit-game-ui.mjs --ci",
     "audit:cells": "node scripts/audit-living-cells-ui.mjs",
     "audit:background": "node scripts/audit-background-ui.mjs",
     "audit:background:ci": "node scripts/audit-background-ui.mjs --ci",

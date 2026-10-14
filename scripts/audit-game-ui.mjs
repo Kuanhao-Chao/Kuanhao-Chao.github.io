@@ -1,18 +1,23 @@
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import process from 'node:process';
-import { chromium, webkit } from 'playwright';
+import { mkdir } from 'node:fs/promises';
+import { isDeepStrictEqual } from 'node:util';
+import { chromium, webkit, firefox } from 'playwright';
 
-const browserTypes = { chromium, webkit };
-const profiles = [
+const browserTypes = { chromium, webkit, firefox };
+const ci = process.argv.includes('--ci');
+const allProfiles = [
   { name: 'desktop-light', width: 1440, height: 1000, theme: 'light', touch: false },
   { name: 'desktop-dark', width: 1440, height: 1000, theme: 'dark', touch: false },
   { name: 'phone-light', width: 390, height: 844, theme: 'light', touch: true },
   { name: 'phone-dark', width: 390, height: 844, theme: 'dark', touch: true },
 ];
+const profiles = ci ? allProfiles.filter((profile) => ['desktop-light', 'phone-dark'].includes(profile.name)) : allProfiles;
+const evidence = '/tmp/khc-game-ui';
 
 const failures = [];
-const fail = (scope, message) => failures.push(`${scope}: ${message}`);
+const fail = (scope, message) => { failures.push(`${scope}: ${message}`); console.error(`[game-ui] FAIL ${scope}: ${message}`); };
 
 function selectedBrowsers() {
   const names = (process.env.GAME_UI_AUDIT_BROWSERS ?? 'chromium,webkit')
@@ -29,6 +34,10 @@ function selectedBrowsers() {
 // Each in-house game shares one audit skeleton (see `auditGame`) and supplies its own
 // gameplay probe via `drive`. Filter with GAME_UI_AUDIT_GAMES=<slug,slug>.
 const games = [
+  { slug: 'chinese-chess', title: 'Chinese Chess', linkName: 'Chinese Chess', query: '', global: '__chineseChess', instances: '__chineseChessInstances', canvas: '[data-cc-canvas]', controls: '[data-cc-undo], [data-cc-hint], [data-cc-flip], [data-cc-restart], [data-cc-sound]', drive: driveChineseChess },
+  { slug: 'bay-route', title: 'BayRoute', linkName: 'BayRoute', query: '', global: '__bayRoute', instances: '__bayRouteInstances', canvas: '[data-br-canvas]', controls: '[data-br-run], [data-br-play], [data-br-step], [data-br-reset], [data-br-fit], [data-br-sound]', drive: driveBayRoute },
+  { slug: 'minesweeper', title: 'Minesweeper', linkName: 'Minesweeper', query: '', global: '__minesweeper', instances: '__minesweeperInstances', surface: '[data-mine-board]', controls: '[data-mine-face], [data-mine-pause], [data-mine-hint], [data-mine-flag-toggle], [data-mine-sound]', drive: driveMinesweeper },
+  { slug: '2048', title: '2048', linkName: '2048', query: '?seed=42', global: '__game2048', instances: '__game2048Instances', surface: '[data-2048-grid]', controls: '[data-2048-undo], [data-2048-pause], [data-2048-restart], [data-2048-sound]', drive: drive2048 },
   {
     slug: 'genome-jumper',
     title: 'Genome Jumper',
@@ -127,7 +136,9 @@ function selectedGames() {
     .split(',')
     .map((slug) => slug.trim().toLowerCase())
     .filter(Boolean);
-  if (filter.length === 0) return games;
+  if (filter.length === 0) return ci ? games.filter((game) => !['snake', 'tetris', 'jetpack-joyride'].includes(game.slug)) : games;
+  const unknown = filter.filter((slug) => !games.some((game) => game.slug === slug));
+  if (unknown.length) throw new Error(`Unknown GAME_UI_AUDIT_GAMES: ${unknown.join(',')}`);
   const chosen = games.filter((game) => filter.includes(game.slug));
   if (chosen.length === 0)
     throw new Error(`No known games match GAME_UI_AUDIT_GAMES=${filter.join(',')}`);
@@ -160,7 +171,7 @@ async function waitForSite(url, child) {
 }
 
 async function expect(scope, condition, message) {
-  if (!(await condition)) fail(scope, message);
+  if (!(typeof condition === 'function' ? await condition() : await condition)) fail(scope, message);
 }
 
 async function auditGame(page, scope, profile, game) {
@@ -175,18 +186,22 @@ async function auditGame(page, scope, profile, game) {
 
   await page.goto(`/games/${game.slug}/${game.query}`, { waitUntil: 'networkidle' });
   await page.waitForFunction((name) => Boolean(window[name]), game.global);
+  const surface = page.locator(game.surface || game.canvas);
+  await surface.scrollIntoViewIfNeeded();
 
   await expect(
     scope,
     () => page.title().then((title) => title.includes(game.title)),
     'page title is missing'
   );
-  await expect(scope, () => page.locator(game.canvas).isVisible(), 'canvas is not visible');
+  await expect(scope, () => surface.isVisible(), 'playfield is not visible');
+  if (game.canvas) {
   await expect(
     scope,
     () => page.locator(game.canvas).evaluate((canvas) => canvas.width > 0 && canvas.height > 0),
     'canvas backing store has zero size'
   );
+  }
   await expect(
     scope,
     () =>
@@ -208,6 +223,29 @@ async function auditGame(page, scope, profile, game) {
   }
 
   await game.drive(page, scope, profile, game);
+  await surface.screenshot({ path: `${evidence}/${game.slug}-${scope.split('/')[0]}-${profile.name}-playing.png` });
+  const focus = page.locator('[data-game-focus]');
+  if (await focus.count()) {
+    await focus.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(80);
+    // Capture at activation, after Playwright/native focus has finished scrolling
+    // the toolbar into view. A pre-click sample can be midway through smooth scroll.
+    await focus.evaluate(button => button.addEventListener('click', () => { window.__gameAuditPriorScroll = scrollY; }, { capture: true, once: true }));
+    await focus.click();
+    const scroll = await page.evaluate(() => window.__gameAuditPriorScroll);
+    await expect(scope, () => page.locator('[data-game-root]').evaluate((el) => el.classList.contains('game-focus-view')), 'Focus view did not open');
+    await page.screenshot({ path: `${evidence}/${game.slug}-${scope.split('/')[0]}-${profile.name}-focus.png` });
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(80);
+    await expect(scope, () => page.locator('[data-game-root]').evaluate((el) => !el.classList.contains('game-focus-view')), 'Escape did not close Focus view');
+    await expect(scope, () => page.evaluate(() => document.body.style.overflow !== 'hidden'), 'Focus view left page scrolling locked');
+    await expect(scope, () => page.evaluate((before) => Math.abs(scrollY - before) < 4, scroll), 'Focus view did not restore page position');
+  }
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: profile.width, height: profile.height - 80 });
+  await expect(scope, () => surface.isVisible(), 'playfield disappeared on resize/reduced motion');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.setViewportSize({ width: profile.width, height: profile.height });
 
   const oldTheme = await page.evaluate(() => document.documentElement.dataset.theme);
   const themeBtn = page.locator('[data-top-theme-btn], [data-theme-toggle]').first();
@@ -221,6 +259,7 @@ async function auditGame(page, scope, profile, game) {
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.getByRole('link', { name: 'Software', exact: true }).first().click();
   await page.waitForURL('**/software/');
+  await page.waitForFunction((name) => !window[name], game.global);
   await page.getByRole('link', { name: game.linkName, exact: true }).first().click();
   await page.waitForURL(`**/games/${game.slug}/`);
   await page.waitForFunction((name) => Boolean(window[name]), game.global);
@@ -229,6 +268,8 @@ async function auditGame(page, scope, profile, game) {
     () => page.evaluate((name) => window[name] === 1, game.instances),
     'view-transition navigation leaked or duplicated a controller'
   );
+  await page.evaluate(() => { window.dispatchEvent(new Event('blur')); });
+  await expect(scope, () => page.evaluate((name) => window[name] === 1, game.instances), 'blur disturbed controller ownership');
 
   for (const error of browserErrors) fail(scope, error);
 }
@@ -260,6 +301,7 @@ async function driveGenomeJumper(page, scope, profile) {
     );
   } else {
     await page.evaluate(() => window.__genomeJumper?.start());
+    await page.locator('[data-game-root]').focus();
     await page.keyboard.down('ArrowRight');
     await page.evaluate(() => window.__genomeJumper?.tick(12));
     await page.keyboard.up('ArrowRight');
@@ -317,7 +359,7 @@ async function driveGenomeJumper(page, scope, profile) {
   );
   await expect(
     scope,
-    () => page.evaluate(() => Number(localStorage.getItem('khc-genome-jumper-best')) > 0),
+    () => page.evaluate(() => Number(localStorage.getItem('khc-genome-jumper-best-v2')) > 0),
     'best score was not persisted'
   );
   await page.locator('[data-jumper-share]').click();
@@ -367,6 +409,7 @@ async function driveProofreader(page, scope, profile) {
     );
   } else {
     await page.evaluate(() => window.__proofreader?.start());
+    await page.locator('[data-game-root]').focus();
     await page.keyboard.down('w');
     await page.evaluate(() => window.__proofreader?.tick(24));
     await page.keyboard.up('w');
@@ -410,6 +453,7 @@ async function driveProofreader(page, scope, profile) {
         attackIn: 99,
         hurtFor: 0,
         alive: true,
+        windup: 0,
       },
     ];
   });
@@ -571,9 +615,12 @@ async function driveJetpackJoyride(page, scope, profile) {
 async function driveCrisprCommander(page, scope, profile) {
   const canvas = page.locator('[data-crispr-canvas]');
   await expect(scope, () => canvas.isVisible(), 'CRISPR canvas is not visible');
+  await page.locator('[data-crispr-start]').click();
+  await expect(scope, () => page.locator('[data-crispr-pause]').isEnabled(), 'Start did not begin CRISPR practice');
 
   // Switch enzyme to AsCas12a
-  const cas12Btn = page.locator('[data-crispr-enzyme="AsCas12a"]');
+  const cas12Btn = page.locator('[data-enzyme="AsCas12a"]');
+  await expect(scope, () => cas12Btn.count().then(count => count === 1), 'Cas12a selector is missing');
   if (await cas12Btn.count()) {
     await cas12Btn.click();
     await expect(
@@ -584,7 +631,8 @@ async function driveCrisprCommander(page, scope, profile) {
   }
 
   // Switch enzyme back to SpCas9
-  const cas9Btn = page.locator('[data-crispr-enzyme="SpCas9"]');
+  const cas9Btn = page.locator('[data-enzyme="SpCas9"]');
+  await expect(scope, () => cas9Btn.count().then(count => count === 1), 'Cas9 selector is missing');
   if (await cas9Btn.count()) {
     await cas9Btn.click();
     await expect(
@@ -640,7 +688,9 @@ async function drivePhageDefense(page, scope, profile) {
     // Click safe cytoplasm area (virtual 240, 350)
     const clickX = box.x + box.width * 0.3;
     const clickY = box.y + box.height * 0.7;
-    await page.mouse.click(clickX, clickY);
+    if (profile.touch) await canvas.tap({ position: { x: box.width * .3, y: box.height * .7 } });
+    else await page.mouse.click(clickX, clickY);
+    if (profile.touch) await page.locator('[data-phage-confirm]').click();
     await expect(
       scope,
       () => page.evaluate(() => (window.__phageDefense?.state().towers.length ?? 0) >= 1),
@@ -648,7 +698,8 @@ async function drivePhageDefense(page, scope, profile) {
     );
 
     // Inspect placed tower
-    await page.mouse.click(clickX, clickY);
+    if (profile.touch) await canvas.tap({ position: { x: box.width * .3, y: box.height * .7 } });
+    else await canvas.click({ position: { x: box.width * .3, y: box.height * .7 } });
     const panel = page.locator('[data-selected-tower-panel]');
     await expect(scope, () => panel.isVisible(), 'Tower inspection panel did not open');
   }
@@ -717,6 +768,81 @@ async function driveDinoRun(page, scope, profile) {
     () => page.evaluate(() => window.__dinoRun?.isRunning() === true),
     'Resume did not resume Dino Run'
   );
+}
+
+async function driveChineseChess(page, scope) {
+  await page.locator('[data-cc-mode]').selectOption('pvp');
+  const cell = page.locator('.cc-grid-cell[data-x="0"][data-y="3"]');
+  await cell.focus(); await page.keyboard.press('Enter'); await page.keyboard.press('ArrowUp'); await page.keyboard.press('Enter');
+  await expect(scope, () => page.evaluate(() => window.__chineseChess.state().history.length === 1), 'keyboard soldier move failed');
+  await page.locator('[data-cc-undo]').click();
+  await expect(scope, () => page.evaluate(() => window.__chineseChess.state().history.length === 0), 'Undo did not restore chess position');
+  await page.locator('[data-cc-teaching]').selectOption('horse');
+  await expect(scope, () => page.locator('[data-cc-teaching-note]').textContent().then(text => text.includes('horse leg')), 'horse-leg explanation missing');
+  await page.locator('[data-cc-hint]').click();
+  await page.locator('[data-cc-restart]').click();
+  await page.waitForTimeout(1750);
+  await expect(scope, () => page.evaluate(() => window.__chineseChess.state().history.length === 0), 'cancelled hint changed restarted board');
+  await page.locator('[data-cc-mode]').selectOption('pve');
+  await page.locator('[data-cc-side]').selectOption('black');
+  await page.waitForFunction(() => window.__chineseChess.state().history.length === 1);
+  await page.locator('[data-cc-undo]').click();
+  await page.waitForFunction(() => window.__chineseChess.state().turn === 'black');
+  await expect(scope, () => page.evaluate(() => window.__chineseChess.state().history.length === 1), 'undoing AI opening left Black waiting on an inert board');
+}
+
+async function driveBayRoute(page, scope) {
+  await page.locator('[data-br-race]').check();
+  await page.locator('[data-br-run]').click();
+  await page.locator('[data-br-scrubber]').focus(); await page.keyboard.press('End');
+  await expect(scope, () => page.evaluate(() => {
+    const results = window.__bayRoute.state().results;
+    return results.find(result => result.algorithm === 'bfs').totalTimeMinutes === 9 && results.find(result => result.algorithm === 'bidirectional_a_star').totalTimeMinutes === 3;
+  }), 'weighted worked example has incorrect route costs');
+  await page.locator('[data-br-reset]').click(); await page.locator('[data-br-step]').click();
+  await expect(scope, () => page.locator('[data-br-step-count]').textContent().then(text => text.startsWith('1 /')), 'single-step trace control failed');
+  await page.getByText('Local landmark search & optional basemaps', { exact: true }).click();
+  await page.locator('[data-br-provider]').selectOption('local');
+  await page.locator('[data-br-apply-map]').click();
+}
+
+async function driveMinesweeper(page, scope) {
+  await page.locator('[data-mine-diff="expert"]').click();
+  await expect(scope, () => page.locator('.board-scroll-container').evaluate(el => {
+    el.scrollLeft = 0;
+    return el.querySelector('.mine-cell').getBoundingClientRect().left >= el.getBoundingClientRect().left - 1;
+  }), 'Expert board left edge is unreachable');
+  await page.locator('[data-mine-diff="beginner"]').click();
+  const cell = page.locator('.mine-cell[data-row="1"][data-col="1"]');
+  await cell.focus(); await page.keyboard.press('Enter');
+  await expect(scope, () => cell.evaluate(el => document.activeElement === el), 'revealing lost keyboard focus');
+  await expect(scope, () => page.evaluate(() => window.__minesweeper.state().grid[1][1].state === 'revealed' && !window.__minesweeper.state().grid[1][1].isMine), 'first revealed cell is not safe');
+  await page.locator('[data-mine-pause]').click();
+  await expect(scope, () => page.locator('[data-mine-pause]').textContent().then(text => text.includes('Resume')), 'Pause did not expose Resume');
+  await page.locator('[data-mine-pause]').click();
+  await page.locator('[data-mine-hint]').click();
+  await expect(scope, () => page.locator('[data-mine-hint-text]').textContent().then(text => text.length > 15), 'visible-clue hint was not explained');
+}
+
+async function drive2048(page, scope) {
+  const grid = page.locator('[data-2048-grid]');
+  await grid.focus();
+  for (let i = 0; i < 5; i++) await page.keyboard.press('ArrowUp');
+  await expect(scope, () => page.locator('[data-2048-undo]').isDisabled(), 'ineffective moves consumed Undo');
+  await page.keyboard.press('ArrowRight'); await page.waitForTimeout(220);
+  const first = await page.evaluate(() => window.__game2048.state());
+  await expect(scope, first.score === 4 && first.history.snapshots.length === 1, '2048 merge/score/history incorrect');
+  await page.locator('[data-2048-undo]').click();
+  await expect(scope, () => page.locator('[data-2048-undo]').isDisabled(), 'Undo left a phantom history entry');
+  await grid.focus(); await page.keyboard.press('ArrowRight'); await page.waitForTimeout(220);
+  await expect(scope, () => page.evaluate(expected => JSON.stringify(window.__game2048.state().grid) === expected, JSON.stringify(first.grid)), 'Undo did not restore random spawns');
+  for (const key of ['ArrowDown', 'ArrowLeft', 'ArrowUp', 'ArrowRight']) await page.keyboard.press(key);
+  await page.locator('[data-2048-undo]').click(); await page.waitForTimeout(220);
+  await expect(scope, () => page.evaluate(() => document.querySelectorAll('.g2048-tile').length === window.__game2048.state().grid.flat().filter(Boolean).length), 'interrupted moves left orphan tiles');
+  await page.locator('[data-2048-pause]').click(); await page.locator('[data-2048-overlay-btn]').click();
+  const saved = await page.evaluate(() => window.__game2048.state());
+  await page.reload(); await page.waitForFunction(() => Boolean(window.__game2048));
+  await expect(scope, () => page.evaluate(() => window.__game2048.state()).then(restored => isDeepStrictEqual(restored, saved)), 'reload did not restore complete active game');
 }
 
 async function driveSnake(page, scope, profile) {
@@ -796,7 +922,42 @@ async function driveTetris(page, scope, profile) {
   );
 }
 
+async function auditRestrictedBrowser(browser, browserName, baseURL, selected) {
+  const actions = {
+    'crispr-commander': '[data-crispr-start]', 'phage-defense': '[data-phage-next-wave]',
+    'genome-jumper': '[data-jumper-canvas]', proofreader: '[data-proof-canvas]', 'dino-run': '[data-dino-jump]',
+    'chinese-chess': '[data-cc-hint]', 'bay-route': '[data-br-run]', minesweeper: '[data-mine-face]', '2048': '[data-2048-restart]',
+  };
+  for (const game of selected.filter(game => actions[game.slug])) {
+    const scope = `${browserName}/reduced-motion-storage-denied/${game.slug}`;
+    console.log(`[game-ui] ${scope}`);
+    const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, reducedMotion: 'reduce', hasTouch: true });
+    await context.addInitScript(() => {
+      Object.defineProperty(window, 'localStorage', { configurable: true, get() { throw new DOMException('Storage denied for audit', 'SecurityError'); } });
+    });
+    const page = await context.newPage(); page.setDefaultTimeout(12000);
+    const errors = []; page.on('pageerror', error => errors.push(error.message));
+    try {
+      await page.goto(`/games/${game.slug}/${game.query}`);
+      await page.waitForFunction(name => Boolean(window[name]), game.global);
+      await page.locator(actions[game.slug]).click();
+      await expect(scope, () => page.locator(game.surface || game.canvas).isVisible(), 'playfield failed without local storage');
+      await page.locator('[data-game-focus]').click(); await page.keyboard.press('Escape');
+      await expect(scope, () => page.evaluate(() => !document.querySelector('.game-focus-view')), 'reduced-motion Focus exit failed');
+      await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+      await page.screenshot({ path: `${evidence}/${game.slug}-${browserName}-restricted.png`, fullPage: true });
+      for (const error of errors) fail(scope, error);
+    } catch (error) {
+      fail(scope, error.message);
+      await page.screenshot({ path: `${evidence}/${game.slug}-${browserName}-restricted-failure.png`, fullPage: true }).catch(() => {});
+    }
+    finally { await context.close(); }
+  }
+}
+
 async function main() {
+  const gamesToAudit = selectedGames();
+  await mkdir(evidence, { recursive: true });
   const port = await availablePort();
   const baseURL = `http://127.0.0.1:${port}`;
   const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -810,8 +971,6 @@ async function main() {
   preview.stderr.on('data', (chunk) => {
     previewLog += chunk;
   });
-
-  const gamesToAudit = selectedGames();
 
   try {
     await waitForSite(`${baseURL}/games/${gamesToAudit[0].slug}/`, preview);
@@ -827,11 +986,15 @@ async function main() {
               viewport: { width: profile.width, height: profile.height },
               colorScheme: profile.theme,
               hasTouch: profile.touch,
-              isMobile: profile.touch,
+              isMobile: browserName !== 'firefox' && profile.touch,
             });
             await context.addInitScript(
               ({ theme }) => {
                 localStorage.setItem('khc-theme', theme);
+                if (location.pathname.includes('/games/2048/') && !localStorage.getItem('khc_game_2048_active_4')) {
+                  localStorage.setItem('khc_game_2048_size', '4');
+                  localStorage.setItem('khc_game_2048_active_4', JSON.stringify({ version: 2, grid: [[2, 2, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]], score: 0, boardSize: 4, isWon: false, isOver: false, keepPlaying: false, rngState: 42, history: { snapshots: [], maxDepth: 20 } }));
+                }
                 Object.defineProperty(navigator, 'share', {
                   configurable: true,
                   value: async () => {
@@ -849,7 +1012,7 @@ async function main() {
               fail(scope, error instanceof Error ? (error.stack ?? error.message) : String(error));
               await page
                 .screenshot({
-                  path: `/tmp/${game.slug}-${browserName}-${profile.name}.png`,
+                  path: `${evidence}/${game.slug}-${browserName}-${profile.name}-failure.png`,
                   fullPage: true,
                 })
                 .catch(() => {});
@@ -859,6 +1022,7 @@ async function main() {
             }
           }
         }
+        await auditRestrictedBrowser(browser, browserName, baseURL, gamesToAudit);
       } finally {
         await browser.close();
       }
