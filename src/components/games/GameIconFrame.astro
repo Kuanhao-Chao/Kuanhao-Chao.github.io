@@ -1,0 +1,49 @@
+---
+interface Props {
+  size: number;
+  class?: string;
+  label: string;
+  accent: string;
+}
+
+const { size, class: className = '', label, accent } = Astro.props;
+---
+
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 100 100"
+  width={size}
+  height={size}
+  class:list={['game-icon', className]}
+  style={`--gi-accent: ${accent}`}
+  role="img"
+  aria-label={label}
+  focusable="false"
+>
+  <title>{label}</title>
+  <rect x="4" y="4" width="92" height="92" rx="22" fill="var(--gi-plate)" stroke="var(--gi-border)"
+  ></rect>
+  <path
+    d="M18 32 Q18 18 32 18 H44"
+    fill="none"
+    stroke="var(--gi-light)"
+    stroke-width="3"
+    opacity=".6"
+    stroke-linecap="round"></path>
+  <ellipse cx="50" cy="82" rx="29" ry="5" fill="var(--gi-accent)" opacity=".13"></ellipse>
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <slot />
+  </g>
+</svg>
+
+<style>
+  .game-icon {
+    display: block;
+    flex: none;
+    --gi-deep: color-mix(in srgb, var(--gi-accent) 58%, #17252c);
+    --gi-mid: color-mix(in srgb, var(--gi-accent) 72%, #ffffff);
+    --gi-light: color-mix(in srgb, var(--gi-accent) 20%, #ffffff);
+    --gi-plate: color-mix(in srgb, var(--gi-accent) 12%, var(--color-surface, #fafaf8));
+    --gi-border: color-mix(in srgb, var(--gi-accent) 24%, var(--color-rule, #dddcd5));
+  }
+</style>
