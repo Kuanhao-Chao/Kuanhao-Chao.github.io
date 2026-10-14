@@ -20,6 +20,34 @@ import {
 } from './phageDefense';
 
 describe('Phage Defense Logic Engine', () => {
+  it('credits landed damage, not fired damage, and restricts anti-Cas9 resistance to Cas9', () => {
+    const state = placeTower(createInitialDefenseState(), 'restriction_enzyme', 200, 380).state;
+    state.phages = [{ id: 'boss', type: 'giant_megaphage', x: 50, y: 100, health: 100, maxHealth: 100, shieldHealth: 250, maxShieldHealth: 250, speed: 35, baseSpeed: 35, slowTimerSec: 0, waypointIndex: 0, progressRatio: 0, atpReward: 80, radius: 28, color: '#fff' }];
+    state.projectiles = [{ id: 'bolt', sourceTowerId: state.towers[0].id, targetPhageId: 'boss', x: 50, y: 100, targetX: 50, targetY: 100, damage: 32, speed: 450, color: '#fff' }];
+    const next = updateDefenseGame(state, 0).state;
+    expect(next.phages[0].health).toBe(68);
+    expect(next.phages[0].shieldHealth).toBe(250);
+    expect(next.towers[0].totalDamage).toBe(32);
+    expect(state.phages[0].health).toBe(100);
+  });
+  it('replays identical wave states and IDs without wall-clock randomness', () => {
+    const run = () => {
+      let state = placeTower(createInitialDefenseState(), 'restriction_enzyme', 200, 380).state;
+      state = startNextWave(state);
+      for (let i = 0; i < 120; i++) state = updateDefenseGame(state, 1 / 60).state;
+      return state;
+    };
+    expect(run()).toEqual(run());
+  });
+  it('carries movement through a bend and measures progress within each segment', () => {
+    const state = startNextWave(createInitialDefenseState());
+    state.waypoints = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 100 }];
+    state.phages = [{ id: 'p', type: 'lambda_phage', x: 0, y: 0, health: 55, maxHealth: 55, shieldHealth: 0, maxShieldHealth: 0, speed: 85, baseSpeed: 85, slowTimerSec: 0, waypointIndex: 0, progressRatio: 0, atpReward: 15, radius: 13, color: '#fff' }];
+    const result = updateDefenseGame(state, .2).state.phages[0];
+    expect(result.x).toBe(10);
+    expect(result.y).toBeCloseTo(7);
+    expect(result.progressRatio).toBeCloseTo(17 / 110);
+  });
   it('initializes with default clean state, 800x500 virtual waypoints, and 350 ATP', () => {
     const state = createInitialDefenseState(1200);
     expect(state.atp).toBe(350);

@@ -24,9 +24,9 @@ const gameLd = {
 <PageLayout
   title="Phage Defense"
   eyebrow="Side project"
-  lead="Deploy restriction enzymes, CRISPR-Cas arrays, and RNase interceptors along cytosolic pathways to defend the bacterial chromosome from invading bacteriophages."
+  lead="A bacterial defense diorama. Place four complementary molecular defenses, manage ATP, and intercept schematic injected phage genomes across fifteen escalating waves."
   description="Phage Defense — an original microbial tower defense web game by Kuan-Hao Chao. Build molecular defenses, manage ATP, and protect the host nucleoid."
-  width="narrow"
+  width="wide"
 >
   <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
 
@@ -36,7 +36,7 @@ const gameLd = {
       <PhageDefenseLogo size={58} />
       <div class="defense-header-info">
         <h2 class="defense-header-title">Host Nucleoid Defense Complex</h2>
-        <p class="defense-header-subtitle">Deploy restriction endonucleases (EcoRI), CRISPR-Cas9 snipers, and RNase jammers to neutralize phage swarms.</p>
+        <p class="defense-header-subtitle">EcoRI · direct fire / Cas9 · long range / RNase · area suppression / Ligase · support</p>
       </div>
     </div>
 
@@ -70,14 +70,24 @@ const gameLd = {
         <button type="button" class="defense-btn defense-btn--primary" data-phage-next-wave>Start Next Wave</button>
         <button type="button" class="defense-btn" data-phage-pause>Pause</button>
         <button type="button" class="defense-btn" data-phage-restart>Restart</button>
+        <button type="button" class="defense-btn" data-phage-speed>1× speed</button>
         <button
           type="button"
           class="defense-btn"
           data-phage-sound
-          aria-label="Mute game sounds"
-          aria-pressed="true">Sound on</button
+          aria-label="Toggle game sounds"
+          aria-pressed="false">Sound off</button
         >
       </div>
+    </div>
+
+    <div class="defense-placement">
+      <p data-phage-preview>Build your defenses, then start the first wave.</p>
+      <button type="button" class="defense-btn" data-phage-confirm hidden>Confirm placement</button>
+      <button type="button" class="defense-btn" data-phage-cancel hidden>Cancel</button>
+      <select data-phage-tower-select aria-label="Inspect a placed defense">
+        <option value="">Inspect a defense…</option>
+      </select>
     </div>
 
     <div class="defense-board">
@@ -127,8 +137,8 @@ const gameLd = {
       <div class="defense-emergency-deck" aria-label="Tactical Emergency Protocols">
         <span class="defense-emergency-label">Tactical Emergency Protocols:</span>
         <div class="defense-emergency-grid">
-          <button type="button" class="defense-emergency-btn" data-emergency-ability="autophagy" aria-label="Trigger Autophagy Purge (150 ATP)">
-            Autophagy Purge (150 ATP)
+          <button type="button" class="defense-emergency-btn" data-emergency-ability="autophagy" aria-label="Trigger fictional Nuclease Surge (150 ATP)">
+            Nuclease Surge (150 ATP)
           </button>
           <button type="button" class="defense-emergency-btn" data-emergency-ability="crispri" aria-label="Trigger CRISPRi Stasis (80 ATP)">
             CRISPRi Stasis (80 ATP)
@@ -167,8 +177,10 @@ const gameLd = {
       <ul>
         <li><strong>Select & Deploy:</strong> Click a defense tower card above, then click anywhere on the cytosolic canvas (outside the path) to construct the molecular unit.</li>
         <li><strong>Upgrade & Recycle:</strong> Click an existing tower on the battlefield to inspect its range, switch targeting priorities, upgrade its catalytic turnover rate (k<sub>cat</sub>), or recycle it for 70% ATP refund.</li>
-        <li><strong>Emergency Protocols:</strong> When overwhelmed, trigger <em>Autophagy Purge</em> to dissolve standard phages, <em>CRISPRi Stasis</em> to freeze swarms in place, or <em>Plasmid Overcharge</em> for 2x tower fire rate.</li>
-        <li><strong>Combating Boss Megaphages:</strong> Boss phages possess Anti-CRISPR shields that absorb direct damage. Position RNase jammers at bends to slow them while focused CRISPR-Cas9 snipers break through their defenses.</li>
+        <li><strong>Touch & keyboard:</strong> Select a defense, tap to preview its range, then Confirm placement. Arrow keys move the preview; Enter on the playfield confirms, Escape cancels. Desktop players can click directly to place.</li>
+        <li><strong>Emergency protocols:</strong> Fictional <em>Nuclease Surge</em> clears ordinary genomes and damages bosses. CRISPRi uses catalytically inactive Cas9 to repress transcription in biology; freezing movement here is a game abstraction. Overcharge doubles firing rate.</li>
+        <li><strong>Mix your defenses:</strong> Boss anti-Cas9 resistance only absorbs Cas9 shots. EcoRI and RNase bypass it. Damage statistics count landed health damage, not shots that miss or are absorbed.</li>
+        <li><strong>Biology versus play:</strong> Phages attach outside a bacterial envelope and inject a genome. The lane represents infection progression, not whole phages walking inside the cell. Bacteria have ribosomes and a nucleoid, not mitochondria or lysosomal autophagy. RNase slowing, ligase healing, towers and projectile ranges are strategic abstractions; real ligase seals DNA nicks.</li>
       </ul>
     </article>
   </section>

@@ -15,6 +15,7 @@ import {
   updateDefenseGame,
   TOWER_DEFINITIONS,
   EMERGENCY_ABILITIES,
+  generateWaveQueue,
   VIRTUAL_WIDTH,
   VIRTUAL_HEIGHT,
   type DefenseGameState,
@@ -24,6 +25,7 @@ import {
   type EmergencyAbilityType,
 } from '../lib/phageDefense';
 import { isDarkTheme } from '../lib/theme';
+import { createGameClock } from '../lib/gameClock';
 
 interface Particle {
   x: number;
@@ -54,7 +56,7 @@ interface Organelle {
   radius: number;
   vx: number;
   vy: number;
-  type: 'mitochondria' | 'ribosome' | 'vesicle';
+  type: 'ribosome' | 'protein';
   color: string;
 }
 
@@ -113,7 +115,8 @@ function getDefenseThemePalette(): DefenseThemePalette {
 
 class DefenseSoundController {
   private ctx: AudioContext | null = null;
-  public enabled = true;
+  public enabled = false;
+  destroy() { void this.ctx?.close().catch(() => {}); this.ctx = null; }
 
   private init() {
     if (!this.ctx && typeof window !== 'undefined') {
@@ -279,6 +282,19 @@ export function initPhageDefense(containerEl: HTMLElement) {
   const priorityBtns = containerEl.querySelectorAll<HTMLButtonElement>('[data-tower-priority]');
 
   const sound = new DefenseSoundController();
+  try { sound.enabled = localStorage.getItem('khc_phage_sound') === 'true'; } catch {}
+  const abort = new AbortController();
+  const { signal } = abort;
+  const clock = createGameClock();
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const previewEl = containerEl.querySelector<HTMLElement>('[data-phage-preview]');
+  const confirmBtn = containerEl.querySelector<HTMLButtonElement>('[data-phage-confirm]');
+  const cancelBtn = containerEl.querySelector<HTMLButtonElement>('[data-phage-cancel]');
+  const speedBtn = containerEl.querySelector<HTMLButtonElement>('[data-phage-speed]');
+  const towerSelect = containerEl.querySelector<HTMLSelectElement>('[data-phage-tower-select]');
+  let towerList = '';
+  let speed = 1;
+  let touchPlacement = false;
   let savedHigh = 0;
   try {
     savedHigh = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10) || 0;
@@ -305,7 +321,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
       radius: 4 + Math.random() * 8,
       vx: (Math.random() - 0.5) * 6,
       vy: (Math.random() - 0.5) * 6,
-      type: i % 3 === 0 ? 'mitochondria' : i % 3 === 1 ? 'ribosome' : 'vesicle',
+      type: i % 3 === 0 ? 'protein' : 'ribosome',
       color:
         i % 3 === 0
           ? 'rgba(56, 189, 248, 0.08)'
@@ -318,7 +334,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
   function resizeCanvas() {
     if (!canvas || !ctx) return;
     const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
     canvas.width = Math.round(rect.width * dpr);
     canvas.height = Math.round(rect.height * dpr);
@@ -340,6 +356,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
   }
 
   function createExplosion(x: number, y: number, color: string, isBoss = false) {
+    if (reducedMotion) return;
     const count = isBoss ? 45 : 20;
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
@@ -356,6 +373,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
         maxLife: 25 + Math.random() * 18,
       });
     }
+    particles = particles.slice(-180);
   }
 
   function addFloatingText(x: number, y: number, text: string, color = '#38bdf8') {
@@ -368,38 +386,47 @@ export function initPhageDefense(containerEl: HTMLElement) {
       life: 0,
       maxLife: 35,
     });
+    floatingTexts = floatingTexts.slice(-16);
   }
 
   function render() {
     if (!canvas || !ctx) return;
     const w = VIRTUAL_WIDTH;
     const h = VIRTUAL_HEIGHT;
-    animTick += 0.04;
 
     ctx.clearRect(0, 0, w, h);
 
     // 1. Draw Cellular Cytoplasm Map Background
     ctx.fillStyle = palette.bg;
     ctx.fillRect(0, 0, w, h);
+    const cytoplasm = ctx.createRadialGradient(400, 220, 40, 400, 220, 430);
+    cytoplasm.addColorStop(0, palette.isDark ? '#142c29' : '#e7f3e8');
+    cytoplasm.addColorStop(1, palette.bg);
+    ctx.fillStyle = cytoplasm; ctx.fillRect(0, 0, w, h);
 
     // Drifting cellular organelles
     for (const org of organelles) {
-      org.x = (org.x + org.vx * 0.05 + w) % w;
-      org.y = (org.y + org.vy * 0.05 + h) % h;
       ctx.fillStyle = org.color;
       ctx.beginPath();
-      if (org.type === 'mitochondria') {
-        ctx.ellipse(org.x, org.y, org.radius * 1.6, org.radius * 0.8, 0.4, 0, Math.PI * 2);
-      } else {
-        ctx.arc(org.x, org.y, org.radius, 0, Math.PI * 2);
-      }
+      ctx.ellipse(org.x, org.y, org.radius * 1.2, org.radius * .65, .4, 0, Math.PI * 2);
       ctx.fill();
+      if (org.type === 'ribosome') { ctx.beginPath(); ctx.ellipse(org.x + 3, org.y + 5, org.radius * .8, org.radius * .55, .4, 0, Math.PI * 2); ctx.fill(); }
     }
 
     // Membrane outer lipid bilayer
     ctx.strokeStyle = palette.membrane;
     ctx.lineWidth = 4;
-    ctx.strokeRect(2, 2, w - 4, h - 4);
+    ctx.beginPath(); ctx.roundRect(22, 8, w - 32, h - 16, 64); ctx.stroke();
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.roundRect(30, 16, w - 48, h - 32, 60); ctx.stroke();
+    // An attached outside capsid injects DNA; moving units inside are genomes, not walking phages.
+    ctx.strokeStyle = palette.ink; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(10, 100); ctx.lineTo(42, 100); ctx.stroke();
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; const x = 10 + Math.cos(a) * 14; const y = 76 + Math.sin(a) * 14; if (!i) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+    ctx.closePath(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(10, 90); ctx.lineTo(10, 100); ctx.stroke();
+    ctx.font = '10px monospace'; ctx.fillStyle = palette.ink; ctx.textAlign = 'left'; ctx.fillText('DNA injection → schematic infection lane', 45, 78);
 
     // 2. Draw Waypoint Cytosolic Pathway
     ctx.strokeStyle = palette.pathTrack;
@@ -436,6 +463,10 @@ export function initPhageDefense(containerEl: HTMLElement) {
     ctx.arc(dest.x, dest.y, 38, 0, Math.PI * 2);
     ctx.stroke();
     ctx.shadowBlur = 0;
+    ctx.strokeStyle = palette.nucleoidStroke; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let i = 0; i <= 80; i++) { const a = i / 80 * Math.PI * 2; const r = 25 + Math.sin(a * 7) * 6; const x = dest.x + Math.cos(a) * r; const y = dest.y + Math.sin(a) * r; if (!i) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+    ctx.stroke();
 
     ctx.fillStyle = palette.nucleoidText;
     ctx.font = 'bold 11px monospace';
@@ -475,14 +506,20 @@ export function initPhageDefense(containerEl: HTMLElement) {
       // Rotating catalytic active site scissors
       ctx.save();
       ctx.translate(t.x, t.y);
-      ctx.rotate(animTick * (t.type === 'crispr_cas9' ? 0.6 : 1.4));
+      ctx.rotate(reducedMotion ? 0 : Math.sin(animTick * .5) * .1);
       ctx.strokeStyle = def.color;
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(-10, 0);
-      ctx.lineTo(10, 0);
-      ctx.moveTo(0, -10);
-      ctx.lineTo(0, 10);
+      if (t.type === 'restriction_enzyme') {
+        ctx.moveTo(-12, -11); ctx.lineTo(12, 11); ctx.moveTo(-12, 11); ctx.lineTo(12, -11);
+        ctx.moveTo(-7, -7); ctx.arc(-10, -10, 5, 0, Math.PI * 2); ctx.moveTo(-7, 13); ctx.arc(-10, 10, 5, 0, Math.PI * 2);
+      } else if (t.type === 'crispr_cas9') {
+        ctx.roundRect(-13, -10, 16, 20, 6); ctx.roundRect(-1, -8, 13, 16, 5);
+        ctx.moveTo(-15, 0); ctx.lineTo(15, 0);
+      } else if (t.type === 'rnase_interceptor') {
+        for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; const x = Math.cos(a) * 13; const y = Math.sin(a) * 13; if (!i) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+        ctx.closePath(); ctx.moveTo(-8, 0); ctx.lineTo(-4, -5); ctx.lineTo(0, 5); ctx.lineTo(4, -5); ctx.lineTo(8, 0);
+      } else { ctx.arc(-6, 0, 7, -.8, Math.PI * 1.7); ctx.moveTo(12, 0); ctx.arc(6, 0, 7, 0, Math.PI * 2); }
       ctx.stroke();
       if (t.level >= 2) {
         ctx.rotate(Math.PI / 4);
@@ -496,7 +533,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
       ctx.font = 'bold 10px monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(`L${t.level}`, t.x, t.y);
+      ctx.fillText(`${({ restriction_enzyme: 'ECO', crispr_cas9: 'CAS', rnase_interceptor: 'RNA', ligase_drone: 'LIG' })[t.type]} · ${t.level}`, t.x, t.y + 30);
 
       // Targeting laser beam line for CRISPR Cas9
       if (t.targetId && t.type === 'crispr_cas9') {
@@ -559,7 +596,17 @@ export function initPhageDefense(containerEl: HTMLElement) {
       ctx.shadowColor = p.color;
       ctx.shadowBlur = palette.isDark ? 14 : 6;
 
-      if (p.type === 't4_myoviridae') {
+      if (p.x >= 30 || p.waypointIndex > 0) {
+        ctx.strokeStyle = p.color; ctx.lineWidth = 2.5;
+        const half = p.radius;
+        for (const sign of p.type === 'm13_filamentous' ? [1] : [-1, 1]) {
+          ctx.beginPath();
+          for (let i = 0; i <= 18; i++) { const x = -half + i / 18 * half * 2; const y = Math.sin(i / 18 * Math.PI * 3 + (reducedMotion ? 0 : animTick)) * 7 * sign; if (!i) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+          ctx.stroke();
+        }
+        if (p.type !== 'm13_filamentous') for (let i = 1; i < 8; i++) { const x = -half + i / 8 * half * 2; const y = Math.sin(i / 8 * Math.PI * 3 + (reducedMotion ? 0 : animTick)) * 7; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, -y); ctx.stroke(); }
+        if (p.shieldHealth > 0) { ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.arc(0, 0, p.radius + 8, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); }
+      } else if (p.type === 't4_myoviridae') {
         // Icosahedral head
         ctx.fillStyle = p.color;
         ctx.beginPath();
@@ -660,10 +707,6 @@ export function initPhageDefense(containerEl: HTMLElement) {
     // 8. Update & Draw Particles
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
-      p.x += p.vx;
-      p.y += p.vy;
-      p.life++;
-      p.alpha = Math.max(0, 1 - p.life / p.maxLife);
 
       ctx.save();
       ctx.globalAlpha = p.alpha;
@@ -673,15 +716,11 @@ export function initPhageDefense(containerEl: HTMLElement) {
       ctx.fill();
       ctx.restore();
 
-      if (p.life >= p.maxLife) particles.splice(i, 1);
     }
 
     // 9. Update & Draw Floating Tactical Texts
     for (let i = floatingTexts.length - 1; i >= 0; i--) {
       const ft = floatingTexts[i];
-      ft.y -= 1.1;
-      ft.life++;
-      ft.alpha = Math.max(0, 1 - ft.life / ft.maxLife);
 
       ctx.save();
       ctx.globalAlpha = ft.alpha;
@@ -691,9 +730,6 @@ export function initPhageDefense(containerEl: HTMLElement) {
       ctx.fillText(ft.text, ft.x, ft.y);
       ctx.restore();
 
-      if (ft.life >= ft.maxLife) {
-        floatingTexts.splice(i, 1);
-      }
     }
 
     // 10. Active Emergency Ability Overlays
@@ -747,6 +783,20 @@ export function initPhageDefense(containerEl: HTMLElement) {
   }
 
   function updateHUD() {
+    const list = state.towers.map((tower) => `${tower.id}:${tower.level}`).join(',');
+    if (towerSelect && list !== towerList) {
+      towerList = list;
+      towerSelect.replaceChildren(new Option('Inspect a defense…', ''), ...state.towers.map((tower, index) => new Option(`${index + 1}. ${TOWER_DEFINITIONS[tower.type].name} · L${tower.level}`, tower.id)));
+    }
+    if (towerSelect) towerSelect.value = selectedTower?.id ?? '';
+    if (soundBtn) { soundBtn.textContent = sound.enabled ? 'Sound on' : 'Sound off'; soundBtn.setAttribute('aria-pressed', String(sound.enabled)); }
+    if (previewEl) {
+      const queue = generateWaveQueue(Math.min(15, state.currentWave + 1));
+      const preview = selectedBuildType ? `${TOWER_DEFINITIONS[selectedBuildType].name} · ${TOWER_DEFINITIONS[selectedBuildType].cost} ATP · range ${TOWER_DEFINITIONS[selectedBuildType].range} · ${TOWER_DEFINITIONS[selectedBuildType].damage} damage · ${TOWER_DEFINITIONS[selectedBuildType].fireRate}/s. Tap to preview; Confirm to place. Green = valid, red = blocked.` : state.isWaveActive ? `Wave ${state.currentWave}: ${state.phages.length} active, ${state.waveSpawnQueue.length} incoming. ${state.currentWave >= 12 ? 'Boss resistance blocks Cas9 only — mix your defenses.' : 'Inspect a tower to upgrade or change priority.'}` : `Next wave ${Math.min(15, state.currentWave + 1)} · ${queue.length} genomes${queue.includes('giant_megaphage') ? ' · boss warning: anti-Cas9 resistance' : ''}. Build defenses before starting.`;
+      if (previewEl.textContent !== preview) previewEl.textContent = preview;
+    }
+    if (confirmBtn) { confirmBtn.hidden = !selectedBuildType; confirmBtn.disabled = !selectedBuildType || !canPlaceTower(state.towers, mousePos.x, mousePos.y, state.waypoints); }
+    if (cancelBtn) cancelBtn.hidden = !selectedBuildType;
     if (scoreEl) scoreEl.textContent = state.score.toLocaleString();
     if (bestEl) bestEl.textContent = state.highScore.toLocaleString();
     if (atpEl) atpEl.textContent = `${state.atp} ATP`;
@@ -757,7 +807,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
       viabilityBar.style.width = `${pct}%`;
       viabilityBar.style.backgroundColor = pct > 50 ? '#10b981' : pct > 25 ? '#f59e0b' : '#f43f5e';
     }
-    if (viabilityText) viabilityText.textContent = `${state.cellViability}%`;
+    if (viabilityText) viabilityText.textContent = `${Math.round(state.cellViability)}%`;
 
     if (nextWaveBtn) {
       nextWaveBtn.disabled = state.isWaveActive || state.isGameOver || state.isVictory;
@@ -808,7 +858,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
         if (nameEl) nameEl.textContent = def.name;
         if (lvlEl) lvlEl.textContent = `Level ${selectedTower.level}`;
         if (dpsEl)
-          dpsEl.textContent = `Damage: ${Math.round(def.damage * (1 + (selectedTower.level - 1) * 0.45))} · Total dealt: ${Math.round(selectedTower.totalDamage)}`;
+          dpsEl.textContent = `Hit: ${Math.round(def.damage * (1 + (selectedTower.level - 1) * 0.45))} · Base rate: ${(def.fireRate * (1 + (selectedTower.level - 1) * .2)).toFixed(2)}/s · Range: ${Math.round(def.range * (1 + (selectedTower.level - 1) * .15))} · Landed: ${Math.round(selectedTower.totalDamage)} · Kills: ${selectedTower.kills}`;
 
         if (upgradeBtn) {
           upgradeBtn.disabled = selectedTower.level >= 3 || state.atp < cost;
@@ -835,6 +885,19 @@ export function initPhageDefense(containerEl: HTMLElement) {
     const dt = Math.min(0.1, (timestamp - lastTimestamp) / 1000);
     lastTimestamp = timestamp;
 
+    clock.advance(!state.isPaused && !state.isGameOver && !state.isVictory ? dt * speed : 0, simulate);
+    render(); updateHUD();
+    animationFrameId = requestAnimationFrame(gameLoop);
+  }
+  function simulate(dt: number) {
+    if (!reducedMotion) {
+      animTick += dt * 2.4;
+      for (const org of organelles) { org.x = (org.x + org.vx * dt + VIRTUAL_WIDTH) % VIRTUAL_WIDTH; org.y = (org.y + org.vy * dt + VIRTUAL_HEIGHT) % VIRTUAL_HEIGHT; }
+    }
+    for (const p of particles) { p.x += p.vx * dt * 60; p.y += p.vy * dt * 60; p.life += dt * 60; p.alpha = Math.max(0, 1 - p.life / p.maxLife); }
+    particles = particles.filter((p) => p.life < p.maxLife);
+    for (const ft of floatingTexts) { ft.y -= dt * 66; ft.life += dt * 60; ft.alpha = Math.max(0, 1 - ft.life / ft.maxLife); }
+    floatingTexts = floatingTexts.filter((ft) => ft.life < ft.maxLife);
     const { state: nextState, defeatedPhages, breachedPhages } = updateDefenseGame(state, dt);
 
     if (defeatedPhages.length > 0) {
@@ -848,22 +911,18 @@ export function initPhageDefense(containerEl: HTMLElement) {
     if (breachedPhages.length > 0) {
       sound.playBreach();
       breachedPhages.forEach((b) => {
-        addFloatingText(b.x, b.y, '-10% VIABILITY', '#f43f5e');
+        addFloatingText(b.x, b.y, `-${b.type === 'giant_megaphage' ? 40 : 10}%`, '#f43f5e');
       });
     }
 
-    if (nextState.isGameOver && !state.isGameOver) {
+    if ((nextState.isGameOver && !state.isGameOver) || (nextState.isVictory && !state.isVictory)) {
       try {
         localStorage.setItem(STORAGE_KEY, String(nextState.highScore));
       } catch {}
     }
 
     state = nextState;
-
-    render();
-    updateHUD();
-
-    animationFrameId = requestAnimationFrame(gameLoop);
+    if (selectedTower) selectedTower = state.towers.find((t) => t.id === selectedTower!.id) ?? null;
   }
 
   function onThemeChange() {
@@ -873,26 +932,34 @@ export function initPhageDefense(containerEl: HTMLElement) {
   }
 
   // Click & Interaction handlers
-  canvas.addEventListener('mousemove', (e) => {
+  canvas.addEventListener('pointermove', (e) => {
     isMouseInside = true;
     mousePos = getCanvasPos(e);
-  });
+  }, { signal });
+  canvas.addEventListener('pointerdown', (e) => { touchPlacement = e.pointerType === 'touch'; mousePos = getCanvasPos(e); isMouseInside = true; }, { signal });
+  canvas.addEventListener('pointercancel', () => { selectedBuildType = null; isMouseInside = false; updateHUD(); }, { signal });
   canvas.addEventListener('mouseleave', () => {
     isMouseInside = false;
-  });
+  }, { signal });
+
+  function deploy() {
+    if (!selectedBuildType) return;
+    const { state: nextState, success } = placeTower(state, selectedBuildType, mousePos.x, mousePos.y);
+    if (success) {
+      state = nextState; sound.playShoot(selectedBuildType);
+      addFloatingText(mousePos.x, mousePos.y, 'DEPLOYED', '#10b981');
+      selectedBuildType = null;
+    } else addFloatingText(mousePos.x, mousePos.y, 'BLOCKED · CHOOSE GREEN SPACE', '#f43f5e');
+    updateHUD();
+  }
 
   canvas.addEventListener('click', (e) => {
     const pos = getCanvasPos(e);
+    mousePos = pos;
 
     if (selectedBuildType) {
-      const { state: nextState, success } = placeTower(state, selectedBuildType, pos.x, pos.y);
-      if (success) {
-        state = nextState;
-        sound.playShoot(selectedBuildType);
-        addFloatingText(pos.x, pos.y, 'DEPLOYED', '#10b981');
-        selectedBuildType = null;
-        updateHUD();
-      }
+      if (!touchPlacement) deploy();
+      else updateHUD();
       return;
     }
 
@@ -905,7 +972,21 @@ export function initPhageDefense(containerEl: HTMLElement) {
     }
     selectedTower = clickedTower;
     updateHUD();
-  });
+  }, { signal });
+  confirmBtn?.addEventListener('click', deploy, { signal });
+  cancelBtn?.addEventListener('click', () => { selectedBuildType = null; updateHUD(); }, { signal });
+  speedBtn?.addEventListener('click', () => { speed = speed === 1 ? 2 : 1; speedBtn.textContent = `${speed}× speed`; clock.reset(); }, { signal });
+  towerSelect?.addEventListener('change', () => { selectedTower = state.towers.find((tower) => tower.id === towerSelect.value) ?? null; selectedBuildType = null; updateHUD(); }, { signal });
+  containerEl.addEventListener('keydown', (e) => {
+    if (e.target instanceof Element && e.target.closest('input,select,textarea')) return;
+    if (selectedBuildType && /^Arrow/.test(e.key)) {
+      e.preventDefault(); isMouseInside = true;
+      mousePos.x = Math.max(30, Math.min(770, mousePos.x + (e.key === 'ArrowLeft' ? -20 : e.key === 'ArrowRight' ? 20 : 0)));
+      mousePos.y = Math.max(30, Math.min(470, mousePos.y + (e.key === 'ArrowUp' ? -20 : e.key === 'ArrowDown' ? 20 : 0)));
+      updateHUD();
+    } else if (e.key === 'Enter' && e.target === containerEl) deploy();
+    else if (e.key === 'Escape') { selectedBuildType = null; updateHUD(); }
+  }, { signal });
 
   towerBuildCards.forEach((card) => {
     card.addEventListener('click', () => {
@@ -915,9 +996,10 @@ export function initPhageDefense(containerEl: HTMLElement) {
       } else {
         selectedBuildType = type;
         selectedTower = null;
+        mousePos = { x: 200, y: 380 }; isMouseInside = true;
       }
       updateHUD();
-    });
+    }, { signal });
   });
 
   emergencyBtns.forEach((btn) => {
@@ -932,7 +1014,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
           updateHUD();
         }
       }
-    });
+    }, { signal });
   });
 
   if (upgradeBtn) {
@@ -945,7 +1027,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
         addFloatingText(selectedTower?.x || 100, selectedTower?.y || 100, 'UPGRADED', '#38bdf8');
         updateHUD();
       }
-    });
+    }, { signal });
   }
 
   if (sellBtn) {
@@ -956,7 +1038,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
       state = nextState;
       selectedTower = null;
       updateHUD();
-    });
+    }, { signal });
   }
 
   priorityBtns.forEach((btn) => {
@@ -968,7 +1050,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
         selectedTower = state.towers.find((t) => t.id === selectedTower!.id) || null;
         updateHUD();
       }
-    });
+    }, { signal });
   });
 
   if (nextWaveBtn) {
@@ -976,7 +1058,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
       state = startNextWave(state);
       sound.playWaveStart();
       updateHUD();
-    });
+    }, { signal });
   }
 
   if (restartBtn) {
@@ -986,24 +1068,30 @@ export function initPhageDefense(containerEl: HTMLElement) {
       selectedTower = null;
       particles = [];
       floatingTexts = [];
+      clock.reset();
       updateHUD();
-    });
+    }, { signal });
   }
 
   if (pauseBtn) {
     pauseBtn.addEventListener('click', () => {
       state = state.isPaused ? { ...state, isPaused: false } : { ...state, isPaused: true };
+      clock.reset();
       updateHUD();
-    });
+    }, { signal });
   }
 
   if (soundBtn) {
     soundBtn.addEventListener('click', () => {
       sound.enabled = !sound.enabled;
+      try { localStorage.setItem('khc_phage_sound', String(sound.enabled)); } catch {}
       soundBtn.setAttribute('aria-pressed', String(sound.enabled));
       soundBtn.textContent = sound.enabled ? 'Sound on' : 'Sound off';
-    });
+    }, { signal });
   }
+  function suspend() { state = { ...state, isPaused: true }; clock.reset(); updateHUD(); }
+  window.addEventListener('blur', suspend, { signal });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) suspend(); }, { signal });
 
   window.addEventListener('resize', resizeCanvas);
   document.addEventListener('khc:theme-change', onThemeChange);
@@ -1019,6 +1107,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
     },
     destroy: () => {
       cancelAnimationFrame(animationFrameId);
+      abort.abort(); sound.destroy();
       window.removeEventListener('resize', resizeCanvas);
       document.removeEventListener('khc:theme-change', onThemeChange);
       if (win.__phageDefense === controller) {
