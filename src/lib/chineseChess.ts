@@ -40,7 +40,7 @@ export interface Move {
   notation?: string;
 }
 
-export type GameStatus = 'ready' | 'playing' | 'check' | 'checkmate' | 'stalemate';
+export type GameStatus = 'ready' | 'playing' | 'check' | 'checkmate' | 'stalemate' | 'draw';
 
 export type AIDifficulty = 'novice' | 'intermediate' | 'master';
 
@@ -54,6 +54,8 @@ export interface GameState {
   capturedBlack: Piece[];
   isCheck: boolean;
   lastMove: Move | null;
+  positions: Record<string, number>;
+  repetitionCount: number;
 }
 
 export const CHINESE_PIECE_CHARS: Record<Side, Record<PieceKind, string>> = {
@@ -204,7 +206,28 @@ export function createGame(): GameState {
     capturedBlack: [],
     isCheck: false,
     lastMove: null,
+    positions: { [positionKey(board, 'red')]: 1 },
+    repetitionCount: 1,
   };
+}
+
+export function positionKey(board: (Piece | null)[][], turn: Side): string {
+  return `${turn}|${board.map((col) => col.map((p) => p ? `${p.side[0]}:${p.kind}` : '.').join(',')).join('/')}`;
+}
+
+export type TeachingPosition = 'horse' | 'elephant' | 'cannon' | 'generals';
+export function createTeachingPosition(kind: TeachingPosition): GameState {
+  const game = createGame();
+  game.board = Array.from({ length: 9 }, () => Array<Piece | null>(10).fill(null));
+  let id = 100;
+  const add = (side: Side, piece: PieceKind, x: number, y: number) => { game.board[x][y] = { id: id++, side, kind: piece, x, y }; };
+  add('red', 'general', 4, 0); add('black', 'general', kind === 'generals' ? 4 : 5, 9);
+  if (kind === 'horse') { add('red', 'horse', 4, 4); add('red', 'soldier', 4, 5); }
+  if (kind === 'elephant') { add('red', 'elephant', 2, 2); add('red', 'soldier', 3, 3); }
+  if (kind === 'cannon') { add('red', 'cannon', 1, 2); add('red', 'soldier', 1, 4); add('black', 'chariot', 1, 7); }
+  if (kind === 'generals') add('red', 'chariot', 4, 4);
+  game.positions = { [positionKey(game.board, game.turn)]: 1 };
+  return game;
 }
 
 /** Check if coordinates are inside the 9x10 board. */
@@ -508,7 +531,11 @@ export function formatXiangqiNotation(
     }
   }
 
-  return `${char}${fromFileStr}${action}${target}`;
+  const peers = board[fromX].filter((other): other is Piece => Boolean(other && other.side === side && other.kind === piece.kind));
+  peers.sort((a, b) => side === 'red' ? b.y - a.y : a.y - b.y);
+  const index = peers.findIndex((other) => other.id === piece.id);
+  const prefix = peers.length > 1 ? `${index === 0 ? '前' : index === peers.length - 1 ? '後' : peers.length === 3 ? '中' : CHINESE_DIGITS[index]}${char}` : `${char}${fromFileStr}`;
+  return `${prefix}${action}${target}`;
 }
 
 /**
@@ -558,6 +585,8 @@ export function makeMove(state: GameState, move: Move): GameState {
 
   const inCheck = isSideInCheck(nextBoard, nextTurn);
   const nextLegalMoves = generateLegalMoves(nextBoard, nextTurn);
+  const key = positionKey(nextBoard, nextTurn);
+  const repetitionCount = (state.positions[key] ?? 0) + 1;
 
   let status: GameStatus = 'playing';
   let winner: Side | null = null;
@@ -584,6 +613,8 @@ export function makeMove(state: GameState, move: Move): GameState {
     capturedBlack,
     isCheck: inCheck,
     lastMove: move,
+    positions: { ...state.positions, [key]: repetitionCount },
+    repetitionCount,
   };
 }
 
@@ -630,8 +661,10 @@ function quiescence(
   side: Side,
   alpha: number,
   beta: number,
-  maxQDepth: number
+  maxQDepth: number,
+  checkTime: () => void = () => {}
 ): number {
+  checkTime();
   const standPat = side === 'red' ? evaluateBoard(board) : -evaluateBoard(board);
   if (standPat >= beta || maxQDepth <= 0) return beta;
   if (standPat > alpha) alpha = standPat;
@@ -647,8 +680,9 @@ function quiescence(
   const nextSide: Side = side === 'red' ? 'black' : 'red';
   for (const move of moves) {
     const undo = applyMove(board, move);
-    const score = -quiescence(board, nextSide, -beta, -alpha, maxQDepth - 1);
-    undo();
+    let score: number;
+    try { score = -quiescence(board, nextSide, -beta, -alpha, maxQDepth - 1, checkTime); }
+    finally { undo(); }
 
     if (score >= beta) return beta;
     if (score > alpha) alpha = score;
@@ -665,8 +699,10 @@ function minimaxAlphaBeta(
   depth: number,
   alpha: number,
   beta: number,
-  useQuiescence: boolean
+  useQuiescence: boolean,
+  checkTime: () => void = () => {}
 ): { score: number; bestMove: Move | null } {
+  checkTime();
   const legalMoves = generateLegalMoves(board, side);
   if (legalMoves.length === 0) {
     const inCheck = isSideInCheck(board, side);
@@ -676,7 +712,7 @@ function minimaxAlphaBeta(
 
   if (depth <= 0) {
     const score = useQuiescence
-      ? quiescence(board, side, alpha, beta, 3)
+      ? quiescence(board, side, alpha, beta, 3, checkTime)
       : side === 'red'
         ? evaluateBoard(board)
         : -evaluateBoard(board);
@@ -695,16 +731,17 @@ function minimaxAlphaBeta(
 
   for (const move of legalMoves) {
     const undo = applyMove(board, move);
-    const { score: resScore } = minimaxAlphaBeta(
+    let resScore: number;
+    try { ({ score: resScore } = minimaxAlphaBeta(
       board,
       nextSide,
       depth - 1,
       -beta,
       -alpha,
-      useQuiescence
-    );
+      useQuiescence,
+      checkTime
+    )); } finally { undo(); }
     const evalScore = -resScore;
-    undo();
 
     if (evalScore > alpha) {
       alpha = evalScore;
@@ -719,47 +756,23 @@ function minimaxAlphaBeta(
 /**
  * Computes the best AI move for the active turn according to difficulty.
  */
-export function getAIMove(state: GameState, difficulty: AIDifficulty): Move | null {
+export function getAIMove(state: GameState, difficulty: AIDifficulty, options: { budgetMs?: number; now?: () => number; random?: () => number } = {}): Move | null {
   const legalMoves = generateLegalMoves(state.board, state.turn);
   if (legalMoves.length === 0) return null;
 
-  if (difficulty === 'novice') {
-    // Novice: Depth 2 + random move perturbation
-    if (Math.random() < 0.25) {
-      return legalMoves[Math.floor(Math.random() * legalMoves.length)];
-    }
-    const { bestMove } = minimaxAlphaBeta(
-      state.board,
-      state.turn,
-      2,
-      -Infinity,
-      Infinity,
-      false
-    );
-    return bestMove || legalMoves[0];
+  const random = options.random ?? Math.random;
+  if (difficulty === 'novice' && random() < .25) return legalMoves[Math.floor(random() * legalMoves.length)];
+  const now = options.now ?? (() => performance.now());
+  const deadline = now() + Math.max(0, Math.min(1500, options.budgetMs ?? 1500));
+  const expired = Symbol('search budget');
+  const checkTime = () => { if (now() >= deadline) throw expired; };
+  let best = legalMoves[0];
+  const maxDepth = difficulty === 'novice' ? 2 : difficulty === 'intermediate' ? 3 : 4;
+  for (let depth = 1; depth <= maxDepth; depth++) {
+    try {
+      const result = minimaxAlphaBeta(state.board, state.turn, depth, -Infinity, Infinity, difficulty === 'master', checkTime);
+      if (result.bestMove) best = result.bestMove;
+    } catch (error) { if (error !== expired) throw error; break; }
   }
-
-  if (difficulty === 'intermediate') {
-    // Intermediate: Depth 3 with Alpha-Beta
-    const { bestMove } = minimaxAlphaBeta(
-      state.board,
-      state.turn,
-      3,
-      -Infinity,
-      Infinity,
-      false
-    );
-    return bestMove || legalMoves[0];
-  }
-
-  // Master: Depth 4 with Quiescence search
-  const { bestMove } = minimaxAlphaBeta(
-    state.board,
-    state.turn,
-    4,
-    -Infinity,
-    Infinity,
-    true
-  );
-  return bestMove || legalMoves[0];
+  return best;
 }

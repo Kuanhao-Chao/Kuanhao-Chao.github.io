@@ -6,13 +6,15 @@ import {
   createGame,
   generateLegalMoves,
   makeMove,
-  getAIMove,
+  createTeachingPosition,
+  findGeneral,
   CHINESE_PIECE_CHARS,
   type GameState,
   type Move,
   type Piece,
   type Side,
   type AIDifficulty,
+  type TeachingPosition,
 } from '../lib/chineseChess';
 import { isDarkTheme } from '../lib/theme';
 
@@ -24,6 +26,7 @@ interface SoundEffects {
   playCapture: () => void;
   playCheck: () => void;
   playVictory: () => void;
+  destroy: () => void;
 }
 
 function createAudioSynthesizer(): SoundEffects {
@@ -137,12 +140,15 @@ function createAudioSynthesizer(): SoundEffects {
     });
   };
 
-  return { playSelect, playMove, playCapture, playCheck, playVictory };
+  return { playSelect, playMove, playCapture, playCheck, playVictory, destroy: () => { void audioCtx?.close().catch(() => {}); audioCtx = null; } };
 }
 
 export function initChineseChess() {
-  const root = document.querySelector<HTMLElement>('[data-cc-root]');
-  if (!root) return () => {};
+  const rootEl = document.querySelector<HTMLElement>('[data-cc-root]');
+  if (!rootEl) return () => {};
+  const root = rootEl;
+  if (root.dataset.ccReady) return () => {};
+  root.dataset.ccReady = 'true';
 
   const canvasEl = root.querySelector<HTMLCanvasElement>('[data-cc-canvas]');
   if (!canvasEl) return () => {};
@@ -165,17 +171,34 @@ export function initChineseChess() {
   const flipBtn = root.querySelector<HTMLButtonElement>('[data-cc-flip]');
   const restartBtn = root.querySelector<HTMLButtonElement>('[data-cc-restart]');
   const soundBtn = root.querySelector<HTMLButtonElement>('[data-cc-sound]');
+  const teachingSelect = root.querySelector<HTMLSelectElement>('[data-cc-teaching]');
+  const teachingEl = root.querySelector<HTMLElement>('[data-cc-teaching-note]');
+  const drawBtn = root.querySelector<HTMLButtonElement>('[data-cc-draw]');
+  const keyboardGrid = root.querySelector<HTMLElement>('[data-cc-keyboard-grid]');
 
   let game: GameState = createGame();
   let mode: GameMode = (modeSelect?.value as GameMode) || 'pve';
   let difficulty: AIDifficulty = (diffSelect?.value as AIDifficulty) || 'intermediate';
   let playerSide: Side = (sideSelect?.value as Side) || 'red';
   let flipped = false;
-  let soundEnabled = true;
+  let soundEnabled = false;
+  try { soundEnabled = localStorage.getItem('khc-xiangqi-sound') === 'on'; } catch {}
+  if (soundBtn) { soundBtn.textContent = soundEnabled ? 'Sound: On' : 'Sound: Off'; soundBtn.setAttribute('aria-pressed', String(soundEnabled)); }
   let selectedPiece: Piece | null = null;
   let legalMovesForSelected: Move[] = [];
   let suggestedHint: Move | null = null;
   let isAIThinking = false;
+  let worker: Worker | null = null;
+  let searchTimer = 0;
+  let revision = 0;
+  let jobId = 0;
+  let pendingJob: { id: number; revision: number; kind: 'ai' | 'hint' } | null = null;
+  let originGame = structuredClone(game);
+  let drawOffered = false;
+  let focusedCell = { x: 0, y: 0 };
+  let motionFrame = 0;
+  let movingPiece: { id: number; fromX: number; fromY: number; toX: number; toY: number; started: number } | null = null;
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   const sfx = createAudioSynthesizer();
 
@@ -190,7 +213,7 @@ export function initChineseChess() {
   function resize() {
     const rect = canvas!.getBoundingClientRect();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const cssW = Math.max(300, rect.width);
+    const cssW = Math.max(1, rect.width);
     // Aspect ratio: 9 columns, 10 rows with margins -> ratio ~ (9 + 0.8) : (10 + 0.8) ~ 9.8 / 10.8 ~ 0.907
     const cssH = cssW * 1.11;
 
@@ -206,7 +229,7 @@ export function initChineseChess() {
     cellW = (cssW - 2 * marginX) / 8;
     cellH = (cssH - 2 * marginY) / 9;
     pieceRadius = Math.min(cellW, cellH) * 0.44;
-
+    updateKeyboardGrid();
     render();
   }
 
@@ -244,8 +267,8 @@ export function initChineseChess() {
   // ---- Drawing Subroutines --------------------------------------------------
 
   function drawBoard() {
-    const W = canvas!.width / (window.devicePixelRatio || 1);
-    const H = canvas!.height / (window.devicePixelRatio || 1);
+    const W = canvas!.width / Math.min(window.devicePixelRatio || 1, 2);
+    const H = canvas!.height / Math.min(window.devicePixelRatio || 1, 2);
     const isDark = isDarkTheme();
 
     // 1. Rich Woodgrain Board Canvas Background
@@ -433,7 +456,13 @@ export function initChineseChess() {
   }
 
   function drawPiece(piece: Piece) {
-    const { cx, cy } = boardToCanvas(piece.x, piece.y);
+    let { cx, cy } = boardToCanvas(piece.x, piece.y);
+    if (movingPiece?.id === piece.id) {
+      const from = boardToCanvas(movingPiece.fromX, movingPiece.fromY);
+      const t = Math.min(1, (performance.now() - movingPiece.started) / 180);
+      const eased = 1 - (1 - t) ** 3;
+      cx = from.cx + (cx - from.cx) * eased; cy = from.cy + (cy - from.cy) * eased;
+    }
     const r = pieceRadius;
     const isRed = piece.side === 'red';
     const isDark = isDarkTheme();
@@ -655,6 +684,7 @@ export function initChineseChess() {
 
   function render() {
     drawBoard();
+    drawDependencies();
 
     // Draw all active pieces
     for (let x = 0; x < 9; x++) {
@@ -665,12 +695,88 @@ export function initChineseChess() {
     }
 
     drawOverlays();
+    if (keyboardGrid?.contains(document.activeElement)) {
+      const p = boardToCanvas(focusedCell.x, focusedCell.y);
+      ctx.save(); ctx.strokeStyle = '#d97706'; ctx.lineWidth = 3; ctx.strokeRect(p.cx - cellW * .45, p.cy - cellH * .45, cellW * .9, cellH * .9); ctx.restore();
+    }
   }
+
+  function drawDependencies() {
+    if (!selectedPiece) return;
+    const piece = selectedPiece;
+    const mark = (x: number, y: number, label: string) => {
+      if (x < 0 || x > 8 || y < 0 || y > 9) return;
+      const from = boardToCanvas(piece.x, piece.y); const to = boardToCanvas(x, y);
+      ctx.save(); ctx.strokeStyle = '#d97706'; ctx.lineWidth = 2; ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo(from.cx, from.cy); ctx.lineTo(to.cx, to.cy); ctx.stroke(); ctx.setLineDash([]);
+      ctx.strokeRect(to.cx - pieceRadius, to.cy - pieceRadius, pieceRadius * 2, pieceRadius * 2);
+      ctx.fillStyle = isDarkTheme() ? '#fcd34d' : '#92400e'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(label, to.cx, to.cy - pieceRadius - 4); ctx.restore();
+    };
+    if (piece.kind === 'horse') {
+      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) if (game.board[piece.x + dx]?.[piece.y + dy]) mark(piece.x + dx, piece.y + dy, 'blocked leg');
+    } else if (piece.kind === 'elephant') {
+      for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) if (game.board[piece.x + dx]?.[piece.y + dy]) mark(piece.x + dx, piece.y + dy, 'blocked eye');
+    } else if (piece.kind === 'cannon') {
+      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+        for (let i = 1; i < 10; i++) {
+          const x = piece.x + dx * i; const y = piece.y + dy * i;
+          if (x < 0 || x > 8 || y < 0 || y > 9) break;
+          if (game.board[x][y]) { mark(x, y, 'screen'); break; }
+        }
+      }
+    }
+    const red = findGeneral(game.board, 'red'); const black = findGeneral(game.board, 'black');
+    if (red && black && red.x === black.x && piece.x === red.x) {
+      const from = boardToCanvas(red.x, red.y); const to = boardToCanvas(black.x, black.y);
+      ctx.save(); ctx.strokeStyle = '#d97706'; ctx.setLineDash([5, 7]); ctx.beginPath(); ctx.moveTo(from.cx, from.cy); ctx.lineTo(to.cx, to.cy); ctx.stroke(); ctx.restore();
+    }
+  }
+
+  function updateKeyboardGrid() {
+    if (!keyboardGrid) return;
+    if (!keyboardGrid.children.length) {
+      for (let y = 0; y < 10; y++) {
+        const row = document.createElement('div'); row.setAttribute('role', 'row');
+        for (let x = 0; x < 9; x++) {
+          const button = document.createElement('button'); button.type = 'button'; button.className = 'cc-grid-cell';
+          button.setAttribute('role', 'gridcell'); button.dataset.x = String(x); button.dataset.y = String(y); row.append(button);
+        }
+        keyboardGrid.append(row);
+      }
+    }
+    keyboardGrid.querySelectorAll<HTMLButtonElement>('.cc-grid-cell').forEach((button) => {
+      const x = Number(button.dataset.x); const y = Number(button.dataset.y); const point = boardToCanvas(x, y); const piece = game.board[x][y];
+      button.tabIndex = focusedCell.x === x && focusedCell.y === y ? 0 : -1;
+      button.style.left = `${point.cx - cellW * .45}px`; button.style.top = `${point.cy - cellH * .45}px`; button.style.width = `${cellW * .9}px`; button.style.height = `${cellH * .9}px`;
+      button.setAttribute('aria-label', `File ${x + 1}, rank ${y + 1}: ${piece ? `${piece.side} ${piece.kind} ${CHINESE_PIECE_CHARS[piece.side][piece.kind]}` : 'empty'}${legalMovesForSelected.some((m) => m.toX === x && m.toY === y) ? ', legal destination' : ''}`);
+      button.setAttribute('aria-selected', String(selectedPiece?.x === x && selectedPiece?.y === y));
+      button.setAttribute('aria-disabled', String(isAIThinking || game.status === 'draw'));
+    });
+  }
+  const onGridClick = (event: Event) => {
+    const button = (event.target as Element).closest<HTMLElement>('.cc-grid-cell');
+    if (button) { focusedCell = { x: Number(button.dataset.x), y: Number(button.dataset.y) }; handlePointClick(focusedCell.x, focusedCell.y); updateKeyboardGrid(); }
+  };
+  const onGridFocus = (event: FocusEvent) => {
+    const button = (event.target as Element).closest<HTMLElement>('.cc-grid-cell');
+    if (button) { focusedCell = { x: Number(button.dataset.x), y: Number(button.dataset.y) }; render(); }
+  };
+  const onGridKey = (event: KeyboardEvent) => {
+    if (!/^Arrow|^Home$|^End$/.test(event.key)) return;
+    event.preventDefault();
+    if (event.key === 'Home') focusedCell.x = flipped ? 8 : 0;
+    else if (event.key === 'End') focusedCell.x = flipped ? 0 : 8;
+    else {
+      focusedCell.x = Math.max(0, Math.min(8, focusedCell.x + (event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0) * (flipped ? -1 : 1)));
+      focusedCell.y = Math.max(0, Math.min(9, focusedCell.y + (event.key === 'ArrowUp' ? 1 : event.key === 'ArrowDown' ? -1 : 0) * (flipped ? -1 : 1)));
+    }
+    updateKeyboardGrid(); keyboardGrid?.querySelector<HTMLButtonElement>('[tabindex="0"]')?.focus({ preventScroll: true }); render();
+  };
 
   // ---- Interaction Handling -------------------------------------------------
 
   function handlePointClick(x: number, y: number) {
-    if (game.status === 'checkmate' || game.status === 'stalemate' || isAIThinking) return;
+    if (game.status === 'checkmate' || game.status === 'stalemate' || game.status === 'draw' || isAIThinking) return;
 
     // In PvE mode, human can only play on their turn side
     if (mode === 'pve' && game.turn !== playerSide) return;
@@ -712,9 +818,11 @@ export function initChineseChess() {
     suggestedHint = null;
     if (soundEnabled) sfx.playSelect();
     render();
+    updateKeyboardGrid();
   }
 
   function executeUserMove(move: Move) {
+    cancelSearch();
     selectedPiece = null;
     legalMovesForSelected = [];
     suggestedHint = null;
@@ -725,6 +833,7 @@ export function initChineseChess() {
     }
 
     game = makeMove(game, move);
+    animateMove(move);
     updateHud();
     render();
 
@@ -741,35 +850,44 @@ export function initChineseChess() {
     }
   }
 
-  function scheduleAIMove() {
-    isAIThinking = true;
-    updateHud();
-
-    // Async execution via setTimeout to allow canvas update & avoid UI freezing
-    setTimeout(() => {
-      if (game.status === 'checkmate' || game.status === 'stalemate') {
-        isAIThinking = false;
-        return;
+  function cancelSearch() {
+    revision++; worker?.terminate(); worker = null;
+    window.clearTimeout(searchTimer); searchTimer = 0; pendingJob = null; isAIThinking = false;
+  }
+  function search(kind: 'ai' | 'hint') {
+    cancelSearch();
+    const legal = generateLegalMoves(game.board, game.turn);
+    if (!legal.length) return;
+    const job = { id: ++jobId, revision, kind }; pendingJob = job;
+    isAIThinking = kind === 'ai'; updateHud();
+    const finish = (candidate: Move | null) => {
+      if (!root.isConnected || pendingJob?.id !== job.id || revision !== job.revision) return;
+      const move = legal.find((m) => m.fromX === candidate?.fromX && m.fromY === candidate.fromY && m.toX === candidate.toX && m.toY === candidate.toY) ?? legal[0];
+      cancelSearch();
+      if (kind === 'hint') suggestedHint = move;
+      else {
+        game = makeMove(game, move); animateMove(move);
+        if (soundEnabled) { if (move.captured) sfx.playCapture(); else sfx.playMove(); }
       }
-
-      const aiMove = getAIMove(game, difficulty);
-      isAIThinking = false;
-
-      if (aiMove) {
-        if (soundEnabled) {
-          if (aiMove.captured) sfx.playCapture();
-          else sfx.playMove();
-        }
-        game = makeMove(game, aiMove);
-        updateHud();
-        render();
-
-        if (soundEnabled) {
-          if (game.status === 'check') sfx.playCheck();
-          else if (game.status === 'checkmate' || game.status === 'stalemate') sfx.playVictory();
-        }
-      }
-    }, 280);
+      updateHud(); render();
+    };
+    try {
+      worker = new Worker(new URL('../workers/chineseChess.worker.ts', import.meta.url), { type: 'module' });
+      worker.onmessage = (event: MessageEvent<{ id: number; revision: number; move: Move | null }>) => {
+        if (event.data.id === job.id && event.data.revision === job.revision) finish(event.data.move);
+      };
+      worker.onerror = () => finish(legal[0]);
+      worker.postMessage({ ...job, state: structuredClone(game), difficulty: kind === 'hint' ? 'master' : difficulty });
+      searchTimer = window.setTimeout(() => finish(legal[0]), 1650);
+    } catch { searchTimer = window.setTimeout(() => finish(legal[0]), 0); }
+  }
+  function scheduleAIMove() { search('ai'); }
+  function animateMove(move: Move) {
+    cancelAnimationFrame(motionFrame);
+    if (reducedMotion) { movingPiece = null; return; }
+    movingPiece = { id: move.piece.id, fromX: move.fromX, fromY: move.fromY, toX: move.toX, toY: move.toY, started: performance.now() };
+    const animate = () => { render(); if (movingPiece && performance.now() - movingPiece.started < 180) motionFrame = requestAnimationFrame(animate); else { movingPiece = null; render(); } };
+    motionFrame = requestAnimationFrame(animate);
   }
 
   // Pointer event listener
@@ -792,11 +910,14 @@ export function initChineseChess() {
   // ---- HUD & State Management -----------------------------------------------
 
   function updateHud() {
+    updateKeyboardGrid();
+    if (hintBtn) hintBtn.disabled = Boolean(pendingJob) || game.status === 'draw';
+    if (drawBtn) { drawBtn.hidden = mode !== 'pvp'; drawBtn.textContent = drawOffered ? 'Confirm both players agree' : 'Draw by agreement'; drawBtn.disabled = ['draw', 'stalemate', 'checkmate'].includes(game.status); }
     // 1. Status message
     if (statusEl) {
       if (game.status === 'ready' || game.status === 'playing') {
         const turnStr = game.turn === 'red' ? 'Red to move (紅方走棋)' : 'Black to move (黑方走棋)';
-        statusEl.textContent = isAIThinking ? 'AI is contemplating...' : turnStr;
+        statusEl.textContent = isAIThinking ? 'AI searching · up to 1.5 s · Undo cancels' : turnStr;
       } else if (game.status === 'check') {
         statusEl.textContent = `Check! 將軍！ (${game.turn === 'red' ? 'Red in check' : 'Black in check'})`;
       } else if (game.status === 'checkmate') {
@@ -805,7 +926,8 @@ export function initChineseChess() {
       } else if (game.status === 'stalemate') {
         const winStr = game.winner === 'red' ? 'Red wins by Stalemate! (黑方困斃，紅勝)' : 'Black wins by Stalemate! (紅方困斃，黑勝)';
         statusEl.textContent = winStr;
-      }
+      } else if (game.status === 'draw') statusEl.textContent = 'Draw by agreement · 和棋';
+      if (game.repetitionCount >= 3 && game.status !== 'draw') statusEl.textContent += ' · Repeated position: consider a draw agreement; tournament chase adjudication is not implemented.';
     }
 
     // 2. Turn badge
@@ -872,7 +994,7 @@ export function initChineseChess() {
     }
 
     if (undoBtn) {
-      undoBtn.disabled = game.history.length === 0 || isAIThinking;
+      undoBtn.disabled = game.history.length === 0;
     }
   }
 
@@ -886,7 +1008,9 @@ export function initChineseChess() {
   };
 
   const onDiffChange = () => {
+    const pendingAI = isAIThinking; cancelSearch();
     if (diffSelect) difficulty = diffSelect.value as AIDifficulty;
+    if (pendingAI) scheduleAIMove();
   };
 
   const onSideChange = () => {
@@ -898,12 +1022,14 @@ export function initChineseChess() {
   };
 
   const onUndo = () => {
-    if (game.history.length === 0 || isAIThinking) return;
+    if (game.history.length === 0) return;
+    const pendingAI = isAIThinking; cancelSearch();
+    cancelAnimationFrame(motionFrame); movingPiece = null;
     // In PvE mode, undo two moves (player and AI) if it's the player's turn
-    const undoCount = mode === 'pve' && game.history.length >= 2 ? 2 : 1;
+    const undoCount = mode === 'pve' && !pendingAI && game.turn === playerSide && game.history.length >= 2 ? 2 : 1;
 
     let targetHistory = game.history.slice(0, game.history.length - undoCount);
-    let newGame = createGame();
+    let newGame = structuredClone(originGame);
     for (const m of targetHistory) {
       newGame = makeMove(newGame, m);
     }
@@ -916,21 +1042,21 @@ export function initChineseChess() {
   };
 
   const onHint = () => {
-    if (game.status === 'checkmate' || game.status === 'stalemate' || isAIThinking) return;
-    const best = getAIMove(game, 'master');
-    if (best) {
-      suggestedHint = best;
-      render();
-    }
+    if (['checkmate', 'stalemate', 'draw'].includes(game.status) || isAIThinking) return;
+    search('hint');
   };
 
   const onFlip = () => {
     flipped = !flipped;
+    updateKeyboardGrid();
     render();
   };
 
   const restartGame = () => {
+    cancelSearch(); cancelAnimationFrame(motionFrame); movingPiece = null;
     game = createGame();
+    originGame = structuredClone(game); drawOffered = false;
+    if (teachingSelect) teachingSelect.value = 'normal';
     selectedPiece = null;
     legalMovesForSelected = [];
     suggestedHint = null;
@@ -946,6 +1072,7 @@ export function initChineseChess() {
 
   const onSoundToggle = () => {
     soundEnabled = !soundEnabled;
+    try { localStorage.setItem('khc-xiangqi-sound', soundEnabled ? 'on' : 'off'); } catch {}
     if (soundBtn) {
       soundBtn.textContent = soundEnabled ? 'Sound: On' : 'Sound: Off';
       soundBtn.setAttribute('aria-pressed', soundEnabled ? 'true' : 'false');
@@ -955,6 +1082,24 @@ export function initChineseChess() {
   const onThemeChange = () => {
     updateHud();
     render();
+  };
+  const onTeaching = () => {
+    if (teachingSelect?.value === 'normal') { restartGame(); return; }
+    cancelSearch(); cancelAnimationFrame(motionFrame); movingPiece = null;
+    const kind = teachingSelect!.value as TeachingPosition;
+    game = createTeachingPosition(kind); originGame = structuredClone(game);
+    mode = 'pvp'; if (modeSelect) modeSelect.value = 'pvp'; if (diffSelect) diffSelect.disabled = true; if (sideSelect) sideSelect.disabled = true;
+    drawOffered = false; suggestedHint = null;
+    const target = kind === 'horse' ? [4, 4] : kind === 'elephant' ? [2, 2] : kind === 'cannon' ? [1, 2] : [4, 4];
+    selectedPiece = game.board[target[0]][target[1]]; legalMovesForSelected = generateLegalMoves(game.board, 'red').filter((move) => move.piece.id === selectedPiece?.id);
+    if (teachingEl) teachingEl.textContent = ({ horse: 'Blocked horse leg: the soldier immediately ahead prevents the two upward L moves. Other L moves remain legal.', elephant: 'Blocked elephant eye: the diagonal midpoint occupied by the soldier blocks that two-step diagonal. Elephants stay on their side of the river.', cannon: 'Cannon capture: exactly one screen lies between the cannon and the black chariot. Empty movement cannot jump a screen.', generals: 'Flying general: moving the red chariot off this file would expose the two generals. Those sideways moves are illegal.' })[kind];
+    updateHud(); render();
+  };
+  const onDraw = () => {
+    if (mode !== 'pvp') return;
+    if (drawOffered) { cancelSearch(); game.status = 'draw'; game.winner = null; selectedPiece = null; legalMovesForSelected = []; }
+    else drawOffered = true;
+    updateHud(); render();
   };
 
   document.addEventListener('khc:theme-change', onThemeChange);
@@ -979,12 +1124,22 @@ export function initChineseChess() {
   flipBtn?.addEventListener('click', onFlip);
   restartBtn?.addEventListener('click', restartGame);
   soundBtn?.addEventListener('click', onSoundToggle);
+  teachingSelect?.addEventListener('change', onTeaching);
+  drawBtn?.addEventListener('click', onDraw);
+  keyboardGrid?.addEventListener('click', onGridClick);
+  keyboardGrid?.addEventListener('keydown', onGridKey);
+  keyboardGrid?.addEventListener('focusin', onGridFocus);
 
   // Initialize
   resize();
   updateHud();
 
-  return () => {
+  const win = window as unknown as { __chineseChess?: { state: () => GameState; restart: () => void; destroy: () => void }; __chineseChessInstances?: number };
+  win.__chineseChessInstances = (win.__chineseChessInstances ?? 0) + 1;
+  let disposed = false;
+  function destroy() {
+    if (disposed) return; disposed = true;
+    cancelSearch(); cancelAnimationFrame(motionFrame); sfx.destroy(); delete root.dataset.ccReady;
     ro.disconnect();
     document.removeEventListener('khc:theme-change', onThemeChange);
     themeObserver?.disconnect();
@@ -997,5 +1152,13 @@ export function initChineseChess() {
     flipBtn?.removeEventListener('click', onFlip);
     restartBtn?.removeEventListener('click', restartGame);
     soundBtn?.removeEventListener('click', onSoundToggle);
-  };
+    teachingSelect?.removeEventListener('change', onTeaching);
+    drawBtn?.removeEventListener('click', onDraw);
+    keyboardGrid?.removeEventListener('click', onGridClick);
+    keyboardGrid?.removeEventListener('keydown', onGridKey);
+    keyboardGrid?.removeEventListener('focusin', onGridFocus);
+    win.__chineseChessInstances = Math.max(0, (win.__chineseChessInstances ?? 1) - 1); delete win.__chineseChess;
+  }
+  win.__chineseChess = { state: () => game, restart: restartGame, destroy };
+  return destroy;
 }
