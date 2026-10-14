@@ -287,31 +287,31 @@ export const sideProjects: SideProject[] = [
   {
     name: 'CRISPR Commander',
     detail:
-      'Molecular slicing action arcade — wield Cas9 guide RNAs to cleave invading viral DNA at PAM target motifs',
+      'Science-inspired DNA slicing — learn canonical Cas9/Cas12a PAM compatibility in guided practice, then defend against mixed targets in endless mode',
     url: '/games/crispr-commander/',
   },
   {
     name: 'Phage Defense',
     detail:
-      'Microbial tower defense — deploy restriction enzymes, CRISPR arrays, and RNases to protect a bacterial cell from phage swarms',
+      'Bacterial defense diorama — preview enzyme ranges, deploy and upgrade defenses, and intercept injected phage genomes across 15 tactical waves',
     url: '/games/phage-defense/',
   },
   {
     name: 'Genome Jumper',
     detail:
-      'Chromatin transcription endless jumper — command RNA Polymerase II to climb DNA ladders, collect ribonucleotides, and blast mutations',
+      'RNA-themed platform adventure — climb four chromatin chapters, collect A · C · G · U ribonucleotides, build pickup streaks, and replay a shared seed',
     url: '/games/genome-jumper/',
   },
   {
     name: 'Proofreader',
     detail:
-      'Genomics raycaster FPS — command the 3′→5′ exonuclease proofreading domain of DNA Polymerase III to sweep chromatin mazes and excise mutations',
+      'Science-inspired nucleoid raycaster — navigate cover, read attack telegraphs, collect dNTPs, and explore a bacterial proofreading vignette with adjustable aiming',
     url: '/games/proofreader/',
   },
   {
     name: 'Dino Run',
     detail:
-      'Genomic sequence track runner — guide a velociraptor along gene structures, leaping variant blocks and ducking splice junction arches',
+      'Feathered dinosaur runner — read jump/duck cues, cross gene-themed obstacles, learn in unranked Practice, and share reproducible Classic challenges',
     url: '/games/dino-run/',
   },
   {
@@ -335,25 +335,25 @@ export const sideProjects: SideProject[] = [
   {
     name: 'Chinese Chess',
     detail:
-      'Authentic Chinese Chess (Xiangqi / 象棋) — command traditional lacquer pieces across the Chu River and Han Border with legal move validation and intelligent Minimax AI',
+      'Xiangqi / 象棋 teaching board — lacquer pieces, keyboard navigation, four rule-study positions, cancellable Worker-based AI, and local two-player play',
     url: '/games/chinese-chess/',
   },
   {
     name: 'BayRoute',
     detail:
-      'Bay Area Pathfinding & Route Search Visualizer — dynamic step-by-step route planning across the SF Bay Area comparing Dijkstra, A*, Bidirectional A*, Greedy, and BFS in real time',
+      'Offline graph-search teaching lab — inspect weighted and directed examples, compare six search algorithms, and explore curated city graphs with optional basemaps',
     url: '/games/bay-route/',
   },
   {
     name: '2048',
     detail:
-      'Sliding tile number puzzle — join matching tiles to reach the 2048 tile with multi-step undo, custom grid configurations (3×3 · 4×4 · 5×5), smooth animations, and harmonic Web Audio synthesis',
+      'Tactile sliding-tile puzzle — follow tiles into merges, explore three board sizes, and resume saved games with complete 20-step undo and reproducible random spawns',
     url: '/games/2048/',
   },
   {
     name: 'Minesweeper',
     detail:
-      'Classic grid deduction puzzle — guaranteed first-click safe opening, intelligent chord clearing, tactile flag placement, and customizable difficulties (Beginner · Intermediate · Expert)',
+      'Deduction workbench — safe opening zones, visible-clue practice hints, chord previews, keyboard navigation, adjustable cell sizes, and phone-scrollable Expert boards',
     url: '/games/minesweeper/',
   },
 ];
