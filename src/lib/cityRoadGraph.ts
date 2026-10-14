@@ -79,8 +79,8 @@ export function buildFullCityRoadGraph(): CityRoadGraph {
     } else {
       dist = haversineDistanceMiles(nodeU.lat, nodeU.lng, nodeV.lat, nodeV.lng);
     }
-    const distanceMiles = Math.max(0.04, Math.round(dist * 100) / 100);
-    const durationMinutes = Math.round((distanceMiles / speedLimit) * 60 * 100) / 100;
+    const distanceMiles = Math.max(0.04, dist);
+    const durationMinutes = (distanceMiles / speedLimit) * 60;
 
     const forwardPath = path && path.length >= 2
       ? [...path]
@@ -785,91 +785,16 @@ export function buildFullCityRoadGraph(): CityRoadGraph {
 export function spliceEndpointIntoCityGraph(
   cityGraph: CityRoadGraph,
   endpoint: { id?: string; name: string; lat: number; lng: number; district?: string },
-  isStart: boolean
-): {
-  graph: CityRoadGraph;
-  nodeId: string;
-} {
-  const nodeId = endpoint.id || (isStart ? 'custom_start_node' : 'custom_goal_node');
-
-  // Clone nodes and adjacency maps
-  const nodes = new Map<string, CityIntersection>(cityGraph.nodes);
-  const edges = [...cityGraph.edges];
-  const adjacency = new Map<string, Array<{ target: string; segment: CityRoadSegment }>>();
-
-  for (const [key, val] of cityGraph.adjacency.entries()) {
-    adjacency.set(key, [...val]);
+  _isStart: boolean
+): { graph: CityRoadGraph; nodeId: string } {
+  let closest: CityIntersection | null = null;
+  let distance = Infinity;
+  for (const node of cityGraph.nodes.values()) {
+    const candidate = haversineDistanceMiles(endpoint.lat, endpoint.lng, node.lat, node.lng);
+    if (candidate < distance) { distance = candidate; closest = node; }
   }
-
-  // If node already exists in graph, reuse it directly
-  if (nodes.has(nodeId)) {
-    return { graph: cityGraph, nodeId };
-  }
-
-  const newNode: CityIntersection = {
-    id: nodeId,
-    name: endpoint.name,
-    district: endpoint.district || 'San Francisco',
-    lat: endpoint.lat,
-    lng: endpoint.lng,
-    type: isStart || !isStart ? 'landmark' : 'junction',
-  };
-
-  nodes.set(nodeId, newNode);
-  adjacency.set(nodeId, []);
-
-  // Find 3 nearest intersections in the city road graph
-  const candidates: { node: CityIntersection; dist: number }[] = [];
-  for (const n of cityGraph.nodes.values()) {
-    const dist = haversineDistanceMiles(endpoint.lat, endpoint.lng, n.lat, n.lng);
-    candidates.push({ node: n, dist });
-  }
-
-  candidates.sort((a, b) => a.dist - b.dist);
-  const nearestThree = candidates.slice(0, 3);
-
-  for (const { node: targetNode, dist } of nearestThree) {
-    const streetSpeed = 25; // 25 mph local connector
-    const distMiles = Math.max(0.02, Math.round(dist * 100) / 100);
-    const durMins = Math.round((distMiles / streetSpeed) * 60 * 100) / 100;
-
-    const forwardSeg: CityRoadSegment = {
-      u: nodeId,
-      v: targetNode.id,
-      streetName: `Local Access to ${targetNode.name}`,
-      roadType: 'arterial',
-      speedLimit: streetSpeed,
-      distanceMiles: distMiles,
-      durationMinutes: durMins,
-      path: [
-        { lat: newNode.lat, lng: newNode.lng },
-        { lat: targetNode.lat, lng: targetNode.lng },
-      ],
-    };
-
-    const backwardSeg: CityRoadSegment = {
-      u: targetNode.id,
-      v: nodeId,
-      streetName: `Local Access to ${endpoint.name}`,
-      roadType: 'arterial',
-      speedLimit: streetSpeed,
-      distanceMiles: distMiles,
-      durationMinutes: durMins,
-      path: [
-        { lat: targetNode.lat, lng: targetNode.lng },
-        { lat: newNode.lat, lng: newNode.lng },
-      ],
-    };
-
-    edges.push(forwardSeg, backwardSeg);
-    adjacency.get(nodeId)!.push({ target: targetNode.id, segment: forwardSeg });
-    adjacency.get(targetNode.id)!.push({ target: nodeId, segment: backwardSeg });
-  }
-
-  return {
-    graph: { nodes, edges, adjacency },
-    nodeId,
-  };
+  if (!closest || !Number.isFinite(distance) || distance > 2) throw new Error('No represented junction within two miles; choose a supported landmark.');
+  return { graph: cityGraph, nodeId: closest.id };
 }
 
 /**
@@ -887,7 +812,7 @@ export function cityRoadGraphToBayGraph(cityGraph: CityRoadGraph): BayGraph {
       y: 0,
       type: cNode.type || 'junction',
       city: cNode.district,
-      region: 'sf',
+      region: (supportedRoadRegion(cNode.lat, cNode.lng) === 'bay' ? 'sf' : supportedRoadRegion(cNode.lat, cNode.lng) || 'global') as BayNode['region'],
     });
   }
 
@@ -994,8 +919,8 @@ export function buildNycCityRoadGraph(): CityRoadGraph {
     } else {
       dist = haversineDistanceMiles(nodeU.lat, nodeU.lng, nodeV.lat, nodeV.lng);
     }
-    const distanceMiles = Math.max(0.04, Math.round(dist * 100) / 100);
-    const durationMinutes = Math.round((distanceMiles / speedLimit) * 60 * 100) / 100;
+    const distanceMiles = Math.max(0.04, dist);
+    const durationMinutes = (distanceMiles / speedLimit) * 60;
 
     const forwardPath = path && path.length >= 2
       ? [...path]
@@ -1160,8 +1085,8 @@ export function buildTokyoCityRoadGraph(): CityRoadGraph {
     } else {
       dist = haversineDistanceMiles(nodeU.lat, nodeU.lng, nodeV.lat, nodeV.lng);
     }
-    const distanceMiles = Math.max(0.04, Math.round(dist * 100) / 100);
-    const durationMinutes = Math.round((distanceMiles / speedLimit) * 60 * 100) / 100;
+    const distanceMiles = Math.max(0.04, dist);
+    const durationMinutes = (distanceMiles / speedLimit) * 60;
 
     const forwardPath = path && path.length >= 2
       ? [...path]
@@ -1288,8 +1213,8 @@ export function buildLondonCityRoadGraph(): CityRoadGraph {
     } else {
       dist = haversineDistanceMiles(nodeU.lat, nodeU.lng, nodeV.lat, nodeV.lng);
     }
-    const distanceMiles = Math.max(0.04, Math.round(dist * 100) / 100);
-    const durationMinutes = Math.round((distanceMiles / speedLimit) * 60 * 100) / 100;
+    const distanceMiles = Math.max(0.04, dist);
+    const durationMinutes = (distanceMiles / speedLimit) * 60;
 
     const forwardPath = path && path.length >= 2
       ? [...path]
@@ -1416,8 +1341,8 @@ export function buildTaipeiCityRoadGraph(): CityRoadGraph {
     } else {
       dist = haversineDistanceMiles(nodeU.lat, nodeU.lng, nodeV.lat, nodeV.lng);
     }
-    const distanceMiles = Math.max(0.04, Math.round(dist * 100) / 100);
-    const durationMinutes = Math.round((distanceMiles / speedLimit) * 60 * 100) / 100;
+    const distanceMiles = Math.max(0.04, dist);
+    const durationMinutes = (distanceMiles / speedLimit) * 60;
 
     const forwardPath = path && path.length >= 2
       ? [...path]
@@ -1521,6 +1446,7 @@ export function buildTaipeiCityRoadGraph(): CityRoadGraph {
  * based on geographic coordinates.
  */
 export function getFullCityRoadGraph(lat: number, lng: number): CityRoadGraph {
+  if (!supportedRoadRegion(lat, lng)) throw new Error('Unsupported region: choose a represented city.');
   if (lat >= 40.4 && lat <= 41.2 && lng >= -74.3 && lng <= -73.6) {
     return buildNycCityRoadGraph();
   }
@@ -1536,6 +1462,16 @@ export function getFullCityRoadGraph(lat: number, lng: number): CityRoadGraph {
   return buildFullCityRoadGraph();
 }
 
+export function supportedRoadRegion(lat: number, lng: number): string | null {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat >= 40.4 && lat <= 41.2 && lng >= -74.3 && lng <= -73.6) return 'nyc';
+  if (lat >= 35.3 && lat <= 36.2 && lng >= 139.3 && lng <= 140.2) return 'tokyo';
+  if (lat >= 51.2 && lat <= 51.8 && lng >= -.6 && lng <= .4) return 'london';
+  if (lat >= 24.7 && lat <= 25.5 && lng >= 121.2 && lng <= 121.9) return 'taipei';
+  if (lat >= 37 && lat <= 38.6 && lng >= -123 && lng <= -121.2) return 'bay';
+  return null;
+}
+
 /**
  * Complete Full-City Graph Builder with Spliced Endpoints and Driving Maneuvers.
  * Seamlessly integrates any two points into the comprehensive city network and derives
@@ -1545,9 +1481,9 @@ export function buildFullCityGraphWithEndpoints(
   start: EndpointInput,
   goal: EndpointInput
 ): FullCityGraphResult {
-  const avgLat = (start.lat + goal.lat) / 2;
-  const avgLng = (start.lng + goal.lng) / 2;
-  const baseCityGraph = getFullCityRoadGraph(avgLat, avgLng);
+  const region = supportedRoadRegion(start.lat, start.lng);
+  if (!region || region !== supportedRoadRegion(goal.lat, goal.lng)) throw new Error('Endpoints must belong to the same supported region.');
+  const baseCityGraph = getFullCityRoadGraph(start.lat, start.lng);
 
   const splicedStart = spliceEndpointIntoCityGraph(baseCityGraph, start, true);
   const splicedGoal = spliceEndpointIntoCityGraph(splicedStart.graph, goal, false);
@@ -1560,7 +1496,7 @@ export function buildFullCityGraphWithEndpoints(
   const pathRes = runPathfinding('a_star', bayGraph, startId, goalId);
 
   const maneuvers: TurnManeuver[] = [];
-  let summary = `Driving route from ${start.name} to ${goal.name}`;
+  let summary = 'Modeled route on curated roads; endpoints snap to represented junctions.';
 
   if (pathRes.found && pathRes.pathEdges.length > 0) {
     const primaryHighways = new Set<string>();
@@ -1597,14 +1533,6 @@ export function buildFullCityGraphWithEndpoints(
     if (primaryHighways.size > 0) {
       summary = `via ${Array.from(primaryHighways).slice(0, 2).join(' and ')}`;
     }
-  } else {
-    maneuvers.push({
-      instruction: `Head towards ${goal.name}`,
-      distanceMiles: haversineDistanceMiles(start.lat, start.lng, goal.lat, goal.lng),
-      durationMinutes: 10,
-      lat: goal.lat,
-      lng: goal.lng,
-    });
   }
 
   return {

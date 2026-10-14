@@ -55,6 +55,7 @@ export interface BayGraph {
   nodes: Map<string, BayNode>;
   adjacency: Map<string, { target: string; edge: BayEdge; weight: number }[]>;
   edges: BayEdge[];
+  heuristicMode?: 'zero' | 'geodesic';
 }
 
 // 80+ Authentic Bay Area Landmarks & Highway Junction Nodes

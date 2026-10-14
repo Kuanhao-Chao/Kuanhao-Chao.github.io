@@ -10,11 +10,11 @@ class AudioEngine {
   private ctx: AudioContext | null = null;
   private isEnabled: boolean = false;
   private lastSoundTime: number = 0;
+  private timers = new Set<number>();
 
   constructor() {
     if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('bayroute_sound_enabled');
-      this.isEnabled = stored === 'true';
+      try { this.isEnabled = localStorage.getItem('bayroute_sound_enabled') === 'true'; } catch {}
     }
   }
 
@@ -39,7 +39,7 @@ class AudioEngine {
   public setSoundEnabled(enabled: boolean): void {
     this.isEnabled = enabled;
     if (typeof window !== 'undefined') {
-      localStorage.setItem('bayroute_sound_enabled', String(enabled));
+      try { localStorage.setItem('bayroute_sound_enabled', String(enabled)); } catch {}
     }
     if (enabled) {
       this.initContext();
@@ -85,10 +85,17 @@ class AudioEngine {
     // C-Major arpeggio: C5 (523.25Hz), E5 (659.25Hz), G5 (783.99Hz), C6 (1046.5Hz)
     const notes = [523.25, 659.25, 783.99, 1046.5];
     notes.forEach((freq, idx) => {
-      setTimeout(() => {
+      const id = window.setTimeout(() => {
+        this.timers.delete(id);
         this.playBlip(freq, 0.25, 0.12);
       }, idx * 75);
+      this.timers.add(id);
     });
+  }
+
+  public destroy(): void {
+    this.timers.forEach((id) => window.clearTimeout(id)); this.timers.clear();
+    void this.ctx?.close().catch(() => {}); this.ctx = null; this.lastSoundTime = 0;
   }
 
   private playBlip(frequency: number, duration: number, volume = 0.08): void {

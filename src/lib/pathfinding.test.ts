@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createBayGraph, PRESET_TRIPS } from './bayGraph';
+import { createBayGraph, PRESET_TRIPS, type BayGraph, type BayEdge } from './bayGraph';
 import {
   ALGORITHMS,
   runDijkstra,
@@ -10,6 +10,56 @@ import {
   runDFS,
   runPathfinding,
 } from './pathfinding';
+import { mulberry32 } from './dino';
+
+function weightedExample(links: Array<[string, string, number]>, directed = false): BayGraph {
+  const graph: BayGraph = { nodes: new Map(), adjacency: new Map(), edges: [] };
+  for (const [u, v, weight] of links) {
+    for (const id of [u, v]) if (!graph.nodes.has(id)) {
+      graph.nodes.set(id, { id, name: id, city: 'Example', region: 'global', type: 'junction', x: 0, y: 0, lat: 0, lng: 0 }); graph.adjacency.set(id, []);
+    }
+    const edge: BayEdge = { u, v, distance: weight, speedLimit: 60, roadType: 'arterial', name: `${u}→${v}` };
+    graph.edges.push(edge); graph.adjacency.get(u)!.push({ target: v, weight, edge });
+    if (!directed) graph.adjacency.get(v)!.push({ target: u, weight, edge });
+  }
+  return graph;
+}
+
+describe('weighted shortest-path regressions', () => {
+  it('matches Dijkstra across seeded directed weighted graphs with a validated heuristic', () => {
+    const random = mulberry32(913);
+    for (let example = 0; example < 100; example++) {
+      const links: Array<[string, string, number]> = [];
+      for (let i = 0; i < 8; i++) {
+        links.push([String(i), String(i), 0]);
+        for (let j = 0; j < 8; j++) if (i !== j && random() < .3) links.push([String(i), String(j), .1 + random() * 8]);
+      }
+      const graph = weightedExample(links, true);
+      for (const node of graph.nodes.values()) { node.lat = random() * .1; node.lng = random() * .1; }
+      const oracle = runDijkstra(graph, '0', '7');
+      for (const result of [runAStar(graph, '0', '7'), runBidirectionalAStar(graph, '0', '7')]) {
+        expect(result.found).toBe(oracle.found);
+        if (oracle.found) expect(result.totalTimeMinutes).toBeCloseTo(oracle.totalTimeMinutes, 10);
+      }
+    }
+  });
+  it('derives a safe heuristic from the graph instead of assuming a 65-mph speed bound', () => {
+    const graph = weightedExample([['S', 'T', 10], ['S', 'A', 1], ['A', 'T', 1]], true);
+    graph.nodes.get('A')!.lng = 1; graph.nodes.get('T')!.lng = 2;
+    expect(runAStar(graph, 'S', 'T').totalTimeMinutes).toBe(2);
+  });
+  it('searches the reversed adjacency in the backward direction on a one-way route', () => {
+    const graph = weightedExample([['S', 'A', 3], ['A', 'B', 2], ['B', 'T', 1]], true);
+    const result = runBidirectionalAStar(graph, 'S', 'T');
+    expect(result.path).toEqual(['S', 'A', 'B', 'T']);
+    expect(result.totalTimeMinutes).toBe(6);
+    expect(runBidirectionalAStar(graph, 'T', 'S').found).toBe(false);
+  });
+  it('does not terminate bidirectional search at a more expensive first common settled node', () => {
+    const graph = weightedExample([['S', 'A', 5], ['A', 'T', 5], ['S', 'B', 1], ['B', 'C', 1], ['C', 'T', 9]]);
+    expect(runBidirectionalAStar(graph, 'S', 'T').totalTimeMinutes).toBe(10);
+  });
+});
 
 describe('pathfinding algorithm suite', () => {
   const graph = createBayGraph();
