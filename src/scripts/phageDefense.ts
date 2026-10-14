@@ -28,6 +28,7 @@ import {
 } from '../lib/phageDefense';
 import { isDarkTheme } from '../lib/theme';
 import { createGameClock } from '../lib/gameClock';
+import { setLabel } from '../lib/domLabel';
 
 interface Particle {
   x: number;
@@ -791,7 +792,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
       towerSelect.replaceChildren(new Option('Inspect a defense…', ''), ...state.towers.map((tower, index) => new Option(`${index + 1}. ${TOWER_DEFINITIONS[tower.type].name} · L${tower.level}`, tower.id)));
     }
     if (towerSelect) towerSelect.value = selectedTower?.id ?? '';
-    if (soundBtn) { soundBtn.textContent = sound.enabled ? 'Sound on' : 'Sound off'; soundBtn.setAttribute('aria-pressed', String(sound.enabled)); }
+    if (soundBtn) { setLabel(soundBtn, sound.enabled ? 'Sound on' : 'Sound off'); soundBtn.setAttribute('aria-pressed', String(sound.enabled)); }
     if (previewEl) {
       const queue = generateWaveQueue(Math.min(15, state.currentWave + 1));
       const preview = selectedBuildType ? `${TOWER_DEFINITIONS[selectedBuildType].name} · ${TOWER_DEFINITIONS[selectedBuildType].cost} ATP · range ${TOWER_DEFINITIONS[selectedBuildType].range} · ${TOWER_DEFINITIONS[selectedBuildType].damage} damage · ${TOWER_DEFINITIONS[selectedBuildType].fireRate}/s. Tap to preview; Confirm to place. Green = valid, red = blocked.` : state.isWaveActive ? `Wave ${state.currentWave}: ${state.phages.length} active, ${state.waveSpawnQueue.length} incoming. ${state.currentWave >= 12 ? 'Boss resistance blocks Cas9 only — mix your defenses.' : 'Inspect a tower to upgrade or change priority.'}` : `Next wave ${Math.min(15, state.currentWave + 1)} · ${queue.length} genomes${queue.includes('giant_megaphage') ? ' · boss warning: anti-Cas9 resistance' : ''}. Build defenses before starting.`;
@@ -813,11 +814,11 @@ export function initPhageDefense(containerEl: HTMLElement) {
 
     if (nextWaveBtn) {
       nextWaveBtn.disabled = state.isWaveActive || state.isGameOver || state.isVictory;
-      nextWaveBtn.textContent = state.isWaveActive ? 'Wave in Progress…' : 'Start Next Wave';
+      setLabel(nextWaveBtn, state.isWaveActive ? 'Wave in Progress…' : 'Start Next Wave');
     }
 
     if (pauseBtn) {
-      pauseBtn.textContent = state.isPaused ? 'Resume' : 'Pause';
+      setLabel(pauseBtn, state.isPaused ? 'Resume' : 'Pause');
       pauseBtn.disabled = state.isGameOver || state.isVictory;
     }
 
@@ -836,10 +837,10 @@ export function initPhageDefense(containerEl: HTMLElement) {
       btn.disabled = state.atp < def.cost || state.isGameOver || Boolean(active);
       if (active) {
         btn.classList.add('active');
-        btn.textContent = `${def.name} (${Math.ceil(active.timerSec)}s)`;
+        setLabel(btn, `${def.name} (${Math.ceil(active.timerSec)}s)`);
       } else {
         btn.classList.remove('active');
-        btn.textContent = `${def.name} (${def.cost} ATP)`;
+        setLabel(btn, `${def.name} (${def.cost} ATP)`);
       }
     });
 
@@ -860,11 +861,10 @@ export function initPhageDefense(containerEl: HTMLElement) {
 
         if (upgradeBtn) {
           upgradeBtn.disabled = selectedTower.level >= 3 || state.atp < cost;
-          upgradeBtn.textContent =
-            selectedTower.level >= 3 ? 'Max Level' : `Upgrade (${cost} ATP)`;
+          setLabel(upgradeBtn, selectedTower.level >= 3 ? 'Max Level' : `Upgrade (${cost} ATP)`);
         }
         if (sellBtn) {
-          sellBtn.textContent = `Recycle (+${refund} ATP)`;
+          setLabel(sellBtn, `Recycle (+${refund} ATP)`);
         }
 
         priorityBtns.forEach((btn) => {
@@ -1084,7 +1084,7 @@ export function initPhageDefense(containerEl: HTMLElement) {
       sound.enabled = !sound.enabled;
       try { localStorage.setItem('khc_phage_sound', String(sound.enabled)); } catch {}
       soundBtn.setAttribute('aria-pressed', String(sound.enabled));
-      soundBtn.textContent = sound.enabled ? 'Sound on' : 'Sound off';
+      setLabel(soundBtn, sound.enabled ? 'Sound on' : 'Sound off');
     }, { signal });
   }
   function suspend() { state = { ...state, isPaused: true }; clock.reset(); updateHUD(); }

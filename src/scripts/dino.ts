@@ -15,6 +15,7 @@ import {
   type Obstacle,
   type RNG,
 } from '../lib/dino';
+import { setLabel } from '../lib/domLabel';
 
 interface DinoRunTestApi {
   state: () => DinoState;
@@ -448,14 +449,14 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
     if (speedEl) speedEl.textContent = String(Math.round(state.speed));
     const message = shareMessage || (modeSelect?.value === 'practice' ? 'Unranked practice · ' : '') + statusMessage();
     if (statusEl && statusEl.textContent !== message) statusEl.textContent = message;
-    if (soundBtn) { soundBtn.textContent = soundEnabled ? 'Sound on' : 'Sound off'; soundBtn.setAttribute('aria-pressed', String(soundEnabled)); }
+    if (soundBtn) { setLabel(soundBtn, soundEnabled ? 'Sound on' : 'Sound off'); soundBtn.setAttribute('aria-pressed', String(soundEnabled)); }
     if (pauseBtn) {
       pauseBtn.disabled = state.status !== 'playing';
       pauseBtn.dataset.active = paused ? 'true' : 'false';
       const label = paused ? 'Resume' : 'Pause';
       pauseBtn.setAttribute('aria-label', label);
       const text = pauseBtn.querySelector('[data-button-label]');
-      if (text) text.textContent = label;
+      setLabel(text, label);
     }
   }
 

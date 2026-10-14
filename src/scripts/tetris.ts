@@ -28,6 +28,7 @@ import {
   type GameState,
 } from '../lib/tetris';
 import { isDarkTheme } from '../lib/theme';
+import { setLabel } from '../lib/domLabel';
 
 interface TetrisTestApi {
   state: () => GameState;
@@ -274,7 +275,7 @@ export function initTetris(root: ParentNode = document): TetrisController | null
     if (bestEl) bestEl.textContent = String(best);
     if (statusEl) statusEl.textContent = statusMessage();
     if (pauseBtn) {
-      pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+      setLabel(pauseBtn, paused ? 'Resume' : 'Pause');
       pauseBtn.disabled = state.status !== 'playing';
     }
   }

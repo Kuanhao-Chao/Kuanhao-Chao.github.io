@@ -16,6 +16,18 @@ export async function centerControl(locator) {
     element.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'nearest' });
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   });
+  const element = await locator.elementHandle();
+  try {
+    await locator.page().waitForFunction(element => {
+      if (!element?.isConnected) return false;
+      for (let ancestor = element; ancestor; ancestor = ancestor.parentElement) {
+        if (Number(getComputedStyle(ancestor).opacity) < .99) return false;
+      }
+      return true;
+    }, element, { polling: 50 });
+  } finally {
+    await element?.dispose();
+  }
 }
 
 export async function clickControl(locator) {

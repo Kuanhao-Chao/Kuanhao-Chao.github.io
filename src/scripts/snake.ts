@@ -21,6 +21,7 @@ import {
   type Dir,
   type RNG,
 } from '../lib/snake';
+import { setLabel } from '../lib/domLabel';
 
 interface SnakeTestApi {
   state: () => GameState;
@@ -438,7 +439,7 @@ export function initSnake(root: ParentNode = document): SnakeController | null {
     }
     if (statusEl) statusEl.textContent = statusMessage();
     if (pauseBtn) {
-      pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+      setLabel(pauseBtn, paused ? 'Resume' : 'Pause');
       pauseBtn.disabled = state.status !== 'playing';
     }
   }
