@@ -74,6 +74,25 @@ Pushing to `main` triggers `.github/workflows/deploy.yml`, which builds the site
 publishes it to GitHub Pages. The custom domain is set via `public/CNAME`
 (`khchao.com`) and `site` in `astro.config.mjs`.
 
+Push deployments deliberately run only the production build (including post PDFs),
+then indexing, built-link, and static-security audits. Only Chromium's headless shell
+is installed, for PDF printing. Type checks, unit tests, and interactive browser
+audits do **not** delay pushes. Keep running `npm test` before every local commit,
+and `npm run check`, `npm run build`, then `npm run audit:indexing` before submitting
+route, asset, Markdown, or configuration changes.
+
+The longer checks remain available on demand from the Actions **Run workflow** menu:
+
+- **Comprehensive site audit (manual)** (`site-audit.yml`): types, unit/content tests,
+  build/PDF/indexing, runtime regressions, browser smoke audits, and static audits.
+- **Full game browser audit** (`game-audit.yml`): all twelve in-house games across
+  desktop/phone and light/dark in Chromium/WebKit, plus Firefox smoke checks.
+
+Neither audit runs on push or a schedule, nor can it deploy Pages. Run them when
+needed, for example `gh workflow run site-audit.yml --ref main`.
+For the fifteen-game listing and shared illustrated icons alone, run
+`npm run audit:software` after a build (Chromium/WebKit at 320, 390, and 1440 px).
+
 First-time setup on the new repository:
 
 1. Create the GitHub repo and push this project to `main`.
