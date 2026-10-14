@@ -4,6 +4,7 @@
 .game-tools button { min-height: 44px; padding: .5rem .8rem; border: 1px solid var(--color-rule); border-radius: .6rem; background: var(--color-surface); color: var(--color-ink); cursor: pointer; font: 600 .8rem var(--font-sans, sans-serif); }
 [data-game-root] :focus-visible { outline: 3px solid var(--color-accent); outline-offset: 3px; }
 [data-game-root] { scroll-margin-top: 5rem; }
+[data-game-root] [hidden] { display: none !important; }
 .game-focus-view { position: fixed !important; inset: 0 !important; z-index: 1100 !important; width: 100% !important; max-width: none !important; height: 100dvh !important; margin: 0 !important; padding: max(.75rem, env(safe-area-inset-top)) max(.75rem, env(safe-area-inset-right)) max(.75rem, env(safe-area-inset-bottom)) max(.75rem, env(safe-area-inset-left)) !important; background: var(--color-bg, var(--color-surface)) !important; overflow: auto; overscroll-behavior: contain; box-sizing: border-box; }
 .game-focus-view .game-tools { position: sticky; top: 0; z-index: 20; background: var(--color-bg, var(--color-surface)); padding-bottom: .5rem; }
 .game-focus-view > article, .game-focus-view .game-guide, .game-focus-view .crispr-guide, .game-focus-view .defense-guide { display: none; }
