@@ -23,6 +23,13 @@ html {
   background-color: var(--color-bg);
 }
 
+/* Arcade controls must stay put between press and release. In WebKit, smooth
+   focus/scroll-into-view can keep moving the page after a control is hit-tested.
+   Reading pages keep their smooth anchor navigation. */
+html:has([data-game-root]) {
+  scroll-behavior: auto;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

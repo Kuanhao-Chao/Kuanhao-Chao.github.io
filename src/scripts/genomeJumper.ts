@@ -17,6 +17,7 @@ import {
   type GameState,
 } from '../lib/genomeJumper';
 import { isDarkTheme } from '../lib/theme';
+import { setLabel } from '../lib/domLabel';
 
 interface GenomeJumperTestApi {
   state: () => GameState;
@@ -1137,12 +1138,12 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     }
     if (pauseBtn) {
       pauseBtn.disabled = state.status === 'ready' || state.status === 'over';
-      pauseBtn.textContent = state.status === 'paused' ? 'Resume' : 'Pause';
+      setLabel(pauseBtn, state.status === 'paused' ? 'Resume' : 'Pause');
     }
     if (fireBtn) fireBtn.disabled = state.status !== 'playing';
     if (shareBtn) shareBtn.disabled = state.status !== 'over';
     if (soundBtn) {
-      soundBtn.textContent = soundEnabled ? 'Sound on' : 'Sound off';
+      setLabel(soundBtn, soundEnabled ? 'Sound on' : 'Sound off');
       soundBtn.setAttribute('aria-pressed', String(soundEnabled));
       soundBtn.setAttribute('aria-label', soundEnabled ? 'Mute game sounds' : 'Enable game sounds');
     }

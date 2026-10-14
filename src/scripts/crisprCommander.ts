@@ -16,6 +16,7 @@ import {
 import { isDarkTheme } from '../lib/theme';
 import { createGameClock } from '../lib/gameClock';
 import { mulberry32 } from '../lib/dino';
+import { setLabel } from '../lib/domLabel';
 
 interface Particle {
   x: number;
@@ -588,7 +589,7 @@ export function initCrisprCommander(containerEl: HTMLElement) {
     if (integrityText) integrityText.textContent = `${state.cellIntegrity}%`;
 
     if (pauseBtn) {
-      pauseBtn.textContent = state.isPaused ? 'Resume' : 'Pause';
+      setLabel(pauseBtn, state.isPaused ? 'Resume' : 'Pause');
       pauseBtn.disabled = state.isGameOver || !started;
     }
 
@@ -605,18 +606,18 @@ export function initCrisprCommander(containerEl: HTMLElement) {
       const active = state.powerUps.find((p) => p.type === powerup);
       if (active) {
         btn.classList.add('active');
-        btn.textContent = `${powerup.toUpperCase()} (${Math.ceil(active.remainingMs / 1000)}s)`;
+        setLabel(btn, `${powerup.toUpperCase()} (${Math.ceil(active.remainingMs / 1000)}s)`);
       } else {
         btn.classList.remove('active');
         const name = powerup === 'dcas9_shield' ? 'Shield · slow' : powerup === 'prime_editor' ? 'Repair +40' : powerup === 'base_editor' ? 'Target assist' : 'Overdrive';
-        btn.textContent = `${name} (${cost} ATP)`;
+        setLabel(btn, `${name} (${cost} ATP)`);
       }
     });
     if (lessonEl && !lessonEl.dataset.rejected) {
       const lesson = state.practiceRound < 3 ? `Practice ${state.practiceRound + 1}/3 · ${['Cas9: guide → NGG', 'Cas12a: TTTV → guide', 'Mixed: switch enzyme for each PAM'][state.practiceRound]} · ${state.cleavedCount % 3}/3 cuts` : 'Endless · mixed PAMs · lift your finger between hits on armored DNA';
       if (lessonEl.textContent !== lesson) lessonEl.textContent = lesson;
     }
-    if (soundBtn) { soundBtn.textContent = sound.enabled ? 'Sound on' : 'Sound off'; soundBtn.setAttribute('aria-pressed', String(sound.enabled)); }
+    if (soundBtn) { setLabel(soundBtn, sound.enabled ? 'Sound on' : 'Sound off'); soundBtn.setAttribute('aria-pressed', String(sound.enabled)); }
     if (startBtn) startBtn.hidden = started;
   }
 
@@ -790,7 +791,7 @@ export function initCrisprCommander(containerEl: HTMLElement) {
       sound.enabled = !sound.enabled;
       try { localStorage.setItem('khc_crispr_sound', String(sound.enabled)); } catch {}
       soundBtn.setAttribute('aria-pressed', String(sound.enabled));
-      soundBtn.textContent = sound.enabled ? 'Sound on' : 'Sound off';
+      setLabel(soundBtn, sound.enabled ? 'Sound on' : 'Sound off');
     }, { signal });
   }
   startBtn?.addEventListener('click', () => {

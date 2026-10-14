@@ -5,7 +5,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { chromium, webkit, firefox } from 'playwright';
 import { startPreview } from './lib/previewServer.mjs';
 import { waitForPageReady, clickControl } from './lib/gameAuditUi.mjs';
-import { checkDinoPauseResume, checkPhagePlacement } from './lib/gameAuditActions.mjs';
+import { checkDinoPauseResume, checkPhagePlacement, checkGenomeKeyboardSteering } from './lib/gameAuditActions.mjs';
 
 const browserTypes = { chromium, webkit, firefox };
 const ci = process.argv.includes('--ci');
@@ -289,16 +289,7 @@ async function driveGenomeJumper(page, scope, profile) {
       'touch steering did not accelerate left'
     );
   } else {
-    await page.evaluate(() => window.__genomeJumper?.start());
-    await page.locator('[data-game-root]').focus();
-    await page.keyboard.down('ArrowRight');
-    await page.evaluate(() => window.__genomeJumper?.tick(12));
-    await page.keyboard.up('ArrowRight');
-    await expect(
-      scope,
-      () => page.evaluate(() => (window.__genomeJumper?.state().player.vx ?? 0) > 0),
-      'keyboard steering did not accelerate right'
-    );
+    await checkGenomeKeyboardSteering(page);
   }
 
   await expect(
@@ -313,20 +304,26 @@ async function driveGenomeJumper(page, scope, profile) {
     window.__genomeJumper?.tick(2);
   });
   await page.locator('[data-jumper-fire]').waitFor({ state: 'visible' });
-  await page.locator('[data-jumper-fire]').click();
+  if (await page.evaluate(() => window.__genomeJumper.state().status === 'paused')) {
+    await clickControl(page.locator('[data-jumper-pause]'));
+  }
+  await clickControl(page.locator('[data-jumper-fire]'));
   await expect(
     scope,
     () => page.evaluate(() => (window.__genomeJumper?.state().projectiles.length ?? 0) > 0),
     'Fire control did not create a projectile'
   );
 
-  await page.locator('[data-jumper-pause]').click();
+  const pause = page.locator('[data-jumper-pause]');
+  if (await pause.textContent() === 'Resume') await clickControl(pause);
+  await page.waitForFunction(() => window.__genomeJumper.state().status === 'playing');
+  await clickControl(pause);
   await expect(
     scope,
     () => page.evaluate(() => window.__genomeJumper?.state().status === 'paused'),
     'Pause control did not pause'
   );
-  await page.locator('[data-jumper-pause]').click();
+  await clickControl(pause);
   await expect(
     scope,
     () => page.evaluate(() => window.__genomeJumper?.state().status === 'playing'),
@@ -792,13 +789,15 @@ async function driveSnake(page, scope, profile) {
 
   // Pause / resume
   const pauseBtn = page.locator('[data-snake-pause]');
-  await pauseBtn.click();
+  if (await pauseBtn.textContent() === 'Resume') await clickControl(pauseBtn);
+  await page.waitForFunction(() => window.__snake.isRunning());
+  await clickControl(pauseBtn);
   await expect(
     scope,
     () => page.evaluate(() => window.__snake?.isRunning() === false),
     'Pause control did not pause Snake'
   );
-  await pauseBtn.click();
+  await clickControl(pauseBtn);
   await expect(
     scope,
     () => page.evaluate(() => window.__snake?.isRunning() === true),
