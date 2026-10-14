@@ -31,7 +31,7 @@ export const ALGORITHMS: Record<AlgorithmId, AlgorithmMetadata> = {
   dijkstra: {
     id: 'dijkstra',
     name: "Dijkstra's Algorithm",
-    tagline: 'Uniform cost exploration expanding in concentric geodesic contours',
+    tagline: 'Settle the unsettled node with the lowest accumulated cost',
     category: 'Optimal',
     timeComplexity: 'O((V + E) log V)',
     spaceComplexity: 'O(V)',
@@ -39,10 +39,10 @@ export const ALGORITHMS: Record<AlgorithmId, AlgorithmMetadata> = {
     isComplete: true,
     color: '#0284c7', // Sky Blue
     description:
-      "Guarantees the mathematically optimal shortest path by exploring outward in uniform cost contours without any directional heuristic guidance. Explores equally in all directions.",
+      'Finds a minimum-cost route for non-negative weights by settling the smallest accumulated cost g(n). Search order follows graph costs, not literal geographic circles.',
     characteristics: [
       'Optimal shortest travel time',
-      'Concentric wavefront expansion',
+      'Non-negative edge weights required',
       'Min-Heap Priority Queue on cumulative g(n)',
     ],
   },
@@ -57,10 +57,10 @@ export const ALGORITHMS: Record<AlgorithmId, AlgorithmMetadata> = {
     isComplete: true,
     color: '#10b981', // Emerald
     description:
-      'Combines actual path cost g(n) with an admissible straight-line distance heuristic h(n). Pulls the exploration cone directly toward the destination, drastically reducing explored nodes.',
+      'Orders the frontier by g(n) + h(n). This implementation scales geographic distance against every represented edge to obtain a consistent lower bound; without useful coordinates h is zero. A heuristic can reduce work, but does not guarantee fewer expansions on every query.',
     characteristics: [
       'Mathematically optimal path',
-      'Tear-drop directed search cone',
+      'Graph-derived consistent lower bound',
       'f(n) = g(n) + h(n) evaluation',
     ],
   },
@@ -77,7 +77,7 @@ export const ALGORITHMS: Record<AlgorithmId, AlgorithmMetadata> = {
     description:
       'Searches forward and backward on reversed edges using compatible reduced costs. A meeting supplies an upper bound; optimality requires the combined frontier lower bound to reach it. The first meeting alone is not a valid stopping rule.',
     characteristics: [
-      'Simultaneous dual search cones',
+      'Forward search plus reversed-graph search',
       'Graph-validated, consistent balanced potentials',
       'Incumbent route plus lower-bound termination',
     ],
@@ -87,16 +87,16 @@ export const ALGORITHMS: Record<AlgorithmId, AlgorithmMetadata> = {
     name: 'Greedy Best-First',
     tagline: 'Pure heuristic chase always choosing the geographically closest node',
     category: 'Heuristic',
-    timeComplexity: 'O(V + E)',
+    timeComplexity: 'O((V + E) log V)',
     spaceComplexity: 'O(V)',
     isOptimal: false,
     isComplete: true,
     color: '#f59e0b', // Amber
     description:
-      'Evaluates only h(n), aggressively charging directly toward the target. In open terrain it is lightning fast, but around geographic obstacles (like the SF Bay) it can get trapped along shorelines before finding bridge ramps.',
+      'Orders the frontier using only h(n), ignoring the accumulated route cost. It can find a route quickly, but can choose a much more expensive path. With a zero heuristic, ties follow insertion order.',
     characteristics: [
-      'Ultra-fast forward rush',
-      'Can be fooled by water barriers',
+      'Does not guarantee minimum cost',
+      'Order depends on the heuristic and ties',
       'f(n) = h(n) heuristic only',
     ],
   },
@@ -129,9 +129,9 @@ export const ALGORITHMS: Record<AlgorithmId, AlgorithmMetadata> = {
     isComplete: true,
     color: '#ef4444', // Red
     description:
-      'Explores as deep as possible down each arterial branch before backtracking. Included for educational contrast to demonstrate why unguided depth search produces wild, circuitous paths across multiple counties.',
+      'Follows a branch before backtracking, using a stack and a visited set. It finds a route in a finite reachable graph, but neither minimizes hops nor weighted cost; neighbor order can strongly affect the result.',
     characteristics: [
-      'Highly suboptimal zigzag paths',
+      'No shortest-path guarantee',
       'LIFO Stack exploration',
       'Demonstrates unguided tree traversal',
     ],

@@ -20,6 +20,13 @@ import {
 } from './phageDefense';
 
 describe('Phage Defense Logic Engine', () => {
+  it('refunds 70 percent of the actual rounded ATP investment', () => {
+    const initial = createInitialDefenseState(); initial.atp = 2000;
+    const placed = placeTower(initial, 'ligase_drone', 200, 380).state;
+    const upgraded = upgradeTower(placed, placed.towers[0].id).state;
+    expect(upgraded.atp).toBe(1722);
+    expect(sellTower(upgraded, placed.towers[0].id).refundAtp).toBe(195);
+  });
   it('credits landed damage, not fired damage, and restricts anti-Cas9 resistance to Cas9', () => {
     const state = placeTower(createInitialDefenseState(), 'restriction_enzyme', 200, 380).state;
     state.phages = [{ id: 'boss', type: 'giant_megaphage', x: 50, y: 100, health: 100, maxHealth: 100, shieldHealth: 250, maxShieldHealth: 250, speed: 35, baseSpeed: 35, slowTimerSec: 0, waypointIndex: 0, progressRatio: 0, atpReward: 80, radius: 28, color: '#fff' }];

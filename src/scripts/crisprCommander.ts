@@ -238,7 +238,8 @@ export function initCrisprCommander(containerEl: HTMLElement) {
   const abort = new AbortController();
   const { signal } = abort;
   const clock = createGameClock();
-  const seed = Number(new URLSearchParams(location.search).get('seed')) || Date.now();
+  const seedParam = new URLSearchParams(location.search).get('seed');
+  const seed = seedParam !== null && Number.isFinite(Number(seedParam)) ? Number(seedParam) : Date.now();
   let random = mulberry32(seed);
   let started = false;
   let gestureId = 0;
@@ -375,15 +376,24 @@ export function initCrisprCommander(containerEl: HTMLElement) {
       ctx.rotate(frag.angle);
 
       ctx.fillStyle = frag.color;
-      ctx.font = 'bold 11px monospace';
+      ctx.font = 'bold 8px monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(frag.sequence, 0, 0);
-
-      // Glow outline
       ctx.strokeStyle = frag.color;
+      ctx.lineWidth = 2;
+      const half = Math.max(18, Math.min(55, frag.sequence.length * 3));
+      // Offset only the severed ends: a qualitative 5′ overhang, not a claimed
+      // universal Cas12a cut offset. Cas9's cartoon ends stay aligned.
+      const offset = frag.endStyle === 'staggered' ? 7 : 0;
+      const topStart = -half, topEnd = half - (frag.side === 'left' ? offset : 0);
+      const bottomStart = -half + (frag.side === 'right' ? offset : 0), bottomEnd = half;
+      ctx.beginPath(); ctx.moveTo(topStart, -7); ctx.lineTo(topEnd, -7);
+      ctx.moveTo(bottomStart, 7); ctx.lineTo(bottomEnd, 7); ctx.stroke();
       ctx.lineWidth = 1;
-      ctx.strokeRect(-24, -8, 48, 16);
+      for (let x = Math.max(topStart, bottomStart) + 4; x < Math.min(topEnd, bottomEnd); x += 7) {
+        ctx.beginPath(); ctx.moveTo(x, -7); ctx.lineTo(x, 7); ctx.stroke();
+      }
+      ctx.fillText(frag.sequence.length > 14 ? frag.sequence.slice(0, 13) + '…' : frag.sequence, 0, -17);
       ctx.restore();
     }
 

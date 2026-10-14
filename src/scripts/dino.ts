@@ -269,7 +269,7 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
 
     // Scrolling Watson-Crick Base Pair Rungs & Letters
     const tickSpacing = 72;
-    const offset = -((state.distance * 0.75) % tickSpacing);
+    const offset = reducedMotion ? 0 : -((state.distance * 0.75) % tickSpacing);
     ctx.font = `bold 12px ${cssVar('--font-mono', 'monospace')}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -277,7 +277,7 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
     const baseColors = ['#10b981', '#38bdf8', '#f59e0b', '#a855f7'];
 
     for (let x = offset; x < state.width + tickSpacing; x += tickSpacing) {
-      const idx = Math.abs(Math.floor((x + state.distance) / tickSpacing)) % 4;
+      const idx = Math.abs(Math.floor((x + (reducedMotion ? 0 : state.distance)) / tickSpacing)) % 4;
       const bColor = baseColors[idx];
 
       // Vertical hydrogen bond rung
@@ -306,7 +306,7 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
     ctx.strokeStyle = colors.accent;
     ctx.lineWidth = 1.8;
     ctx.beginPath();
-    const waveOffset = (state.distance * 0.04) % 48;
+    const waveOffset = reducedMotion ? 0 : (state.distance * 0.04) % 48;
     for (let x = -48; x <= state.width + 48; x += 12) {
       const y = 68 + Math.sin((x + waveOffset) / 28) * 12;
       if (x === -48) ctx.moveTo(x, y);

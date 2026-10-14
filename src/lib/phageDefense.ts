@@ -393,6 +393,16 @@ export function placeTower(
   };
 }
 
+export function getTowerUpgradeCost(tower: ActiveTower): number {
+  return Math.round(TOWER_DEFINITIONS[tower.type].cost * tower.level * .85);
+}
+
+export function getTowerRefund(tower: ActiveTower): number {
+  const cost = TOWER_DEFINITIONS[tower.type].cost;
+  const invested = cost + (tower.level > 1 ? Math.round(cost * .85) : 0) + (tower.level > 2 ? Math.round(cost * 1.7) : 0);
+  return Math.round(invested * .7);
+}
+
 export function upgradeTower(
   state: DefenseGameState,
   towerId: string
@@ -400,8 +410,7 @@ export function upgradeTower(
   const tower = state.towers.find((t) => t.id === towerId);
   if (!tower || tower.level >= 3) return { state, success: false };
 
-  const def = TOWER_DEFINITIONS[tower.type];
-  const upgradeCost = Math.round(def.cost * (tower.level * 0.85));
+  const upgradeCost = getTowerUpgradeCost(tower);
   if (state.atp < upgradeCost) return { state, success: false };
 
   const updatedTowers = state.towers.map((t) =>
@@ -425,12 +434,7 @@ export function sellTower(
   const tower = state.towers.find((t) => t.id === towerId);
   if (!tower) return { state, refundAtp: 0 };
 
-  const def = TOWER_DEFINITIONS[tower.type];
-  const totalInvested =
-    def.cost +
-    (tower.level > 1 ? def.cost * 0.85 : 0) +
-    (tower.level > 2 ? def.cost * 1.7 : 0);
-  const refundAtp = Math.round(totalInvested * 0.7);
+  const refundAtp = getTowerRefund(tower);
 
   return {
     state: {

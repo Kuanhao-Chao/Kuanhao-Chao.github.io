@@ -244,7 +244,8 @@ export function initBayRoute(root: HTMLElement) {
       announce('Optional basemap loaded. It supplies visual context only; routes still use the curated graph.');
     } catch (error) {
       if (disposed || version !== providerRevision) return;
-      providerSelect.value = 'local'; providerLayer.hidden = true; adapter = local; local.resize(); render();
+      adapter.destroy(); adapter = local; providerLayer.replaceChildren(); providerLayer.hidden = true;
+      canvas.style.pointerEvents = 'auto'; providerSelect.value = 'local'; local.resize(); render();
       announce(error instanceof Error && error.message.startsWith('Google basemaps need') ? error.message : 'Basemap unavailable. Returned to the offline schematic; the graph remains usable.');
     }
   }

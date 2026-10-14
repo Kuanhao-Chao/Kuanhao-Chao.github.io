@@ -1008,7 +1008,7 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     drawOverlay();
   }
 
-  function spawnParticles(event: GameState['lastEvent']) {
+  function spawnParticles(event: GameState['lastEvent'], pickup?: GameState['pickupEvents'][number]) {
     if (reducedMotion || event === 'none' || event === 'shot') return;
     const count = event === 'jetpack' ? 18 : event === 'enemy' ? 16 : event === 'collect' ? 10 : 8;
     const color =
@@ -1022,13 +1022,13 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
 
     // Spawn floating score popup
     if (event === 'collect') {
-      const lastBase = state.sequence[state.sequence.length - 1] || 'NTP';
+      const lastBase = pickup?.base || state.sequence[state.sequence.length - 1] || 'NTP';
       const pColor = lastBase === 'A' ? palette.gemA : lastBase === 'C' ? palette.gemC : lastBase === 'G' ? palette.gemG : palette.gemU;
       popups.push({
-        x: state.player.x,
-        y: state.player.y + state.player.height * 0.8,
+        x: pickup?.x ?? state.player.x,
+        y: pickup?.y ?? state.player.y + state.player.height * 0.8,
         vy: 42,
-        text: `+10 ${lastBase}`,
+        text: `+${pickup?.points ?? 25} ${lastBase}`,
         color: pColor,
         life: 0.65,
         maxLife: 0.65,
@@ -1221,10 +1221,12 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     previousPlayer = { x: state.player.x, y: state.player.y }; previousCamera = state.cameraY;
     engineStep(state, FIXED_STEP);
     updateParticles(FIXED_STEP);
-    if (state.lastEvent !== 'none') {
+    if (state.lastEvent !== 'none' && state.lastEvent !== 'collect') {
       soundForEvent(state.lastEvent);
       spawnParticles(state.lastEvent);
     }
+    for (const pickup of state.pickupEvents) spawnParticles('collect', pickup);
+    if (state.pickupEvents.length) soundForEvent('collect');
     recordBest();
   }
 

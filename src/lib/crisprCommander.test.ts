@@ -54,6 +54,12 @@ describe('CRISPR Commander Logic Engine', () => {
   });
 
   describe('createDoubleStrandBreakFragments', () => {
+    it('records schematic blunt versus staggered daughter ends without a universal nucleotide offset', () => {
+      for (const [enzyme, style] of [['SpCas9', 'blunt'], ['AsCas12a', 'staggered']] as const) {
+        const fragments = createDoubleStrandBreakFragments(spawnViralStrand(1, 1, enzyme, () => .5), 800, 600, () => .5);
+        expect(fragments.map(fragment => [fragment.endStyle, fragment.side])).toEqual([[style, 'left'], [style, 'right']]);
+      }
+    });
     it('splits a cleaved strand into two complementary physics fragments', () => {
       const strand = spawnViralStrand(1, 1, 'SpCas9', () => 0.5);
       strand.x = 0.5;
