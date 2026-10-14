@@ -51,6 +51,10 @@ jobs:
       - name: Audit indexing
         run: npm run audit:indexing
 
+      - name: Test game audit lifecycle and interaction regressions
+        timeout-minutes: 3
+        run: npm run test:game-audit-runtime
+
       - name: Audit game controls and lifecycle (Chromium and WebKit)
         timeout-minutes: 12
         run: npm run audit:games:ci

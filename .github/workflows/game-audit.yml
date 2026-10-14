@@ -1,0 +1,53 @@
+name: Full game browser audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: game-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    # Full Chromium/WebKit profiles plus Firefox smoke are deliberately larger
+    # than the Pages smoke. The existing 12-minute Pages guard is unchanged.
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Run unit and content tests
+        run: npm test
+      - name: Build site
+        run: npm run build
+      - name: Audit indexing
+        run: npm run audit:indexing
+      - name: Test game audit lifecycle and interaction regressions
+        timeout-minutes: 3
+        run: npm run test:game-audit-runtime
+      - name: Audit all games and profiles in Chromium and WebKit
+        run: npm run audit:games
+      - name: Audit Firefox game smoke
+        run: npm run audit:games:ci
+        env:
+          GAME_UI_AUDIT_BROWSERS: firefox
+      - name: Upload game audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-game-ui-audit
+          path: /tmp/khc-game-ui/
+          if-no-files-found: ignore
+          retention-days: 7
