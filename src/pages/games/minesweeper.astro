@@ -1,5 +1,6 @@
 ---
 import PageLayout from '../../layouts/PageLayout.astro';
+import GameTools from '../../components/games/GameTools.astro';
 import MinesweeperLogo from '../../components/games/MinesweeperLogo.astro';
 import { site } from '../../data/site';
 
@@ -28,7 +29,8 @@ const gameLd = {
 >
   <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
 
-  <section class="minesweeper" data-minesweeper-root aria-label="Minesweeper deduction game">
+  <section class="minesweeper" data-game-root data-minesweeper-root aria-label="Minesweeper deduction game">
+    <GameTools />
     <!-- Header Medallion Card -->
     <div class="mine-header-card">
       <MinesweeperLogo size={58} />

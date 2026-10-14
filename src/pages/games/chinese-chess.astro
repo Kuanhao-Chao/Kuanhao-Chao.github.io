@@ -1,5 +1,6 @@
 ---
 import PageLayout from '../../layouts/PageLayout.astro';
+import GameTools from '../../components/games/GameTools.astro';
 import ChineseChessLogo from '../../components/games/ChineseChessLogo.astro';
 import { site } from '../../data/site';
 
@@ -29,6 +30,7 @@ const gameLd = {
   <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
 
   <section class="cc-container" data-game-root data-cc-root aria-label="Chinese Chess game">
+    <GameTools />
     <!-- Header Card -->
     <div class="cc-header-card">
       <ChineseChessLogo size={62} />

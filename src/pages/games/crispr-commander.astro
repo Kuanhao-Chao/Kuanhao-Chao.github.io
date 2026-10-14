@@ -1,6 +1,7 @@
 ---
 import PageLayout from '../../layouts/PageLayout.astro';
 import CrisprCommanderLogo from '../../components/games/CrisprCommanderLogo.astro';
+import GameTools from '../../components/games/GameTools.astro';
 import { site } from '../../data/site';
 import '../../styles/crisprCommander.css';
 
@@ -30,6 +31,7 @@ const gameLd = {
   <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
 
   <section class="crispr" data-game-root data-crispr-game aria-label="CRISPR Commander game">
+    <GameTools />
     <div class="crispr-header-card">
       <CrisprCommanderLogo size={58} />
       <div class="crispr-header-info">

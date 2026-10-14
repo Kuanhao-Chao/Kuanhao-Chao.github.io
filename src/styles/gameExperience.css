@@ -1,0 +1,15 @@
+.game-tools { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; margin: 0 0 .75rem; }
+.game-tools-label { flex: 1; color: var(--color-muted); font: .72rem var(--font-mono, monospace); letter-spacing: .04em; }
+.game-tools .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.game-tools button { min-height: 44px; padding: .5rem .8rem; border: 1px solid var(--color-rule); border-radius: .6rem; background: var(--color-surface); color: var(--color-ink); cursor: pointer; font: 600 .8rem var(--font-sans, sans-serif); }
+[data-game-root] :focus-visible { outline: 3px solid var(--color-accent); outline-offset: 3px; }
+[data-game-root] { scroll-margin-top: 5rem; }
+.game-focus-view { position: fixed !important; inset: 0 !important; z-index: 1100 !important; width: 100% !important; max-width: none !important; height: 100dvh !important; margin: 0 !important; padding: max(.75rem, env(safe-area-inset-top)) max(.75rem, env(safe-area-inset-right)) max(.75rem, env(safe-area-inset-bottom)) max(.75rem, env(safe-area-inset-left)) !important; background: var(--color-bg, var(--color-surface)) !important; overflow: auto; overscroll-behavior: contain; box-sizing: border-box; }
+.game-focus-view .game-tools { position: sticky; top: 0; z-index: 20; background: var(--color-bg, var(--color-surface)); padding-bottom: .5rem; }
+.game-focus-view > article, .game-focus-view .game-guide, .game-focus-view .crispr-guide, .game-focus-view .defense-guide { display: none; }
+.game-focus-view .crispr-header-card, .game-focus-view .defense-header-card, .game-focus-view .br-header-card { display: none; }
+.game-focus-view canvas { max-height: calc(100dvh - 230px); }
+.game-focus-view .jumper-board, .game-focus-view .proof-board, .game-focus-view .dino-board { max-height: calc(100dvh - 230px); }
+.game-focus-view .jumper-canvas { width: auto; max-width: 100%; margin: auto; }
+@media (max-width: 600px) { .game-tools-label { flex-basis: 100%; } .game-focus-view canvas { max-height: calc(100dvh - 260px); } }
+@media (prefers-reduced-motion: reduce) { [data-game-root] *, [data-game-root] *::before, [data-game-root] *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; scroll-behavior: auto !important; } }

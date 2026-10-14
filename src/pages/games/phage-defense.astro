@@ -1,6 +1,7 @@
 ---
 import PageLayout from '../../layouts/PageLayout.astro';
 import PhageDefenseLogo from '../../components/games/PhageDefenseLogo.astro';
+import GameTools from '../../components/games/GameTools.astro';
 import { site } from '../../data/site';
 import '../../styles/phageDefense.css';
 
@@ -30,6 +31,7 @@ const gameLd = {
   <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
 
   <section class="defense-game-container" data-game-root data-defense-game aria-label="Phage Defense game">
+    <GameTools />
     <div class="defense-header-card">
       <PhageDefenseLogo size={58} />
       <div class="defense-header-info">
