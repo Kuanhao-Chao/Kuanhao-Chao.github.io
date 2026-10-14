@@ -133,7 +133,7 @@ describe('SpliceAI2 publication content contract', () => {
       `[A unified framework for quantitative splicing and transcript prediction](${biorxiv})`
     );
     expect(body).toContain(`[Illumina PDF](${pdf})`);
-    expect(body).toContain('Update (October 11, 2026)');
+    expect(body).not.toContain('Update (October 11, 2026)');
     expect(body).not.toContain('/publications/spliceai2/');
     expect(body).not.toContain('I co-authored');
     expect(body).toContain('https://github.com/Illumina/SpliceAI2');
