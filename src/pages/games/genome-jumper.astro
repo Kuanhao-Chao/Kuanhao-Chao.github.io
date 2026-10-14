@@ -23,7 +23,7 @@ const gameLd = {
 <PageLayout
   title="Genome Jumper"
   eyebrow="Side project"
-  lead="Climb a living chromatin double helix as an RNA Polymerase II complex. Synthesize nascent mRNA transcripts, unwind supercoils with topoisomerase springs, and blast mutation lesions."
+  lead="An RNA Polymerase II-inspired climbing expedition. Navigate chromatin-themed rungs, collect ribonucleotides, and discover four visual chapters in a playful transcription-inspired world."
   description="Genome Jumper — an original, mobile-friendly endless jumping web game by Kuan-Hao Chao, with procedural platforms, nucleotide collectibles, boosts, and mutation enemies."
   width="narrow"
 >
@@ -35,7 +35,7 @@ const gameLd = {
       <GenomeJumperLogo size={58} />
       <div class="jumper-header-info">
         <h2 class="jumper-header-title">RNA Polymerase II Transcription Engine</h2>
-        <p class="jumper-header-subtitle">Climb chromatin rungs, collect ribonucleotides (A · C · G · T), and clear mutation lesions.</p>
+        <p class="jumper-header-subtitle">Climb chromatin rungs and collect ribonucleotides: A · C · G · U.</p>
       </div>
     </div>
 
@@ -62,11 +62,12 @@ const gameLd = {
           type="button"
           class="game-btn"
           data-jumper-sound
-          aria-label="Mute game sounds"
-          aria-pressed="true">Sound on</button
+          aria-label="Toggle game sounds"
+          aria-pressed="false">Sound off</button
         >
       </div>
     </div>
+    <p class="jumper-chapter" data-jumper-chapter>01 · Initiation · illustrative chapters</p>
 
     <div class="jumper-board">
       <canvas
@@ -78,6 +79,7 @@ const gameLd = {
     </div>
 
     <div class="jumper-actions">
+      <button type="button" class="action-btn" data-jumper-retry-seed>Retry same seed</button>
       <button type="button" class="action-btn action-btn--fire" data-jumper-fire disabled>
         <span aria-hidden="true">↑</span> Fire Laser
       </button>
@@ -89,13 +91,14 @@ const gameLd = {
     </p>
 
     <div class="jumper-sequence-card" aria-label="Collected nucleotide sequence">
-      <span class="sequence-label">Synthesized mRNA (5'→3'):</span>
+      <span class="sequence-label">Collected ribonucleotides · A/C/G/U:</span>
       <div class="sequence-ribbon" data-jumper-sequence>—</div>
     </div>
 
     <details class="jumper-help">
       <summary>How to Play & Transcription Mechanics</summary>
       <div class="help-grid muted">
+        <p data-jumper-legacy></p>
         <p>
           <strong>Move & Steer:</strong> Use <code>Left / Right</code> or <code>A / D</code>. On mobile touch screens, press or drag on either side of the board.
         </p>
@@ -108,6 +111,8 @@ const gameLd = {
         <p>
           <strong>P-TEFb Boosts:</strong> Collect jetpack boosters to trigger high-speed elongation factor thrust with an invulnerability stasis bubble.
         </p>
+        <p><strong>Biology versus play:</strong> Real RNA uses U, not T. Pol II opens a transcription bubble and synthesizes RNA from a DNA template. The bubble and exit trail here are decorative schematics; the collected-base ribbon is not a computed transcript. Springs, lasers, mutation monsters, and invulnerability are arcade metaphors, not transcription mechanisms.</p>
+        <p><strong>Pickup streak:</strong> Collect again within three seconds to add 5 points per streak level, capped at 45 points per pickup. Fragile rungs show a crack warning; dashed rungs fade after landing. New scoring records are kept separately; your older record stays saved.</p>
       </div>
     </details>
   </section>
@@ -329,6 +334,7 @@ const gameLd = {
     color: var(--color-ink);
     margin: 0;
   }
+  .jumper-chapter { margin: 0; color: var(--color-accent); font: 600 .78rem var(--font-mono, monospace); letter-spacing: .04em; }
 
   .jumper-sequence-card {
     display: flex;
@@ -374,7 +380,7 @@ const gameLd = {
   :global(.pill-g) {
     background: #f59e0b;
   }
-  :global(.pill-t) {
+  :global(.pill-u) {
     background: #a855f7;
   }
 

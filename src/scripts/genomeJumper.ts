@@ -56,7 +56,7 @@ interface Palette {
   gemA: string;
   gemC: string;
   gemG: string;
-  gemT: string;
+  gemU: string;
   platformStaticBg: string;
   platformStaticBorder: string;
   platformMovingBg: string;
@@ -95,7 +95,7 @@ interface FloatingPopup {
 }
 
 const FIXED_STEP = 1 / 120;
-const BEST_KEY = 'khc-genome-jumper-best';
+const BEST_KEY = 'khc-genome-jumper-best-v2';
 const SOUND_KEY = 'khc-genome-jumper-sound';
 
 const cssVar = (name: string, fallback: string): string =>
@@ -121,9 +121,9 @@ const writeStorage = (key: string, value: string): void => {
 
 function readSoundPreference(): boolean {
   try {
-    return localStorage.getItem(SOUND_KEY) !== 'off';
+    return localStorage.getItem(SOUND_KEY) === 'on';
   } catch {
-    return true;
+    return false;
   }
 }
 
@@ -145,7 +145,7 @@ function readPalette(): Palette {
       gemA: '#10b981',
       gemC: '#38bdf8',
       gemG: '#f59e0b',
-      gemT: '#a855f7',
+      gemU: '#a855f7',
       platformStaticBg: 'rgba(16, 185, 129, 0.12)',
       platformStaticBorder: '#10b981',
       platformMovingBg: 'rgba(56, 189, 248, 0.14)',
@@ -175,7 +175,7 @@ function readPalette(): Palette {
     gemA: '#059669',
     gemC: '#0284c7',
     gemG: '#d97706',
-    gemT: '#7c3aed',
+    gemU: '#7c3aed',
     platformStaticBg: 'rgba(255, 255, 255, 0.95)',
     platformStaticBorder: '#059669',
     platformMovingBg: 'rgba(2, 132, 199, 0.12)',
@@ -211,12 +211,17 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
   const fireBtn = root.querySelector<HTMLButtonElement>('[data-jumper-fire]');
   const soundBtn = root.querySelector<HTMLButtonElement>('[data-jumper-sound]');
   const shareBtn = root.querySelector<HTMLButtonElement>('[data-jumper-share]');
+  const retryBtn = root.querySelector<HTMLButtonElement>('[data-jumper-retry-seed]');
+  const chapterEl = root.querySelector<HTMLElement>('[data-jumper-chapter]');
 
   const seedValue = new URLSearchParams(location.search).get('seed');
   const fixedSeed = seedValue === null ? null : Number(seedValue) >>> 0;
   const freshSeed = () => fixedSeed ?? (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
   const state = createGame(freshSeed());
   let best = readNumber(BEST_KEY);
+  const legacy = readNumber('khc-genome-jumper-best');
+  const legacyEl = root.querySelector('[data-jumper-legacy]');
+  if (legacyEl && legacy) legacyEl.textContent = `Legacy rules best: ${legacy.toLocaleString()} · retained separately from pickup-streak scoring.`;
   let palette = readPalette();
   let soundEnabled = readSoundPreference();
   let shareMessage = '';
@@ -224,6 +229,11 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
   const particles: Particle[] = [];
   const popups: FloatingPopup[] = [];
   let animTick = 0;
+  let previousPlayer = { x: state.player.x, y: state.player.y };
+  let previousCamera = state.cameraY;
+  let renderPlayer = { ...previousPlayer };
+  let renderCamera = state.cameraY;
+  let renderedSequence = '';
 
   // Audio Context synthesis
   let audioContext: AudioContext | null = null;
@@ -350,7 +360,7 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
   }
 
   const sx = (worldX: number) => (worldX / WORLD_WIDTH) * width;
-  const sy = (worldY: number) => height - ((worldY - state.cameraY) / VIEW_HEIGHT) * height;
+  const sy = (worldY: number) => height - ((worldY - renderCamera) / VIEW_HEIGHT) * height;
   const scaleX = () => width / WORLD_WIDTH;
   const scaleY = () => height / VIEW_HEIGHT;
 
@@ -368,10 +378,15 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
   function drawBackground() {
     ctx.fillStyle = palette.background;
     ctx.fillRect(0, 0, width, height);
+    const chapter = state.height < 150 ? 0 : state.height < 400 ? 1 : state.height < 800 ? 2 : 3;
+    const glow = ctx.createLinearGradient(0, 0, width, height);
+    glow.addColorStop(0, palette.isDark ? ['#092d31', '#1c2344', '#382840', '#163333'][chapter] : ['#e5f4ed', '#e6effa', '#f0e7f3', '#e5f1ef'][chapter]);
+    glow.addColorStop(1, palette.background);
+    ctx.fillStyle = glow; ctx.fillRect(0, 0, width, height);
 
     // Dynamic procedural chromatin double helix rails climbing both edges
     ctx.save();
-    const phase = (((state.cameraY * scaleY()) % 60) + 60) % 60;
+    const phase = (((renderCamera * scaleY()) % 60) + 60) % 60;
     const railLeft = width * 0.07;
     const railRight = width * 0.93;
 
@@ -512,6 +527,11 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     }
 
     if (platform.spring) drawSpring(x + w / 2, y - h / 2);
+    if (platform.kind === 'breakable' || platform.kind === 'disappearing') {
+      ctx.fillStyle = platform.kind === 'breakable' ? palette.platformBreakBorder : palette.platformDisappearBorder;
+      ctx.font = 'bold 10px monospace'; ctx.textAlign = 'right';
+      ctx.fillText(platform.kind === 'breakable' ? '! crack' : '◷ fades', x + w, y - 10);
+    }
     ctx.restore();
   }
 
@@ -562,7 +582,7 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
           ? palette.gemC
           : item.base === 'G'
             ? palette.gemG
-            : palette.gemT;
+            : palette.gemU;
 
     ctx.save();
     // Ambient gem glow
@@ -755,7 +775,7 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
 
   function drawPlayerAt(worldX: number) {
     const x = sx(worldX);
-    const feet = sy(state.player.y);
+    const feet = sy(renderPlayer.y);
     const w = state.player.width * scaleX();
     const h = state.player.height * scaleY();
     ctx.save();
@@ -765,11 +785,18 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
 
     // Squash and stretch based on vertical velocity
     const vy = state.player.vy;
-    const stretchY = Math.max(0.85, Math.min(1.2, 1 + vy * 0.00025));
+    const stretchY = reducedMotion ? 1 : Math.max(0.85, Math.min(1.2, 1 + vy * 0.00025));
     const stretchX = 1 / stretchY;
     ctx.scale(stretchX, stretchY);
 
     const hasJetpack = isJetpackActive(state);
+    // Schematic transcription bubble: paired DNA opens around Pol II and rejoins.
+    ctx.strokeStyle = palette.gemC; ctx.lineWidth = 1.6;
+    for (const sign of [-1, 1]) {
+      ctx.beginPath(); ctx.moveTo(-w * 1.15, sign * 3);
+      ctx.bezierCurveTo(-w * .5, sign * 3, -w * .65, sign * h * .38, 0, sign * h * .38);
+      ctx.bezierCurveTo(w * .65, sign * h * .38, w * .5, sign * 3, w * 1.15, sign * 3); ctx.stroke();
+    }
 
     // 1. Protective Transcription Bubble Aura during Jetpack
     if (hasJetpack) {
@@ -819,6 +846,10 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     ctx.fill();
     ctx.stroke();
     ctx.shadowBlur = 0;
+    ctx.fillStyle = palette.accentDark;
+    ctx.beginPath(); ctx.ellipse(-w * .38, -h * .1, w * .22, h * .32, -.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = palette.accent;
+    ctx.beginPath(); ctx.ellipse(w * .3, -h * .2, w * .28, h * .3, .2, 0, Math.PI * 2); ctx.fill();
 
     // 3. Catalytic Active Site / Magnesium Ion Sparkle
     ctx.fillStyle = '#fef08a';
@@ -856,8 +887,8 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     ctx.arc(w * 0.18 + lookX, -h * 0.24, 1.4, 0, Math.PI * 2);
     ctx.fill();
 
-    // 6. Trailing Nascent mRNA Transcript Tail (5'-to-3') with Nucleotide Nodes
-    if (state.sequence.length > 0) {
+    // Decorative RNA exit trail; collected bases are not a template-derived transcript.
+    {
       ctx.strokeStyle = '#f59e0b';
       ctx.lineWidth = 2.2;
       ctx.beginPath();
@@ -867,7 +898,7 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
       ctx.stroke();
 
       // Draw last 3 collected base nodes
-      const lastBases = state.sequence.slice(-3);
+      const lastBases = ['A', 'U', 'G'];
       for (let bi = 0; bi < lastBases.length; bi++) {
         const t = (bi + 1) / (lastBases.length + 1);
         const bx = -w * (0.25 + t * 0.6);
@@ -884,10 +915,10 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
   }
 
   function drawPlayer() {
-    drawPlayerAt(state.player.x);
+    drawPlayerAt(renderPlayer.x);
     const half = state.player.width / 2;
-    if (state.player.x < half) drawPlayerAt(state.player.x + WORLD_WIDTH);
-    if (state.player.x > WORLD_WIDTH - half) drawPlayerAt(state.player.x - WORLD_WIDTH);
+    if (renderPlayer.x < half) drawPlayerAt(renderPlayer.x + WORLD_WIDTH);
+    if (renderPlayer.x > WORLD_WIDTH - half) drawPlayerAt(renderPlayer.x - WORLD_WIDTH);
   }
 
   function drawParticles() {
@@ -961,7 +992,10 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
   }
 
   function render() {
-    animTick += 0.04;
+    animTick = reducedMotion ? 0 : state.time * 2.4;
+    const alpha = state.status === 'playing' ? Math.min(1, accumulator / FIXED_STEP) : 1;
+    renderCamera = previousCamera + (state.cameraY - previousCamera) * alpha;
+    renderPlayer = { x: Math.abs(state.player.x - previousPlayer.x) > WORLD_WIDTH / 2 ? state.player.x : previousPlayer.x + (state.player.x - previousPlayer.x) * alpha, y: previousPlayer.y + (state.player.y - previousPlayer.y) * alpha };
     drawBackground();
     for (const platform of state.platforms) drawPlatform(platform);
     for (const item of state.collectibles) drawCollectible(item);
@@ -989,7 +1023,7 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     // Spawn floating score popup
     if (event === 'collect') {
       const lastBase = state.sequence[state.sequence.length - 1] || 'NTP';
-      const pColor = lastBase === 'A' ? palette.gemA : lastBase === 'C' ? palette.gemC : lastBase === 'G' ? palette.gemG : palette.gemT;
+      const pColor = lastBase === 'A' ? palette.gemA : lastBase === 'C' ? palette.gemC : lastBase === 'G' ? palette.gemG : palette.gemU;
       popups.push({
         x: state.player.x,
         y: state.player.y + state.player.height * 0.8,
@@ -1073,27 +1107,29 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     if (state.status === 'paused') return 'Paused — press P, Escape, or Pause to resume';
     if (state.status === 'over') return `Run complete — ${state.height} m, ${state.score} points`;
     if (isJetpackActive(state)) return 'P-TEFb Jetpack active — mutation contact is safe';
-    return 'Climbing chromatin — steer, synthesize mRNA sequence, clear mutations';
+    return `Steer toward the next rung · collect A/C/G/U · pickup streak ${state.pickupStreak}/5`;
   }
 
   function updateHud() {
     if (scoreEl) scoreEl.textContent = state.score.toLocaleString('en-US');
     if (heightEl) heightEl.textContent = `${state.height} m`;
     if (bestEl) bestEl.textContent = best.toLocaleString('en-US');
-    if (sequenceEl) {
+    if (sequenceEl && state.sequence.join('') !== renderedSequence) {
+      renderedSequence = state.sequence.join('');
       if (state.sequence.length === 0) {
         sequenceEl.textContent = '—';
       } else {
         sequenceEl.textContent = '';
         state.sequence.forEach((b) => {
           const pill = document.createElement('span');
-          pill.className = `nucleotide-pill ${b === 'A' ? 'pill-a' : b === 'C' ? 'pill-c' : b === 'G' ? 'pill-g' : 'pill-t'}`;
+          pill.className = `nucleotide-pill ${b === 'A' ? 'pill-a' : b === 'C' ? 'pill-c' : b === 'G' ? 'pill-g' : 'pill-u'}`;
           pill.textContent = b;
           sequenceEl.appendChild(pill);
         });
       }
     }
-    if (statusEl) statusEl.textContent = statusMessage();
+    if (statusEl && statusEl.textContent !== statusMessage()) statusEl.textContent = statusMessage();
+    if (chapterEl) chapterEl.textContent = `${state.height < 150 ? '01 · Initiation' : state.height < 400 ? '02 · Elongation' : state.height < 800 ? '03 · Chromatin traffic' : '04 · Beyond the runway'} · illustrative chapters`;
     if (boostEl) {
       boostEl.textContent = isJetpackActive(state)
         ? `P-TEFb Boost ${Math.max(0, state.jetpackUntil - state.time).toFixed(1)} s`
@@ -1133,8 +1169,10 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     particles.length = 0;
     popups.length = 0;
     reset(state, freshSeed());
+    previousPlayer = { x: state.player.x, y: state.player.y }; previousCamera = 0;
     begin();
   }
+  const onRetry = () => { reset(state, state.seed); previousPlayer = { x: state.player.x, y: state.player.y }; previousCamera = 0; particles.length = 0; popups.length = 0; begin(); };
 
   function togglePause() {
     shareMessage = '';
@@ -1157,7 +1195,7 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
 
   async function shareResult() {
     if (state.status !== 'over') return;
-    const url = new URL('/games/genome-jumper/', location.origin).href;
+    const url = new URL(`/games/genome-jumper/?seed=${state.seed}`, location.origin).href;
     const text = `I climbed ${state.height} m and scored ${state.score.toLocaleString('en-US')} points in Genome Jumper.`;
     try {
       if (navigator.share) {
@@ -1180,6 +1218,7 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
   let accumulator = 0;
 
   function simulationTick() {
+    previousPlayer = { x: state.player.x, y: state.player.y }; previousCamera = state.cameraY;
     engineStep(state, FIXED_STEP);
     updateParticles(FIXED_STEP);
     if (state.lastEvent !== 'none') {
@@ -1310,6 +1349,7 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
   const onVisibility = () => {
     if (document.hidden && state.status === 'playing') {
       enginePause(state);
+      pressed.clear(); activePointer = null; setSteering(state, 0); accumulator = 0;
       updateHud();
       render();
     }
@@ -1341,6 +1381,7 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
   canvas.addEventListener('pointercancel', onPointerEnd);
   pauseBtn?.addEventListener('click', onPause);
   restartBtn?.addEventListener('click', onRestart);
+  retryBtn?.addEventListener('click', onRetry);
   fireBtn?.addEventListener('click', onFire);
   soundBtn?.addEventListener('click', onSound);
   shareBtn?.addEventListener('click', onShare);
@@ -1402,6 +1443,7 @@ export function initGenomeJumper(root: ParentNode = document): GenomeJumperContr
     canvas.removeEventListener('pointercancel', onPointerEnd);
     pauseBtn?.removeEventListener('click', onPause);
     restartBtn?.removeEventListener('click', onRestart);
+    retryBtn?.removeEventListener('click', onRetry);
     fireBtn?.removeEventListener('click', onFire);
     soundBtn?.removeEventListener('click', onSound);
     shareBtn?.removeEventListener('click', onShare);
