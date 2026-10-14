@@ -27,13 +27,14 @@ export function hasGoogleMapsAuthFailed(): boolean {
   return hasAuthFailed;
 }
 
-export function onGoogleMapsAuthFailure(cb: () => void): void {
+export function onGoogleMapsAuthFailure(cb: () => void): () => void {
   authFailureCallback = cb;
   if (hasAuthFailed) {
     try {
       cb();
     } catch (_e) {}
   }
+  return () => { if (authFailureCallback === cb) authFailureCallback = null; };
 }
 
 if (typeof window !== 'undefined') {

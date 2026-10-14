@@ -1,8 +1,8 @@
 import {
   type BayGraph,
   type BayNode,
+  type BayEdge,
   haversineDistanceMiles,
-  heuristicTravelTimeMinutes,
 } from './bayGraph';
 
 export type AlgorithmId =
@@ -51,7 +51,7 @@ export const ALGORITHMS: Record<AlgorithmId, AlgorithmMetadata> = {
     name: 'A* Search',
     tagline: 'Goal-directed optimal search guided by admissible Haversine heuristic',
     category: 'Heuristic',
-    timeComplexity: 'O(E)',
+    timeComplexity: 'O((V + E) log V)',
     spaceComplexity: 'O(V)',
     isOptimal: true,
     isComplete: true,
@@ -67,19 +67,19 @@ export const ALGORITHMS: Record<AlgorithmId, AlgorithmMetadata> = {
   bidirectional_a_star: {
     id: 'bidirectional_a_star',
     name: 'Bidirectional A*',
-    tagline: 'Dual-end simultaneous searches meeting halfway across the Bay',
+    tagline: 'Balanced potentials, reversed edges and a lower-bound stopping rule',
     category: 'Bidirectional',
-    timeComplexity: 'O(b^(d/2))',
-    spaceComplexity: 'O(b^(d/2))',
+    timeComplexity: 'O((V + E) log V)',
+    spaceComplexity: 'O(V + E)',
     isOptimal: true,
     isComplete: true,
     color: '#8b5cf6', // Violet
     description:
-      'Executes two concurrent A* searches: one forward from the start, and one backward from the destination. When their frontiers collide, the search space volume is reduced by up to an order of magnitude.',
+      'Searches forward and backward on reversed edges using compatible reduced costs. A meeting supplies an upper bound; optimality requires the combined frontier lower bound to reach it. The first meeting alone is not a valid stopping rule.',
     characteristics: [
       'Simultaneous dual search cones',
-      'Exponential search volume reduction',
-      'Meets on intermediate bridges/highways',
+      'Graph-validated, consistent balanced potentials',
+      'Incumbent route plus lower-bound termination',
     ],
   },
   greedy: {
@@ -152,6 +152,9 @@ export interface SearchStep {
   closedSetCount: number;
   direction?: 'forward' | 'backward';
   edgeName?: string;
+  queueKey?: number;
+  lowerBound?: number;
+  incumbent?: number;
 }
 
 export interface PathfindingResult {
@@ -174,22 +177,25 @@ class PriorityQueue<T> {
   private items: { element: T; priority: number }[] = [];
 
   enqueue(element: T, priority: number): void {
-    const item = { element, priority };
-    let added = false;
-    for (let i = 0; i < this.items.length; i++) {
-      if (item.priority < this.items[i].priority) {
-        this.items.splice(i, 0, item);
-        added = true;
-        break;
-      }
-    }
-    if (!added) {
-      this.items.push(item);
-    }
+    this.items.push({ element, priority });
+    let index = this.items.length - 1;
+    while (index > 0) { const parent = (index - 1) >> 1; if (this.items[parent].priority <= priority) break; [this.items[index], this.items[parent]] = [this.items[parent], this.items[index]]; index = parent; }
   }
 
   dequeue(): T | undefined {
-    return this.items.shift()?.element;
+    const first = this.items[0]; const last = this.items.pop();
+    if (this.items.length && last) {
+      this.items[0] = last;
+      let index = 0;
+      while (true) {
+        const left = index * 2 + 1; const right = left + 1;
+        if (left >= this.items.length) break;
+        const child = right < this.items.length && this.items[right].priority < this.items[left].priority ? right : left;
+        if (this.items[index].priority <= this.items[child].priority) break;
+        [this.items[index], this.items[child]] = [this.items[child], this.items[index]]; index = child;
+      }
+    }
+    return first?.element;
   }
 
   isEmpty(): boolean {
@@ -199,6 +205,24 @@ class PriorityQueue<T> {
   size(): number {
     return this.items.length;
   }
+  peek(): T | undefined { return this.items[0]?.element; }
+  peekPriority(): number { return this.items[0]?.priority ?? Infinity; }
+}
+
+/** A consistent metric lower bound derived from EVERY represented edge, not a
+ * guessed highway speed. Missing/identical coordinates safely yield h = 0. */
+export function graphHeuristic(graph: BayGraph): (from: BayNode, to: BayNode) => number {
+  let minutesPerMile = Infinity;
+  for (const [u, links] of graph.adjacency) for (const { target, weight } of links) {
+    if (!Number.isFinite(weight) || weight < 0) throw new Error('Search requires finite non-negative edge weights.');
+    const from = graph.nodes.get(u)!; const to = graph.nodes.get(target)!;
+    const distance = haversineDistanceMiles(from.lat, from.lng, to.lat, to.lng);
+    if (distance > 0) minutesPerMile = Math.min(minutesPerMile, weight / distance);
+  }
+  const coordinatesValid = [...graph.nodes.values()].every((node) => Number.isFinite(node.lat) && Number.isFinite(node.lng));
+  const scale = coordinatesValid && graph.heuristicMode !== 'zero' && Number.isFinite(minutesPerMile) ? Math.max(0, minutesPerMile * (1 - 1e-12)) : 0;
+  if (scale === 0) return () => 0;
+  return (from, to) => scale * haversineDistanceMiles(from.lat, from.lng, to.lat, to.lng);
 }
 
 /**
@@ -242,7 +266,7 @@ function computePathMetrics(graph: BayGraph, path: string[]) {
     const u = path[i];
     const v = path[i + 1];
     const neighbors = graph.adjacency.get(u) || [];
-    const match = neighbors.find((n) => n.target === v);
+    const match = neighbors.filter((n) => n.target === v).sort((a, b) => a.weight - b.weight)[0];
     if (match) {
       totalDistanceMiles += match.edge.distance;
       totalTimeMinutes += match.weight;
@@ -257,8 +281,8 @@ function computePathMetrics(graph: BayGraph, path: string[]) {
   }
 
   return {
-    totalDistanceMiles: Math.round(totalDistanceMiles * 10) / 10,
-    totalTimeMinutes: Math.round(totalTimeMinutes * 10) / 10,
+    totalDistanceMiles,
+    totalTimeMinutes,
     pathEdges,
   };
 }
@@ -407,7 +431,9 @@ export function runAStar(
   }
 
   const startNode = graph.nodes.get(startId)!;
-  const startH = heuristicTravelTimeMinutes(startNode, goalNode) * heuristicMultiplier;
+  const heuristic = graphHeuristic(graph);
+  heuristicMultiplier = Math.max(0, Math.min(1, heuristicMultiplier));
+  const startH = heuristic(startNode, goalNode) * heuristicMultiplier;
 
   gScore.set(startId, 0);
   fScore.set(startId, startH);
@@ -434,7 +460,7 @@ export function runAStar(
     closed.add(curr);
     const currG = gScore.get(curr) ?? Infinity;
     const currNode = graph.nodes.get(curr)!;
-    const currH = heuristicTravelTimeMinutes(currNode, goalNode) * heuristicMultiplier;
+    const currH = heuristic(currNode, goalNode) * heuristicMultiplier;
 
     steps.push({
       stepIndex: steps.length,
@@ -460,7 +486,7 @@ export function runAStar(
       const tentativeG = currG + weight;
       if (tentativeG < (gScore.get(target) ?? Infinity)) {
         const targetNode = graph.nodes.get(target)!;
-        const targetH = heuristicTravelTimeMinutes(targetNode, goalNode) * heuristicMultiplier;
+        const targetH = heuristic(targetNode, goalNode) * heuristicMultiplier;
         const targetF = tentativeG + targetH;
 
         gScore.set(target, tentativeG);
@@ -532,7 +558,8 @@ export function runGreedyBestFirst(
 
   const goalNode = graph.nodes.get(goalId)!;
   const startNode = graph.nodes.get(startId)!;
-  const startH = heuristicTravelTimeMinutes(startNode, goalNode);
+  const heuristic = graphHeuristic(graph);
+  const startH = heuristic(startNode, goalNode);
 
   pq.enqueue(startId, startH);
   peakFrontier = Math.max(peakFrontier, pq.size());
@@ -556,7 +583,7 @@ export function runGreedyBestFirst(
 
     closed.add(curr);
     const currNode = graph.nodes.get(curr)!;
-    const currH = heuristicTravelTimeMinutes(currNode, goalNode);
+    const currH = heuristic(currNode, goalNode);
 
     steps.push({
       stepIndex: steps.length,
@@ -581,7 +608,7 @@ export function runGreedyBestFirst(
 
       if (!parent.has(target)) {
         const targetNode = graph.nodes.get(target)!;
-        const targetH = heuristicTravelTimeMinutes(targetNode, goalNode);
+        const targetH = heuristic(targetNode, goalNode);
         parent.set(target, curr);
         pq.enqueue(target, targetH);
         peakFrontier = Math.max(peakFrontier, pq.size());
@@ -738,241 +765,76 @@ export function runBFS(
 /**
  * Bidirectional A* Search (Simultaneous Dual-End Exploration)
  */
-export function runBidirectionalAStar(
-  graph: BayGraph,
-  startId: string,
-  goalId: string
-): PathfindingResult {
+export function runBidirectionalAStar(graph: BayGraph, startId: string, goalId: string): PathfindingResult {
   const t0 = performance.now();
   const steps: SearchStep[] = [];
-
-  const gForward = new Map<string, number>();
-  const gBackward = new Map<string, number>();
-  const parentForward = new Map<string, string>();
-  const parentBackward = new Map<string, string>();
-  const closedForward = new Set<string>();
-  const closedBackward = new Set<string>();
-
-  const pqForward = new PriorityQueue<string>();
-  const pqBackward = new PriorityQueue<string>();
-  let peakFrontier = 0;
-
-  const startNode = graph.nodes.get(startId)!;
-  const goalNode = graph.nodes.get(goalId)!;
-
-  for (const n of graph.nodes.keys()) {
-    gForward.set(n, Infinity);
-    gBackward.set(n, Infinity);
-  }
-
-  gForward.set(startId, 0);
-  gBackward.set(goalId, 0);
-
-  const hF = heuristicTravelTimeMinutes(startNode, goalNode);
-  const hB = heuristicTravelTimeMinutes(goalNode, startNode);
-
-  pqForward.enqueue(startId, hF);
-  pqBackward.enqueue(goalId, hB);
-  peakFrontier = Math.max(peakFrontier, pqForward.size() + pqBackward.size());
-
-  steps.push({
-    stepIndex: steps.length,
-    type: 'visit',
-    nodeId: startId,
-    g: 0,
-    h: hF,
-    f: hF,
-    openSetCount: pqForward.size() + pqBackward.size(),
-    closedSetCount: closedForward.size + closedBackward.size,
-    direction: 'forward',
-  });
-
-  steps.push({
-    stepIndex: steps.length,
-    type: 'visit',
-    nodeId: goalId,
-    g: 0,
-    h: hB,
-    f: hB,
-    openSetCount: pqForward.size() + pqBackward.size(),
-    closedSetCount: closedForward.size + closedBackward.size,
-    direction: 'backward',
-  });
-
-  let meetingNode: string | null = null;
-  let bestCost = Infinity;
-
-  while (!pqForward.isEmpty() && !pqBackward.isEmpty()) {
-    // Forward Step
-    const currF = pqForward.dequeue()!;
-    if (!closedForward.has(currF)) {
-      closedForward.add(currF);
-      const gF = gForward.get(currF) ?? Infinity;
-      const hCurrF = heuristicTravelTimeMinutes(graph.nodes.get(currF)!, goalNode);
-
-      steps.push({
-        stepIndex: steps.length,
-        type: 'settle',
-        nodeId: currF,
-        parentId: parentForward.get(currF),
-        g: gF,
-        h: hCurrF,
-        f: gF + hCurrF,
-        openSetCount: pqForward.size() + pqBackward.size(),
-        closedSetCount: closedForward.size + closedBackward.size,
-        direction: 'forward',
-      });
-
-      if (closedBackward.has(currF)) {
-        const total = gF + (gBackward.get(currF) ?? Infinity);
-        if (total < bestCost) {
-          bestCost = total;
-          meetingNode = currF;
-          break;
-        }
-      }
-
-      const neighborsF = graph.adjacency.get(currF) || [];
-      for (const { target, weight, edge } of neighborsF) {
-        if (closedForward.has(target)) continue;
-
-        const tentativeG = gF + weight;
-        if (tentativeG < (gForward.get(target) ?? Infinity)) {
-          gForward.set(target, tentativeG);
-          parentForward.set(target, currF);
-          const hTargetF = heuristicTravelTimeMinutes(graph.nodes.get(target)!, goalNode);
-          pqForward.enqueue(target, tentativeG + hTargetF);
-
-          steps.push({
-            stepIndex: steps.length,
-            type: 'frontier',
-            nodeId: target,
-            parentId: currF,
-            g: tentativeG,
-            h: hTargetF,
-            f: tentativeG + hTargetF,
-            openSetCount: pqForward.size() + pqBackward.size(),
-            closedSetCount: closedForward.size + closedBackward.size,
-            direction: 'forward',
-            edgeName: edge.name,
-          });
-        }
-      }
+  const metric = graphHeuristic(graph);
+  const start = graph.nodes.get(startId)!;
+  const goal = graph.nodes.get(goalId)!;
+  const potential = (id: string) => (metric(graph.nodes.get(id)!, goal) - metric(start, graph.nodes.get(id)!)) / 2;
+  const ps = potential(startId);
+  const pt = potential(goalId);
+  const reverse = new Map<string, Array<{ target: string; weight: number; edge: BayEdge }>>();
+  for (const id of graph.nodes.keys()) reverse.set(id, []);
+  for (const [u, links] of graph.adjacency) for (const link of links) reverse.get(link.target)?.push({ target: u, weight: link.weight, edge: link.edge });
+  const distances = [new Map([[startId, 0]]), new Map([[goalId, 0]])];
+  const parents = [new Map<string, string>(), new Map<string, string>()];
+  const settled = [new Set<string>(), new Set<string>()];
+  const queues = [new PriorityQueue<{ id: string; g: number }>(), new PriorityQueue<{ id: string; g: number }>()];
+  queues[0].enqueue({ id: startId, g: 0 }, 0);
+  queues[1].enqueue({ id: goalId, g: 0 }, 0);
+  let upper = startId === goalId ? 0 : Infinity;
+  let meeting: string | null = startId === goalId ? startId : null;
+  let peak = 2;
+  const clean = (direction: number) => {
+    const queue = queues[direction];
+    while (!queue.isEmpty()) {
+      const top = queue.peek()!;
+      if (settled[direction].has(top.id) || top.g !== distances[direction].get(top.id)) queue.dequeue();
+      else break;
     }
-
-    // Backward Step
-    const currB = pqBackward.dequeue()!;
-    if (!closedBackward.has(currB)) {
-      closedBackward.add(currB);
-      const gB = gBackward.get(currB) ?? Infinity;
-      const hCurrB = heuristicTravelTimeMinutes(graph.nodes.get(currB)!, startNode);
-
-      steps.push({
-        stepIndex: steps.length,
-        type: 'settle',
-        nodeId: currB,
-        parentId: parentBackward.get(currB),
-        g: gB,
-        h: hCurrB,
-        f: gB + hCurrB,
-        openSetCount: pqForward.size() + pqBackward.size(),
-        closedSetCount: closedForward.size + closedBackward.size,
-        direction: 'backward',
-      });
-
-      if (closedForward.has(currB)) {
-        const total = (gForward.get(currB) ?? Infinity) + gB;
-        if (total < bestCost) {
-          bestCost = total;
-          meetingNode = currB;
-          break;
-        }
-      }
-
-      const neighborsB = graph.adjacency.get(currB) || [];
-      for (const { target, weight, edge } of neighborsB) {
-        if (closedBackward.has(target)) continue;
-
-        const tentativeG = gB + weight;
-        if (tentativeG < (gBackward.get(target) ?? Infinity)) {
-          gBackward.set(target, tentativeG);
-          parentBackward.set(target, currB);
-          const hTargetB = heuristicTravelTimeMinutes(graph.nodes.get(target)!, startNode);
-          pqBackward.enqueue(target, tentativeG + hTargetB);
-
-          steps.push({
-            stepIndex: steps.length,
-            type: 'frontier',
-            nodeId: target,
-            parentId: currB,
-            g: tentativeG,
-            h: hTargetB,
-            f: tentativeG + hTargetB,
-            openSetCount: pqForward.size() + pqBackward.size(),
-            closedSetCount: closedForward.size + closedBackward.size,
-            direction: 'backward',
-            edgeName: edge.name,
-          });
-        }
-      }
-    }
-
-    peakFrontier = Math.max(peakFrontier, pqForward.size() + pqBackward.size());
-  }
-
-  const path: string[] = [];
-  if (meetingNode) {
-    steps.push({
-      stepIndex: steps.length,
-      type: 'meet',
-      nodeId: meetingNode,
-      g: bestCost,
-      h: 0,
-      f: bestCost,
-      openSetCount: 0,
-      closedSetCount: closedForward.size + closedBackward.size,
-    });
-
-    // Reconstruct start -> meetingNode
-    const forwardPart = reconstructPath(parentForward, startId, meetingNode);
-    path.push(...forwardPart);
-
-    // Reconstruct meetingNode -> goal
-    let currBack: string | undefined = parentBackward.get(meetingNode);
-    while (currBack !== undefined) {
-      path.push(currBack);
-      if (currBack === goalId) break;
-      currBack = parentBackward.get(currBack);
-    }
-  }
-
-  const metrics = computePathMetrics(graph, path);
-
-  steps.push({
-    stepIndex: steps.length,
-    type: 'done',
-    nodeId: goalId,
-    g: metrics.totalTimeMinutes,
-    h: 0,
-    f: metrics.totalTimeMinutes,
-    openSetCount: 0,
-    closedSetCount: closedForward.size + closedBackward.size,
-  });
-
-  return {
-    algorithm: 'bidirectional_a_star',
-    startId,
-    goalId,
-    found: path.length > 0,
-    path,
-    pathEdges: metrics.pathEdges,
-    totalDistanceMiles: metrics.totalDistanceMiles,
-    totalTimeMinutes: metrics.totalTimeMinutes,
-    exploredCount: closedForward.size + closedBackward.size,
-    peakFrontierCount: peakFrontier,
-    steps,
-    executionTimeMs: Math.round((performance.now() - t0) * 100) / 100,
   };
+  const consider = (id: string) => {
+    const candidate = (distances[0].get(id) ?? Infinity) + (distances[1].get(id) ?? Infinity);
+    if (candidate < upper) { upper = candidate; meeting = id; }
+  };
+  while (true) {
+    clean(0); clean(1);
+    if (queues[0].isEmpty() || queues[1].isEmpty()) break;
+    // Both queues are Dijkstra queues in the SAME reduced-cost metric.
+    // Convert the incumbent's original cost into that metric before stopping.
+    const lower = queues[0].peekPriority() + queues[1].peekPriority();
+    if (Number.isFinite(upper) && lower >= upper + pt - ps - 1e-10) break;
+    const direction = queues[0].peekPriority() <= queues[1].peekPriority() ? 0 : 1;
+    const { id, g } = queues[direction].dequeue()!;
+    settled[direction].add(id);
+    const h = direction === 0 ? metric(graph.nodes.get(id)!, goal) : metric(start, graph.nodes.get(id)!);
+    steps.push({ stepIndex: steps.length, type: 'settle', nodeId: id, parentId: parents[direction].get(id), g, h, f: g + h, queueKey: g + (direction === 0 ? potential(id) - ps : pt - potential(id)), lowerBound: lower, incumbent: Number.isFinite(upper) ? upper : undefined, openSetCount: queues[0].size() + queues[1].size(), closedSetCount: settled[0].size + settled[1].size, direction: direction === 0 ? 'forward' : 'backward' });
+    consider(id);
+    const links = (direction === 0 ? graph.adjacency : reverse).get(id) ?? [];
+    for (const { target, weight, edge } of links) {
+      if (settled[direction].has(target)) continue;
+      const next = g + weight;
+      if (next >= (distances[direction].get(target) ?? Infinity)) continue;
+      distances[direction].set(target, next);
+      parents[direction].set(target, id);
+      const reducedDistance = next + (direction === 0 ? potential(target) - ps : pt - potential(target));
+      queues[direction].enqueue({ id: target, g: next }, reducedDistance);
+      const targetH = direction === 0 ? metric(graph.nodes.get(target)!, goal) : metric(start, graph.nodes.get(target)!);
+      steps.push({ stepIndex: steps.length, type: 'frontier', nodeId: target, parentId: id, g: next, h: targetH, f: next + targetH, queueKey: reducedDistance, openSetCount: queues[0].size() + queues[1].size(), closedSetCount: settled[0].size + settled[1].size, direction: direction === 0 ? 'forward' : 'backward', edgeName: edge.name });
+      consider(target);
+    }
+    peak = Math.max(peak, queues[0].size() + queues[1].size());
+  }
+  const path = meeting === null ? [] : reconstructPath(parents[0], startId, meeting);
+  if (meeting !== null) {
+    let id = meeting;
+    while (id !== goalId) { const next = parents[1].get(id); if (next === undefined) break; path.push(next); id = next; }
+    steps.push({ stepIndex: steps.length, type: 'meet', nodeId: meeting, g: upper, h: 0, f: upper, openSetCount: 0, closedSetCount: settled[0].size + settled[1].size });
+  }
+  const metrics = computePathMetrics(graph, path);
+  steps.push({ stepIndex: steps.length, type: 'done', nodeId: goalId, g: metrics.totalTimeMinutes, h: 0, f: metrics.totalTimeMinutes, openSetCount: 0, closedSetCount: settled[0].size + settled[1].size });
+  return { algorithm: 'bidirectional_a_star', startId, goalId, found: path.length > 0 && path[path.length - 1] === goalId, path, ...metrics, exploredCount: settled[0].size + settled[1].size, peakFrontierCount: peak, steps, executionTimeMs: performance.now() - t0 };
 }
 
 /**

@@ -1,1368 +1,296 @@
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import {
-  type BayGraph,
-  type BayEdge,
-  type CustomEndpoint,
-} from '../lib/bayGraph';
-import {
-  buildFullCityGraphWithEndpoints,
-  type TurnManeuver,
-} from '../lib/cityRoadGraph';
-import {
-  type AlgorithmId,
-  type PathfindingResult,
-  ALGORITHMS,
-  runPathfinding,
-} from '../lib/pathfinding';
-import {
-  searchBayAreaPlaces,
-  reverseGeocodeLocal,
-} from '../lib/geocoding';
-import {
-  getSecureStoredApiKey,
-  loadGoogleMapsSDK,
-  onGoogleMapsAuthFailure,
-  hasGoogleMapsAuthFailed,
-  GOOGLE_MAPS_DARK_STYLE,
-} from '../lib/googleMaps';
+import type { BayGraph, BayNode, LatLngPoint } from '../lib/bayGraph';
+import { haversineDistanceMiles } from '../lib/bayGraph';
+import { buildFullCityGraphWithEndpoints } from '../lib/cityRoadGraph';
+import { BAYROUTE_EXAMPLES, BAYROUTE_TRIPS } from '../lib/bayRouteTeaching';
+import { GLOBAL_GAZETTEER, LOCAL_BAY_GAZETTEER } from '../lib/geocoding';
+import { ALGORITHMS, runPathfinding, type AlgorithmId, type PathfindingResult, type SearchStep } from '../lib/pathfinding';
+import { getSecureStoredApiKey, loadGoogleMapsSDK, onGoogleMapsAuthFailure, GOOGLE_MAPS_DARK_STYLE } from '../lib/googleMaps';
 import { audioEngine } from '../lib/audioFeedback';
-
-export type MapTileStyle = 'dark' | 'light' | 'streets' | 'satellite';
-
-export const FULL_CITY_PRESETS: Record<
-  string,
-  { start: { name: string; lat: number; lng: number; district: string }; goal: { name: string; lat: number; lng: number; district: string } }
-> = {
-  trip_sf_to_berkeley: {
-    start: { name: 'Market St & Steuart St (Ferry Bldg)', lat: 37.7942, lng: -122.3955, district: 'Downtown' },
-    goal: { name: 'University Ave & Oxford St (UC Berkeley)', lat: 37.8719, lng: -122.2585, district: 'Berkeley' },
-  },
-  'trip-bay-bridge': {
-    start: { name: 'Market St & Steuart St (Ferry Bldg)', lat: 37.7942, lng: -122.3955, district: 'Downtown' },
-    goal: { name: 'University Ave & Oxford St (UC Berkeley)', lat: 37.8719, lng: -122.2585, district: 'Berkeley' },
-  },
-  trip_nyc_manhattan: {
-    start: { name: 'Times Square, Manhattan, NY', lat: 40.7580, lng: -73.9855, district: 'New York City' },
-    goal: { name: 'Brooklyn Bridge Promenade, Brooklyn, NY', lat: 40.7061, lng: -73.9969, district: 'Brooklyn' },
-  },
-  'trip-golden-gate': {
-    start: { name: 'Presidio Tunnel Tops & Main Post', lat: 37.8010, lng: -122.4580, district: 'San Francisco' },
-    goal: { name: 'H. Dana Bowers Vista Point (Marin Headlands)', lat: 37.8375, lng: -122.4800, district: 'Marin Headlands' },
-  },
-  trip_tokyo_shibuya: {
-    start: { name: 'Shibuya Crossing, Tokyo, Japan', lat: 35.6595, lng: 139.7005, district: 'Tokyo' },
-    goal: { name: 'Tokyo Tower, Minato City, Tokyo', lat: 35.6586, lng: 139.7454, district: 'Tokyo' },
-  },
-  'trip-silicon-valley': {
-    start: { name: 'San Francisco International Airport (SFO)', lat: 37.6213, lng: -122.3790, district: 'San Mateo' },
-    goal: { name: 'Stanford University (Palm Drive)', lat: 37.4275, lng: -122.1697, district: 'Stanford' },
-  },
-  trip_london_thames: {
-    start: { name: 'Westminster Palace (Big Ben), London', lat: 51.4994, lng: -0.1248, district: 'London' },
-    goal: { name: 'Tower Bridge, London', lat: 51.5055, lng: -0.0754, district: 'London' },
-  },
-  'trip-dumbarton': {
-    start: { name: 'Stanford University (Palm Drive & Main Quad)', lat: 37.4275, lng: -122.1697, district: 'Stanford' },
-    goal: { name: 'Fremont Central & Paseo Padre', lat: 37.5485, lng: -121.9886, district: 'Fremont' },
-  },
-  trip_taipei_101: {
-    start: { name: 'Taipei 101, Xinyi District, Taipei', lat: 25.0339, lng: 121.5645, district: 'Taipei' },
-    goal: { name: 'Shilin Night Market, Shilin District, Taipei', lat: 25.0881, lng: 121.5244, district: 'Taipei' },
-  },
-  'trip-bay-corridor': {
-    start: { name: 'Market St & Steuart St (Ferry Bldg)', lat: 37.7942, lng: -122.3955, district: 'Downtown' },
-    goal: { name: 'San Jose City Hall & Santa Clara St', lat: 37.3382, lng: -121.8863, district: 'San Jose' },
-  },
-  trip_sfo_to_stanford: {
-    start: { name: 'San Francisco International Airport (SFO)', lat: 37.6213, lng: -122.3790, district: 'San Mateo' },
-    goal: { name: 'Stanford University (Palm Drive)', lat: 37.4275, lng: -122.1697, district: 'Stanford' },
-  },
-};
-
-export class BayRouteVisualizer {
-  private mapEl: HTMLElement;
-  private canvasEl: HTMLCanvasElement;
-  private ctx: CanvasRenderingContext2D;
-  private container: HTMLElement;
-
-  // Map Engines
-  public isGoogleMapsActive: boolean = false;
-  private gmap: google.maps.Map | null = null;
-  private gmapStartMarker: google.maps.Marker | null = null;
-  private gmapGoalMarker: google.maps.Marker | null = null;
-
-  private leafletMap: L.Map | null = null;
-  private leafletTileLayer: L.TileLayer | null = null;
-  private leafletStartMarker: L.Marker | null = null;
-  private leafletGoalMarker: L.Marker | null = null;
-
-  private currentTileStyle: MapTileStyle = 'dark';
-
-  // Dynamic Full City Road Graph
-  private activeBayGraph: BayGraph = { nodes: new Map(), edges: [], adjacency: new Map() };
-
-  public currentStartEndpoint: CustomEndpoint;
-  public currentGoalEndpoint: CustomEndpoint;
-  private startId: string = 'start_node';
-  private goalId: string = 'goal_node';
-
-  // App & Algorithm State
-  public currentAlgorithm: AlgorithmId = 'dijkstra';
-  public isRaceMode: boolean = false;
-  private currentResult: PathfindingResult | null = null;
-  private raceResults: Map<AlgorithmId, PathfindingResult> = new Map();
-  private currentStepIndex: number = 0;
-  private isPlaying: boolean = false;
-  private animationSpeed: number = 1;
-  private animFrameId: number | null = null;
-  private lastFrameTimestamp: number = 0;
-  private stepsAccumulator: number = 0;
-
-  // Hover & Inspector State
-  private hoveredNodeId: string | null = null;
-  private currentManeuvers: TurnManeuver[] = [];
-
-  private isDarkTheme: boolean = true;
-  private isMapReady: boolean = false;
-
-  constructor(mapEl: HTMLElement, canvasEl: HTMLCanvasElement, container: HTMLElement) {
-    this.mapEl = mapEl;
-    this.canvasEl = canvasEl;
-    const ctx = canvasEl.getContext('2d');
-    if (!ctx) throw new Error('Failed to get 2D canvas context');
-    this.ctx = ctx;
-    this.container = container;
-
-    const defaultPreset = FULL_CITY_PRESETS.trip_sf_to_berkeley;
-    this.currentStartEndpoint = {
-      id: 'start_node',
-      name: defaultPreset.start.name,
-      lat: defaultPreset.start.lat,
-      lng: defaultPreset.start.lng,
-      city: defaultPreset.start.district,
-      region: 'sf',
-    };
-
-    this.currentGoalEndpoint = {
-      id: 'goal_node',
-      name: defaultPreset.goal.name,
-      lat: defaultPreset.goal.lat,
-      lng: defaultPreset.goal.lng,
-      city: defaultPreset.goal.district,
-      region: 'sf',
-    };
-
-    this.detectTheme();
-
-    onGoogleMapsAuthFailure(() => {
-      this.switchToLeafletFallback();
-    });
-
-    this.initMapEngine();
-    this.bindDOMEvents();
-    this.setupInspector();
-  }
-
-  private detectTheme(): void {
-    const theme = document.documentElement.getAttribute('data-theme') || 'dark';
-    this.isDarkTheme = theme !== 'light' && theme !== 'parchment';
-    this.currentTileStyle = this.isDarkTheme ? 'dark' : 'light';
-  }
-
-  private async initMapEngine(): Promise<void> {
-    const datasetKey = this.container.getAttribute('data-gmap-token') || '';
-    const envKey = datasetKey.trim() || (await getSecureStoredApiKey());
-
-    if (envKey && !hasGoogleMapsAuthFailed()) {
-      try {
-        await loadGoogleMapsSDK(envKey);
-        if (window.google && window.google.maps && !hasGoogleMapsAuthFailed()) {
-          this.initGoogleMap();
-          return;
-        }
-      } catch (_e) {
-        // Fall back to instant Leaflet engine
-      }
-    }
-
-    this.initLeafletMap();
-  }
-
-  public switchToLeafletFallback(): void {
-    if (this.leafletMap) return;
-    this.isGoogleMapsActive = false;
-    if (this.gmapStartMarker) {
-      this.gmapStartMarker.setMap(null);
-      this.gmapStartMarker = null;
-    }
-    if (this.gmapGoalMarker) {
-      this.gmapGoalMarker.setMap(null);
-      this.gmapGoalMarker = null;
-    }
-    this.gmap = null;
-    this.mapEl.replaceChildren();
-    this.updateMapBadge('High-Res GIS Map');
-    this.initLeafletMap();
-  }
-
-  private updateMapBadge(text: string): void {
-    const badge = this.container.querySelector('[data-br-map-badge]');
-    if (badge) {
-      badge.textContent = `🗺️ ${text}`;
-    }
-  }
-
-  // --- GOOGLE MAPS ENGINE INITIALIZATION ---
-  private initGoogleMap(): void {
-    if (!window.google || !window.google.maps) return;
-
-    if (this.leafletMap) {
-      this.leafletMap.remove();
-      this.leafletMap = null;
-    }
-
-    this.mapEl.replaceChildren();
-
-    const center = { lat: 37.785, lng: -122.41 };
-    this.gmap = new window.google.maps.Map(this.mapEl, {
-      center,
-      zoom: 12,
-      minZoom: 9,
-      maxZoom: 19,
-      styles: this.isDarkTheme ? GOOGLE_MAPS_DARK_STYLE : undefined,
-      disableDefaultUI: true,
-      zoomControl: true,
-      mapTypeId: this.currentTileStyle === 'satellite' ? 'hybrid' : 'roadmap',
-    });
-
-    const watchdogTimer = setTimeout(() => {
-      if (!this.isMapReady && !this.leafletMap) {
-        console.warn('[BayRoute] Google Maps initialization timed out. Switching to Leaflet GIS fallback.');
-        this.switchToLeafletFallback();
-      }
-    }, 2500);
-
-    window.google.maps.event.addListenerOnce(this.gmap, 'idle', () => {
-      clearTimeout(watchdogTimer);
-      if (hasGoogleMapsAuthFailed()) {
-        this.switchToLeafletFallback();
-        return;
-      }
-      this.isGoogleMapsActive = true;
-      this.isMapReady = true;
-      this.updateMapBadge('Google Maps Active');
-      this.syncCanvasDimensions();
-      this.recalculate();
-    });
-
-    this.gmap.addListener('bounds_changed', () => {
-      this.syncCanvasDimensions();
-      this.render();
-    });
-
-    this.gmap.addListener('click', (e: google.maps.MapMouseEvent) => {
-      if (e.latLng) {
-        this.handleMapClick(e.latLng.lat(), e.latLng.lng());
-      }
-    });
-
-    this.syncCanvasDimensions();
-  }
-
-  // --- LEAFLET MAP ENGINE INITIALIZATION ---
-  private initLeafletMap(): void {
-    if (this.gmap) {
-      this.gmap = null;
-    }
-    this.mapEl.replaceChildren();
-
-    const cityCenter: L.LatLngExpression = [37.785, -122.41];
-    this.leafletMap = L.map(this.mapEl, {
-      center: cityCenter,
-      zoom: 12,
-      minZoom: 9,
-      maxZoom: 18,
-      zoomControl: false,
-      attributionControl: false,
-    });
-
-    L.control.zoom({ position: 'topright' }).addTo(this.leafletMap);
-    this.updateLeafletTileLayer();
-
-    this.leafletMap.on('move zoom viewreset resize', () => {
-      this.syncCanvasDimensions();
-      this.render();
-    });
-
-    this.leafletMap.on('click', (e: L.LeafletMouseEvent) => {
-      this.handleMapClick(e.latlng.lat, e.latlng.lng);
-    });
-
-    this.isMapReady = true;
-
-    requestAnimationFrame(() => {
-      this.leafletMap?.invalidateSize();
-      this.syncCanvasDimensions();
-      this.recalculate();
-    });
-  }
-
-  private updateLeafletTileLayer(): void {
-    if (!this.leafletMap) return;
-    if (this.leafletTileLayer) {
-      this.leafletMap.removeLayer(this.leafletTileLayer);
-    }
-
-    let url = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}';
-    switch (this.currentTileStyle) {
-      case 'dark':
-        url = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}';
-        break;
-      case 'light':
-        url = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}';
-        break;
-      case 'streets':
-        url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
-        break;
-      case 'satellite':
-        url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-        break;
-    }
-
-    this.leafletTileLayer = L.tileLayer(url, {
-      maxZoom: 19,
-    }).addTo(this.leafletMap);
-  }
-
-  public setTileStyle(style: MapTileStyle): void {
-    this.currentTileStyle = style;
-    if (this.isGoogleMapsActive && this.gmap) {
-      if (style === 'satellite') {
-        this.gmap.setMapTypeId('hybrid');
-      } else {
-        this.gmap.setMapTypeId('roadmap');
-        this.gmap.setOptions({
-          styles: style === 'dark' || this.isDarkTheme ? GOOGLE_MAPS_DARK_STYLE : undefined,
-        });
-      }
-    } else if (this.leafletMap) {
-      this.updateLeafletTileLayer();
-    }
-    this.render();
-  }
-
-  private syncCanvasDimensions(): void {
-    const rect = this.mapEl.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    const width = rect.width || 800;
-    const height = rect.height || 560;
-
-    this.canvasEl.width = width * dpr;
-    this.canvasEl.height = height * dpr;
-    this.canvasEl.style.width = `${width}px`;
-    this.canvasEl.style.height = `${height}px`;
-
-    this.ctx.resetTransform();
-    this.ctx.scale(dpr, dpr);
-  }
-
-  private latLngToPoint(lat: number, lng: number): { x: number; y: number } {
-    if (this.isGoogleMapsActive && this.gmap && window.google && window.google.maps) {
-      const bounds = this.gmap.getBounds();
-      const projection = this.gmap.getProjection();
-      if (!bounds || !projection) return { x: 0, y: 0 };
-
-      const topRight = projection.fromLatLngToPoint(bounds.getNorthEast());
-      const bottomLeft = projection.fromLatLngToPoint(bounds.getSouthWest());
-      const point = projection.fromLatLngToPoint(new window.google.maps.LatLng(lat, lng));
-      if (!topRight || !bottomLeft || !point) return { x: 0, y: 0 };
-
-      const rect = this.mapEl.getBoundingClientRect();
-      const scale = rect.width / (topRight.x - bottomLeft.x);
-      const x = (point.x - bottomLeft.x) * scale;
-      const y = (point.y - topRight.y) * scale;
-      return { x, y };
-    }
-
-    if (this.leafletMap) {
-      const p = this.leafletMap.latLngToContainerPoint([lat, lng]);
-      return { x: p.x, y: p.y };
-    }
-
-    return { x: 0, y: 0 };
-  }
-
-  private bindDOMEvents(): void {
-    document.addEventListener('khc:theme-change', () => {
-      this.detectTheme();
-      this.setTileStyle(this.isDarkTheme ? 'dark' : 'light');
-    });
-
-    const observer = new MutationObserver(() => {
-      this.detectTheme();
-      this.setTileStyle(this.isDarkTheme ? 'dark' : 'light');
-    });
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['data-theme'],
-    });
-
-    window.addEventListener('resize', () => {
-      this.leafletMap?.invalidateSize();
-      this.syncCanvasDimensions();
-      this.render();
-    });
-
-    this.setupAutocomplete('start');
-    this.setupAutocomplete('goal');
-  }
-
-  private setupAutocomplete(type: 'start' | 'goal'): void {
-    const input = this.container.querySelector<HTMLInputElement>(`[data-br-input="${type}"]`);
-    const resultsContainer = this.container.querySelector<HTMLElement>(`[data-br-results="${type}"]`);
-    if (!input || !resultsContainer) return;
-
-    let debounceTimer: ReturnType<typeof setTimeout>;
-
-    input.addEventListener('input', () => {
-      clearTimeout(debounceTimer);
-      const query = input.value.trim();
-
-      if (query.length < 2) {
-        resultsContainer.hidden = true;
-        resultsContainer.replaceChildren();
-        return;
-      }
-
-      debounceTimer = setTimeout(async () => {
-        const places = await searchBayAreaPlaces(query, 5);
-        resultsContainer.replaceChildren();
-
-        if (places.length === 0) {
-          resultsContainer.hidden = true;
-          return;
-        }
-
-        resultsContainer.hidden = false;
-        for (const place of places) {
-          const item = document.createElement('button');
-          item.type = 'button';
-          item.className = 'br-autocomplete-item';
-
-          const title = document.createElement('strong');
-          title.textContent = place.name;
-          item.appendChild(title);
-
-          const sub = document.createElement('span');
-          sub.textContent = place.address || `${place.city} · ${place.region.toUpperCase()}`;
-          item.appendChild(sub);
-
-          item.addEventListener('click', () => {
-            input.value = place.name;
-            resultsContainer.hidden = true;
-
-            const endpoint: CustomEndpoint = {
-              id: `custom_${type}_node`,
-              name: place.name,
-              lat: place.lat,
-              lng: place.lng,
-              city: place.city,
-              region: place.region,
-            };
-
-            if (type === 'start') {
-              this.currentStartEndpoint = endpoint;
-            } else {
-              this.currentGoalEndpoint = endpoint;
-            }
-
-            this.recalculate();
-            this.fitRouteBounds();
-          });
-
-          resultsContainer.appendChild(item);
-        }
-      }, 200);
-    });
-
-    document.addEventListener('click', (e) => {
-      if (!input.contains(e.target as Node) && !resultsContainer.contains(e.target as Node)) {
-        resultsContainer.hidden = true;
-      }
-    });
-  }
-
-  private setupInspector(): void {
-    const tooltip = this.container.querySelector<HTMLElement>('[data-br-inspector]');
-    if (!tooltip) return;
-
-    const viewport = this.container.querySelector<HTMLElement>('.br-map-viewport') || this.canvasEl;
-
-    viewport.addEventListener('mousemove', (e) => {
-      const rect = this.canvasEl.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-
-      // Find nearest node within 22px radius
-      let nearestId: string | null = null;
-      let minDistance = 22;
-
-      for (const [id, node] of this.activeBayGraph.nodes) {
-        const p = this.latLngToPoint(node.lat, node.lng);
-        const dist = Math.hypot(p.x - mouseX, p.y - mouseY);
-        if (dist < minDistance) {
-          minDistance = dist;
-          nearestId = id;
-        }
-      }
-
-      this.hoveredNodeId = nearestId;
-
-      if (nearestId && this.currentResult) {
-        const node = this.activeBayGraph.nodes.get(nearestId)!;
-        const step = this.currentResult.steps.find((s) => s.nodeId === nearestId);
-
-        tooltip.hidden = false;
-        tooltip.style.transform = `translate(${mouseX + 16}px, ${mouseY + 16}px)`;
-
-        const elTitle = tooltip.querySelector('[data-inspector-title]');
-        const elG = tooltip.querySelector('[data-inspector-g]');
-        const elH = tooltip.querySelector('[data-inspector-h]');
-        const elF = tooltip.querySelector('[data-inspector-f]');
-        const elEdge = tooltip.querySelector('[data-inspector-edge]');
-
-        if (elTitle) elTitle.textContent = node.name;
-        if (elG) elG.textContent = step ? `${Math.round(step.g * 10) / 10} min` : 'Unvisited';
-        if (elH) elH.textContent = step ? `${Math.round(step.h * 10) / 10} min` : '—';
-        if (elF) elF.textContent = step ? `${Math.round(step.f * 10) / 10} min` : '—';
-        if (elEdge) elEdge.textContent = step?.edgeName ? `Via: ${step.edgeName}` : `District: ${node.city}`;
-      } else {
-        tooltip.hidden = true;
-      }
-
-      this.render();
-    });
-
-    viewport.addEventListener('mouseleave', () => {
-      this.hoveredNodeId = null;
-      if (tooltip) tooltip.hidden = true;
-      this.render();
-    });
-  }
-
-  private handleMapClick(lat: number, lng: number): void {
-    const geo = reverseGeocodeLocal(lat, lng);
-    const goalInput = this.container.querySelector<HTMLInputElement>('[data-br-input="goal"]');
-    if (goalInput) goalInput.value = geo.name;
-
-    this.currentGoalEndpoint = {
-      id: 'custom_goal_node',
-      name: geo.name,
-      lat,
-      lng,
-      city: geo.city,
-      region: geo.region,
-    };
-
-    this.recalculate();
-  }
-
-  public loadTrip(tripId: string): void {
-    const preset = FULL_CITY_PRESETS[tripId];
-    if (!preset) return;
-
-    this.currentStartEndpoint = {
-      id: `start_${tripId}`,
-      name: preset.start.name,
-      lat: preset.start.lat,
-      lng: preset.start.lng,
-      city: preset.start.district,
-      region: 'sf',
-    };
-
-    this.currentGoalEndpoint = {
-      id: `goal_${tripId}`,
-      name: preset.goal.name,
-      lat: preset.goal.lat,
-      lng: preset.goal.lng,
-      city: preset.goal.district,
-      region: 'sf',
-    };
-
-    const startInput = this.container.querySelector<HTMLInputElement>('[data-br-input="start"]');
-    const goalInput = this.container.querySelector<HTMLInputElement>('[data-br-input="goal"]');
-    if (startInput) startInput.value = preset.start.name;
-    if (goalInput) goalInput.value = preset.goal.name;
-
-    this.recalculate();
-    this.fitRouteBounds();
-  }
-
-  public fitRouteBounds(): void {
-    if (this.isGoogleMapsActive && this.gmap && window.google && window.google.maps) {
-      const bounds = new window.google.maps.LatLngBounds();
-      bounds.extend({ lat: this.currentStartEndpoint.lat, lng: this.currentStartEndpoint.lng });
-      bounds.extend({ lat: this.currentGoalEndpoint.lat, lng: this.currentGoalEndpoint.lng });
-      this.gmap.fitBounds(bounds, 60);
-    } else if (this.leafletMap) {
-      const bounds = L.latLngBounds(
-        [this.currentStartEndpoint.lat, this.currentStartEndpoint.lng],
-        [this.currentGoalEndpoint.lat, this.currentGoalEndpoint.lng]
-      );
-      this.leafletMap.fitBounds(bounds, { padding: [60, 60], maxZoom: 14 });
-    }
-  }
-
-  public setAlgorithm(alg: AlgorithmId): void {
-    this.currentAlgorithm = alg;
-    this.recalculate(false);
-  }
-
-  public setRaceMode(enabled: boolean): void {
-    this.isRaceMode = enabled;
-    this.recalculate(false);
-  }
-
-  public async recalculate(rebuildGraph: boolean = true): Promise<void> {
-    this.pause();
-
-    const startInput = {
-      lat: this.currentStartEndpoint.lat,
-      lng: this.currentStartEndpoint.lng,
-      name: this.currentStartEndpoint.name,
-      district: this.currentStartEndpoint.city,
-    };
-    const goalInput = {
-      lat: this.currentGoalEndpoint.lat,
-      lng: this.currentGoalEndpoint.lng,
-      name: this.currentGoalEndpoint.name,
-      district: this.currentGoalEndpoint.city,
-    };
-
-    // Build comprehensive full-city road graph between Start and Goal
-    if (rebuildGraph || !this.activeBayGraph || this.activeBayGraph.nodes.size === 0) {
-      const cityResult = buildFullCityGraphWithEndpoints(startInput, goalInput);
-      this.activeBayGraph = cityResult.graph;
-      this.startId = cityResult.startId;
-      this.goalId = cityResult.goalId;
-      this.currentManeuvers = cityResult.maneuvers;
-    }
-
-    if (this.isRaceMode) {
-      this.raceResults.clear();
-      const algos: AlgorithmId[] = [
-        'dijkstra',
-        'a_star',
-        'bidirectional_a_star',
-        'greedy',
-        'bfs',
-      ];
-      for (const alg of algos) {
-        const res = runPathfinding(alg, this.activeBayGraph, this.startId, this.goalId);
-        this.raceResults.set(alg, res);
-      }
-      this.currentResult =
-        this.raceResults.get(this.currentAlgorithm) ||
-        this.raceResults.get('a_star') ||
-        this.raceResults.values().next().value ||
-        null;
-    } else {
-      this.currentResult = runPathfinding(
-        this.currentAlgorithm,
-        this.activeBayGraph,
-        this.startId,
-        this.goalId
-      );
-    }
-
-    this.currentStepIndex = 0;
-    this.updateMapMarkers();
-    this.updateTelemetry();
-    this.updateTurnManeuversUI();
-    this.render();
-    this.play();
-  }
-
-  private updateTurnManeuversUI(): void {
-    const listEl = this.container.querySelector<HTMLElement>('[data-maneuvers-list]');
-    const summaryEl = this.container.querySelector<HTMLElement>('[data-maneuvers-summary]');
-    if (!listEl) return;
-
-    listEl.replaceChildren();
-
-    if (!this.currentManeuvers || this.currentManeuvers.length === 0) {
-      if (summaryEl) summaryEl.textContent = 'Calculating optimal driving maneuvers...';
-      const emptyDiv = document.createElement('div');
-      emptyDiv.className = 'br-maneuver-empty';
-      emptyDiv.textContent = 'No active maneuvers for this route.';
-      listEl.appendChild(emptyDiv);
-      return;
-    }
-
-    let totalDist = 0;
-    let totalTime = 0;
-
-    this.currentManeuvers.forEach((m, idx) => {
-      totalDist += m.distanceMiles;
-      totalTime += m.durationMinutes;
-
-      const item = document.createElement('div');
-      item.className = 'br-maneuver-item';
-
-      const numSpan = document.createElement('span');
-      numSpan.className = 'br-maneuver-num';
-      numSpan.textContent = String(idx + 1);
-      item.appendChild(numSpan);
-
-      const contentDiv = document.createElement('div');
-      contentDiv.className = 'br-maneuver-content';
-
-      const textP = document.createElement('p');
-      textP.className = 'br-maneuver-text';
-      textP.textContent = m.instruction;
-      contentDiv.appendChild(textP);
-
-      const metaSpan = document.createElement('span');
-      metaSpan.className = 'br-maneuver-meta';
-      metaSpan.textContent = `${m.distanceMiles.toFixed(1)} mi · ${Math.max(1, Math.round(m.durationMinutes))} min`;
-      contentDiv.appendChild(metaSpan);
-
-      item.appendChild(contentDiv);
-      listEl.appendChild(item);
-    });
-
-    if (summaryEl) {
-      summaryEl.textContent = `${this.currentManeuvers.length} steps · ${totalDist.toFixed(1)} miles (${Math.round(totalTime)} min driving)`;
-    }
-  }
-
-  private updateMapMarkers(): void {
-    if (this.gmap && window.google && window.google.maps) {
-      if (this.gmapStartMarker) this.gmapStartMarker.setMap(null);
-      if (this.gmapGoalMarker) this.gmapGoalMarker.setMap(null);
-
-      this.gmapStartMarker = new window.google.maps.Marker({
-        position: { lat: this.currentStartEndpoint.lat, lng: this.currentStartEndpoint.lng },
-        map: this.gmap,
-        label: '🚩',
-        draggable: true,
-      });
-
-      this.gmapGoalMarker = new window.google.maps.Marker({
-        position: { lat: this.currentGoalEndpoint.lat, lng: this.currentGoalEndpoint.lng },
-        map: this.gmap,
-        label: '🏁',
-        draggable: true,
-      });
-
-      this.gmapStartMarker.addListener('dragend', (e: google.maps.MapMouseEvent) => {
-        if (e.latLng) {
-          const lat = e.latLng.lat();
-          const lng = e.latLng.lng();
-          this.currentStartEndpoint.lat = lat;
-          this.currentStartEndpoint.lng = lng;
-          const geo = reverseGeocodeLocal(lat, lng);
-          this.currentStartEndpoint.name = geo.name;
-          const input = this.container.querySelector<HTMLInputElement>('[data-br-input="start"]');
-          if (input) input.value = geo.name;
-          this.recalculate();
-        }
-      });
-
-      this.gmapGoalMarker.addListener('dragend', (e: google.maps.MapMouseEvent) => {
-        if (e.latLng) {
-          const lat = e.latLng.lat();
-          const lng = e.latLng.lng();
-          this.currentGoalEndpoint.lat = lat;
-          this.currentGoalEndpoint.lng = lng;
-          const geo = reverseGeocodeLocal(lat, lng);
-          this.currentGoalEndpoint.name = geo.name;
-          const input = this.container.querySelector<HTMLInputElement>('[data-br-input="goal"]');
-          if (input) input.value = geo.name;
-          this.recalculate();
-        }
-      });
-    } else if (this.leafletMap) {
-      if (this.leafletStartMarker) this.leafletMap.removeLayer(this.leafletStartMarker);
-      if (this.leafletGoalMarker) this.leafletMap.removeLayer(this.leafletGoalMarker);
-
-      const startIcon = L.divIcon({
-        className: 'br-leaflet-marker br-leaflet-marker--start',
-        html: `<div class="br-marker-pin br-marker-pin--start">🚩</div>`,
-        iconSize: [28, 28],
-        iconAnchor: [14, 28],
-      });
-
-      const goalIcon = L.divIcon({
-        className: 'br-leaflet-marker br-leaflet-marker--goal',
-        html: `<div class="br-marker-pin br-marker-pin--goal">🏁</div>`,
-        iconSize: [28, 28],
-        iconAnchor: [14, 28],
-      });
-
-      this.leafletStartMarker = L.marker(
-        [this.currentStartEndpoint.lat, this.currentStartEndpoint.lng],
-        { icon: startIcon, draggable: true }
-      ).addTo(this.leafletMap);
-
-      this.leafletGoalMarker = L.marker(
-        [this.currentGoalEndpoint.lat, this.currentGoalEndpoint.lng],
-        { icon: goalIcon, draggable: true }
-      ).addTo(this.leafletMap);
-
-      this.leafletStartMarker.on('dragend', (e) => {
-        const pos = (e.target as L.Marker).getLatLng();
-        this.currentStartEndpoint.lat = pos.lat;
-        this.currentStartEndpoint.lng = pos.lng;
-        const geo = reverseGeocodeLocal(pos.lat, pos.lng);
-        this.currentStartEndpoint.name = geo.name;
-        const input = this.container.querySelector<HTMLInputElement>('[data-br-input="start"]');
-        if (input) input.value = geo.name;
-        this.recalculate();
-      });
-
-      this.leafletGoalMarker.on('dragend', (e) => {
-        const pos = (e.target as L.Marker).getLatLng();
-        this.currentGoalEndpoint.lat = pos.lat;
-        this.currentGoalEndpoint.lng = pos.lng;
-        const geo = reverseGeocodeLocal(pos.lat, pos.lng);
-        this.currentGoalEndpoint.name = geo.name;
-        const input = this.container.querySelector<HTMLInputElement>('[data-br-input="goal"]');
-        if (input) input.value = geo.name;
-        this.recalculate();
-      });
-    }
-  }
-
-  // --- PLAYBACK CONTROLS ---
-  public play(): void {
-    if (this.isPlaying) return;
-    this.isPlaying = true;
-    this.lastFrameTimestamp = performance.now();
-    this.stepsAccumulator = 0;
-    this.animateLoop();
-    this.updatePlayStateUI();
-  }
-
-  public pause(): void {
-    this.isPlaying = false;
-    if (this.animFrameId !== null) {
-      cancelAnimationFrame(this.animFrameId);
-      this.animFrameId = null;
-    }
-    this.updatePlayStateUI();
-  }
-
-  public stepForward(): void {
-    this.pause();
-    const max = this.getMaxSteps();
-    if (this.currentStepIndex < max) {
-      this.currentStepIndex++;
-      this.updateTelemetry();
-      this.render();
-      audioEngine.playStepSound(this.currentStepIndex / max);
-    }
-  }
-
-  public stepBackward(): void {
-    this.pause();
-    if (this.currentStepIndex > 0) {
-      this.currentStepIndex--;
-      this.updateTelemetry();
-      this.render();
-    }
-  }
-
-  public scrubTo(fraction: number): void {
-    this.pause();
-    const max = this.getMaxSteps();
-    this.currentStepIndex = Math.min(max, Math.max(0, Math.round(fraction * max)));
-    this.updateTelemetry();
-    this.render();
-  }
-
-  public setSpeed(speed: number): void {
-    this.animationSpeed = speed;
-  }
-
-  private getMaxSteps(): number {
-    if (this.isRaceMode) {
-      let max = 0;
-      for (const res of this.raceResults.values()) {
-        max = Math.max(max, res.steps.length);
-      }
-      return max;
-    }
-    return this.currentResult ? this.currentResult.steps.length - 1 : 0;
-  }
-
-  private animateLoop(): void {
-    if (!this.isPlaying) return;
-
-    const now = performance.now();
-    const deltaMs = now - this.lastFrameTimestamp;
-    this.lastFrameTimestamp = now;
-
-    const maxSteps = this.getMaxSteps();
-
-    if (this.animationSpeed >= 999) {
-      this.currentStepIndex = maxSteps;
-      this.pause();
-      this.updateTelemetry();
-      this.render();
-      audioEngine.playArrivalFanfare();
-      return;
-    }
-
-    const stepsPerSecond = 35 * this.animationSpeed;
-    this.stepsAccumulator += (deltaMs / 1000) * stepsPerSecond;
-
-    const stepsToAdvance = Math.floor(this.stepsAccumulator);
-    if (stepsToAdvance > 0) {
-      this.stepsAccumulator -= stepsToAdvance;
-      this.currentStepIndex = Math.min(
-        maxSteps,
-        this.currentStepIndex + stepsToAdvance
-      );
-
-      // Play exploration sonic blip
-      if (maxSteps > 0) {
-        audioEngine.playStepSound(this.currentStepIndex / maxSteps);
-      }
-
-      this.updateTelemetry();
-      this.render();
-
-      if (this.currentStepIndex >= maxSteps) {
-        this.pause();
-        audioEngine.playArrivalFanfare();
-        return;
-      }
-    }
-
-    this.animFrameId = requestAnimationFrame(() => this.animateLoop());
-  }
-
-  private updatePlayStateUI(): void {
-    const playBtn = this.container.querySelector<HTMLButtonElement>('[data-br-play]');
-    if (playBtn) {
-      playBtn.textContent = this.isPlaying ? '⏸ Pause' : '▶ Play';
-    }
-  }
-
-  private updateTelemetry(): void {
-    const maxSteps = this.getMaxSteps();
-    const progress = maxSteps > 0 ? this.currentStepIndex / maxSteps : 0;
-
-    const scrubber = this.container.querySelector<HTMLInputElement>('[data-br-scrubber]');
-    if (scrubber) scrubber.value = String(Math.round(progress * 100));
-
-    if (!this.currentResult) return;
-
-    const safeIdx = Math.min(this.currentStepIndex, this.currentResult.steps.length - 1);
-    const currStep = this.currentResult.steps[safeIdx] || this.currentResult.steps[0];
-
-    const elExplored = this.container.querySelector('[data-metric-explored]');
-    const elFrontier = this.container.querySelector('[data-metric-frontier]');
-    const elDistance = this.container.querySelector('[data-metric-distance]');
-    const elTime = this.container.querySelector('[data-metric-time]');
-    const elOptimality = this.container.querySelector('[data-metric-optimality]');
-
-    if (elExplored) elExplored.textContent = String(currStep.closedSetCount);
-    if (elFrontier) elFrontier.textContent = String(currStep.openSetCount);
-
-    const isComplete = this.currentStepIndex >= maxSteps;
-    if (elDistance) {
-      elDistance.textContent = this.currentResult.found
-        ? `${this.currentResult.totalDistanceMiles} mi`
-        : 'Searching...';
-    }
-    if (elTime) {
-      elTime.textContent = this.currentResult.found
-        ? `${Math.round(this.currentResult.totalTimeMinutes)} min`
-        : 'Computing...';
-    }
-    if (elOptimality) {
-      elOptimality.textContent = isComplete
-        ? ALGORITHMS[this.currentAlgorithm].isOptimal
-          ? '100% (Optimal)'
-          : 'Suboptimal'
-        : 'Searching...';
-    }
-
-    if (this.isRaceMode) {
-      this.updateRaceLeaderboard();
-    }
-  }
-
-  private updateRaceLeaderboard(): void {
-    const tableBody = this.container.querySelector('[data-br-race-body]');
-    if (!tableBody) return;
-
-    const entries = Array.from(this.raceResults.entries()).map(([alg, res]) => {
-      const stepIdx = Math.min(this.currentStepIndex, res.steps.length - 1);
-      const step = res.steps[stepIdx];
-      const reachedGoal = stepIdx >= res.steps.length - 1 && res.found;
-      return {
-        alg,
-        meta: ALGORITHMS[alg],
-        explored: step ? step.closedSetCount : 0,
-        frontier: step ? step.openSetCount : 0,
-        reachedGoal,
-        distance: res.totalDistanceMiles,
-        time: res.totalTimeMinutes,
-      };
-    });
-
-    entries.sort((a, b) => {
-      if (a.reachedGoal && !b.reachedGoal) return -1;
-      if (!a.reachedGoal && b.reachedGoal) return 1;
-      return a.explored - b.explored;
-    });
-
-    tableBody.replaceChildren();
-
-    for (let rank = 0; rank < entries.length; rank++) {
-      const e = entries[rank];
-      const tr = document.createElement('tr');
-      if (e.reachedGoal) tr.className = 'race-row--finished';
-
-      const tdRank = document.createElement('td');
-      const strongRank = document.createElement('strong');
-      strongRank.textContent = `#${rank + 1}`;
-      tdRank.appendChild(strongRank);
-      tr.appendChild(tdRank);
-
-      const tdAlg = document.createElement('td');
-      const dot = document.createElement('span');
-      dot.className = 'race-color-dot';
-      dot.style.background = e.meta.color;
-      tdAlg.appendChild(dot);
-      const strongAlg = document.createElement('strong');
-      strongAlg.textContent = e.meta.name;
-      tdAlg.appendChild(strongAlg);
-      tr.appendChild(tdAlg);
-
-      const tdExplored = document.createElement('td');
-      tdExplored.textContent = String(e.explored);
-      tr.appendChild(tdExplored);
-
-      const tdFrontier = document.createElement('td');
-      tdFrontier.textContent = String(e.frontier);
-      tr.appendChild(tdFrontier);
-
-      const tdDistance = document.createElement('td');
-      tdDistance.textContent = e.reachedGoal ? `${e.distance} mi` : '—';
-      tr.appendChild(tdDistance);
-
-      const tdTime = document.createElement('td');
-      tdTime.textContent = e.reachedGoal ? `${Math.round(e.time)} min` : '—';
-      tr.appendChild(tdTime);
-
-      const tdStatus = document.createElement('td');
-      const badge = document.createElement('span');
-      badge.className = `race-badge ${e.reachedGoal ? 'race-badge--arrived' : 'race-badge--searching'}`;
-      badge.textContent = e.reachedGoal ? 'Arrived 🏁' : 'Searching ⚡';
-      tdStatus.appendChild(badge);
-      tr.appendChild(tdStatus);
-
-      tableBody.appendChild(tr);
-    }
-  }
-
-  // --- HARDWARE-ACCELERATED CANVAS RENDERING ---
-  public render(): void {
-    if (!this.isMapReady || !this.activeBayGraph) return;
-    const ctx = this.ctx;
-    const rect = this.mapEl.getBoundingClientRect();
-    ctx.clearRect(0, 0, rect.width, rect.height);
-
-    // Layer 1: The full city road network mesh
-    this.renderCityRoadMesh();
-
-    // Layer 2: Glowing explored edges & frontier nodes
-    if (this.isRaceMode) {
-      for (const res of this.raceResults.values()) {
-        this.renderSingleExploration(res);
-      }
-    } else if (this.currentResult) {
-      this.renderSingleExploration(this.currentResult);
-    }
-
-    // Layer 3: High-contrast golden optimal highway
-    this.renderFinalPath();
-
-    // Layer 4: City intersections & hovered node inspector
-    this.renderNodes();
-  }
-
-  private findEdge(uId: string, vId: string): BayEdge | undefined {
-    if (!this.activeBayGraph) return undefined;
-    return (
-      this.activeBayGraph.edges.find((e) => e.u === uId && e.v === vId) ||
-      this.activeBayGraph.edges.find((e) => e.u === vId && e.v === uId)
-    );
-  }
-
-  private renderCityRoadMesh(): void {
-    const ctx = this.ctx;
-
-    for (const edge of this.activeBayGraph.edges) {
-      const u = this.activeBayGraph.nodes.get(edge.u);
-      const v = this.activeBayGraph.nodes.get(edge.v);
-      if (!u || !v) continue;
-
-      ctx.beginPath();
-      if (edge.path && edge.path.length >= 2) {
-        const p0 = this.latLngToPoint(edge.path[0].lat, edge.path[0].lng);
-        ctx.moveTo(p0.x, p0.y);
-        for (let i = 1; i < edge.path.length; i++) {
-          const pt = this.latLngToPoint(edge.path[i].lat, edge.path[i].lng);
-          ctx.lineTo(pt.x, pt.y);
-        }
-      } else {
-        const p1 = this.latLngToPoint(u.lat, u.lng);
-        const p2 = this.latLngToPoint(v.lat, v.lng);
-        ctx.moveTo(p1.x, p1.y);
-        ctx.lineTo(p2.x, p2.y);
-      }
-
-      if (edge.roadType === 'bridge') {
-        ctx.strokeStyle = '#f97316';
-        ctx.lineWidth = 3.5;
-        ctx.setLineDash([4, 2]);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      } else if (edge.roadType === 'highway' || edge.roadType === 'interstate') {
-        ctx.strokeStyle = this.isDarkTheme ? 'rgba(56, 189, 248, 0.45)' : 'rgba(2, 132, 199, 0.55)';
-        ctx.lineWidth = 2.8;
-        ctx.stroke();
-      } else if (edge.roadType === 'arterial') {
-        ctx.strokeStyle = this.isDarkTheme ? 'rgba(148, 163, 184, 0.35)' : 'rgba(71, 85, 105, 0.4)';
-        ctx.lineWidth = 1.8;
-        ctx.stroke();
-      } else {
-        ctx.strokeStyle = this.isDarkTheme ? 'rgba(100, 116, 139, 0.22)' : 'rgba(148, 163, 184, 0.28)';
-        ctx.lineWidth = 1.2;
-        ctx.stroke();
-      }
-    }
-  }
-
-  private renderSingleExploration(res: PathfindingResult): void {
-    const ctx = this.ctx;
-    const stepLimit = Math.min(this.currentStepIndex, res.steps.length - 1);
-    const color = ALGORITHMS[res.algorithm].color;
-
-    const settledNodes = new Set<string>();
-    const settledEdges: { u: string; v: string }[] = [];
-    const frontierNodes = new Set<string>();
-
-    for (let i = 0; i <= stepLimit; i++) {
-      const step = res.steps[i];
-      if (step.type === 'settle' || step.type === 'meet') {
-        settledNodes.add(step.nodeId);
-        if (step.parentId) {
-          settledEdges.push({ u: step.parentId, v: step.nodeId });
-        }
-      } else if (step.type === 'frontier') {
-        frontierNodes.add(step.nodeId);
-      }
-    }
-
-    // Explored Edges Laser Glow along authentic road curves
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 3.5;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 10;
-
-    for (const { u: uId, v: vId } of settledEdges) {
-      const edge = this.findEdge(uId, vId);
-      if (edge && edge.path && edge.path.length >= 2) {
-        ctx.beginPath();
-        const p0 = this.latLngToPoint(edge.path[0].lat, edge.path[0].lng);
-        ctx.moveTo(p0.x, p0.y);
-        for (let i = 1; i < edge.path.length; i++) {
-          const pt = this.latLngToPoint(edge.path[i].lat, edge.path[i].lng);
-          ctx.lineTo(pt.x, pt.y);
-        }
-        ctx.stroke();
-      } else {
-        const u = this.activeBayGraph.nodes.get(uId);
-        const v = this.activeBayGraph.nodes.get(vId);
-        if (u && v) {
-          const p1 = this.latLngToPoint(u.lat, u.lng);
-          const p2 = this.latLngToPoint(v.lat, v.lng);
-          ctx.beginPath();
-          ctx.moveTo(p1.x, p1.y);
-          ctx.lineTo(p2.x, p2.y);
-          ctx.stroke();
-        }
-      }
-    }
-    ctx.shadowBlur = 0;
-
-    // Settled Node Discs
-    ctx.fillStyle = color;
-    for (const nId of settledNodes) {
-      const node = this.activeBayGraph.nodes.get(nId);
-      if (node) {
-        const p = this.latLngToPoint(node.lat, node.lng);
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-
-    // Active Frontier Pulse Halo Rings
-    for (const nId of frontierNodes) {
-      if (settledNodes.has(nId)) continue;
-      const node = this.activeBayGraph.nodes.get(nId);
-      if (node) {
-        const p = this.latLngToPoint(node.lat, node.lng);
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 2.0;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 7.5, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-    }
-  }
-
-  private renderFinalPath(): void {
-    if (!this.currentResult || !this.currentResult.found || !this.activeBayGraph) return;
-
-    const maxSteps = this.getMaxSteps();
-    if (this.currentStepIndex < maxSteps) return;
-
-    const ctx = this.ctx;
-    const path = this.currentResult.path;
-    if (path.length < 2) return;
-
-    // Build the complete array of LatLng points along the real road curves
-    const fullRoutePoints: Array<{ x: number; y: number }> = [];
-
-    for (let i = 0; i < path.length - 1; i++) {
-      const uId = path[i];
-      const vId = path[i + 1];
-      const edge = this.findEdge(uId, vId);
-
-      if (edge && edge.path && edge.path.length >= 2) {
-        const uNode = this.activeBayGraph.nodes.get(uId)!;
-        const distToStart = Math.hypot(edge.path[0].lat - uNode.lat, edge.path[0].lng - uNode.lng);
-        const distToEnd = Math.hypot(edge.path[edge.path.length - 1].lat - uNode.lat, edge.path[edge.path.length - 1].lng - uNode.lng);
-        const pts = distToStart <= distToEnd ? edge.path : [...edge.path].reverse();
-
-        for (let j = 0; j < pts.length; j++) {
-          if (fullRoutePoints.length > 0 && j === 0) continue;
-          fullRoutePoints.push(this.latLngToPoint(pts[j].lat, pts[j].lng));
-        }
-      } else {
-        const u = this.activeBayGraph.nodes.get(uId);
-        const v = this.activeBayGraph.nodes.get(vId);
-        if (u && v) {
-          if (fullRoutePoints.length === 0) fullRoutePoints.push(this.latLngToPoint(u.lat, u.lng));
-          fullRoutePoints.push(this.latLngToPoint(v.lat, v.lng));
-        }
-      }
-    }
-
-    if (fullRoutePoints.length < 2) return;
-
-    // 1. Radiant Golden Amber Glow along the real road curves
-    ctx.strokeStyle = '#f59e0b';
-    ctx.lineWidth = 6.5;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.shadowColor = '#fbbf24';
-    ctx.shadowBlur = 16;
-
-    ctx.beginPath();
-    ctx.moveTo(fullRoutePoints[0].x, fullRoutePoints[0].y);
-    for (let i = 1; i < fullRoutePoints.length; i++) {
-      ctx.lineTo(fullRoutePoints[i].x, fullRoutePoints[i].y);
-    }
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-
-    // 2. Sharp White Highway Centerline
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2.4;
-    ctx.stroke();
-
-    // 3. Animated Travelling Photon Particle
-    if (fullRoutePoints.length >= 2) {
-      const timeSec = performance.now() / 1000;
-      const photonProgress = (timeSec * 0.4) % 1;
-      const totalSegments = fullRoutePoints.length - 1;
-      const segFloat = photonProgress * totalSegments;
-      const segIndex = Math.floor(segFloat);
-      const t = segFloat - segIndex;
-
-      const pA = fullRoutePoints[segIndex];
-      const pB = fullRoutePoints[Math.min(segIndex + 1, totalSegments)];
-      const photonX = pA.x + (pB.x - pA.x) * t;
-      const photonY = pA.y + (pB.y - pA.y) * t;
-
-      ctx.fillStyle = '#38bdf8';
-      ctx.shadowColor = '#38bdf8';
-      ctx.shadowBlur = 12;
-      ctx.beginPath();
-      ctx.arc(photonX, photonY, 5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-    }
-  }
-
-  private renderNodes(): void {
-    const ctx = this.ctx;
-
-    for (const node of this.activeBayGraph.nodes.values()) {
-      const isKey = node.type === 'city' || node.type === 'airport' || node.type === 'landmark';
-      const p = this.latLngToPoint(node.lat, node.lng);
-
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, isKey ? 3.5 : 2.0, 0, Math.PI * 2);
-      ctx.fillStyle = isKey
-        ? this.isDarkTheme
-          ? '#94a3b8'
-          : '#475569'
-        : 'rgba(148, 163, 184, 0.4)';
-      ctx.fill();
-    }
-
-    // Hovered Node Highlight in Inspector HUD
-    if (this.hoveredNodeId) {
-      const node = this.activeBayGraph.nodes.get(this.hoveredNodeId);
-      if (node) {
-        const p = this.latLngToPoint(node.lat, node.lng);
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 9, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-  }
+import { isDarkTheme } from '../lib/theme';
+
+interface MapAdapter {
+  project(point: LatLngPoint): { x: number; y: number };
+  unproject(point: { x: number; y: number }): LatLngPoint;
+  fit(nodes: BayNode[]): void;
+  resize(): void;
+  destroy(): void;
 }
 
-/**
- * Initializes the visualizer on page mount.
- */
-export function initBayRoute(
-  mapSelector: string,
-  canvasSelector: string,
-  containerSelector: string
-): BayRouteVisualizer | null {
-  const mapEl = document.querySelector<HTMLElement>(mapSelector);
-  const canvasEl = document.querySelector<HTMLCanvasElement>(canvasSelector);
-  const container = document.querySelector<HTMLElement>(containerSelector);
-  if (!mapEl || !canvasEl || !container) return null;
-  return new BayRouteVisualizer(mapEl, canvasEl, container);
+export function initBayRoute(root: HTMLElement) {
+  const canvasEl = root.querySelector<HTMLCanvasElement>('[data-br-canvas]');
+  if (!canvasEl || root.dataset.brReady) return null;
+  const context = canvasEl.getContext('2d');
+  if (!context) return null;
+  const canvas = canvasEl; const ctx = context;
+  root.dataset.brReady = 'true';
+  const abort = new AbortController(); const { signal } = abort;
+  const get = <T extends HTMLElement>(name: string) => root.querySelector<T>(`[data-br-${name}]`)!;
+  const algorithmSelect = get<HTMLSelectElement>('algo');
+  const sceneSelect = get<HTMLSelectElement>('scene');
+  const startSelect = get<HTMLSelectElement>('start-node');
+  const goalSelect = get<HTMLSelectElement>('goal-node');
+  const providerSelect = get<HTMLSelectElement>('provider');
+  const providerLayer = get<HTMLElement>('basemap');
+  const status = get<HTMLElement>('status');
+  const explanation = get<HTMLElement>('explanation');
+  const inspector = get<HTMLElement>('inspector');
+  const progress = get<HTMLInputElement>('scrubber');
+  const race = get<HTMLInputElement>('race');
+  const table = get<HTMLElement>('results');
+  let graph: BayGraph = BAYROUTE_EXAMPLES[0].graph();
+  let startId = 'S'; let goalId = 'T';
+  let results: PathfindingResult[] = [];
+  let indices: number[] = [];
+  let playing = false;
+  let frame = 0; let last = 0; let remainder = 0;
+  let width = 800; let height = 500;
+  let providerRevision = 0;
+  let disposed = false;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  let dark = isDarkTheme();
+  let localBounds = { minLng: 0, maxLng: 3, minLat: 0, maxLat: 1, scale: 1, ox: 0, oy: 0 };
+  const local: MapAdapter = {
+    project: (point) => ({ x: localBounds.ox + (point.lng - localBounds.minLng) * localBounds.scale, y: localBounds.oy + (localBounds.maxLat - point.lat) * localBounds.scale }),
+    unproject: (point) => ({ lng: localBounds.minLng + (point.x - localBounds.ox) / localBounds.scale, lat: localBounds.maxLat - (point.y - localBounds.oy) / localBounds.scale }),
+    fit: (nodes) => {
+      const lngs = nodes.map((node) => node.lng); const lats = nodes.map((node) => node.lat);
+      const minLng = Math.min(...lngs); const maxLng = Math.max(...lngs); const minLat = Math.min(...lats); const maxLat = Math.max(...lats);
+      const dx = Math.max(.001, maxLng - minLng); const dy = Math.max(.001, maxLat - minLat);
+      const scale = Math.min((width - 100) / dx, (height - 100) / dy);
+      localBounds = { minLng, maxLng, minLat, maxLat, scale, ox: (width - dx * scale) / 2, oy: (height - dy * scale) / 2 };
+    },
+    resize: () => local.fit([...graph.nodes.values()]),
+    destroy: () => {},
+  };
+  let adapter: MapAdapter = local;
+  const isExample = () => BAYROUTE_EXAMPLES.some((example) => example.id === sceneSelect.value);
+  const announce = (message: string) => { if (status.textContent !== message) status.textContent = message; };
+  function pause() {
+    playing = false; cancelAnimationFrame(frame); frame = 0; last = 0; remainder = 0;
+    get<HTMLButtonElement>('play').textContent = 'Play';
+  }
+  function resetTrace() { pause(); indices = results.map(() => 0); progress.value = '0'; render(); updateInspector(); }
+  function fillEndpoints() {
+    const nodes = [...graph.nodes.values()];
+    startSelect.replaceChildren(...nodes.map((node) => new Option(node.name, node.id)));
+    goalSelect.replaceChildren(...nodes.map((node) => new Option(node.name, node.id)));
+    startSelect.value = startId; goalSelect.value = goalId;
+  }
+  function loadScene() {
+    providerRevision++;
+    pause(); results = []; indices = []; table.replaceChildren(); progress.value = '0';
+    const example = BAYROUTE_EXAMPLES.find((item) => item.id === sceneSelect.value);
+    if (example) { graph = example.graph(); startId = example.startId; goalId = example.goalId; explanation.textContent = example.explanation; }
+    else {
+      const trip = BAYROUTE_TRIPS.find((item) => item.id === sceneSelect.value)!;
+      const model = buildFullCityGraphWithEndpoints(trip.start, trip.goal);
+      graph = model.graph; startId = model.startId; goalId = model.goalId;
+      const s = graph.nodes.get(startId)!; const g = graph.nodes.get(goalId)!;
+      const snapS = haversineDistanceMiles(trip.start.lat, trip.start.lng, s.lat, s.lng);
+      const snapG = haversineDistanceMiles(trip.goal.lat, trip.goal.lng, g.lat, g.lng);
+      explanation.textContent = `Curated, incomplete road graph. Start snaps ${snapS.toFixed(2)} mi to ${s.name}; goal snaps ${snapG.toFixed(2)} mi to ${g.name}. Costs are distance / modeled speed, not traffic-aware directions. A basemap supplies context only, never the graph.`;
+    }
+    fillEndpoints(); adapter.fit([...graph.nodes.values()]); render(); updateInspector();
+    announce(`${graph.nodes.size} represented junctions · ${graph.edges.length} stored edges. Choose an algorithm and Run.`);
+    if (isExample() && providerSelect.value !== 'local') { providerSelect.value = 'local'; void chooseProvider(); }
+    else if (!isExample() && providerSelect.value !== 'local' && adapter === local) void chooseProvider();
+  }
+  function compute() {
+    pause();
+    if (audioEngine.isSoundEnabled()) audioEngine.setSoundEnabled(true);
+    const selected = algorithmSelect.value as AlgorithmId;
+    const algorithms: AlgorithmId[] = race.checked ? ['dijkstra', 'a_star', 'bidirectional_a_star', 'greedy', 'bfs'] : [selected];
+    results = algorithms.map((id) => runPathfinding(id, graph, startId, goalId));
+    indices = results.map(() => 0);
+    renderResults(); render(); updateInspector();
+    announce(results[0].found ? 'Search computed. Playback shows its recorded expansion trace; compute time and playback time are different.' : 'No route on the represented directed graph. No connector or fallback route is invented.');
+  }
+  function renderResults() {
+    table.replaceChildren();
+    for (const result of results) {
+      const row = document.createElement('tr'); row.dataset.algorithm = result.algorithm;
+      for (const value of [ALGORITHMS[result.algorithm].name, result.found ? result.totalTimeMinutes.toFixed(3) : 'No route', String(result.exploredCount), result.executionTimeMs.toFixed(2)]) {
+        const cell = document.createElement('td'); cell.textContent = value; row.append(cell);
+      }
+      table.append(row);
+    }
+  }
+  function advance(count = 1) {
+    indices = results.map((result, i) => Math.min(result.steps.length, (indices[i] ?? 0) + count));
+    render(); updateInspector();
+    if (results.length && results.every((result, i) => indices[i] >= result.steps.length)) {
+      pause(); if (results.some((result) => result.found)) audioEngine.playArrivalFanfare(); announce('Trace complete. Compare weighted cost, settled entries and compute milliseconds in the table.');
+    }
+  }
+  function playback(timestamp: number) {
+    if (!playing || disposed) return;
+    if (!last) last = timestamp;
+    remainder += Math.min(.1, (timestamp - last) / 1000) * Number(get<HTMLSelectElement>('speed').value);
+    last = timestamp;
+    const count = Math.floor(remainder); remainder -= count;
+    if (count) { advance(count); audioEngine.playStepSound(indices[0] / Math.max(1, results[0]?.steps.length ?? 1)); }
+    if (playing) frame = requestAnimationFrame(playback);
+  }
+  function play() {
+    if (playing) { pause(); return; }
+    if (!results.length) compute();
+    if (results.every((result, i) => indices[i] >= result.steps.length)) resetTrace();
+    playing = true; last = 0; get<HTMLButtonElement>('play').textContent = 'Pause'; frame = requestAnimationFrame(playback);
+  }
+  function updateInspector() {
+    const result = results.find((item) => item.algorithm === algorithmSelect.value) ?? results[0];
+    const index = result ? results.indexOf(result) : 0;
+    const step = result?.steps[Math.max(0, (indices[index] ?? 0) - 1)];
+    progress.max = String(Math.max(1, result?.steps.length ?? 1)); progress.value = String(indices[index] ?? 0);
+    get<HTMLElement>('step-count').textContent = `${indices[index] ?? 0} / ${result?.steps.length ?? 0} events`;
+    if (!step) { inspector.textContent = 'Step through an algorithm to inspect the current junction, g/h/f and queue sizes.'; return; }
+    inspector.textContent = `${step.direction ? step.direction + ' · ' : ''}${step.type}: ${graph.nodes.get(step.nodeId)?.name ?? step.nodeId} · g=${step.g.toFixed(3)} · h=${step.h.toFixed(3)} · g+h=${step.f.toFixed(3)} · queue entries=${step.openSetCount} · settled entries=${step.closedSetCount}. ${step.queueKey !== undefined ? `Reduced queue key=${step.queueKey.toFixed(3)}. ` : ''}${step.lowerBound !== undefined ? `Combined reduced lower bound=${step.lowerBound.toFixed(3)}. ` : ''}${step.incumbent !== undefined ? `Incumbent original cost=${step.incumbent.toFixed(3)}. ` : ''}${result?.algorithm === 'bfs' ? 'BFS g is hop count, not weighted travel cost.' : ''}`;
+  }
+  function drawEdge(u: string, v: string, color: string, lineWidth: number) {
+    const edge = graph.adjacency.get(u)?.find((link) => link.target === v)?.edge;
+    const from = graph.nodes.get(u); const to = graph.nodes.get(v);
+    if (!from || !to) return;
+    const points = edge?.path?.length ? edge.path : [from, to];
+    ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.beginPath();
+    points.forEach((point, i) => { const p = adapter.project(point); if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); }); ctx.stroke();
+  }
+  function render() {
+    ctx.clearRect(0, 0, width, height);
+    if (adapter === local) {
+      ctx.fillStyle = dark ? '#0c1920' : '#f2f5ef'; ctx.fillRect(0, 0, width, height);
+      ctx.strokeStyle = dark ? '#183039' : '#dde6db'; ctx.lineWidth = 1;
+      for (let x = 0; x < width; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke(); }
+      for (let y = 0; y < height; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke(); }
+      ctx.fillStyle = dark ? '#849f9e' : '#607772'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
+      ctx.fillText(isExample() ? 'SCHEMATIC · arbitrary cost units' : 'CURATED ROADS · approximate geographic layout', 14, 24);
+      ctx.fillText('N ↑', width - 46, 24);
+    }
+    const drawn = new Set<string>();
+    for (const edge of graph.edges) {
+      const key = [edge.u, edge.v].sort().join('|'); if (drawn.has(key)) continue; drawn.add(key);
+      drawEdge(edge.u, edge.v, dark ? '#3e5a62' : '#a8b9af', isExample() ? 3 : 1.5);
+      if (isExample()) {
+        const a = adapter.project(graph.nodes.get(edge.u)!); const b = adapter.project(graph.nodes.get(edge.v)!);
+        const weight = graph.adjacency.get(edge.u)?.find((link) => link.target === edge.v)?.weight ?? 0;
+        ctx.fillStyle = dark ? '#cfdfde' : '#3b514b'; ctx.font = 'bold 13px monospace'; ctx.textAlign = 'center'; ctx.fillText(String(weight), (a.x + b.x) / 2, (a.y + b.y) / 2 - 10);
+      }
+    }
+    const settled = new Set<string>(); const frontier = new Set<string>();
+    results.forEach((result, i) => {
+      const trace = result.steps.slice(0, indices[i]); const color = ALGORITHMS[result.algorithm].color;
+      for (const step of trace) {
+        if (step.type === 'settle') { settled.add(step.nodeId); frontier.delete(step.nodeId); }
+        else if (step.type === 'frontier' && !settled.has(step.nodeId)) frontier.add(step.nodeId);
+      }
+      const latest = trace[trace.length - 1];
+      if (latest?.parentId) drawEdge(latest.direction === 'backward' ? latest.nodeId : latest.parentId, latest.direction === 'backward' ? latest.parentId : latest.nodeId, color, 3);
+      if (indices[i] >= result.steps.length) for (let j = 1; j < result.path.length; j++) drawEdge(result.path[j - 1], result.path[j], color, race.checked ? 3 : 5);
+    });
+    for (const node of graph.nodes.values()) {
+      const point = adapter.project(node); const endpoint = node.id === startId || node.id === goalId;
+      const r = endpoint ? 10 : isExample() ? 8 : settled.has(node.id) ? 4 : 2.5;
+      ctx.fillStyle = node.id === startId ? '#059669' : node.id === goalId ? '#dc5d36' : settled.has(node.id) ? '#0284c7' : dark ? '#203b44' : '#fbfdf8';
+      ctx.strokeStyle = frontier.has(node.id) ? '#d97706' : dark ? '#90b1b5' : '#587872'; ctx.lineWidth = frontier.has(node.id) ? 3 : 1.4;
+      ctx.beginPath(); ctx.arc(point.x, point.y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      if (endpoint || isExample()) {
+        ctx.fillStyle = dark ? '#e6f2ed' : '#243d35'; ctx.font = `${endpoint ? 'bold ' : ''}12px sans-serif`; ctx.textAlign = 'center';
+        ctx.fillText(`${node.id === startId ? 'S · ' : node.id === goalId ? 'T · ' : ''}${node.name.slice(0, 38)}`, Math.max(60, Math.min(width - 60, point.x)), point.y + r + 20);
+      }
+    }
+  }
+  function resize() {
+    const rect = canvas.getBoundingClientRect(); width = Math.max(200, rect.width); height = Math.max(200, rect.height);
+    const dpr = Math.min(2, window.devicePixelRatio || 1); canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    adapter.resize(); render();
+  }
+  function selectMapPoint(point: LatLngPoint) {
+    let best: BayNode | null = null; let distance = Infinity;
+    for (const node of graph.nodes.values()) { const d = haversineDistanceMiles(point.lat, point.lng, node.lat, node.lng); if (d < distance) { best = node; distance = d; } }
+    if (!best || (!isExample() && distance > 2)) { announce('No represented junction within two miles. Choose a supported landmark or junction.'); return; }
+    const target = get<HTMLSelectElement>('pick-target').value;
+    if (target === 'start') startId = best.id; else goalId = best.id;
+    startSelect.value = startId; goalSelect.value = goalId; results = []; indices = []; pause(); table.replaceChildren(); render(); updateInspector();
+    announce(`${target}: ${best.name} · snap ${isExample() ? 'to a schematic node' : distance.toFixed(2) + ' mi'}. No new edge was added.`);
+  }
+  async function chooseProvider() {
+    const version = ++providerRevision; const choice = providerSelect.value;
+    adapter.destroy(); adapter = local; providerLayer.replaceChildren(); providerLayer.hidden = true; canvas.style.pointerEvents = 'auto'; local.resize(); render();
+    if (choice === 'local') { announce('Offline schematic · no basemap requests or credentials required.'); return; }
+    if (isExample()) { providerSelect.value = 'local'; announce('Teaching examples use an offline schematic. Choose a city trip to enable a basemap.'); return; }
+    try {
+      if (choice === 'leaflet') {
+        const L = await import('leaflet');
+        if (disposed || version !== providerRevision) return;
+        providerLayer.hidden = false;
+        const map = L.map(providerLayer, { scrollWheelZoom: false });
+        const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 19 }).addTo(map);
+        map.on('move zoom resize', render);
+        map.on('click', (event) => selectMapPoint(event.latlng));
+        tiles.on('tileerror', () => announce('Some basemap tiles could not load. The offline schematic remains available; the curated graph is unchanged.'));
+        adapter = { project: (point) => map.latLngToContainerPoint(point), unproject: (point) => map.containerPointToLatLng([point.x, point.y]), fit: (nodes) => { map.fitBounds(L.latLngBounds(nodes.map((node) => [node.lat, node.lng] as [number, number])), { padding: [35, 35], animate: false }); }, resize: () => map.invalidateSize({ animate: false }), destroy: () => { map.off(); tiles.off(); map.remove(); } };
+      } else {
+        const key = get<HTMLInputElement>('api-key').value.trim() || root.dataset.gmapToken || await getSecureStoredApiKey();
+        if (!key) throw new Error('Google basemaps need your existing browser-restricted key. Offline and OpenStreetMap views do not.');
+        await loadGoogleMapsSDK(key);
+        if (disposed || version !== providerRevision) return;
+        providerLayer.hidden = false;
+        const map = new google.maps.Map(providerLayer, { center: [...graph.nodes.values()][0], zoom: 11, styles: dark ? GOOGLE_MAPS_DARK_STYLE : [], gestureHandling: 'cooperative', streetViewControl: false, fullscreenControl: false });
+        const overlay = new google.maps.OverlayView();
+        overlay.onAdd = () => {}; overlay.draw = () => { if (!disposed) render(); }; overlay.onRemove = () => {}; overlay.setMap(map);
+        const listener = map.addListener('click', (event: google.maps.MapMouseEvent) => { if (event.latLng) selectMapPoint(event.latLng.toJSON()); });
+        adapter = { project: (point) => overlay.getProjection()?.fromLatLngToContainerPixel(point) ?? local.project(point), unproject: (point) => overlay.getProjection()?.fromContainerPixelToLatLng(new google.maps.Point(point.x, point.y))?.toJSON() ?? local.unproject(point), fit: (nodes) => { const bounds = new google.maps.LatLngBounds(); nodes.forEach((node) => bounds.extend(node)); map.fitBounds(bounds, 40); }, resize: () => google.maps.event.trigger(map, 'resize'), destroy: () => { listener.remove(); overlay.setMap(null); google.maps.event.clearInstanceListeners(map); } };
+      }
+      canvas.style.pointerEvents = 'none'; adapter.fit([...graph.nodes.values()]); render();
+      announce('Optional basemap loaded. It supplies visual context only; routes still use the curated graph.');
+    } catch (error) {
+      if (disposed || version !== providerRevision) return;
+      providerSelect.value = 'local'; providerLayer.hidden = true; adapter = local; local.resize(); render();
+      announce(error instanceof Error && error.message.startsWith('Google basemaps need') ? error.message : 'Basemap unavailable. Returned to the offline schematic; the graph remains usable.');
+    }
+  }
+  const removeAuth = onGoogleMapsAuthFailure(() => { if (!disposed && providerSelect.value === 'google') { providerSelect.value = 'local'; void chooseProvider(); } });
+  const places = [...LOCAL_BAY_GAZETTEER, ...GLOBAL_GAZETTEER];
+  get<HTMLDataListElement>('landmarks').replaceChildren(...places.map((place) => new Option(place.name, place.name)));
+  function searchAddresses() {
+    const find = (query: string) => places.find((place) => place.name.toLowerCase() === query.toLowerCase().trim()) ?? places.find((place) => query.trim().length > 2 && `${place.name} ${place.address}`.toLowerCase().includes(query.toLowerCase().trim()));
+    const from = find(get<HTMLInputElement>('start-input').value); const to = find(get<HTMLInputElement>('goal-input').value);
+    if (!from || !to) { announce('Use a landmark from the local list. Unsupported places are rejected; no external autocomplete request is made.'); return; }
+    try {
+      const model = buildFullCityGraphWithEndpoints(from, to);
+      providerRevision++;
+      pause(); graph = model.graph; startId = model.startId; goalId = model.goalId;
+      sceneSelect.value = 'custom'; results = []; indices = []; table.replaceChildren(); fillEndpoints(); adapter.fit([...graph.nodes.values()]); render(); updateInspector();
+      explanation.textContent = `Local landmark search: ${from.name} → ${to.name}. Endpoints snap to represented junctions; this is an incomplete curated graph, not live directions.`;
+      announce(`Start snap ${haversineDistanceMiles(from.lat, from.lng, graph.nodes.get(startId)!.lat, graph.nodes.get(startId)!.lng).toFixed(2)} mi; goal snap ${haversineDistanceMiles(to.lat, to.lng, graph.nodes.get(goalId)!.lat, graph.nodes.get(goalId)!.lng).toFixed(2)} mi.`);
+    } catch (error) { announce(error instanceof Error ? error.message : 'Unsupported route.'); }
+  }
+  sceneSelect.addEventListener('change', loadScene, { signal });
+  algorithmSelect.addEventListener('change', () => { pause(); results = []; indices = []; table.replaceChildren(); updateInspector(); render(); get<HTMLElement>('algorithm-note').textContent = ALGORITHMS[algorithmSelect.value as AlgorithmId].description; }, { signal });
+  get<HTMLButtonElement>('run').addEventListener('click', () => { compute(); if (reduced.matches) advance(Math.max(...results.map((result) => result.steps.length))); else play(); }, { signal });
+  get<HTMLButtonElement>('play').addEventListener('click', play, { signal });
+  get<HTMLButtonElement>('step').addEventListener('click', () => { pause(); if (!results.length) compute(); advance(); }, { signal });
+  get<HTMLButtonElement>('reset').addEventListener('click', resetTrace, { signal });
+  get<HTMLButtonElement>('fit').addEventListener('click', () => { adapter.fit([...graph.nodes.values()]); render(); }, { signal });
+  get<HTMLButtonElement>('search').addEventListener('click', searchAddresses, { signal });
+  providerSelect.addEventListener('change', () => void chooseProvider(), { signal });
+  race.addEventListener('change', () => { pause(); results = []; indices = []; table.replaceChildren(); updateInspector(); render(); }, { signal });
+  get<HTMLButtonElement>('apply-map').addEventListener('click', () => void chooseProvider(), { signal });
+  progress.addEventListener('input', () => { pause(); indices = results.map((result) => Math.min(result.steps.length, Number(progress.value))); updateInspector(); render(); }, { signal });
+  for (const select of [startSelect, goalSelect]) select.addEventListener('change', () => { pause(); startId = startSelect.value; goalId = goalSelect.value; results = []; indices = []; table.replaceChildren(); updateInspector(); render(); }, { signal });
+  canvas.addEventListener('click', (event) => { const rect = canvas.getBoundingClientRect(); selectMapPoint(adapter.unproject({ x: event.clientX - rect.left, y: event.clientY - rect.top })); }, { signal });
+  get<HTMLButtonElement>('sound').addEventListener('click', () => { const enabled = audioEngine.toggleSound(); get<HTMLButtonElement>('sound').textContent = enabled ? 'Sound on' : 'Sound off'; get<HTMLButtonElement>('sound').setAttribute('aria-pressed', String(enabled)); }, { signal });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); }, { signal });
+  window.addEventListener('blur', pause, { signal });
+  document.addEventListener('khc:theme-change', () => { dark = isDarkTheme(); render(); }, { signal });
+  const observer = new ResizeObserver(resize); observer.observe(canvas);
+  const win = window as unknown as { __bayRoute?: { state: () => unknown; destroy: () => void }; __bayRouteInstances?: number };
+  win.__bayRouteInstances = (win.__bayRouteInstances ?? 0) + 1;
+  const controller = { state: () => ({ startId, goalId, scene: sceneSelect.value, algorithm: algorithmSelect.value, results, indices, playing, provider: providerSelect.value }), destroy: () => {
+    if (disposed) return; disposed = true; providerRevision++; pause(); abort.abort(); observer.disconnect(); adapter.destroy(); removeAuth(); audioEngine.destroy();
+    delete root.dataset.brReady; win.__bayRouteInstances = Math.max(0, (win.__bayRouteInstances ?? 1) - 1); if (win.__bayRoute === controller) delete win.__bayRoute;
+  } };
+  win.__bayRoute = controller;
+  get<HTMLButtonElement>('sound').textContent = audioEngine.isSoundEnabled() ? 'Sound on' : 'Sound off';
+  resize(); loadScene();
+  return controller;
 }
