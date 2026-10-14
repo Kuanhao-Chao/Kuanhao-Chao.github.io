@@ -115,8 +115,12 @@ const { title, description, image, type, noindex, scholarMeta, bare = false } = 
         };
 
         const systemTheme = () => (media.matches ? 'dark' : 'light');
-        const resolvedTheme = () => storedTheme() || systemTheme();
-        const resolvedCrt = () => storedCrt() || 'off';
+        // Explicit choices survive Astro navigation even if storage is blocked or full.
+        // These belong to the single installed owner, not to the replaceable document root.
+        let sessionTheme = null;
+        let sessionCrt = null;
+        const resolvedTheme = () => sessionTheme ?? storedTheme() ?? systemTheme();
+        const resolvedCrt = () => sessionCrt ?? storedCrt() ?? 'off';
 
         const syncControls = (theme, crt) => {
           const isCrtActive = crt === 'amber' || crt === 'green' || crt === 'cyan';
@@ -167,6 +171,8 @@ const { title, description, image, type, noindex, scholarMeta, bare = false } = 
           const next = validTheme(theme) ? theme : systemTheme();
           const root = getRoot();
           if (persist) {
+            sessionTheme = next;
+            sessionCrt = 'off';
             try {
               localStorage.setItem(themeKey, next);
               localStorage.removeItem(crtKey);
@@ -187,6 +193,7 @@ const { title, description, image, type, noindex, scholarMeta, bare = false } = 
           const next = validCrt(mode) ? mode : 'off';
           const root = getRoot();
           if (persist) {
+            sessionCrt = next;
             try {
               localStorage.setItem(crtKey, next);
             } catch {}
@@ -225,7 +232,15 @@ const { title, description, image, type, noindex, scholarMeta, bare = false } = 
           };
 
           media.addEventListener('change', () => {
-            if (!storedTheme()) applyTheme(systemTheme(), false);
+            if (sessionTheme === null && !storedTheme()) applyTheme(systemTheme(), false);
+          });
+
+          window.addEventListener('storage', (event) => {
+            if (event.key !== themeKey && event.key !== crtKey && event.key !== null) return;
+            sessionTheme = null;
+            sessionCrt = null;
+            window.__khcTheme.sync();
+            window.__khcCrt.sync();
           });
 
           document.addEventListener('astro:before-swap', (event) => {

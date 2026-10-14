@@ -857,8 +857,8 @@ async function removeAuditSurface(page) {
 
 async function auditCellControls(page, scope, _profile) {
   const contract = await page.evaluate(() => ({
-    modes: [...document.querySelectorAll('[data-background-scene]')].map((element) =>
-      element.getAttribute('data-background-scene')
+    modes: [...document.querySelectorAll('[data-background-scene-select] option')].map((element) =>
+      element.value
     ),
     hasLabLink: Boolean(document.querySelector('a[href="/lab"], [data-background-explore]')),
     hasStatus: Boolean(document.querySelector('[data-cell-status]')),
@@ -873,7 +873,7 @@ async function auditCellControls(page, scope, _profile) {
   check(scope, contract.hasStatus && contract.hasStatusText, 'cell status chip is incomplete');
 
   // Test Off mode
-  await clickCellControl(page, '[data-background-scene="off"]');
+  await (await visibleControl(page, '[data-background-scene-select]')).selectOption('off');
   await page.waitForFunction(
     () =>
       document.documentElement.dataset.backgroundScene === 'off' &&
@@ -888,7 +888,7 @@ async function auditCellControls(page, scope, _profile) {
   );
 
   // Test Ambient mode restoration
-  await clickCellControl(page, '[data-background-scene="cells"]');
+  await (await visibleControl(page, '[data-background-scene-select]')).selectOption('cells');
   await page.waitForFunction(
     () =>
       document.documentElement.dataset.backgroundScene === 'cells' && window.__khcCellsDebug.snapshot().running &&

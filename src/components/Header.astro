@@ -12,6 +12,14 @@ const isLabActive = labPrefixes.some((prefix) => path === prefix || path.startsW
 
 // Header (desktop + mobile) shows primary items only; footer keeps the full nav.
 const headerNav = nav.filter((item) => !item.footerOnly);
+const colorThemes = [
+  ['light', 'Light', 'sun'],
+  ['dark', 'Dark', 'moon'],
+  ['parchment', 'Parchment', 'parchment'],
+  ['nord', 'Nord', 'nord'],
+  ['monokai', 'Monokai', 'monokai'],
+  ['cyberdeck', 'Cyberdeck', 'cyberdeck'],
+] as const;
 ---
 
 <header class="site-header" transition:persist="site-header">
@@ -39,7 +47,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
             type="button"
             class="nav-labs-trigger"
             data-nav-labs-trigger
-            aria-haspopup="menu"
+            aria-controls="nav-labs-popover"
             aria-expanded="false"
             aria-current={isLabActive ? 'page' : undefined}
             title="Interactive tools, models, and genome browsers"
@@ -48,33 +56,40 @@ const headerNav = nav.filter((item) => !item.footerOnly);
             <span class="nav-labs-caret" aria-hidden="true">▾</span>
           </button>
 
-          <div class="nav-labs-popover" data-nav-labs-popover role="menu" hidden>
+          <div class="nav-labs-popover" id="nav-labs-popover" data-nav-labs-popover hidden>
             <div class="nav-labs-header">
               <span class="eyebrow">Interactive Labs & Tools</span>
               <span class="nav-labs-count">{labNavItems.length} Explorations</span>
             </div>
-            <div class="nav-labs-grid">
+            <ul class="nav-labs-grid">
               {
                 labNavItems.map((item) => (
-                  <a
-                    href={item.href}
-                    class="nav-lab-card"
-                    role="menuitem"
-                    aria-current={path.startsWith(item.href.replace(/\/$/, '')) ? 'page' : undefined}
-                  >
-                    <span class="nav-lab-icon" aria-hidden="true">{item.icon}</span>
-                    <div class="nav-lab-info">
-                      <div class="nav-lab-title-row">
-                        <strong class="nav-lab-title">{item.title}</strong>
-                        {item.badge && <span class="nav-lab-badge">{item.badge}</span>}
+                  <li>
+                    <a
+                      href={item.href}
+                      class="nav-lab-card"
+                      aria-current={
+                        path.startsWith(item.href.replace(/\/$/, '')) ? 'page' : undefined
+                      }
+                    >
+                      <span class="nav-lab-icon" aria-hidden="true">
+                        {item.icon}
+                      </span>
+                      <div class="nav-lab-info">
+                        <div class="nav-lab-title-row">
+                          <strong class="nav-lab-title">{item.title}</strong>
+                          {item.badge && <span class="nav-lab-badge">{item.badge}</span>}
+                        </div>
+                        <span class="nav-lab-sub">{item.sub}</span>
                       </div>
-                      <span class="nav-lab-sub">{item.sub}</span>
-                    </div>
-                    <span class="nav-lab-arrow" aria-hidden="true">→</span>
-                  </a>
+                      <span class="nav-lab-arrow" aria-hidden="true">
+                        →
+                      </span>
+                    </a>
+                  </li>
                 ))
               }
-            </div>
+            </ul>
           </div>
         </li>
       </ul>
@@ -100,6 +115,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
           data-top-theme-btn
           data-theme-state="light"
           aria-haspopup="dialog"
+          aria-controls="appearance-popover"
           aria-expanded="false"
           aria-label="Appearance settings"
           title="Adjust color theme, background, or 1988 CRT mode"
@@ -128,98 +144,88 @@ const headerNav = nav.filter((item) => !item.footerOnly);
               data-top-crt-badge
               aria-hidden="true"
             >
-              ⚡
+              <Icon name="cyberdeck" size={19} />
             </span>
           </span>
           <span class="top-theme-caret" aria-hidden="true">▾</span>
         </button>
 
-        <div class="top-theme-popover" data-top-theme-popover role="dialog" aria-label="Appearance" hidden>
-          <!-- Modern Themes Section -->
-          <div class="popover-section">
-            <span class="popover-heading">Modern Themes</span>
-            <div class="popover-grid" role="radiogroup" aria-label="Color theme">
-              <button
-                type="button"
-                class="popover-opt-btn"
-                data-theme-choice="light"
-                role="radio"
-              >
-                <span class="opt-icon-wrap" aria-hidden="true">
-                  <Icon name="sun" size={14} />
-                </span>
-                <span class="opt-text">Light</span>
-              </button>
-              <button
-                type="button"
-                class="popover-opt-btn"
-                data-theme-choice="dark"
-                role="radio"
-              >
-                <span class="opt-icon-wrap" aria-hidden="true">
-                  <Icon name="moon" size={14} />
-                </span>
-                <span class="opt-text">Dark</span>
-              </button>
-              <button
-                type="button"
-                class="popover-opt-btn"
-                data-theme-choice="parchment"
-                role="radio"
-              >
-                <span class="opt-icon-wrap" aria-hidden="true">
-                  <Icon name="parchment" size={14} />
-                </span>
-                <span class="opt-text">Parchment</span>
-              </button>
-              <button
-                type="button"
-                class="popover-opt-btn"
-                data-theme-choice="nord"
-                role="radio"
-              >
-                <span class="opt-icon-wrap" aria-hidden="true">
-                  <Icon name="nord" size={14} />
-                </span>
-                <span class="opt-text">Nord</span>
-              </button>
-              <button
-                type="button"
-                class="popover-opt-btn"
-                data-theme-choice="monokai"
-                role="radio"
-              >
-                <span class="opt-icon-wrap" aria-hidden="true">
-                  <Icon name="monokai" size={14} />
-                </span>
-                <span class="opt-text">Monokai</span>
-              </button>
-              <button
-                type="button"
-                class="popover-opt-btn"
-                data-theme-choice="cyberdeck"
-                role="radio"
-              >
-                <span class="opt-icon-wrap" aria-hidden="true">
-                  <Icon name="cyberdeck" size={14} />
-                </span>
-                <span class="opt-text">Cyberdeck</span>
-              </button>
+        <div
+          class="top-theme-popover"
+          id="appearance-popover"
+          data-top-theme-popover
+          role="dialog"
+          aria-label="Appearance"
+          hidden
+        >
+          <div class="appearance-heading">
+            <strong>Appearance</strong>
+            <button
+              type="button"
+              class="appearance-close"
+              data-top-theme-close
+              aria-label="Close appearance settings"
+            >
+              <Icon name="close" size={16} />
+            </button>
+          </div>
+          <div class="popover-section" role="radiogroup" aria-label="Color theme">
+            <div class="popover-grid">
+              {
+                colorThemes.slice(0, 2).map(([value, label, icon]) => (
+                  <button
+                    type="button"
+                    class="popover-opt-btn"
+                    data-theme-choice={value}
+                    role="radio"
+                    aria-checked={value === 'light' ? 'true' : 'false'}
+                    tabindex={value === 'light' ? 0 : -1}
+                  >
+                    <span class="opt-icon-wrap" aria-hidden="true">
+                      <Icon name={icon} size={16} />
+                    </span>
+                    <span class="opt-text">{label}</span>
+                  </button>
+                ))
+              }
             </div>
+            <details class="appearance-more" data-more-themes>
+              <summary
+                ><span>More themes</span><span class="appearance-value" data-theme-summary
+                  >4 options</span
+                ></summary
+              >
+              <div class="popover-grid">
+                {
+                  colorThemes.slice(2).map(([value, label, icon]) => (
+                    <button
+                      type="button"
+                      class="popover-opt-btn"
+                      data-theme-choice={value}
+                      role="radio"
+                      aria-checked="false"
+                      tabindex="-1"
+                    >
+                      <span class="opt-icon-wrap" aria-hidden="true">
+                        <Icon name={icon} size={14} />
+                      </span>
+                      <span class="opt-text">{label}</span>
+                    </button>
+                  ))
+                }
+              </div>
+            </details>
           </div>
 
-          <!-- 1988 Retro CRT Phosphor Section -->
-          <div class="popover-section popover-section--crt">
-            {/*
-              CRT gets an explicit switch. Before this there were three phosphor
-              buttons and no way back: once you picked one, nothing in the menu
-              turned it off again. The colours are radios that only apply while the
-              switch is on, and are disabled when it is off so the control says what
-              it does. The emoji (⚡🟢🔷) are gone — the rest of the menu uses one
-              inline-SVG icon set, and swatches read as colour choices anyway.
-            */}
+          <BackgroundControls />
+
+          <details class="appearance-more" data-retro-effects>
+            <summary
+              ><span>Retro effects</span><span class="appearance-value" data-crt-summary>Off</span
+              ></summary
+            >
             <div class="popover-heading-row">
-              <span class="popover-heading" id="crt-heading">1988 CRT</span>
+              <span class="popover-heading" id="crt-heading">CRT display</span>
               <button
                 type="button"
                 class="crt-switch"
@@ -228,11 +234,18 @@ const headerNav = nav.filter((item) => !item.footerOnly);
                 aria-checked="false"
                 aria-labelledby="crt-heading"
               >
-                <span class="crt-switch-track" aria-hidden="true"><span class="crt-switch-thumb"></span></span>
+                <span class="crt-switch-track" aria-hidden="true"
+                  ><span class="crt-switch-thumb"></span></span
+                >
                 <span class="crt-switch-text" data-crt-switch-text>Off</span>
               </button>
             </div>
-            <div class="popover-crt-row" role="radiogroup" aria-labelledby="crt-heading" data-crt-colors>
+            <div
+              class="popover-crt-row"
+              role="radiogroup"
+              aria-labelledby="crt-heading"
+              data-crt-colors
+            >
               <button
                 type="button"
                 class="popover-crt-btn popover-crt-btn--amber"
@@ -264,9 +277,16 @@ const headerNav = nav.filter((item) => !item.footerOnly);
                 <span>Cyan</span>
               </button>
             </div>
-          </div>
+          </details>
 
-          <BackgroundControls />
+          <div class="appearance-footer">
+            <p class="background-hint" data-background-hint>
+              Quiet motion. Your choice is remembered.
+            </p>
+            <button type="button" class="background-explore" data-background-explore
+              >Explore background ↗</button
+            >
+          </div>
         </div>
       </div>
 
@@ -311,7 +331,9 @@ const headerNav = nav.filter((item) => !item.footerOnly);
               class="mobile-lab-card"
               aria-current={path.startsWith(item.href.replace(/\/$/, '')) ? 'page' : undefined}
             >
-              <span class="mobile-lab-icon" aria-hidden="true">{item.icon}</span>
+              <span class="mobile-lab-icon" aria-hidden="true">
+                {item.icon}
+              </span>
               <div class="mobile-lab-text">
                 <div class="mobile-lab-title-row">
                   <strong class="mobile-lab-title">{item.title}</strong>
@@ -377,7 +399,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
   .nav-desktop {
     min-width: 0;
   }
-  .nav-desktop ul {
+  .nav-desktop > ul {
     list-style: none;
     display: flex;
     align-items: center;
@@ -470,7 +492,9 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     font-size: 0.72rem;
     line-height: 1;
     opacity: 0.65;
-    transition: transform 200ms ease, opacity var(--transition);
+    transition:
+      transform 200ms ease,
+      opacity var(--transition);
   }
   .nav-labs-trigger:hover .nav-labs-caret,
   .nav-labs-trigger[aria-expanded='true'] .nav-labs-caret {
@@ -490,7 +514,9 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     backdrop-filter: saturate(160%) blur(16px);
     border: 1px solid var(--color-rule);
     border-radius: 12px;
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.05);
+    box-shadow:
+      0 16px 40px rgba(0, 0, 0, 0.12),
+      0 2px 8px rgba(0, 0, 0, 0.05);
     padding: 1.1rem;
     z-index: 120;
     display: flex;
@@ -532,6 +558,9 @@ const headerNav = nav.filter((item) => !item.footerOnly);
 
   .nav-labs-grid {
     display: grid;
+    list-style: none;
+    padding: 0;
+    margin: 0;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.5rem;
   }
@@ -797,28 +826,119 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     position: absolute;
     top: calc(100% + 8px);
     right: 0;
-    width: 264px;
+    width: 288px;
     max-height: calc(100dvh - 6rem);
     overscroll-behavior: contain;
     overflow-y: auto;
     overflow-x: hidden;
     padding: 0.75rem;
-    background: color-mix(in srgb, var(--color-surface) 95%, var(--color-ink) 5%);
+    background: var(--color-surface);
     border: 1px solid var(--color-rule);
-    border-radius: 12px;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
-    -webkit-backdrop-filter: blur(16px);
-    backdrop-filter: blur(16px);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
     z-index: 101;
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
+    gap: 0.45rem;
     box-sizing: border-box;
     animation: popoverFadeIn 0.15s ease-out;
   }
 
   .top-theme-popover[hidden] {
     display: none;
+  }
+
+  .appearance-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 44px;
+    font-size: 0.875rem;
+  }
+  .appearance-close {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    margin-right: -0.35rem;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius);
+    color: var(--color-muted);
+    background: transparent;
+    cursor: pointer;
+  }
+  .appearance-more {
+    min-width: 0;
+  }
+  .appearance-more summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-height: 44px;
+    font-size: 0.8125rem;
+    color: var(--color-ink);
+    cursor: pointer;
+    list-style: none;
+  }
+  .appearance-more summary::-webkit-details-marker {
+    display: none;
+  }
+  .appearance-more summary::after {
+    content: '+';
+    color: var(--color-muted);
+  }
+  .appearance-more[open] > summary::after {
+    content: '−';
+  }
+  .appearance-value {
+    margin-left: auto;
+    color: var(--color-muted);
+    font-size: 0.75rem;
+  }
+  .appearance-more[open] > .popover-grid,
+  .appearance-more[open] > .popover-crt-row {
+    padding-bottom: 0.35rem;
+  }
+  .appearance-footer {
+    display: grid;
+    gap: 0.3rem;
+  }
+  .background-hint {
+    margin: 0;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    color: var(--color-muted);
+  }
+  .background-explore {
+    min-height: 44px;
+    width: 100%;
+    padding: 0.4rem 0;
+    border: 0;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--color-accent);
+    text-align: left;
+    font: inherit;
+    font-size: 0.8125rem;
+    cursor: pointer;
+  }
+  .background-explore:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .appearance-close:hover,
+  .background-explore:not(:disabled):hover {
+    background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  }
+  .appearance-close:focus-visible,
+  .appearance-more summary:focus-visible,
+  .popover-opt-btn:focus-visible,
+  .popover-crt-btn:focus-visible,
+  .background-explore:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
   }
 
   @keyframes popoverFadeIn {
@@ -879,6 +999,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     text-align: left;
     transition: all 0.12s ease;
     box-sizing: border-box;
+    min-height: 44px;
   }
 
   .popover-opt-btn:hover {
@@ -887,10 +1008,9 @@ const headerNav = nav.filter((item) => !item.footerOnly);
   }
 
   .popover-opt-btn.is-active {
-    background: var(--color-surface);
-    border-color: var(--color-rule);
+    background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+    border-color: var(--color-accent);
     font-weight: 600;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   }
 
   .opt-icon-wrap {
@@ -955,6 +1075,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     cursor: pointer;
     transition: all 0.12s ease;
     box-sizing: border-box;
+    min-height: 44px;
   }
 
   .popover-crt-btn:hover {
@@ -1019,6 +1140,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     color: var(--color-muted);
     font-size: var(--fs-meta);
     font-family: inherit;
+    min-height: 44px;
   }
   .crt-switch-track {
     width: 1.85rem;
@@ -1060,9 +1182,15 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     flex: none;
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
   }
-  .popover-crt-btn--amber .crt-swatch { background: #ffb000; }
-  .popover-crt-btn--green .crt-swatch { background: #33ff66; }
-  .popover-crt-btn--cyan .crt-swatch { background: #38d9ff; }
+  .popover-crt-btn--amber .crt-swatch {
+    background: #ffb000;
+  }
+  .popover-crt-btn--green .crt-swatch {
+    background: #33ff66;
+  }
+  .popover-crt-btn--cyan .crt-swatch {
+    background: #38d9ff;
+  }
 
   .popover-crt-row.is-disabled {
     opacity: 0.42;
@@ -1420,9 +1548,16 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       padding: 0.35rem 0.5rem;
       height: 38px;
     }
+  }
+
+  @media (max-width: 620px) {
     .top-theme-popover {
-      right: -20px;
-      width: 230px;
+      position: fixed;
+      top: calc(4.25rem + 8px);
+      left: 16px;
+      right: 16px;
+      width: auto;
+      max-height: calc(100dvh - 4.25rem - 24px);
     }
   }
 
@@ -1445,6 +1580,7 @@ const headerNav = nav.filter((item) => !item.footerOnly);
 </style>
 
 <script>
+  import { setLabel } from '../lib/domLabel';
 
   interface ThemeApi {
     get: () => string;
@@ -1470,10 +1606,8 @@ const headerNav = nav.filter((item) => !item.footerOnly);
   let nav: Nav | null = null;
   let popoverEl: HTMLElement | null = null;
   let topBtnEl: HTMLButtonElement | null = null;
-  let labsWrapperEl: HTMLElement | null = null;
   let labsTriggerEl: HTMLButtonElement | null = null;
   let labsPopoverEl: HTMLElement | null = null;
-  let labsCloseTimer: ReturnType<typeof setTimeout> | null = null;
 
   const headerWindow = window as Window & {
     __khcHeaderEventsBound?: boolean;
@@ -1483,6 +1617,10 @@ const headerNav = nav.filter((item) => !item.footerOnly);
   const isMenuOpen = () => nav?.toggle.getAttribute('aria-expanded') === 'true';
   const setMenuOpen = (open: boolean) => {
     if (!nav) return;
+    if (open) {
+      setPopoverOpen(false);
+      setLabsOpen(false);
+    }
     nav.toggle.setAttribute('aria-expanded', String(open));
     nav.toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
     nav.menu.hidden = !open;
@@ -1491,16 +1629,42 @@ const headerNav = nav.filter((item) => !item.footerOnly);
   const isPopoverOpen = () => topBtnEl?.getAttribute('aria-expanded') === 'true';
   const setPopoverOpen = (open: boolean) => {
     if (!popoverEl || !topBtnEl) return;
+    if (open) {
+      setMenuOpen(false);
+      setLabsOpen(false);
+    }
     popoverEl.hidden = !open;
     topBtnEl.setAttribute('aria-expanded', String(open));
+    if (open) syncRadioStops();
   };
 
   const isLabsOpen = () => labsTriggerEl?.getAttribute('aria-expanded') === 'true';
   const setLabsOpen = (open: boolean) => {
     if (!labsPopoverEl || !labsTriggerEl) return;
+    if (open) {
+      setMenuOpen(false);
+      setPopoverOpen(false);
+    }
     labsPopoverEl.hidden = !open;
     labsTriggerEl.setAttribute('aria-expanded', String(open));
   };
+
+  function radioOptions(group: Element): HTMLButtonElement[] {
+    return [...group.querySelectorAll<HTMLButtonElement>('button[role="radio"]')].filter(
+      (button) => !button.disabled && !button.closest('details:not([open]) > :not(summary)')
+    );
+  }
+
+  function syncRadioStops() {
+    popoverEl?.querySelectorAll('[role="radiogroup"]').forEach((group) => {
+      const options = radioOptions(group);
+      const entry =
+        options.find((button) => button.getAttribute('aria-checked') === 'true') ?? options[0];
+      group.querySelectorAll<HTMLButtonElement>('button[role="radio"]').forEach((button) => {
+        button.tabIndex = button === entry ? 0 : -1;
+      });
+    });
+  }
 
   function syncHeaderThemeIcons() {
     const currentTheme = themeApi()?.get() || document.documentElement.dataset.theme || 'light';
@@ -1508,20 +1672,9 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     const isCrt = currentCrt === 'amber' || currentCrt === 'green' || currentCrt === 'cyan';
 
     const topBtn = document.querySelector<HTMLButtonElement>('[data-top-theme-btn]');
-    const crtBadge = document.querySelector<HTMLElement>('[data-top-crt-badge]');
     if (topBtn) {
       topBtn.dataset.themeState = currentTheme;
       topBtn.dataset.crtActive = String(isCrt);
-      if (crtBadge) {
-        crtBadge.textContent =
-          currentCrt === 'amber'
-            ? '⚡'
-            : currentCrt === 'green'
-              ? '🟢'
-              : currentCrt === 'cyan'
-                ? '🔷'
-                : '';
-      }
     }
 
     // SCOPED to the header's own popover and mobile drawer. These used to be
@@ -1556,13 +1709,22 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       btn.setAttribute('aria-checked', String(isCrt));
       btn.classList.toggle('is-on', isCrt);
       const label = btn.querySelector('[data-crt-switch-text]');
-      if (label) label.textContent = isCrt ? 'On' : 'Off';
+      setLabel(label, isCrt ? 'On' : 'Off');
     });
     owned<HTMLElement>('[data-crt-colors]').forEach((row) => {
       row.classList.toggle('is-disabled', !isCrt);
     });
+    const titleCase = (name: string) => name.charAt(0).toUpperCase() + name.slice(1);
+    setLabel(
+      popoverEl?.querySelector('[data-theme-summary]'),
+      ['light', 'dark'].includes(currentTheme) ? '4 options' : titleCase(currentTheme)
+    );
+    setLabel(
+      popoverEl?.querySelector('[data-crt-summary]'),
+      isCrt ? `${titleCase(currentCrt)} · On` : 'Off'
+    );
+    syncRadioStops();
   }
-
 
   function bind() {
     const toggle = document.querySelector<HTMLButtonElement>('.nav-toggle');
@@ -1588,7 +1750,6 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     }
 
     // Labs Dropdown setup
-    labsWrapperEl = document.querySelector<HTMLElement>('[data-nav-labs-wrapper]');
     labsTriggerEl = document.querySelector<HTMLButtonElement>('[data-nav-labs-trigger]');
     labsPopoverEl = document.querySelector<HTMLElement>('[data-nav-labs-popover]');
 
@@ -1600,39 +1761,46 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       });
     }
 
-    if (labsWrapperEl && labsWrapperEl.dataset.labsHoverBound !== 'true') {
-      labsWrapperEl.dataset.labsHoverBound = 'true';
-      labsWrapperEl.addEventListener('mouseenter', () => {
-        if (window.matchMedia('(min-width: 960px)').matches) {
-          if (labsCloseTimer) clearTimeout(labsCloseTimer);
-          setLabsOpen(true);
-        }
-      });
-      labsWrapperEl.addEventListener('mouseleave', () => {
-        if (window.matchMedia('(min-width: 960px)').matches) {
-          labsCloseTimer = setTimeout(() => {
-            setLabsOpen(false);
-          }, 160);
-        }
-      });
-    }
-
     labsPopoverEl?.querySelectorAll<HTMLAnchorElement>('a').forEach((link) => {
+      if (link.dataset.labsLinkBound === 'true') return;
+      link.dataset.labsLinkBound = 'true';
       link.addEventListener('click', () => setLabsOpen(false));
     });
 
-    // Theme, CRT and the CRT power switch are applied by the ONE delegated listener in
-    // BaseLayout. This component binds none of them: it used to, and so did ThemeSwitcher, and
-    // because both used `btn.onclick = ...` over `document.querySelectorAll` each replaced the
-    // other's handler on the SAME buttons -- whichever script ran last won, and the CRT buttons
-    // ended up doing nothing. All that is left here is closing the popover afterwards, which is a
-    // header concern and nothing else's.
-    popoverEl?.querySelectorAll<HTMLButtonElement>(
-      '[data-theme-choice], [data-crt-choice]',
-    ).forEach((btn) => {
-      btn.onclick = () => setPopoverOpen(false);
-    });
-
+    // Theme/CRT selection belongs only to BaseLayout. Settings stay open while adjusted.
+    if (popoverEl && popoverEl.dataset.appearanceBound !== 'true') {
+      popoverEl.dataset.appearanceBound = 'true';
+      popoverEl.querySelector('[data-top-theme-close]')?.addEventListener('click', () => {
+        setPopoverOpen(false);
+        topBtnEl?.focus();
+      });
+      popoverEl.addEventListener('toggle', syncRadioStops, true);
+      popoverEl.addEventListener('keydown', (event) => {
+        const button = (event.target as Element)?.closest<HTMLButtonElement>(
+          'button[role="radio"]'
+        );
+        if (
+          !button ||
+          !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)
+        )
+          return;
+        const group = button.closest('[role="radiogroup"]');
+        if (!group) return;
+        const options = radioOptions(group);
+        if (!options.length) return;
+        event.preventDefault();
+        const index = options.indexOf(button);
+        const next =
+          event.key === 'Home'
+            ? 0
+            : event.key === 'End'
+              ? options.length - 1
+              : (index + (['ArrowLeft', 'ArrowUp'].includes(event.key) ? -1 : 1) + options.length) %
+                options.length;
+        options[next].focus();
+        options[next].click();
+      });
+    }
 
     syncHeaderThemeIcons();
   }
@@ -1695,10 +1863,12 @@ const headerNav = nav.filter((item) => !item.footerOnly);
       else a.removeAttribute('aria-current');
     }
 
-    const isLab = Array.from(document.querySelectorAll<HTMLAnchorElement>('.nav-lab-card')).some((link) => {
-      const prefix = link.getAttribute('href')?.replace(/\/$/, '');
-      return !!prefix && (currentPath === prefix || currentPath.startsWith(`${prefix}/`));
-    });
+    const isLab = Array.from(document.querySelectorAll<HTMLAnchorElement>('.nav-lab-card')).some(
+      (link) => {
+        const prefix = link.getAttribute('href')?.replace(/\/$/, '');
+        return !!prefix && (currentPath === prefix || currentPath.startsWith(`${prefix}/`));
+      }
+    );
 
     if (labsTriggerEl) {
       if (isLab) labsTriggerEl.setAttribute('aria-current', 'page');
@@ -1718,6 +1888,8 @@ const headerNav = nav.filter((item) => !item.footerOnly);
     headerWindow.__khcHeaderEventsBound = true;
     headerWindow.__khcCellControlEventsBound = true;
     document.addEventListener('keydown', handleHeaderKeydown);
+    // Touching a non-interactive margin need not synthesize a click in WebKit.
+    document.addEventListener('pointerdown', handleOutsideClick, { passive: true });
     document.addEventListener('click', handleOutsideClick);
     window.matchMedia('(min-width: 960px)').addEventListener('change', handleDesktopLayout);
     document.addEventListener('astro:before-swap', closeHeaderMenus);
