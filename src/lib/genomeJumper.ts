@@ -28,7 +28,7 @@ export const PHYSICS = {
 
 export type GameStatus = 'ready' | 'playing' | 'paused' | 'over';
 export type PlatformKind = 'static' | 'moving' | 'breakable' | 'disappearing';
-export type Base = 'A' | 'C' | 'G' | 'T';
+export type Base = 'A' | 'C' | 'G' | 'U';
 export type PowerUpKind = 'jetpack';
 
 export interface Player {
@@ -112,9 +112,11 @@ export interface GameState {
   lastPlatformX: number;
   lastPlatformWidth: number;
   lastEvent: 'none' | 'jump' | 'spring' | 'jetpack' | 'collect' | 'shot' | 'enemy' | 'over';
+  pickupStreak: number;
+  lastPickupAt: number;
 }
 
-const BASES: readonly Base[] = ['A', 'C', 'G', 'T'];
+const BASES: readonly Base[] = ['A', 'C', 'G', 'U'];
 const START_Y = 60;
 const CAMERA_PLAYER_LINE = 0.58;
 const CULL_MARGIN = 220;
@@ -160,6 +162,7 @@ function difficultyForHeight(height: number): number {
 }
 
 function platformKind(state: GameState): PlatformKind {
+  if (state.nextPlatformY < 550) return 'static';
   const d = state.difficulty;
   const roll = random(state);
   if (roll < 0.1 + d * 0.08) return 'moving';
@@ -281,6 +284,8 @@ export function createGame(seed = 1): GameState {
     lastPlatformX: 126,
     lastPlatformWidth: 104,
     lastEvent: 'none',
+    pickupStreak: 0,
+    lastPickupAt: -10,
   };
   populateAhead(state);
   return state;
@@ -393,7 +398,9 @@ function collectEntities(state: GameState): void {
       collectible.collected = true;
       state.sequence.push(collectible.base);
       if (state.sequence.length > 16) state.sequence.shift();
-      state.bonus += 25;
+      state.pickupStreak = state.time - state.lastPickupAt <= 3 ? Math.min(5, state.pickupStreak + 1) : 1;
+      state.lastPickupAt = state.time;
+      state.bonus += 25 + (state.pickupStreak - 1) * 5;
       state.lastEvent = 'collect';
     }
   }

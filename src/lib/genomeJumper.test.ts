@@ -22,6 +22,20 @@ const advance = (state: ReturnType<typeof createGame>, seconds: number) => {
 };
 
 describe('game setup and determinism', () => {
+  it('caps a quick ribonucleotide pickup streak at a 45-point pickup', () => {
+    const game = createGame(42);
+    start(game);
+    game.enemies = [];
+    game.collectibles = Array.from({ length: 7 }, (_, i) => ({ id: 100 + i, x: game.player.x, y: game.player.y + game.player.height * .52, base: 'A' as const, collected: false }));
+    step(game, 0);
+    expect(game.bonus).toBe(265);
+  });
+  it('generates ribonucleotides including uracil, never thymine', () => {
+    const bases = new Set<string>();
+    for (let seed = 1; seed <= 30; seed++) for (const item of createGame(seed).collectibles) bases.add(item.base);
+    expect(bases.has('U')).toBe(true);
+    expect(bases.has('T')).toBe(false);
+  });
   it('creates a ready game with a safe starting runway', () => {
     const game = createGame(42);
     expect(game.status).toBe('ready');
@@ -86,7 +100,7 @@ describe('state transitions', () => {
     const game = createGame(1);
     start(game);
     game.bonus = 999;
-    game.sequence.push('T');
+    game.sequence.push('U');
     reset(game, 55);
     expect(game.status).toBe('ready');
     expect(game.seed).toBe(55);
