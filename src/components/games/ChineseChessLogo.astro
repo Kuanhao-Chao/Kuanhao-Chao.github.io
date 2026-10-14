@@ -1,210 +1,39 @@
 ---
+import GameIconFrame from './GameIconFrame.astro';
 interface Props {
   size?: number;
   class?: string;
 }
-
 const { size = 64, class: className = '' } = Astro.props;
 ---
 
-<svg
-  xmlns="http://www.w3.org/2000/svg"
-  viewBox="0 0 100 100"
-  width={size}
-  height={size}
-  class:list={['chinese-chess-logo', className]}
-  role="img"
-  aria-label="Chinese Chess Logo — Traditional Xiangqi masterwork board with 3D lacquer Red 帥 and Black 將 pieces facing across the Chu River"
+<GameIconFrame
+  size={size}
+  class={`chinese-chess-logo ${className}`}
+  label="Chinese Chess — red and black lacquer Xiangqi pieces"
+  accent="#a35048"
 >
-  <defs>
-    <!-- Background Board Rich Rosewood Grain -->
-    <radialGradient id="cc-board-grad" cx="45%" cy="40%" r="60%">
-      <stop offset="0%" stop-color="#fffbeb" />
-      <stop offset="35%" stop-color="#fef3c7" />
-      <stop offset="70%" stop-color="#fde68a" />
-      <stop offset="90%" stop-color="#d97706" />
-      <stop offset="100%" stop-color="#92400e" />
-    </radialGradient>
-
-    <!-- Red General Piece 3D Lacquer Gradient -->
-    <radialGradient id="cc-red-piece" cx="35%" cy="30%" r="65%">
-      <stop offset="0%" stop-color="#fecdd3" />
-      <stop offset="35%" stop-color="#ef4444" />
-      <stop offset="75%" stop-color="#b91c1c" />
-      <stop offset="100%" stop-color="#450a0a" />
-    </radialGradient>
-
-    <!-- Black General Piece 3D Ebony Lacquer Gradient -->
-    <radialGradient id="cc-black-piece" cx="35%" cy="30%" r="65%">
-      <stop offset="0%" stop-color="#64748b" />
-      <stop offset="40%" stop-color="#1e293b" />
-      <stop offset="85%" stop-color="#0f172a" />
-      <stop offset="100%" stop-color="#020617" />
-    </radialGradient>
-
-    <!-- 24K Gold Foil Calligraphy Inlay Gradient -->
-    <linearGradient id="cc-gold-foil" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ffffff" />
-      <stop offset="25%" stop-color="#fef08a" />
-      <stop offset="65%" stop-color="#fbbf24" />
-      <stop offset="100%" stop-color="#d97706" />
-    </linearGradient>
-
-    <!-- Jade River Water Ribbon -->
-    <linearGradient id="cc-river-flow" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#0284c7" stop-opacity="0.08" />
-      <stop offset="50%" stop-color="#0ea5e9" stop-opacity="0.32" />
-      <stop offset="100%" stop-color="#0284c7" stop-opacity="0.08" />
-    </linearGradient>
-
-    <!-- Drop Shadow Filters -->
-    <filter id="cc-shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="1.5" dy="3" stdDeviation="2.5" flood-color="#000000" flood-opacity="0.45" />
-    </filter>
-
-    <filter id="cc-piece-glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="2.5" stdDeviation="3" flood-color="#b91c1c" flood-opacity="0.45" />
-    </filter>
-  </defs>
-
-  <!-- 1. Outer Circular Masterwork Wooden Medallion Board -->
-  <circle
-    cx="50"
-    cy="50"
-    r="47"
-    fill="url(#cc-board-grad)"
-    stroke="#78350f"
-    stroke-width="2.5"
-  />
-
-  <!-- Traditional Decorative Inner Board Ring -->
-  <circle
-    cx="50"
-    cy="50"
-    r="43"
-    fill="none"
-    stroke="#b45309"
-    stroke-width="1.1"
-    stroke-dasharray="3, 2"
-    opacity="0.8"
-  />
-
-  <!-- 2. Authentic Chinese Chess Board Grid Lines -->
-  <g stroke="#92400e" stroke-width="0.95" opacity="0.7">
-    <!-- Horizontal Ranks -->
-    <line x1="14" y1="26" x2="86" y2="26" />
-    <line x1="14" y1="38" x2="86" y2="38" />
-    <line x1="14" y1="62" x2="86" y2="62" />
-    <line x1="14" y1="74" x2="86" y2="74" />
-
-    <!-- Vertical Files -->
-    <line x1="26" y1="14" x2="26" y2="86" />
-    <line x1="38" y1="14" x2="38" y2="44" />
-    <line x1="38" y1="56" x2="38" y2="86" />
-    <line x1="62" y1="14" x2="62" y2="44" />
-    <line x1="62" y1="56" x2="62" y2="86" />
-    <line x1="74" y1="14" x2="74" y2="86" />
-
-    <!-- Red & Black Palace Diagonal Crosses (九宮斜線) -->
-    <line x1="38" y1="14" x2="62" y2="38" stroke-dasharray="1.5, 1.5" />
-    <line x1="62" y1="14" x2="38" y2="38" stroke-dasharray="1.5, 1.5" />
-    <line x1="38" y1="62" x2="62" y2="86" stroke-dasharray="1.5, 1.5" />
-    <line x1="62" y1="62" x2="38" y2="86" stroke-dasharray="1.5, 1.5" />
-  </g>
-
-  <!-- 3. Chu River / Han Border (楚河 · 漢界) River Wave Ribbon -->
-  <rect x="12" y="44" width="76" height="12" fill="url(#cc-river-flow)" rx="2" />
   <path
-    d="M 16 50 Q 28 47 40 50 T 64 50 T 84 50"
-    fill="none"
-    stroke="#0284c7"
-    stroke-width="1.2"
-    opacity="0.45"
-  />
-
-  <!-- Traditional Star Point Markers (十字星位) -->
-  <g stroke="#92400e" stroke-width="0.9" opacity="0.85">
-    <path d="M 24 36 L 24 37 L 25 37 M 28 36 L 28 37 L 27 37" />
-    <path d="M 72 36 L 72 37 L 73 37 M 76 36 L 76 37 L 75 37" />
-  </g>
-
-  <!-- 4. Black General Piece (將) - Top-Left Shadowed Disc -->
-  <g transform="translate(34, 35)" filter="url(#cc-shadow)">
-    <!-- 3D Beveled Outer Rim -->
-    <circle cx="0" cy="0" r="18" fill="#090d16" stroke="#475569" stroke-width="1.4" />
-    <circle cx="0" cy="0" r="16.5" fill="url(#cc-black-piece)" />
-    <!-- Inner Engraving Groove Ring -->
-    <circle cx="0" cy="0" r="13" fill="none" stroke="#94a3b8" stroke-width="0.8" opacity="0.65" />
-    <!-- Specular Highlight Arc -->
-    <path
-      d="M -11 -8 A 14 14 0 0 1 8 -11"
-      fill="none"
-      stroke="#ffffff"
-      stroke-width="1.3"
-      stroke-linecap="round"
-      opacity="0.5"
-    />
-    <!-- Chinese Calligraphy Character 將 -->
-    <text
-      x="0"
-      y="5.5"
-      font-family="'Kaiti', 'STKaiti', 'KaiTi_GB2312', 'Songti SC', 'SimSun', serif"
-      font-size="15"
-      font-weight="900"
-      fill="#f1f5f9"
-      text-anchor="middle"
-      letter-spacing="0"
-    >將</text>
-  </g>
-
-  <!-- 5. Red General Piece (帥) - Foreground Glowing Disc -->
-  <g transform="translate(62, 62)" filter="url(#cc-piece-glow)">
-    <!-- Outer 3D Bevel Shadow & Rim -->
-    <circle cx="0" cy="0" r="21" fill="#450a0a" stroke="#fbbf24" stroke-width="1.6" />
-    <circle cx="0" cy="0" r="19.2" fill="url(#cc-red-piece)" />
-    <!-- Inner Lacquer Gold Inlay Ring -->
-    <circle cx="0" cy="0" r="15" fill="none" stroke="#fef08a" stroke-width="1.1" opacity="0.9" />
-    <!-- Specular Reflection Highlight -->
-    <path
-      d="M -13 -10 A 16 16 0 0 1 10 -13"
-      fill="none"
-      stroke="#ffffff"
-      stroke-width="1.6"
-      stroke-linecap="round"
-      opacity="0.65"
-    />
-    <!-- Chinese Calligraphy Character 帥 in Brilliant Gold -->
-    <text
-      x="0"
-      y="6.5"
-      font-family="'Kaiti', 'STKaiti', 'KaiTi_GB2312', 'Songti SC', 'SimSun', serif"
-      font-size="17.5"
-      font-weight="900"
-      fill="url(#cc-gold-foil)"
-      stroke="#7f1d1d"
-      stroke-width="0.35"
-      text-anchor="middle"
-      letter-spacing="0"
-    >帥</text>
-  </g>
-
-  <!-- Dynamic Strategic Clash Spark Sparkle -->
-  <circle cx="48" cy="48" r="2" fill="#fbbf24" opacity="0.95" />
-  <path d="M 48 42 L 48 54 M 42 48 L 54 48" stroke="#fef08a" stroke-width="0.9" opacity="0.85" />
-</svg>
-
-<style>
-  .chinese-chess-logo {
-    display: inline-block;
-    flex-shrink: 0;
-    vertical-align: middle;
-    filter: drop-shadow(0 4px 12px rgba(185, 28, 28, 0.25));
-    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.25s ease;
-  }
-
-  :global(.tool:hover) .chinese-chess-logo,
-  .chinese-chess-logo:hover {
-    transform: translateY(-2px) scale(1.06);
-    filter: drop-shadow(0 6px 20px rgba(220, 38, 38, 0.45));
-  }
-</style>
+    d="M18 27 H82 M18 46 H82 M18 65 H82 M26 20 V80 M50 20 V80 M74 20 V80"
+    stroke="var(--gi-mid)"
+    stroke-width="1.5"
+    opacity=".55"></path>
+  <ellipse cx="66" cy="35" rx="19" ry="18" fill="var(--gi-deep)"></ellipse>
+  <circle cx="66" cy="31" r="19" fill="var(--gi-accent)" stroke="#bda27a" stroke-width="2"></circle>
+  <circle cx="66" cy="31" r="14" fill="none" stroke="#bda27a" stroke-width="1.5"></circle>
+  <path d="M57 26 H75 M61 22 V40 M71 22 V40 M56 35 H76" stroke="#dcc69d" stroke-width="2.5"></path>
+  <ellipse cx="41" cy="64" rx="26" ry="25" fill="#1e2e35"></ellipse>
+  <circle cx="41" cy="58" r="26" fill="#34464e" stroke="#1e2e35" stroke-width="2.5"></circle>
+  <circle cx="41" cy="58" r="21" fill="none" stroke="#e2bd8d" stroke-width="1.5"></circle>
+  <path d="M25 44 Q30 37 40 37" stroke="#f3d9b4" stroke-width="2.5" opacity=".65" fill="none"
+  ></path>
+  <text
+    x="41"
+    y="69"
+    text-anchor="middle"
+    fill="#fae7c4"
+    font-size="30"
+    font-family="serif"
+    font-weight="700">將</text
+  >
+</GameIconFrame>
