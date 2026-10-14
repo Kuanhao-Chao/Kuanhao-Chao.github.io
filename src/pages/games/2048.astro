@@ -1,5 +1,6 @@
 ---
 import PageLayout from '../../layouts/PageLayout.astro';
+import GameTools from '../../components/games/GameTools.astro';
 import Game2048Logo from '../../components/games/Game2048Logo.astro';
 import { site } from '../../data/site';
 
@@ -28,7 +29,8 @@ const gameLd = {
 >
   <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
 
-  <section class="g2048" data-game-2048-root aria-label="2048 sliding tile puzzle">
+  <section class="g2048" data-game-root data-game-2048-root aria-label="2048 sliding tile puzzle">
+    <GameTools />
     <!-- Header Medallion Card -->
     <div class="g2048-header-card">
       <Game2048Logo size={58} />

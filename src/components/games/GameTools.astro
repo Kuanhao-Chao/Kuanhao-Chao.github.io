@@ -1,0 +1,20 @@
+---
+import '../../styles/gameExperience.css';
+---
+<div class="game-tools" data-game-tools>
+  <span class="game-tools-label">Browser arcade · keyboard & touch</span>
+  <button type="button" data-game-focus aria-pressed="false">Focus view</button>
+  <button type="button" data-game-fullscreen>Fullscreen</button>
+  <span class="sr-only" data-game-announcement role="status" aria-live="polite"></span>
+</div>
+<script>
+  import { mountGameTools } from '../../scripts/gameExperience';
+  let dispose: (() => void) | undefined;
+  function mount() {
+    dispose?.();
+    dispose = mountGameTools(document);
+  }
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', () => { dispose?.(); dispose = undefined; });
+  mount();
+</script>

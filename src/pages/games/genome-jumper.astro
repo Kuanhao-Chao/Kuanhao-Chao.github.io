@@ -1,5 +1,6 @@
 ---
 import PageLayout from '../../layouts/PageLayout.astro';
+import GameTools from '../../components/games/GameTools.astro';
 import GenomeJumperLogo from '../../components/games/GenomeJumperLogo.astro';
 import { site } from '../../data/site';
 
@@ -29,6 +30,7 @@ const gameLd = {
   <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
 
   <section class="jumper" data-game-root aria-label="Genome Jumper game">
+    <GameTools />
     <div class="jumper-header-card">
       <GenomeJumperLogo size={58} />
       <div class="jumper-header-info">

@@ -1,5 +1,6 @@
 ---
 import PageLayout from '../../layouts/PageLayout.astro';
+import GameTools from '../../components/games/GameTools.astro';
 import Icon from '../../components/Icon.astro';
 import DinoRunLogo from '../../components/games/DinoRunLogo.astro';
 import { site } from '../../data/site';
@@ -30,6 +31,7 @@ const gameLd = {
   <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
 
   <section class="dino" data-game-root aria-label="Dino Run game">
+    <GameTools />
     <div class="dino-header-card">
       <DinoRunLogo size={58} />
       <div class="dino-header-info">

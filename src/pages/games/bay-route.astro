@@ -1,5 +1,6 @@
 ---
 import PageLayout from '../../layouts/PageLayout.astro';
+import GameTools from '../../components/games/GameTools.astro';
 import BayRouteLogo from '../../components/games/BayRouteLogo.astro';
 import { site } from '../../data/site';
 import { ALGORITHMS } from '../../lib/pathfinding';
@@ -70,9 +71,11 @@ const appLd = {
   <section
     class="br-container"
     data-br-root
+    data-game-root
     data-gmap-token={import.meta.env.PUBLIC_GOOGLE_MAPS_API_KEY || ''}
     aria-label="BayRoute Real-World Visualizer"
   >
+    <GameTools />
     <!-- Header Card -->
     <div class="br-header-card">
       <BayRouteLogo size={70} />
