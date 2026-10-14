@@ -10,27 +10,15 @@
  * - Full Astro client-router lifecycle management
  */
 
-import {
-  createEmptyGrid,
-  spawnRandomTile,
-  slideAndMerge,
-  hasMovesAvailable,
-  isGameWon,
-  createHistoryStack,
-  pushSnapshot,
-  popSnapshot,
-  clearHistory,
-  type BoardSize,
-  type Direction,
-  type HistoryStack,
-} from '../lib/game2048';
+import { create2048Game, move2048Game, undo2048Game, serialize2048Game, restore2048Game, type Game2048State, type BoardSize, type Direction, type MoveResult } from '../lib/game2048';
 
 const BEST_SCORE_KEY_PREFIX = 'khc_game_2048_best_';
 const SOUND_STORAGE_KEY = 'khc_game_2048_sound';
 
 class SoundSynth {
   private ctx: AudioContext | null = null;
-  enabled = true;
+  enabled = false;
+  destroy() { void this.ctx?.close().catch(() => {}); this.ctx = null; }
 
   init(): void {
     if (typeof window === 'undefined') return;
@@ -163,388 +151,242 @@ export interface Game2048Controller {
 
 export function initGame2048(root: HTMLElement | Document = document): Game2048Controller | null {
   const container = root.querySelector<HTMLElement>('[data-game-2048-root]');
-  if (!container) return null;
-
-  const gridEl = container.querySelector<HTMLElement>('[data-2048-grid]');
-  const scoreValEl = container.querySelector<HTMLElement>('[data-2048-score]');
-  const scoreAddEl = container.querySelector<HTMLElement>('[data-2048-score-add]');
-  const bestScoreValEl = container.querySelector<HTMLElement>('[data-2048-best]');
-  const undoBtn = container.querySelector<HTMLButtonElement>('[data-2048-undo]');
-  const restartBtn = container.querySelector<HTMLButtonElement>('[data-2048-restart]');
-  const soundToggleBtn = container.querySelector<HTMLButtonElement>('[data-2048-sound]');
-  const sizeBtns = container.querySelectorAll<HTMLButtonElement>('[data-2048-size]');
-  const overlayEl = container.querySelector<HTMLElement>('[data-2048-overlay]');
-  const overlayTitleEl = container.querySelector<HTMLElement>('[data-2048-overlay-title]');
-  const overlayMsgEl = container.querySelector<HTMLElement>('[data-2048-overlay-msg]');
-  const overlayActionBtn = container.querySelector<HTMLButtonElement>('[data-2048-overlay-btn]');
-
-  if (!gridEl) return null;
-
+  const gridEl = container?.querySelector<HTMLElement>('[data-2048-grid]');
+  if (!container || !gridEl || container.dataset.mounted) return null;
+  container.dataset.mounted = 'true';
+  const abort = new AbortController();
+  const listen = { signal: abort.signal };
+  const query = <T extends HTMLElement = HTMLElement>(name: string) => container.querySelector<T>(`[data-2048-${name}]`)!;
   const audio = new SoundSynth();
-  try {
-    const storedSound = window.localStorage.getItem(SOUND_STORAGE_KEY);
-    if (storedSound !== null) {
-      audio.enabled = storedSound === 'true';
-    }
-  } catch (_) {}
-  updateSoundIcon();
+  const motion = matchMedia('(prefers-reduced-motion: reduce)');
+  const read = (key: string) => { try { return localStorage.getItem(key); } catch { return null; } };
+  const write = (key: string, value: string) => { try { localStorage.setItem(key, value); } catch {} };
+  const requested = Number(read('khc_game_2048_size'));
+  let size: BoardSize = requested === 3 || requested === 5 ? requested : 4;
+  const seed = () => {
+    const raw = new URLSearchParams(location.search).get('seed');
+    return raw !== null && Number.isFinite(Number(raw)) ? Number(raw) : Date.now();
+  };
+  const saved = read(`khc_game_2048_active_${size}`);
+  let state: Game2048State = saved && restore2048Game(saved, size) || create2048Game(size, seed());
+  let paused = false;
+  let destroyed = false;
+  let busy = false;
+  let moveTimer = 0;
+  let pending: (() => void) | null = null;
+  let pointer: { id: number; x: number; y: number } | null = null;
+  let serial = 0;
+  const queue: Direction[] = [];
+  const cells: HTMLElement[] = [];
+  interface Tile { id: number; row: number; col: number; value: number; el: HTMLElement; }
+  let tiles: Tile[] = [];
+  const layer = document.createElement('div');
+  layer.className = 'g2048-tile-layer';
+  layer.setAttribute('aria-hidden', 'true');
+  audio.enabled = read(SOUND_STORAGE_KEY) === 'true';
 
-  let boardSize: BoardSize = 4;
-  let grid: number[][] = createEmptyGrid(boardSize);
-  let score = 0;
-  let isWon = false;
-  let isOver = false;
-  let keepPlaying = false;
-  let history: HistoryStack = createHistoryStack(20);
-  let activeOverlayHandler: (() => void) | null = null;
-
-  function getBestScore(): number {
-    try {
-      return parseInt(window.localStorage.getItem(`${BEST_SCORE_KEY_PREFIX}${boardSize}`) || '0', 10);
-    } catch (_) {
-      return 0;
-    }
+  function save() { write(`khc_game_2048_active_${size}`, serialize2048Game(state)); }
+  function status(message: string) { query('status').textContent = message; }
+  function hud() {
+    query('score').textContent = String(state.score);
+    const previous = Number(read(BEST_SCORE_KEY_PREFIX + size)) || 0;
+    const best = Math.max(previous, state.score);
+    if (best > previous) write(BEST_SCORE_KEY_PREFIX + size, String(best));
+    query('best').textContent = String(best);
+    query<HTMLButtonElement>('undo').disabled = !state.history.snapshots.length;
+    query('undo').classList.toggle('is-disabled', !state.history.snapshots.length);
+    query('pause').textContent = paused ? 'Resume' : 'Pause';
+    query('pause').setAttribute('aria-pressed', String(paused));
+    query('sound').setAttribute('aria-pressed', String(audio.enabled));
+    query('sound').setAttribute('aria-label', audio.enabled ? 'Mute sound' : 'Enable sound');
+    query('sound').title = audio.enabled ? 'Sound on' : 'Sound off';
+    query('sound').classList.toggle('is-muted', !audio.enabled);
+    container!.querySelectorAll<HTMLElement>('[data-2048-size]').forEach(button => {
+      const active = Number(button.dataset.boardSize) === size;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+    cells.forEach((cell, index) => {
+      const row = Math.floor(index / size), col = index % size, value = state.grid[row][col];
+      cell.setAttribute('aria-label', `Row ${row + 1}, column ${col + 1}: ${value || 'empty'}`);
+    });
+    gridEl!.setAttribute('aria-label', `${size} by ${size} board. Score ${state.score}. Largest tile ${Math.max(...state.grid.flat())}.`);
   }
-
-  function setBestScore(newScore: number): void {
-    try {
-      const current = getBestScore();
-      if (newScore > current) {
-        window.localStorage.setItem(`${BEST_SCORE_KEY_PREFIX}${boardSize}`, newScore.toString());
+  function overlay() {
+    const win = state.isWon && !state.keepPlaying;
+    const show = paused || win || state.isOver;
+    query('overlay').hidden = !show;
+    query('overlay').classList.toggle('is-active', show);
+    query('overlay-title').textContent = paused ? 'Paused' : win ? '2048 reached!' : 'No moves left';
+    query('overlay-msg').textContent = paused ? 'Your board is saved. Resume when you are ready.' : win ? 'Keep going, or undo to explore another move.' : 'Try undo, or start a fresh board.';
+    query('overlay-btn').textContent = paused ? 'Resume' : win ? 'Keep Going' : 'New Game';
+    if (win || state.isOver) queue.length = 0;
+  }
+  function place(tile: Tile, animate = false) {
+    const cell = cells[tile.row * size + tile.col];
+    if (!cell) return;
+    const board = gridEl!.getBoundingClientRect(), box = cell.getBoundingClientRect();
+    tile.el.style.transition = animate && !motion.matches ? 'transform 135ms cubic-bezier(.22,.7,.25,1)' : 'none';
+    tile.el.style.width = `${box.width}px`;
+    tile.el.style.height = `${box.height}px`;
+    tile.el.style.transform = `translate(${box.left - board.left}px, ${box.top - board.top}px)`;
+  }
+  const palette = [
+    ['#eae8dc', '#223b39'], ['#b9d8c4', '#183c34'], ['#67b9aa', '#123d37'],
+    ['#286f70', '#ffffff'], ['#255470', '#ffffff'], ['#293e63', '#ffffff'],
+    ['#715b94', '#ffffff'], ['#794065', '#ffffff'], ['#a44332', '#ffffff'],
+    ['#b97432', '#211b15'], ['#dfb452', '#302b1a'], ['#92394e', '#ffffff'],
+  ];
+  function addTile(row: number, col: number, value: number, effect = '', parents: number[] = []) {
+    const el = document.createElement('div');
+    const id = ++serial;
+    el.className = 'g2048-tile';
+    el.dataset.tileId = String(id);
+    if (parents.length) el.dataset.parents = parents.join(',');
+    const face = document.createElement('div');
+    face.className = `g2048-tile-face ${motion.matches ? '' : effect}`;
+    face.textContent = String(value);
+    const [color, ink] = palette[Math.min(palette.length - 1, Math.max(0, Math.log2(value) - 1))];
+    face.style.setProperty('--tile-color', color);
+    face.style.setProperty('--tile-ink', ink);
+    if (value >= 1024) face.classList.add('is-compact');
+    el.append(face); layer.append(el);
+    const tile = { id, row, col, value, el };
+    tiles.push(tile); place(tile);
+    return tile;
+  }
+  function rebuild() {
+    clearTimeout(moveTimer); pending = null; busy = false; queue.length = 0;
+    gridEl!.replaceChildren(); cells.length = 0; tiles = [];
+    gridEl!.style.setProperty('--grid-size', String(size));
+    gridEl!.setAttribute('aria-rowcount', String(size));
+    gridEl!.setAttribute('aria-colcount', String(size));
+    for (let row = 0; row < size; row++) for (let col = 0; col < size; col++) {
+      const cell = document.createElement('div');
+      cell.className = 'g2048-cell'; cell.setAttribute('role', 'gridcell');
+      cell.setAttribute('aria-rowindex', String(row + 1)); cell.setAttribute('aria-colindex', String(col + 1));
+      gridEl!.append(cell); cells.push(cell);
+    }
+    layer.replaceChildren(); gridEl!.append(layer);
+    state.grid.forEach((row, r) => row.forEach((value, c) => { if (value) addTile(r, c, value); }));
+    hud(); overlay();
+  }
+  function settle() {
+    clearTimeout(moveTimer);
+    const finish = pending; pending = null;
+    finish?.();
+  }
+  function animate(move: MoveResult, spawned: [number, number] | null) {
+    const before = new Map(tiles.map(tile => [`${tile.row},${tile.col}`, tile]));
+    for (const journey of move.movements) {
+      const tile = before.get(journey.from.join(','));
+      if (!tile) continue;
+      tile.row = journey.to[0]; tile.col = journey.to[1]; place(tile, true);
+    }
+    busy = true;
+    pending = () => {
+      if (destroyed) return;
+      for (const merge of move.merges) {
+        const sources = merge.sources.map(source => before.get(source.join(','))!);
+        for (const source of sources) { source.el.remove(); tiles = tiles.filter(tile => tile !== source); }
+        addTile(merge.to[0], merge.to[1], merge.value, 'is-merged', sources.map(tile => tile.id));
       }
-    } catch (_) {}
-  }
-
-  function updateSoundIcon(): void {
-    if (!soundToggleBtn) return;
-    soundToggleBtn.setAttribute('aria-pressed', (!audio.enabled).toString());
-    soundToggleBtn.classList.toggle('is-muted', !audio.enabled);
-    soundToggleBtn.title = audio.enabled ? 'Mute sound FX' : 'Enable sound FX';
-    const path = soundToggleBtn.querySelector('path:last-child');
-    if (path) {
-      path.setAttribute('stroke', audio.enabled ? 'currentColor' : '#ef4444');
-    }
-  }
-
-  function renderGrid(mergedTiles: [number, number][] = [], spawnedTile: [number, number] | null = null): void {
-    if (!gridEl) return;
-    gridEl.style.setProperty('--grid-size', boardSize.toString());
-    gridEl.replaceChildren();
-
-    const mergedSet = new Set(mergedTiles.map(([r, c]) => `${r},${c}`));
-
-    for (let r = 0; r < boardSize; r++) {
-      for (let c = 0; c < boardSize; c++) {
-        const val = grid[r][c];
-        const cell = document.createElement('div');
-        cell.className = 'g2048-cell';
-
-        if (val > 0) {
-          const tile = document.createElement('div');
-          const isMerged = mergedSet.has(`${r},${c}`);
-          const isSpawned = spawnedTile && spawnedTile[0] === r && spawnedTile[1] === c;
-
-          tile.className = `g2048-tile g2048-tile--${val > 2048 ? 'super' : val}`;
-          if (isMerged) tile.classList.add('is-merged');
-          if (isSpawned) tile.classList.add('is-new');
-
-          tile.textContent = val.toString();
-          if (val >= 1024) tile.classList.add('is-compact');
-          if (val >= 16384) tile.classList.add('is-tiny');
-
-          cell.appendChild(tile);
-        }
-
-        gridEl.appendChild(cell);
-      }
-    }
-
-    if (scoreValEl) scoreValEl.textContent = score.toString();
-    if (bestScoreValEl) bestScoreValEl.textContent = Math.max(score, getBestScore()).toString();
-    if (undoBtn) {
-      undoBtn.disabled = history.snapshots.length === 0;
-      undoBtn.classList.toggle('is-disabled', history.snapshots.length === 0);
-    }
-  }
-
-  function hideOverlay(): void {
-    if (!overlayEl) return;
-    overlayEl.hidden = true;
-    overlayEl.classList.remove('is-active');
-    if (overlayActionBtn && activeOverlayHandler) {
-      overlayActionBtn.removeEventListener('click', activeOverlayHandler);
-      activeOverlayHandler = null;
-    }
-  }
-
-  function showOverlay(title: string, msg: string, btnText: string, onAction: () => void): void {
-    if (!overlayEl || !overlayTitleEl || !overlayMsgEl || !overlayActionBtn) return;
-    hideOverlay();
-    overlayTitleEl.textContent = title;
-    overlayMsgEl.textContent = msg;
-    overlayActionBtn.textContent = btnText;
-    overlayEl.hidden = false;
-    overlayEl.classList.add('is-active');
-
-    activeOverlayHandler = () => {
-      hideOverlay();
-      onAction();
+      if (spawned) addTile(spawned[0], spawned[1], state.grid[spawned[0]][spawned[1]], 'is-new');
+      busy = false; overlay();
+      const next = queue.shift();
+      if (next && !paused) requestMove(next);
     };
-    overlayActionBtn.addEventListener('click', activeOverlayHandler, { once: true });
+    if (motion.matches) settle();
+    else moveTimer = window.setTimeout(settle, 145);
   }
-
-  function startNewGame(newSize: BoardSize = boardSize): void {
-    boardSize = newSize;
-    grid = createEmptyGrid(boardSize);
-    score = 0;
-    isWon = false;
-    isOver = false;
-    keepPlaying = false;
-    history = clearHistory(history);
-
-    hideOverlay();
-
-    // Spawn 2 initial tiles
-    const t1 = spawnRandomTile(grid);
-    grid = t1.grid;
-    const t2 = spawnRandomTile(grid);
-    grid = t2.grid;
-
-    sizeBtns.forEach((btn) => {
-      const s = parseInt(btn.dataset.boardSize || '4', 10);
-      const active = s === boardSize;
-      btn.classList.toggle('is-active', active);
-      btn.setAttribute('aria-pressed', active.toString());
-    });
-
-    renderGrid([], t2.spawned);
+  function requestMove(direction: Direction) {
+    if (destroyed || paused || state.isOver || state.isWon && !state.keepPlaying) return;
+    if (busy) { if (queue.length < 3) queue.push(direction); return; }
+    const result = move2048Game(state, direction);
+    if (!result.move.changed) { status('No tiles can slide in that direction.'); return; }
+    const wasWon = state.isWon;
+    state = result.state; save(); hud();
+    status(`Moved ${direction}.${result.move.scoreGain ? ` Merged for ${result.move.scoreGain} points.` : ''} Score ${state.score}.`);
+    if (result.move.scoreGain) audio.playMerge(Math.max(...result.move.merges.map(merge => merge.value)));
+    else audio.playSlide();
+    if (state.isWon && !wasWon) audio.playWin(); else if (state.isOver) audio.playGameOver();
+    animate(result.move, result.spawned);
   }
-
-  function handleMove(direction: Direction): void {
-    if (isOver) return;
-
-    // Save snapshot before move
-    history = pushSnapshot(history, {
-      grid,
-      score,
-      boardSize,
-      isWon,
-      isOver,
-    });
-
-    const res = slideAndMerge(grid, direction);
-    if (!res.changed) {
-      // Revert snapshot if nothing moved
-      popSnapshot(history);
-      return;
-    }
-
-    grid = res.grid;
-    score += res.scoreGain;
-    setBestScore(score);
-
-    // Audio cues & score addition animation
-    if (res.scoreGain > 0) {
-      if (scoreAddEl) {
-        scoreAddEl.textContent = `+${res.scoreGain}`;
-        scoreAddEl.classList.remove('is-floating');
-        void scoreAddEl.offsetWidth; // trigger reflow to restart animation
-        scoreAddEl.classList.add('is-floating');
-      }
-      let maxMerged = 4;
-      for (const [r, c] of res.mergedPositions) {
-        if (grid[r][c] > maxMerged) maxMerged = grid[r][c];
-      }
-      audio.playMerge(maxMerged);
-    } else {
-      audio.playSlide();
-    }
-
-    // Spawn next tile
-    const { grid: nextGrid, spawned } = spawnRandomTile(grid);
-    grid = nextGrid;
-
-    // Check Win condition
-    if (!isWon && !keepPlaying && isGameWon(grid, 2048)) {
-      isWon = true;
-      audio.playWin();
-      renderGrid(res.mergedPositions, spawned);
-      showOverlay('You Reached 2048!', 'Outstanding victory! Continue playing for higher tiles or restart?', 'Keep Going', () => {
-        keepPlaying = true;
-      });
-      return;
-    }
-
-    // Check Loss condition
-    if (!hasMovesAvailable(grid)) {
-      isOver = true;
-      audio.playGameOver();
-      renderGrid(res.mergedPositions, spawned);
-      showOverlay('Game Over', `No more valid moves! Final score: ${score}`, 'Try Again', () => {
-        startNewGame(boardSize);
-      });
-      return;
-    }
-
-    renderGrid(res.mergedPositions, spawned);
+  function setPaused(value: boolean) {
+    pointer = null; queue.length = 0; paused = value; settle(); hud(); overlay();
+    status(paused ? 'Paused. Your board is saved.' : 'Ready. Swipe, use the arrows, or focus the board and use your keyboard.');
   }
-
-  function handleUndo(): void {
-    if (history.snapshots.length === 0) return;
-    const { stack, restored } = popSnapshot(history);
-    history = stack;
-    if (!restored) return;
-
-    grid = restored.grid;
-    score = restored.score;
-    boardSize = restored.boardSize;
-    isWon = restored.isWon;
-    isOver = false;
-
-    hideOverlay();
-    audio.playSlide();
-    renderGrid();
+  function newGame(nextSize = size) {
+    size = nextSize; state = create2048Game(size, seed()); paused = false; pointer = null;
+    write('khc_game_2048_size', String(size)); save(); rebuild();
+    status('New board. Each successful move adds one random 2 or 4 tile.');
   }
-
-  // --- Keyboard Handler ---
-  function onKeyDown(e: KeyboardEvent): void {
-    if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) return;
-    if (e.metaKey || e.altKey || e.ctrlKey) {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
-        e.preventDefault();
-        handleUndo();
-      }
-      return;
-    }
-
-    let dir: Direction | null = null;
-    switch (e.key) {
-      case 'ArrowUp':
-      case 'w':
-      case 'W':
-        dir = 'up';
-        break;
-      case 'ArrowDown':
-      case 's':
-      case 'S':
-        dir = 'down';
-        break;
-      case 'ArrowLeft':
-      case 'a':
-      case 'A':
-        dir = 'left';
-        break;
-      case 'ArrowRight':
-      case 'd':
-      case 'D':
-        dir = 'right';
-        break;
-      case 'u':
-      case 'U':
-        e.preventDefault();
-        handleUndo();
-        return;
-      case 'r':
-      case 'R':
-        e.preventDefault();
-        startNewGame();
-        return;
-    }
-
-    if (dir) {
-      e.preventDefault();
-      handleMove(dir);
-    }
+  function undo() {
+    pointer = null; queue.length = 0; clearTimeout(moveTimer); pending = null; busy = false;
+    state = undo2048Game(state); save(); rebuild(); status('Undid one move, including its random spawn.');
   }
-
-  // --- Touch Gesture Handler ---
-  let touchStartX = 0;
-  let touchStartY = 0;
-  const MIN_SWIPE_DISTANCE = 20;
-
-  function onTouchStart(e: TouchEvent): void {
-    if (e.touches.length !== 1) return;
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
+  query('undo').addEventListener('click', undo, listen);
+  query('restart').addEventListener('click', () => newGame(), listen);
+  query('pause').addEventListener('click', () => setPaused(!paused), listen);
+  query('sound').addEventListener('click', () => {
+    audio.enabled = !audio.enabled; write(SOUND_STORAGE_KEY, String(audio.enabled)); if (audio.enabled) audio.init(); hud();
+  }, listen);
+  query('overlay-btn').addEventListener('click', () => {
+    if (paused) setPaused(false);
+    else if (state.isWon && !state.keepPlaying) { state = { ...state, keepPlaying: true }; save(); overlay(); status('Continuing beyond 2048.'); }
+    else newGame();
+    gridEl!.focus({ preventScroll: true });
+  }, listen);
+  container.querySelectorAll<HTMLElement>('[data-2048-size]').forEach(button => button.addEventListener('click', () => {
+    const next = Number(button.dataset.boardSize) as BoardSize;
+    if (next === size) return;
+    save(); size = next;
+    const raw = read(`khc_game_2048_active_${size}`);
+    state = raw && restore2048Game(raw, size) || create2048Game(size, seed());
+    paused = false; pointer = null; write('khc_game_2048_size', String(size)); save(); rebuild();
+    status(`${size} by ${size} board. Each board size keeps a separate saved game.`);
+  }, listen));
+  container.querySelectorAll<HTMLElement>('[data-2048-btn]').forEach(button =>
+    button.addEventListener('click', () => requestMove(button.dataset['2048Btn'] as Direction), listen));
+  container.addEventListener('keydown', event => {
+    if ((event.target as HTMLElement).closest('input,select,textarea,[contenteditable="true"]')) return;
+    const directions: Record<string, Direction> = { ArrowUp: 'up', w: 'up', ArrowDown: 'down', s: 'down', ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right' };
+    const direction = directions[event.key] || directions[event.key.toLowerCase()];
+    if (direction) { event.preventDefault(); requestMove(direction); }
+    else if (event.key.toLowerCase() === 'u' || (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); undo(); }
+    else if (event.key.toLowerCase() === 'r') { event.preventDefault(); newGame(); }
+  }, listen);
+  gridEl.addEventListener('pointerdown', event => {
+    if (pointer || event.button !== 0 || paused) return;
+    gridEl!.focus({ preventScroll: true }); pointer = { id: event.pointerId, x: event.clientX, y: event.clientY };
+    gridEl!.setPointerCapture(event.pointerId);
+  }, listen);
+  gridEl.addEventListener('pointerup', event => {
+    if (!pointer || pointer.id !== event.pointerId) return;
+    const dx = event.clientX - pointer.x, dy = event.clientY - pointer.y;
+    pointer = null;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+    requestMove(Math.abs(dx) > Math.abs(dy) ? dx > 0 ? 'right' : 'left' : dy > 0 ? 'down' : 'up');
+  }, listen);
+  const cancel = () => { pointer = null; };
+  gridEl.addEventListener('pointercancel', cancel, listen);
+  gridEl.addEventListener('lostpointercapture', cancel, listen);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) setPaused(true); }, listen);
+  window.addEventListener('blur', () => setPaused(true), listen);
+  motion.addEventListener('change', () => { queue.length = 0; settle(); tiles.forEach(tile => place(tile)); }, listen);
+  const resize = new ResizeObserver(() => { queue.length = 0; settle(); tiles.forEach(tile => place(tile)); });
+  resize.observe(gridEl);
+  rebuild(); save(); status(saved ? 'Saved board restored. Undo history is preserved.' : 'Ready. Swipe or focus the board and use arrow keys.');
+  const debugWindow = window as typeof window & { __game2048?: typeof api; __game2048Instances?: number };
+  const api = { state: () => structuredClone(state), destroy };
+  debugWindow.__game2048 = api;
+  debugWindow.__game2048Instances = (debugWindow.__game2048Instances || 0) + 1;
+  function destroy() {
+    if (destroyed) return;
+    destroyed = true; save(); clearTimeout(moveTimer); pending = null; queue.length = 0; pointer = null;
+    abort.abort(); resize.disconnect(); audio.destroy(); delete container!.dataset.mounted;
+    if (debugWindow.__game2048 === api) delete debugWindow.__game2048;
+    debugWindow.__game2048Instances = Math.max(0, (debugWindow.__game2048Instances || 1) - 1);
   }
-
-  function onTouchMove(e: TouchEvent): void {
-    if (e.touches.length === 1) {
-      // Prevent screen scrolling when user swipes over the 2048 grid
-      e.preventDefault();
-    }
-  }
-
-  function onTouchEnd(e: TouchEvent): void {
-    if (e.changedTouches.length !== 1) return;
-    const dx = e.changedTouches[0].clientX - touchStartX;
-    const dy = e.changedTouches[0].clientY - touchStartY;
-    const absX = Math.abs(dx);
-    const absY = Math.abs(dy);
-
-    if (Math.max(absX, absY) < MIN_SWIPE_DISTANCE) return;
-
-    if (absX > absY) {
-      handleMove(dx > 0 ? 'right' : 'left');
-    } else {
-      handleMove(dy > 0 ? 'down' : 'up');
-    }
-  }
-
-  // --- Directional Button Handlers (Mobile) ---
-  const dirButtons = container.querySelectorAll<HTMLButtonElement>('[data-2048-btn]');
-  const dirListeners: { btn: HTMLButtonElement; fn: () => void }[] = [];
-  dirButtons.forEach((btn) => {
-    const dir = btn.getAttribute('data-2048-btn') as Direction | null;
-    if (dir) {
-      const fn = () => handleMove(dir);
-      btn.addEventListener('click', fn);
-      dirListeners.push({ btn, fn });
-    }
-  });
-
-  // --- Event Listeners Attachment ---
-  window.addEventListener('keydown', onKeyDown);
-  gridEl.addEventListener('touchstart', onTouchStart, { passive: true });
-  gridEl.addEventListener('touchmove', onTouchMove, { passive: false });
-  gridEl.addEventListener('touchend', onTouchEnd, { passive: true });
-
-  const onUndoClick = () => handleUndo();
-  const onRestartClick = () => startNewGame();
-  const onSoundClick = () => {
-    audio.enabled = !audio.enabled;
-    try {
-      window.localStorage.setItem(SOUND_STORAGE_KEY, audio.enabled.toString());
-    } catch (_) {}
-    updateSoundIcon();
-  };
-
-  undoBtn?.addEventListener('click', onUndoClick);
-  restartBtn?.addEventListener('click', onRestartClick);
-  soundToggleBtn?.addEventListener('click', onSoundClick);
-
-  const sizeListeners: { btn: HTMLButtonElement; fn: () => void }[] = [];
-  sizeBtns.forEach((btn) => {
-    const s = parseInt(btn.dataset.boardSize || '4', 10) as BoardSize;
-    const fn = () => startNewGame(s);
-    btn.addEventListener('click', fn);
-    sizeListeners.push({ btn, fn });
-  });
-
-  // Start initial game
-  startNewGame(4);
-
-  return {
-    destroy: () => {
-      window.removeEventListener('keydown', onKeyDown);
-      gridEl.removeEventListener('touchstart', onTouchStart);
-      gridEl.removeEventListener('touchmove', onTouchMove);
-      gridEl.removeEventListener('touchend', onTouchEnd);
-      undoBtn?.removeEventListener('click', onUndoClick);
-      restartBtn?.removeEventListener('click', onRestartClick);
-      soundToggleBtn?.removeEventListener('click', onSoundClick);
-      sizeListeners.forEach(({ btn, fn }) => btn.removeEventListener('click', fn));
-      dirListeners.forEach(({ btn, fn }) => btn.removeEventListener('click', fn));
-    },
-  };
+  return { destroy };
 }
