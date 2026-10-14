@@ -233,7 +233,11 @@ export function initChineseChess() {
     render();
   }
 
-  const ro = new ResizeObserver(() => resize());
+  let resizeFrame = 0;
+  const ro = new ResizeObserver(() => {
+    cancelAnimationFrame(resizeFrame);
+    resizeFrame = requestAnimationFrame(resize);
+  });
   ro.observe(canvas);
 
   /** Maps board (x, y) to screen canvas (pxX, pxY). */
@@ -1039,6 +1043,9 @@ export function initChineseChess() {
     suggestedHint = null;
     updateHud();
     render();
+    // Undoing the AI's opening as Black returns to an AI-owned turn.
+    // Schedule a fresh, revision-guarded search instead of leaving the board inert.
+    if (mode === 'pve' && game.turn !== playerSide && !['checkmate', 'stalemate', 'draw'].includes(game.status)) scheduleAIMove();
   };
 
   const onHint = () => {
@@ -1140,7 +1147,7 @@ export function initChineseChess() {
   function destroy() {
     if (disposed) return; disposed = true;
     cancelSearch(); cancelAnimationFrame(motionFrame); sfx.destroy(); delete root.dataset.ccReady;
-    ro.disconnect();
+    ro.disconnect(); cancelAnimationFrame(resizeFrame);
     document.removeEventListener('khc:theme-change', onThemeChange);
     themeObserver?.disconnect();
     canvas.removeEventListener('pointerdown', onPointerDown);

@@ -1,9 +1,8 @@
 /**
- * High-Density Full City Road Network Graph
+ * Curated San Francisco teaching graph
  *
- * Models an authentic, comprehensive road network of San Francisco and the
- * surrounding Bay Area corridors with hundreds of real intersections,
- * avenues, boulevards, one-ways, bridges, and freeway interchanges.
+ * Uses real place names and coordinates, but is neither complete road coverage
+ * nor a navigation/traffic service. Edge times are modeled from speed limits.
  */
 
 import type { BayGraph, BayNode, BayEdge, NodeType, RoadType, LatLngPoint } from './bayGraph';
@@ -42,7 +41,7 @@ export interface CityRoadGraph {
 let cachedCityGraph: CityRoadGraph | null = null;
 
 /**
- * Builds the comprehensive full city road network graph.
+ * Builds the curated city graph (the legacy public function name is retained).
  */
 export function buildFullCityRoadGraph(): CityRoadGraph {
   if (cachedCityGraph) return cachedCityGraph;

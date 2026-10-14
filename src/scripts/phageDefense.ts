@@ -9,6 +9,8 @@ import {
   placeTower,
   upgradeTower,
   sellTower,
+  getTowerUpgradeCost,
+  getTowerRefund,
   setTowerPriority,
   activateEmergencyAbility,
   canPlaceTower,
@@ -845,12 +847,8 @@ export function initPhageDefense(containerEl: HTMLElement) {
       if (selectedTower) {
         selectedTowerPanel.style.display = 'block';
         const def = TOWER_DEFINITIONS[selectedTower.type];
-        const cost = Math.round(def.cost * (selectedTower.level * 0.85));
-        const totalInvested =
-          def.cost +
-          (selectedTower.level > 1 ? def.cost * 0.85 : 0) +
-          (selectedTower.level > 2 ? def.cost * 1.7 : 0);
-        const refund = Math.round(totalInvested * 0.7);
+        const cost = getTowerUpgradeCost(selectedTower);
+        const refund = getTowerRefund(selectedTower);
 
         const nameEl = selectedTowerPanel.querySelector('[data-tower-info-name]');
         const lvlEl = selectedTowerPanel.querySelector('[data-tower-info-lvl]');

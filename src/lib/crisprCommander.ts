@@ -44,6 +44,8 @@ export interface ViralStrand {
 }
 
 export interface CleavedFragment {
+  endStyle: 'blunt' | 'staggered';
+  side: 'left' | 'right';
   id: string;
   sequence: string;
   x: number;
@@ -280,6 +282,8 @@ export function createDoubleStrandBreakFragments(
   const speed = 2.0 + randomFn() * 3.0;
 
   const f1: CleavedFragment = {
+    endStyle: strand.pamIndex === 0 ? 'staggered' : 'blunt',
+    side: 'left',
     id: `frag-${strand.id}-1`,
     sequence: seq1,
     x: px,
@@ -295,6 +299,8 @@ export function createDoubleStrandBreakFragments(
   };
 
   const f2: CleavedFragment = {
+    endStyle: strand.pamIndex === 0 ? 'staggered' : 'blunt',
+    side: 'right',
     id: `frag-${strand.id}-2`,
     sequence: seq2,
     x: px,

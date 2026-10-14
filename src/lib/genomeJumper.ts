@@ -114,6 +114,7 @@ export interface GameState {
   lastEvent: 'none' | 'jump' | 'spring' | 'jetpack' | 'collect' | 'shot' | 'enemy' | 'over';
   pickupStreak: number;
   lastPickupAt: number;
+  pickupEvents: Array<{ base: Base; points: number; x: number; y: number }>;
 }
 
 const BASES: readonly Base[] = ['A', 'C', 'G', 'U'];
@@ -286,6 +287,7 @@ export function createGame(seed = 1): GameState {
     lastEvent: 'none',
     pickupStreak: 0,
     lastPickupAt: -10,
+    pickupEvents: [],
   };
   populateAhead(state);
   return state;
@@ -400,7 +402,9 @@ function collectEntities(state: GameState): void {
       if (state.sequence.length > 16) state.sequence.shift();
       state.pickupStreak = state.time - state.lastPickupAt <= 3 ? Math.min(5, state.pickupStreak + 1) : 1;
       state.lastPickupAt = state.time;
-      state.bonus += 25 + (state.pickupStreak - 1) * 5;
+      const points = 25 + (state.pickupStreak - 1) * 5;
+      state.bonus += points;
+      state.pickupEvents.push({ base: collectible.base, points, x: collectible.x, y: collectible.y });
       state.lastEvent = 'collect';
     }
   }
@@ -487,6 +491,7 @@ export function step(state: GameState, dt: number): GameState {
   const frame = clamp(dt, 0, 1 / 30);
   state.time += frame;
   state.lastEvent = 'none';
+  state.pickupEvents = [];
   state.shotCooldown = Math.max(0, state.shotCooldown - frame);
 
   const targetVx = state.steering * PHYSICS.maxHorizontalSpeed;

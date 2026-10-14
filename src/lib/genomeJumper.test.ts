@@ -22,6 +22,14 @@ const advance = (state: ReturnType<typeof createGame>, seconds: number) => {
 };
 
 describe('game setup and determinism', () => {
+  it('reports every simultaneous pickup with its actual streak award', () => {
+    const game = createGame(42); start(game); game.enemies = [];
+    game.collectibles = ['A', 'U'].map((base, index) => ({ id: 100 + index, x: game.player.x, y: game.player.y + game.player.height * .52, base: base as 'A' | 'U', collected: false }));
+    step(game, 0);
+    expect(game.pickupEvents.map(event => [event.base, event.points])).toEqual([['A', 25], ['U', 30]]);
+    expect(game.bonus).toBe(55);
+    step(game, 0); expect(game.pickupEvents).toEqual([]);
+  });
   it('caps a quick ribonucleotide pickup streak at a 45-point pickup', () => {
     const game = createGame(42);
     start(game);

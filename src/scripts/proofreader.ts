@@ -1680,6 +1680,7 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
   };
 
   function releaseControls() {
+    mouseLookX = null;
     pressed.clear();
     pointers.clear();
     movePointerId = null;
