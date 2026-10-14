@@ -86,10 +86,11 @@ export function createGame(
       : DIFFICULTY_PRESETS[difficulty as keyof typeof DIFFICULTY_PRESETS] ||
         DIFFICULTY_PRESETS.beginner;
 
-  const rows = Math.max(2, Math.min(40, config.rows));
-  const cols = Math.max(2, Math.min(50, config.cols));
-  const maxMines = Math.floor(rows * cols * 0.85);
-  const totalMines = Math.max(1, Math.min(maxMines, config.mines));
+  const integer = (value: number, min: number, max: number, fallback: number) => Math.max(min, Math.min(max, Number.isFinite(value) ? Math.floor(value) : fallback));
+  const rows = integer(config.rows, 4, 40, 9);
+  const cols = integer(config.cols, 4, 50, 9);
+  const maxMines = rows * cols - 9;
+  const totalMines = integer(config.mines, 1, maxMines, 10);
 
   const grid: Cell[][] = Array.from({ length: rows }, (_, r) =>
     Array.from({ length: cols }, (_, c) => ({
@@ -188,6 +189,35 @@ export interface RevealResult {
   won: boolean;
 }
 
+export interface VisibleCell { state: CellState; number?: number; }
+export interface VisibleHint { kind: 'safe' | 'mine' | 'none'; cells: [number, number][]; reason: string; }
+/** Hidden numbers and mine bits never cross this interface. Flags are guesses,
+ * not premises: the helper treats flagged cells as unknown too. */
+export function getVisibleBoard(game: MinesweeperGame): VisibleCell[][] {
+  return game.grid.map((row) => row.map((cell) => cell.state === 'revealed' ? { state: cell.state, number: cell.neighborMines } : { state: cell.state }));
+}
+
+export function findVisibleHint(board: VisibleCell[][]): VisibleHint {
+  const constraints: Array<{ cells: [number, number][]; keys: Set<string>; number: number; row: number; col: number }> = [];
+  for (let row = 0; row < board.length; row++) for (let col = 0; col < board[row].length; col++) {
+    const cell = board[row][col];
+    if (cell.state !== 'revealed' || cell.number === undefined) continue;
+    const cells = getAdjacentCoords(row, col, board.length, board[0].length).filter(([r, c]) => board[r][c].state !== 'revealed');
+    if (!cells.length) continue;
+    if (cell.number === 0) return { kind: 'safe', cells, reason: `Row ${row + 1}, column ${col + 1} is zero: all its unrevealed neighbors are safe. Flags are not assumed correct.` };
+    if (cell.number === cells.length) return { kind: 'mine', cells, reason: `Row ${row + 1}, column ${col + 1} needs ${cell.number} mines among exactly ${cells.length} unknown neighbors: all are mines.` };
+    constraints.push({ cells, keys: new Set(cells.map(([r, c]) => `${r},${c}`)), number: cell.number, row, col });
+  }
+  for (const a of constraints) for (const b of constraints) {
+    if (a === b || Math.abs(a.row - b.row) > 2 || Math.abs(a.col - b.col) > 2 || a.cells.length >= b.cells.length) continue;
+    if (!a.cells.every(([r, c]) => b.keys.has(`${r},${c}`))) continue;
+    const difference = b.cells.filter(([r, c]) => !a.keys.has(`${r},${c}`));
+    const remaining = b.number - a.number;
+    if (remaining === 0 || remaining === difference.length) return { kind: remaining === 0 ? 'safe' : 'mine', cells: difference, reason: `Subtract the smaller visible constraint at (${a.row + 1}, ${a.col + 1}) from (${b.row + 1}, ${b.col + 1}): ${b.number} − ${a.number} = ${remaining} mines in ${difference.length} remaining cells. ${remaining === 0 ? 'They are safe.' : 'They are all mines.'}` };
+  }
+  return { kind: 'none', cells: [], reason: 'No certain move was found by this visible local/subset helper. It does not peek at mines, assume flags are correct, or guarantee a no-guess board.' };
+}
+
 /**
  * Reveals a cell at (row, col).
  * If the board is unseeded, seeds mines with safe first click.
@@ -203,6 +233,8 @@ export function revealCell(
     return { revealed: [], exploded: false, won: false };
   }
 
+  if (game.grid[row][col].state === 'revealed' || game.grid[row][col].state === 'flagged') return { revealed: [], exploded: false, won: false };
+
   if (!game.minesGenerated) {
     populateMines(game, row, col, randomFn);
     game.status = 'playing';
@@ -211,9 +243,6 @@ export function revealCell(
   }
 
   const cell = game.grid[row][col];
-  if (cell.state === 'revealed' || cell.state === 'flagged') {
-    return { revealed: [], exploded: false, won: false };
-  }
 
   if (cell.isMine) {
     cell.state = 'revealed';

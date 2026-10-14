@@ -25,7 +25,7 @@ const gameLd = {
   eyebrow="Side project"
   lead="The classic grid deduction game: clear the minefield using numerical clues with a guaranteed first-click safe opening, intelligent chord clearing, tactile flag placement, and retro LED displays across Beginner, Intermediate, and Expert difficulties."
   description="Play classic Minesweeper — modern, responsive browser game by Kuan-Hao Chao with guaranteed zero-guess opening, chording, and retro LED displays."
-  width="narrow"
+  width="wide"
 >
   <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
 
@@ -35,9 +35,9 @@ const gameLd = {
     <div class="mine-header-card">
       <MinesweeperLogo size={58} />
       <div class="mine-header-info">
-        <h2 class="mine-header-title">Minesweeper Minefield</h2>
+        <h2 class="mine-header-title">Tactile deduction console</h2>
         <p class="mine-header-subtitle">
-          Deduce hidden naval mines with mathematical precision. Tap numbers to chord-clear cleared perimeters!
+          Read the numbers, test a deduction, and reveal carefully. Keyboard-friendly, touch-ready, with optional visible-information practice hints.
         </p>
       </div>
     </div>
@@ -90,6 +90,9 @@ const gameLd = {
 
       <!-- Quick Action Bar & Shortcut Hints -->
       <div class="mine-action-bar">
+        <button type="button" class="flag-toggle-btn" data-mine-pause disabled>Pause</button>
+        <button type="button" class="flag-toggle-btn" data-mine-hint>Practice hint</button>
+        <label class="mine-zoom">Cell size<select data-mine-zoom><option value="24">Compact · 24px</option><option value="32" selected>Standard · 32px</option><option value="40">Large · 40px</option></select></label>
         <!-- Flag Mode Toggle (Touch / Mobile) -->
         <button
           type="button"
@@ -135,16 +138,29 @@ const gameLd = {
         <div class="mine-board" data-mine-board role="grid" aria-label="Minesweeper grid"></div>
       </div>
     </div>
+    <p class="mine-hint-text" data-mine-hint-text role="status" aria-live="polite">Arrow keys navigate · Enter/Space reveal · F flags · C chords.</p>
+    <details class="mine-help">
+      <summary>Custom board</summary>
+      <form class="mine-custom-form" data-mine-custom-form>
+        <label>Rows<input type="number" data-mine-rows min="4" max="40" step="1" value="12" required /></label>
+        <label>Columns<input type="number" data-mine-cols min="4" max="50" step="1" value="16" required /></label>
+        <label>Mines<input type="number" data-mine-mines min="1" step="1" value="35" required /></label>
+        <button type="submit" class="diff-btn">Create board</button>
+      </form>
+      <p>At most rows×columns−9 mines, preserving a full interior 3×3 first opening. Custom records are separated by dimensions and mine count.</p>
+    </details>
 
     <!-- Help & Pro Tips -->
     <details class="mine-help">
       <summary>Rules, Chording & Deduction Tips</summary>
       <div class="help-grid muted">
-        <p><strong>First Click Safe:</strong> Your first click is 100% guaranteed safe and opens up a cascade perimeter.</p>
+        <p><strong>Safe first opening:</strong> The clicked cell and its neighbors are mine-free. This does not guarantee a whole no-guess board.</p>
         <p><strong>Revealing Cells:</strong> Left click (or tap in Normal mode) on any unrevealed tile.</p>
         <p><strong>Flagging Mines:</strong> Right click, long press, or toggle <strong>🚩 Flag Mode</strong> to mark suspected mines.</p>
         <p><strong>Intelligent Chording:</strong> Click on an already revealed number when you've placed the matching number of flags around it. All other surrounding tiles will reveal in an instant!</p>
         <p><strong>Number Colors:</strong> 1 is <span style="color:#2563eb;font-weight:bold;">Blue</span>, 2 is <span style="color:#16a34a;font-weight:bold;">Green</span>, 3 is <span style="color:#dc2626;font-weight:bold;">Red</span>, 4 is <span style="color:#1e3a8a;font-weight:bold;">Navy</span>, 5 is <span style="color:#991b1b;font-weight:bold;">Burgundy</span>, 6 is <span style="color:#0d9488;font-weight:bold;">Teal</span>.</p>
+        <p><strong>Practice hints:</strong> The helper uses only revealed numbers and local/subset constraints. It neither peeks at hidden mines nor assumes your flags are correct. It can say “no certain move found”; it is not a complete solver. Hints and pausing make a run assisted, with a separate best-time record.</p>
+        <p><strong>Phone & keyboard:</strong> Pan large boards horizontally; both outer columns remain reachable. Change cell size for comfort. Long presses cancel when your finger moves or the board scrolls. Arrow keys keep focus on the same persistent board cells; F flags the focused cell, and C chords a revealed number.</p>
       </div>
     </details>
   </section>
@@ -168,6 +184,24 @@ const gameLd = {
 </script>
 
 <style>
+  .minesweeper :global(button:not(.mine-cell)), .minesweeper select, .minesweeper input { min-height: 44px; }
+  .mine-zoom { display: flex; flex-direction: column; gap: .25rem; font-size: .7rem; }
+  .mine-header-card :global(svg) { flex-shrink: 0; min-width: 58px; }
+  .mine-zoom select { background: var(--color-surface); color: var(--color-ink); border: 1px solid var(--color-rule); border-radius: .5rem; }
+  .mine-hint-text { font-size: .85rem; padding: .8rem; border-left: 3px solid var(--color-accent); margin: 0; background: var(--color-surface); }
+  .mine-custom-form { display: flex; flex-wrap: wrap; gap: .65rem; align-items: end; margin-top: .8rem; }
+  .mine-custom-form label { display: flex; flex: 1 1 90px; flex-direction: column; gap: .3rem; min-width: 0; }
+  .mine-custom-form input { max-width: 100%; width: 100%; background: var(--color-surface); color: var(--color-ink); border: 1px solid var(--color-rule); border-radius: .5rem; padding: .5rem; box-sizing: border-box; }
+  :global(.mine-row) { display: contents; }
+  :global(.mine-cell.is-chord-preview) { box-shadow: inset 0 0 0 2px #d97706; }
+  :global(.mine-cell.is-hint-safe) { box-shadow: inset 0 0 0 3px #059669; }
+  :global(.mine-cell.is-hint-mine) { box-shadow: inset 0 0 0 3px #d65339; }
+  :global(.mine-cell.is-new-reveal) { animation: mine-reveal .18s ease-out; }
+  @keyframes mine-reveal { from { opacity: .55; transform: scale(.92); } to { opacity: 1; transform: scale(1); } }
+  .minesweeper.is-dark { --mine-n1: #93c5fd; --mine-n2: #86efac; --mine-n3: #fca5a5; --mine-n4: #c4b5fd; --mine-n5: #fdba74; --mine-n6: #67e8f9; --mine-n7: #f9a8d4; --mine-n8: #cbd5e1; }
+  .minesweeper.is-dark :global(.mine-cell.is-mine) { background: #532324; color: #fecaca; }
+  .minesweeper.game-focus-view .mine-header-card, .minesweeper.game-focus-view .mine-help { display: none; }
+  .minesweeper.game-focus-view .board-scroll-container { max-height: calc(100dvh - 320px); overflow: auto; }
   .minesweeper {
     display: flex;
     flex-direction: column;
@@ -320,11 +354,12 @@ const gameLd = {
 
   /* Action Bar (Flag mode & sound) */
   .mine-action-bar {
+    flex-wrap: wrap;
     display: flex;
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    max-width: 480px;
+    max-width: 100%;
     gap: 0.75rem;
   }
   .flag-toggle-btn {
@@ -453,17 +488,18 @@ const gameLd = {
   .board-scroll-container {
     width: 100%;
     overflow-x: auto;
-    display: flex;
-    justify-content: center;
+    display: block;
     padding-bottom: 0.5rem;
   }
 
   .mine-board {
+    width: max-content;
+    margin-inline: auto;
     --mine-rows: 9;
     --mine-cols: 9;
     display: grid;
-    grid-template-rows: repeat(var(--mine-rows), 1fr);
-    grid-template-columns: repeat(var(--mine-cols), 1fr);
+    grid-template-rows: repeat(var(--mine-rows), var(--mine-cell-size, 32px));
+    grid-template-columns: repeat(var(--mine-cols), var(--mine-cell-size, 32px));
     gap: 1px;
     background: var(--color-rule);
     border: 3px solid var(--color-rule);
@@ -473,8 +509,8 @@ const gameLd = {
   }
 
   :global(.mine-cell) {
-    width: clamp(24px, 3.5vw, 32px);
-    height: clamp(24px, 3.5vw, 32px);
+    width: var(--mine-cell-size, 32px);
+    height: var(--mine-cell-size, 32px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -520,14 +556,14 @@ const gameLd = {
   }
 
   /* Number Colors (Theme-Safe & High Contrast) */
-  :global(.mine-cell.is-num-1) { color: #3b82f6; }
-  :global(.mine-cell.is-num-2) { color: #22c55e; }
-  :global(.mine-cell.is-num-3) { color: #ef4444; }
-  :global(.mine-cell.is-num-4) { color: #818cf8; }
-  :global(.mine-cell.is-num-5) { color: #f97316; }
-  :global(.mine-cell.is-num-6) { color: #06b6d4; }
-  :global(.mine-cell.is-num-7) { color: #ec4899; }
-  :global(.mine-cell.is-num-8) { color: #94a3b8; }
+  :global(.mine-cell.is-num-1) { color: var(--mine-n1, #1d4ed8); }
+  :global(.mine-cell.is-num-2) { color: var(--mine-n2, #166534); }
+  :global(.mine-cell.is-num-3) { color: var(--mine-n3, #b91c1c); }
+  :global(.mine-cell.is-num-4) { color: var(--mine-n4, #5b21b6); }
+  :global(.mine-cell.is-num-5) { color: var(--mine-n5, #92400e); }
+  :global(.mine-cell.is-num-6) { color: var(--mine-n6, #0f766e); }
+  :global(.mine-cell.is-num-7) { color: var(--mine-n7, #9d174d); }
+  :global(.mine-cell.is-num-8) { color: var(--mine-n8, #334155); }
 
   /* Help & Tips */
   .mine-help {

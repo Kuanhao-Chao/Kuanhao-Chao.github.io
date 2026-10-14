@@ -7,10 +7,33 @@ import {
   chordCell,
   getAdjacentCoords,
   DIFFICULTY_PRESETS,
+  getVisibleBoard,
+  findVisibleHint,
 } from './minesweeper';
 
 describe('Minesweeper Core Engine', () => {
+  it('does not expose hidden mines or use hidden contents in practice deductions', () => {
+    const game = createGame();
+    game.minesGenerated = true;
+    game.grid[0][0].state = 'revealed'; game.grid[0][0].neighborMines = 1;
+    game.grid[1][1].state = 'revealed'; game.grid[1][1].neighborMines = 1;
+    const view = getVisibleBoard(game);
+    expect(view[0][1]).toEqual({ state: 'hidden' });
+    const hint = findVisibleHint(view);
+    expect(hint.kind).toBe('safe');
+    expect(hint.cells).toContainEqual([0, 2]);
+    game.grid[0][1].isMine = true; game.grid[0][1].neighborMines = 8;
+    expect(findVisibleHint(getVisibleBoard(game))).toEqual(hint);
+  });
   describe('createGame', () => {
+    it('normalizes custom integers and reserves a full interior 3×3 opening', () => {
+      const game = createGame('custom', { rows: 4.9, cols: 5.7, mines: 100 });
+      expect(game.rows).toBe(4);
+      expect(game.cols).toBe(5);
+      expect(game.totalMines).toBe(11);
+      populateMines(game, 1, 2, () => .5);
+      expect(game.grid[1][2].neighborMines).toBe(0);
+    });
     it('creates standard difficulty grids correctly', () => {
       const beg = createGame('beginner');
       expect(beg.rows).toBe(9);
@@ -79,6 +102,13 @@ describe('Minesweeper Core Engine', () => {
   });
 
   describe('revealCell and Cascade', () => {
+    it('ignores a flagged first click without planting mines or starting the run', () => {
+      const game = createGame();
+      toggleFlag(game, 0, 0);
+      expect(revealCell(game, 0, 0).revealed).toEqual([]);
+      expect(game.minesGenerated).toBe(false);
+      expect(game.status).toBe('ready');
+    });
     it('automatically generates mines on first click and reveals starting cell', () => {
       const game = createGame('beginner');
       const res = revealCell(game, 4, 4);
@@ -196,19 +226,19 @@ describe('Minesweeper Core Engine', () => {
 
   describe('Win Condition', () => {
     it('sets won status and auto-flags all mines when all non-mines are revealed', () => {
-      const game = createGame('custom', { rows: 3, cols: 3, mines: 1 });
+      const game = createGame('custom', { rows: 4, cols: 4, mines: 1 });
       game.minesGenerated = true;
       game.grid[0][0].isMine = true;
-      for (let r = 0; r < 3; r++) {
-        for (let c = 0; c < 3; c++) {
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 4; c++) {
           if (r === 0 && c === 0) continue;
           game.grid[r][c].neighborMines = 1;
         }
       }
 
-      // Reveal all 8 safe cells
-      for (let r = 0; r < 3; r++) {
-        for (let c = 0; c < 3; c++) {
+      // Reveal all 15 safe cells
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 4; c++) {
           if (r === 0 && c === 0) continue;
           revealCell(game, r, c);
         }
