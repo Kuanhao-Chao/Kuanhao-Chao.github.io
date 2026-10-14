@@ -1,9 +1,11 @@
-import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import process from 'node:process';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { isDeepStrictEqual } from 'node:util';
 import { chromium, webkit, firefox } from 'playwright';
+import { startPreview } from './lib/previewServer.mjs';
+import { waitForPageReady, clickControl } from './lib/gameAuditUi.mjs';
+import { checkDinoPauseResume, checkPhagePlacement } from './lib/gameAuditActions.mjs';
 
 const browserTypes = { chromium, webkit, firefox };
 const ci = process.argv.includes('--ci');
@@ -157,19 +159,6 @@ async function availablePort() {
   return port;
 }
 
-async function waitForSite(url, child) {
-  const deadline = Date.now() + 30_000;
-  while (Date.now() < deadline) {
-    if (child.exitCode !== null) throw new Error(`Preview exited with code ${child.exitCode}`);
-    try {
-      const response = await fetch(url);
-      if (response.ok) return;
-    } catch {}
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-  throw new Error(`Timed out waiting for ${url}`);
-}
-
 async function expect(scope, condition, message) {
   if (!(typeof condition === 'function' ? await condition() : await condition)) fail(scope, message);
 }
@@ -186,6 +175,7 @@ async function auditGame(page, scope, profile, game) {
 
   await page.goto(`/games/${game.slug}/${game.query}`, { waitUntil: 'networkidle' });
   await page.waitForFunction((name) => Boolean(window[name]), game.global);
+  await waitForPageReady(page);
   const surface = page.locator(game.surface || game.canvas);
   await surface.scrollIntoViewIfNeeded();
 
@@ -226,12 +216,10 @@ async function auditGame(page, scope, profile, game) {
   await surface.screenshot({ path: `${evidence}/${game.slug}-${scope.split('/')[0]}-${profile.name}-playing.png` });
   const focus = page.locator('[data-game-focus]');
   if (await focus.count()) {
-    await focus.scrollIntoViewIfNeeded();
-    await page.waitForTimeout(80);
     // Capture at activation, after Playwright/native focus has finished scrolling
     // the toolbar into view. A pre-click sample can be midway through smooth scroll.
     await focus.evaluate(button => button.addEventListener('click', () => { window.__gameAuditPriorScroll = scrollY; }, { capture: true, once: true }));
-    await focus.click();
+    await clickControl(focus);
     const scroll = await page.evaluate(() => window.__gameAuditPriorScroll);
     await expect(scope, () => page.locator('[data-game-root]').evaluate((el) => el.classList.contains('game-focus-view')), 'Focus view did not open');
     await page.screenshot({ path: `${evidence}/${game.slug}-${scope.split('/')[0]}-${profile.name}-focus.png` });
@@ -250,9 +238,9 @@ async function auditGame(page, scope, profile, game) {
   const oldTheme = await page.evaluate(() => document.documentElement.dataset.theme);
   const themeBtn = page.locator('[data-top-theme-btn], [data-theme-toggle]').first();
   if (await themeBtn.count()) {
-    await themeBtn.click();
+    await clickControl(themeBtn);
     const opt = page.locator('[data-theme-choice]').first();
-    if (await opt.isVisible()) await opt.click();
+    if (await opt.isVisible()) await clickControl(opt);
   }
 
   // Exercise ClientRouter teardown/remount, the common source of duplicate loops.
@@ -263,6 +251,7 @@ async function auditGame(page, scope, profile, game) {
   await page.getByRole('link', { name: game.linkName, exact: true }).first().click();
   await page.waitForURL(`**/games/${game.slug}/`);
   await page.waitForFunction((name) => Boolean(window[name]), game.global);
+  await waitForPageReady(page);
   await expect(
     scope,
     () => page.evaluate((name) => window[name] === 1, game.instances),
@@ -668,70 +657,21 @@ async function driveCrisprCommander(page, scope, profile) {
 }
 
 async function drivePhageDefense(page, scope, profile) {
-  const canvas = page.locator('[data-phage-canvas]');
-  await expect(scope, () => canvas.isVisible(), 'Phage Defense canvas is not visible');
-
-  // Start Next Wave
-  const nextWaveBtn = page.locator('[data-phage-next-wave]');
-  await nextWaveBtn.click();
-  await expect(
-    scope,
-    () => page.evaluate(() => window.__phageDefense?.state().currentWave === 1),
-    'Wave 1 did not start on button click'
-  );
-
-  // Deploy EcoRI Cleaver tower
-  const ecoRiCard = page.locator('[data-tower-type="restriction_enzyme"]');
-  await ecoRiCard.click();
-  const box = await canvas.boundingBox();
-  if (box) {
-    // Click safe cytoplasm area (virtual 240, 350)
-    const clickX = box.x + box.width * 0.3;
-    const clickY = box.y + box.height * 0.7;
-    if (profile.touch) await canvas.tap({ position: { x: box.width * .3, y: box.height * .7 } });
-    else await page.mouse.click(clickX, clickY);
-    if (profile.touch) await page.locator('[data-phage-confirm]').click();
-    await expect(
-      scope,
-      () => page.evaluate(() => (window.__phageDefense?.state().towers.length ?? 0) >= 1),
-      'Tower was not placed on canvas click'
-    );
-
-    // Inspect placed tower
-    if (profile.touch) await canvas.tap({ position: { x: box.width * .3, y: box.height * .7 } });
-    else await canvas.click({ position: { x: box.width * .3, y: box.height * .7 } });
-    const panel = page.locator('[data-selected-tower-panel]');
-    await expect(scope, () => panel.isVisible(), 'Tower inspection panel did not open');
-  }
+  await checkPhagePlacement(page, profile.touch);
 
   // Trigger CRISPRi Stasis emergency ability
   const crispriBtn = page.locator('[data-emergency-ability="crispri"]');
   if (await crispriBtn.count()) {
-    await crispriBtn.click();
-    await expect(
-      scope,
-      () =>
-        page.evaluate(
-          () => window.__phageDefense?.state().activeEmergencies.some((e) => e.type === 'crispri')
-        ),
-      'CRISPRi emergency ability was not activated'
-    );
+    await clickControl(crispriBtn);
+    await page.waitForFunction(() => window.__phageDefense.state().activeEmergencies.some(e => e.type === 'crispri'));
   }
 
   // Pause / resume
   const pauseBtn = page.locator('[data-phage-pause]');
-  await pauseBtn.click();
-  await expect(
-    scope,
-    () => page.evaluate(() => window.__phageDefense?.state().isPaused === true),
-    'Pause control did not pause Phage Defense'
-  );
-  await pauseBtn.click();
-  await expect(
-    scope,
-    () => page.evaluate(() => window.__phageDefense?.state().isPaused === false),
-    'Pause control did not resume Phage Defense'
-  );
+  await clickControl(pauseBtn);
+  await page.waitForFunction(() => window.__phageDefense.state().isPaused === true);
+  await clickControl(pauseBtn);
+  await page.waitForFunction(() => window.__phageDefense.state().isPaused === false);
 }
 
 async function driveDinoRun(page, scope, profile) {
@@ -739,12 +679,8 @@ async function driveDinoRun(page, scope, profile) {
   await expect(scope, () => canvas.isVisible(), 'Dino canvas is not visible');
 
   // Jump
-  await page.locator('[data-dino-jump]').click();
-  await expect(
-    scope,
-    () => page.evaluate(() => window.__dinoRun?.state().status === 'playing'),
-    'Jump did not start the game'
-  );
+  await clickControl(page.locator('[data-dino-jump]'));
+  await page.waitForFunction(() => window.__dinoRun.state().status === 'playing');
 
   // Tick physics
   await page.evaluate(() => window.__dinoRun?.tick(10));
@@ -755,19 +691,7 @@ async function driveDinoRun(page, scope, profile) {
   );
 
   // Pause / resume
-  const pauseBtn = page.locator('[data-dino-pause]');
-  await pauseBtn.click();
-  await expect(
-    scope,
-    () => page.evaluate(() => window.__dinoRun?.isRunning() === false),
-    'Pause did not pause Dino Run'
-  );
-  await pauseBtn.click();
-  await expect(
-    scope,
-    () => page.evaluate(() => window.__dinoRun?.isRunning() === true),
-    'Resume did not resume Dino Run'
-  );
+  await checkDinoPauseResume(page);
 }
 
 async function driveChineseChess(page, scope) {
@@ -922,6 +846,30 @@ async function driveTetris(page, scope, profile) {
   );
 }
 
+async function captureFailure(page, game, prefix) {
+  // Capture before screenshots scroll the document. Keep diagnostics public and
+  // bounded: controls, hit targets, focus, and the exposed gameplay state only.
+  const state = await page.evaluate(({ global, instances }) => {
+    const describe = element => element ? { tag: element.tagName, label: element.getAttribute('aria-label'), text: element.textContent?.trim().slice(0, 120), data: { ...element.dataset } } : null;
+    const api = window[global];
+    const game = api?.state?.();
+    return {
+      url: location.href, visibility: document.visibilityState, hasFocus: document.hasFocus(),
+      viewport: { width: innerWidth, height: innerHeight, scrollY }, activeElement: describe(document.activeElement),
+      instances: window[instances], status: game?.status, isPaused: game?.isPaused, currentWave: game?.currentWave,
+      towerCount: game?.towers?.length, distance: game?.distance, score: game?.score, isRunning: api?.isRunning?.(),
+      controls: [...document.querySelectorAll('[data-game-root] button, [data-game-root] select')].slice(0, 100).map(element => {
+        const rect = element.getBoundingClientRect();
+        return { ...describe(element), disabled: element.disabled, hidden: element.hidden,
+          box: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+          hitTarget: describe(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)) };
+      }),
+    };
+  }, { global: game.global, instances: game.instances }).catch(error => ({ captureError: error.message }));
+  await writeFile(`${prefix}-state.json`, JSON.stringify(state, null, 2)).catch(() => {});
+  await page.screenshot({ path: `${prefix}-failure.png`, fullPage: true }).catch(() => {});
+}
+
 async function auditRestrictedBrowser(browser, browserName, baseURL, selected) {
   const actions = {
     'crispr-commander': '[data-crispr-start]', 'phage-defense': '[data-phage-next-wave]',
@@ -936,22 +884,32 @@ async function auditRestrictedBrowser(browser, browserName, baseURL, selected) {
       Object.defineProperty(window, 'localStorage', { configurable: true, get() { throw new DOMException('Storage denied for audit', 'SecurityError'); } });
     });
     const page = await context.newPage(); page.setDefaultTimeout(12000);
+    // DOM/action traces plus explicit failure PNGs are sufficient evidence;
+    // continuous screencasts of animated backgrounds are needlessly expensive.
+    await context.tracing.start({ screenshots: false, snapshots: true });
+    const failureCount = failures.length;
     const errors = []; page.on('pageerror', error => errors.push(error.message));
     try {
       await page.goto(`/games/${game.slug}/${game.query}`);
       await page.waitForFunction(name => Boolean(window[name]), game.global);
-      await page.locator(actions[game.slug]).click();
+      await waitForPageReady(page);
+      await clickControl(page.locator(actions[game.slug]));
       await expect(scope, () => page.locator(game.surface || game.canvas).isVisible(), 'playfield failed without local storage');
-      await page.locator('[data-game-focus]').click(); await page.keyboard.press('Escape');
+      await clickControl(page.locator('[data-game-focus]')); await page.keyboard.press('Escape');
       await expect(scope, () => page.evaluate(() => !document.querySelector('.game-focus-view')), 'reduced-motion Focus exit failed');
       await page.evaluate(() => window.dispatchEvent(new Event('blur')));
       await page.screenshot({ path: `${evidence}/${game.slug}-${browserName}-restricted.png`, fullPage: true });
       for (const error of errors) fail(scope, error);
     } catch (error) {
       fail(scope, error.message);
-      await page.screenshot({ path: `${evidence}/${game.slug}-${browserName}-restricted-failure.png`, fullPage: true }).catch(() => {});
     }
-    finally { await context.close(); }
+    finally {
+      const failed = failures.length > failureCount;
+      const prefix = `${evidence}/${game.slug}-${browserName}-restricted`;
+      if (failed) await captureFailure(page, game, prefix);
+      await context.tracing.stop(failed ? { path: `${prefix}-trace.zip` } : {}).catch(() => {});
+      await context.close();
+    }
   }
 }
 
@@ -959,21 +917,11 @@ async function main() {
   const gamesToAudit = selectedGames();
   await mkdir(evidence, { recursive: true });
   const port = await availablePort();
-  const baseURL = `http://127.0.0.1:${port}`;
-  const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-  const preview = spawn(npm, ['run', 'preview', '--', '--host', '127.0.0.1', '--port', String(port)], {
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  let previewLog = '';
-  preview.stdout.on('data', (chunk) => {
-    previewLog += chunk;
-  });
-  preview.stderr.on('data', (chunk) => {
-    previewLog += chunk;
-  });
+  let preview;
 
   try {
-    await waitForSite(`${baseURL}/games/${gamesToAudit[0].slug}/`, preview);
+    preview = await startPreview({ port, route: `/games/${gamesToAudit[0].slug}/` });
+    const { baseURL } = preview;
     for (const [browserName, browserType] of selectedBrowsers()) {
       const browser = await browserType.launch({ headless: true });
       try {
@@ -1006,17 +954,17 @@ async function main() {
             );
             const page = await context.newPage();
             page.setDefaultTimeout(12_000);
+            await context.tracing.start({ screenshots: false, snapshots: true });
+            const failureCount = failures.length;
             try {
               await auditGame(page, scope, profile, game);
             } catch (error) {
               fail(scope, error instanceof Error ? (error.stack ?? error.message) : String(error));
-              await page
-                .screenshot({
-                  path: `${evidence}/${game.slug}-${browserName}-${profile.name}-failure.png`,
-                  fullPage: true,
-                })
-                .catch(() => {});
             } finally {
+              const failed = failures.length > failureCount;
+              const prefix = `${evidence}/${game.slug}-${browserName}-${profile.name}`;
+              if (failed) await captureFailure(page, game, prefix);
+              await context.tracing.stop(failed ? { path: `${prefix}-trace.zip` } : {}).catch(() => {});
               await page.close();
               await context.close();
             }
@@ -1030,20 +978,13 @@ async function main() {
   } catch (error) {
     failures.push(error instanceof Error ? (error.stack ?? error.message) : String(error));
   } finally {
-    preview.kill('SIGTERM');
-    await new Promise((resolve) => {
-      if (preview.exitCode !== null) resolve();
-      else {
-        preview.once('exit', resolve);
-        setTimeout(resolve, 2_000);
-      }
-    });
+    try { await preview?.stop(); } catch (error) { failures.push(error.message); }
   }
 
   if (failures.length) {
     console.error(`Game UI audit failed with ${failures.length} issue(s):`);
     failures.forEach((failure) => console.error(`- ${failure}`));
-    if (previewLog.trim()) console.error(`\nPreview output:\n${previewLog.trim()}`);
+    if (preview?.logs.trim()) console.error(`\nPreview output:\n${preview.logs.trim()}`);
     process.exitCode = 1;
     return;
   }
