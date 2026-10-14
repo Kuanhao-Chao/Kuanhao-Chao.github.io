@@ -13,12 +13,16 @@
 export type BoardSize = 3 | 4 | 5;
 
 export type Direction = 'left' | 'right' | 'up' | 'down';
+export interface TileMotion { from: [number, number]; to: [number, number]; value: number; merged: boolean; }
+export interface TileMerge { to: [number, number]; sources: [[number, number], [number, number]]; value: number; }
 
 export interface MoveResult {
   grid: number[][];
   scoreGain: number;
   changed: boolean;
   mergedPositions: [number, number][];
+  movements: TileMotion[];
+  merges: TileMerge[];
 }
 
 /**
@@ -43,7 +47,8 @@ export function createEmptyGrid(size: BoardSize): number[][] {
 export function spawnRandomTile(
   grid: number[][],
   valueOverride?: number,
-  positionOverride?: [number, number]
+  positionOverride?: [number, number],
+  random: () => number = Math.random
 ): { grid: number[][]; spawned: [number, number] | null } {
   const newGrid = cloneGrid(grid);
 
@@ -52,7 +57,8 @@ export function spawnRandomTile(
     if (r < 0 || r >= newGrid.length || c < 0 || c >= newGrid[r].length) {
       return { grid: newGrid, spawned: null };
     }
-    const value = valueOverride ?? (Math.random() < 0.9 ? 2 : 4);
+    if (newGrid[r][c] !== 0) return { grid: newGrid, spawned: null };
+    const value = valueOverride ?? (random() < 0.9 ? 2 : 4);
     newGrid[r][c] = value;
     return { grid: newGrid, spawned: [r, c] };
   }
@@ -70,9 +76,9 @@ export function spawnRandomTile(
     return { grid: newGrid, spawned: null };
   }
 
-  const chosenIndex = Math.floor(Math.random() * emptyCells.length);
+  const chosenIndex = Math.floor(random() * emptyCells.length);
   const [row, col] = emptyCells[chosenIndex];
-  const value = valueOverride ?? (Math.random() < 0.9 ? 2 : 4);
+  const value = valueOverride ?? (random() < 0.9 ? 2 : 4);
   newGrid[row][col] = value;
 
   return { grid: newGrid, spawned: [row, col] };
@@ -82,27 +88,35 @@ interface SlideLineResult {
   line: number[];
   scoreGain: number;
   mergedIndices: number[];
+  motions: Array<{ from: number; to: number; value: number; merged: boolean }>;
+  merges: Array<{ to: number; sources: [number, number]; value: number }>;
 }
 
 /**
  * Slides a single 1D line to the left, merging adjacent identical numbers once.
  */
 function slideLine(line: number[]): SlideLineResult {
-  const nonZero = line.filter((v) => v !== 0);
+  const nonZero = line.map((value, index) => ({ value, index })).filter((tile) => tile.value !== 0);
   const result: number[] = [];
   const mergedIndices: number[] = [];
   let scoreGain = 0;
+  const motions: SlideLineResult['motions'] = [];
+  const merges: SlideLineResult['merges'] = [];
 
   let i = 0;
   while (i < nonZero.length) {
-    if (i + 1 < nonZero.length && nonZero[i] === nonZero[i + 1]) {
-      const mergedVal = nonZero[i] * 2;
+    if (i + 1 < nonZero.length && nonZero[i].value === nonZero[i + 1].value) {
+      const mergedVal = nonZero[i].value * 2;
+      const to = result.length;
+      merges.push({ to, sources: [nonZero[i].index, nonZero[i + 1].index], value: mergedVal });
+      for (const source of [nonZero[i], nonZero[i + 1]]) motions.push({ from: source.index, to, value: source.value, merged: true });
       scoreGain += mergedVal;
       result.push(mergedVal);
       mergedIndices.push(result.length - 1);
       i += 2;
     } else {
-      result.push(nonZero[i]);
+      motions.push({ from: nonZero[i].index, to: result.length, value: nonZero[i].value, merged: false });
+      result.push(nonZero[i].value);
       i += 1;
     }
   }
@@ -111,7 +125,7 @@ function slideLine(line: number[]): SlideLineResult {
     result.push(0);
   }
 
-  return { line: result, scoreGain, mergedIndices };
+  return { line: result, scoreGain, mergedIndices, motions, merges };
 }
 
 /**
@@ -125,10 +139,17 @@ export function slideAndMerge(grid: number[][], direction: Direction): MoveResul
   );
   const mergedPositions: [number, number][] = [];
   let scoreGain = 0;
+  const movements: TileMotion[] = [];
+  const merges: TileMerge[] = [];
+  const trace = (res: SlideLineResult, coordinate: (index: number) => [number, number]) => {
+    movements.push(...res.motions.map((motion) => ({ from: coordinate(motion.from), to: coordinate(motion.to), value: motion.value, merged: motion.merged })));
+    merges.push(...res.merges.map((merge) => ({ to: coordinate(merge.to), sources: [coordinate(merge.sources[0]), coordinate(merge.sources[1])] as TileMerge['sources'], value: merge.value })));
+  };
 
   if (direction === 'left') {
     for (let r = 0; r < size; r++) {
       const res = slideLine(grid[r]);
+      trace(res, (index) => [r, index]);
       scoreGain += res.scoreGain;
       for (let c = 0; c < size; c++) {
         newGrid[r][c] = res.line[c];
@@ -141,6 +162,7 @@ export function slideAndMerge(grid: number[][], direction: Direction): MoveResul
     for (let r = 0; r < size; r++) {
       const reversed = [...grid[r]].reverse();
       const res = slideLine(reversed);
+      trace(res, (index) => [r, size - 1 - index]);
       scoreGain += res.scoreGain;
       for (let c = 0; c < size; c++) {
         newGrid[r][size - 1 - c] = res.line[c];
@@ -153,6 +175,7 @@ export function slideAndMerge(grid: number[][], direction: Direction): MoveResul
     for (let c = 0; c < size; c++) {
       const colLine = Array.from({ length: size }, (_, r) => grid[r][c]);
       const res = slideLine(colLine);
+      trace(res, (index) => [index, c]);
       scoreGain += res.scoreGain;
       for (let r = 0; r < size; r++) {
         newGrid[r][c] = res.line[r];
@@ -165,6 +188,7 @@ export function slideAndMerge(grid: number[][], direction: Direction): MoveResul
     for (let c = 0; c < size; c++) {
       const colLine = Array.from({ length: size }, (_, r) => grid[size - 1 - r][c]);
       const res = slideLine(colLine);
+      trace(res, (index) => [size - 1 - index, c]);
       scoreGain += res.scoreGain;
       for (let r = 0; r < size; r++) {
         newGrid[size - 1 - r][c] = res.line[r];
@@ -191,6 +215,8 @@ export function slideAndMerge(grid: number[][], direction: Direction): MoveResul
     scoreGain,
     changed,
     mergedPositions,
+    movements,
+    merges,
   };
 }
 
@@ -241,6 +267,8 @@ export interface GameSnapshot {
   boardSize: BoardSize;
   isWon: boolean;
   isOver: boolean;
+  rngState?: number;
+  keepPlaying?: boolean;
 }
 
 /**
@@ -266,6 +294,8 @@ export function createHistoryStack(maxDepth = 20): HistoryStack {
  */
 export function pushSnapshot(stack: HistoryStack, snapshot: GameSnapshot): HistoryStack {
   const clonedSnapshot: GameSnapshot = {
+    ...(snapshot.rngState !== undefined ? { rngState: snapshot.rngState } : {}),
+    ...(snapshot.keepPlaying !== undefined ? { keepPlaying: snapshot.keepPlaying } : {}),
     grid: cloneGrid(snapshot.grid),
     score: snapshot.score,
     boardSize: snapshot.boardSize,
@@ -308,6 +338,7 @@ export function popSnapshot(stack: HistoryStack): {
       maxDepth: stack.maxDepth,
     },
     restored: {
+      ...restored,
       grid: cloneGrid(restored.grid),
       score: restored.score,
       boardSize: restored.boardSize,
@@ -325,4 +356,65 @@ export function clearHistory(stack: HistoryStack): HistoryStack {
     snapshots: [],
     maxDepth: stack.maxDepth,
   };
+}
+
+export interface Game2048State extends GameSnapshot {
+  rngState: number;
+  keepPlaying: boolean;
+  history: HistoryStack;
+}
+
+function nextRandom(state: { rngState: number }): number {
+  let value = state.rngState || 0x6d2b79f5;
+  value ^= value << 13; value ^= value >>> 17; value ^= value << 5;
+  state.rngState = value >>> 0;
+  return state.rngState / 4294967296;
+}
+
+export function create2048Game(boardSize: BoardSize = 4, seed = 1): Game2048State {
+  const state: Game2048State = { grid: createEmptyGrid(boardSize), score: 0, boardSize, isWon: false, isOver: false, keepPlaying: false, rngState: seed >>> 0 || 0x6d2b79f5, history: createHistoryStack() };
+  for (let i = 0; i < 2; i++) state.grid = spawnRandomTile(state.grid, undefined, undefined, () => nextRandom(state)).grid;
+  return state;
+}
+
+export function move2048Game(state: Game2048State, direction: Direction): { state: Game2048State; move: MoveResult; spawned: [number, number] | null } {
+  const move = slideAndMerge(state.grid, direction);
+  if (state.isOver || state.isWon && !state.keepPlaying || !move.changed) return { state, move: { ...move, changed: false }, spawned: null };
+  const next: Game2048State = { ...state, grid: move.grid, score: state.score + move.scoreGain, history: pushSnapshot(state.history, state) };
+  const spawned = spawnRandomTile(next.grid, undefined, undefined, () => nextRandom(next));
+  next.grid = spawned.grid;
+  next.isWon = state.isWon || isGameWon(next.grid);
+  next.isOver = !hasMovesAvailable(next.grid);
+  return { state: next, move, spawned: spawned.spawned };
+}
+
+export function undo2048Game(state: Game2048State): Game2048State {
+  const { restored, stack } = popSnapshot(state.history);
+  return restored ? { ...restored, rngState: restored.rngState ?? state.rngState, keepPlaying: restored.keepPlaying ?? false, history: stack } : state;
+}
+
+export function serialize2048Game(state: Game2048State): string {
+  return JSON.stringify({ version: 2, ...state });
+}
+
+export function restore2048Game(raw: string, size: BoardSize): Game2048State | null {
+  if (raw.length > 100000) return null;
+  try {
+    const value = JSON.parse(raw);
+    const snapshot = (input: unknown): GameSnapshot | null => {
+      if (!input || typeof input !== 'object') return null;
+      const s = input as Record<string, unknown>;
+      if (s.boardSize !== size || !Array.isArray(s.grid) || s.grid.length !== size || !s.grid.every((row: unknown) => Array.isArray(row) && row.length === size && row.every((tile: unknown) => typeof tile === 'number' && (tile === 0 || tile >= 2 && Number.isSafeInteger(tile) && Number.isInteger(Math.log2(tile)))))) return null;
+      if (typeof s.score !== 'number' || !Number.isSafeInteger(s.score) || s.score < 0 || typeof s.rngState !== 'number' || !Number.isInteger(s.rngState) || s.rngState <= 0 || s.rngState > 0xffffffff || typeof s.keepPlaying !== 'boolean' || typeof s.isWon !== 'boolean' || typeof s.isOver !== 'boolean') return null;
+      const grid = s.grid as number[][];
+      if (grid.flat().filter(Boolean).length < 2 || s.isWon !== isGameWon(grid) || s.isOver !== !hasMovesAvailable(grid) || s.keepPlaying && !s.isWon) return null;
+      return { grid: cloneGrid(grid), score: s.score, boardSize: size, rngState: s.rngState, keepPlaying: s.keepPlaying, isWon: s.isWon, isOver: s.isOver };
+    };
+    if (value?.version !== 2) return null;
+    const current = snapshot(value);
+    if (!current || !Array.isArray(value.history?.snapshots) || value.history.snapshots.length > 20) return null;
+    const snapshots = value.history.snapshots.map(snapshot);
+    if (snapshots.some((item: GameSnapshot | null) => item === null)) return null;
+    return { ...current, rngState: current.rngState!, keepPlaying: current.keepPlaying!, history: { maxDepth: 20, snapshots } };
+  } catch { return null; }
 }

@@ -23,7 +23,7 @@ const gameLd = {
 <PageLayout
   title="2048"
   eyebrow="Side project"
-  lead="The classic sliding tile numbers puzzle reimagined: join matching tiles to reach 2048 with multi-step undo history, custom grid configurations (3×3 · 4×4 · 5×5), smooth animations, and synthesized Web Audio harmonic chimes."
+  lead="A calm, tactile number puzzle: slide matching tiles together, plan your next merge, and build toward 2048. Three board sizes, complete undo, and saved games let you explore at your own pace."
   description="Play 2048 — a modern, responsive browser puzzle by Kuan-Hao Chao with multi-step undo, 3 board sizes, and synthesized Web Audio effects."
   width="narrow"
 >
@@ -37,7 +37,7 @@ const gameLd = {
       <div class="g2048-header-info">
         <h2 class="g2048-header-title">2048 Sliding Matrix</h2>
         <p class="g2048-header-subtitle">
-          Slide and merge matching powers of two. Reach 2048 or push for higher gemstone tiles!
+          Follow each tile into its merge. Reach 2048, then keep exploring.
         </p>
       </div>
     </div>
@@ -57,6 +57,7 @@ const gameLd = {
       </div>
 
       <div class="g2048-actions" role="toolbar" aria-label="Game actions">
+        <button type="button" class="game-btn" data-2048-pause aria-pressed="false">Pause</button>
         <button
           type="button"
           class="game-btn is-disabled"
@@ -105,7 +106,7 @@ const gameLd = {
       <div class="mode-left">
         <span class="mode-label">Mode:</span>
         <div class="mode-buttons">
-          <button type="button" class="mode-btn" data-2048-size data-board-size="3" aria-pressed="false">Speed (3×3)</button>
+          <button type="button" class="mode-btn" data-2048-size data-board-size="3" aria-pressed="false">Compact (3×3)</button>
           <button type="button" class="mode-btn is-active" data-2048-size data-board-size="4" aria-pressed="true">Classic (4×4)</button>
           <button type="button" class="mode-btn" data-2048-size data-board-size="5" aria-pressed="false">Relaxed (5×5)</button>
         </div>
@@ -120,7 +121,7 @@ const gameLd = {
     <!-- Board Stage -->
     <div class="g2048-stage">
       <div class="g2048-board-wrapper">
-        <div class="g2048-grid" data-2048-grid role="grid" aria-label="2048 playfield"></div>
+        <div class="g2048-grid" data-2048-grid role="grid" tabindex="0" aria-label="2048 playfield" aria-describedby="g2048-status"></div>
 
         <!-- Win / Game Over Overlay -->
         <div class="g2048-overlay" data-2048-overlay hidden>
@@ -130,6 +131,8 @@ const gameLd = {
         </div>
       </div>
     </div>
+
+    <p id="g2048-status" class="g2048-status muted" data-2048-status role="status" aria-live="polite">Ready. Swipe or focus the board and use arrow keys.</p>
 
     <!-- Mobile Directional Controls -->
     <div class="g2048-touch-controls" aria-label="Mobile D-Pad">
@@ -152,6 +155,9 @@ const gameLd = {
         <p><strong>Undo Move:</strong> Press <code>U</code>, <code>Cmd+Z</code>, or click the <strong>Undo</strong> button.</p>
         <p><strong>Quick Restart:</strong> Press <code>R</code> to start a fresh board.</p>
         <p><strong>Tile Merging:</strong> Tiles with the same number merge into one when they touch. After reaching 2048, choose <em>Keep Going</em> to reach 4096 and beyond!</p>
+        <p><strong>One merge per move:</strong> A row of 2 · 2 · 2 · 2 sliding left becomes 4 · 4, not 8. A successful move then adds a random 2 (90%) or 4 (10%). An ineffective move adds nothing and uses no undo history.</p>
+        <p><strong>Try a strategy:</strong> Keep a large tile in one corner and arrange neighboring values in descending order. Preserve room to maneuver; this is a useful heuristic, not a guaranteed winning strategy.</p>
+        <p><strong>Saved locally:</strong> Each size keeps its own board and up to 20 complete undo states, including random spawns. Best scores from the previous version are retained. Nothing is sent to a server.</p>
       </div>
     </details>
   </section>
@@ -402,6 +408,7 @@ const gameLd = {
   }
 
   .g2048-grid {
+    position: relative;
     --grid-size: 4;
     display: grid;
     grid-template-columns: repeat(var(--grid-size), 1fr);
@@ -479,6 +486,27 @@ const gameLd = {
   :global(.g2048-tile--4096) { background: #8b5cf6; color: #ffffff; box-shadow: 0 0 30px rgba(139, 92, 246, 0.85); }
   :global(.g2048-tile--8192) { background: #ec4899; color: #ffffff; box-shadow: 0 0 30px rgba(236, 72, 153, 0.85); }
   :global(.g2048-tile--super) { background: #06b6d4; color: #ffffff; box-shadow: 0 0 30px rgba(6, 182, 212, 0.85); }
+
+  .g2048-grid :global(.g2048-tile-layer) { position: absolute; inset: 0; pointer-events: none; }
+  .g2048-grid :global(.g2048-tile) { inset: auto; top: 0; left: 0; background: transparent; box-shadow: none; }
+  .g2048-grid :global(.g2048-tile-face) {
+    display: grid; place-items: center; width: 100%; height: 100%; border-radius: 10px;
+    background: linear-gradient(150deg, color-mix(in srgb, var(--tile-color) 85%, white), var(--tile-color));
+    color: var(--tile-ink); box-shadow: inset 0 1px 0 #ffffff40, 0 3px 5px #00000018;
+    font-size: clamp(1.1rem, 5vw, 2.1rem); border: 1px solid #ffffff30;
+  }
+  .g2048-grid :global(.g2048-tile-face.is-compact) { font-size: clamp(.85rem, 3.5vw, 1.5rem); }
+  .g2048-grid :global(.g2048-tile-face.is-new) { animation: g2048-appear 150ms ease-out; }
+  .g2048-grid :global(.g2048-tile-face.is-merged) { animation: g2048-pop 180ms ease-out; }
+  .g2048-grid:focus-visible { outline: 3px solid var(--color-accent); outline-offset: 3px; }
+  .game-btn, .mode-btn { min-height: 44px; }
+  .game-btn--icon { min-width: 44px; }
+  .g2048-status { min-height: 2.5em; margin: 0; font-size: .85rem; }
+  :global(.g2048.game-focus-view) .g2048-header-card,
+  :global(.g2048.game-focus-view) .g2048-help,
+  :global(.g2048.game-focus-view) .shortcut-hints { display: none; }
+  :global(.g2048.game-focus-view) .g2048-stage { padding: .4rem; }
+  :global(.g2048.game-focus-view) .g2048-board-wrapper { max-width: min(440px, calc(100dvh - 360px)); }
 
   /* Overlay (Hidden by default, shown via .is-active:not([hidden])) */
   .g2048-overlay {
