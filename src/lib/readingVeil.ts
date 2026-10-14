@@ -1,10 +1,10 @@
 /**
- * The homepage reading veil: how much of the background art may show through text and through
- * the translucent cards. ONE number, `--art-through` in src/styles/tokens.css. The text mask
- * reads it here, and the cards fill with its complement (`--veil-fill`), so the two layers cannot
- * disagree about how faint the art is. Pure: the DOM walk lives in src/scripts/background.ts.
+ * How much background art may show through running text. Homepage cards use the complement
+ * of the same `--art-through` token; ordinary pages use the fainter `--content-art-through`.
+ * Pure policy: the DOM walk and union-first mask live in src/scripts/background.ts.
  */
-export const VEIL_DEFAULT = 0.3;
+export const VEIL_DEFAULT = 0.18;
+export const CONTENT_VEIL_DEFAULT = 0.1;
 /** Past this the art competes with the words, which is the opposite of a veil. */
 export const VEIL_MAX = 0.6;
 
@@ -32,10 +32,15 @@ export const SOFT_SELECTOR = [
 /** Things that must stay legible or intact whatever is behind them: no art through these. */
 export const SOLID_SELECTOR = [
   'main pre',
+  'main code',
+  'main figure',
+  'main svg',
+  'main .katex',
   'main table',
   'main button',
   'main input',
   'main select',
+  'main textarea',
   'main img',
   'main canvas',
   'main iframe',
@@ -49,15 +54,12 @@ export const SOLID_SELECTOR = [
 ].join(', ');
 
 /**
- * The veil for this page. Only the homepage has one: every other page keeps the fully cleared
- * reading area, because long-form text is read there for minutes rather than glanced at.
- * An unreadable token falls back to the default rather than to 0, so a stylesheet that failed to
- * load cannot silently switch the veil off.
+ * Read the caller's page-specific token. Unreadable tokens use the corresponding quiet default;
+ * an explicit zero still restores a fully cleared reading area.
  */
 export function readVeil(raw: string | null | undefined, home: boolean): number {
-  if (!home) return 0;
   const value = Number.parseFloat(String(raw ?? '').trim());
-  if (!Number.isFinite(value)) return VEIL_DEFAULT;
+  if (!Number.isFinite(value)) return home ? VEIL_DEFAULT : CONTENT_VEIL_DEFAULT;
   return Math.max(0, Math.min(VEIL_MAX, value));
 }
 

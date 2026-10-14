@@ -38,7 +38,7 @@ let resizeObserver: ResizeObserver | null = null;
 let maskRaf = 0;
 let bounds: Array<{ x: number; y: number; w: number; h: number; kind: VeilKind }> = [];
 let mask: HTMLCanvasElement | null = null;
-// The soft boxes are painted here, opaque, and laid on `mask` once; `veil` is 0 off the homepage.
+// Soft boxes are unioned here, then laid on `mask` once at the page's erase alpha.
 let veilLayer: HTMLCanvasElement | null = null;
 let veil = 0;
 let demo: SceneRenderer | null = null;
@@ -91,18 +91,24 @@ function notify() {
         button.tabIndex = checked ? 0 : -1;
         button.disabled = attribute === 'motion' && preference.scene === 'off';
       });
+    document
+      .querySelectorAll<HTMLSelectElement>(`select[data-background-${attribute}-select]`)
+      .forEach((select) => {
+        select.value = selected;
+        select.disabled = attribute === 'motion' && preference.scene === 'off';
+      });
   }
   setLabel(
     $('[data-background-hint]'),
     preference.scene === 'off'
       ? 'All decorative backgrounds are hidden.'
       : reduced()
-        ? 'Reduced motion is enabled. Showing a still composition.'
+        ? 'Reduced motion: showing a still composition.'
         : preference.motion === 'paused'
-          ? 'The scene is paused. Your reading stays still.'
+          ? 'Paused. Your reading stays still.'
           : preference.motion === 'calm'
-            ? 'Gentler motion and lower contrast while you read.'
-            : 'Quiet motion in the background. Your choice is remembered.'
+            ? 'Gentler motion and lower contrast.'
+            : 'Quiet motion. Your choice is remembered.'
   );
   const explore = $<HTMLButtonElement>('[data-background-explore]');
   if (explore) {
@@ -155,10 +161,12 @@ function applyRunning() {
 function collectBounds() {
   bounds = [];
   if (!canvas || !renderer) return;
-  // Homepage only: every other page keeps the fully cleared reading area.
+  const home = location.pathname === '/';
   veil = readVeil(
-    getComputedStyle(document.documentElement).getPropertyValue('--art-through'),
-    location.pathname === '/'
+    getComputedStyle(document.documentElement).getPropertyValue(
+      home ? '--art-through' : '--content-art-through'
+    ),
+    home
   );
   const collect = (selector: string, kind: VeilKind) =>
     document.querySelectorAll<HTMLElement>(selector).forEach((element) => {
@@ -167,7 +175,7 @@ function collectBounds() {
       // engines even though only their summary is painted. Do not erase art for them.
       if (element.closest('details:not([open]) > :not(summary)')) return;
       // A veiled card is translucent in CSS. Erasing the art behind its text as well would
-      // attenuate it twice (0.3 x 0.3), so text inside one is left to the card.
+      // attenuate it twice, so text inside one is left to the card.
       if (kind === 'soft' && element.closest('[data-veiled]')) return;
       for (const r of element.getClientRects()) {
         if (r.width && r.height)
@@ -624,6 +632,20 @@ export function initBackground() {
     else if (motion && MOTIONS.includes(motion as BackgroundPreference['motion']))
       void select({ motion: motion as BackgroundPreference['motion'] });
     else if (target.hasAttribute('data-background-explore')) void openDemo();
+  });
+  document.addEventListener('change', (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLSelectElement) || target.disabled) return;
+    if (
+      target.hasAttribute('data-background-scene-select') &&
+      SCENES.includes(target.value as BackgroundPreference['scene'])
+    )
+      void select({ scene: target.value as BackgroundPreference['scene'] });
+    else if (
+      target.hasAttribute('data-background-motion-select') &&
+      MOTIONS.includes(target.value as BackgroundPreference['motion'])
+    )
+      void select({ motion: target.value as BackgroundPreference['motion'] });
   });
   document.addEventListener('keydown', (event) => {
     const target = (event.target as Element)?.closest<HTMLElement>(

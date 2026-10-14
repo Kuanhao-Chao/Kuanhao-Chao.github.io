@@ -4,6 +4,7 @@ import {
   SOFT_SELECTOR,
   SOLID_SELECTOR,
   VEIL_DEFAULT,
+  CONTENT_VEIL_DEFAULT,
   VEIL_MAX,
   readVeil,
   softEraseAlpha,
@@ -13,11 +14,11 @@ const tokens = readFileSync('src/styles/tokens.css', 'utf8');
 const split = (selector: string) => selector.split(',').map((part) => part.trim());
 
 describe('reading veil strength', () => {
-  it('is the token on the homepage and nothing anywhere else', () => {
-    expect(readVeil('0.3', true)).toBe(0.3);
+  it('uses the page token without erasing ordinary-page artwork entirely', () => {
+    expect(readVeil('0.18', true)).toBe(0.18);
     expect(readVeil(' 0.35 ', true)).toBe(0.35);
-    expect(readVeil('0.3', false)).toBe(0);
-    expect(readVeil('0.9', false)).toBe(0);
+    expect(readVeil('0.10', false)).toBe(0.1);
+    expect(readVeil('0', false)).toBe(0);
   });
   it('clamps to a veil, and falls back to the default rather than to off', () => {
     expect(readVeil('0.9', true)).toBe(VEIL_MAX);
@@ -29,6 +30,10 @@ describe('reading veil strength', () => {
     expect(readVeil(null, true)).toBe(VEIL_DEFAULT);
     expect(readVeil(undefined, true)).toBe(VEIL_DEFAULT);
     expect(readVeil('NaN', true)).toBe(VEIL_DEFAULT);
+    for (const raw of ['', 'banana', null, undefined, 'NaN'])
+      expect(readVeil(raw, false)).toBe(CONTENT_VEIL_DEFAULT);
+    expect(readVeil('0.9', false)).toBe(VEIL_MAX);
+    expect(readVeil('-1', false)).toBe(0);
   });
   it('erases the complement from the soft boxes', () => {
     expect(softEraseAlpha(0.3)).toBeCloseTo(0.7, 12);
@@ -40,21 +45,25 @@ describe('reading veil strength', () => {
 
 describe('the token and the cards share one number', () => {
   const through = Number(/--art-through:\s*([0-9.]+);/.exec(tokens)?.[1]);
-  it('ships the strength the plan chose, inside the tuning range', () => {
-    expect(through).toBe(VEIL_DEFAULT);
-    expect(through).toBeGreaterThanOrEqual(0.25);
-    expect(through).toBeLessThanOrEqual(0.4);
+  it('keeps homepage art quieter and content-page art fainter still', () => {
+    expect(through).toBe(0.18);
+    expect(VEIL_DEFAULT).toBe(0.18);
+    const contentThrough = Number(/--content-art-through:\s*([0-9.]+);/.exec(tokens)?.[1]);
+    expect(contentThrough).toBe(0.1);
+    expect(CONTENT_VEIL_DEFAULT).toBe(0.1);
   });
   it('derives the card fill from it, so the two layers cannot drift apart', () => {
     expect(tokens).toMatch(/--veil-fill:\s*calc\(\(1 - var\(--art-through\)\) \* 100%\);/);
     // The fill is the complement: art visible through a card = through, as through text.
-    expect((1 - through) * 100).toBeCloseTo(70, 9);
+    expect((1 - through) * 100).toBeCloseTo(82, 9);
   });
   it('defines both in the theme-independent block, not once per theme', () => {
     expect(tokens.match(/--art-through:/g)).toHaveLength(1);
+    expect(tokens.match(/--content-art-through:/g)).toHaveLength(1);
     expect(tokens.match(/--veil-fill:/g)).toHaveLength(1);
     const firstBlock = tokens.slice(0, tokens.indexOf(":root[data-theme='dark']"));
     expect(firstBlock).toContain('--art-through:');
+    expect(firstBlock).toContain('--content-art-through:');
   });
 });
 
@@ -75,10 +84,15 @@ describe('what is soft and what stays solid', () => {
     'main dd',
     'main blockquote',
     'main pre',
+    'main code',
+    'main figure',
+    'main svg',
+    'main .katex',
     'main table',
     'main button',
     'main input',
     'main select',
+    'main textarea',
     'main summary',
     'main img',
     'main canvas',
@@ -105,13 +119,19 @@ describe('what is soft and what stays solid', () => {
       'main button',
       'main input',
       'main pre',
+      'main code',
+      'main figure',
+      'main svg',
+      'main .katex',
+      'main textarea',
       'main [data-terminal]',
       'header.site-header',
       'footer',
-    ])
+    ]) {
       expect(soft).not.toContain(kept);
-    for (const text of ['main h1', 'main p', 'main li', 'main a'])
-      expect(soft).toContain(text);
+      expect(split(SOLID_SELECTOR)).toContain(kept);
+    }
+    for (const text of ['main h1', 'main p', 'main li', 'main a']) expect(soft).toContain(text);
   });
 });
 
@@ -146,7 +166,9 @@ describe('the veiled cards', () => {
     const scoped = home.slice(home.indexOf('Sequence → Function: the research and software grids'));
     // The container stops painting the line colour; each card outlines itself instead.
     expect(scoped).toMatch(/\.home-research,[^{]*\.home-tools\s*\{[^}]*background:\s*transparent/);
-    expect(scoped).toMatch(/\.home-research[^{]*\.rcard--home[^{]*,[^{]*\.home-tool\s*\{[^}]*outline:\s*1px solid var\(--color-rule\)/);
+    expect(scoped).toMatch(
+      /\.home-research[^{]*\.rcard--home[^{]*,[^{]*\.home-tool\s*\{[^}]*outline:\s*1px solid var\(--color-rule\)/
+    );
     // The gap stays 1px, so nothing shifts when the scene changes.
     expect(home).toMatch(/\.home-research\s*\{[^}]*gap:\s*1px/);
     expect(home).toMatch(/\.home-tools\s*\{[^}]*gap:\s*1px/);
