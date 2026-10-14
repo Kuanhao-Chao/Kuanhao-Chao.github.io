@@ -26,7 +26,7 @@ const gameLd = {
   eyebrow="Side project"
   lead="A fast browser runner built in this site's style: sprint along a genomic sequence track, jump over mutation variant blocks, duck under splice arches, and keep the reading frame moving."
   description="Dino Run — a mobile-friendly browser runner by Kuan-Hao Chao, with a subtle genomics riff and responsive canvas gameplay."
-  width="narrow"
+  width="wide"
 >
   <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
 
@@ -35,8 +35,8 @@ const gameLd = {
     <div class="dino-header-card">
       <DinoRunLogo size={58} />
       <div class="dino-header-info">
-        <h2 class="dino-header-title">Genomic Track Velociraptor Runner</h2>
-        <p class="dino-header-subtitle">Jump mutation variants, duck splice-junction arches, and extend your sequence distance.</p>
+        <h2 class="dino-header-title">Feathered genomic expedition</h2>
+        <p class="dino-header-subtitle">Jump blocks, duck arches, and find your rhythm. A playful genomics riff, not a biological simulation.</p>
       </div>
     </div>
 
@@ -63,6 +63,7 @@ const gameLd = {
       </div>
 
       <div class="dino-controls" aria-label="Dino Run controls">
+        <select data-dino-mode aria-label="Dino Run mode"><option value="ranked">Classic</option><option value="practice">Practice · unranked</option></select>
         <button type="button" class="game-btn game-btn--jump" data-dino-jump>
           <Icon name="arrow-up" size={16} />
           <span>Jump</span>
@@ -79,7 +80,12 @@ const gameLd = {
           <Icon name="rotate-ccw" size={16} />
           <span>Restart</span>
         </button>
+        <button type="button" class="game-btn" data-dino-sound aria-pressed="false">Sound off</button>
       </div>
+    </div>
+    <div class="dino-extra-controls">
+      <button type="button" class="game-btn" data-dino-retry-seed>Retry same seed</button>
+      <button type="button" class="game-btn" data-dino-share>Copy challenge</button>
     </div>
 
     <div class="dino-board">
@@ -100,6 +106,8 @@ const gameLd = {
         <p>
           <strong>Jump:</strong> Press <code>Space</code>, <code>↑</code>, or <code>W</code>. On mobile touch screens, tap or swipe up.
         </p>
+        <p><strong>Rhythm & fairness:</strong> A jump pressed within 120 ms before landing is buffered. Spacing includes a full jump and recovery time even at maximum speed. Practice is gentler and does not update your classic best. Copy a challenge to replay the same seeded course.</p>
+        <p><strong>Genomics riff:</strong> Variant blocks, tandem-repeat stacks, splice-site arches and “bp” distance are playful metaphors. Mutations are not inherently harmful obstacles, and the dinosaur is an illustration, not a paleontological reconstruction.</p>
         <p>
           <strong>Duck:</strong> Press <code>↓</code> or <code>S</code>. On mobile, swipe down or hold the Duck button.
         </p>
@@ -135,8 +143,12 @@ const gameLd = {
 </script>
 
 <style>
+  .dino { max-width: 960px; margin-inline: auto; }
+  .dino-extra-controls { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .dino-controls select { min-height: 44px; border: 1px solid var(--color-rule); border-radius: .5rem; background: var(--color-surface); color: var(--color-ink); }
+  @media (max-width: 600px) { .dino-board { aspect-ratio: 8 / 7 !important; } }
   .dino {
-    max-width: 44rem;
+    max-width: 60rem;
     margin-inline: auto;
     display: flex;
     flex-direction: column;
@@ -294,6 +306,7 @@ const gameLd = {
   }
 
   .dino-status {
+    overflow-wrap: anywhere;
     min-height: 1.4em;
     text-align: center;
     font-size: var(--fs-small, 0.85rem);

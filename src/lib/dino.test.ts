@@ -83,6 +83,26 @@ describe('start / step gating', () => {
 });
 
 describe('runner actions', () => {
+  it('introduces ground obstacles before requiring a jump-versus-duck choice', () => {
+    const game = createGame({}, seeded());
+    expect(spawnObstacle(game, () => .6).kind).toBe('variant-block');
+  });
+  it('leaves enough high-speed spacing for a complete jump and recovery', () => {
+    const game = createGame({}, seeded());
+    game.speed = 720;
+    expect(nextGap(game, () => 0)).toBeGreaterThanOrEqual(770);
+  });
+  it('buffers a jump pressed shortly before landing for 120 milliseconds', () => {
+    const game = createGame({}, seeded());
+    start(game);
+    game.runner.grounded = false;
+    game.runner.y = game.groundY - 3;
+    game.runner.vy = 50;
+    expect(jump(game)).toBe(false);
+    runFor(game, seeded(), 3);
+    expect(game.runner.grounded).toBe(false);
+    expect(game.runner.vy).toBeLessThan(0);
+  });
   it('jumps only from the ground and lands again', () => {
     const game = createGame({}, seeded());
     expect(jump(game)).toBe(true);

@@ -61,8 +61,6 @@ export function mountGameTools(doc: Document) {
       if (!target) return;
       if (target.closest('input,select,textarea,[contenteditable="true"]') || !root.contains(target)) {
         if (/^(Arrow| |[wasdfcrp12]$)/i.test(event.key)) event.stopImmediatePropagation();
-      } else if (target.closest('button,a') && (event.key === ' ' || event.key === 'Enter')) {
-        event.stopImmediatePropagation(); // retain the control's native activation
       }
     }, { capture: true, signal });
     cleanups.push(exit);
