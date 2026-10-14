@@ -64,6 +64,8 @@ export interface DinoState {
   score: number;
   speed: number;
   ticks: number;
+  jumpBufferedMs: number;
+  landedAt: number;
 }
 
 /** Deterministic RNG returning a float in [0, 1). Same seed -> same sequence. */
@@ -92,8 +94,8 @@ export const DEFAULT_DINO_CONFIG = {
   initialGap: 430,
 } as const;
 
-const STANDING = { width: 46, height: 66 } as const;
-const DUCKING = { width: 68, height: 38 } as const;
+const STANDING = { width: 64, height: 66 } as const;
+const DUCKING = { width: 78, height: 42 } as const;
 const OFFSCREEN_PAD = 80;
 
 const clamp = (n: number, min: number, max: number): number => Math.min(max, Math.max(min, n));
@@ -126,6 +128,8 @@ export function createGame(config: DinoConfig = {}, rng: RNG = mulberry32(1)): D
     score: 0,
     speed: merged.startSpeed,
     ticks: 0,
+    jumpBufferedMs: 0,
+    landedAt: -1000,
   };
 }
 
@@ -157,10 +161,11 @@ export function start(state: DinoState): void {
 export function jump(state: DinoState): boolean {
   if (state.status === 'over') return false;
   if (state.status === 'ready') start(state);
-  if (!state.runner.grounded) return false;
+  if (!state.runner.grounded) { state.jumpBufferedMs = 120; return false; }
   state.runner.vy = state.jumpVelocity;
   state.runner.grounded = false;
   state.runner.ducking = false;
+  state.jumpBufferedMs = 0;
   return true;
 }
 
@@ -220,14 +225,18 @@ export function makeObstacle(
 
 export function nextGap(state: DinoState, rng: RNG): number {
   const speedFactor = clamp(state.speed / state.maxSpeed, 0, 1);
-  const min = 290 + speedFactor * 210;
+  // Leading-edge spacing includes a full ballistic jump, recovery, the widest
+  // obstacle and the standing footprint. It stays feasible as speed increases.
+  const min = Math.max(320, state.speed * (2 * Math.abs(state.jumpVelocity) / state.gravity + .2) + 132);
   const max = min + 150 + speedFactor * 130;
   return min + rng() * (max - min);
 }
 
 export function spawnObstacle(state: DinoState, rng: RNG): Obstacle {
+  const rolled = obstacleKind(rng);
+  const kind = state.elapsedMs < 6000 ? 'variant-block' : state.elapsedMs < 10000 && rolled === 'repeat-stack' ? 'variant-block' : rolled;
   const obstacle = makeObstacle(
-    obstacleKind(rng),
+    kind,
     state.nextObstacleId,
     state.width + 28,
     state.groundY,
@@ -243,7 +252,8 @@ export function step(state: DinoState, rng: RNG, dtMs = 1000 / 60): DinoState {
 
   const dt = clamp(dtMs, 0, 100) / 1000;
   state.ticks += 1;
-  state.elapsedMs += dtMs;
+  state.elapsedMs += dt * 1000;
+  state.jumpBufferedMs = Math.max(0, state.jumpBufferedMs - dt * 1000);
   state.speed = Math.min(
     state.maxSpeed,
     state.startSpeed + (state.elapsedMs / 1000) * state.speedRamp
@@ -257,6 +267,8 @@ export function step(state: DinoState, rng: RNG, dtMs = 1000 / 60): DinoState {
       runner.y = state.groundY;
       runner.vy = 0;
       runner.grounded = true;
+      state.landedAt = state.elapsedMs;
+      if (state.jumpBufferedMs > 0) jump(state);
     }
   } else {
     runner.y = state.groundY;

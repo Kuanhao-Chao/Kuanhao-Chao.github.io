@@ -90,13 +90,36 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
   const restartBtn = root.querySelector<HTMLButtonElement>('[data-dino-restart]');
   const jumpBtn = root.querySelector<HTMLButtonElement>('[data-dino-jump]');
   const duckBtn = root.querySelector<HTMLButtonElement>('[data-dino-duck]');
+  const retryBtn = root.querySelector<HTMLButtonElement>('[data-dino-retry-seed]');
+  const modeSelect = root.querySelector<HTMLSelectElement>('[data-dino-mode]');
+  if (modeSelect && new URLSearchParams(location.search).get('mode') === 'practice') modeSelect.value = 'practice';
+  const soundBtn = root.querySelector<HTMLButtonElement>('[data-dino-sound]');
+  let soundEnabled = false;
+  let audio: AudioContext | null = null;
+  let shareMessage = '';
+  try { soundEnabled = localStorage.getItem('khc-dino-sound') === 'on'; } catch {}
+  function tone() {
+    if (!soundEnabled) return;
+    audio ??= new AudioContext();
+    void audio.resume().catch(() => {});
+    const oscillator = audio.createOscillator(); const gain = audio.createGain();
+    oscillator.type = 'sine'; oscillator.frequency.setValueAtTime(420, audio.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(700, audio.currentTime + .12);
+    gain.gain.setValueAtTime(.05, audio.currentTime); gain.gain.exponentialRampToValueAtTime(.001, audio.currentTime + .14);
+    oscillator.connect(gain); gain.connect(audio.destination); oscillator.start(); oscillator.stop(audio.currentTime + .14);
+  }
+  const shareBtn = root.querySelector<HTMLButtonElement>('[data-dino-share]');
+  const motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
+  let reducedMotion = motionQuery.matches;
+  let visibleWidth = 960;
 
   const seedParam = new URLSearchParams(location.search).get('seed');
   const freshSeed = (): number =>
     seedParam != null ? Number(seedParam) >>> 0 : (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
 
-  let rng: RNG = mulberry32(freshSeed());
-  const state = createGame({}, rng);
+  let seed = freshSeed();
+  let rng: RNG = mulberry32(seed);
+  const state = createGame(modeSelect?.value === 'practice' ? { startSpeed: 240, maxSpeed: 420, speedRamp: 4 } : {}, rng);
   let best = readBest();
   let colors = readColors();
 
@@ -130,7 +153,8 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
-    ctx.setTransform((w * dpr) / state.width, 0, 0, (h * dpr) / state.height, 0, 0);
+    visibleWidth = w < 600 ? 480 : state.width;
+    ctx.setTransform((w * dpr) / visibleWidth, 0, 0, (h * dpr) / state.height, 0, 0);
     render();
   }
 
@@ -209,6 +233,20 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
   function drawBackground() {
     const ground = state.groundY;
     ctx.save();
+    const sky = ctx.createLinearGradient(0, 0, 0, ground);
+    sky.addColorStop(0, colors.warmBg); sky.addColorStop(1, colors.board);
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, state.width, ground);
+    ctx.fillStyle = '#e9bb71'; ctx.globalAlpha = .45;
+    ctx.beginPath(); ctx.arc(visibleWidth * .78, 80, 32, 0, Math.PI * 2); ctx.fill();
+    // Ink-wash terrain layers scroll more slowly than the genomic track.
+    for (let layer = 0; layer < 3; layer++) {
+      ctx.globalAlpha = .08 + layer * .04; ctx.fillStyle = colors.accent;
+      ctx.beginPath(); ctx.moveTo(0, ground);
+      const scroll = reducedMotion ? 0 : state.distance * (.025 + layer * .035);
+      for (let px = 0; px <= state.width + 24; px += 24) ctx.lineTo(px, ground - 40 - layer * 26 - Math.sin((px + scroll) / (90 + layer * 20)) * (18 + layer * 8));
+      ctx.lineTo(state.width, ground); ctx.closePath(); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
 
     // 1. High-Tech Genomic Double-Helix Track
     // Upper Rail (Phosphodiester Backbone)
@@ -279,144 +317,56 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
   }
 
   function drawRunner() {
-    const ducking = state.runner.ducking && state.runner.grounded;
+    const crouched = state.runner.ducking && state.runner.grounded;
     const airborne = !state.runner.grounded;
     const x = state.runner.x;
     const bottom = state.runner.y;
-
-    ctx.save();
-    ctx.fillStyle = colors.accent;
-    ctx.strokeStyle = colors.accentDark;
-    ctx.lineWidth = 2;
-
-    // Running animation phase
-    const runPhase = (state.distance * 0.12) % (Math.PI * 2);
-    const legSwing = Math.sin(runPhase) * 7;
-
-    if (ducking) {
-      // 1. Ducking Low-Profile Slide
-      // Streamlined elongated body
-      roundRect(x + 4, bottom - 32, 60, 24, 8);
-      ctx.fill();
-      ctx.stroke();
-
-      // Low-profile elongated head & jaws
-      roundRect(x + 48, bottom - 42, 30, 20, 7);
-      ctx.fill();
-      ctx.stroke();
-
-      // Cybernetic gold visor eye
-      ctx.fillStyle = '#f59e0b';
-      ctx.fillRect(x + 64, bottom - 36, 9, 4);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(x + 69, bottom - 35, 3, 2);
-
-      // Low tucked limbs & ground friction sparks
-      ctx.fillStyle = colors.accentDark;
-      ctx.fillRect(x + 16, bottom - 8, 14, 6);
-      ctx.fillRect(x + 44, bottom - 8, 14, 6);
-
-      // Slide friction sparks
-      ctx.fillStyle = '#fbbf24';
-      ctx.fillRect(x + 8, bottom - 4, 3, 2);
-      ctx.fillRect(x + 24, bottom - 3, 2, 2);
-      ctx.fillRect(x + 40, bottom - 5, 3, 2);
-    } else {
-      // 2. Upright Running & Leaping Cybernetic Velociraptor
-      // Counter-balancing tail with flexible curve
-      const tailTilt = airborne ? -4 : Math.sin(runPhase) * 3;
-      ctx.beginPath();
-      ctx.moveTo(x + 10, bottom - 38);
-      ctx.quadraticCurveTo(x - 6, bottom - 42 + tailTilt, x - 18, bottom - 36 + tailTilt * 1.5);
-      ctx.lineTo(x - 16, bottom - 30 + tailTilt * 1.5);
-      ctx.quadraticCurveTo(x - 4, bottom - 34 + tailTilt, x + 10, bottom - 26);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      // Main Torso Body
-      roundRect(x + 8, bottom - 48, 36, 38, 10);
-      ctx.fill();
-      ctx.stroke();
-
-      // Dorsal neural spine plates along back
-      ctx.fillStyle = '#f59e0b';
-      ctx.beginPath();
-      ctx.moveTo(x + 14, bottom - 48);
-      ctx.lineTo(x + 18, bottom - 55);
-      ctx.lineTo(x + 22, bottom - 48);
-      ctx.moveTo(x + 24, bottom - 48);
-      ctx.lineTo(x + 28, bottom - 56);
-      ctx.lineTo(x + 32, bottom - 48);
-      ctx.fill();
-
-      // Aerodynamic Neck & Raptor Head
-      ctx.fillStyle = colors.accent;
-      roundRect(x + 34, bottom - 66, 30, 26, 8);
-      ctx.fill();
-      ctx.stroke();
-
-      // Snout jawline
-      ctx.beginPath();
-      ctx.moveTo(x + 52, bottom - 50);
-      ctx.lineTo(x + 64, bottom - 50);
-      ctx.stroke();
-
-      // Cybernetic Visor Eye (Glowing arcade gold)
-      ctx.fillStyle = '#f59e0b';
-      ctx.fillRect(x + 50, bottom - 58, 8, 4);
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(x + 54, bottom - 57, 3, 2);
-
-      // Forward articulated arm / claw
-      ctx.strokeStyle = colors.accentDark;
-      ctx.lineWidth = 2.2;
-      ctx.beginPath();
-      ctx.moveTo(x + 30, bottom - 36);
-      ctx.lineTo(x + 38, bottom - 30);
-      ctx.lineTo(x + 36, bottom - 24);
-      ctx.stroke();
-
-      // Articulated Running Legs (2-Phase Cycle or Jump Tuck)
-      ctx.lineWidth = 3;
-      if (airborne) {
-        // Back leg extended leaping
-        ctx.beginPath();
-        ctx.moveTo(x + 16, bottom - 22);
-        ctx.lineTo(x + 8, bottom - 12);
-        ctx.lineTo(x + 2, bottom - 6);
-        ctx.stroke();
-        // Front leg bent forward
-        ctx.beginPath();
-        ctx.moveTo(x + 32, bottom - 22);
-        ctx.lineTo(x + 40, bottom - 14);
-        ctx.lineTo(x + 46, bottom - 4);
-        ctx.stroke();
-      } else {
-        // Leg 1
-        ctx.beginPath();
-        ctx.moveTo(x + 18, bottom - 22);
-        ctx.lineTo(x + 16 + legSwing, bottom - 12);
-        ctx.lineTo(x + 18 + legSwing * 1.5, bottom - 2);
-        ctx.stroke();
-        // Leg 2
-        ctx.beginPath();
-        ctx.moveTo(x + 32, bottom - 22);
-        ctx.lineTo(x + 34 - legSwing, bottom - 12);
-        ctx.lineTo(x + 32 - legSwing * 1.5, bottom - 2);
-        ctx.stroke();
-      }
-
-      // Speed velocity trail accent lines
-      ctx.fillStyle = colors.onAccent;
-      ctx.globalAlpha = 0.6;
-      ctx.fillRect(x + 18, bottom - 36, 18, 2.5);
-      ctx.globalAlpha = 1;
+    const phase = reducedMotion ? 0 : state.distance * .12;
+    const landing = !reducedMotion && state.runner.grounded ? Math.max(0, 1 - (state.elapsedMs - state.landedAt) / 100) : 0;
+    ctx.save(); ctx.translate(x, bottom);
+    ctx.scale(1 + landing * .07, 1 - landing * .08);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.fillStyle = colors.accent; ctx.strokeStyle = colors.accentDark; ctx.lineWidth = 2;
+    // Connected, counterbalancing tail and feathered silhouette.
+    ctx.beginPath(); ctx.moveTo(16, crouched ? -21 : -35);
+    ctx.bezierCurveTo(-2, -36, -17, -33 + Math.sin(phase) * 3, -28, -23);
+    ctx.bezierCurveTo(-7, -23, 3, -18, 19, -17); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(crouched ? 31 : 27, crouched ? -21 : -31, crouched ? 27 : 22, crouched ? 12 : 20, -.15, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(crouched ? 43 : 39, crouched ? -26 : -37);
+    ctx.lineTo(crouched ? 56 : 45, crouched ? -32 : -58); ctx.lineTo(crouched ? 66 : 56, crouched ? -29 : -52);
+    ctx.lineTo(45, -20); ctx.closePath(); ctx.fill(); ctx.stroke();
+    roundRect(crouched ? 50 : 39, crouched ? -41 : -65, 25, 21, 9); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#f5d49a'; ctx.beginPath(); ctx.ellipse(crouched ? 33 : 29, crouched ? -20 : -29, 13, crouched ? 6 : 12, -.15, 0, Math.PI * 2); ctx.fill();
+    // Feather fans connect to the back, forelimb and tail; not detached armor plates.
+    ctx.strokeStyle = colors.warmText; ctx.lineWidth = 2;
+    for (let i = 0; i < 5; i++) {
+      const fx = 11 + i * 5; const fy = crouched ? -28 : -43 - Math.sin(i / 4 * Math.PI) * 4;
+      ctx.beginPath(); ctx.moveTo(fx, fy + 4); ctx.quadraticCurveTo(fx - 5, fy - 9, fx - 9, fy - 5); ctx.stroke();
+    }
+    ctx.beginPath(); ctx.moveTo(33, -31); ctx.lineTo(43, -24); ctx.lineTo(35, -18); ctx.stroke();
+    ctx.fillStyle = '#fff9e8'; ctx.beginPath(); ctx.arc(crouched ? 66 : 55, crouched ? -33 : -57, 3.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#243b31'; ctx.beginPath(); ctx.arc(crouched ? 67 : 56, crouched ? -33 : -57, 1.8, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = colors.accentDark; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(crouched ? 66 : 54, crouched ? -24 : -48); ctx.lineTo(crouched ? 73 : 62, crouched ? -24 : -48); ctx.stroke();
+    // Hip → knee → ankle → toes stay connected in running, airborne and duck poses.
+    for (const sign of [-1, 1]) {
+      const swing = airborne ? sign * 8 : Math.sin(phase + (sign < 0 ? Math.PI : 0)) * 8;
+      const hip = 26 + sign * 6;
+      const kneeX = crouched ? hip + 10 : hip + swing;
+      const kneeY = crouched ? -10 : airborne ? -13 : -12;
+      const footX = crouched ? hip + 14 : hip + swing * 1.5;
+      const footY = airborne ? -5 - sign * 3 : -2;
+      ctx.strokeStyle = sign < 0 ? colors.accentDark : colors.accent; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(hip, crouched ? -16 : -23); ctx.lineTo(kneeX, kneeY); ctx.lineTo(footX, footY); ctx.lineTo(footX + 8, footY); ctx.stroke();
     }
     ctx.restore();
   }
 
   function drawObstacle(obstacle: Obstacle) {
+    if (obstacle.x < visibleWidth) {
+      ctx.save(); ctx.fillStyle = colors.ink; ctx.font = 'bold 13px monospace'; ctx.textAlign = 'center';
+      ctx.fillText(obstacle.kind === 'splice-arch' ? '↓ DUCK' : '↑ JUMP', obstacle.x + obstacle.width / 2, obstacle.y - 18); ctx.restore();
+    }
     if (obstacle.kind === 'splice-arch') {
       // 1. Holographic GT-AG Splice-Junction Gateway Obstacle
       ctx.save();
@@ -496,7 +446,9 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
     if (scoreEl) scoreEl.textContent = String(state.score);
     if (bestEl) bestEl.textContent = String(best);
     if (speedEl) speedEl.textContent = String(Math.round(state.speed));
-    if (statusEl) statusEl.textContent = statusMessage();
+    const message = shareMessage || (modeSelect?.value === 'practice' ? 'Unranked practice · ' : '') + statusMessage();
+    if (statusEl && statusEl.textContent !== message) statusEl.textContent = message;
+    if (soundBtn) { soundBtn.textContent = soundEnabled ? 'Sound on' : 'Sound off'; soundBtn.setAttribute('aria-pressed', String(soundEnabled)); }
     if (pauseBtn) {
       pauseBtn.disabled = state.status !== 'playing';
       pauseBtn.dataset.active = paused ? 'true' : 'false';
@@ -509,7 +461,7 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
 
   function tickOnce() {
     engineStep(state, rng, STEP_MS);
-    if (state.score > best) {
+    if (modeSelect?.value !== 'practice' && state.score > best) {
       best = state.score;
       writeBest(best);
     }
@@ -517,7 +469,7 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
 
     const dt = STEP_MS / 1000;
     // Ground slide friction sparks while ducking
-    if (state.status === 'playing' && state.runner.grounded && state.runner.ducking) {
+    if (!reducedMotion && state.status === 'playing' && state.runner.grounded && state.runner.ducking) {
       if (Math.random() < 0.45) {
         particles.push({
           x: state.runner.x + 25 + Math.random() * 25,
@@ -546,7 +498,7 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
       });
       // Starburst particles
       const milestoneColors = ['#10b981', '#38bdf8', '#f59e0b', '#a855f7', '#fbbf24'];
-      for (let i = 0; i < 18; i++) {
+      for (let i = 0; !reducedMotion && i < 18; i++) {
         const a = (i / 18) * Math.PI * 2;
         const sp = 40 + Math.random() * 80;
         particles.push({
@@ -590,7 +542,7 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
       return;
     }
     if (!last) last = ts;
-    acc += Math.min(250, ts - last);
+    acc = Math.min(200, acc + Math.max(0, ts - last));
     last = ts;
     let guard = 0;
     while (acc >= STEP_MS && state.status === 'playing' && guard++ < 12) {
@@ -601,14 +553,16 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
     updateHud();
   }
 
-  function restart(startNow = true) {
+  function restart(startNow = true, sameSeed = false) {
+    shareMessage = '';
     window.clearTimeout(duckReleaseTimer);
     duckReleaseTimer = 0;
     particles.length = 0;
     popups.length = 0;
     lastMilestone = 0;
-    rng = mulberry32(freshSeed());
-    reset(state, rng);
+    if (!sameSeed) seed = freshSeed();
+    rng = mulberry32(seed);
+    Object.assign(state, createGame(modeSelect?.value === 'practice' ? { startSpeed: 240, maxSpeed: 420, speedRamp: 4 } : {}, rng));
     paused = false;
     last = 0;
     acc = 0;
@@ -623,7 +577,8 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
       return;
     }
     if (paused) paused = false;
-    jump(state);
+    shareMessage = '';
+    if (jump(state)) tone();
     render();
     updateHud();
   }
@@ -666,6 +621,7 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
     const key = event.key.toLowerCase();
     if (event.key === 'ArrowUp' || key === 'w' || event.key === ' ') {
       event.preventDefault();
+      if (event.repeat) return;
       doJump();
     } else if (event.key === 'ArrowDown' || key === 's') {
       event.preventDefault();
@@ -757,6 +713,7 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
   function onHide() {
     if (document.hidden && state.status === 'playing') {
       paused = true;
+      releaseDuck(state); state.jumpBufferedMs = 0; acc = 0; touchStart = null;
       updateHud();
     }
   }
@@ -764,15 +721,33 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
   function onBlur() {
     if (state.status === 'playing') {
       paused = true;
+      releaseDuck(state); state.jumpBufferedMs = 0; acc = 0; touchStart = null;
       updateHud();
     }
   }
 
   window.addEventListener('keydown', onKeyDown);
+  const onRetry = () => restart(true, true);
+  const onMode = () => restart(false, true);
+  const onCancel = () => { touchStart = null; doReleaseDuck(); };
+  const onMotion = () => { reducedMotion = motionQuery.matches; if (reducedMotion) particles.length = 0; };
+  const onShare = async () => {
+    const url = new URL(`/games/dino-run/?seed=${seed}&mode=${modeSelect?.value === 'practice' ? 'practice' : 'ranked'}`, location.origin).href;
+    const text = `Dino Run · ${state.score} points${modeSelect?.value === 'practice' ? ' (unranked practice)' : ''} · ${url}`;
+    try { await navigator.clipboard.writeText(text); shareMessage = 'Seeded challenge copied'; } catch { shareMessage = `Challenge seed: ${seed} · ${url}`; }
+    if (canvas.isConnected) updateHud();
+  };
+  const onSound = () => { soundEnabled = !soundEnabled; try { localStorage.setItem('khc-dino-sound', soundEnabled ? 'on' : 'off'); } catch {} updateHud(); };
+  soundBtn?.addEventListener('click', onSound);
+  retryBtn?.addEventListener('click', onRetry);
+  modeSelect?.addEventListener('change', onMode);
+  shareBtn?.addEventListener('click', onShare);
+  motionQuery.addEventListener('change', onMotion);
   window.addEventListener('keyup', onKeyUp);
   canvas.addEventListener('touchstart', onTouchStart, { passive: true });
   canvas.addEventListener('touchmove', onTouchMove, { passive: false });
   canvas.addEventListener('touchend', onTouchEnd, { passive: false });
+  canvas.addEventListener('touchcancel', onCancel);
   canvas.addEventListener('click', onCanvasClick);
   pauseBtn?.addEventListener('click', togglePause);
   restartBtn?.addEventListener('click', onRestart);
@@ -822,14 +797,21 @@ export function initDinoRun(root: ParentNode = document): DinoRunController | nu
 
   function destroy() {
     cancelAnimationFrame(raf);
+    soundBtn?.removeEventListener('click', onSound);
+    void audio?.close().catch(() => {});
     raf = 0;
     window.clearTimeout(duckReleaseTimer);
     ro.disconnect();
     window.removeEventListener('keydown', onKeyDown);
+    retryBtn?.removeEventListener('click', onRetry);
+    modeSelect?.removeEventListener('change', onMode);
+    shareBtn?.removeEventListener('click', onShare);
+    motionQuery.removeEventListener('change', onMotion);
     window.removeEventListener('keyup', onKeyUp);
     canvas.removeEventListener('touchstart', onTouchStart);
     canvas.removeEventListener('touchmove', onTouchMove);
     canvas.removeEventListener('touchend', onTouchEnd);
+    canvas.removeEventListener('touchcancel', onCancel);
     canvas.removeEventListener('click', onCanvasClick);
     pauseBtn?.removeEventListener('click', togglePause);
     restartBtn?.removeEventListener('click', onRestart);
