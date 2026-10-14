@@ -68,6 +68,50 @@ describe('CRISPR Commander Logic Engine', () => {
   });
 
   describe('updateGameState', () => {
+    it('starts practice with Cas9 targets, then advances to the Cas12a round', () => {
+      const state = createInitialState(0, true);
+      expect(state.practiceRound).toBe(0);
+      state.cleavedCount = 3;
+      const next = updateGameState(state, 0).state;
+      expect(next.practiceRound).toBe(1);
+      expect(next.activeCas).toBe('AsCas12a');
+    });
+    it('spawns both enzyme targets in mixed play even without switching the enzyme', () => {
+      const state = createInitialState();
+      state.spawnTimerMs = 2100;
+      const next = updateGameState(state, .016, [], 800, 600, () => .8).state;
+      expect(next.strands[0].pamSequence).toBe('TTTC');
+    });
+    it('requires a new gesture to damage an armored strand again', () => {
+      const state = createInitialState();
+      const strand = spawnViralStrand(1, 1, 'SpCas9', () => .5);
+      strand.x = .5;
+      strand.y = .5;
+      strand.health = strand.maxHealth = 3;
+      state.strands = [strand];
+      const swipe = { x1: 370, y1: 300, x2: 430, y2: 300, time: 1, gestureId: 7 };
+      const first = updateGameState(state, 0, [swipe]);
+      const held = updateGameState(first.state, 0, [swipe]);
+      expect(held.state.strands[0].health).toBe(2);
+      expect(updateGameState(held.state, 0, [{ ...swipe, gestureId: 8 }]).state.strands[0].health).toBe(1);
+    });
+    it('places the PAM outside the guide-matched protospacer in the correct orientation', () => {
+      const cas9 = spawnViralStrand(1, 1, 'SpCas9', () => .5);
+      const cas12 = spawnViralStrand(1, 1, 'AsCas12a', () => .5);
+      expect(cas9.sequence).toBe(cas9.targetSequence + cas9.pamSequence);
+      expect(cas12.sequence).toBe(cas12.pamSequence + cas12.targetSequence);
+    });
+    it('rejects an incompatible PAM without damage or reward', () => {
+      const state = createInitialState();
+      const strand = spawnViralStrand(1, 1, 'AsCas12a', () => .8);
+      strand.x = .5;
+      strand.y = .5;
+      state.strands = [strand];
+      const result = updateGameState(state, 0, [{ x1: 370, y1: 300, x2: 430, y2: 300, time: 1 }]);
+      expect(result.state.strands[0]?.health).toBe(strand.health);
+      expect(result.state.score).toBe(0);
+      expect(result.cleavedStrands).toHaveLength(0);
+    });
     it('cleaves strand, creates fragments, and accumulates combo multiplier', () => {
       const state = createInitialState(0);
       const strand = spawnViralStrand(1, 1, 'SpCas9', () => 0.5);
@@ -115,7 +159,7 @@ describe('CRISPR Commander Logic Engine', () => {
   });
 
   describe('activatePowerUp', () => {
-    it('activates Cytosine Base Editor (CBE) and deaminates C to T', () => {
+    it('target assist preserves DNA and PAM rather than globally editing cytosines', () => {
       const state = createInitialState(0);
       state.atp = 50;
       const strand = spawnViralStrand(1, 1, 'SpCas9', () => 0.5);
@@ -124,7 +168,7 @@ describe('CRISPR Commander Logic Engine', () => {
 
       const next = activatePowerUp(state, 'base_editor');
       expect(next.atp).toBe(15); // cost 35
-      expect(next.strands[0].sequence).toBe('ATGT');
+      expect(next.strands[0].sequence).toBe('ACGT');
     });
 
     it('activates Hyper-Drive Overdrive', () => {

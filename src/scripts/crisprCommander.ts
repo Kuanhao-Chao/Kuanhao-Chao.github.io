@@ -14,6 +14,8 @@ import {
   type CasType,
 } from '../lib/crisprCommander';
 import { isDarkTheme } from '../lib/theme';
+import { createGameClock } from '../lib/gameClock';
+import { mulberry32 } from '../lib/dino';
 
 interface Particle {
   x: number;
@@ -38,7 +40,7 @@ interface FloatingText {
   maxLife: number;
 }
 
-const STORAGE_KEY = 'khc_crispr_commander_highscore';
+const STORAGE_KEY = 'khc_crispr_commander_highscore_v2';
 
 interface ThemePalette {
   isDark: boolean;
@@ -87,7 +89,8 @@ function getThemePalette(): ThemePalette {
 
 class SoundController {
   private ctx: AudioContext | null = null;
-  public enabled = true;
+  public enabled = false;
+  destroy() { void this.ctx?.close().catch(() => {}); this.ctx = null; }
 
   private init() {
     if (!this.ctx && typeof window !== 'undefined') {
@@ -229,7 +232,24 @@ export function initCrisprCommander(containerEl: HTMLElement) {
     savedHigh = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10) || 0;
   } catch {}
 
-  let state: GameState = createInitialState(savedHigh);
+  const modeSelect = containerEl.querySelector<HTMLSelectElement>('[data-crispr-mode]');
+  const startBtn = containerEl.querySelector<HTMLButtonElement>('[data-crispr-start]');
+  const lessonEl = containerEl.querySelector<HTMLElement>('[data-crispr-lesson]');
+  const abort = new AbortController();
+  const { signal } = abort;
+  const clock = createGameClock();
+  const seed = Number(new URLSearchParams(location.search).get('seed')) || Date.now();
+  let random = mulberry32(seed);
+  let started = false;
+  let gestureId = 0;
+  let reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  try { sound.enabled = localStorage.getItem('khc_crispr_sound') === 'true'; } catch {}
+  try {
+    const legacy = localStorage.getItem('khc_crispr_commander_highscore');
+    const legacyEl = containerEl.querySelector('[data-crispr-legacy]');
+    if (legacyEl && legacy) legacyEl.textContent = `Legacy rules best: ${Number(legacy).toLocaleString()} · retained separately from the PAM-correct rules.`;
+  } catch {}
+  let state: GameState = createInitialState(savedHigh, true);
   let palette: ThemePalette = getThemePalette();
   let particles: Particle[] = [];
   let floatingTexts: FloatingText[] = [];
@@ -245,7 +265,7 @@ export function initCrisprCommander(containerEl: HTMLElement) {
   function resizeCanvas() {
     if (!canvas || !ctx) return;
     const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
     canvas.width = Math.round(rect.width * dpr);
     canvas.height = Math.round(rect.height * dpr);
@@ -261,6 +281,7 @@ export function initCrisprCommander(containerEl: HTMLElement) {
   }
 
   function createSparks(x: number, y: number, color: string, count = 16) {
+    if (reducedMotion) return;
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = 1.5 + Math.random() * 4.5;
@@ -276,6 +297,7 @@ export function initCrisprCommander(containerEl: HTMLElement) {
         maxLife: 20 + Math.random() * 15,
       });
     }
+    particles = particles.slice(-180);
   }
 
   function addFloatingText(x: number, y: number, text: string, color = '#38bdf8') {
@@ -288,18 +310,23 @@ export function initCrisprCommander(containerEl: HTMLElement) {
       life: 0,
       maxLife: 40,
     });
+    floatingTexts = floatingTexts.slice(-16);
   }
 
   function render() {
     if (!canvas || !ctx) return;
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
-    animTick += 0.04;
 
     ctx.clearRect(0, 0, w, h);
 
     // 1. Draw cellular background & host genome boundary
     ctx.fillStyle = palette.bg;
+    ctx.fillRect(0, 0, w, h);
+    const glow = ctx.createRadialGradient(w * .5, h * .3, 0, w * .5, h * .3, w * .7);
+    glow.addColorStop(0, palette.isDark ? '#103042' : '#dff4ef');
+    glow.addColorStop(1, palette.bg);
+    ctx.fillStyle = glow;
     ctx.fillRect(0, 0, w, h);
 
     // Grid matrix
@@ -338,7 +365,7 @@ export function initCrisprCommander(containerEl: HTMLElement) {
 
     ctx.fillStyle = palette.dangerLine;
     ctx.font = 'bold 10px monospace';
-    ctx.fillText('HOST GENOME CORE INTEGRATION THRESHOLD', 14, dangerY - 7);
+    ctx.fillText('BACTERIAL DEFENSE · BREACH LINE', 14, dangerY - 7);
 
     // 2. Draw Cleaved DNA Fragments (Double-Strand Break Physics)
     for (const frag of state.fragments) {
@@ -365,32 +392,41 @@ export function initCrisprCommander(containerEl: HTMLElement) {
       const px = strand.x * w;
       const py = strand.y * h;
 
-      // Glow backing
-      ctx.shadowColor = strand.color;
-      ctx.shadowBlur = palette.isDark ? 16 : 8;
-      ctx.fillStyle = strand.color;
+      const cas12 = strand.pamIndex === 0;
+      const color = cas12 ? palette.reticleCas12 : palette.reticleCas9;
+      const half = strand.radius + 10;
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.fillStyle = palette.isDark ? 'rgba(5,15,25,.86)' : 'rgba(255,255,255,.85)';
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.arc(px, py, strand.radius, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
-
-      // Inner nucleotide circle
-      ctx.fillStyle = palette.bg;
-      ctx.beginPath();
-      ctx.arc(px, py, strand.radius - 3.5, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Sequence label
+      ctx.roundRect(-half - 4, -27, half * 2 + 8, 58, 12);
+      ctx.fill(); ctx.stroke();
+      // Paired backbones and complementary base-pair rungs, never a lone RNA target.
+      for (const sign of [-1, 1]) {
+        ctx.beginPath();
+        for (let i = 0; i <= 24; i++) {
+          const x = -half + i / 24 * half * 2;
+          const y = Math.sin(i / 24 * Math.PI * 3 + (reducedMotion ? 0 : animTick * .25)) * 7 * sign;
+          if (!i) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+      ctx.globalAlpha = .65;
+      for (let i = 1; i < 15; i++) {
+        const x = -half + i / 15 * half * 2;
+        const y = Math.sin(i / 15 * Math.PI * 3 + (reducedMotion ? 0 : animTick * .25)) * 7;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, -y); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillStyle = palette.ink;
-      ctx.font = 'bold 12px monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(strand.sequence.slice(0, 5), px, py - 3);
-
-      // PAM badge
-      ctx.font = 'bold 9px monospace';
-      ctx.fillStyle = '#f59e0b';
-      ctx.fillText(`PAM:${strand.pamSequence}`, px, py + 10);
+      ctx.fillText(cas12 ? `5′ ${strand.pamSequence} · guide 3′` : `5′ guide · ${strand.pamSequence} 3′`, 0, -17);
+      ctx.fillStyle = color;
+      ctx.fillText(`${cas12 ? 'Cas12a · staggered' : 'Cas9 · blunt'}`, 0, 19);
+      if (strand.type === 'acr_boss') { ctx.fillStyle = '#f43f5e'; ctx.fillText('AcrIIA4 · Cas9 inhibited', 0, 40); }
+      ctx.restore();
 
       // Health bar for armored/boss units
       if (strand.maxHealth > 1) {
@@ -470,10 +506,6 @@ export function initCrisprCommander(containerEl: HTMLElement) {
     // 6. Draw Particle Sparks
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
-      p.x += p.vx;
-      p.y += p.vy;
-      p.life++;
-      p.alpha = Math.max(0, 1 - p.life / p.maxLife);
 
       ctx.save();
       ctx.globalAlpha = p.alpha;
@@ -483,17 +515,11 @@ export function initCrisprCommander(containerEl: HTMLElement) {
       ctx.fill();
       ctx.restore();
 
-      if (p.life >= p.maxLife) {
-        particles.splice(i, 1);
-      }
     }
 
     // 7. Draw Floating Combat Texts
     for (let i = floatingTexts.length - 1; i >= 0; i--) {
       const ft = floatingTexts[i];
-      ft.y -= 1.2;
-      ft.life++;
-      ft.alpha = Math.max(0, 1 - ft.life / ft.maxLife);
 
       ctx.save();
       ctx.globalAlpha = ft.alpha;
@@ -503,9 +529,6 @@ export function initCrisprCommander(containerEl: HTMLElement) {
       ctx.fillText(ft.text, ft.x, ft.y);
       ctx.restore();
 
-      if (ft.life >= ft.maxLife) {
-        floatingTexts.splice(i, 1);
-      }
     }
 
     // 8. Game Over / Victory / Pause Overlays
@@ -515,17 +538,20 @@ export function initCrisprCommander(containerEl: HTMLElement) {
       ctx.fillStyle = '#f43f5e';
       ctx.font = 'bold 32px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('CELL LYSIS — GENOME INTEGRATED', w / 2, h / 2 - 20);
+      ctx.font = `bold ${Math.min(28, w / 15)}px sans-serif`;
+      ctx.fillText('CELL DEFENSE OVERWHELMED', w / 2, h / 2 - 20);
       ctx.fillStyle = palette.ink;
       ctx.font = '16px monospace';
       ctx.fillText(`Final Score: ${state.score}  ·  High Score: ${state.highScore}`, w / 2, h / 2 + 20);
-    } else if (state.isPaused) {
+    } else if (!started || state.isPaused) {
       ctx.fillStyle = palette.overlayBg;
       ctx.fillRect(0, 0, w, h);
       ctx.fillStyle = palette.reticleCas9;
       ctx.font = 'bold 28px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('PAUSED', w / 2, h / 2);
+      ctx.font = `bold ${Math.min(28, w / 14)}px sans-serif`;
+      ctx.fillText(started ? 'PAUSED' : 'CRISPR COMMANDER', w / 2, h / 2 - 10);
+      if (!started) { ctx.font = '12px sans-serif'; ctx.fillStyle = palette.ink; ctx.fillText('Choose practice or endless, then Start', w / 2, h / 2 + 20); }
     }
   }
 
@@ -536,7 +562,7 @@ export function initCrisprCommander(containerEl: HTMLElement) {
 
     if (comboEl) {
       if (state.combo > 1) {
-        comboEl.textContent = `${state.combo}x COMBO (+${Math.min(500, state.combo * 15)}%)`;
+        comboEl.textContent = `${state.combo} cuts · ${Math.min(1 + Math.floor(state.combo / 5) * .5, 4)}× score`;
         comboEl.classList.add('active');
       } else {
         comboEl.textContent = '1x NORMAL';
@@ -553,7 +579,7 @@ export function initCrisprCommander(containerEl: HTMLElement) {
 
     if (pauseBtn) {
       pauseBtn.textContent = state.isPaused ? 'Resume' : 'Pause';
-      pauseBtn.disabled = state.isGameOver;
+      pauseBtn.disabled = state.isGameOver || !started;
     }
 
     enzymeBtns.forEach((btn) => {
@@ -565,17 +591,23 @@ export function initCrisprCommander(containerEl: HTMLElement) {
     powerupBtns.forEach((btn) => {
       const powerup = btn.getAttribute('data-powerup') as PowerUpType;
       const cost = powerup === 'dcas9_shield' ? 40 : powerup === 'prime_editor' ? 50 : powerup === 'base_editor' ? 35 : 75;
-      btn.disabled = state.atp < cost || state.isGameOver;
+      btn.disabled = state.atp < cost || state.isGameOver || !started;
       const active = state.powerUps.find((p) => p.type === powerup);
       if (active) {
         btn.classList.add('active');
         btn.textContent = `${powerup.toUpperCase()} (${Math.ceil(active.remainingMs / 1000)}s)`;
       } else {
         btn.classList.remove('active');
-        const name = powerup === 'dcas9_shield' ? 'dCas9 Shield' : powerup === 'prime_editor' ? 'Prime Edit (+40)' : powerup === 'base_editor' ? 'Base Edit (C→T)' : 'Hyper-Drive';
+        const name = powerup === 'dcas9_shield' ? 'Shield · slow' : powerup === 'prime_editor' ? 'Repair +40' : powerup === 'base_editor' ? 'Target assist' : 'Overdrive';
         btn.textContent = `${name} (${cost} ATP)`;
       }
     });
+    if (lessonEl && !lessonEl.dataset.rejected) {
+      const lesson = state.practiceRound < 3 ? `Practice ${state.practiceRound + 1}/3 · ${['Cas9: guide → NGG', 'Cas12a: TTTV → guide', 'Mixed: switch enzyme for each PAM'][state.practiceRound]} · ${state.cleavedCount % 3}/3 cuts` : 'Endless · mixed PAMs · lift your finger between hits on armored DNA';
+      if (lessonEl.textContent !== lesson) lessonEl.textContent = lesson;
+    }
+    if (soundBtn) { soundBtn.textContent = sound.enabled ? 'Sound on' : 'Sound off'; soundBtn.setAttribute('aria-pressed', String(sound.enabled)); }
+    if (startBtn) startBtn.hidden = started;
   }
 
   function gameLoop(timestamp: number) {
@@ -583,24 +615,37 @@ export function initCrisprCommander(containerEl: HTMLElement) {
     const dt = Math.min(0.1, (timestamp - lastTimestamp) / 1000);
     lastTimestamp = timestamp;
 
-    const { state: nextState, cleavedStrands, breaches } = updateGameState(
+    clock.advance(started && !state.isPaused && !state.isGameOver ? dt : 0, (step) => simulate(step));
+    render();
+    updateHUD();
+    animationFrameId = requestAnimationFrame(gameLoop);
+  }
+
+  function simulate(dt: number) {
+    animTick += dt * 2.4;
+    for (const p of particles) { p.x += p.vx * dt * 60; p.y += p.vy * dt * 60; p.life += dt * 60; p.alpha = Math.max(0, 1 - p.life / p.maxLife); }
+    particles = particles.filter((p) => p.life < p.maxLife);
+    for (const ft of floatingTexts) { ft.y -= dt * 72; ft.life += dt * 60; ft.alpha = Math.max(0, 1 - ft.life / ft.maxLife); }
+    floatingTexts = floatingTexts.filter((ft) => ft.life < ft.maxLife);
+    const { state: nextState, cleavedStrands, breaches, rejectedHits } = updateGameState(
       state,
       dt,
       pendingSlices,
       canvas!.clientWidth,
-      canvas!.clientHeight
+      canvas!.clientHeight,
+      random
     );
     pendingSlices = [];
 
     if (cleavedStrands.length > 0) {
-      cleavedStrands.forEach((cleaved) => {
+      cleavedStrands.forEach((cleaved, index) => {
         sound.playCleave(1.0 + Math.min(1.5, state.combo * 0.1));
         if (cleaved.health <= 0) sound.playDsbBass();
         createSparks(cleaved.x * canvas!.clientWidth, cleaved.y * canvas!.clientHeight, cleaved.color, 24);
         addFloatingText(
           cleaved.x * canvas!.clientWidth,
           cleaved.y * canvas!.clientHeight,
-          `+${cleaved.points} DSB`,
+          `+${Math.round(cleaved.points * Math.min(1 + Math.floor((state.combo + index + 1) / 5) * .5, 4))} ${state.activeCas === 'SpCas9' ? 'blunt' : 'staggered'} DSB`,
           cleaved.color
         );
       });
@@ -609,7 +654,7 @@ export function initCrisprCommander(containerEl: HTMLElement) {
     if (breaches.length > 0) {
       sound.playDamage();
       breaches.forEach((b) => {
-        addFloatingText(b.x * canvas!.clientWidth, canvas!.clientHeight * 0.9, '-15% INTEGRITY', '#f43f5e');
+        addFloatingText(b.x * canvas!.clientWidth, canvas!.clientHeight * 0.9, state.practiceRound < 3 ? 'Practice · try again' : `-${b.type === 'acr_boss' ? 30 : 10}%`, '#f43f5e');
       });
     }
 
@@ -619,12 +664,8 @@ export function initCrisprCommander(containerEl: HTMLElement) {
       } catch {}
     }
 
+    if (rejectedHits.length && lessonEl) { lessonEl.textContent = rejectedHits[0].reason + ' · lift, switch, and try again'; lessonEl.dataset.rejected = 'true'; }
     state = nextState;
-
-    render();
-    updateHUD();
-
-    animationFrameId = requestAnimationFrame(gameLoop);
   }
 
   function onThemeChange() {
@@ -634,16 +675,18 @@ export function initCrisprCommander(containerEl: HTMLElement) {
   }
 
   // Pointer / Touch slicing handlers
-  function handlePointerDown(e: MouseEvent | TouchEvent) {
-    if (state.isGameOver || state.isPaused) return;
+  function handlePointerDown(e: PointerEvent) {
+    if (state.isGameOver || state.isPaused || !started) return;
+    canvas!.setPointerCapture(e.pointerId);
+    gestureId++;
     isPointerDown = true;
-    const pt = 'touches' in e ? e.touches[0] : e;
+    const pt = e;
     pointerPos = getCanvasPos(pt);
     slicePoints = [pointerPos];
   }
 
-  function handlePointerMove(e: MouseEvent | TouchEvent) {
-    const pt = 'touches' in e ? e.touches[0] : e;
+  function handlePointerMove(e: PointerEvent) {
+    const pt = e;
     const newPos = getCanvasPos(pt);
     pointerPos = newPos;
     isPointerInside = true;
@@ -656,7 +699,8 @@ export function initCrisprCommander(containerEl: HTMLElement) {
         y1: prev.y,
         x2: newPos.x,
         y2: newPos.y,
-        time: Date.now(),
+        time: performance.now(),
+        gestureId,
       });
     }
 
@@ -669,37 +713,30 @@ export function initCrisprCommander(containerEl: HTMLElement) {
     slicePoints = [];
   }
 
-  canvas.addEventListener('mousedown', handlePointerDown);
-  window.addEventListener('mousemove', handlePointerMove);
-  window.addEventListener('mouseup', handlePointerUp);
-
-  canvas.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    handlePointerDown(e);
-  }, { passive: false });
-  canvas.addEventListener('touchmove', (e) => {
-    e.preventDefault();
-    handlePointerMove(e);
-  }, { passive: false });
-  canvas.addEventListener('touchend', handlePointerUp);
+  canvas.addEventListener('pointerdown', handlePointerDown, { signal });
+  canvas.addEventListener('pointermove', handlePointerMove, { signal });
+  canvas.addEventListener('pointerup', handlePointerUp, { signal });
+  canvas.addEventListener('pointercancel', handlePointerUp, { signal });
+  canvas.addEventListener('lostpointercapture', handlePointerUp, { signal });
 
   canvas.addEventListener('mouseenter', () => {
     isPointerInside = true;
-  });
+  }, { signal });
   canvas.addEventListener('mouseleave', () => {
     isPointerInside = false;
-  });
+  }, { signal });
 
   // Enzyme switcher buttons
   enzymeBtns.forEach((btn) => {
     btn.addEventListener('click', () => {
       const enzyme = btn.getAttribute('data-enzyme') as CasType;
       if (enzyme) {
+        if (lessonEl) delete lessonEl.dataset.rejected;
         state = switchCasEnzyme(state, enzyme);
         addFloatingText(pointerPos.x || 100, pointerPos.y || 100, enzyme, '#38bdf8');
         updateHUD();
       }
-    });
+    }, { signal });
   });
 
   // Powerup buttons
@@ -712,35 +749,50 @@ export function initCrisprCommander(containerEl: HTMLElement) {
         addFloatingText(canvas!.clientWidth / 2, canvas!.clientHeight / 2, powerup.toUpperCase(), '#f59e0b');
         updateHUD();
       }
-    });
+    }, { signal });
   });
 
   // Controls
   if (restartBtn) {
     restartBtn.addEventListener('click', () => {
-      state = createInitialState(state.highScore);
+      state = createInitialState(state.highScore, modeSelect?.value !== 'endless');
+      random = mulberry32(seed);
+      started = false;
+      clock.reset();
       particles = [];
       floatingTexts = [];
       slicePoints = [];
       pendingSlices = [];
       updateHUD();
-    });
+    }, { signal });
   }
 
   if (pauseBtn) {
     pauseBtn.addEventListener('click', () => {
       state = state.isPaused ? { ...state, isPaused: false } : { ...state, isPaused: true };
       updateHUD();
-    });
+      handlePointerUp(); clock.reset();
+    }, { signal });
   }
 
   if (soundBtn) {
     soundBtn.addEventListener('click', () => {
       sound.enabled = !sound.enabled;
+      try { localStorage.setItem('khc_crispr_sound', String(sound.enabled)); } catch {}
       soundBtn.setAttribute('aria-pressed', String(sound.enabled));
       soundBtn.textContent = sound.enabled ? 'Sound on' : 'Sound off';
-    });
+    }, { signal });
   }
+  startBtn?.addEventListener('click', () => {
+    state = createInitialState(state.highScore, modeSelect?.value !== 'endless');
+    started = true; clock.reset(); lastTimestamp = 0; containerEl.focus({ preventScroll: true });
+    if (lessonEl) delete lessonEl.dataset.rejected;
+    updateHUD();
+  }, { signal });
+  function suspend() { if (started && !state.isGameOver) state.isPaused = true; handlePointerUp(); pendingSlices = []; clock.reset(); updateHUD(); }
+  window.addEventListener('blur', suspend, { signal });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) suspend(); }, { signal });
+  matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', (event) => { reducedMotion = event.matches; }, { signal });
 
   // Keyboard enzyme hotkeys (1, 2)
   function handleKeyDown(e: KeyboardEvent) {
@@ -763,13 +815,13 @@ export function initCrisprCommander(containerEl: HTMLElement) {
   const controller = {
     state: () => state,
     restart: () => {
-      state = createInitialState(state.highScore);
+      state = createInitialState(state.highScore, modeSelect?.value !== 'endless');
+      started = false; clock.reset();
     },
     destroy: () => {
       cancelAnimationFrame(animationFrameId);
+      abort.abort(); sound.destroy();
       window.removeEventListener('resize', resizeCanvas);
-      window.removeEventListener('mousemove', handlePointerMove);
-      window.removeEventListener('mouseup', handlePointerUp);
       window.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('khc:theme-change', onThemeChange);
       if (win.__crisprCommander === controller) {

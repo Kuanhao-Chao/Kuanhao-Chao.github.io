@@ -1,9 +1,8 @@
 /**
  * CRISPR Commander — Pure Game Logic Engine
  *
- * Simulates real molecular cleaving of viral DNA/RNA strands using Cas9/Cas12
- * endonuclease enzymes, Protospacer Adjacent Motifs (PAM = NGG / TTTV),
- * base editing, dCas9 repressor shields, hyper-drive overdrive, and particle/combo scoring.
+ * DNA-targeting arcade abstraction: canonical PAM orientation, assumed preloaded
+ * complementary guides, qualitative cleavage, and explicitly fictional powers.
  */
 
 export type Nucleotide = 'A' | 'C' | 'G' | 'T';
@@ -24,7 +23,7 @@ export const PAM_RULES: Record<CasType, PamRule> = {
 
 export interface ViralStrand {
   id: string;
-  type: 'phage_dna' | 'retrovirus_rna' | 'transposon' | 'acr_boss';
+  type: 'phage_dna' | 'mobile_dna' | 'transposon' | 'acr_boss';
   name: string;
   sequence: string;
   pamIndex: number;
@@ -40,6 +39,8 @@ export interface ViralStrand {
   points: number;
   cleaved: boolean;
   color: string;
+  lastGesture?: number;
+  lastHitMs?: number;
 }
 
 export interface CleavedFragment {
@@ -63,6 +64,7 @@ export interface SliceLine {
   x2: number;
   y2: number;
   time: number;
+  gestureId?: number;
 }
 
 export type PowerUpType = 'dcas9_shield' | 'prime_editor' | 'base_editor' | 'hyper_drive';
@@ -91,9 +93,12 @@ export interface GameState {
   isPaused: boolean;
   spawnTimerMs: number;
   elapsedMs: number;
+  practiceRound: number; // 0 Cas9, 1 Cas12a, 2 mixed, 3 endless
+  practice: boolean;
+  nextId: number;
 }
 
-export function createInitialState(savedHighScore: number = 0): GameState {
+export function createInitialState(savedHighScore: number = 0, practice = false): GameState {
   return {
     score: 0,
     highScore: savedHighScore,
@@ -112,6 +117,9 @@ export function createInitialState(savedHighScore: number = 0): GameState {
     isPaused: false,
     spawnTimerMs: 0,
     elapsedMs: 0,
+    practiceRound: practice ? 0 : 3,
+    practice,
+    nextId: 1,
   };
 }
 
@@ -152,15 +160,15 @@ export function spawnViralStrand(
   randomFn: () => number = Math.random
 ): ViralStrand {
   const isBoss = level % 5 === 0 && idCounter % 10 === 0;
-  const isRetrovirus = !isBoss && randomFn() < 0.3;
-  const isTransposon = !isBoss && !isRetrovirus && randomFn() < 0.25;
+  const isMobile = !isBoss && randomFn() < 0.3;
+  const isTransposon = !isBoss && !isMobile && randomFn() < 0.25;
 
   let type: ViralStrand['type'] = 'phage_dna';
   let name = 'T4 Bacteriophage DNA';
   let color = '#38bdf8'; // cyan
   let health = 1;
   let points = 100;
-  let radius = 28;
+  let radius = 42;
 
   if (isBoss) {
     type = 'acr_boss';
@@ -169,20 +177,21 @@ export function spawnViralStrand(
     health = Math.min(5 + Math.floor(level / 2), 12);
     points = 1000;
     radius = 44;
-  } else if (isRetrovirus) {
-    type = 'retrovirus_rna';
-    name = 'Retroviral RNA Strand';
+    activeCas = 'AsCas12a'; // AcrIIA4 inhibits Cas9, not every defense enzyme.
+  } else if (isMobile) {
+    type = 'mobile_dna';
+    name = 'Mobile DNA';
     color = '#a855f7'; // purple
     health = 2;
     points = 250;
-    radius = 32;
+    radius = 44;
   } else if (isTransposon) {
     type = 'transposon';
-    name = 'Jumping Retrotransposon';
+    name = 'DNA Transposon';
     color = '#f59e0b'; // amber
     health = 1;
     points = 180;
-    radius = 26;
+    radius = 40;
   }
 
   // PAM sequences tailored to active enzyme
@@ -193,10 +202,8 @@ export function spawnViralStrand(
     pam = randomFn() < 0.5 ? 'AGG' : 'TGG';
   }
 
-  const prefix = generateRandomSequence(4, randomFn);
-  const target = prefix + pam;
-  const suffix = generateRandomSequence(4, randomFn);
-  const fullSeq = prefix + pam + suffix;
+  const target = generateRandomSequence(activeCas === 'SpCas9' ? 20 : 23, randomFn);
+  const fullSeq = activeCas === 'SpCas9' ? target + pam : pam + target;
 
   const startX = 0.15 + randomFn() * 0.7;
   const startY = -0.05;
@@ -208,7 +215,7 @@ export function spawnViralStrand(
     type,
     name,
     sequence: fullSeq,
-    pamIndex: prefix.length,
+    pamIndex: activeCas === 'SpCas9' ? target.length : 0,
     pamSequence: pam,
     targetSequence: target,
     x: startX,
@@ -264,7 +271,7 @@ export function createDoubleStrandBreakFragments(
 ): [CleavedFragment, CleavedFragment] {
   const px = strand.x * canvasW;
   const py = strand.y * canvasH;
-  const mid = Math.floor(strand.sequence.length / 2);
+  const mid = strand.pamIndex === 0 ? strand.pamSequence.length + 18 : Math.max(1, strand.pamIndex - 3);
   const seq1 = strand.sequence.slice(0, mid);
   const seq2 = strand.sequence.slice(mid);
 
@@ -320,9 +327,9 @@ export function updateGameState(
   canvasW: number = 800,
   canvasH: number = 600,
   randomFn: () => number = Math.random
-): { state: GameState; cleavedStrands: ViralStrand[]; breaches: ViralStrand[] } {
+): { state: GameState; cleavedStrands: ViralStrand[]; breaches: ViralStrand[]; rejectedHits: Array<{ strand: ViralStrand; reason: string }> } {
   if (state.isGameOver || state.isPaused) {
-    return { state, cleavedStrands: [], breaches: [] };
+    return { state, cleavedStrands: [], breaches: [], rejectedHits: [] };
   }
 
   const deltaMs = deltaSec * 1000;
@@ -353,15 +360,17 @@ export function updateGameState(
   const nextStrands: ViralStrand[] = [];
   const breaches: ViralStrand[] = [];
   const nextFragments: CleavedFragment[] = [];
+  const rejectedHits: Array<{ strand: ViralStrand; reason: string }> = [];
 
   // Update existing fragments
   for (const frag of state.fragments) {
     let f = { ...frag };
-    f.x += f.vx;
-    f.y += f.vy;
-    f.vy += 0.06; // gravity
-    f.angle += f.vRot;
-    f.life += 1;
+    const frames = deltaSec * 60;
+    f.x += f.vx * frames;
+    f.y += f.vy * frames;
+    f.vy += 0.06 * frames;
+    f.angle += f.vRot * frames;
+    f.life += frames;
     f.alpha = Math.max(0, 1 - f.life / f.maxLife);
     if (f.life < f.maxLife) {
       nextFragments.push(f);
@@ -384,13 +393,20 @@ export function updateGameState(
     // Check slice collisions (or Hyper-Drive auto-cleaves nearby)
     let hitThisFrame = false;
     for (const slice of slices) {
-      if (checkSliceCleave(strandCopy, slice, canvasW, canvasH)) {
+      if (slice.gestureId !== undefined && strandCopy.lastGesture === slice.gestureId) continue;
+      const assisted = state.powerUps.some((p) => p.type === 'base_editor');
+      if (checkSliceCleave(assisted ? { ...strandCopy, radius: strandCopy.radius * 1.4 } : strandCopy, slice, canvasW, canvasH)) {
         hitThisFrame = true;
+        strandCopy.lastGesture = slice.gestureId;
         break;
       }
     }
 
-    if (hitThisFrame || isHyperActive) {
+    const compatible = matchPam(strandCopy.pamSequence, PAM_RULES[state.activeCas]);
+    if (hitThisFrame && !compatible) rejectedHits.push({ strand: strandCopy, reason: strandCopy.type === 'acr_boss' ? 'AcrIIA4 inhibits Cas9 — switch to Cas12a' : `PAM ${strandCopy.pamSequence}: use ${strandCopy.pamIndex === 0 ? 'Cas12a' : 'Cas9'}` });
+    const autoHit = isHyperActive && newElapsedMs - (strandCopy.lastHitMs ?? -500) >= 400;
+    if ((hitThisFrame || autoHit) && compatible) {
+      strandCopy.lastHitMs = newElapsedMs;
       strandCopy.health -= isHyperActive ? 2 : 1;
       if (strandCopy.health <= 0) {
         strandCopy.cleaved = true;
@@ -413,7 +429,7 @@ export function updateGameState(
     // Check bottom boundary breach (host DNA integration)
     if (strandCopy.y >= 0.95) {
       breaches.push(strandCopy);
-      const damage = strandCopy.type === 'acr_boss' ? 30 : 10;
+      const damage = state.practiceRound < 3 ? 0 : strandCopy.type === 'acr_boss' ? 30 : 10;
       newIntegrity = Math.max(0, newIntegrity - damage);
       newCombo = 0;
       continue;
@@ -425,15 +441,20 @@ export function updateGameState(
   // 3. Spawn new strands
   const spawnInterval = Math.max(700, 2200 - newLevel * 120);
   let newSpawnTimer = state.spawnTimerMs + deltaMs;
-  let idCounter = state.cleavedCount + nextStrands.length + 1;
+  let idCounter = state.nextId;
+  const practiceRound = state.practice ? Math.min(3, Math.floor(newCleavedCount / 3)) : 3;
+  const activeCas = practiceRound !== state.practiceRound && practiceRound === 1 ? 'AsCas12a' : state.activeCas;
 
   while (newSpawnTimer >= spawnInterval && nextStrands.length < 15) {
     newSpawnTimer -= spawnInterval;
-    nextStrands.push(spawnViralStrand(newLevel, idCounter++, state.activeCas, randomFn));
+    const enzyme = practiceRound === 0 ? 'SpCas9' : practiceRound === 1 ? 'AsCas12a' : randomFn() < .5 ? 'SpCas9' : 'AsCas12a';
+    nextStrands.push(spawnViralStrand(newLevel, idCounter++, enzyme, randomFn));
   }
 
   const isGameOver = newIntegrity <= 0;
-  const newHighScore = Math.max(state.highScore, newScore);
+  const enteringEndless = state.practiceRound < 3 && practiceRound === 3;
+  if (enteringEndless) { newScore = 0; newCombo = 0; newAtp = 60; newIntegrity = 100; nextStrands.length = 0; nextPowerUps.length = 0; }
+  const newHighScore = practiceRound < 3 ? state.highScore : Math.max(state.highScore, newScore);
 
   const nextState: GameState = {
     ...state,
@@ -451,9 +472,12 @@ export function updateGameState(
     isGameOver,
     spawnTimerMs: newSpawnTimer,
     elapsedMs: newElapsedMs,
+    practiceRound,
+    activeCas,
+    nextId: idCounter,
   };
 
-  return { state: nextState, cleavedStrands, breaches };
+  return { state: nextState, cleavedStrands, breaches, rejectedHits };
 }
 
 export function activatePowerUp(state: GameState, type: PowerUpType): GameState {
@@ -478,13 +502,6 @@ export function activatePowerUp(state: GameState, type: PowerUpType): GameState 
 
   if (type === 'prime_editor') {
     nextIntegrity = Math.min(state.maxCellIntegrity, nextIntegrity + 40);
-  } else if (type === 'base_editor') {
-    // CBE deaminates and neutralizes point mutation targets (converts C->T)
-    nextStrands = nextStrands.map((s) => ({
-      ...s,
-      health: Math.max(1, s.health - 1),
-      sequence: s.sequence.replace(/C/g, 'T'),
-    }));
   }
 
   const nextPowerUps = [...state.powerUps.filter((p) => p.type !== type)];

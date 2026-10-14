@@ -24,9 +24,9 @@ const gameLd = {
 <PageLayout
   title="CRISPR Commander"
   eyebrow="Side project"
-  lead="Take command of CRISPR-Cas molecular machinery. Slice invading viral DNA strands at specific Protospacer Adjacent Motifs (PAM) before they integrate into the host bacterial genome."
+  lead="A molecular precision arcade: match the PAM, switch your nuclease, and protect a bacterial cell. Learn the targeting rules in three short practice rounds, then take on endless mixed DNA."
   description="CRISPR Commander — an original molecular slicing web game by Kuan-Hao Chao. Slice viral DNA with Cas9 and Cas12a enzymes."
-  width="narrow"
+  width="wide"
 >
   <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
 
@@ -35,8 +35,8 @@ const gameLd = {
     <div class="crispr-header-card">
       <CrisprCommanderLogo size={58} />
       <div class="crispr-header-info">
-        <h2 class="crispr-header-title">CRISPR-Cas Ribonucleoprotein Complex</h2>
-        <p class="crispr-header-subtitle">Target and cleave viral DNA strands at PAM motifs: NGG (SpCas9) and TTTV (AsCas12a).</p>
+        <h2 class="crispr-header-title">Molecular precision arcade</h2>
+        <p class="crispr-header-subtitle">Cas9 · guide → NGG &nbsp; / &nbsp; Cas12a · TTTV → guide</p>
       </div>
     </div>
 
@@ -59,7 +59,7 @@ const gameLd = {
           <span class="crispr-combo-badge" data-crispr-combo>1x NORMAL</span>
         </div>
         <div class="crispr-integrity-container">
-          <span class="crispr-stat-label">Host Genome Viability: <strong data-crispr-integrity-text>100%</strong></span>
+          <span class="crispr-stat-label">Cell integrity: <strong data-crispr-integrity-text>100%</strong></span>
           <div class="crispr-integrity-bar">
             <div class="crispr-integrity-fill" data-crispr-integrity-fill></div>
           </div>
@@ -67,14 +67,19 @@ const gameLd = {
       </div>
 
       <div class="crispr-controls">
+        <select data-crispr-mode aria-label="Play mode">
+          <option value="practice">Practice → endless</option>
+          <option value="endless">Endless</option>
+        </select>
+        <button type="button" class="crispr-btn" data-crispr-start>Start</button>
         <button type="button" class="crispr-btn" data-crispr-pause>Pause</button>
         <button type="button" class="crispr-btn" data-crispr-restart>Restart</button>
         <button
           type="button"
           class="crispr-btn"
           data-crispr-sound
-          aria-label="Mute game sounds"
-          aria-pressed="true">Sound on</button
+          aria-label="Toggle game sounds"
+          aria-pressed="false">Sound off</button
         >
       </div>
     </div>
@@ -93,17 +98,17 @@ const gameLd = {
       </div>
 
       <div class="crispr-powerups-group" aria-label="Tactical Cellular Power-ups">
-        <button type="button" class="crispr-powerup-btn" data-powerup="dcas9_shield" disabled aria-label="Activate dCas9 Shield (40 ATP)">
-          dCas9 Shield (40 ATP)
+        <button type="button" class="crispr-powerup-btn" data-powerup="dcas9_shield" disabled aria-label="Slow targets with a fictional shield (40 ATP)">
+          Shield · slow (40 ATP)
         </button>
-        <button type="button" class="crispr-powerup-btn" data-powerup="prime_editor" disabled aria-label="Activate Prime Editor (50 ATP)">
-          Prime Edit (+40) (50 ATP)
+        <button type="button" class="crispr-powerup-btn" data-powerup="prime_editor" disabled aria-label="Repair 40 integrity (50 ATP)">
+          Repair +40 (50 ATP)
         </button>
-        <button type="button" class="crispr-powerup-btn" data-powerup="base_editor" disabled aria-label="Activate Base Editor (35 ATP)">
-          Base Edit (C→T) (35 ATP)
+        <button type="button" class="crispr-powerup-btn" data-powerup="base_editor" disabled aria-label="Enlarge cutting tolerance (35 ATP)">
+          Target assist (35 ATP)
         </button>
         <button type="button" class="crispr-powerup-btn" data-powerup="hyper_drive" disabled aria-label="Activate Hyper-Drive (75 ATP)">
-          Hyper-Drive (75 ATP)
+          Overdrive (75 ATP)
         </button>
       </div>
     </div>
@@ -116,15 +121,19 @@ const gameLd = {
         aria-label="CRISPR Commander interactive molecular canvas. Slice viral DNA strands."
       ></canvas>
     </div>
+    <p class="crispr-lesson" data-crispr-lesson role="status" aria-live="polite">Practice 1/3 · Cas9: guide → NGG</p>
+    <p class="crispr-legacy" data-crispr-legacy></p>
 
     <article class="crispr-guide">
       <h3>How to Play & Molecular Mechanics</h3>
       <ul>
-        <li><strong>Slice to Cleave:</strong> Drag your mouse or swipe on mobile across falling viral nucleic acid strands to execute a double-strand break (DSB).</li>
+        <li><strong>Slice to cleave:</strong> Drag or swipe across a paired DNA ribbon. Lift between hits on armored targets. Cas9 is shown with a qualitative blunt break; Cas12a with a staggered break.</li>
         <li><strong>PAM Specificity:</strong> Match the active Cas enzyme to the target's PAM motif. <strong>SpCas9</strong> cleaves targets with <code>NGG</code>; <strong>AsCas12a</strong> cleaves T-rich <code>TTTV</code> motifs.</li>
         <li><strong>Enzyme Hotkeys:</strong> Press <code>1</code> or <code>2</code> on desktop (or tap the enzyme buttons) to switch Cas complexes in real time.</li>
-        <li><strong>Combos & Multipliers:</strong> Chain multiple successful cleaves without letting strands hit the bottom integration line to build up your streak multiplier and earn bonus ATP.</li>
-        <li><strong>Tactical Cellular Overdrives:</strong> Spend ATP on <em>dCas9 Shield</em> (blocks integration), <em>Prime Edit</em> (+40 health), <em>Base Edit</em> (converts C→T), or <em>Hyper-Drive</em> (high-speed clearing).</li>
+        <li><strong>Guides are preloaded:</strong> A complementary guide RNA is assumed for every target. A PAM is necessary, but by itself is not sufficient for real CRISPR targeting. Displayed DNA is a schematic, not a structural simulation.</li>
+        <li><strong>Practice:</strong> Complete three cuts each with Cas9, Cas12a, then mixed targets. Practice breaches do not cause damage. Score and powers reset before ranked endless play.</li>
+        <li><strong>Combos:</strong> Every five uninterrupted cuts adds 0.5× to the multiplier, up to 4×. Breaches cost 10% integrity, or 30% for a boss. AcrIIA4 inhibits Cas9; switch to the boss's Cas12a-compatible DNA target.</li>
+        <li><strong>Fictional tactical powers:</strong> Shield slows targets, repair restores 40 integrity, target assist enlarges the cutting tolerance, and overdrive makes periodic compatible cuts. None is a claim about base editing, prime editing, or a universal cellular defense.</li>
       </ul>
     </article>
   </section>
