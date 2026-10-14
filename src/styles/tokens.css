@@ -82,12 +82,11 @@
 
   --transition: 160ms ease;
 
-  /* The homepage reading veil: how much of the background art may show through text and cards.
-     ONE number. src/scripts/background.ts reads --art-through for the text mask, and the
-     translucent homepage cards fill with --veil-fill, its complement as a percentage for
-     color-mix, so the two layers cannot disagree. 0 restores the fully cleared reading area.
-     Tune by eye within 0.25-0.40; src/lib/readingVeil.test.ts pins the pairing. */
-  --art-through: 0.3;
+  /* Background transmission through reading areas. Homepage cards share the text token's
+     complement; long-form pages use a fainter veil. Objects and controls stay fully protected.
+     These theme-independent values do not alter the artwork itself; 0 restores full clearance. */
+  --art-through: 0.18;
+  --content-art-through: 0.10;
   --veil-fill: calc((1 - var(--art-through)) * 100%);
 }
 
@@ -184,7 +183,8 @@
   --color-ink: #e2f6fd;
   --color-accent: #22d3ee;
   --color-accent-dark: #00e5ff;
-  --color-muted: #64748b;
+  /* Supporting text stays readable over the dark surface and faint background art. */
+  --color-muted: #7d8fa8;
   --color-rule: #1e293b;
   --color-link: var(--color-accent);
   --color-on-ink: #070d14;
@@ -212,7 +212,8 @@
   --color-ink: #2e241e;
   --color-accent: #c2410c;
   --color-accent-dark: #9a3412;
-  --color-muted: #786b59;
+  /* A little more ink keeps long-form phone copy legible over the reading veil. */
+  --color-muted: #706351;
   --color-rule: #e2d7c0;
   --color-link: var(--color-accent);
   --color-on-ink: #ffffff;
