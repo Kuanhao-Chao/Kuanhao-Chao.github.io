@@ -6,7 +6,7 @@ Astro static site for `khchao.com` (Node 22 — see `.nvmrc`). No client-side fr
 - `npm install` — install deps.
 - `npm run dev` — dev server at `http://localhost:4321`.
 - `npm run check` — `astro check`: TypeScript + content-schema validation, the primary type and content gate.
-- `npm test` — the vitest suite (4,000+ tests over the pure `src/lib/` layers and the content contracts). Run it before every commit; CI runs it before building.
+- `npm test` — the vitest suite (4,000+ tests over the pure `src/lib/` layers and the content contracts). Run it before every commit; the manual comprehensive audit also runs it.
 - `npm run build` — runs `build:site` (`astro build`) then `pdf:posts`. Run this before submitting changes to routes, assets, MD, or config.
 - `npm run pdf:posts` — regenerates `dist/<section>/<slug>/<slug>.pdf` from an **existing** build (needs `dist/posts` to exist).
 - `npm run audit:indexing` — post-build SEO/indexing invariant checker. Runs against the built `dist/` directory. **Always run this after `npm run build` to verify indexing and PDF standards.**
@@ -15,6 +15,7 @@ Astro static site for `khchao.com` (Node 22 — see `.nvmrc`). No client-side fr
 ## Build & deploy quirks
 - **PDF generation needs Playwright Chromium.** `npm run build` prints each `/posts/<slug>/` and `/reports/<slug>/` page to PDF via `scripts/gen-post-pdfs.mjs`. On a new machine run `npx playwright install chromium` once (CI does this with `--with-deps`).
 - Push to `main` triggers `.github/workflows/deploy.yml` → build → GitHub Pages. Keep `public/CNAME` (`khchao.com`), `astro.config.mjs` `site` (`https://khchao.com`), and SEO metadata aligned.
+- Push CI intentionally runs only the production build/PDF generation plus indexing, built-link, and static-security audits. Type checks, unit tests, and browser/runtime audits stay local or manual-only in `site-audit.yml` and `game-audit.yml`; do not add them back to push CI without approval. Neither audit publishes Pages.
 
 ## Content collections
 **`node scripts/verify-paper-claims.mjs`** cross-checks every number rendered on a `/papers/<slug>/`

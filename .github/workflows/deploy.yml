@@ -10,7 +10,6 @@ permissions:
   pages: write
   id-token: write
 
-# Allow one concurrent deployment, cancelling in-progress runs.
 concurrency:
   group: pages
   cancel-in-progress: true
@@ -18,145 +17,32 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
       - name: Setup Pages
         uses: actions/configure-pages@v5
-
       - name: Install dependencies
         run: npm ci
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium firefox webkit
-
-      - name: Check site
-        run: npm run check
-
-      - name: Run unit and content tests
-        run: npm test
-
-      - name: Build site
+      # PDF printing is the only browser work on push. Full UI checks are manual.
+      - name: Install Chromium headless shell for PDFs
+        run: npx playwright install --with-deps --only-shell chromium
+      - name: Build site and PDFs
         run: npm run build
         env:
           PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
-
       - name: Audit indexing
         run: npm run audit:indexing
-
-      - name: Test game audit lifecycle and interaction regressions
-        timeout-minutes: 3
-        run: npm run test:game-audit-runtime
-
-      - name: Audit game controls and lifecycle (Chromium and WebKit)
-        timeout-minutes: 12
-        run: npm run audit:games:ci
-
-      - name: Upload game audit evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: game-ui-audit
-          path: /tmp/khc-game-ui/
-          if-no-files-found: ignore
-          retention-days: 7
-
-      - name: Audit terminal scroll smoke
-        timeout-minutes: 5
-        run: npm run audit:terminal:ci
-
-      - name: Audit living cell background smoke
-        timeout-minutes: 5
-        run: npm run audit:cells:ci
-
-      # 20, not 8. This step runs both engines at once and is bounded by WebKit, which on this
-      # runner delivers animation frames at only 1-8 Hz and took 9.5 minutes end to end in a
-      # standalone run of this branch (run 37106638853); Chromium takes about 3. The cap is there to
-      # stop a hang, not to grade a healthy run, so it sits well clear of one.
-      - name: Audit switchable backgrounds
-        timeout-minutes: 20
-        run: npm run audit:background:ci
-
-      - name: Audit motif finale across browsers
-        timeout-minutes: 10
-        run: npm run audit:motif:ci
-
-      - name: Upload motif finale evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: motif-finale-audit
-          path: /tmp/khc-motif-finale-*/
-          if-no-files-found: ignore
-          retention-days: 7
-
-      - name: Upload background animation evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: background-animation-audit
-          path: /tmp/khc-background-*/
-          if-no-files-found: ignore
-          retention-days: 7
-
-      # 12, not 5, and matching the deep-dive step below. The previous SUCCESSFUL run of this
-      # step took 4 min 46 s against a 5 min cap -- fourteen seconds of margin -- so it failed on
-      # the next commit whatever that commit contained. The smoke run itself was trimmed at the
-      # same time; this is the half that stops the failure recurring.
-      - name: Audit variant playground smoke
-        timeout-minutes: 12
-        run: npm run audit:playground:ci
-
-      # Chromium is also exercised by audit:playground:ci through the shared genome gate.
-      - name: Audit genome browser in Firefox and WebKit
-        timeout-minutes: 10
-        run: npm run audit:genome:ci -- --browsers firefox,webkit
-
-      - name: Upload genome audit failure evidence
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: genome-browser-audit
-          path: /tmp/genome-audit/
-          if-no-files-found: ignore
-          retention-days: 7
-
-      - name: Audit educational algorithms across browsers
-        timeout-minutes: 12
-        run: npm run audit:algorithms:ci
-
-      - name: Upload algorithm lesson evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: algorithm-lesson-audit
-          path: /tmp/khc-algorithms-*/
-          if-no-files-found: ignore
-          retention-days: 7
-
-      - name: Audit deep-dive references and datasets
-        run: npm run audit:refs:offline && npm run audit:datasets:offline
-
-      - name: Audit ML interview curriculum
-        run: npm run audit:ml-interview
-
-      - name: Audit deep-dive UI smoke (Chromium and WebKit)
-        timeout-minutes: 12
-        run: npm run audit:deep-dives:ci
-
       - name: Audit built links
         run: npm run audit:links
-
       - name: Audit security
         run: npm run audit:security
-
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
