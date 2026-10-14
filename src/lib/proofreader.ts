@@ -2,7 +2,7 @@
  * Pure, deterministic Proofreader engine — no DOM, no timers, no rendering.
  *
  * Proofreader is a first-person raycast shooter. You play the proofreading domain
- * of DNA polymerase, sweeping a chromatin maze and clearing replication *mutations*
+ * of bacterial DNA polymerase III, sweeping a nucleoid-inspired maze and clearing toy lesions
  * (substitution / insertion / deletion enemies) before they overwhelm you. Nucleotide
  * pickups (A/C/G/T) restore correction charges (ammo) and integrity (health).
  *
@@ -49,6 +49,7 @@ export interface Enemy {
   attackIn: number; // s until the next melee is allowed
   hurtFor: number; // s of hit-flash left (render hint)
   alive: boolean;
+  attackWindup?: number;
 }
 
 export interface Pickup {
@@ -89,6 +90,7 @@ export interface GameState {
   damageFor: number; // s of damage vignette left (render hint)
   nextId: number;
   lastEvent: GameEvent;
+  navigation?: { playerCell: number; expires: number; distance: number[][] };
 }
 
 export interface RayHit {
@@ -401,6 +403,7 @@ export function createGame(seed: number, cols = 17, rows = 17): GameState {
     damageFor: 0,
     nextId: 1,
     lastEvent: 'none',
+    navigation: undefined,
   };
 }
 
@@ -687,6 +690,11 @@ function startWave(state: GameState): void {
 
   // Scatter two ammo pickups so a long wave is survivable.
   const spots = shuffle(emptyCells(state), state);
+  const near = spots.findIndex(([x, y]) => {
+    const distance = Math.hypot(x + .5 - px, y + .5 - py);
+    return distance >= 1.2 && distance <= 3 && hasLineOfSight(state.map, px, py, x + .5, y + .5);
+  });
+  if (near > 0) [spots[0], spots[near]] = [spots[near], spots[0]];
   for (let i = 0; i < 2 && i < spots.length; i++) {
     const [cx, cy] = spots[i];
     state.pickups.push({
@@ -701,9 +709,31 @@ function startWave(state: GameState): void {
   state.lastEvent = 'wave';
 }
 
+/** One bounded flood-fill per player-cell change/half second, shared by all enemies. */
+function navigationField(state: GameState): number[][] {
+  const x = Math.floor(state.player.x);
+  const y = Math.floor(state.player.y);
+  const playerCell = y * state.cols + x;
+  if (state.navigation?.playerCell === playerCell && state.navigation.expires > state.time) return state.navigation.distance;
+  const distance = state.map.map((row) => row.map(() => -1));
+  const queue: Array<[number, number]> = [[x, y]];
+  distance[y][x] = 0;
+  for (let i = 0; i < queue.length; i++) {
+    const [cx, cy] = queue[i];
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      const nx = cx + dx; const ny = cy + dy;
+      if (state.map[ny]?.[nx] !== 0 || distance[ny][nx] !== -1) continue;
+      distance[ny][nx] = distance[cy][cx] + 1; queue.push([nx, ny]);
+    }
+  }
+  state.navigation = { playerCell, expires: state.time + .5, distance };
+  return distance;
+}
+
 function stepEnemies(state: GameState, dt: number): void {
   const px = state.player.x;
   const py = state.player.y;
+  const navigation = navigationField(state);
   for (const e of state.enemies) {
     if (!e.alive) continue;
     e.hurtFor = Math.max(0, e.hurtFor - dt);
@@ -716,6 +746,17 @@ function stepEnemies(state: GameState, dt: number): void {
     let speed: number;
     if (dist <= TUNING.aggroRange && hasLineOfSight(state.map, e.x, e.y, px, py)) {
       e.heading = Math.atan2(dy, dx);
+      speed = e.speed;
+    } else if (dist <= TUNING.aggroRange) {
+      const cx = Math.floor(e.x); const cy = Math.floor(e.y);
+      let best = navigation[cy]?.[cx] >= 0 ? navigation[cy][cx] : Infinity;
+      let targetX = cx + .5; let targetY = cy + .5;
+      for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+        const raw = navigation[cy + oy]?.[cx + ox];
+        const value = raw >= 0 ? raw : Infinity;
+        if (value < best) { best = value; targetX = cx + ox + .5; targetY = cy + oy + .5; }
+      }
+      e.heading = Math.atan2(targetY - e.y, targetX - e.x);
       speed = e.speed;
     } else {
       if (e.retargetIn <= 0) {
@@ -731,8 +772,8 @@ function stepEnemies(state: GameState, dt: number): void {
       state.map,
       e.x,
       e.y,
-      Math.cos(e.heading) * speed * dt,
-      Math.sin(e.heading) * speed * dt,
+      Math.cos(e.heading) * (dist < .6 ? 0 : speed) * dt,
+      Math.sin(e.heading) * (dist < .6 ? 0 : speed) * dt,
       TUNING.enemyRadius
     );
     e.x = moved.x;
@@ -741,12 +782,15 @@ function stepEnemies(state: GameState, dt: number): void {
       e.retargetIn = 0; // blocked → pick a fresh heading next tick
     }
 
-    if (dist <= TUNING.attackRange && e.attackIn <= 0) {
-      state.player.health -= TUNING.attackDamage;
-      e.attackIn = TUNING.attackInterval;
-      state.damageFor = 0.4;
-      state.lastEvent = 'hurt';
-    }
+    if (dist <= TUNING.attackRange && e.attackIn <= 0 && hasLineOfSight(state.map, e.x, e.y, px, py)) {
+      if (e.attackWindup === undefined) e.attackWindup = e.kind === 'substitution' ? .35 : e.kind === 'insertion' ? .5 : .65;
+      e.attackWindup -= dt;
+      if (e.attackWindup <= 0) {
+        state.player.health -= TUNING.attackDamage;
+        e.attackIn = TUNING.attackInterval; e.attackWindup = undefined;
+        state.damageFor = 0.4; state.lastEvent = 'hurt';
+      }
+    } else e.attackWindup = undefined;
   }
 }
 

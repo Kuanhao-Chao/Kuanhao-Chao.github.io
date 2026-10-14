@@ -23,6 +23,27 @@ import {
 
 const IDLE: StepInput = { forward: 0, strafe: 0, turn: 0, fire: false };
 
+describe('enemy attacks around cover', () => {
+  it('routes a pursuing enemy around cover instead of wandering into the wall', () => {
+    const map = box(7);
+    for (let y = 1; y <= 4; y++) map[y][3] = 1;
+    const game = playing(map, 1.5, 2.5);
+    game.enemies = [mkEnemy(1, 5.5, 2.5)];
+    for (let i = 0; i < 150; i++) step(game, 1 / 60, IDLE);
+    expect(game.enemies[0].y).toBeGreaterThan(4);
+    expect(collides(map, game.enemies[0].x, game.enemies[0].y, TUNING.enemyRadius)).toBe(false);
+  });
+  it('cannot inflict melee damage through a wall corner', () => {
+    const map = box(5);
+    map[2][1] = 1;
+    const game = playing(map, 1.74, 1.76);
+    game.enemies = [mkEnemy(1, 2.31, 2.31)];
+    expect(hasLineOfSight(map, 1.74, 1.76, 2.31, 2.31)).toBe(false);
+    step(game, 0, IDLE);
+    expect(game.player.health).toBe(100);
+  });
+});
+
 /** A square map with a solid border ring (style 1) and open interior. */
 const box = (n: number): number[][] =>
   Array.from({ length: n }, (_, y) =>
@@ -342,6 +363,8 @@ describe('enemies', () => {
     const melee = playing(box(9), 4.5, 4.5, 0);
     melee.enemies = [mkEnemy(1, 5.1, 4.5)]; // within attackRange
     step(melee, 1 / 60, IDLE);
+    expect(melee.player.health).toBe(TUNING.maxHealth);
+    for (let i = 0; i < 21; i++) step(melee, 1 / 60, IDLE);
     expect(melee.player.health).toBe(TUNING.maxHealth - TUNING.attackDamage);
     expect(melee.damageFor).toBeGreaterThan(0);
     expect(melee.lastEvent).toBe('hurt');
@@ -353,7 +376,7 @@ describe('death', () => {
     const g = playing(box(9), 4.5, 4.5, 0);
     g.player.health = 5;
     g.enemies = [mkEnemy(1, 5.1, 4.5)];
-    step(g, 1 / 60, IDLE);
+    for (let i = 0; i < 22; i++) step(g, 1 / 60, IDLE);
     expect(g.player.health).toBe(0);
     expect(g.status).toBe('over');
     expect(g.lastEvent).toBe('over');

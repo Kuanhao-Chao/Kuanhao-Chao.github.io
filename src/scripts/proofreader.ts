@@ -105,9 +105,9 @@ const writeStorage = (key: string, value: string): void => {
 
 function readSoundPreference(): boolean {
   try {
-    return localStorage.getItem(SOUND_KEY) !== 'off';
+    return localStorage.getItem(SOUND_KEY) === 'on';
   } catch {
-    return true;
+    return false;
   }
 }
 
@@ -181,6 +181,14 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
   const soundBtn = root.querySelector<HTMLButtonElement>('[data-proof-sound]');
   const fireBtn = root.querySelector<HTMLButtonElement>('[data-proof-fire]');
   const shareBtn = root.querySelector<HTMLButtonElement>('[data-proof-share]');
+  const lockBtn = root.querySelector<HTMLButtonElement>('[data-proof-lock]');
+  const assistInput = root.querySelector<HTMLInputElement>('[data-proof-assist]');
+  const sensitivityInput = root.querySelector<HTMLInputElement>('[data-proof-sensitivity]');
+  const deadZoneInput = root.querySelector<HTMLInputElement>('[data-proof-deadzone]');
+  let sensitivity = 1;
+  let deadZone = 8;
+  let renderedSequence = '';
+  let mouseLookX: number | null = null;
 
   const seedValue = new URLSearchParams(location.search).get('seed');
   const fixedSeed = seedValue === null ? null : Number(seedValue) >>> 0;
@@ -195,6 +203,15 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
   let reducedMotion = motionQuery.matches;
   const coarsePointer = matchMedia('(pointer: coarse)').matches;
   let aimAssistOn = coarsePointer;
+  try {
+    const savedAssist = localStorage.getItem('khc-proofreader-assist');
+    if (savedAssist !== null) aimAssistOn = savedAssist === 'on';
+    sensitivity = Math.max(.5, Math.min(2, Number(localStorage.getItem('khc-proofreader-sensitivity')) || 1));
+    deadZone = Math.max(4, Math.min(24, Number(localStorage.getItem('khc-proofreader-deadzone')) || 8));
+  } catch {}
+  if (assistInput) assistInput.checked = aimAssistOn;
+  if (sensitivityInput) sensitivityInput.value = String(sensitivity);
+  if (deadZoneInput) deadZoneInput.value = String(deadZone);
 
   const held: StepInput = { forward: 0, strafe: 0, turn: 0, fire: false };
   const moving = () => Math.abs(held.forward) > 0.1 || Math.abs(held.strafe) > 0.1;
@@ -251,7 +268,7 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
     // Wall styles 1–4 → materials: base-pair rungs / panel courses / data-stripe / membrane.
     const tints = [palette.accent, palette.warm, palette.muted, palette.accentDark].map(hexToRgb);
     shadeLUT = tints.map((mtint) => {
-      const base = mix(mix(surf, mtint, 0.3), tint, amt * 0.5);
+      const base = mix(mix(surf, mtint, 0.48), tint, amt * 0.5);
       return [0, 1].map((side) => {
         const sideBase = side === 1 ? mix(base, ink, 0.16) : base;
         const levels: string[] = [];
@@ -762,7 +779,7 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
       const line = flash ? enemyColor(enemy.kind) : palette.ink;
       const wob = reducedMotion ? 0 : Math.sin(state.time * 3 + enemy.id * 0.7);
       const dmg = ENEMY_MAX_HP[enemy.kind] - enemy.hp;
-      const ready = enemy.attackIn <= 0.15;
+      const ready = enemy.attackWindup !== undefined;
       drawSpriteShadow(size);
       if (enemy.kind === 'substitution') {
         drawEnemySubstitution(r, wob, body, line);
@@ -903,7 +920,7 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
     drawChargeIndicator(w, h, ammoFrac, empty);
 
     // muzzle flash (star) + expanding correction pulse
-    if (state.muzzleFor > 0) {
+    if (state.muzzleFor > 0 && !reducedMotion) {
       const f = Math.min(1, state.muzzleFor / 0.09);
       ctx.globalAlpha = f;
       ctx.fillStyle = palette.accent;
@@ -1199,7 +1216,8 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
     if (state.status === 'over')
       return `Overrun on wave ${state.wave} — ${state.score.toLocaleString('en-US')} points`;
     if (state.player.ammo === 0) return 'Out of charges — grab nucleotide pickups to reload';
-    return `Wave ${state.wave} — clear the mutations`;
+    if (state.time < 6) return 'First room · WASD moves; arrows turn. Touch: left thumb moves, right thumb aims, Fire shoots. Grab the nearby dNTP supply.';
+    return `Wave ${state.wave} · toy lesions: Δ one hit / + two hits / − three hits · ring = attack wind-up`;
   }
 
   function updateHud() {
@@ -1208,7 +1226,8 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
     if (waveEl) waveEl.textContent = String(state.wave);
     if (scoreEl) scoreEl.textContent = state.score.toLocaleString('en-US');
     if (bestEl) bestEl.textContent = best.toLocaleString('en-US');
-    if (sequenceEl) {
+    if (sequenceEl && renderedSequence !== state.sequence.join('')) {
+      renderedSequence = state.sequence.join('');
       if (state.sequence.length === 0) {
         sequenceEl.textContent = '—';
       } else {
@@ -1221,7 +1240,8 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
         });
       }
     }
-    if (statusEl) statusEl.textContent = statusMessage();
+    if (statusEl && statusEl.textContent !== statusMessage()) statusEl.textContent = statusMessage();
+    if (lockBtn) { lockBtn.disabled = state.status !== 'playing'; lockBtn.textContent = pointerLocked ? 'Release mouse · Esc' : 'Lock mouse'; }
     if (pauseBtn) {
       pauseBtn.disabled = state.status === 'ready' || state.status === 'over';
       pauseBtn.textContent = state.status === 'paused' ? 'Resume' : 'Pause';
@@ -1506,13 +1526,10 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
       if (state.status === 'playing') {
         held.fire = true;
         ensureAudio();
-        requestLock();
+        mouseLookX = event.clientX;
+        try { canvas.setPointerCapture(event.pointerId); } catch {}
       }
       return;
-    }
-    if (!aimAssistOn) {
-      aimAssistOn = true;
-      setAimAssist(state, true);
     }
     const consumed = resumeFromState();
     try {
@@ -1536,14 +1553,17 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
     if (event.pointerType === 'mouse') {
       if (pointerLocked && state.status === 'playing') {
         const mx = Math.max(-60, Math.min(60, event.movementX || 0));
-        turnBy(state, mx * 0.0025);
+        turnBy(state, mx * 0.0025 * sensitivity);
+      } else if (mouseLookX !== null && state.status === 'playing') {
+        turnBy(state, (event.clientX - mouseLookX) * .0075 * sensitivity);
+        mouseLookX = event.clientX;
       }
       return;
     }
     const pointer = pointers.get(event.pointerId);
     if (!pointer || state.status !== 'playing') return;
     if (pointer.side === 'look') {
-      turnBy(state, (event.clientX - pointer.lastX) * 0.0075);
+      turnBy(state, (event.clientX - pointer.lastX) * 0.0075 * sensitivity);
       pointer.lastX = event.clientX;
       return;
     }
@@ -1551,7 +1571,7 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
     const dx = event.clientX - pointer.originX;
     const dy = event.clientY - pointer.originY;
     const radius = 56;
-    if (Math.hypot(dx, dy) < 8) {
+    if (Math.hypot(dx, dy) < deadZone) {
       held.forward = 0;
       held.strafe = 0;
     } else {
@@ -1569,6 +1589,7 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
   function onPointerEnd(event: PointerEvent) {
     if (event.pointerType === 'mouse') {
       held.fire = false;
+      mouseLookX = null;
       return;
     }
     const pointer = pointers.get(event.pointerId);
@@ -1610,6 +1631,10 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
   }
 
   // ---- button + system listeners ---------------------------------------
+  const onMouseLock = () => { if (pointerLocked) document.exitPointerLock(); else requestLock(); };
+  const onAssist = () => { aimAssistOn = Boolean(assistInput?.checked); setAimAssist(state, aimAssistOn); writeStorage('khc-proofreader-assist', aimAssistOn ? 'on' : 'off'); };
+  const onSensitivity = () => { sensitivity = Number(sensitivityInput?.value) || 1; writeStorage('khc-proofreader-sensitivity', String(sensitivity)); };
+  const onDeadZone = () => { deadZone = Number(deadZoneInput?.value) || 8; writeStorage('khc-proofreader-deadzone', String(deadZone)); };
   let lastFirePointerAt = 0;
 
   const onFireDown = () => {
@@ -1692,6 +1717,10 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
   document.addEventListener('pointerlockerror', onLockError);
   motionQuery.addEventListener('change', onMotion);
   canvas.addEventListener('pointerdown', onPointerDown);
+  lockBtn?.addEventListener('click', onMouseLock);
+  assistInput?.addEventListener('change', onAssist);
+  sensitivityInput?.addEventListener('input', onSensitivity);
+  deadZoneInput?.addEventListener('input', onDeadZone);
   canvas.addEventListener('pointermove', onPointerMove);
   canvas.addEventListener('pointerup', onPointerEnd);
   canvas.addEventListener('pointercancel', onPointerEnd);
@@ -1761,6 +1790,10 @@ export function initProofreader(root: ParentNode = document): ProofreaderControl
     document.removeEventListener('pointerlockerror', onLockError);
     motionQuery.removeEventListener('change', onMotion);
     canvas.removeEventListener('pointerdown', onPointerDown);
+    lockBtn?.removeEventListener('click', onMouseLock);
+    assistInput?.removeEventListener('change', onAssist);
+    sensitivityInput?.removeEventListener('input', onSensitivity);
+    deadZoneInput?.removeEventListener('input', onDeadZone);
     canvas.removeEventListener('pointermove', onPointerMove);
     canvas.removeEventListener('pointerup', onPointerEnd);
     canvas.removeEventListener('pointercancel', onPointerEnd);

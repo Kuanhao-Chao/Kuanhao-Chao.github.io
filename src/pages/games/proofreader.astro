@@ -10,7 +10,7 @@ const gameLd = {
   '@type': 'VideoGame',
   name: 'Proofreader',
   description:
-    'An original genomics-themed first-person shooter rendered with a Canvas-2D raycaster. Sweep a chromatin maze, clear replication mutations, and collect A · C · G · T nucleotide pickups. Built for keyboard, mouse-look, and touch.',
+    'A bacterial nucleoid-inspired raycast arcade. Navigate cover, clear toy lesions and collect A/C/G/T dNTP supplies with keyboard, optional mouse-look or touch.',
   url: `${site.url}/games/proofreader/`,
   author: { '@id': `${site.url}/#person` },
   applicationCategory: 'Game',
@@ -24,8 +24,8 @@ const gameLd = {
 <PageLayout
   title="Proofreader"
   eyebrow="Side project"
-  lead="A first-person shooter built the same way as this site — no game engine, no WebGL, just a Canvas-2D raycaster. You are the proofreading domain of DNA polymerase: sweep a chromatin maze, clear replication mutations, and collect A · C · G · T. Plays with keyboard and mouse-look, or entirely by touch."
-  description="Proofreader — an original, mobile-friendly first-person shooter web game by Kuan-Hao Chao, rendered with a Canvas-2D raycaster: a chromatin maze, mutation enemies, and nucleotide pickups."
+  lead="Explore a bacterial nucleoid-inspired arena as a playful Pol III ε proofreading tool. Navigate cover, anticipate attacks, and collect dNTP supplies in this keyboard-and-touch raycast arcade."
+  description="Proofreader — a bacterial nucleoid-inspired raycast arcade with touch controls, optional mouse lock, molecular enemies and dNTP supplies."
   width="narrow"
 >
   <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
@@ -36,7 +36,7 @@ const gameLd = {
       <ProofreaderLogo size={58} />
       <div class="proof-header-info">
         <h2 class="proof-header-title">DNA Polymerase III ε Exonuclease Engine</h2>
-        <p class="proof-header-subtitle">Sweep the chromatin maze, excise replication mismatches, and scavenge dNTP charges.</p>
+        <p class="proof-header-subtitle">Bacterial nucleoid arcade · Δ substitution / + insertion / − deletion · collected dNTP supplies</p>
       </div>
     </div>
 
@@ -71,8 +71,8 @@ const gameLd = {
           type="button"
           class="game-btn"
           data-proof-sound
-          aria-label="Mute game sounds"
-          aria-pressed="true">Sound on</button
+          aria-label="Toggle game sounds"
+          aria-pressed="false">Sound off</button
         >
       </div>
     </div>
@@ -81,7 +81,7 @@ const gameLd = {
       <canvas
         data-proof-canvas
         role="img"
-        aria-label="Proofreader playfield — a first-person view of a genome maze. Move with W A S D or the arrow keys, turn with the mouse after clicking the view (Escape releases it) or with Left and Right, and fire with Space or click. On touch screens, drag the left half of the view to move, the right half to look, and use the Fire button."
+        aria-label="Proofreader bacterial arena. Move with W A S D, turn with Left and Right or drag the mouse. Lock mouse is optional; Escape releases it. Space or click fires. Touch: drag the left half to move, the right half to look, and tap Fire."
       ></canvas>
     </div>
 
@@ -92,6 +92,7 @@ const gameLd = {
       <button type="button" class="action-btn" data-proof-share disabled>
         <Icon name="share" size={16} /> Share result
       </button>
+      <button type="button" class="action-btn" data-proof-lock disabled>Lock mouse</button>
     </div>
 
     <p class="proof-status" data-proof-status role="status" aria-live="polite">
@@ -99,7 +100,7 @@ const gameLd = {
     </p>
 
     <div class="proof-sequence-card" aria-label="Collected nucleotide sequence">
-      <span class="sequence-label">Excised Sequence (5'→3'):</span>
+      <span class="sequence-label">Collected dNTPs · A/C/G/T:</span>
       <div class="sequence-ribbon" data-proof-sequence>—</div>
     </div>
 
@@ -110,7 +111,7 @@ const gameLd = {
           <strong>Move:</strong> Use <code>W A S D</code> or arrow keys. On touch, drag the left half of the view like a thumbstick.
         </p>
         <p>
-          <strong>Look:</strong> Click the view for mouse-look (Escape releases pointer lock), turn with <code>Left / Right</code> or <code>Q / E</code>, or drag the right half on touch.
+          <strong>Look:</strong> Drag the view, turn with <code>Left / Right</code> or <code>Q / E</code>, or drag the right half on touch. <strong>Lock mouse</strong> explicitly enables pointer lock; Escape releases it.
         </p>
         <p>
           <strong>Fire:</strong> Press <code>Space / Click</code> or tap <strong>Fire Exonuclease</strong> to cleave and eliminate replication mutation lesions. Aim assist is active on touch devices.
@@ -118,6 +119,24 @@ const gameLd = {
         <p>
           <strong>Survive & Collect:</strong> Collect floating <code>A · C · G · T</code> dNTP gems to replenish charges and repair integrity. Use the biological radar in the corner to track approaching mutation threats.
         </p>
+        <p><strong>What is real?</strong> The ε subunit of bacterial Pol III removes a mispaired nucleotide at the nascent DNA's 3′ end, allowing synthesis to resume. This maze is a proofreading-inspired toy: shooting arbitrary established variants is not proofreading, and not every variant is harmful. There are no histones or eukaryotic chromatin here.</p>
+        <p><strong>Anticipate:</strong> Shapes encode enemy type as well as color. A ring warns of a close attack; move behind cover before the wind-up finishes. Enemies route around cover, but cannot attack through walls. dNTP pickups are collected supplies, not excised sequence.</p>
+      </div>
+    </details>
+    <details class="proof-help">
+      <summary>Touch & aiming preferences</summary>
+      <div class="proof-settings">
+        <label><input type="checkbox" data-proof-assist /> Wider aim assist</label>
+        <label>Aiming sensitivity <input type="range" data-proof-sensitivity min="0.5" max="2" step="0.1" value="1" /></label>
+        <label>Thumbstick dead zone <input type="range" data-proof-deadzone min="4" max="24" step="1" value="8" /></label>
+      </div>
+    </details>
+    <details class="proof-help">
+      <summary>Real proofreading · excise the 3′ end, then resume</summary>
+      <div class="proof-vignette">
+        <p><strong>1 · Mismatch</strong><br />Template: 3′ A G C 5′<br />Nascent DNA: 5′ T C <mark>X</mark> 3′</p>
+        <p><strong>2 · ε exonuclease</strong><br />Remove the mismatched terminal X with 3′→5′ exonuclease activity.</p>
+        <p><strong>3 · Resynthesis</strong><br />Add the complementary G:<br />5′ T C G 3′. Synthesis continues 5′→3′.</p>
       </div>
     </details>
   </section>
@@ -144,6 +163,11 @@ const gameLd = {
 </script>
 
 <style>
+  .proof-actions { flex-wrap: wrap; }
+  .proof-settings, .proof-vignette { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; padding: 1rem; }
+  .proof-settings label { display: flex; flex-direction: column; gap: .5rem; font-size: .85rem; }
+  .proof-settings input[type='range'] { min-height: 44px; width: 100%; }
+  .proof-vignette p { margin: 0; padding: .75rem; background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: .6rem; font-size: .85rem; }
   .proof {
     max-width: 44rem;
     margin-inline: auto;
