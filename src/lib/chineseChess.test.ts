@@ -14,6 +14,36 @@ import {
 } from './chineseChess';
 
 describe('Chinese Chess (Xiangqi) Engine', () => {
+  it('records repeated positions without applying Western threefold-draw rules', () => {
+    let game = createGame();
+    const cycle = [[0, 0, 0, 1], [0, 9, 0, 8], [0, 1, 0, 0], [0, 8, 0, 9]];
+    for (let i = 0; i < 8; i++) {
+      const [fx, fy, tx, ty] = cycle[i % 4];
+      const move = generateLegalMoves(game.board, game.turn).find((m) => m.fromX === fx && m.fromY === fy && m.toX === tx && m.toY === ty)!;
+      game = makeMove(game, move);
+    }
+    expect(game.repetitionCount).toBe(3);
+    expect(game.status).toBe('playing');
+  });
+  it('returns a legal fallback when the search budget expires without mutating the board', () => {
+    const game = createGame();
+    const original = structuredClone(game);
+    let time = 0;
+    const move = getAIMove(game, 'master', { budgetMs: 1, now: () => time++ });
+    expect(time).toBeGreaterThan(0);
+    expect(time).toBeLessThan(20);
+    expect(generateLegalMoves(game.board, game.turn).some((legal) => legal.fromX === move?.fromX && legal.fromY === move.fromY && legal.toX === move.toX && legal.toY === move.toY)).toBe(true);
+    expect(game).toEqual(original);
+  }, 15000);
+  it('distinguishes front and rear same-kind pieces sharing a file', () => {
+    const game = createGame();
+    const rear: Piece = { id: 90, side: 'red', kind: 'chariot', x: 0, y: 1 };
+    const front: Piece = { id: 91, side: 'red', kind: 'chariot', x: 0, y: 4 };
+    game.board[0][0] = null;
+    game.board[0][1] = rear; game.board[0][4] = front;
+    expect(formatXiangqiNotation(game.board, { piece: front, fromX: 0, fromY: 4, toX: 0, toY: 5 })).toBe('前俥進一');
+    expect(formatXiangqiNotation(game.board, { piece: rear, fromX: 0, fromY: 1, toX: 1, toY: 1 })).toBe('後俥平八');
+  });
   it('initializes board with correct piece counts and positions', () => {
     const game = createGame();
     expect(game.turn).toBe('red');

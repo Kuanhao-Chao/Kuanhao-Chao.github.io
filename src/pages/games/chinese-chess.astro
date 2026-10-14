@@ -25,7 +25,7 @@ const gameLd = {
   eyebrow="Side project"
   lead="Authentic Chinese Chess (象棋) built with full legal move generation, traditional calligraphy pieces, woodgrain board rendering, and intelligent Minimax AI."
   description="Play Chinese Chess (Xiangqi / 象棋) online: Player vs Player or Player vs Computer (AI). Features traditional calligraphy pieces, horse leg blocking, cannon screen capture, and move notation."
-  width="narrow"
+  width="wide"
 >
   <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
 
@@ -74,14 +74,23 @@ const gameLd = {
         <button type="button" class="cc-btn" data-cc-hint>Hint (提示)</button>
         <button type="button" class="cc-btn" data-cc-flip>Flip (翻轉棋盤)</button>
         <button type="button" class="cc-btn cc-btn--primary" data-cc-restart>Restart (重新開局)</button>
-        <button type="button" class="cc-btn" data-cc-sound aria-pressed="true">Sound: On</button>
+        <button type="button" class="cc-btn" data-cc-sound aria-pressed="false">Sound: Off</button>
+        <button type="button" class="cc-btn" data-cc-draw hidden>Draw by agreement</button>
       </div>
+    </div>
+    <div class="cc-teaching-bar">
+      <label for="cc-teaching">Guided positions:</label>
+      <select id="cc-teaching" class="cc-select" data-cc-teaching>
+        <option value="normal">Full game</option><option value="horse">Blocked horse leg</option><option value="elephant">Blocked elephant eye</option><option value="cannon">Cannon screen</option><option value="generals">Flying general</option>
+      </select>
+      <p data-cc-teaching-note>Use arrow keys on the board and Enter/Space to select or move. Amber annotations show movement dependencies.</p>
     </div>
 
     <!-- Main Stage: Canvas Board + Side Panel -->
     <div class="cc-stage">
       <!-- Board Canvas Container -->
       <div class="cc-board-wrapper">
+        <div class="cc-keyboard-grid" data-cc-keyboard-grid role="grid" aria-label="Xiangqi board, arrow keys navigate; Enter selects or moves" aria-rowcount="10" aria-colcount="9"></div>
         <canvas
           data-cc-canvas
           class="cc-canvas"
@@ -135,6 +144,7 @@ const gameLd = {
             <h4>帥 / 將 (General / King)</h4>
             <p>Moves 1 step orthogonally (up/down/left/right) strictly within the 3×3 Palace (九宮). <strong>Flying General (飛將) Rule:</strong> The two Generals may never face each other directly on an open file with no intervening pieces.</p>
           </div>
+          <div class="cc-guide-card"><h4>Scope & repetitions</h4><p>AI and hint searches use a cancellable Worker with iterative deepening and a 1.5-second budget; unavailable Workers use a legal fallback. Repeated positions are recorded, not automatically drawn under Western threefold rules. PvP players may agree a draw. Complete WXF perpetual-check/chase and tournament adjudication are not implemented.</p></div>
           <div class="cc-guide-card">
             <h4>仕 / 士 (Advisor / Guard)</h4>
             <p>Moves 1 step diagonally strictly within the 5 designated points of the Palace to protect the General.</p>
@@ -191,6 +201,17 @@ const gameLd = {
 </PageLayout>
 
 <style>
+  .cc-board-wrapper { position: relative; }
+  .cc-keyboard-grid { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+  .cc-keyboard-grid :global(.cc-grid-cell) { position: absolute; pointer-events: none; padding: 0; background: transparent; border: 0; color: transparent; }
+  .cc-keyboard-grid :global(.cc-grid-cell:focus-visible) { outline: 3px solid #d97706; outline-offset: 0; border-radius: .3rem; }
+  .cc-teaching-bar { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; padding: .75rem; border: 1px solid var(--color-rule); border-radius: .7rem; background: var(--color-surface); }
+  .cc-teaching-bar p { flex-basis: 100%; margin: 0; font-size: .85rem; }
+  .cc-container.game-focus-view .cc-stage { grid-template-columns: 1fr; }
+  .cc-container.game-focus-view .cc-side-panel { display: block; }
+  .cc-container.game-focus-view .cc-side-panel .cc-panel-box:not(.cc-status-box) { display: none; }
+  .cc-container.game-focus-view .cc-header-card, .cc-container.game-focus-view .cc-toolbar-group, .cc-container.game-focus-view .cc-teaching-bar p { display: none; }
+  .cc-container.game-focus-view .cc-board-wrapper { width: min(100%, calc((100dvh - 300px) / 1.11)); margin-inline: auto; }
   .cc-container {
     display: flex;
     flex-direction: column;
@@ -282,7 +303,7 @@ const gameLd = {
   }
 
   .cc-btn {
-    min-height: 36px;
+    min-height: 44px;
     padding: 6px 12px;
     font-size: 0.82rem;
     font-weight: 600;
@@ -323,7 +344,7 @@ const gameLd = {
   /* Stage Layout */
   .cc-stage {
     display: grid;
-    grid-template-columns: minmax(0, 1.45fr) minmax(260px, 1fr);
+    grid-template-columns: minmax(0, 2.3fr) minmax(260px, 1fr);
     gap: var(--space-4, 16px);
     align-items: start;
   }
