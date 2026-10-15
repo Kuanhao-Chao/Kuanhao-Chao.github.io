@@ -1,0 +1,428 @@
+.arcade--proofreader {
+  --arcade-width: 70rem;
+  gap: 0.7rem;
+}
+.arcade--proofreader .arcade-stage {
+  aspect-ratio: 16 / 9;
+  border-radius: 0.8rem;
+  background: #0b1924;
+  border: 1px solid #3f5966;
+  box-shadow: 0 14px 36px #0b192426;
+  isolation: isolate;
+}
+.arcade--proofreader .arcade-stage > canvas {
+  image-rendering: auto;
+}
+.arcade--proofreader .arcade-overlay {
+  z-index: 8;
+  background: #09172575;
+}
+.arcade--proofreader .arcade-overlay-card {
+  border-radius: 0.85rem;
+  box-shadow: 0 18px 70px #08162345;
+}
+.arcade--proofreader .arcade-action-row {
+  display: grid;
+  gap: 0.5rem;
+}
+.proof-arsenal,
+.proof-tools {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.arcade--proofreader .proof-arsenal button {
+  flex: 1;
+  border-radius: 0.55rem;
+  padding: 0.6rem 1rem;
+  max-width: 15rem;
+}
+.proof-arsenal small {
+  font: 0.7rem var(--font-mono);
+  opacity: 0.7;
+  margin-right: 0.3rem;
+}
+.arcade--proofreader .proof-arsenal [aria-pressed='true'] {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border-color: var(--color-accent);
+}
+.arcade--proofreader .proof-tools button {
+  min-height: 44px;
+  font-size: 0.8rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 0.45rem;
+}
+.proof-mission-display {
+  position: absolute;
+  top: 0.8rem;
+  left: 0.8rem;
+  max-width: calc(100% - 1.6rem);
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  background: #0b1c2cba;
+  color: #d6eeee;
+  border: 1px solid #54717b80;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  pointer-events: none;
+  font: 0.78rem var(--font-sans, sans-serif);
+  backdrop-filter: blur(5px);
+}
+.proof-mission-display > span {
+  display: block;
+  font-size: 1.3rem;
+  color: #f2ce93;
+}
+.proof-mission-display strong,
+.proof-mission-display small {
+  display: block;
+}
+.proof-mission-display small {
+  color: #aac4cd;
+  margin-top: 0.15rem;
+}
+.proof-reticle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 24px;
+  height: 24px;
+  translate: -50% -50%;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 2px #071015);
+}
+.proof-reticle i {
+  position: absolute;
+  background: #dcf5ef;
+  border-radius: 2px;
+}
+.proof-reticle i:nth-child(1) {
+  left: 0;
+  top: 11px;
+  width: 5px;
+  height: 2px;
+}
+.proof-reticle i:nth-child(2) {
+  right: 0;
+  top: 11px;
+  width: 5px;
+  height: 2px;
+}
+.proof-reticle i:nth-child(3) {
+  top: 0;
+  left: 11px;
+  width: 2px;
+  height: 5px;
+}
+.proof-reticle i:nth-child(4) {
+  bottom: 0;
+  left: 11px;
+  width: 2px;
+  height: 5px;
+}
+[data-proof-weapon='scatter'] .proof-reticle {
+  width: 44px;
+  height: 44px;
+  border: 1px solid #dcf5ef99;
+  border-radius: 50%;
+}
+[data-proof-weapon='scatter'] .proof-reticle i {
+  display: none;
+}
+.proof-hit-marker {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  color: #f2ce93;
+  font: 32px sans-serif;
+  pointer-events: none;
+  opacity: 0;
+}
+[data-proof-hit='true'] .proof-hit-marker {
+  opacity: 1;
+}
+.proof-damage-edge {
+  position: absolute;
+  inset: 0;
+  border: 3px solid #f1a086;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+}
+[data-proof-hurt='true'] .proof-damage-edge {
+  opacity: 0.6;
+}
+.proof-weapon-readout {
+  position: absolute;
+  bottom: 0.8rem;
+  left: 0.8rem;
+  color: #d7efea;
+  background: #0b1c2cb8;
+  border: 1px solid #56778366;
+  border-radius: 0.4rem;
+  padding: 0.4rem 0.6rem;
+  font: 0.72rem var(--font-mono, monospace);
+  pointer-events: none;
+}
+.proof-weapon-readout small {
+  display: block;
+  color: #f1c980;
+  min-height: 0.85rem;
+  margin-top: 0.2rem;
+}
+.proof-touch-actions {
+  position: absolute;
+  right: 0.7rem;
+  bottom: 0.7rem;
+  display: flex;
+  align-items: end;
+  gap: 0.4rem;
+  z-index: 3;
+}
+.arcade--proofreader .proof-touch-actions button {
+  width: 48px;
+  height: 48px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0.2rem;
+  border: 1px solid #91b4bb99;
+  border-radius: 50%;
+  color: #e3f3f2;
+  background: #142c3bd9;
+  font-size: 0.65rem;
+  touch-action: none;
+  user-select: none;
+}
+.arcade--proofreader .proof-touch-actions .proof-fire {
+  width: 62px;
+  height: 62px;
+  background: #2b6e6bd9;
+  font-size: 0.8rem;
+}
+.arcade--proofreader .proof-touch-actions [aria-pressed='true'] {
+  background: #49998cd9;
+}
+.proof-context {
+  position: absolute;
+  top: 60%;
+  left: 50%;
+  translate: -50% 0;
+  border-radius: 0.4rem;
+  background: #102635ce;
+  color: #e8ddbd;
+  font: 0.75rem var(--font-sans);
+  padding: 0.4rem 0.6rem;
+  pointer-events: none;
+  text-align: center;
+}
+.proof-context:empty {
+  display: none;
+}
+.proof-boss {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: min(38%, 20rem);
+  color: #f2c8b2;
+  font: 0.68rem var(--font-sans);
+  background: #112737dd;
+  padding: 0.5rem;
+  border-radius: 0.4rem;
+  pointer-events: none;
+}
+.proof-boss progress {
+  display: block;
+  width: 100%;
+  height: 7px;
+  margin-top: 0.3rem;
+  accent-color: #d6a4b4;
+}
+.proof-map {
+  position: absolute;
+  top: 4.5rem;
+  left: 0.8rem;
+  width: 130px;
+  border: 1px solid #74969f80;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  pointer-events: none;
+}
+.proof-map canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.proof-stick {
+  position: absolute;
+  width: 90px;
+  height: 90px;
+  margin: -45px;
+  border: 1px solid #b1d7d788;
+  background: #6da6ac15;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.proof-stick span {
+  position: absolute;
+  left: 29px;
+  top: 29px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #a4dad878;
+}
+.arcade--proofreader:not([data-arcade-status='playing']) .proof-touch-actions,
+.arcade--proofreader:not([data-arcade-status='playing']) .proof-reticle,
+.arcade--proofreader:not([data-arcade-status='playing']) .proof-context {
+  display: none;
+}
+.proof-log {
+  border-radius: 0.55rem;
+  font: 0.85rem var(--font-sans);
+  line-height: 1.5;
+}
+.proof-log small {
+  display: block;
+  color: var(--color-muted);
+  margin-top: 0.3rem;
+  font-size: 0.75rem;
+}
+.proof-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem 1.4rem;
+}
+.proof-guide-grid h3 {
+  margin-bottom: 0.3rem;
+  font-size: 0.95rem;
+}
+.arcade--proofreader.game-focus-view .arcade-stage {
+  width: 100%;
+  max-height: none;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.arcade--proofreader.game-focus-view .arcade-action-row {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.arcade--proofreader.game-focus-view .proof-arsenal button {
+  padding-inline: 0.6rem;
+}
+.arcade--proofreader.game-focus-view .arcade-hud {
+  width: 100%;
+  padding-block: 0.3rem;
+}
+.arcade--proofreader.game-focus-view .arcade-instructions,
+.arcade--proofreader.game-focus-view .arcade-status {
+  display: none;
+}
+@media (max-width: 600px) {
+  .arcade--proofreader .arcade-stage {
+    aspect-ratio: 4 / 3;
+    border-radius: 0.5rem;
+  }
+  .proof-mission-display {
+    top: 0.4rem;
+    left: 0.4rem;
+    font-size: 0.65rem;
+    padding: 0.35rem 0.45rem;
+    max-width: calc(100% - 0.8rem);
+  }
+  .proof-weapon-readout {
+    left: 0.4rem;
+    bottom: 0.4rem;
+    font-size: 0.6rem;
+    padding: 0.35rem;
+    max-width: 35%;
+  }
+  .proof-touch-actions {
+    right: 0.35rem;
+    bottom: 0.35rem;
+    gap: 0.3rem;
+  }
+  .arcade--proofreader .proof-touch-actions button {
+    width: 44px;
+    height: 44px;
+  }
+  .arcade--proofreader .proof-touch-actions .proof-fire {
+    width: 54px;
+    height: 54px;
+  }
+  .arcade--proofreader .proof-arsenal button {
+    font-size: 0.75rem;
+    padding: 0.5rem 0.3rem;
+  }
+  .proof-arsenal small {
+    display: none;
+  }
+  .proof-tools {
+    gap: 0.3rem;
+  }
+  .arcade--proofreader .proof-tools button {
+    font-size: 0.7rem;
+    padding-inline: 0.45rem;
+  }
+  .proof-boss {
+    top: 3.6rem;
+    right: 0.4rem;
+    width: 45%;
+    font-size: 0.6rem;
+  }
+  .proof-map {
+    top: 3.6rem;
+    width: 85px;
+    left: 0.4rem;
+  }
+  .proof-context {
+    font-size: 0.65rem;
+    max-width: 65%;
+  }
+  .proof-guide-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-height: 500px) and (min-width: 600px) {
+  .arcade--proofreader.game-focus-view {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 10.5rem;
+    grid-template-rows: auto 1fr auto;
+    gap: 0.35rem;
+  }
+  .arcade--proofreader.game-focus-view .arcade-stage {
+    height: calc(100dvh - 76px);
+    grid-row: 2 / 5;
+  }
+  .arcade--proofreader.game-focus-view .arcade-hud {
+    gap: 0.3rem;
+  }
+  .arcade--proofreader.game-focus-view .arcade-action-row {
+    display: grid;
+    gap: 0.3rem;
+  }
+  .arcade--proofreader.game-focus-view .proof-tools button {
+    padding: 0.3rem;
+    font-size: 0.65rem;
+  }
+  .arcade--proofreader.game-focus-view .proof-arsenal {
+    gap: 0.2rem;
+  }
+  .arcade--proofreader.game-focus-view .proof-arsenal button {
+    min-width: 44px;
+    font-size: 0.6rem;
+    padding: 0.3rem;
+  }
+  .arcade--proofreader.game-focus-view .proof-arsenal small {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .proof-damage-edge {
+    border-width: 2px;
+  }
+}

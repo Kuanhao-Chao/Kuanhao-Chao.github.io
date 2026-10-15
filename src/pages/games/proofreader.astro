@@ -1,68 +1,154 @@
 ---
 import ArcadeShell from '../../components/games/ArcadeShell.astro';
 import ProofreaderLogo from '../../components/games/ProofreaderLogo.astro';
+import '../../styles/proofreader.css';
 ---
 
 <ArcadeShell
   game="proofreader"
   title="Proofreader"
-  lead="A pixel-art nucleoid expedition: read enemy tells, work around cover, and master six tactical sectors—or survive an endless run."
-  controls="WASD moves · arrows turn · Space/click fires · F sends a piercing pulse · P pauses. Touch: left side moves, right side aims; use Fire and Pulse below."
+  lead="Enter a genome-maintenance simulation: explore layered biotech laboratories, work around cover, and bring three distinct tools to six handcrafted missions."
+  controls="WASD moves · mouse/drag aims · click/F fires · Space jumps · Shift sprints · R reloads · E interacts · 1–3 selects tools · P pauses. Touch: left moves, right aims; use Fire, Jump, and the tool buttons."
 >
   <ProofreaderLogo slot="logo" size={42} />
   <Fragment slot="hud">
     <div class="arcade-stat"><span>Integrity</span><strong data-proof-health>100</strong></div>
-    <div class="arcade-stat"><span>Charges</span><strong data-proof-ammo>24 / 40</strong></div>
-    <div class="arcade-stat"><span>Wave</span><strong data-proof-wave>0</strong></div>
+    <div class="arcade-stat"><span>Ammunition</span><strong data-proof-ammo>24 / 120</strong></div>
+    <div class="arcade-stat"><span>Floor</span><strong data-proof-floor>1 / 2</strong></div>
     <div class="arcade-stat"><span>Score</span><strong data-proof-score>0</strong></div>
     <div class="arcade-stat"><span>Best</span><strong data-proof-best>0</strong></div>
   </Fragment>
-  <Fragment slot="actions">
-    <button type="button" class="arcade-primary" data-proof-fire>Fire</button>
-    <button type="button" data-proof-pulse>Piercing pulse · 3</button>
-    <button type="button" data-proof-lock>Lock mouse</button>
+  <Fragment slot="playfield">
+    <div class="proof-mission-display" aria-hidden="true">
+      <span data-proof-bearing>↑</span><div>
+        <strong data-proof-objective>Explore the atrium</strong><small data-proof-distance></small>
+      </div>
+    </div>
+    <div class="proof-reticle" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <div class="proof-hit-marker" aria-hidden="true">×</div>
+    <div class="proof-damage-edge" aria-hidden="true"></div>
+    <div class="proof-weapon-readout" aria-hidden="true">
+      <span data-proof-weapon>Precision carbine</span><small data-proof-reload></small>
+    </div>
+    <div class="proof-context" data-proof-context></div>
+    <div class="proof-boss" data-proof-boss hidden>
+      <span></span><progress max="180" value="180" aria-label="Guardian phase integrity"></progress>
+    </div>
+    <div class="proof-map" data-proof-map-panel hidden>
+      <canvas
+        width="360"
+        height="400"
+        data-proof-map
+        aria-label="Sector map. Your position is a teal arrow; the objective is a gold dot."
+      ></canvas>
+    </div>
+    <div class="proof-stick" data-proof-stick hidden aria-hidden="true"><span></span></div>
+    <div class="proof-touch-actions">
+      <button type="button" data-proof-sprint aria-pressed="false" aria-label="Hold to sprint"
+        >Sprint</button
+      >
+      <button type="button" data-proof-jump aria-pressed="false" aria-label="Jump">Jump</button>
+      <button
+        type="button"
+        data-proof-fire
+        aria-pressed="false"
+        class="proof-fire"
+        aria-label="Fire selected weapon; drag on touch to aim while firing">Fire</button
+      >
+    </div>
   </Fragment>
-  <div slot="readout" class="arcade-ribbon">
-    <strong>Collected dNTP supplies · not a repair product</strong><span data-proof-sequence>—</span
-    ><span data-proof-objective></span>
+  <Fragment slot="actions">
+    <div class="proof-arsenal" aria-label="Weapon selection">
+      <button type="button" data-proof-weapon="carbine" aria-pressed="true"
+        ><small>01</small> Carbine</button
+      >
+      <button type="button" data-proof-weapon="scatter" aria-pressed="false"
+        ><small>02</small> Scatter</button
+      >
+      <button type="button" data-proof-weapon="pulse" aria-pressed="false"
+        ><small>03</small> Pulse</button
+      >
+    </div>
+    <div class="proof-tools">
+      <button type="button" data-proof-reload>Reload</button>
+      <button type="button" data-proof-use disabled>Use</button>
+      <button type="button" data-proof-cycle>Next tool</button>
+      <button type="button" data-proof-lock>Lock mouse</button>
+      <button type="button" data-proof-map-toggle>Map · M</button>
+    </div>
+  </Fragment>
+  <div slot="readout" class="arcade-ribbon proof-log">
+    <strong>Mission log</strong><span data-proof-notice
+      >Choose a sector or begin your expedition.</span
+    ><small data-proof-checkpoint>Mission entry</small>
   </div>
   <Fragment slot="guide">
+    <div class="proof-guide-grid">
+      <section>
+        <h3>Explore in three dimensions</h3><p>
+          Ramps and stairs connect every required destination. Bridges have real space below them.
+          Look up for drones and raised firing positions. The compass points toward the next
+          objective; ↑ and ↓ beside its distance indicate another floor. M opens a floor-aware map.
+        </p>
+      </section>
+      <section>
+        <h3>Choose your tool</h3><p>
+          <strong>Carbine:</strong> precise, sustained medium-range fire. <strong>Scatter:</strong> a
+          close-range burst that rewards careful positioning. <strong>Pulse:</strong> a slower explosive
+          projectile for groups. All three are available immediately. Each has its own magazine and reserve
+          ammunition; R reloads.
+        </p>
+      </section>
+      <section>
+        <h3>Read the encounter</h3><p>
+          Scouts reposition; horned chargers commit to a rush after a warning; armored sentries
+          protect their front; winged drones move above the floor. Gold rings announce attacks.
+          Walls, bridges, and machinery block fire. Vents and barriers show a steady amber warning
+          before becoming harmful.
+        </p>
+      </section>
+      <section>
+        <h3>Recover and continue</h3><p>
+          Use blue ammunition consoles with E, or the Use button, for free refills. Break marked
+          crates for supplies. Safe-sector checkpoints restore integrity and ammunition after an
+          encounter. Defeat offers a checkpoint retry; Restart always begins the entire mission.
+        </p>
+      </section>
+      <section>
+        <h3>Master the campaign</h3><p>
+          Uninterrupted clears can earn three medals: clear, at least 70% shot accuracy, and no
+          damage. A scatter volley or pulse explosion counts as one accurate shot if it damages an
+          enemy. Checkpoint clears unlock the next mission but are unranked. Practice has unlimited
+          shots and prevents damage without saving progress.
+        </p>
+      </section>
+      <section>
+        <h3>Play comfortably</h3><p>
+          Mouse lock is optional: drag to aim if it is unavailable. On phones, the left thumb moves
+          and the right side aims; drag the Fire button to aim while firing. Push the movement stick
+          fully forward to sprint. Landscape Focus view gives the largest playfield. Graphics, field
+          of view, motion, aiming assistance, and key bindings are adjustable below.
+        </p>
+      </section>
+    </div>
+    <h3>The biological inspiration</h3>
     <p>
-      <strong>Read the encounter.</strong> Rounded sentries (Δ) take one hit; insertion crosses (+) take
-      two; deletion guards (−) take three. Warning bars precede attacks. Walls block both your fire and
-      hostile projectiles.
+      This is a fictional genome-maintenance simulation, not a molecular model. Its robotic threats
+      and energy tools do not represent literal DNA repair, and genetic variation is not inherently
+      harmful.
     </p>
     <p>
-      <strong>Manage charges.</strong> Hold Fire for repeated precision shots. The piercing pulse costs
-      three charges, damages aligned targets twice, and still cannot penetrate a wall. Collect supplies
-      and walk close to relays to activate them.
-    </p>
-    <p>
-      <strong>Find the exit.</strong> Finish the encounter and relay objectives, then reach the lit exit.
-      The radar marks enemies, relays, and your position. The guardian exposes its core between guarded
-      attack phases.
-    </p>
-    <p>
-      <strong>Mastery medals.</strong> Clear a stage, land at least 70% of your shots, and finish without
-      taking damage. A piercing shot counts as one accurate shot if it connects at least once. Practice
-      has unlimited charges and prevents damage, but creates no records.
-    </p>
-    <p>
-      <strong>What is real?</strong> In bacterial DNA polymerase III, the ε subunit removes a mispaired
-      nucleotide from the nascent DNA strand’s 3′ end using 3′→5′ exonuclease activity; the α subunit
-      resumes synthesis in the 5′→3′ direction. This arcade is a metaphor—not a simulation of shooting
-      established variants or repairing every kind of lesion. Not every variant is harmful.
-    </p>
-    <p>
-      <strong>Try the real sequence logic.</strong> Template: 3′ A G C 5′. Nascent DNA: 5′ T C X 3′. Remove
-      terminal X, then add complementary G to obtain 5′ T C G 3′. The A/C/G/T ribbon above records pickups,
-      not excised or synthesized DNA.
+      In bacterial DNA polymerase III, the ε subunit can remove a mispaired terminal nucleotide
+      using 3′→5′ exonuclease activity, while α resumes synthesis in the 5′→3′ direction. For
+      example, a template 3′ A G C 5′ pairs with nascent DNA 5′ T C G 3′ after an incorrect terminal
+      base is removed and replaced. This differs from correcting established substitutions or indels
+      elsewhere in a genome.
     </p>
     <p>
       <a
         href="https://pmc.ncbi.nlm.nih.gov/articles/PMC392229/"
         target="_blank"
-        rel="noopener noreferrer">Original Pol III editing study</a>
+        rel="noopener noreferrer">Original study of Pol III proofreading</a>
     </p>
   </Fragment>
 </ArcadeShell>

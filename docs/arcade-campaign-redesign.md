@@ -1,5 +1,8 @@
 # Proofreader, Snake and Jetpack — implementation record
 
+Historical v2 record. Proofreader's pixel raycaster is superseded by the
+[v3 3D implementation](proofreader-3d.md); Snake and Jetpack retain the design below.
+
 Approved direction: six crafted stages per game; original retro pixel art; precise,
 fair arcade play; cosmetic-only rewards; classic quick-play and unranked practice.
 Snake retains a classic campaign with a separate optional Motif Hunt.

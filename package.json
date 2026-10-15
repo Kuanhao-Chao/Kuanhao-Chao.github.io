@@ -34,6 +34,7 @@
     "audit:ml-interview": "node scripts/audit-ml-interview.mjs",
     "audit:games": "node scripts/audit-game-ui.mjs",
     "audit:arcade": "node scripts/audit-arcade-campaigns.mjs",
+    "audit:proofreader": "node scripts/audit-proofreader-3d.mjs",
     "audit:software": "node scripts/audit-software-ui.mjs",
     "audit:appearance": "node scripts/audit-appearance-ui.mjs",
     "audit:games:ci": "node scripts/audit-game-ui.mjs --ci",

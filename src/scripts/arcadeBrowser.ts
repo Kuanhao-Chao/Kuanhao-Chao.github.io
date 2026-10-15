@@ -5,6 +5,7 @@ import {
   parseRunOptions,
   recordKey,
   recordResult,
+  rulesVersion,
   type ArcadeGame,
   type RunOptions,
   type RunResult,
@@ -23,6 +24,14 @@ export interface ArcadeSettings {
   sensitivity: number;
   deadZone: number;
   bindings: Record<string, string>;
+  graphics: 'auto' | 'low' | 'high';
+  fov: number;
+  motion: number;
+}
+export interface ArcadePresentation {
+  draw(settings: ArcadeSettings, reduced: boolean, timestamp: number, alpha: number): void;
+  resize(): void;
+  dispose(): void;
 }
 export interface ArcadeDriver {
   game: ArcadeGame;
@@ -39,12 +48,14 @@ export interface ArcadeDriver {
   release(): void;
   input(action: string, down: boolean): void;
   step(dt: number): void;
-  draw(
+  draw?(
     ctx: CanvasRenderingContext2D,
     settings: ArcadeSettings,
     reduced: boolean,
     timestamp: number
   ): void;
+  presentation?(canvas: HTMLCanvasElement): ArcadePresentation;
+  retry?(): boolean;
   result(): RunResult;
   hud(): Record<string, string>;
   events(): readonly string[];
@@ -76,10 +87,23 @@ const clamp = (value: unknown, fallback: number, min: number, max: number) =>
 
 export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
   const canvas = root.querySelector<HTMLCanvasElement>(`[data-${driver.prefix}-canvas]`)!;
-  const ctx = canvas.getContext('2d')!;
-  canvas.width = driver.width;
-  canvas.height = driver.height;
-  ctx.imageSmoothingEnabled = false;
+  // A canvas cannot switch from 2D to WebGL: the adapter owns context creation.
+  const presentation = driver.presentation
+    ? driver.presentation(canvas)
+    : (() => {
+        const ctx = canvas.getContext('2d');
+        if (!ctx || !driver.draw) throw new Error('Canvas presentation unavailable');
+        canvas.width = driver.width;
+        canvas.height = driver.height;
+        return {
+          draw(settings: ArcadeSettings, reduced: boolean, time: number) {
+            ctx.imageSmoothingEnabled = false;
+            driver.draw!(ctx, settings, reduced, time);
+          },
+          resize() {},
+          dispose() {},
+        };
+      })();
   const abort = new AbortController();
   const { signal } = abort;
   const listen = <E extends Event>(
@@ -90,9 +114,10 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
   ) => target.addEventListener(type, callback as EventListener, { ...options, signal });
   const q = <T extends HTMLElement = HTMLElement>(selector: string) =>
     root.querySelector<T>(selector);
-  const progressKey = `khc-arcade-${driver.game}-v2`;
-  const settingsKey = `khc-arcade-${driver.game}-settings-v2`;
-  let progress = decodeProgress(read(progressKey));
+  const version = rulesVersion(driver.game);
+  const progressKey = `khc-arcade-${driver.game}-v${version}`;
+  const settingsKey = `khc-arcade-${driver.game}-settings-v${version}`;
+  let progress = decodeProgress(read(progressKey), version);
   let options = parseRunOptions(
     driver.game,
     location.search,
@@ -102,6 +127,11 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
   let stored: Partial<ArcadeSettings> = {};
   try {
     stored = JSON.parse(read(settingsKey) ?? '{}') ?? {};
+    if (version === 3 && !read(settingsKey)) {
+      const previous = JSON.parse(read(`khc-arcade-${driver.game}-settings-v2`) ?? '{}');
+      const { sound, volume, speed, assist, sensitivity, deadZone } = previous ?? {};
+      stored = { sound, volume, speed, assist, sensitivity, deadZone };
+    }
   } catch {}
   const bindings = { ...driver.bindings };
   if (stored.bindings && typeof stored.bindings === 'object')
@@ -134,6 +164,9 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
     sensitivity: clamp(stored.sensitivity, 1, 0.5, 2),
     deadZone: clamp(stored.deadZone, 8, 4, 24),
     bindings,
+    graphics: stored.graphics === 'low' || stored.graphics === 'high' ? stored.graphics : 'auto',
+    fov: clamp(stored.fov, 75, 60, 95),
+    motion: clamp(stored.motion, 0.35, 0, 1),
   };
   if (settings.palette > Math.floor(progress.cleared.length / 2)) settings.palette = 0;
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -141,17 +174,23 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
   let raf = 0;
   let lastFrame = 0;
   let lastPaint = 0;
+  let alpha = 1;
   let recorded = false;
   let assisted = false;
   let destroyed = false;
   let message = '';
   let audio: AudioContext | null = null;
+  let shotNoise: AudioBuffer | null = null;
   let focusTimer = 0;
   const clock = createGameClock(driver.stepSeconds, 12);
   const pressed = new Map<string, string>();
   const legacyKey =
     driver.game === 'jetpack' ? 'khc-jetpack-joyride-best' : `khc-${driver.game}-best`;
-  const oldScore = Number(read(legacyKey));
+  const previousEdition = version === 3 ? decodeProgress(read('khc-arcade-proofreader-v2')) : null;
+  const oldScore = Math.max(
+    Number(read(legacyKey)) || 0,
+    ...Object.values(previousEdition?.records ?? {}).map((r) => r.score)
+  );
   const legacyBest = Number.isFinite(oldScore) && oldScore > 0 ? oldScore : 0;
   setLabel(
     q('[data-arcade-legacy]'),
@@ -160,6 +199,13 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
       : 'Records stay on this browser. Practice does not create records.'
   );
   const modeSelect = q<HTMLSelectElement>('[data-arcade-mode]')!;
+  const linkVersion = new URLSearchParams(location.search).get('rules');
+  if (version === 3 && linkVersion && linkVersion !== '3') {
+    setLabel(
+      q('[data-arcade-legacy]'),
+      'This challenge belongs to another edition. You are playing Proofreader 3D v3; old maps and scores are not comparable.'
+    );
+  }
   const stageSelect = q<HTMLSelectElement>('[data-arcade-stage]')!;
   const difficultySelect = q<HTMLSelectElement>('[data-arcade-difficulty]')!;
 
@@ -183,12 +229,26 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
       over: 70,
       wrong: 140,
       wave: 300,
+      scatter: 100,
+      pulse: 70,
+      reload: 260,
+      switch: 360,
+      checkpoint: 880,
+      jump: 240,
     };
     const pitch = pitches[event];
     if (!pitch) return;
     const osc = audio.createOscillator();
     const gain = audio.createGain();
-    osc.type = event === 'fire' ? 'triangle' : 'square';
+    const proofShot = driver.game === 'proofreader' && ['fire', 'scatter', 'pulse'].includes(event);
+    osc.type =
+      driver.game === 'proofreader'
+        ? event === 'pulse'
+          ? 'triangle'
+          : 'sine'
+        : event === 'fire'
+          ? 'triangle'
+          : 'square';
     osc.frequency.setValueAtTime(pitch, audio.currentTime);
     osc.frequency.exponentialRampToValueAtTime(
       Math.max(40, pitch * (event === 'won' ? 1.5 : 0.65)),
@@ -204,6 +264,34 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
     };
     osc.start();
     osc.stop(audio.currentTime + 0.14);
+    if (proofShot) {
+      if (!shotNoise) {
+        shotNoise = audio.createBuffer(1, Math.floor(audio.sampleRate * 0.07), audio.sampleRate);
+        const channel = shotNoise.getChannelData(0);
+        for (let i = 0; i < channel.length; i++)
+          channel[i] = Math.sin(i * 127.1) * Math.cos(i * 311.7) * (1 - i / channel.length);
+      }
+      const source = audio.createBufferSource(),
+        filter = audio.createBiquadFilter(),
+        envelope = audio.createGain();
+      source.buffer = shotNoise;
+      filter.type = 'lowpass';
+      filter.frequency.value = event === 'scatter' ? 2400 : event === 'pulse' ? 650 : 1600;
+      envelope.gain.setValueAtTime(
+        settings.volume * (event === 'scatter' ? 0.07 : 0.04),
+        audio.currentTime
+      );
+      envelope.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.07);
+      source.connect(filter);
+      filter.connect(envelope);
+      envelope.connect(audio.destination);
+      source.onended = () => {
+        source.disconnect();
+        filter.disconnect();
+        envelope.disconnect();
+      };
+      source.start();
+    }
   }
   function unlockAudio() {
     if (!settings.sound) return;
@@ -270,7 +358,10 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
   }
   function begin() {
     unlockAudio();
-    if (driver.status() === 'over' || driver.status() === 'won') makeReady();
+    if (driver.status() === 'over' && driver.retry?.()) {
+      recorded = false;
+      release();
+    } else if (driver.status() === 'over' || driver.status() === 'won') makeReady();
     driver.start();
     lastFrame = 0;
     clock.reset();
@@ -304,8 +395,7 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
   }
   function paint(time = performance.now()) {
     if (destroyed) return;
-    ctx.imageSmoothingEnabled = false;
-    driver.draw(ctx, settings, reduced, time);
+    presentation.draw(settings, reduced, time, alpha);
   }
   function sync() {
     const status = driver.status();
@@ -369,7 +459,13 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
     );
     setLabel(
       q('[data-arcade-primary]'),
-      status === 'ready' ? 'Start' : status === 'paused' ? 'Resume' : 'Retry'
+      status === 'ready'
+        ? 'Start'
+        : status === 'paused'
+          ? 'Resume'
+          : status === 'over' && driver.retry && options.mode !== 'classic'
+            ? 'Retry checkpoint'
+            : 'Retry'
     );
     q('[data-arcade-home]')!.hidden = status === 'ready';
     q('[data-arcade-next]')!.hidden =
@@ -404,7 +500,7 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
     if (destroyed || driver.status() !== 'playing') return;
     const dt = lastFrame ? Math.max(0, (time - lastFrame) / 1000) : 0;
     lastFrame = time;
-    clock.advance(dt * settings.speed, (step) => {
+    alpha = clock.advance(dt * settings.speed, (step) => {
       if (driver.status() === 'playing') {
         driver.step(step);
         for (const event of driver.events()) if (event !== 'won' && event !== 'over') sound(event);
@@ -426,7 +522,7 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
     wake();
   }
   async function share() {
-    const url = new URL(challengeUrl(location.pathname, options), location.origin).href;
+    const url = new URL(challengeUrl(location.pathname, options, version), location.origin).href;
     const result = driver.result();
     const text = `${document.title.split(' · ')[0]} · ${result.score} points${assisted ? ' (assisted)' : ''} · ${result.detail}`;
     try {
@@ -495,6 +591,9 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
     deadzone: 'deadZone',
     assist: 'assist',
     toggle: 'toggle',
+    graphics: 'graphics',
+    fov: 'fov',
+    motion: 'motion',
   };
   for (const [name, field] of Object.entries(settingsInputs)) {
     const input = q<HTMLInputElement>(`[data-arcade-${name}]`);
@@ -504,7 +603,9 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
     listen(input, 'change', () => {
       if (input.type === 'checkbox')
         (settings as unknown as Record<string, unknown>)[field] = input.checked;
-      else (settings as unknown as Record<string, unknown>)[field] = Number(input.value);
+      else
+        (settings as unknown as Record<string, unknown>)[field] =
+          field === 'graphics' ? input.value : Number(input.value);
       saveSettings();
       controls();
       notify();
@@ -640,7 +741,10 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
     reduced = motion.matches;
     paint();
   });
-  const resize = new ResizeObserver(() => paint());
+  const resize = new ResizeObserver(() => {
+    presentation.resize();
+    paint();
+  });
   resize.observe(canvas);
   const visibility = new IntersectionObserver((entries) => {
     if (!entries[0]?.isIntersecting) pause();
@@ -649,7 +753,6 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
   makeReady();
   return {
     canvas,
-    ctx,
     settings,
     listen,
     options: () => options,
@@ -672,6 +775,7 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
       abort.abort();
       resize.disconnect();
       visibility.disconnect();
+      presentation.dispose();
       if (document.pointerLockElement === canvas) document.exitPointerLock();
       void audio?.close().catch(() => {});
     },
