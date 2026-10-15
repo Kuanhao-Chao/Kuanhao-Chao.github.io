@@ -1,455 +1,81 @@
 ---
-import PageLayout from '../../layouts/PageLayout.astro';
-import GameTools from '../../components/games/GameTools.astro';
-import Icon from '../../components/Icon.astro';
+import ArcadeShell from '../../components/games/ArcadeShell.astro';
 import ProofreaderLogo from '../../components/games/ProofreaderLogo.astro';
-import { site } from '../../data/site';
-
-const gameLd = {
-  '@context': 'https://schema.org',
-  '@type': 'VideoGame',
-  name: 'Proofreader',
-  description:
-    'A bacterial nucleoid-inspired raycast arcade. Navigate cover, clear toy lesions and collect A/C/G/T dNTP supplies with keyboard, optional mouse-look or touch.',
-  url: `${site.url}/games/proofreader/`,
-  author: { '@id': `${site.url}/#person` },
-  applicationCategory: 'Game',
-  gamePlatform: ['Web browser', 'Mobile web browser'],
-  genre: ['Shooter', 'Arcade', 'Science Game'],
-  inLanguage: 'en',
-  isAccessibleForFree: true,
-};
 ---
 
-<PageLayout
+<ArcadeShell
+  game="proofreader"
   title="Proofreader"
-  eyebrow="Side project"
-  lead="Explore a bacterial nucleoid-inspired arena as a playful Pol III ε proofreading tool. Navigate cover, anticipate attacks, and collect dNTP supplies in this keyboard-and-touch raycast arcade."
-  description="Proofreader — a bacterial nucleoid-inspired raycast arcade with touch controls, optional mouse lock, molecular enemies and dNTP supplies."
-  width="narrow"
+  lead="A pixel-art nucleoid expedition: read enemy tells, work around cover, and master six tactical sectors—or survive an endless run."
+  controls="WASD moves · arrows turn · Space/click fires · F sends a piercing pulse · P pauses. Touch: left side moves, right side aims; use Fire and Pulse below."
 >
-  <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
-
-  <section class="proof" data-game-root aria-label="Proofreader game">
-    <GameTools />
-    <div class="proof-header-card">
-      <ProofreaderLogo size={58} />
-      <div class="proof-header-info">
-        <h2 class="proof-header-title">DNA Polymerase III ε Exonuclease Engine</h2>
-        <p class="proof-header-subtitle">Bacterial nucleoid arcade · Δ substitution / + insertion / − deletion · collected dNTP supplies</p>
-      </div>
-    </div>
-
-    <div class="proof-hud">
-      <div class="proof-stats" aria-label="Current run">
-        <span class="stat">
-          <span class="stat-label"><Icon name="shield" size={13} class="stat-icon" />Integrity</span>
-          <span class="stat-value" data-proof-health>100</span>
-        </span>
-        <span class="stat">
-          <span class="stat-label"><Icon name="bolt" size={13} class="stat-icon" />Charges</span>
-          <span class="stat-value" data-proof-ammo>24 / 40</span>
-        </span>
-        <span class="stat">
-          <span class="stat-label"><Icon name="waves" size={13} class="stat-icon" />Wave</span>
-          <span class="stat-value" data-proof-wave>0</span>
-        </span>
-        <span class="stat">
-          <span class="stat-label"><Icon name="star" size={13} class="stat-icon" />Score</span>
-          <span class="stat-value" data-proof-score>0</span>
-        </span>
-        <span class="stat">
-          <span class="stat-label"><Icon name="trophy" size={13} class="stat-icon" />Best</span>
-          <span class="stat-value" data-proof-best>0</span>
-        </span>
-      </div>
-
-      <div class="proof-controls" aria-label="Game controls">
-        <button type="button" class="game-btn" data-proof-pause disabled>Pause</button>
-        <button type="button" class="game-btn" data-proof-restart>Restart</button>
-        <button
-          type="button"
-          class="game-btn"
-          data-proof-sound
-          aria-label="Toggle game sounds"
-          aria-pressed="false">Sound off</button
-        >
-      </div>
-    </div>
-
-    <div class="proof-board">
-      <canvas
-        data-proof-canvas
-        role="img"
-        aria-label="Proofreader bacterial arena. Move with W A S D, turn with Left and Right or drag the mouse. Lock mouse is optional; Escape releases it. Space or click fires. Touch: drag the left half to move, the right half to look, and tap Fire."
-      ></canvas>
-    </div>
-
-    <div class="proof-actions">
-      <button type="button" class="action-btn action-btn--fire" data-proof-fire disabled>
-        <Icon name="target" size={18} /> Fire Exonuclease
-      </button>
-      <button type="button" class="action-btn" data-proof-share disabled>
-        <Icon name="share" size={16} /> Share result
-      </button>
-      <button type="button" class="action-btn" data-proof-lock disabled>Lock mouse</button>
-    </div>
-
-    <p class="proof-status" data-proof-status role="status" aria-live="polite">
-      Click or tap the view — or press Enter — to start
+  <ProofreaderLogo slot="logo" size={42} />
+  <Fragment slot="hud">
+    <div class="arcade-stat"><span>Integrity</span><strong data-proof-health>100</strong></div>
+    <div class="arcade-stat"><span>Charges</span><strong data-proof-ammo>24 / 40</strong></div>
+    <div class="arcade-stat"><span>Wave</span><strong data-proof-wave>0</strong></div>
+    <div class="arcade-stat"><span>Score</span><strong data-proof-score>0</strong></div>
+    <div class="arcade-stat"><span>Best</span><strong data-proof-best>0</strong></div>
+  </Fragment>
+  <Fragment slot="actions">
+    <button type="button" class="arcade-primary" data-proof-fire>Fire</button>
+    <button type="button" data-proof-pulse>Piercing pulse · 3</button>
+    <button type="button" data-proof-lock>Lock mouse</button>
+  </Fragment>
+  <div slot="readout" class="arcade-ribbon">
+    <strong>Collected dNTP supplies · not a repair product</strong><span data-proof-sequence>—</span
+    ><span data-proof-objective></span>
+  </div>
+  <Fragment slot="guide">
+    <p>
+      <strong>Read the encounter.</strong> Rounded sentries (Δ) take one hit; insertion crosses (+) take
+      two; deletion guards (−) take three. Warning bars precede attacks. Walls block both your fire and
+      hostile projectiles.
     </p>
-
-    <div class="proof-sequence-card" aria-label="Collected nucleotide sequence">
-      <span class="sequence-label">Collected dNTPs · A/C/G/T:</span>
-      <div class="sequence-ribbon" data-proof-sequence>—</div>
-    </div>
-
-    <details class="proof-help">
-      <summary>How to Play & Proofreading Mechanics</summary>
-      <div class="help-grid muted">
-        <p>
-          <strong>Move:</strong> Use <code>W A S D</code> or arrow keys. On touch, drag the left half of the view like a thumbstick.
-        </p>
-        <p>
-          <strong>Look:</strong> Drag the view, turn with <code>Left / Right</code> or <code>Q / E</code>, or drag the right half on touch. <strong>Lock mouse</strong> explicitly enables pointer lock; Escape releases it.
-        </p>
-        <p>
-          <strong>Fire:</strong> Press <code>Space / Click</code> or tap <strong>Fire Exonuclease</strong> to cleave and eliminate replication mutation lesions. Aim assist is active on touch devices.
-        </p>
-        <p>
-          <strong>Survive & Collect:</strong> Collect floating <code>A · C · G · T</code> dNTP gems to replenish charges and repair integrity. Use the biological radar in the corner to track approaching mutation threats.
-        </p>
-        <p><strong>What is real?</strong> The ε subunit of bacterial Pol III removes a mispaired nucleotide at the nascent DNA's 3′ end, allowing synthesis to resume. This maze is a proofreading-inspired toy: shooting arbitrary established variants is not proofreading, and not every variant is harmful. There are no histones or eukaryotic chromatin here.</p>
-        <p><strong>Anticipate:</strong> Shapes encode enemy type as well as color. A ring warns of a close attack; move behind cover before the wind-up finishes. Enemies route around cover, but cannot attack through walls. dNTP pickups are collected supplies, not excised sequence.</p>
-      </div>
-    </details>
-    <details class="proof-help">
-      <summary>Touch & aiming preferences</summary>
-      <div class="proof-settings">
-        <label><input type="checkbox" data-proof-assist /> Wider aim assist</label>
-        <label>Aiming sensitivity <input type="range" data-proof-sensitivity min="0.5" max="2" step="0.1" value="1" /></label>
-        <label>Thumbstick dead zone <input type="range" data-proof-deadzone min="4" max="24" step="1" value="8" /></label>
-      </div>
-    </details>
-    <details class="proof-help">
-      <summary>Real proofreading · excise the 3′ end, then resume</summary>
-      <div class="proof-vignette">
-        <p><strong>1 · Mismatch</strong><br />Template: 3′ A G C 5′<br />Nascent DNA: 5′ T C <mark>X</mark> 3′</p>
-        <p><strong>2 · ε exonuclease</strong><br />Remove the mismatched terminal X with 3′→5′ exonuclease activity.</p>
-        <p><strong>3 · Resynthesis</strong><br />Add the complementary G:<br />5′ T C G 3′. Synthesis continues 5′→3′.</p>
-      </div>
-    </details>
-  </section>
-</PageLayout>
-
+    <p>
+      <strong>Manage charges.</strong> Hold Fire for repeated precision shots. The piercing pulse costs
+      three charges, damages aligned targets twice, and still cannot penetrate a wall. Collect supplies
+      and walk close to relays to activate them.
+    </p>
+    <p>
+      <strong>Find the exit.</strong> Finish the encounter and relay objectives, then reach the lit exit.
+      The radar marks enemies, relays, and your position. The guardian exposes its core between guarded
+      attack phases.
+    </p>
+    <p>
+      <strong>Mastery medals.</strong> Clear a stage, land at least 70% of your shots, and finish without
+      taking damage. A piercing shot counts as one accurate shot if it connects at least once. Practice
+      has unlimited charges and prevents damage, but creates no records.
+    </p>
+    <p>
+      <strong>What is real?</strong> In bacterial DNA polymerase III, the ε subunit removes a mispaired
+      nucleotide from the nascent DNA strand’s 3′ end using 3′→5′ exonuclease activity; the α subunit
+      resumes synthesis in the 5′→3′ direction. This arcade is a metaphor—not a simulation of shooting
+      established variants or repairing every kind of lesion. Not every variant is harmful.
+    </p>
+    <p>
+      <strong>Try the real sequence logic.</strong> Template: 3′ A G C 5′. Nascent DNA: 5′ T C X 3′. Remove
+      terminal X, then add complementary G to obtain 5′ T C G 3′. The A/C/G/T ribbon above records pickups,
+      not excised or synthesized DNA.
+    </p>
+    <p>
+      <a
+        href="https://pmc.ncbi.nlm.nih.gov/articles/PMC392229/"
+        target="_blank"
+        rel="noopener noreferrer">Original Pol III editing study</a>
+    </p>
+  </Fragment>
+</ArcadeShell>
 <script>
   import { initProofreader, type ProofreaderController } from '../../scripts/proofreader';
-
   let controller: ProofreaderController | null = null;
-
-  function mount() {
-    if (controller) return;
-    controller = initProofreader(document);
-  }
-
-  function unmount() {
+  const mount = () => {
+    controller ??= initProofreader(document);
+  };
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', () => {
     controller?.destroy();
     controller = null;
-  }
-
-  document.addEventListener('astro:page-load', mount);
-  document.addEventListener('astro:before-swap', unmount);
+  });
   mount();
 </script>
-
-<style>
-  .proof-actions { flex-wrap: wrap; }
-  .proof-settings, .proof-vignette { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; padding: 1rem; }
-  .proof-settings label { display: flex; flex-direction: column; gap: .5rem; font-size: .85rem; }
-  .proof-settings input[type='range'] { min-height: 44px; width: 100%; }
-  .proof-vignette p { margin: 0; padding: .75rem; background: var(--color-surface); border: 1px solid var(--color-rule); border-radius: .6rem; font-size: .85rem; }
-  .proof {
-    max-width: 44rem;
-    margin-inline: auto;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-    box-sizing: border-box;
-  }
-
-  .proof-header-card {
-    display: flex;
-    align-items: center;
-    gap: var(--space-4);
-    padding: var(--space-3) var(--space-4);
-    background: var(--color-surface);
-    border: 1px solid var(--color-rule);
-    border-radius: var(--radius-md, 8px);
-    box-sizing: border-box;
-  }
-
-  .proof-header-info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .proof-header-title {
-    font-size: 1.15rem;
-    font-weight: 700;
-    color: var(--color-ink);
-    margin: 0;
-  }
-
-  .proof-header-subtitle {
-    font-size: 0.8rem;
-    color: var(--color-muted);
-    margin: 0;
-  }
-
-  .proof-hud {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
-    background: var(--color-surface);
-    border: 1px solid var(--color-rule);
-    border-radius: var(--radius-md, 8px);
-    box-sizing: border-box;
-  }
-
-  .proof-stats {
-    display: flex;
-    flex-wrap: wrap;
-    gap: clamp(0.8rem, 3.5vw, 1.6rem);
-  }
-
-  .stat {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .stat-label,
-  .sequence-label {
-    font-size: var(--fs-meta, 0.75rem);
-    letter-spacing: var(--tracking-meta, 0.05em);
-    text-transform: uppercase;
-    color: var(--color-muted);
-    font-weight: 600;
-  }
-
-  .stat-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-  }
-
-  .stat-icon {
-    color: var(--color-accent);
-    flex: none;
-  }
-
-  .stat-value {
-    font-family: var(--font-mono, monospace);
-    font-size: 1.35rem;
-    font-weight: 700;
-    color: var(--color-ink);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .proof-controls,
-  .proof-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  .game-btn,
-  .action-btn {
-    min-height: 44px;
-    padding: 0.5em 1em;
-    border: 1px solid var(--color-rule);
-    border-radius: var(--radius-sm, 6px);
-    background: var(--color-surface);
-    color: var(--color-ink);
-    font-size: var(--fs-small, 0.85rem);
-    font-weight: 600;
-    line-height: 1;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.4rem;
-    transition: all 0.15s ease;
-    box-sizing: border-box;
-  }
-
-  .game-btn:hover:not(:disabled),
-  .action-btn:hover:not(:disabled) {
-    border-color: var(--color-accent);
-    color: var(--color-accent);
-  }
-
-  .game-btn:active:not(:disabled),
-  .action-btn:active:not(:disabled) {
-    transform: translateY(1px);
-  }
-
-  .game-btn:disabled,
-  .action-btn:disabled {
-    opacity: 0.42;
-    cursor: default;
-  }
-
-  .proof-board {
-    position: relative;
-    width: min(94vw, 44rem, 64svh);
-    aspect-ratio: 4 / 3;
-    margin-inline: auto;
-    border: 1px solid var(--color-rule);
-    border-radius: var(--radius-lg, 12px);
-    background: #000000;
-    overflow: hidden;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-    box-sizing: border-box;
-  }
-
-  .proof-board canvas {
-    width: 100%;
-    height: 100%;
-    touch-action: none;
-    cursor: crosshair;
-    user-select: none;
-    display: block;
-  }
-
-  .proof-actions {
-    justify-content: center;
-  }
-
-  .action-btn {
-    min-width: 9rem;
-  }
-
-  .action-btn--fire {
-    border-color: var(--color-accent);
-    background: var(--color-accent);
-    color: var(--color-on-accent, #ffffff);
-  }
-
-  .action-btn--fire:hover:not(:disabled) {
-    background: var(--color-accent-dark, #245546);
-    border-color: var(--color-accent-dark, #245546);
-    color: var(--color-on-accent, #ffffff);
-  }
-
-  .proof-status {
-    min-height: 1.4em;
-    text-align: center;
-    font-size: var(--fs-small, 0.85rem);
-    color: var(--color-ink);
-    margin: 0;
-  }
-
-  .proof-sequence-card {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: var(--space-3) var(--space-4);
-    background: var(--color-surface);
-    border: 1px solid var(--color-rule);
-    border-radius: var(--radius-md, 8px);
-    box-sizing: border-box;
-  }
-
-  .sequence-ribbon {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px;
-    font-family: var(--font-mono, monospace);
-    font-size: 0.95rem;
-    font-weight: 700;
-    min-height: 1.6rem;
-    color: var(--color-ink);
-  }
-
-  :global(.nucleotide-pill) {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    font-weight: 800;
-    color: #ffffff;
-  }
-
-  :global(.pill-a) { background: #10b981; }
-  :global(.pill-c) { background: #0284c7; }
-  :global(.pill-g) { background: #f59e0b; }
-  :global(.pill-t) { background: #a855f7; }
-
-  .proof-help {
-    margin-top: var(--space-2);
-    padding: var(--space-3) var(--space-4);
-    background: var(--color-surface);
-    border: 1px solid var(--color-rule);
-    border-radius: var(--radius-md, 8px);
-    box-sizing: border-box;
-  }
-
-  .proof-help summary {
-    color: var(--color-ink);
-    font-size: var(--fs-small, 0.88rem);
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  .help-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.7rem 1.5rem;
-    padding-top: var(--space-3);
-    font-size: var(--fs-meta, 0.8rem);
-    line-height: 1.5;
-  }
-
-  .help-grid strong {
-    color: var(--color-ink);
-  }
-
-  @media (max-width: 620px) {
-    .proof-stats {
-      width: 100%;
-      justify-content: space-between;
-    }
-
-    .proof-controls {
-      width: 100%;
-    }
-
-    .game-btn {
-      flex: 1;
-    }
-
-    .action-btn {
-      min-width: 8rem;
-    }
-
-    .help-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .game-btn,
-    .action-btn {
-      transition: none;
-    }
-  }
-</style>

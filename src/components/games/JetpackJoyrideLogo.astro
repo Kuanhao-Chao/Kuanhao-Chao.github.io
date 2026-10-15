@@ -10,37 +10,21 @@ const { size = 64, class: className = '' } = Astro.props;
 <GameIconFrame
   size={size}
   class={`jetpack-joyride-logo ${className}`}
-  label="Jetpack Joyride — a compact flyer with warm jetpack thrust"
-  accent="#c08047"
+  label="Jetpack Joyride — an original pixel-art flyer with a bright exhaust trail"
+  accent="#8c9a74"
 >
-  <path d="M28 58 Q18 76 23 85 Q30 76 34 82 Q40 72 39 57Z" fill="#dda752"></path>
-  <path d="M31 59 Q27 71 29 77 Q35 70 35 59Z" fill="#f7e4a6"></path>
-  <rect
-    x="25"
-    y="34"
-    width="16"
-    height="29"
-    rx="5"
-    fill="#6a8795"
-    stroke="#354e60"
-    stroke-width="2.5"></rect>
-  <path d="M29 39 V52 M36 39 V52" stroke="#b9ced3" stroke-width="2.5"></path>
-  <path
-    d="M42 38 Q49 32 56 40 L66 51 57 66 41 61Z"
-    fill="var(--gi-accent)"
-    stroke="var(--gi-deep)"
-    stroke-width="3"></path>
-  <path d="M44 42 L55 44 61 51 53 57 42 54Z" fill="var(--gi-mid)"></path>
-  <path
-    d="M46 61 L44 74 52 77 M57 62 L63 70 71 67"
-    fill="none"
-    stroke="var(--gi-deep)"
-    stroke-width="5"></path>
-  <path d="M56 44 L67 40 72 43" fill="none" stroke="#d6ad8a" stroke-width="6"></path>
-  <circle cx="49" cy="27" r="13" fill="#d6ad8a" stroke="var(--gi-deep)" stroke-width="2.5"></circle>
-  <path d="M36 26 Q36 12 50 13 Q61 14 63 24Z" fill="#526d7d"></path>
-  <rect x="46" y="23" width="18" height="9" rx="4" fill="#bad3d7" stroke="#354e60" stroke-width="2"
-  ></rect>
-  <path d="M50 26 H58" stroke="#ffffff" stroke-width="2"></path>
-  <path d="M77 22 L81 18 M79 29 H85" stroke="var(--gi-mid)" stroke-width="3"></path>
+  <g shape-rendering="crispEdges">
+    <path d="M30 58H40V78H30ZM32 78H38V86H32Z" fill="#dfa84e"></path>
+    <path d="M34 60H38V76H34Z" fill="#f7e8b4"></path>
+    <path d="M26 36H40V62H26Z" fill="var(--gi-deep)"></path>
+    <path d="M30 40H36V56H30Z" fill="#9fc0cf"></path>
+    <path d="M44 18H66V24H72V40H66V46H44V40H38V24H44Z" fill="var(--gi-deep)"></path>
+    <path d="M44 24H66V38H44Z" fill="var(--gi-accent)"></path>
+    <path d="M52 26H68V34H52Z" fill="#b9d9df"></path>
+    <path d="M56 28H64V30H56Z" fill="#f9fcf3"></path>
+    <path d="M40 44H64V62H40Z" fill="var(--gi-deep)"></path>
+    <path d="M44 46H60V58H44Z" fill="var(--gi-mid)"></path>
+    <path d="M42 62H50V72H58V78H42ZM58 62H66V68H74V76H62V70H58Z" fill="var(--gi-deep)"></path>
+    <path d="M76 22H82V28H76ZM78 36H86V40H78Z" fill="var(--gi-accent)"></path>
+  </g>
 </GameIconFrame>

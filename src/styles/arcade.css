@@ -1,0 +1,469 @@
+.arcade {
+  --arcade-width: 48rem;
+  width: 100%;
+  max-width: var(--arcade-width);
+  margin-inline: auto;
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.arcade--snake {
+  --arcade-width: 36rem;
+}
+.arcade [hidden] {
+  display: none !important;
+}
+.arcade button,
+.arcade select {
+  min-height: 44px;
+  height: auto;
+  border: 1px solid var(--color-rule);
+  border-radius: 0.35rem;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  padding: 0.55rem 0.8rem;
+  font: 600 0.85rem var(--font-sans, sans-serif);
+  cursor: pointer;
+  box-sizing: border-box;
+}
+.arcade select {
+  height: 44px;
+  width: 100%;
+}
+.arcade button:disabled,
+.arcade select:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.arcade button:not(:disabled):hover {
+  border-color: var(--color-accent);
+}
+.arcade .arcade-primary,
+.arcade [data-arcade-stage-button][aria-pressed='true'] {
+  background: var(--color-accent);
+  color: var(--color-on-accent, #fff);
+  border-color: var(--color-accent);
+}
+.arcade button:focus-visible,
+.arcade select:focus-visible,
+.arcade input:focus-visible,
+.arcade canvas:focus-visible,
+.arcade summary:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 3px;
+}
+.arcade-identity {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+.arcade-identity svg {
+  flex: 0 0 auto;
+}
+.arcade-kicker,
+.arcade-run-label {
+  margin: 0;
+  font: 0.75rem var(--font-mono, monospace);
+  color: var(--color-muted);
+}
+.arcade-run-label {
+  margin-top: 0.2rem;
+  text-transform: capitalize;
+  color: var(--color-ink);
+}
+.arcade-hud {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  justify-content: space-between;
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: 0.45rem;
+  flex-wrap: wrap;
+}
+.arcade-stat {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 3rem;
+}
+.arcade-stat > span:first-child {
+  font: 0.65rem var(--font-mono, monospace);
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.arcade-stat strong {
+  font: 700 1.15rem var(--font-mono, monospace);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink);
+}
+.arcade-stage {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  width: 100%;
+  min-width: 0;
+  border: 2px solid var(--color-rule);
+  border-radius: 0.25rem;
+  overflow: hidden;
+  box-sizing: border-box;
+  background: var(--color-surface);
+  box-shadow: 0 7px 0 color-mix(in srgb, var(--color-rule) 45%, transparent);
+}
+.arcade--snake .arcade-stage {
+  aspect-ratio: 1;
+}
+.arcade--jetpack .arcade-stage {
+  aspect-ratio: 3 / 2;
+}
+.arcade-stage canvas {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  touch-action: none;
+  user-select: none;
+}
+.arcade-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  padding: 0.75rem;
+  background: color-mix(in srgb, var(--color-bg) 25%, transparent);
+}
+.arcade-overlay-card {
+  width: min(100%, 29rem);
+  padding: 1.1rem;
+  border: 1px solid var(--color-accent);
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, var(--color-surface) 97%, transparent);
+  text-align: center;
+  box-sizing: border-box;
+  box-shadow: 4px 4px 0 color-mix(in srgb, var(--color-ink) 18%, transparent);
+}
+.arcade-overlay-card h2 {
+  margin: 0.25rem 0 0.4rem;
+  font-size: clamp(1.1rem, 3vw, 1.6rem);
+}
+.arcade-overlay-card p {
+  margin: 0.3rem 0 0.7rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+.arcade-overlay-card .arcade-overlay-eyebrow {
+  margin: 0;
+  color: var(--color-muted);
+  font: 0.68rem var(--font-mono, monospace);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.arcade-overlay-actions,
+.arcade-controls,
+.arcade-action-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.arcade-action-row:empty {
+  display: none;
+}
+.arcade-action-row > button {
+  min-width: 6.5rem;
+  min-height: 48px;
+}
+.arcade-controls button {
+  flex: 1;
+  min-width: 5rem;
+}
+.arcade-status,
+.arcade-instructions {
+  margin: 0;
+  text-align: center;
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+.arcade-instructions {
+  color: var(--color-muted);
+  font-size: 0.8rem;
+}
+.arcade-panel {
+  border: 1px solid var(--color-rule);
+  border-radius: 0.4rem;
+  background: var(--color-surface);
+  min-width: 0;
+}
+.arcade-panel > summary {
+  cursor: pointer;
+  padding: 0.75rem;
+  min-height: 44px;
+  box-sizing: border-box;
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+.arcade-panel-body {
+  padding: 0 0.8rem 0.8rem;
+}
+.arcade-panel-body > p {
+  font-size: 0.85rem;
+}
+.arcade-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: 0.75rem;
+}
+.arcade-fields label {
+  display: grid;
+  align-content: start;
+  gap: 0.3rem;
+  min-width: 0;
+  color: var(--color-ink);
+  font-size: 0.8rem;
+}
+.arcade-fields input[type='range'] {
+  width: 100%;
+  height: 44px;
+  min-width: 0;
+  accent-color: var(--color-accent);
+}
+.arcade-fields .arcade-check {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  min-height: 44px;
+}
+.arcade-check input {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--color-accent);
+}
+.arcade-map {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.arcade-map button {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-align: left;
+  font-size: 0.8rem;
+  min-height: 66px;
+  padding: 0.6rem;
+}
+.arcade-stage-number {
+  font: 700 1.1rem var(--font-mono, monospace);
+  opacity: 0.8;
+}
+.arcade-map small {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  letter-spacing: 0.15em;
+}
+.arcade-note {
+  color: var(--color-muted);
+  line-height: 1.5;
+  font-size: 0.78rem !important;
+}
+.arcade-bindings {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
+  gap: 0.5rem;
+}
+.arcade-bindings label {
+  display: grid;
+  gap: 0.25rem;
+  text-transform: capitalize;
+  font-size: 0.8rem;
+}
+.arcade-bindings button {
+  font-family: var(--font-mono, monospace);
+}
+.arcade-guide {
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+.arcade-guide p {
+  margin-block: 0.6rem;
+}
+.arcade-credit {
+  color: var(--color-muted);
+  margin: 0.25rem 0;
+  font: 0.7rem var(--font-mono, monospace);
+  text-align: center;
+}
+.arcade-ribbon {
+  padding: 0.5rem 0.65rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  font: 0.85rem var(--font-mono, monospace);
+  border-radius: 0.35rem;
+  overflow-wrap: anywhere;
+}
+.arcade-ribbon strong {
+  display: block;
+  font-size: 0.65rem;
+  margin-bottom: 0.3rem;
+  color: var(--color-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.arcade-dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 56px);
+  grid-template-rows: repeat(2, 48px);
+  gap: 5px;
+  justify-content: center;
+}
+.arcade-dpad button {
+  touch-action: manipulation;
+  font-size: 1.2rem;
+  padding: 0.25rem;
+}
+.arcade-dpad [data-snake-dir='up'] {
+  grid-column: 2;
+}
+.arcade-dpad [data-snake-dir='left'] {
+  grid-column: 1;
+  grid-row: 2;
+}
+.arcade-dpad [data-snake-dir='down'] {
+  grid-column: 2;
+  grid-row: 2;
+}
+.arcade-dpad [data-snake-dir='right'] {
+  grid-column: 3;
+  grid-row: 2;
+}
+.arcade.game-focus-view {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+.arcade.game-focus-view .arcade-identity,
+.arcade.game-focus-view .arcade-panel,
+.arcade.game-focus-view .arcade-credit,
+.arcade.game-focus-view .arcade-ribbon {
+  display: none;
+}
+.arcade.game-focus-view .arcade-stage {
+  flex: 0 1 auto;
+  width: min(100%, calc((100dvh - 235px) * 1.333));
+  max-height: calc(100dvh - 235px);
+  margin-inline: auto;
+}
+.arcade--snake.game-focus-view .arcade-stage {
+  width: min(100%, calc(100dvh - 350px));
+  max-height: calc(100dvh - 350px);
+}
+.arcade--jetpack.game-focus-view .arcade-stage {
+  width: min(100%, calc((100dvh - 245px) * 1.5));
+  max-height: calc(100dvh - 245px);
+}
+.arcade.game-focus-view canvas {
+  max-height: none;
+}
+.arcade.game-focus-view .arcade-controls,
+.arcade.game-focus-view .arcade-hud {
+  width: min(100%, 48rem);
+  margin-inline: auto;
+  box-sizing: border-box;
+}
+@media (max-width: 600px) {
+  .arcade {
+    gap: 0.65rem;
+  }
+  .arcade-map {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .arcade-overlay {
+    padding: 0.4rem;
+  }
+  .arcade-overlay-card {
+    padding: 0.6rem;
+  }
+  .arcade-overlay-card p {
+    font-size: 0.75rem;
+    margin-bottom: 0.4rem;
+  }
+  .arcade-overlay-card .arcade-overlay-eyebrow {
+    display: none;
+  }
+  .arcade-overlay-card button {
+    padding-inline: 0.55rem;
+    font-size: 0.8rem;
+  }
+  .arcade-stat strong {
+    font-size: 1rem;
+  }
+  .arcade-stat > span:first-child {
+    font-size: 0.58rem;
+  }
+  .arcade-controls {
+    gap: 0.3rem;
+  }
+  .arcade-controls button {
+    padding-inline: 0.35rem;
+    font-size: 0.75rem;
+    min-width: 3.5rem;
+  }
+  .arcade.game-focus-view .game-tools-label {
+    display: none;
+  }
+  .arcade.game-focus-view .arcade-instructions {
+    display: none;
+  }
+}
+@media (max-height: 500px) and (min-width: 600px) {
+  .arcade.game-focus-view {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 12rem;
+    grid-template-rows: auto 1fr auto;
+    align-items: start;
+  }
+  .arcade.game-focus-view .game-tools {
+    grid-column: 1 / -1;
+    margin: 0;
+  }
+  .arcade.game-focus-view .arcade-stage {
+    grid-column: 1;
+    grid-row: 2 / 5;
+    width: auto;
+    height: calc(100dvh - 85px);
+    max-height: none;
+    max-width: 100%;
+  }
+  .arcade.game-focus-view .arcade-hud,
+  .arcade.game-focus-view .arcade-action-row,
+  .arcade.game-focus-view .arcade-controls,
+  .arcade.game-focus-view .arcade-status {
+    grid-column: 2;
+  }
+  .arcade.game-focus-view .arcade-hud {
+    grid-row: 2;
+  }
+  .arcade.game-focus-view .arcade-action-row {
+    grid-row: 3;
+  }
+  .arcade.game-focus-view .arcade-controls {
+    grid-row: 4;
+  }
+  .arcade.game-focus-view .arcade-status,
+  .arcade.game-focus-view .arcade-instructions {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .arcade *,
+  .arcade *::before,
+  .arcade *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}

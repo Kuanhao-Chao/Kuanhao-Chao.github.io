@@ -10,39 +10,19 @@ const { size = 64, class: className = '' } = Astro.props;
 <GameIconFrame
   size={size}
   class={`snake-logo ${className}`}
-  label="Snake — a curled nucleotide-colored serpent"
-  accent="#3e8b76"
+  label="Snake — a pixel-art nucleotide serpent and golden bonus chip"
+  accent="#498f77"
 >
-  <path
-    d="M25 76 H56 Q77 76 77 59 Q77 44 61 44 H36 Q23 44 23 32 Q23 21 37 21 H48"
-    fill="none"
-    stroke="var(--gi-deep)"
-    stroke-width="18"></path>
-  <path
-    d="M25 76 H56 Q77 76 77 59 Q77 44 61 44 H36 Q23 44 23 32 Q23 21 37 21 H48"
-    fill="none"
-    stroke="var(--gi-accent)"
-    stroke-width="13"></path>
-  <path
-    d="M29 74 H47 M68 66 Q74 57 66 49 M27 30 Q27 24 36 24"
-    fill="none"
-    stroke="var(--gi-light)"
-    stroke-width="3"
-    opacity=".6"></path>
-  <path d="M31 69 V82" stroke="#c7b06a" stroke-width="5"></path>
-  <path d="M47 69 V82" stroke="#87abc0" stroke-width="5"></path>
-  <path d="M63 47 V41" stroke="#c7867d" stroke-width="5"></path>
-  <path d="M40 47 V41" stroke="#9cb67b" stroke-width="5"></path>
-  <rect
-    x="43"
-    y="13"
-    width="28"
-    height="20"
-    rx="9"
-    fill="var(--gi-mid)"
-    stroke="var(--gi-deep)"
-    stroke-width="2.5"></rect>
-  <circle cx="62" cy="19" r="2" fill="var(--gi-deep)"></circle>
-  <path d="M64 28 H72 L77 25 M72 28 L77 31" fill="none" stroke="#b56c69" stroke-width="2"></path>
-  <circle cx="81" cy="24" r="4" fill="#c7a74f" stroke="#8b742f" stroke-width="2"></circle>
+  <g shape-rendering="crispEdges">
+    <path d="M24 24H58V42H38V50H70V78H24V62H54V66H58V62H24V36H24Z" fill="var(--gi-deep)"></path>
+    <path d="M28 28H54V38H32V54H66V74H28V66H58V58H28Z" fill="var(--gi-accent)"></path>
+    <path d="M46 20H68V40H46Z" fill="var(--gi-deep)"></path>
+    <path d="M50 24H64V36H50Z" fill="var(--gi-mid)"></path>
+    <path d="M60 26H64V30H60ZM60 32H64V36H60Z" fill="var(--gi-deep)"></path>
+    <path d="M30 32H36V38H30Z" fill="#e7bc69"></path>
+    <path d="M30 52H36V58H30Z" fill="#a5c8df"></path>
+    <path d="M58 66H64V72H58Z" fill="#c69ace"></path>
+    <path d="M76 24H80V42H76ZM70 30H86V36H70Z" fill="#d8b164"></path>
+    <path d="M30 28H44V30H30ZM34 68H46V70H34Z" fill="var(--gi-light)"></path>
+  </g>
 </GameIconFrame>

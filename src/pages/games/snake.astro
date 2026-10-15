@@ -1,276 +1,79 @@
 ---
-import PageLayout from '../../layouts/PageLayout.astro';
+import ArcadeShell from '../../components/games/ArcadeShell.astro';
 import SnakeLogo from '../../components/games/SnakeLogo.astro';
-import { site } from '../../data/site';
-
-const gameLd = {
-  '@context': 'https://schema.org',
-  '@type': 'VideoGame',
-  name: 'Snake',
-  description:
-    'A classic browser snake game with a genomics twist: guide a nucleotide serpent to consume A · C · G · T bases and grow a sequence strand.',
-  url: `${site.url}/games/snake/`,
-  author: { '@id': `${site.url}/#person` },
-  applicationCategory: 'Game',
-  gamePlatform: ['Web browser', 'Mobile web browser'],
-  genre: ['Arcade', 'Snake', 'Science Game'],
-  inLanguage: 'en',
-  isAccessibleForFree: true,
-};
 ---
 
-<PageLayout
+<ArcadeShell
+  game="snake"
   title="Snake"
-  eyebrow="Side project"
-  lead="A classic browser game with a genomics twist: play with arrow keys, WASD, or swipe. The food items are nucleotide bases (A · C · G · T), and the serpent grows into a living sequence strand."
-  description="Snake — a small, mobile-friendly browser game by Kuan-Hao Chao, with a genomic twist: the food is A/C/G/T bases and the snake grows into a sequence."
-  width="narrow"
+  lead="A nucleotide serpent in six pixel-art gardens. Plan your route, leave space for your tail, and chase mastery medals—or try Classic and Motif Hunt."
+  controls="Arrows / WASD steer · swipe or use the directional pad · P pauses · Enter starts or resumes. Turns are buffered, one per movement tick."
 >
-  <script type="application/ld+json" is:inline set:html={JSON.stringify(gameLd)} />
-
-  <section class="snake" data-game-root data-cell-protected aria-label="Snake game">
-    <div class="snake-hud">
-      <div class="snake-brand">
-        <SnakeLogo size={40} />
-        <div class="snake-stats">
-          <div class="stat">
-            <span class="stat-label">Bases</span>
-            <span class="stat-value" data-snake-score>0</span>
-          </div>
-          <div class="stat">
-            <span class="stat-label">Best</span>
-            <span class="stat-value" data-snake-best>0</span>
-          </div>
-        </div>
-      </div>
-      <div class="snake-controls">
-        <button type="button" class="snake-btn" data-snake-pause disabled>Pause</button>
-        <button type="button" class="snake-btn" data-snake-restart>Restart</button>
-      </div>
-    </div>
-
-    <div class="snake-board">
-      <canvas
-        data-snake-canvas
-        role="img"
-        aria-label="Snake game board — use the arrow keys, WASD, or swipe to steer."
-      ></canvas>
-    </div>
-
-    <p class="snake-status" data-snake-status role="status" aria-live="polite">
-      Press an arrow, Space, or tap to start
+  <SnakeLogo slot="logo" size={42} />
+  <Fragment slot="hud">
+    <div class="arcade-stat"><span>Bases</span><strong data-snake-score>0</strong></div>
+    <div class="arcade-stat"><span>Goal</span><strong data-snake-goal>8</strong></div>
+    <div class="arcade-stat"><span>Time</span><strong data-snake-time>0.0</strong></div>
+    <div class="arcade-stat"><span>Best</span><strong data-snake-best>0</strong></div>
+  </Fragment>
+  <div slot="actions" class="arcade-dpad" aria-label="Snake directional controls">
+    <button type="button" data-snake-dir="up" aria-label="Steer up">↑</button><button
+      type="button"
+      data-snake-dir="left"
+      aria-label="Steer left">←</button
+    ><button type="button" data-snake-dir="down" aria-label="Steer down">↓</button><button
+      type="button"
+      data-snake-dir="right"
+      aria-label="Steer right">→</button
+    >
+  </div>
+  <div slot="readout" class="arcade-ribbon">
+    <strong>Collected DNA bases · A/C/G/T</strong><span data-snake-strand>—</span><strong
+      >Motif Hunt target</strong
+    ><span data-snake-target>Available in Motif Hunt mode</span>
+  </div>
+  <Fragment slot="guide">
+    <p>
+      <strong>Keep a return route.</strong> Each base grows your body by one cell. Avoid the walls, terrain,
+      and your own body. Moving into the cell your tail vacates on that tick is legal. Marked edge arrows
+      mean the arena wraps.
     </p>
-
-    <div class="snake-strand-card" aria-label="Synthesized nucleotide sequence">
-      <span class="sequence-label">Sequence (5'→3'):</span>
-      <div class="sequence-ribbon" data-snake-strand>—</div>
-    </div>
-
-    <p class="snake-hint muted">
-      Arrow keys / WASD on desktop · swipe on mobile · Space to pause · each base you eat extends the sequence.
+    <p>
+      <strong>Two turns, no reversals.</strong> You can buffer two perpendicular turns; only one is applied
+      each movement tick. Direct reversals, duplicate held keys, and extra inputs beyond the two-turn
+      queue are ignored.
     </p>
-  </section>
-</PageLayout>
-
+    <p>
+      <strong>Campaign medals.</strong> Reach the base goal, beat the stage’s par time, and collect the
+      optional gold bonus chip. The chip does not grow the snake. Every stage has a different arena and
+      resets your length.
+    </p>
+    <p>
+      <strong>Motif Hunt.</strong> Three pickups include the next target base. Collect the displayed sequence
+      from left to right. A wrong pickup still grows the snake but resets sequence progress; completing
+      a motif earns 20 bonus points and introduces a longer target.
+    </p>
+    <p>
+      <strong>Practice.</strong> Rehearse any campaign garden and lower the simulation speed. Practice
+      never changes your campaign unlocks or personal records. Standard and Expert have separate records.
+    </p>
+    <p>
+      <strong>Biology versus arcade.</strong> A, C, G, and T are the DNA alphabet. This ribbon is a collection
+      history—not a synthesized RNA transcript. Motif Hunt is a string-matching puzzle, not a physical
+      model of DNA polymerization or a claim that a particular short sequence has a biological function.
+    </p>
+  </Fragment>
+</ArcadeShell>
 <script>
   import { initSnake, type SnakeController } from '../../scripts/snake';
-
   let controller: SnakeController | null = null;
-
-  function mount() {
-    if (controller) return;
-    controller = initSnake(document);
-  }
-
-  function unmount() {
+  const mount = () => {
+    controller ??= initSnake(document);
+  };
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', () => {
     controller?.destroy();
     controller = null;
-  }
-
-  document.addEventListener('astro:page-load', mount);
-  document.addEventListener('astro:before-swap', unmount);
+  });
   mount();
 </script>
-
-<style>
-  .snake {
-    max-width: 32rem;
-    margin-inline: auto;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-    box-sizing: border-box;
-  }
-
-  .snake-hud {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-    padding: var(--space-2) var(--space-3);
-    background: var(--color-surface);
-    border: 1px solid var(--color-rule);
-    border-radius: var(--radius-md, 8px);
-    box-sizing: border-box;
-  }
-
-  .snake-brand {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-
-  .snake-stats {
-    display: flex;
-    gap: 1.25rem;
-  }
-
-  .stat {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-    line-height: 1;
-  }
-
-  .stat-label,
-  .sequence-label {
-    font-size: var(--fs-meta, 0.72rem);
-    letter-spacing: var(--tracking-meta, 0.05em);
-    text-transform: uppercase;
-    color: var(--color-muted);
-    font-weight: 600;
-  }
-
-  .stat-value {
-    font-family: var(--font-mono, monospace);
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--color-ink);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .snake-controls {
-    display: flex;
-    gap: 0.4rem;
-  }
-
-  .snake-btn {
-    min-height: 44px;
-    padding: 0.4em 0.9em;
-    border: 1px solid var(--color-rule);
-    border-radius: var(--radius-sm, 6px);
-    background: var(--color-surface);
-    color: var(--color-ink);
-    font-size: var(--fs-small, 0.85rem);
-    font-weight: 600;
-    line-height: 1;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.15s ease;
-    box-sizing: border-box;
-  }
-
-  .snake-btn:hover:not(:disabled) {
-    border-color: var(--color-accent);
-    color: var(--color-accent);
-  }
-
-  .snake-btn:active:not(:disabled) {
-    transform: translateY(1px);
-  }
-
-  .snake-btn:disabled {
-    opacity: 0.42;
-    cursor: default;
-  }
-
-  .snake-board {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 1 / 1;
-    margin-inline: auto;
-    border: 1px solid var(--color-rule);
-    border-radius: var(--radius-lg, 12px);
-    background: var(--color-surface);
-    overflow: hidden;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-    box-sizing: border-box;
-  }
-
-  .snake-board canvas {
-    width: 100%;
-    height: 100%;
-    touch-action: none;
-    user-select: none;
-    display: block;
-  }
-
-  .snake-status {
-    min-height: 1.3em;
-    text-align: center;
-    font-size: var(--fs-small, 0.85rem);
-    color: var(--color-ink);
-    margin: 0;
-  }
-
-  .snake-strand-card {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    padding: var(--space-2) var(--space-3);
-    background: var(--color-surface);
-    border: 1px solid var(--color-rule);
-    border-radius: var(--radius-md, 8px);
-    box-sizing: border-box;
-    max-width: 100%;
-    min-width: 0;
-  }
-
-  .sequence-ribbon {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px;
-    font-family: var(--font-mono, monospace);
-    font-size: 0.88rem;
-    font-weight: 700;
-    min-height: 1.4rem;
-    color: var(--color-ink);
-    min-width: 0;
-    max-width: 100%;
-    overflow-wrap: anywhere;
-  }
-
-  :global(.nucleotide-pill) {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    border-radius: 4px;
-    font-size: 0.8rem;
-    font-weight: 800;
-    color: #ffffff;
-  }
-
-  :global(.pill-a) { background: #10b981; }
-  :global(.pill-c) { background: #0284c7; }
-  :global(.pill-g) { background: #f59e0b; }
-  :global(.pill-t) { background: #a855f7; }
-
-  .snake-hint {
-    font-size: var(--fs-meta, 0.78rem);
-    text-align: center;
-    margin: 0;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .snake-btn {
-      transition: none;
-    }
-  }
-</style>

@@ -18,7 +18,9 @@
  * run exactly and a full `GameState` is serializable and comparable in tests.
  */
 
-export type Status = 'ready' | 'playing' | 'paused' | 'over';
+import { CAMPAIGNS, type RunOptions, type RunResult } from './arcade';
+
+export type Status = 'ready' | 'playing' | 'paused' | 'over' | 'won';
 export type Base = 'A' | 'C' | 'G' | 'T';
 export const BASES: readonly Base[] = ['A', 'C', 'G', 'T'];
 
@@ -27,7 +29,17 @@ export type PickupKind = 'ammo' | 'health';
 
 /** The single most salient thing that happened during the last `step`, for sound/particles. */
 export type GameEvent =
-  'none' | 'fire' | 'empty' | 'hit' | 'kill' | 'hurt' | 'pickup' | 'wave' | 'over';
+  | 'none'
+  | 'fire'
+  | 'empty'
+  | 'hit'
+  | 'kill'
+  | 'hurt'
+  | 'pickup'
+  | 'wave'
+  | 'over'
+  | 'relay'
+  | 'won';
 
 export interface Player {
   x: number;
@@ -50,6 +62,10 @@ export interface Enemy {
   hurtFor: number; // s of hit-flash left (render hint)
   alive: boolean;
   attackWindup?: number;
+  chargeFor?: number;
+  chargeHeading?: number;
+  boss?: boolean;
+  bossPhase?: number;
 }
 
 export interface Pickup {
@@ -66,6 +82,21 @@ export interface StepInput {
   strafe: number; // -1..1
   turn: number; // -1..1 (keyboard turn; pointer look calls turnBy directly)
   fire: boolean;
+  pulse?: boolean;
+}
+
+export interface ProofProjectile {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+}
+export interface ProofRelay {
+  x: number;
+  y: number;
+  active: boolean;
 }
 
 export interface GameState {
@@ -90,6 +121,16 @@ export interface GameState {
   damageFor: number; // s of damage vignette left (render hint)
   nextId: number;
   lastEvent: GameEvent;
+  events: GameEvent[];
+  run: RunOptions;
+  projectiles: ProofProjectile[];
+  relays: ProofRelay[];
+  exit: { x: number; y: number; open: boolean };
+  shots: number;
+  hits: number;
+  damageTaken: number;
+  pulseCooldown: number;
+  lastDamageAngle: number;
   navigation?: { playerCell: number; expires: number; distance: number[][] };
 }
 
@@ -378,9 +419,35 @@ export function generateMap(rng: RNG, cols = 17, rows = 17): number[][] {
   return grid;
 }
 
-export function createGame(seed: number, cols = 17, rows = 17): GameState {
+/** Authored cover geometry; all corridors connect to the open perimeter. */
+export function campaignMap(stage: number): number[][] {
+  const grid: number[][] = Array.from({ length: 17 }, (_, y) =>
+    Array.from({ length: 17 }, (_, x) => (x === 0 || y === 0 || x === 16 || y === 16 ? 4 : 0))
+  );
+  const walls: Array<[number, number]> = [];
+  if (stage === 1) walls.push([6, 6], [10, 6], [6, 10], [10, 10]);
+  if (stage === 2 || stage === 4) {
+    for (const y of [5, 11])
+      for (let x = 4; x <= 12; x++) if (![5, 8, 11].includes(x)) walls.push([x, y]);
+    for (const x of [5, 11]) walls.push([x, 8]);
+  }
+  if (stage === 3 || stage === 5) {
+    for (const y of [4, 8, 12]) for (const x of [4, 8, 12]) walls.push([x, y], [x + 1, y]);
+  }
+  if (stage === 6)
+    for (const x of [5, 11]) for (const y of [4, 5, 6, 10, 11, 12]) walls.push([x, y]);
+  for (const [x, y] of walls) grid[y][x] = 3;
+  return grid;
+}
+
+export function createGame(seed: number, cols = 17, rows = 17, options?: RunOptions): GameState {
+  const run: RunOptions = options
+    ? { ...options }
+    : { mode: 'classic', stage: 1, difficulty: 'standard', seed: seed >>> 0 };
+  const staged = run.mode === 'campaign' || run.mode === 'practice';
+  if (staged) seed = CAMPAIGNS.proofreader[run.stage - 1].seed;
   const rng = mulberry32(seed);
-  const map = generateMap(rng, cols, rows);
+  const map = staged ? campaignMap(run.stage) : generateMap(rng, cols, rows);
   return {
     status: 'ready',
     seed: seed >>> 0,
@@ -403,12 +470,29 @@ export function createGame(seed: number, cols = 17, rows = 17): GameState {
     damageFor: 0,
     nextId: 1,
     lastEvent: 'none',
+    events: [],
+    run,
+    projectiles: [],
+    shots: 0,
+    hits: 0,
+    damageTaken: 0,
+    pulseCooldown: 0,
+    lastDamageAngle: 0,
+    relays:
+      staged && run.stage >= 4 && run.stage <= 5
+        ? Array.from({ length: run.stage - 2 }, (_, i) => ({
+            x: [3.5, 13.5, 8.5][i],
+            y: [13.5, 3.5, 14.5][i],
+            active: false,
+          }))
+        : [],
+    exit: { x: map[0].length - 1.5, y: map.length - 1.5, open: false },
     navigation: undefined,
   };
 }
 
 export function reset(state: GameState, seed: number): GameState {
-  Object.assign(state, createGame(seed, state.cols, state.rows));
+  Object.assign(state, createGame(seed, state.cols, state.rows, { ...state.run, seed }));
   return state;
 }
 
@@ -578,13 +662,15 @@ export function fire(state: GameState): FireResult {
   if (state.status !== 'playing') return miss;
   if (state.fireCooldown > 0) return miss;
   if (state.player.ammo <= 0) {
-    state.lastEvent = 'empty';
+    emit(state, 'empty');
     return miss;
   }
   state.player.ammo -= 1;
+  if (state.run.mode === 'practice') state.player.ammo = TUNING.maxAmmo;
+  state.shots++;
   state.fireCooldown = TUNING.fireCooldown;
   state.muzzleFor = 0.09;
-  state.lastEvent = 'fire';
+  emit(state, 'fire');
 
   const { x: px, y: py, angle } = state.player;
   const cone = state.aimAssist ? TUNING.assistCone : TUNING.hitCone;
@@ -606,17 +692,20 @@ export function fire(state: GameState): FireResult {
 
   if (!target) return { fired: true, hitId: null, killed: false };
 
+  if (target.boss && !bossExposed(state)) return { fired: true, hitId: null, killed: false };
+  state.hits++;
+
   target.hp -= 1;
   target.hurtFor = 0.15;
   if (target.hp > 0) {
-    state.lastEvent = 'hit';
+    emit(state, 'hit');
     return { fired: true, hitId: target.id, killed: false };
   }
 
   target.alive = false;
   state.kills += 1;
-  state.score += ENEMY_POINTS[target.kind];
-  state.lastEvent = 'kill';
+  state.score += target.boss ? 500 : ENEMY_POINTS[target.kind];
+  emit(state, 'kill');
   if (random(state) < TUNING.dropChance) {
     state.pickups.push({
       id: state.nextId++,
@@ -632,6 +721,57 @@ export function fire(state: GameState): FireResult {
     state.intermission = TUNING.intermission;
   }
   return { fired: true, hitId: target.id, killed: true };
+}
+
+function emit(state: GameState, event: GameEvent) {
+  state.lastEvent = event;
+  if (state.events.length < 32) state.events.push(event);
+}
+
+export function bossExposed(state: GameState): boolean {
+  return state.time % 6 >= 3.5;
+}
+
+/** Three-charge, two-damage piercing pulse; targets behind cover remain safe. */
+export function firePulse(state: GameState): boolean {
+  if (state.status !== 'playing' || state.pulseCooldown > 0 || state.player.ammo < 3) return false;
+  state.player.ammo -= 3;
+  if (state.run.mode === 'practice') state.player.ammo = TUNING.maxAmmo;
+  state.shots++;
+  state.pulseCooldown = 1.2;
+  state.muzzleFor = 0.16;
+  emit(state, 'fire');
+  let connected = false;
+  for (const enemy of state.enemies) {
+    if (!enemy.alive || (enemy.boss && !bossExposed(state))) continue;
+    const distance = Math.hypot(enemy.x - state.player.x, enemy.y - state.player.y);
+    if (
+      distance > 10 ||
+      Math.abs(
+        normalizeAngle(
+          Math.atan2(enemy.y - state.player.y, enemy.x - state.player.x) - state.player.angle
+        )
+      ) > 0.14 ||
+      !hasLineOfSight(state.map, state.player.x, state.player.y, enemy.x, enemy.y)
+    )
+      continue;
+    connected = true;
+    enemy.hp -= 2;
+    enemy.hurtFor = 0.18;
+    emit(state, 'hit');
+    if (enemy.hp <= 0) {
+      enemy.alive = false;
+      state.kills++;
+      state.score += enemy.boss ? 500 : ENEMY_POINTS[enemy.kind];
+      emit(state, 'kill');
+    }
+  }
+  if (connected) state.hits++;
+  if (!state.enemies.some((e) => e.alive) && state.intermission <= 0) {
+    state.score += 25 * state.wave;
+    state.intermission = TUNING.intermission;
+  }
+  return true;
 }
 
 function emptyCells(state: GameState): Array<[number, number]> {
@@ -655,13 +795,25 @@ function shuffle<T>(arr: T[], state: GameState): T[] {
 }
 
 function startWave(state: GameState): void {
+  state.enemies = state.enemies.filter((e) => e.alive);
   state.wave += 1;
   const wave = state.wave;
-  const count = Math.min(3 + wave, 12);
-  const speedScale = Math.min(1 + 0.04 * (wave - 1), 1.5);
+  const staged = state.run.mode === 'campaign' || state.run.mode === 'practice';
+  const stage = state.run.stage;
+  const count = staged
+    ? stage === 6
+      ? 1
+      : stage === 4
+        ? 4
+        : stage === 5
+          ? 5
+          : CAMPAIGNS.proofreader[stage - 1].goal
+    : Math.min(3 + wave, 12);
+  const speedScale =
+    Math.min(1 + 0.04 * (wave - 1), 1.5) * (state.run.difficulty === 'expert' ? 1.2 : 1);
   const kinds: EnemyKind[] = ['substitution'];
-  if (wave >= 2) kinds.push('insertion');
-  if (wave >= 3) kinds.push('deletion');
+  if ((staged ? stage : wave) >= 2) kinds.push('insertion');
+  if ((staged ? stage : wave) >= 3) kinds.push('deletion');
 
   const px = state.player.x;
   const py = state.player.y;
@@ -671,28 +823,30 @@ function startWave(state: GameState): void {
   );
   const pool = far.length >= count ? far : far.concat(shuffle(emptyCells(state), state));
   for (let i = 0; i < count; i++) {
-    const [cx, cy] = pool[i % pool.length];
-    const kind = kinds[Math.floor(random(state) * kinds.length)];
+    const [cx, cy] = staged && stage === 6 ? [13, 8] : pool[i % pool.length];
+    const kind = staged && stage === 6 ? 'deletion' : kinds[i % kinds.length];
     state.enemies.push({
       id: state.nextId++,
       kind,
       x: cx + 0.5,
       y: cy + 0.5,
-      hp: ENEMY_HP[kind],
+      hp: staged && stage === 6 ? 18 : ENEMY_HP[kind],
       speed: ENEMY_BASE_SPEED[kind] * speedScale,
       heading: random(state) * Math.PI * 2 - Math.PI,
       retargetIn: random(state),
       attackIn: 0,
       hurtFor: 0,
       alive: true,
+      boss: staged && stage === 6,
+      bossPhase: 0,
     });
   }
 
   // Scatter two ammo pickups so a long wave is survivable.
   const spots = shuffle(emptyCells(state), state);
   const near = spots.findIndex(([x, y]) => {
-    const distance = Math.hypot(x + .5 - px, y + .5 - py);
-    return distance >= 1.2 && distance <= 3 && hasLineOfSight(state.map, px, py, x + .5, y + .5);
+    const distance = Math.hypot(x + 0.5 - px, y + 0.5 - py);
+    return distance >= 1.2 && distance <= 3 && hasLineOfSight(state.map, px, py, x + 0.5, y + 0.5);
   });
   if (near > 0) [spots[0], spots[near]] = [spots[near], spots[0]];
   for (let i = 0; i < 2 && i < spots.length; i++) {
@@ -706,7 +860,26 @@ function startWave(state: GameState): void {
       taken: false,
     });
   }
-  state.lastEvent = 'wave';
+  if (staged) {
+    // Guaranteed resupply, not a random drop dependency; the open perimeter reaches it.
+    state.pickups.push({
+      id: state.nextId++,
+      kind: 'ammo',
+      base: 'G',
+      x: 2.5,
+      y: 1.5,
+      taken: false,
+    });
+    state.pickups.push({
+      id: state.nextId++,
+      kind: 'health',
+      base: 'C',
+      x: 1.5,
+      y: 3.5,
+      taken: false,
+    });
+  }
+  emit(state, 'wave');
 }
 
 /** One bounded flood-fill per player-cell change/half second, shared by all enemies. */
@@ -714,19 +887,27 @@ function navigationField(state: GameState): number[][] {
   const x = Math.floor(state.player.x);
   const y = Math.floor(state.player.y);
   const playerCell = y * state.cols + x;
-  if (state.navigation?.playerCell === playerCell && state.navigation.expires > state.time) return state.navigation.distance;
+  if (state.navigation?.playerCell === playerCell && state.navigation.expires > state.time)
+    return state.navigation.distance;
   const distance = state.map.map((row) => row.map(() => -1));
   const queue: Array<[number, number]> = [[x, y]];
   distance[y][x] = 0;
   for (let i = 0; i < queue.length; i++) {
     const [cx, cy] = queue[i];
-    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
-      const nx = cx + dx; const ny = cy + dy;
+    for (const [dx, dy] of [
+      [-1, 0],
+      [1, 0],
+      [0, -1],
+      [0, 1],
+    ]) {
+      const nx = cx + dx;
+      const ny = cy + dy;
       if (state.map[ny]?.[nx] !== 0 || distance[ny][nx] !== -1) continue;
-      distance[ny][nx] = distance[cy][cx] + 1; queue.push([nx, ny]);
+      distance[ny][nx] = distance[cy][cx] + 1;
+      queue.push([nx, ny]);
     }
   }
-  state.navigation = { playerCell, expires: state.time + .5, distance };
+  state.navigation = { playerCell, expires: state.time + 0.5, distance };
   return distance;
 }
 
@@ -743,18 +924,113 @@ function stepEnemies(state: GameState, dt: number): void {
     const dx = px - e.x;
     const dy = py - e.y;
     const dist = Math.hypot(dx, dy);
+    const tactical = state.run.mode !== 'classic';
+    if (
+      tactical &&
+      e.kind === 'insertion' &&
+      ((e.chargeFor ?? 0) > 0 ||
+        (dist > 1.3 && dist < 5 && e.attackIn <= 0 && hasLineOfSight(state.map, e.x, e.y, px, py)))
+    ) {
+      if ((e.chargeFor ?? 0) <= 0) {
+        e.attackWindup = (e.attackWindup ?? 0.7) - dt;
+        if (e.attackWindup > 0) continue;
+        e.chargeFor = 0.6;
+        e.chargeHeading = Math.atan2(dy, dx);
+        e.attackWindup = undefined;
+        e.attackIn = 2;
+      }
+      const heading = e.chargeHeading ?? e.heading;
+      const dash = moveCircle(
+        state.map,
+        e.x,
+        e.y,
+        Math.cos(heading) * 4 * dt,
+        Math.sin(heading) * 4 * dt,
+        TUNING.enemyRadius
+      );
+      const stopped = Math.hypot(dash.x - e.x, dash.y - e.y) < 0.001;
+      e.x = dash.x;
+      e.y = dash.y;
+      e.chargeFor = stopped ? 0 : Math.max(0, (e.chargeFor ?? 0) - dt);
+      if (Math.hypot(e.x - px, e.y - py) <= 0.75 && hasLineOfSight(state.map, e.x, e.y, px, py)) {
+        hurtPlayer(state, TUNING.attackDamage, Math.atan2(e.y - py, e.x - px));
+        e.chargeFor = 0;
+      }
+      continue;
+    }
+    if (
+      tactical &&
+      e.kind === 'deletion' &&
+      dist < 10 &&
+      dist > 1.2 &&
+      hasLineOfSight(state.map, e.x, e.y, px, py)
+    ) {
+      e.attackIn = Math.max(0, e.attackIn);
+      if (e.attackIn <= 0) {
+        e.attackWindup = (e.attackWindup ?? 0.9) - dt;
+        if (e.attackWindup <= 0) {
+          const angle = Math.atan2(dy, dx);
+          const speed = e.boss ? 3.5 : 2.7;
+          if (state.projectiles.length < 24)
+            state.projectiles.push({
+              id: state.nextId++,
+              x: e.x,
+              y: e.y,
+              vx: Math.cos(angle) * speed,
+              vy: Math.sin(angle) * speed,
+              life: 6,
+            });
+          e.attackIn = e.boss ? 1.4 : 2.4;
+          e.attackWindup = undefined;
+        }
+      }
+      if (e.boss) {
+        const phase = Math.min(2, Math.floor((18 - e.hp) / 6));
+        if (phase > (e.bossPhase ?? 0)) {
+          e.bossPhase = phase;
+          for (let i = 0; i < 2 && state.enemies.filter((n) => n.alive).length < 5; i++) {
+            const sx = i ? 3.5 : 13.5;
+            state.enemies.push({
+              id: state.nextId++,
+              kind: 'substitution',
+              x: sx,
+              y: 14.5,
+              hp: 1,
+              speed: 1.2,
+              heading: 0,
+              retargetIn: 0,
+              attackIn: 1,
+              hurtFor: 0,
+              alive: true,
+            });
+          }
+        }
+      }
+      continue;
+    }
     let speed: number;
     if (dist <= TUNING.aggroRange && hasLineOfSight(state.map, e.x, e.y, px, py)) {
       e.heading = Math.atan2(dy, dx);
-      speed = e.speed;
+      speed = e.speed * (tactical && e.kind === 'insertion' && (e.chargeFor ?? 0) > 0 ? 2 : 1);
     } else if (dist <= TUNING.aggroRange) {
-      const cx = Math.floor(e.x); const cy = Math.floor(e.y);
+      const cx = Math.floor(e.x);
+      const cy = Math.floor(e.y);
       let best = navigation[cy]?.[cx] >= 0 ? navigation[cy][cx] : Infinity;
-      let targetX = cx + .5; let targetY = cy + .5;
-      for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      let targetX = cx + 0.5;
+      let targetY = cy + 0.5;
+      for (const [ox, oy] of [
+        [-1, 0],
+        [1, 0],
+        [0, -1],
+        [0, 1],
+      ]) {
         const raw = navigation[cy + oy]?.[cx + ox];
         const value = raw >= 0 ? raw : Infinity;
-        if (value < best) { best = value; targetX = cx + ox + .5; targetY = cy + oy + .5; }
+        if (value < best) {
+          best = value;
+          targetX = cx + ox + 0.5;
+          targetY = cy + oy + 0.5;
+        }
       }
       e.heading = Math.atan2(targetY - e.y, targetX - e.x);
       speed = e.speed;
@@ -772,26 +1048,84 @@ function stepEnemies(state: GameState, dt: number): void {
       state.map,
       e.x,
       e.y,
-      Math.cos(e.heading) * (dist < .6 ? 0 : speed) * dt,
-      Math.sin(e.heading) * (dist < .6 ? 0 : speed) * dt,
+      Math.cos(e.heading) * (dist < 0.6 ? 0 : speed) * dt,
+      Math.sin(e.heading) * (dist < 0.6 ? 0 : speed) * dt,
       TUNING.enemyRadius
     );
     e.x = moved.x;
     e.y = moved.y;
+    if (e.chargeFor) e.chargeFor = Math.max(0, e.chargeFor - dt);
     if (Math.abs(e.x - beforeX) < 1e-4 && Math.abs(e.y - beforeY) < 1e-4) {
       e.retargetIn = 0; // blocked → pick a fresh heading next tick
     }
 
-    if (dist <= TUNING.attackRange && e.attackIn <= 0 && hasLineOfSight(state.map, e.x, e.y, px, py)) {
-      if (e.attackWindup === undefined) e.attackWindup = e.kind === 'substitution' ? .35 : e.kind === 'insertion' ? .5 : .65;
+    if (
+      dist <= TUNING.attackRange &&
+      e.attackIn <= 0 &&
+      hasLineOfSight(state.map, e.x, e.y, px, py)
+    ) {
+      if (e.attackWindup === undefined)
+        e.attackWindup =
+          (e.kind === 'substitution' ? 0.35 : e.kind === 'insertion' ? 0.5 : 0.65) *
+          (state.run.difficulty === 'expert' ? 0.8 : 1);
       e.attackWindup -= dt;
       if (e.attackWindup <= 0) {
-        state.player.health -= TUNING.attackDamage;
-        e.attackIn = TUNING.attackInterval; e.attackWindup = undefined;
-        state.damageFor = 0.4; state.lastEvent = 'hurt';
+        hurtPlayer(state, TUNING.attackDamage, Math.atan2(e.y - py, e.x - px));
+        e.attackIn = TUNING.attackInterval;
+        e.attackWindup = undefined;
       }
     } else e.attackWindup = undefined;
   }
+  // Small, bounded separation pass prevents unreadable enemy stacks.
+  for (let i = 0; i < state.enemies.length; i++)
+    for (let j = i + 1; j < state.enemies.length; j++) {
+      const a = state.enemies[i];
+      const b = state.enemies[j];
+      if (!a.alive || !b.alive) continue;
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const distance = Math.hypot(dx, dy);
+      if (distance > 0.01 && distance < 0.55) {
+        const amount = Math.min(0.05, (0.55 - distance) / 2);
+        const moved = moveCircle(
+          state.map,
+          b.x,
+          b.y,
+          (dx / distance) * amount,
+          (dy / distance) * amount,
+          TUNING.enemyRadius
+        );
+        b.x = moved.x;
+        b.y = moved.y;
+      }
+    }
+}
+
+function hurtPlayer(state: GameState, amount: number, angle = state.player.angle) {
+  if (state.run.mode === 'practice') return;
+  const damage = amount * (state.run.difficulty === 'expert' ? 1.5 : 1);
+  state.player.health -= damage;
+  state.damageTaken += damage;
+  state.lastDamageAngle = angle;
+  state.damageFor = 0.4;
+  emit(state, 'hurt');
+}
+
+function stepProjectiles(state: GameState, dt: number) {
+  for (const shot of state.projectiles) {
+    const steps = Math.max(1, Math.ceil((Math.hypot(shot.vx, shot.vy) * dt) / 0.1));
+    for (let i = 0; i < steps && shot.life > 0; i++) {
+      shot.x += (shot.vx * dt) / steps;
+      shot.y += (shot.vy * dt) / steps;
+      if (collides(state.map, shot.x, shot.y, 0.08)) shot.life = 0;
+      else if (Math.hypot(shot.x - state.player.x, shot.y - state.player.y) < 0.3) {
+        shot.life = 0;
+        hurtPlayer(state, 10, Math.atan2(-shot.vy, -shot.vx));
+      }
+    }
+    shot.life -= dt;
+  }
+  state.projectiles = state.projectiles.filter((p) => p.life > 0);
 }
 
 function collectPickups(state: GameState): void {
@@ -815,7 +1149,7 @@ function collectPickups(state: GameState): void {
     }
   }
   if (collected) {
-    state.lastEvent = 'pickup';
+    emit(state, 'pickup');
     state.pickups = state.pickups.filter((p) => !p.taken);
   }
 }
@@ -824,26 +1158,71 @@ function collectPickups(state: GameState): void {
 export function step(state: GameState, dt: number, input: StepInput): GameState {
   if (state.status !== 'playing') return state;
   state.lastEvent = 'none';
+  state.events = [];
+  state.enemies = state.enemies.filter((e) => e.alive);
   state.time += dt;
   state.fireCooldown = Math.max(0, state.fireCooldown - dt);
   state.muzzleFor = Math.max(0, state.muzzleFor - dt);
   state.damageFor = Math.max(0, state.damageFor - dt);
+  state.pulseCooldown = Math.max(0, state.pulseCooldown - dt);
 
   if (input.turn) turnBy(state, input.turn * TUNING.turnSpeed * dt);
   movePlayer(state, input.forward, input.strafe, dt);
   if (input.fire) fire(state);
+  if (input.pulse) firePulse(state);
   stepEnemies(state, dt);
+  stepProjectiles(state, dt);
   collectPickups(state);
+
+  const staged = state.run.mode === 'campaign' || state.run.mode === 'practice';
+  for (const relay of state.relays)
+    if (!relay.active && Math.hypot(relay.x - state.player.x, relay.y - state.player.y) < 0.75) {
+      relay.active = true;
+      state.score += 50;
+      state.player.ammo = Math.min(TUNING.maxAmmo, state.player.ammo + 12);
+      emit(state, 'relay');
+    }
 
   if (state.intermission > 0) {
     state.intermission = Math.max(0, state.intermission - dt);
-    if (state.intermission === 0) startWave(state);
+    const limit = state.run.stage === 4 ? 2 : state.run.stage === 5 ? 3 : 1;
+    if (state.intermission === 0 && (!staged || state.wave < limit)) startWave(state);
+  }
+
+  if (
+    staged &&
+    state.wave > 0 &&
+    !state.enemies.some((e) => e.alive) &&
+    state.intermission <= 0 &&
+    state.relays.every((r) => r.active)
+  )
+    state.exit.open = true;
+  if (
+    staged &&
+    state.exit.open &&
+    Math.hypot(state.exit.x - state.player.x, state.exit.y - state.player.y) < 0.7
+  ) {
+    state.status = 'won';
+    state.score += 100;
+    emit(state, 'won');
   }
 
   if (state.player.health <= 0) {
     state.player.health = 0;
     state.status = 'over';
-    state.lastEvent = 'over';
+    emit(state, 'over');
   }
   return state;
+}
+
+export function proofResult(state: GameState): RunResult {
+  const accuracy = state.shots ? state.hits / state.shots : 0;
+  const won = state.status === 'won';
+  return {
+    score: state.score,
+    seconds: state.time,
+    won,
+    medals: [won, won && accuracy >= 0.7, won && state.damageTaken === 0],
+    detail: `${state.kills} cleared · ${Math.round(accuracy * 100)}% accuracy · ${Math.round(state.damageTaken)} integrity lost`,
+  };
 }

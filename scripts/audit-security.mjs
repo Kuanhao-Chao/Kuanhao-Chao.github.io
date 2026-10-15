@@ -72,6 +72,7 @@ const SAFE_SET_HTML_FILES = new Set([
   'src/components/WGIndexQuery.astro',
   'src/components/WGTWheelerOrder.astro',
   'src/components/WGTWheelie.astro',
+  'src/components/games/ArcadeShell.astro',
   // JSON-LD only: `JSON.stringify` of build-time frontmatter, the same pattern as
   // the posts and reports routes below. No visitor input reaches it.
   'src/layouts/DeepDiveLesson.astro',

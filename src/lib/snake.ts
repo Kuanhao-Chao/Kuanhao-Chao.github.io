@@ -10,6 +10,8 @@
  * reads as a growing "sequence" — but the mechanics are classic Snake.
  */
 
+import { CAMPAIGNS, type RunOptions, type RunResult } from './arcade';
+
 export type Dir = 'up' | 'down' | 'left' | 'right';
 
 export interface Point {
@@ -24,7 +26,7 @@ export interface Food extends Point {
   base: Base;
 }
 
-export type Status = 'ready' | 'playing' | 'over' | 'won';
+export type Status = 'ready' | 'playing' | 'paused' | 'over' | 'won';
 
 export interface GameConfig {
   cols: number;
@@ -33,6 +35,8 @@ export interface GameConfig {
   wrap?: boolean;
   /** Starting snake length. Default 3. */
   startLength?: number;
+  run?: RunOptions;
+  obstacles?: Point[];
 }
 
 export interface GameState {
@@ -46,6 +50,20 @@ export interface GameState {
   score: number; // bases collected
   status: Status;
   ticks: number;
+  run: RunOptions;
+  turnQueue: Dir[];
+  obstacles: Point[];
+  alternatives: Food[];
+  sequence: Base[];
+  target: Base[];
+  matched: number;
+  motifs: number;
+  wrong: number;
+  bonus: Point | null;
+  bonusTaken: boolean;
+  collision: Point | null;
+  elapsedMs: number;
+  events: Array<'eat' | 'bonus' | 'wrong' | 'motif' | 'over' | 'won'>;
 }
 
 /** Deterministic RNG returning a float in [0, 1). Same seed → same sequence. */
@@ -78,8 +96,14 @@ const OPPOSITE: Record<Dir, Dir> = {
 const cellKey = (p: Point): string => `${p.x},${p.y}`;
 
 /** Pick a food cell uniformly from the empty cells, with a random base. */
-export function placeFood(cols: number, rows: number, snake: Point[], rng: RNG): Food {
-  const occupied = new Set(snake.map(cellKey));
+export function placeFood(
+  cols: number,
+  rows: number,
+  snake: Point[],
+  rng: RNG,
+  blocked: Point[] = []
+): Food {
+  const occupied = new Set([...snake, ...blocked].map(cellKey));
   const empty: Point[] = [];
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
@@ -93,7 +117,11 @@ export function placeFood(cols: number, rows: number, snake: Point[], rng: RNG):
 }
 
 export function createGame(config: GameConfig, rng: RNG): GameState {
-  const { cols, rows, wrap = false, startLength = 3 } = config;
+  const { cols, rows, startLength = 3 } = config;
+  const run = config.run ?? { mode: 'classic', stage: 1, seed: 1, difficulty: 'standard' };
+  const staged = run.mode === 'campaign' || run.mode === 'practice';
+  const wrap = config.wrap ?? (staged && [3, 6].includes(run.stage));
+  const obstacles = config.obstacles ?? (staged ? snakeTerrain(run.stage) : []);
   const cy = Math.floor(rows / 2);
   const headX = Math.floor(cols / 2);
   // Head first; body extends left so the initial heading 'right' is legal.
@@ -101,30 +129,104 @@ export function createGame(config: GameConfig, rng: RNG): GameState {
   for (let i = 0; i < startLength; i++) {
     snake.push({ x: Math.max(0, headX - i), y: cy });
   }
-  return {
+  const game: GameState = {
     cols,
     rows,
     wrap,
     snake,
     dir: 'right',
     pendingDir: null,
-    food: placeFood(cols, rows, snake, rng),
+    food: placeFood(cols, rows, snake, rng, obstacles),
     score: 0,
     status: 'ready',
     ticks: 0,
+    run,
+    turnQueue: [],
+    obstacles,
+    alternatives: [],
+    sequence: [],
+    target: ['A', 'C', 'G', 'T'],
+    matched: 0,
+    motifs: 0,
+    wrong: 0,
+    bonus: staged ? { x: 1, y: 1 } : null,
+    bonusTaken: false,
+    collision: null,
+    elapsedMs: 0,
+    events: [],
   };
+  if (run.mode === 'motif') refillMotifFood(game, rng);
+  return game;
+}
+
+/** Fixed, connected terrain, with a clear initial runway through the center. */
+export function snakeTerrain(stage: number): Point[] {
+  const obstacles: Point[] = [];
+  const add = (x: number, y: number) => obstacles.push({ x, y });
+  if ([2, 3, 6].includes(stage))
+    for (const x of [3, 12])
+      for (const y of [3, 12]) {
+        add(x, y);
+        add(x + 1, y);
+        add(x, y + 1);
+        add(x + 1, y + 1);
+      }
+  if (stage === 4)
+    for (const x of [5, 11]) for (let y = 2; y <= 14; y++) if (y < 7 || y > 9) add(x, y);
+  if (stage === 5)
+    for (const x of [4, 8, 12])
+      for (let y = 2; y <= 14; y++) if (![4, 5, 8, 9, 12, 13].includes(y)) add(x, y);
+  if (stage === 6) for (const x of [7, 9]) for (const y of [4, 12]) add(x, y);
+  return obstacles;
+}
+
+function refillMotifFood(state: GameState, rng: RNG) {
+  const remaining = state.cols * state.rows - state.snake.length - state.obstacles.length;
+  const count = Math.min(3, remaining);
+  const next = state.target[state.matched];
+  const choices: Food[] = [];
+  const available = BASES.filter((b) => b !== next);
+  for (let i = 0; i < count; i++) {
+    const food = placeFood(state.cols, state.rows, state.snake, rng, [
+      ...state.obstacles,
+      ...choices,
+    ]);
+    food.base = i === 0 ? next : available[(i - 1 + state.motifs) % available.length];
+    choices.push(food);
+  }
+  if (choices[0]) state.food = choices[0];
+  state.alternatives = choices.slice(1);
+}
+
+export function tickInterval(state: GameState): number {
+  const campaign = state.run.mode === 'campaign' || state.run.mode === 'practice';
+  const base = campaign ? 160 - state.run.stage * 10 : Math.max(70, 145 - state.score * 3);
+  return state.run.difficulty === 'expert' ? Math.max(55, base * 0.8) : base;
 }
 
 export function reset(state: GameState, rng: RNG): GameState {
   Object.assign(
     state,
-    createGame({ cols: state.cols, rows: state.rows, wrap: state.wrap }, rng)
+    createGame(
+      {
+        cols: state.cols,
+        rows: state.rows,
+        wrap: state.wrap,
+        run: state.run,
+        obstacles: state.obstacles,
+      },
+      rng
+    )
   );
   return state;
 }
 
 export function start(state: GameState): void {
-  if (state.status === 'ready') state.status = 'playing';
+  if (state.status === 'ready' || state.status === 'paused') state.status = 'playing';
+}
+
+export function pause(state: GameState): void {
+  if (state.status === 'playing') state.status = 'paused';
 }
 
 /**
@@ -133,21 +235,25 @@ export function start(state: GameState): void {
  * never fold the snake back into itself.
  */
 export function turn(state: GameState, dir: Dir): void {
-  if (state.status === 'over' || state.status === 'won') return;
-  if (dir === OPPOSITE[state.dir]) return;
-  if (state.pendingDir && dir === OPPOSITE[state.pendingDir]) return;
-  state.pendingDir = dir;
+  if (state.status === 'over' || state.status === 'won' || state.status === 'paused') return;
+  const last = state.turnQueue.at(-1) ?? state.dir;
+  if (state.turnQueue.length >= 2 || dir === last || dir === OPPOSITE[last]) return;
+  state.turnQueue.push(dir);
+  state.pendingDir = state.turnQueue[0] ?? null;
 }
 
 /** Advance one tick. Mutates and returns `state`. No-op unless playing. */
 export function step(state: GameState, rng: RNG): GameState {
   if (state.status !== 'playing') return state;
   state.ticks += 1;
+  state.elapsedMs += tickInterval(state);
+  state.events = [];
 
-  if (state.pendingDir && state.pendingDir !== OPPOSITE[state.dir]) {
-    state.dir = state.pendingDir;
+  const queued = state.turnQueue.shift() ?? state.pendingDir;
+  if (queued && queued !== OPPOSITE[state.dir]) {
+    state.dir = queued;
   }
-  state.pendingDir = null;
+  state.pendingDir = state.turnQueue[0] ?? null;
 
   const d = DELTA[state.dir];
   let nx = state.snake[0].x + d.x;
@@ -158,27 +264,81 @@ export function step(state: GameState, rng: RNG): GameState {
     ny = (ny + state.rows) % state.rows;
   } else if (nx < 0 || ny < 0 || nx >= state.cols || ny >= state.rows) {
     state.status = 'over';
+    state.collision = { x: nx, y: ny };
+    state.events.push('over');
     return state;
   }
 
-  const eating = nx === state.food.x && ny === state.food.y;
+  const selected = [state.food, ...state.alternatives].find((f) => nx === f.x && ny === f.y);
+  const eating = Boolean(selected);
   // The tail cell is vacated this tick unless we grow, so exclude it when not eating.
   const body = eating ? state.snake : state.snake.slice(0, -1);
-  if (body.some((p) => p.x === nx && p.y === ny)) {
+  if ([...body, ...state.obstacles].some((p) => p.x === nx && p.y === ny)) {
     state.status = 'over';
+    state.collision = { x: nx, y: ny };
+    state.events.push('over');
     return state;
   }
 
   state.snake.unshift({ x: nx, y: ny });
+  if (state.bonus && nx === state.bonus.x && ny === state.bonus.y) {
+    state.bonusTaken = true;
+    state.bonus = null;
+    state.events.push('bonus');
+  }
   if (eating) {
     state.score += 1;
-    if (state.snake.length >= state.cols * state.rows) {
+    state.sequence.push(selected!.base);
+    state.events.push('eat');
+    if (state.run.mode === 'motif') {
+      if (selected!.base === state.target[state.matched]) {
+        state.matched++;
+        if (state.matched === state.target.length) {
+          state.motifs++;
+          state.matched = 0;
+          state.events.push('motif');
+          state.target = Array.from(
+            { length: Math.min(8, 4 + state.motifs) },
+            () => BASES[Math.floor(rng() * 4)]
+          );
+        }
+      } else {
+        state.matched = 0;
+        state.wrong++;
+        state.events.push('wrong');
+      }
+    }
+    const staged = state.run.mode === 'campaign' || state.run.mode === 'practice';
+    if (
+      state.snake.length >= state.cols * state.rows - state.obstacles.length ||
+      (staged && state.score >= CAMPAIGNS.snake[state.run.stage - 1].goal)
+    ) {
       state.status = 'won';
+      state.events.push('won');
       return state;
     }
-    state.food = placeFood(state.cols, state.rows, state.snake, rng);
+    if (state.run.mode === 'motif') refillMotifFood(state, rng);
+    else state.food = placeFood(state.cols, state.rows, state.snake, rng, state.obstacles);
   } else {
     state.snake.pop();
   }
   return state;
+}
+
+export function snakeResult(state: GameState): RunResult {
+  const won = state.status === 'won';
+  const seconds = state.elapsedMs / 1000;
+  return {
+    score: state.run.mode === 'motif' ? state.score + state.motifs * 20 : state.score,
+    seconds,
+    won,
+    medals: [
+      won,
+      won &&
+        seconds <=
+          CAMPAIGNS.snake[state.run.stage - 1].par * (state.run.difficulty === 'expert' ? 0.8 : 1),
+      won && state.bonusTaken,
+    ],
+    detail: `${state.score} bases · ${seconds.toFixed(1)} s${state.run.mode === 'motif' ? ` · ${state.motifs} motifs · ${state.wrong} sequence resets` : state.bonusTaken ? ' · bonus chip found' : ' · bonus chip missed'}`,
+  };
 }
