@@ -1,4 +1,5 @@
-/** Browser adapter shared by the nine games; gameplay stays in each game's engine. */
+import { setLabel } from '../lib/domLabel';
+/** Browser adapter shared by games; gameplay stays in each game's engine. */
 export function mountGameTools(doc: Document) {
   const abort = new AbortController();
   const { signal } = abort;
@@ -22,13 +23,14 @@ export function mountGameTools(doc: Document) {
       focused = false;
       root!.classList.remove('game-focus-view');
       doc.body.style.overflow = priorOverflow;
-      button!.textContent = 'Focus view';
+      setLabel(button, 'Focus view');
       button!.setAttribute('aria-pressed', 'false');
       if (doc.fullscreenElement === root) void doc.exitFullscreen().catch(() => {});
       priorFocus?.focus({ preventScroll: true });
       window.scrollTo({ top: priorScroll, behavior: 'instant' });
       window.dispatchEvent(new Event('resize'));
       announce('Focus view closed.');
+      root!.dispatchEvent(new CustomEvent('khc:game-focus-change', { detail: { focused: false } }));
     }
     function enter() {
       if (focused) return;
@@ -38,11 +40,12 @@ export function mountGameTools(doc: Document) {
       focused = true;
       root!.classList.add('game-focus-view');
       doc.body.style.overflow = 'hidden';
-      button!.textContent = 'Exit focus · Esc';
+      setLabel(button, 'Exit focus · Esc');
       button!.setAttribute('aria-pressed', 'true');
       button!.focus({ preventScroll: true });
       window.dispatchEvent(new Event('resize'));
       announce('Focus view opened. Escape or Exit focus closes it.');
+      root!.dispatchEvent(new CustomEvent('khc:game-focus-change', { detail: { focused: true } }));
     }
     button.addEventListener('click', () => focused ? exit() : enter(), { signal });
     fullscreen?.addEventListener('click', () => {

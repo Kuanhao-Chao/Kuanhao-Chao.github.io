@@ -10,8 +10,9 @@ interface Props {
   description?: string;
   width?: 'wide' | 'narrow';
   noindex?: boolean;
+  compact?: boolean;
 }
-const { title, eyebrow, lead, description, width = 'wide', noindex = false } = Astro.props;
+const { title, eyebrow, lead, description, width = 'wide', noindex = false, compact = false } = Astro.props;
 
 const breadcrumbLd =
   !noindex && Astro.url.pathname !== '/'
@@ -22,7 +23,7 @@ const breadcrumbLd =
   {breadcrumbLd && (
     <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} />
   )}
-  <header class="page-head">
+  <header class:list={['page-head', compact && 'page-head--compact']}>
     <div class:list={['container', width === 'narrow' && 'container--narrow']}>
       {eyebrow && <p class="eyebrow">{eyebrow}</p>}
       <h1>{title}</h1>
@@ -30,7 +31,7 @@ const breadcrumbLd =
       <div class="page-axis"><GenomeAxis /></div>
     </div>
   </header>
-  <div class:list={['container', width === 'narrow' && 'container--narrow', 'page-body']} data-reveal>
+  <div class:list={['container', width === 'narrow' && 'container--narrow', 'page-body', compact && 'page-body--compact']} data-reveal>
     <slot />
   </div>
 </BaseLayout>
@@ -58,4 +59,8 @@ const breadcrumbLd =
     padding-top: var(--space-12);
     padding-bottom: clamp(1.75rem, 3vw, 2.5rem);
   }
+  .page-head--compact { padding-top: 1.5rem; }
+  .page-head--compact .page-axis { margin-top: 1rem; }
+  .page-head--compact .page-lead { margin-top: .6rem; font-size: 1rem; max-width: 52rem; }
+  .page-body--compact { padding-top: 1.25rem; }
 </style>

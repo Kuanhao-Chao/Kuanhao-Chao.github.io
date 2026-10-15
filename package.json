@@ -33,6 +33,7 @@
     "audit:narrow": "node scripts/audit-narrow.mjs",
     "audit:ml-interview": "node scripts/audit-ml-interview.mjs",
     "audit:games": "node scripts/audit-game-ui.mjs",
+    "audit:arcade": "node scripts/audit-arcade-campaigns.mjs",
     "audit:software": "node scripts/audit-software-ui.mjs",
     "audit:appearance": "node scripts/audit-appearance-ui.mjs",
     "audit:games:ci": "node scripts/audit-game-ui.mjs --ci",
@@ -59,6 +60,7 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:game-audit-runtime": "node --test --test-concurrency=1 scripts/lib/*.test.mjs",
+    "test:arcade-controls": "node scripts/test-arcade-controls.mjs",
     "test:watch": "vitest",
     "astro": "astro"
   },

@@ -1,0 +1,253 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import GameTools from './GameTools.astro';
+import { CAMPAIGNS, type ArcadeGame } from '../../lib/arcade';
+import { site } from '../../data/site';
+import '../../styles/arcade.css';
+interface Props {
+  game: ArcadeGame;
+  title: string;
+  lead: string;
+  controls: string;
+}
+const { game, title, lead, controls } = Astro.props;
+const prefix = game === 'proofreader' ? 'proof' : game === 'jetpack' ? 'jetpack' : 'snake';
+const slug = game === 'jetpack' ? 'jetpack-joyride' : game;
+const attr = (suffix: string) => ({ [`data-${prefix}-${suffix}`]: true });
+const stages = CAMPAIGNS[game];
+---
+
+<PageLayout
+  title={title}
+  eyebrow="Browser arcade"
+  lead={lead}
+  description={`${title} — six original pixel-art stages, keyboard and touch play, quick-play challenges and practice.`}
+  compact
+>
+  <script
+    type="application/ld+json"
+    is:inline
+    set:html={JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'VideoGame',
+      name: title,
+      description: lead,
+      url: `${site.url}/games/${slug}/`,
+      author: { '@id': `${site.url}/#person` },
+      applicationCategory: 'Game',
+      gamePlatform: ['Web browser', 'Mobile web browser'],
+      inLanguage: 'en',
+      isAccessibleForFree: true,
+    })}
+  />
+  <section
+    class={`arcade arcade--${game}`}
+    data-game-root
+    data-arcade-game={game}
+    aria-label={`${title} game`}
+  >
+    <noscript
+      ><p>
+        This game needs JavaScript and a browser with 2D canvas support. The rules and biology notes
+        below remain readable.
+      </p></noscript
+    >
+    <GameTools />
+    <div class="arcade-identity">
+      <slot name="logo" /><div>
+        <p class="arcade-kicker">Original pixel arcade · six-stage campaign</p><p
+          class="arcade-run-label"
+          data-arcade-run-label
+        >
+          Campaign · Standard
+        </p>
+      </div>
+    </div>
+    <div class="arcade-hud" aria-label="Current run"><slot name="hud" /></div>
+    <div class="arcade-stage">
+      <canvas
+        tabindex="0"
+        {...attr('canvas')}
+        role="img"
+        aria-label={`${title} playfield. ${controls}`}
+        aria-describedby={`${prefix}-instructions`}></canvas>
+      <div class="arcade-overlay" data-arcade-overlay>
+        <div class="arcade-overlay-card">
+          <p class="arcade-overlay-eyebrow">{title}</p>
+          <h2 data-arcade-overlay-title>Ready</h2>
+          <p data-arcade-overlay-detail>Choose your route.</p>
+          <p class="arcade-medals" data-arcade-medals></p>
+          <div class="arcade-overlay-actions">
+            <button type="button" class="arcade-primary" data-arcade-primary>Start</button>
+            <button type="button" data-arcade-next hidden>Next stage</button>
+            <button type="button" data-arcade-home hidden>Stage menu</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="arcade-action-row"><slot name="actions" /></div>
+    <div class="arcade-controls" aria-label="Run controls">
+      <button type="button" {...attr('pause')} disabled>Pause</button>
+      <button type="button" {...attr('restart')}>Restart</button>
+      <button type="button" {...attr('sound')} aria-pressed="false">Sound off</button>
+      <button type="button" {...attr('share')} disabled>Share result</button>
+    </div>
+    <p class="arcade-status" {...attr('status')} role="status" aria-live="polite">
+      Start when you are ready.
+    </p>
+    <p class="arcade-instructions" id={`${prefix}-instructions`}>{controls}</p>
+    <slot name="readout" />
+    <details class="arcade-panel" data-arcade-setup open>
+      <summary>Campaign map & game modes</summary>
+      <div class="arcade-panel-body">
+        <div class="arcade-fields">
+          <label
+            >Mode<select data-arcade-mode
+              ><option value="campaign">Campaign</option><option value="classic"
+                >{game === 'snake' ? 'Classic' : 'Endless'}</option
+              ><option value="practice">Practice · unranked</option>{
+                game === 'snake' && <option value="motif">Motif Hunt</option>
+              }</select
+            ></label
+          >
+          <label
+            >Difficulty<select data-arcade-difficulty
+              ><option value="standard">Standard</option><option value="expert">Expert</option
+              ></select
+            ></label
+          >
+          <label
+            >Stage<select data-arcade-stage
+              >{
+                stages.map((stage, i) => (
+                  <option value={i + 1}>
+                    {i + 1} · {stage.name}
+                  </option>
+                ))
+              }</select
+            ></label
+          >
+        </div>
+        <p data-arcade-brief>{stages[0].lesson}</p>
+        <div class="arcade-map" data-arcade-map>
+          {
+            stages.map((stage, i) => (
+              <button
+                type="button"
+                data-arcade-stage-button={i + 1}
+                aria-pressed={i === 0 ? 'true' : 'false'}
+              >
+                <>
+                  <span class="arcade-stage-number">0{i + 1}</span>
+                  <span>
+                    {stage.name}
+                    <small data-arcade-stars>☆☆☆</small>
+                  </span>
+                </>
+              </button>
+            ))
+          }
+        </div>
+        <p class="arcade-note">
+          Stages unlock in order. Practice can rehearse any stage. Earn palettes after 2, 4, and 6
+          clears—never permanent power upgrades.
+        </p>
+      </div>
+    </details>
+    <details class="arcade-panel">
+      <summary>Sound, controls & accessibility</summary>
+      <div class="arcade-panel-body">
+        <div class="arcade-fields">
+          <label
+            >Sound volume<input
+              type="range"
+              data-arcade-volume
+              min="0"
+              max="1"
+              step=".05"
+              value=".25"
+            /></label
+          >
+          <label
+            >Palette<select data-arcade-palette
+              ><option value="0">Laboratory · default</option><option value="1"
+                >Ocean · 2 stage clears</option
+              ><option value="2">Amber · 4 stage clears</option><option value="3"
+                >Nebula · 6 stage clears</option
+              ></select
+            ></label
+          >
+          <label
+            >Simulation speed<input
+              type="range"
+              data-arcade-speed
+              min=".5"
+              max="1"
+              step=".05"
+              value="1"
+            /></label
+          >
+          {
+            game === 'proofreader' && (
+              <>
+                <label>
+                  Aiming sensitivity
+                  <input
+                    type="range"
+                    data-arcade-sensitivity
+                    data-proof-sensitivity
+                    min=".5"
+                    max="2"
+                    step=".1"
+                    value="1"
+                  />
+                </label>
+                <label>
+                  Thumbstick dead zone
+                  <input
+                    type="range"
+                    data-arcade-deadzone
+                    data-proof-deadzone
+                    min="4"
+                    max="24"
+                    step="1"
+                    value="8"
+                  />
+                </label>
+                <label class="arcade-check">
+                  <input type="checkbox" data-arcade-assist data-proof-assist /> Wider aim assist
+                </label>
+              </>
+            )
+          }
+          {
+            game !== 'snake' && (
+              <label class="arcade-check">
+                <input type="checkbox" data-arcade-toggle /> Toggle{' '}
+                {game === 'proofreader' ? 'firing' : 'thrust'} instead of holding
+              </label>
+            )
+          }
+        </div>
+        <p class="arcade-note">
+          Slower simulation and wider aim assistance use separate records. Visual preferences and
+          control remapping do not. Reduced motion follows your device settings. Pause before
+          remapping; Escape cancels a remap.
+        </p>
+        <div class="arcade-bindings" data-arcade-bindings></div>
+        <p class="arcade-note" data-arcade-legacy></p>
+        <p class="arcade-note" data-arcade-storage role="status" aria-live="polite"></p>
+      </div>
+    </details>
+    <details class="arcade-panel">
+      <summary>How to play & the biology behind the theme</summary><div
+        class="arcade-panel-body arcade-guide"
+      >
+        <slot name="guide" />
+      </div>
+    </details>
+    <p class="arcade-credit">
+      Original code-drawn pixel artwork · local personal records · no accounts or tracking
+    </p>
+  </section>
+</PageLayout>

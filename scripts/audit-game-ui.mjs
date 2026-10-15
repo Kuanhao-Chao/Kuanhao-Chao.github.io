@@ -476,7 +476,7 @@ async function driveProofreader(page, scope, profile) {
   );
   await expect(
     scope,
-    () => page.evaluate(() => Number(localStorage.getItem('khc-proofreader-best')) > 0),
+    () => page.evaluate(() => Object.values(JSON.parse(localStorage.getItem('khc-arcade-proofreader-v2') || '{}').records || {}).some(record => record.score > 0)),
     'best score was not persisted'
   );
   await page.locator('[data-proof-share]').click();
@@ -593,7 +593,7 @@ async function driveJetpackJoyride(page, scope, profile) {
   );
   await expect(
     scope,
-    () => page.evaluate(() => Number(localStorage.getItem('khc-jetpack-joyride-best')) > 0),
+    () => page.evaluate(() => Object.values(JSON.parse(localStorage.getItem('khc-arcade-jetpack-v2') || '{}').records || {}).some(record => record.score > 0)),
     'best score was not persisted'
   );
 }
@@ -872,7 +872,7 @@ async function captureFailure(page, game, prefix) {
 async function auditRestrictedBrowser(browser, browserName, baseURL, selected) {
   const actions = {
     'crispr-commander': '[data-crispr-start]', 'phage-defense': '[data-phage-next-wave]',
-    'genome-jumper': '[data-jumper-canvas]', proofreader: '[data-proof-canvas]', 'dino-run': '[data-dino-jump]',
+    'genome-jumper': '[data-jumper-canvas]', proofreader: '[data-arcade-primary]', snake: '[data-arcade-primary]', 'jetpack-joyride': '[data-arcade-primary]', 'dino-run': '[data-dino-jump]',
     'chinese-chess': '[data-cc-hint]', 'bay-route': '[data-br-run]', minesweeper: '[data-mine-face]', '2048': '[data-2048-restart]',
   };
   for (const game of selected.filter(game => actions[game.slug])) {
@@ -919,7 +919,9 @@ async function main() {
   let preview;
 
   try {
-    preview = await startPreview({ port, route: `/games/${gamesToAudit[0].slug}/` });
+    preview = process.env.GAME_UI_AUDIT_BASE_URL
+      ? { baseURL: process.env.GAME_UI_AUDIT_BASE_URL, stop: async () => {} }
+      : await startPreview({ port, route: `/games/${gamesToAudit[0].slug}/` });
     const { baseURL } = preview;
     for (const [browserName, browserType] of selectedBrowsers()) {
       const browser = await browserType.launch({ headless: true });
@@ -983,7 +985,7 @@ async function main() {
   if (failures.length) {
     console.error(`Game UI audit failed with ${failures.length} issue(s):`);
     failures.forEach((failure) => console.error(`- ${failure}`));
-    if (preview?.logs.trim()) console.error(`\nPreview output:\n${preview.logs.trim()}`);
+    if (preview?.logs?.trim()) console.error(`\nPreview output:\n${preview.logs.trim()}`);
     process.exitCode = 1;
     return;
   }

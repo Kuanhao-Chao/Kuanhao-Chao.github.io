@@ -10,30 +10,20 @@ const { size = 64, class: className = '' } = Astro.props;
 <GameIconFrame
   size={size}
   class={`proofreader-logo ${className}`}
-  label="Proofreader — a DNA fork with a corrected base"
-  accent="#a87b46"
+  label="Proofreader — a pixel-art proofreading tool and corrected DNA fork"
+  accent="#6c9b85"
 >
-  <path
-    d="M40 82 V62 Q39 45 20 22 M53 82 V60 Q55 44 78 22"
-    fill="none"
-    stroke="var(--gi-deep)"
-    stroke-width="4"></path>
-  <path
-    d="M43 76 H50 M43 65 H50 M33 46 L39 42 M25 34 L31 30 M63 44 L57 40 M73 32 L67 28"
-    stroke="var(--gi-mid)"
-    stroke-width="3"></path>
-  <path
-    d="M44 55 Q32 39 24 22 M49 55 Q62 39 73 23"
-    fill="none"
-    stroke="var(--gi-accent)"
-    stroke-width="3"></path>
-  <path d="M62 61 L78 77" stroke="var(--gi-deep)" stroke-width="9"></path>
-  <path d="M65 63 L78 76" stroke="var(--gi-accent)" stroke-width="5"></path>
-  <circle cx="49" cy="49" r="21" fill="var(--gi-light)" stroke="var(--gi-deep)" stroke-width="3"
-  ></circle>
-  <path d="M35 46 H64 M35 55 H64" stroke="var(--gi-mid)" stroke-width="3"></path>
-  <path d="M41 46 V55 M50 46 V55 M59 46 V55" stroke="var(--gi-accent)" stroke-width="3"></path>
-  <rect x="45" y="42" width="11" height="18" rx="4" fill="#5d8a75"></rect>
-  <path d="M48 50 L50 53 54 47" fill="none" stroke="#ffffff" stroke-width="2"></path>
-  <path d="M35 37 Q40 31 47 32" fill="none" stroke="#ffffff" stroke-width="3" opacity=".8"></path>
+  <g shape-rendering="crispEdges">
+    <path
+      d="M22 18H30V30H38V42H46V78H38V46H30V34H22ZM66 18H74V34H66V46H58V78H50V42H58V30H66Z"
+      fill="var(--gi-deep)"></path>
+    <path d="M30 24H36V36H42V42H36V38H30ZM60 24H66V36H60V42H54V36H60Z" fill="var(--gi-accent)"
+    ></path>
+    <path d="M42 48H54V54H42ZM42 62H54V68H42Z" fill="var(--gi-mid)"></path>
+    <path d="M24 50H42V74H24ZM18 56H48V68H18Z" fill="var(--gi-deep)"></path>
+    <path d="M24 56H42V68H24Z" fill="var(--gi-light)"></path>
+    <path d="M28 60H32V64H36V56H40V68H30V64H28Z" fill="#37775b"></path>
+    <path d="M62 50H72V76H62ZM58 76H76V84H58Z" fill="var(--gi-accent)"></path>
+    <path d="M64 54H68V68H64Z" fill="var(--gi-light)"></path>
+  </g>
 </GameIconFrame>

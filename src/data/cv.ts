@@ -305,7 +305,7 @@ export const sideProjects: SideProject[] = [
   {
     name: 'Proofreader',
     detail:
-      'Science-inspired nucleoid raycaster — navigate cover, read attack telegraphs, collect dNTPs, and explore a bacterial proofreading vignette with adjustable aiming',
+      'Pixel-art nucleoid raycaster — master six tactical sectors, pierce enemy formations, activate supply relays, and challenge a three-phase guardian with keyboard or touch',
     url: '/games/proofreader/',
   },
   {
@@ -317,7 +317,7 @@ export const sideProjects: SideProject[] = [
   {
     name: 'Snake',
     detail:
-      'Nucleotide sequence serpent — steer across the chromatin grid, consuming A · C · G · T bases to elongate nascent transcript chains',
+      'Pixel-art nucleotide serpent — explore six crafted gardens with queued turns, touch controls, mastery medals, classic quick-play, and optional Motif Hunt sequence puzzles',
     url: '/games/snake/',
   },
   {
@@ -329,7 +329,7 @@ export const sideProjects: SideProject[] = [
   {
     name: 'Jetpack Joyride',
     detail:
-      'Enzyme aviator side-scroller — thrust through mutagen hazard zones with ATP-synthase jetpacks, dodge electrical zappers, and collect dNTP coins',
+      'Molecular-themed pixel flight arcade — master six authored routes with certified hazard patterns, readable warnings, shields, magnets, collection chains, and seeded endless challenges',
     url: '/games/jetpack-joyride/',
   },
   {

@@ -10,13 +10,17 @@
  * The flyer stays at a fixed x; the world scrolls left past it.
  *
  * Genomic riff (skin only): the flyer is an enzyme, coins are A/C/G/T bases,
- * hazards are "mutagen" zappers / lasers / missiles, distance is bases replicated.
+ * zappers / lasers / missiles are arcade hazards. Distance uses an arcade scale,
+ * not bases replicated; these rules are not a biochemical simulation.
  */
 
-export type JetpackStatus = 'ready' | 'playing' | 'over';
+import { CAMPAIGNS, type RunOptions, type RunResult } from './arcade';
+
+export type JetpackStatus = 'ready' | 'playing' | 'paused' | 'over' | 'won';
 export type Base = 'A' | 'C' | 'G' | 'T';
 export type HazardKind = 'zapper' | 'laser' | 'missile';
-export type LastEvent = 'none' | 'thrust' | 'coin' | 'shield' | 'hit' | 'over';
+export type LastEvent =
+  'none' | 'thrust' | 'coin' | 'shield' | 'hit' | 'over' | 'magnet' | 'near' | 'won';
 
 export const BASES: Base[] = ['A', 'C', 'G', 'T'];
 
@@ -41,6 +45,8 @@ export interface Zapper {
   /** Angular velocity (rad/s); 0 for static zappers. */
   spin: number;
   thickness: number;
+  closest?: number;
+  rewarded?: boolean;
 }
 
 /** A laser is a screen-anchored, full-width horizontal beam that telegraphs. */
@@ -51,6 +57,8 @@ export interface Laser {
   thickness: number;
   phase: 'warn' | 'active' | 'done';
   timer: number;
+  closest?: number;
+  rewarded?: boolean;
 }
 
 /** A missile enters behind an edge warning arrow, then flies left. */
@@ -64,6 +72,9 @@ export interface Missile {
   radius: number;
   phase: 'warn' | 'active';
   timer: number;
+  locked?: boolean;
+  closest?: number;
+  rewarded?: boolean;
 }
 
 export interface Coin {
@@ -72,6 +83,7 @@ export interface Coin {
   y: number;
   radius: number;
   base: Base;
+  missed?: boolean;
 }
 
 export interface PowerUp {
@@ -79,7 +91,7 @@ export interface PowerUp {
   x: number;
   y: number;
   radius: number;
-  kind: 'shield';
+  kind: 'shield' | 'magnet';
 }
 
 export interface JetpackConfig {
@@ -146,6 +158,17 @@ export interface GameState {
   ticks: number;
   invulnMs: number;
   lastEvent: LastEvent;
+  events: LastEvent[];
+  run: RunOptions;
+  encounters: number;
+  certified: number;
+  certifying: boolean;
+  nearMisses: number;
+  shieldsUsed: number;
+  chain: number;
+  coinPoints: number;
+  magnetMs: number;
+  safeY: number;
 }
 
 /** Deterministic RNG returning a float in [0, 1). Same seed -> same sequence. */
@@ -257,9 +280,14 @@ export function isShielded(state: GameState): boolean {
   return state.flyer.shielded;
 }
 
-export function createGame(seed = 1, config: JetpackConfig = {}): GameState {
+export function createGame(seed = 1, config: JetpackConfig = {}, options?: RunOptions): GameState {
+  const run: RunOptions = options
+    ? { ...options }
+    : { mode: 'classic', stage: 1, seed, difficulty: 'standard' };
+  if (run.mode === 'campaign' || run.mode === 'practice')
+    seed = CAMPAIGNS.jetpack[run.stage - 1].seed;
   const merged = { ...DEFAULT_CONFIG, ...config };
-  const normalizedSeed = (seed >>> 0) || 1;
+  const normalizedSeed = seed >>> 0 || 1;
   return {
     width: merged.width,
     height: merged.height,
@@ -307,40 +335,62 @@ export function createGame(seed = 1, config: JetpackConfig = {}): GameState {
     ticks: 0,
     invulnMs: 0,
     lastEvent: 'none',
+    events: [],
+    run,
+    encounters: 0,
+    certified: 0,
+    certifying: false,
+    nearMisses: 0,
+    shieldsUsed: 0,
+    chain: 0,
+    coinPoints: 0,
+    magnetMs: 0,
+    safeY: (merged.ceilingY + merged.groundY) / 2,
   };
 }
 
 export function reset(state: GameState, seed = state.seed): GameState {
   Object.assign(
     state,
-    createGame(seed, {
-      width: state.width,
-      height: state.height,
-      ceilingY: state.ceilingY,
-      groundY: state.groundY,
-      flyerX: state.flyerX,
-      flyerRadius: state.flyerRadius,
-      gravity: state.gravity,
-      thrust: state.thrust,
-      maxRise: state.maxRise,
-      maxFall: state.maxFall,
-      startSpeed: state.startSpeed,
-      maxSpeed: state.maxSpeed,
-      speedRamp: state.speedRamp,
-      baseScale: state.baseScale,
-      coinValue: state.coinValue,
-      initialGap: state.initialGap,
-      laserUnlock: state.laserUnlock,
-      missileUnlock: state.missileUnlock,
-      shieldMinDistance: state.shieldMinDistance,
-      invulnMs: state.invulnCap,
-    })
+    createGame(
+      seed,
+      {
+        width: state.width,
+        height: state.height,
+        ceilingY: state.ceilingY,
+        groundY: state.groundY,
+        flyerX: state.flyerX,
+        flyerRadius: state.flyerRadius,
+        gravity: state.gravity,
+        thrust: state.thrust,
+        maxRise: state.maxRise,
+        maxFall: state.maxFall,
+        startSpeed: state.startSpeed,
+        maxSpeed: state.maxSpeed,
+        speedRamp: state.speedRamp,
+        baseScale: state.baseScale,
+        coinValue: state.coinValue,
+        initialGap: state.initialGap,
+        laserUnlock: state.laserUnlock,
+        missileUnlock: state.missileUnlock,
+        shieldMinDistance: state.shieldMinDistance,
+        invulnMs: state.invulnCap,
+      },
+      { ...state.run, seed }
+    )
   );
   return state;
 }
 
 export function start(state: GameState): void {
-  if (state.status === 'ready') state.status = 'playing';
+  if (state.status === 'ready' || state.status === 'paused') state.status = 'playing';
+}
+
+export function pause(state: GameState): void {
+  if (state.status === 'playing') {
+    state.status = 'paused';
+    state.flyer.thrusting = false;
+  }
 }
 
 export function setThrust(state: GameState, on: boolean): void {
@@ -435,11 +485,7 @@ export function spawnCoinArc(state: GameState, centerY = laneY(state)): void {
   const baseX = state.width + 44;
   for (let i = 0; i < count; i++) {
     const t = count > 1 ? i / (count - 1) : 0;
-    const y = clamp(
-      centerY - Math.sin(t * Math.PI) * amp,
-      state.ceilingY + 30,
-      state.groundY - 30
-    );
+    const y = clamp(centerY - Math.sin(t * Math.PI) * amp, state.ceilingY + 30, state.groundY - 30);
     spawnCoin(state, baseX + i * spacing, y);
   }
 }
@@ -450,40 +496,100 @@ export function spawnShield(state: GameState, x = state.width + 40, y = laneY(st
   return power;
 }
 
-function difficulty(state: GameState): number {
-  return clamp(state.distance / 6000, 0, 1);
-}
-
 export function nextGap(state: GameState): number {
-  const speedFactor = clamp(state.speed / state.maxSpeed, 0, 1);
-  const min = 360 + speedFactor * 170;
-  const max = min + 200 + speedFactor * 120;
-  return rangeRandom(state, min, max);
+  // A time-sized gap prevents late-run speed from erasing all reaction time.
+  return state.speed * (5.2 + random(state) * 0.8);
 }
 
 /** Pick and spawn the next hazard, weighted by how far the run has progressed. */
 export function spawnPattern(state: GameState): void {
-  const d = difficulty(state);
-  const laserOk = state.distance >= state.laserUnlock;
-  const missileOk = state.distance >= state.missileUnlock;
-  const wZapper = 1;
-  const wLaser = laserOk ? 0.4 + d * 0.5 : 0;
-  const wMissile = missileOk ? 0.3 + d * 0.6 : 0;
-  const total = wZapper + wLaser + wMissile;
-  const roll = random(state) * total;
-
-  if (roll < wZapper) {
-    spawnZapper(state);
-    if (random(state) < 0.5) spawnZapper(state, laneY(state));
-  } else if (roll < wZapper + wLaser) {
-    spawnLaser(state);
-    if (d > 0.4 && random(state) < 0.45) spawnLaser(state, laneY(state));
+  const staged = state.run.mode === 'campaign' || state.run.mode === 'practice';
+  const stage = staged
+    ? state.run.stage
+    : state.distance < state.laserUnlock
+      ? 1
+      : state.distance < state.missileUnlock
+        ? 3
+        : 6;
+  const kinds: Array<HazardKind | 'rotor'> =
+    stage <= 2
+      ? ['zapper']
+      : stage === 3
+        ? ['zapper', 'laser']
+        : stage === 4
+          ? ['zapper', 'missile', 'laser']
+          : ['zapper', 'laser', 'rotor', 'missile'];
+  const index = staged ? state.encounters % kinds.length : Math.floor(random(state) * kinds.length);
+  const kind = kinds[index];
+  const bounds = flyerBounds(state);
+  const upper = bounds.top + 85;
+  const lower = bounds.bottom - 85;
+  const safeY =
+    kind === 'missile'
+      ? state.flyer.y < state.height / 2
+        ? lower
+        : upper
+      : state.encounters % 2
+        ? upper
+        : lower;
+  state.safeY = safeY;
+  const oldIds = new Set([...state.zappers, ...state.lasers, ...state.missiles].map((h) => h.id));
+  if (kind === 'laser') {
+    const laser = spawnLaser(state, safeY === upper ? lower : upper);
+    laser.timer = state.run.difficulty === 'expert' ? 1100 : 1400;
+  } else if (kind === 'missile') {
+    const missile = spawnMissile(state);
+    missile.timer = state.run.difficulty === 'expert' ? 1100 : 1400;
   } else {
-    spawnMissile(state);
+    const z = spawnZapper(state, safeY === upper ? lower : upper);
+    z.angle = Math.PI / 2;
+    z.halfLen = stage === 1 ? 52 : 80;
+    z.spin = kind === 'rotor' ? 0.9 * (state.encounters % 2 ? -1 : 1) : 0;
+    z.cx = state.flyer.x + state.speed * 2.2 + z.halfLen;
   }
+  state.encounters++;
+  if (certifyEncounter(state, safeY, kind === 'missile')) state.certified++;
+  else {
+    // Conservative fallback: never publish an encounter without a winning input witness.
+    state.zappers = state.zappers.filter((h) => oldIds.has(h.id));
+    state.lasers = state.lasers.filter((h) => oldIds.has(h.id));
+    state.missiles = state.missiles.filter((h) => oldIds.has(h.id));
+  }
+  spawnCoinArc(state, safeY);
+  if (state.encounters % 4 === 0) spawnShield(state, state.width + 80, safeY);
+  if (state.encounters % 5 === 0)
+    state.powerUps.push({
+      id: state.nextId++,
+      kind: 'magnet',
+      x: state.width + 40,
+      y: safeY,
+      radius: 16,
+    });
+}
 
-  if (random(state) < 0.7) spawnCoinArc(state);
-  if (state.distance >= state.shieldMinDistance && random(state) < 0.08) spawnShield(state);
+/** A constructive reachability certificate using the exact engine physics.
+ * This proves one route, not that every player input is safe. No shield or magnet
+ * is needed by the witness. Failing candidates are omitted by spawnPattern.
+ */
+export function certifyEncounter(source: GameState, safeY: number, missile = false): boolean {
+  const probe = structuredClone(source);
+  probe.status = 'playing';
+  probe.certifying = true;
+  probe.spawnIn = Infinity;
+  probe.run.mode = 'classic';
+  probe.flyer.shielded = false;
+  probe.invulnMs = 0;
+  probe.coins = [];
+  probe.powerUps = [];
+  probe.magnetMs = 0;
+  for (let frame = 0; frame < 300 && probe.status === 'playing'; frame++) {
+    const waiting = missile && probe.missiles.some((m) => m.phase === 'warn' && m.timer > 400);
+    const target = waiting ? source.flyer.y : safeY;
+    const desiredVy = clamp((target - probe.flyer.y) * 5, -360, 360);
+    setThrust(probe, probe.flyer.vy > desiredVy);
+    step(probe, 1000 / 60);
+  }
+  return probe.status === 'playing';
 }
 
 // --- Per-tick updates -------------------------------------------------------
@@ -492,12 +598,13 @@ function updateMissiles(state: GameState, dt: number, dtMs: number): void {
   for (const m of state.missiles) {
     if (m.phase === 'warn') {
       // Track the flyer's y so the warning arrow is meaningful, then lock aim.
-      m.y += (state.flyer.y - m.y) * Math.min(1, 6 * dt);
+      if (m.timer > 350) m.y += (state.flyer.y - m.y) * Math.min(1, 6 * dt);
+      else m.locked = true;
       m.timer -= dtMs;
       if (m.timer <= 0) {
         m.phase = 'active';
         m.vx = -(state.speed + 300);
-        m.vy = clamp((state.flyer.y - m.y) * 1.1, -240, 240);
+        m.vy = 0; // aim is visibly locked; it does not secretly re-target at launch
       }
     } else {
       m.x += m.vx * dt;
@@ -530,36 +637,89 @@ function cull(state: GameState): void {
 
 /** Register a hazard hit: consume a shield (+ i-frames) or end the run. */
 function hitFlyer(state: GameState): void {
+  if (state.run.mode === 'practice') {
+    state.invulnMs = 950;
+    emit(state, 'hit');
+    return;
+  }
   if (state.flyer.shielded) {
     state.flyer.shielded = false;
+    state.shieldsUsed++;
     state.invulnMs = state.invulnCap;
-    state.lastEvent = 'shield';
+    emit(state, 'hit');
   } else {
     state.status = 'over';
     state.flyer.thrusting = false;
-    state.lastEvent = 'over';
+    emit(state, 'over');
   }
 }
 
-function checkHazards(state: GameState): void {
+function checkHazards(
+  state: GameState,
+  previous = { x: state.flyer.x, y: state.flyer.y },
+  dt = 0
+): void {
   const { x, y } = state.flyer;
   const r = state.flyerRadius;
 
   for (const z of state.zappers) {
     const { x1, y1, x2, y2 } = zapperEndpoints(z);
-    if (pointSegmentDistance(x, y, x1, y1, x2, y2) <= r + z.thickness / 2) {
+    let distance = pointSegmentDistance(x, y, x1, y1, x2, y2);
+    // Sample the relative swept path, including rotor motion, at <= 6-unit intervals.
+    const samples = Math.max(
+      1,
+      Math.ceil(
+        (Math.abs(y - previous.y) + state.speed * dt + Math.abs(z.spin * dt * z.halfLen)) / 6
+      )
+    );
+    for (let i = 0; i < samples; i++) {
+      const t = i / samples;
+      const edge = zapperEndpoints({
+        ...z,
+        cx: z.cx + state.speed * dt * (1 - t),
+        angle: z.angle - z.spin * dt * (1 - t),
+      });
+      distance = Math.min(
+        distance,
+        pointSegmentDistance(
+          x,
+          previous.y + (y - previous.y) * t,
+          edge.x1,
+          edge.y1,
+          edge.x2,
+          edge.y2
+        )
+      );
+    }
+    z.closest = Math.min(z.closest ?? Infinity, distance - r - z.thickness / 2);
+    if (distance <= r + z.thickness / 2) {
       hitFlyer(state);
       return;
     }
   }
   for (const l of state.lasers) {
-    if (l.phase === 'active' && Math.abs(y - l.y) <= r + l.thickness / 2) {
+    const distance =
+      l.y >= Math.min(previous.y, y) && l.y <= Math.max(previous.y, y)
+        ? 0
+        : Math.min(Math.abs(y - l.y), Math.abs(previous.y - l.y));
+    if (l.phase === 'active')
+      l.closest = Math.min(l.closest ?? Infinity, distance - r - l.thickness / 2);
+    if (l.phase === 'active' && distance <= r + l.thickness / 2) {
       hitFlyer(state);
       return;
     }
   }
   for (const m of state.missiles) {
-    if (m.phase === 'active' && circlesOverlap(x, y, r, m.x, m.y, m.radius)) {
+    const distance = pointSegmentDistance(
+      0,
+      0,
+      m.x - m.vx * dt - previous.x,
+      m.y - m.vy * dt - previous.y,
+      m.x - x,
+      m.y - y
+    );
+    if (m.phase === 'active') m.closest = Math.min(m.closest ?? Infinity, distance - r - m.radius);
+    if (m.phase === 'active' && distance <= r + m.radius) {
       hitFlyer(state);
       return;
     }
@@ -573,8 +733,14 @@ function checkPickups(state: GameState): void {
   for (const c of state.coins) {
     if (circlesOverlap(x, y, r, c.x, c.y, c.radius)) {
       state.coinCount += 1;
-      state.lastEvent = 'coin';
+      state.chain++;
+      state.coinPoints += state.coinValue * Math.min(4, 1 + Math.floor((state.chain - 1) / 5));
+      emit(state, 'coin');
     } else {
+      if (!c.missed && c.x + c.radius < x) {
+        c.missed = true;
+        state.chain = 0;
+      }
       remainingCoins.push(c);
     }
   }
@@ -583,8 +749,9 @@ function checkPickups(state: GameState): void {
   const remainingPowers: PowerUp[] = [];
   for (const p of state.powerUps) {
     if (circlesOverlap(x, y, r, p.x, p.y, p.radius)) {
-      state.flyer.shielded = true;
-      state.lastEvent = 'shield';
+      if (p.kind === 'shield') state.flyer.shielded = true;
+      else state.magnetMs = 6000;
+      emit(state, p.kind);
     } else {
       remainingPowers.push(p);
     }
@@ -594,12 +761,16 @@ function checkPickups(state: GameState): void {
 
 export function step(state: GameState, dtMs = 1000 / 60): GameState {
   if (state.status !== 'playing') return state;
+  if (!Number.isFinite(dtMs) || dtMs < 0) return state;
+  dtMs = Math.min(100, dtMs);
 
   const dt = clamp(dtMs, 0, 100) / 1000;
   state.ticks += 1;
   state.elapsedMs += dtMs;
   state.lastEvent = 'none';
+  state.events = [];
   state.invulnMs = Math.max(0, state.invulnMs - dtMs);
+  state.magnetMs = Math.max(0, state.magnetMs - dtMs);
   state.speed = Math.min(
     state.maxSpeed,
     state.startSpeed + (state.elapsedMs / 1000) * state.speedRamp
@@ -607,6 +778,7 @@ export function step(state: GameState, dtMs = 1000 / 60): GameState {
 
   // Flyer physics: thrust replaces gravity while held.
   const flyer = state.flyer;
+  const previous = { x: flyer.x, y: flyer.y };
   flyer.vy = flyer.thrusting ? flyer.vy - state.thrust * dt : flyer.vy + state.gravity * dt;
   flyer.vy = clamp(flyer.vy, -state.maxRise, state.maxFall);
   flyer.y += flyer.vy * dt;
@@ -631,19 +803,80 @@ export function step(state: GameState, dtMs = 1000 / 60): GameState {
   for (const p of state.powerUps) p.x -= dx;
   updateMissiles(state, dt, dtMs);
   updateLasers(state, dtMs);
-  cull(state);
+  if (state.magnetMs > 0)
+    for (const coin of state.coins) {
+      const d = Math.hypot(coin.x - flyer.x, coin.y - flyer.y);
+      if (d < 180 && d > 1) {
+        coin.x += ((flyer.x - coin.x) / d) * 420 * dt;
+        coin.y += ((flyer.y - coin.y) / d) * 420 * dt;
+      }
+    }
 
   // Spawn by distance.
   state.spawnIn -= dx;
-  if (state.spawnIn <= 0) {
+  const staged = state.run.mode === 'campaign' || state.run.mode === 'practice';
+  const finishing =
+    staged && state.elapsedMs / 1000 > CAMPAIGNS.jetpack[state.run.stage - 1].goal - 5;
+  if (state.spawnIn <= 0 && !state.certifying && !finishing) {
     spawnPattern(state);
     state.spawnIn += nextGap(state);
   }
 
   // Collisions (hazards respect i-frames; pickups always apply while alive).
-  if (state.invulnMs <= 0) checkHazards(state);
+  if (state.invulnMs <= 0) checkHazards(state, previous, dt);
   if (state.status === 'playing') checkPickups(state);
 
-  state.score = state.bases + state.coinCount * state.coinValue;
+  for (const hazard of [...state.zappers, ...state.missiles, ...state.lasers]) {
+    const passed =
+      hazard.kind === 'zapper'
+        ? hazard.cx + hazard.halfLen < flyer.x - state.flyerRadius
+        : hazard.kind === 'missile'
+          ? hazard.x + hazard.radius < flyer.x - state.flyerRadius
+          : hazard.phase === 'done';
+    if (passed && !hazard.rewarded) {
+      hazard.rewarded = true;
+      if (
+        hazard.closest !== undefined &&
+        hazard.closest > 0 &&
+        hazard.closest <= 18 &&
+        state.invulnMs <= 0
+      ) {
+        state.nearMisses++;
+        emit(state, 'near');
+      }
+    }
+  }
+  cull(state);
+  if (
+    state.status === 'playing' &&
+    staged &&
+    state.elapsedMs >= CAMPAIGNS.jetpack[state.run.stage - 1].goal * 1000
+  ) {
+    state.status = 'won';
+    flyer.thrusting = false;
+    emit(state, 'won');
+  }
+
+  state.score = state.bases + state.coinPoints + state.nearMisses * 25;
   return state;
+}
+
+function emit(state: GameState, event: LastEvent) {
+  state.lastEvent = event;
+  if (state.events.length < 32) state.events.push(event);
+}
+
+export function jetpackResult(state: GameState): RunResult {
+  const won = state.status === 'won';
+  return {
+    score: state.score,
+    seconds: state.elapsedMs / 1000,
+    won,
+    medals: [
+      won,
+      won && state.coinCount >= CAMPAIGNS.jetpack[state.run.stage - 1].par,
+      won && state.shieldsUsed === 0,
+    ],
+    detail: `${state.coinCount} bases · ${state.nearMisses} near misses · ${state.shieldsUsed} shields spent`,
+  };
 }
