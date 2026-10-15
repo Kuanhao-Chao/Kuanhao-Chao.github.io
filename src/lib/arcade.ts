@@ -17,48 +17,49 @@ export interface CampaignStage {
   seed: number;
 }
 export const RULES_VERSION = 2;
+export const rulesVersion = (game: ArcadeGame): 2 | 3 => (game === 'proofreader' ? 3 : 2);
 export const CAMPAIGNS: Record<ArcadeGame, readonly CampaignStage[]> = {
   proofreader: [
     {
       name: 'Replication Fork',
-      lesson: 'Clear the sentries, collect supplies, then find the exit.',
-      goal: 4,
-      par: 100,
+      lesson: 'Explore two floors, clear the fork, and activate the bridge console.',
+      goal: 6,
+      par: 300,
       seed: 2101,
     },
     {
       name: 'Cover Circuit',
-      lesson: 'Break line of sight before a charging insertion commits.',
-      goal: 6,
-      par: 120,
+      lesson: 'Use the maintenance ring to flank sentries and restore both relays.',
+      goal: 7,
+      par: 360,
       seed: 2102,
     },
     {
       name: 'Gap Chamber',
-      lesson: 'Read deletion projectiles and use pillars as cover.',
-      goal: 7,
-      par: 140,
+      lesson: 'Restore bridge power, climb to the observatory, and stabilize the reactor.',
+      goal: 12,
+      par: 420,
       seed: 2103,
     },
     {
       name: 'Supply Run',
-      lesson: 'Activate two supply relays and clear two waves.',
-      goal: 8,
-      par: 160,
+      lesson: 'Recover three supply packets across the archive and return to the airlock.',
+      goal: 15,
+      par: 420,
       seed: 2104,
     },
     {
       name: 'Signal Lock',
-      lesson: 'Activate three relays while clearing three mixed waves.',
-      goal: 15,
-      par: 180,
+      lesson: 'Disable two emitters across three floors, then survive the 45-second lockdown.',
+      goal: 24,
+      par: 480,
       seed: 2105,
     },
     {
       name: 'Fidelity Core',
-      lesson: 'Break the guardian during each exposed phase; cover blocks its shots.',
-      goal: 1,
-      par: 210,
+      lesson: 'Disable one shield relay per guardian phase, using all three levels for cover.',
+      goal: 13,
+      par: 480,
       seed: 2106,
     },
   ],
@@ -196,6 +197,8 @@ export interface RunResult {
   won: boolean;
   medals: [boolean, boolean, boolean];
   detail: string;
+  /** A checkpoint clear unlocks a stage without adding ranked records or medals. */
+  recordEligible?: boolean;
 }
 export interface RunRecord {
   score: number;
@@ -203,13 +206,13 @@ export interface RunRecord {
   medals: [boolean, boolean, boolean];
 }
 export interface ArcadeProgress {
-  version: 2;
+  version: 2 | 3;
   unlocked: number;
   cleared: number[];
   records: Record<string, RunRecord>;
 }
-export const emptyProgress = (): ArcadeProgress => ({
-  version: 2,
+export const emptyProgress = (version: 2 | 3 = 2): ArcadeProgress => ({
+  version,
   unlocked: 1,
   cleared: [],
   records: {},
@@ -217,10 +220,10 @@ export const emptyProgress = (): ArcadeProgress => ({
 const finite = (v: unknown, max = 1e9): v is number =>
   typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= max;
 
-export function decodeProgress(raw: string | null): ArcadeProgress {
+export function decodeProgress(raw: string | null, version: 2 | 3 = 2): ArcadeProgress {
   try {
     const value = JSON.parse(raw ?? 'null');
-    if (!value || value.version !== RULES_VERSION) return emptyProgress();
+    if (!value || value.version !== version) return emptyProgress(version);
     const cleared: number[] = Array.isArray(value.cleared)
       ? [
           ...new Set<number>(
@@ -250,9 +253,9 @@ export function decodeProgress(raw: string | null): ArcadeProgress {
     }
     let unlocked = 1;
     while (cleared.includes(unlocked) && unlocked < 6) unlocked++;
-    return { version: 2, unlocked, cleared, records };
+    return { version, unlocked, cleared, records };
   } catch {
-    return emptyProgress();
+    return emptyProgress(version);
   }
 }
 
@@ -283,14 +286,22 @@ export function recordResult(
   cleared.sort((a, b) => a - b);
   let unlocked = 1;
   while (cleared.includes(unlocked) && unlocked < 6) unlocked++;
-  return { version: 2, cleared, unlocked, records: { ...progress.records, [key]: record } };
+  return {
+    version: progress.version,
+    cleared,
+    unlocked,
+    records:
+      result.recordEligible === false
+        ? { ...progress.records }
+        : { ...progress.records, [key]: record },
+  };
 }
 
-export function challengeUrl(path: string, options: RunOptions): string {
+export function challengeUrl(path: string, options: RunOptions, version = RULES_VERSION): string {
   const params = new URLSearchParams({
     mode: options.mode,
     difficulty: options.difficulty,
-    rules: String(RULES_VERSION),
+    rules: String(version),
   });
   if (options.mode === 'campaign' || options.mode === 'practice')
     params.set('stage', String(options.stage));

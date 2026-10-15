@@ -49,10 +49,12 @@ for (const engine of engines) {
           assert.ok(during >= before + 2, 'movement cancelled held mouse fire');
           await page.mouse.up();
           await page.keyboard.up('w');
+          // The browser may render between the previous counter read and native release.
+          const released = await page.evaluate(() => window.__proofreader.state().shots);
           await page.evaluate(() => window.__proofreader.tick(60));
           assert.equal(
             await page.evaluate(() => window.__proofreader.state().shots),
-            during,
+            released,
             'mouse release left firing stuck'
           );
         }

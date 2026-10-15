@@ -4,6 +4,7 @@ import { mkdir } from 'node:fs/promises';
 import { chromium, webkit } from 'playwright';
 import { startPreview } from './lib/previewServer.mjs';
 import { clickControl, waitForPageReady } from './lib/gameAuditUi.mjs';
+import { driveProofreader3D } from './lib/proofreaderAgent.mjs';
 
 const registry = [
   { slug: 'proofreader', game: 'proofreader', api: '__proofreader', prefix: 'proof' },
@@ -17,22 +18,21 @@ const evidence = process.env.ARCADE_UI_EVIDENCE ?? '/tmp/khc-arcade-campaigns';
  */
 function campaignAgent({ game, api: name }) {
   const api = window[name];
-  const directions = [
+  const dirs = [
     ['right', 1, 0],
     ['down', 0, 1],
     ['left', -1, 0],
     ['up', 0, -1],
   ];
-  const wrapAngle = (a) => ((a + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
   function path(start, goal, width, height, blocked, wrap = false) {
-    const queue = [{ x: start.x, y: start.y, first: null }];
-    const seen = new Set([`${start.x},${start.y}`]);
+    const queue = [{ x: start.x, y: start.y, first: null }],
+      seen = new Set([`${start.x},${start.y}`]);
     for (let i = 0; i < queue.length; i++) {
       const p = queue[i];
       if (p.x === goal.x && p.y === goal.y) return p.first;
-      for (const [dir, dx, dy] of directions) {
-        let x = p.x + dx;
-        let y = p.y + dy;
+      for (const [dir, dx, dy] of dirs) {
+        let x = p.x + dx,
+          y = p.y + dy;
         if (wrap) {
           x = (x + width) % width;
           y = (y + height) % height;
@@ -46,19 +46,9 @@ function campaignAgent({ game, api: name }) {
     }
     return null;
   }
-  function los(map, a, b) {
-    const n = Math.ceil(Math.hypot(a.x - b.x, a.y - b.y) / 0.12);
-    for (let i = 1; i < n; i++)
-      if (
-        map[Math.floor(a.y + ((b.y - a.y) * i) / n)]?.[Math.floor(a.x + ((b.x - a.x) * i) / n)] !==
-        0
-      )
-        return false;
-    return true;
-  }
-  let encounter = -1;
-  let waitY = 0;
-  for (let iteration = 0; iteration < 16000 && api.state().status === 'playing'; iteration++) {
+  let encounter = -1,
+    waitY = 0;
+  for (let i = 0; i < 16000 && api.state().status === 'playing'; i++) {
     const s = api.state();
     if (game === 'snake') {
       const blocked = new Set(
@@ -68,10 +58,10 @@ function campaignAgent({ game, api: name }) {
         path(s.snake[0], s.bonus ?? s.food, s.cols, s.rows, blocked, s.wrap) ??
         path(s.snake[0], s.snake.at(-1), s.cols, s.rows, blocked, s.wrap);
       if (!next)
-        return { status: s.status, error: 'No safe input path', iteration, score: s.score };
+        return { status: s.status, error: 'No safe input path', iteration: i, score: s.score };
       api.turn(next.dir);
       api.tick();
-    } else if (game === 'jetpack') {
+    } else {
       if (encounter !== s.encounters) {
         encounter = s.encounters;
         waitY = s.flyer.y;
@@ -80,99 +70,13 @@ function campaignAgent({ game, api: name }) {
       const desired = Math.max(-360, Math.min(360, (target - s.flyer.y) * 5));
       api.setThrust(s.flyer.vy > desired);
       api.tick(1);
-    } else {
-      const player = s.player;
-      const blocked = new Set();
-      s.map.forEach((row, y) =>
-        row.forEach((cell, x) => {
-          if (cell) blocked.add(`${x},${y}`);
-        })
-      );
-      const live = s.enemies.filter((e) => e.alive);
-      const visible = live.filter(
-        (e) => Math.hypot(e.x - player.x, e.y - player.y) < 13 && los(s.map, player, e)
-      );
-      const target = visible
-        .filter((e) => !e.boss || s.time % 6 >= 3.5)
-        .sort(
-          (a, b) =>
-            Math.hypot(a.x - player.x, a.y - player.y) - Math.hypot(b.x - player.x, b.y - player.y)
-        )[0];
-      const closest = live.sort(
-        (a, b) =>
-          Math.hypot(a.x - player.x, a.y - player.y) - Math.hypot(b.x - player.x, b.y - player.y)
-      )[0];
-      const supply = s.pickups
-        .filter((p) => p.kind === 'ammo')
-        .sort(
-          (a, b) =>
-            Math.hypot(a.x - player.x, a.y - player.y) - Math.hypot(b.x - player.x, b.y - player.y)
-        )[0];
-      const goal = s.exit.open
-        ? s.exit
-        : player.ammo < 5 && supply
-          ? supply
-          : (closest ?? s.relays.find((r) => !r.active) ?? s.exit);
-      let dx = 0;
-      let dy = 0;
-      const distance = closest ? Math.hypot(closest.x - player.x, closest.y - player.y) : Infinity;
-      if (closest && visible.includes(closest) && distance < 5 && player.ammo >= 5) {
-        const angle = Math.atan2(closest.y - player.y, closest.x - player.x);
-        const sign = Math.floor(s.time / 3) % 2 ? 1 : -1;
-        dx = -Math.sin(angle) * sign;
-        dy = Math.cos(angle) * sign;
-        if (distance < 2.1) {
-          dx -= Math.cos(angle);
-          dy -= Math.sin(angle);
-        }
-        if (s.map[Math.floor(player.y + dy * 0.5)]?.[Math.floor(player.x + dx * 0.5)] !== 0) {
-          dx *= -1;
-          dy *= -1;
-        }
-      } else {
-        const next = path(
-          { x: Math.floor(player.x), y: Math.floor(player.y) },
-          { x: Math.floor(goal.x), y: Math.floor(goal.y) },
-          s.cols,
-          s.rows,
-          blocked
-        );
-        const waypoint = next ? { x: next.x + 0.5, y: next.y + 0.5 } : goal;
-        dx = waypoint.x - player.x;
-        dy = waypoint.y - player.y;
-        const n = Math.hypot(dx, dy);
-        if (n > 0.05) {
-          dx /= n;
-          dy /= n;
-        } else {
-          dx = 0;
-          dy = 0;
-        }
-      }
-      const aim = target
-        ? Math.atan2(target.y - player.y, target.x - player.x)
-        : Math.atan2(dy, dx);
-      api.turn(wrapAngle(aim - player.angle));
-      api.setInput({
-        forward: dx * Math.cos(aim) + dy * Math.sin(aim),
-        strafe: -dx * Math.sin(aim) + dy * Math.cos(aim),
-        turn: 0,
-        fire: Boolean(target),
-        pulse: false,
-      });
-      api.tick(4);
     }
   }
   const s = api.state();
   return {
     status: s.status,
     score: s.score,
-    time: s.time ?? s.elapsedMs / 1000,
-    health: s.player?.health,
-    kills: s.kills,
-    wave: s.wave,
-    relays: s.relays?.map((r) => r.active),
-    exit: s.exit?.open,
+    time: s.elapsedMs / 1000,
     encounters: s.encounters,
     certified: s.certified,
   };
@@ -192,7 +96,10 @@ async function campaignCheck(browser, baseURL, engine, game) {
       await page.locator('[data-arcade-difficulty]').selectOption('expert');
     await clickControl(page.locator('[data-arcade-primary]'));
     for (let stage = 1; stage <= 6; stage++) {
-      const result = await page.evaluate(campaignAgent, game);
+      const result =
+        game.game === 'proofreader'
+          ? await page.evaluate(driveProofreader3D)
+          : await page.evaluate(campaignAgent, game);
       console.log(`[arcade] ${engine}/${game.slug}/stage-${stage}`, JSON.stringify(result));
       assert.equal(
         result.status,
@@ -200,7 +107,8 @@ async function campaignCheck(browser, baseURL, engine, game) {
         `${engine}/${game.slug}/stage-${stage}: ${JSON.stringify(result)}`
       );
       const progress = await page.evaluate(
-        (id) => JSON.parse(localStorage.getItem(`khc-arcade-${id}-v2`)),
+        (id) =>
+          JSON.parse(localStorage.getItem(`khc-arcade-${id}-v${id === 'proofreader' ? 3 : 2}`)),
         game.game
       );
       assert.ok(progress.cleared.includes(stage), 'clear was not saved');
@@ -224,6 +132,11 @@ async function campaignCheck(browser, baseURL, engine, game) {
       'cosmetics did not unlock'
     );
     assert.deepEqual(errors, []);
+  } catch (error) {
+    await page
+      .screenshot({ path: `${evidence}/${engine}-${game.slug}-failure.png` })
+      .catch(() => {});
+    throw error;
   } finally {
     await context.close();
   }
@@ -285,10 +198,25 @@ async function presentationCheck(browser, baseURL, engine, game, quick) {
       }
       await clickControl(page.locator(`[data-${game.prefix}-pause]`));
       assert.equal(await page.evaluate((name) => window[name].state().status, game.api), 'paused');
-      const before = await surface.evaluate((c) => c.toDataURL());
+      const before =
+        game.game === 'proofreader'
+          ? await page.evaluate(() =>
+              JSON.stringify({
+                frames: window.__proofreader.graphics().frames,
+                time: window.__proofreader.state().time,
+              })
+            )
+          : await surface.evaluate((c) => c.toDataURL());
       await page.waitForTimeout(180);
       assert.equal(
-        await surface.evaluate((c) => c.toDataURL()),
+        game.game === 'proofreader'
+          ? await page.evaluate(() =>
+              JSON.stringify({
+                frames: window.__proofreader.graphics().frames,
+                time: window.__proofreader.state().time,
+              })
+            )
+          : await surface.evaluate((c) => c.toDataURL()),
         before,
         'paused pixels kept animating'
       );

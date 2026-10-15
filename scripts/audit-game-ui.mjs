@@ -4,6 +4,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { isDeepStrictEqual } from 'node:util';
 import { chromium, webkit, firefox } from 'playwright';
 import { startPreview } from './lib/previewServer.mjs';
+import { driveProofreader3D } from './lib/proofreaderAgent.mjs';
 import { waitForPageReady, clickControl } from './lib/gameAuditUi.mjs';
 import { checkDinoPauseResume, checkPhagePlacement, checkGenomeKeyboardSteering } from './lib/gameAuditActions.mjs';
 
@@ -56,7 +57,7 @@ const games = [
     slug: 'proofreader',
     title: 'Proofreader',
     linkName: 'Proofreader',
-    query: '?seed=2026',
+    query: '?mode=campaign&stage=1',
     global: '__proofreader',
     instances: '__proofreaderInstances',
     canvas: '[data-proof-canvas]',
@@ -208,8 +209,13 @@ async function auditGame(page, scope, profile, game) {
 
   const touchTargets = page.locator(game.controls);
   for (let index = 0; index < (await touchTargets.count()); index++) {
-    const box = await touchTargets.nth(index).boundingBox();
-    if (!box || box.height < 43.5) fail(scope, `control ${index + 1} is smaller than 44 CSS pixels`);
+    const target = touchTargets.nth(index);
+    // Some playfield controls deliberately disappear beneath the Ready/Pause overlay.
+    // Active Proofreader touch controls are checked separately by audit:proofreader.
+    if (!(await target.isVisible())) continue;
+    const box = await target.boundingBox();
+    if (!box || box.height < 43.5)
+      fail(scope, `control ${index + 1} is smaller than 44 CSS pixels`);
   }
 
   await game.drive(page, scope, profile, game);
@@ -361,123 +367,62 @@ async function driveGenomeJumper(page, scope, profile) {
 
 async function driveProofreader(page, scope, profile) {
   const canvas = page.locator('[data-proof-canvas]');
-  const box = await canvas.boundingBox();
-  if (!box) throw new Error('Canvas has no bounding box');
-
+  await page.evaluate(() => window.__proofreader.start());
+  const initial = await page.evaluate(() => window.__proofreader.state().player.position.z);
+  await canvas.focus();
   if (profile.touch) {
-    // Drag the left half of the view upward — the virtual thumbstick moves forward.
+    const box = await canvas.boundingBox();
     await canvas.dispatchEvent('pointerdown', {
       pointerId: 5,
       pointerType: 'touch',
-      clientX: box.x + box.width * 0.25,
-      clientY: box.y + box.height * 0.62,
-      isPrimary: true,
+      clientX: box.x + box.width * 0.2,
+      clientY: box.y + box.height * 0.6,
     });
     await canvas.dispatchEvent('pointermove', {
       pointerId: 5,
       pointerType: 'touch',
-      clientX: box.x + box.width * 0.25,
-      clientY: box.y + box.height * 0.32,
-      isPrimary: true,
+      clientX: box.x + box.width * 0.2,
+      clientY: box.y + box.height * 0.3,
     });
-    await page.evaluate(() => window.__proofreader?.tick(24));
-    await canvas.dispatchEvent('pointerup', {
-      pointerId: 5,
-      pointerType: 'touch',
-      clientX: box.x + box.width * 0.25,
-      clientY: box.y + box.height * 0.32,
-      isPrimary: true,
-    });
-    await expect(
-      scope,
-      () => page.evaluate(() => (window.__proofreader?.state().player.x ?? 0) > 1.6),
-      'touch drag did not move the player forward'
-    );
+    await page.evaluate(() => window.__proofreader.tick(24));
+    await canvas.dispatchEvent('pointerup', { pointerId: 5, pointerType: 'touch' });
   } else {
-    await page.evaluate(() => window.__proofreader?.start());
-    await page.locator('[data-game-root]').focus();
     await page.keyboard.down('w');
-    await page.evaluate(() => window.__proofreader?.tick(24));
+    await page.evaluate(() => window.__proofreader.tick(24));
     await page.keyboard.up('w');
-    await expect(
-      scope,
-      () => page.evaluate(() => (window.__proofreader?.state().player.x ?? 0) > 1.6),
-      'keyboard move did not advance the player'
-    );
   }
-
   await expect(
     scope,
-    () => page.evaluate(() => window.__proofreader?.state().status === 'playing'),
-    'game did not enter playing state'
+    () => page.evaluate((z) => window.__proofreader.state().player.position.z < z - 0.1, initial),
+    'forward movement did not advance in 3D'
   );
-
-  // Mouse-look / keyboard turn rotates the camera.
-  await page.evaluate(() => window.__proofreader?.turn(Math.PI / 2));
+  await page.locator('[data-proof-pause]').click();
   await expect(
     scope,
-    () => page.evaluate(() => Math.abs(window.__proofreader?.state().player.angle ?? 0) > 0.3),
-    'turning did not rotate the view'
+    () => page.evaluate(() => window.__proofreader.state().status === 'paused'),
+    'Pause did not pause'
   );
-
-  // Combat: place a mutation dead ahead in line of sight, then fire the pulse.
-  await page.evaluate(() => {
-    const api = window.__proofreader;
-    if (!api) return;
-    const state = api.state();
-    state.player.angle = 0;
-    state.enemies = [
-      {
-        id: 999,
-        kind: 'substitution',
-        x: state.player.x + 0.6,
-        y: state.player.y,
-        hp: 1,
-        speed: 0,
-        heading: 0,
-        retargetIn: 99,
-        attackIn: 99,
-        hurtFor: 0,
-        alive: true,
-        windup: 0,
-      },
-    ];
-  });
-  await page.locator('[data-proof-fire]').click();
-  await page.evaluate(() => window.__proofreader?.tick(1));
+  await page.locator('[data-proof-pause]').click();
+  await expect(
+    scope,
+    () => page.evaluate(() => window.__proofreader.state().status === 'playing'),
+    'Resume did not resume'
+  );
+  const result = await page.evaluate(driveProofreader3D);
+  await expect(
+    scope,
+    async () => result.status === 'won',
+    `legal-input campaign failed: ${JSON.stringify(result)}`
+  );
   await expect(
     scope,
     () =>
-      page.evaluate(() => {
-        const state = window.__proofreader?.state();
-        return (state?.kills ?? 0) >= 1 && (state?.score ?? 0) > 0;
-      }),
-    'Fire control did not eliminate a mutation'
-  );
-
-  await page.locator('[data-proof-pause]').click();
-  await expect(
-    scope,
-    () => page.evaluate(() => window.__proofreader?.state().status === 'paused'),
-    'Pause control did not pause'
-  );
-  await page.locator('[data-proof-pause]').click();
-  await expect(
-    scope,
-    () => page.evaluate(() => window.__proofreader?.state().status === 'playing'),
-    'Pause control did not resume'
-  );
-
-  await page.evaluate(() => window.__proofreader?.endRun());
-  await expect(
-    scope,
-    () => page.evaluate(() => window.__proofreader?.state().status === 'over'),
-    'forced run end did not reach game-over state'
-  );
-  await expect(
-    scope,
-    () => page.evaluate(() => Object.values(JSON.parse(localStorage.getItem('khc-arcade-proofreader-v2') || '{}').records || {}).some(record => record.score > 0)),
-    'best score was not persisted'
+      page.evaluate(() =>
+        Object.values(
+          JSON.parse(localStorage.getItem('khc-arcade-proofreader-v3') || '{}').records || {}
+        ).some((r) => r.score > 0)
+      ),
+    'v3 records were not saved'
   );
   await page.locator('[data-proof-share]').click();
   await page.waitForFunction(() =>

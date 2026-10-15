@@ -305,7 +305,7 @@ export const sideProjects: SideProject[] = [
   {
     name: 'Proofreader',
     detail:
-      'Pixel-art nucleoid raycaster — master six tactical sectors, pierce enemy formations, activate supply relays, and challenge a three-phase guardian with keyboard or touch',
+      'True 3D biotech FPS — explore six multi-level laboratories, master three weapons, flank robotic threats, and face a three-phase guardian with keyboard or touch',
     url: '/games/proofreader/',
   },
   {

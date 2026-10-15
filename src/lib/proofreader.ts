@@ -1,202 +1,205 @@
-/**
- * Pure, deterministic Proofreader engine — no DOM, no timers, no rendering.
- *
- * Proofreader is a first-person raycast shooter. You play the proofreading domain
- * of bacterial DNA polymerase III, sweeping a nucleoid-inspired maze and clearing toy lesions
- * (substitution / insertion / deletion enemies) before they overwhelm you. Nucleotide
- * pickups (A/C/G/T) restore correction charges (ammo) and integrity (health).
- *
- * Every rule is a pure function of an explicit `GameState`, so the whole thing is
- * unit-testable (see `proofreader.test.ts`): raycasting, collision, line-of-sight,
- * hitscan combat, enemy AI, and wave progression. Rendering, input, wall-clock timing,
- * and audio live in the controller (`src/scripts/proofreader.ts`).
- *
- * World units are grid cells; `map[y][x]` is 0 for open floor and 1–4 for a wall
- * style. Cell centers sit at `(x + 0.5, y + 0.5)`. Angle 0 points along +x; a positive
- * angle turns clockwise on screen (screen y points down). All gameplay randomness is
- * held in `state.rngState` via the mulberry32 recurrence, so a given seed reproduces a
- * run exactly and a full `GameState` is serializable and comparable in tests.
- */
+/** Proofreader v3: deterministic, serializable 3D gameplay. No DOM, GPU, clocks, or audio. */
+import type { RunOptions, RunResult, RunStatus } from './arcade';
+import { createLevel, type EnemyKind, type ProofLevel } from './proofreaderLevels';
+import {
+  add,
+  compileWorld,
+  direction,
+  distance,
+  findWorldPath,
+  rayBox,
+  rayDistance,
+  resolveBody,
+  moveBody,
+  scale,
+  subtract,
+  unit,
+  v3,
+  visible,
+  type DynamicBox,
+  type Vec3,
+} from './proofreaderWorld';
+export { createLevel } from './proofreaderLevels';
+export { compileWorld, direction, distance, findWorldPath, v3 } from './proofreaderWorld';
+export type { Vec3, ProofLevel, EnemyKind };
 
-import { CAMPAIGNS, type RunOptions, type RunResult } from './arcade';
-
-export type Status = 'ready' | 'playing' | 'paused' | 'over' | 'won';
-export type Base = 'A' | 'C' | 'G' | 'T';
-export const BASES: readonly Base[] = ['A', 'C', 'G', 'T'];
-
-export type EnemyKind = 'substitution' | 'insertion' | 'deletion';
-export type PickupKind = 'ammo' | 'health';
-
-/** The single most salient thing that happened during the last `step`, for sound/particles. */
-export type GameEvent =
-  | 'none'
-  | 'fire'
-  | 'empty'
-  | 'hit'
-  | 'kill'
-  | 'hurt'
-  | 'pickup'
-  | 'wave'
-  | 'over'
-  | 'relay'
-  | 'won';
-
+export type WeaponId = 'carbine' | 'scatter' | 'pulse';
+export const WEAPONS = {
+  carbine: {
+    name: 'Precision carbine',
+    capacity: 24,
+    reserve: 120,
+    damage: 18,
+    pellets: 1,
+    cooldown: 0.16,
+    reload: 1.2,
+    range: 46,
+    spread: 0.004,
+  },
+  scatter: {
+    name: 'Scatter emitter',
+    capacity: 6,
+    reserve: 30,
+    damage: 9,
+    pellets: 7,
+    cooldown: 0.8,
+    reload: 1.6,
+    range: 15,
+    spread: 0.075,
+  },
+  pulse: {
+    name: 'Pulse caster',
+    capacity: 3,
+    reserve: 15,
+    damage: 75,
+    pellets: 1,
+    cooldown: 1.1,
+    reload: 1.8,
+    range: 40,
+    spread: 0,
+  },
+} as const;
+export const WEAPON_IDS: WeaponId[] = ['carbine', 'scatter', 'pulse'];
+export const TUNING = {
+  playerRadius: 0.3,
+  playerHeight: 1.75,
+  eyeHeight: 1.58,
+  moveSpeed: 4.5,
+  sprintSpeed: 6.5,
+  gravity: 22,
+  jumpSpeed: 7,
+  turnSpeed: 2.1,
+  maxHealth: 100,
+  maxEnemies: 16,
+  maxProjectiles: 48,
+  maxEffects: 48,
+  maxPickups: 24,
+} as const;
 export interface Player {
-  x: number;
-  y: number;
-  angle: number;
+  position: Vec3;
+  previous: Vec3;
+  velocity: Vec3;
+  yaw: number;
+  pitch: number;
   health: number;
-  ammo: number;
+  grounded: boolean;
+  coyote: number;
+  jumpBuffer: number;
+  jumpHeld: boolean;
+  weapon: WeaponId;
+  magazines: Record<WeaponId, number>;
+  reserves: Record<WeaponId, number>;
+  reloading: number;
+  cooldown: number;
 }
-
 export interface Enemy {
   id: number;
   kind: EnemyKind;
-  x: number;
-  y: number;
+  position: Vec3;
+  previous: Vec3;
+  velocity: Vec3;
   hp: number;
-  speed: number; // cells/s, scaled by wave
-  heading: number; // current travel direction (rad)
-  retargetIn: number; // s until the wander heading is re-rolled
-  attackIn: number; // s until the next melee is allowed
-  hurtFor: number; // s of hit-flash left (render hint)
+  maxHp: number;
   alive: boolean;
-  attackWindup?: number;
-  chargeFor?: number;
-  chargeHeading?: number;
-  boss?: boolean;
-  bossPhase?: number;
+  yaw: number;
+  attackIn: number;
+  windup: number;
+  attacking: boolean;
+  charge: Vec3 | null;
+  chargeFor: number;
+  hurtFor: number;
+  path: Vec3[];
+  pathIn: number;
+  phase: number;
 }
-
-export interface Pickup {
-  id: number;
-  kind: PickupKind;
-  base: Base;
-  x: number;
-  y: number;
-  taken: boolean;
-}
-
-export interface StepInput {
-  forward: number; // -1..1
-  strafe: number; // -1..1
-  turn: number; // -1..1 (keyboard turn; pointer look calls turnBy directly)
-  fire: boolean;
-  pulse?: boolean;
-}
-
 export interface ProofProjectile {
   id: number;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
+  position: Vec3;
+  previous: Vec3;
+  velocity: Vec3;
   life: number;
+  hostile: boolean;
+  damage: number;
+  radius: number;
+  shot: number;
 }
-export interface ProofRelay {
-  x: number;
-  y: number;
-  active: boolean;
+export interface ProofEffect {
+  id: number;
+  kind: 'tracer' | 'impact' | 'blast' | 'hit' | 'pickup';
+  position: Vec3;
+  end: Vec3;
+  life: number;
+  duration: number;
+  hostile: boolean;
 }
-
+export interface ProofPickup {
+  id: number;
+  position: Vec3;
+  kind: 'ammo' | 'health';
+  taken: boolean;
+}
+export interface StepInput {
+  forward: number;
+  strafe: number;
+  turn: number;
+  fire: boolean;
+  look?: number;
+  jump?: boolean;
+  sprint?: boolean;
+  reload?: boolean;
+  interact?: boolean;
+  weapon?: WeaponId;
+}
+export const IDLE_INPUT: StepInput = { forward: 0, strafe: 0, turn: 0, fire: false };
+interface MissionState {
+  triggered: number[];
+  objectives: number[];
+  checkpoints: number[];
+  crates: { id: number; hp: number }[];
+  holdout: number;
+  holdoutSpawned: boolean;
+  holdoutWaves: number;
+  exitOpen: boolean;
+  objectiveTimes: Record<number, number>;
+}
 export interface GameState {
-  status: Status;
+  status: RunStatus;
+  run: RunOptions;
+  level: ProofLevel;
   seed: number;
   rngState: number;
   time: number;
-  map: number[][];
-  cols: number;
-  rows: number;
+  runTime: number;
   player: Player;
-  aimAssist: boolean; // widened hit cone for touch aiming
   enemies: Enemy[];
-  pickups: Pickup[];
-  wave: number; // 0 until the first wave spawns
-  intermission: number; // s until the next wave; 0 while a wave is live
-  kills: number;
-  score: number;
-  sequence: Base[]; // collected bases, HUD flavor
-  fireCooldown: number;
-  muzzleFor: number; // s of muzzle flash left (render hint)
-  damageFor: number; // s of damage vignette left (render hint)
-  nextId: number;
-  lastEvent: GameEvent;
-  events: GameEvent[];
-  run: RunOptions;
   projectiles: ProofProjectile[];
-  relays: ProofRelay[];
-  exit: { x: number; y: number; open: boolean };
+  pickups: ProofPickup[];
+  effects: ProofEffect[];
+  mission: MissionState;
+  score: number;
+  kills: number;
   shots: number;
   hits: number;
   damageTaken: number;
-  pulseCooldown: number;
-  lastDamageAngle: number;
-  navigation?: { playerCell: number; expires: number; distance: number[][] };
+  wave: number;
+  aimAssist: boolean;
+  events: string[];
+  lastEvent: string;
+  nextId: number;
+  muzzleFor: number;
+  hitFor: number;
+  damageFor: number;
+  retries: number;
+  checkpoint: { label: string; data: Snapshot } | null;
+  notice: string;
+  intermission: number;
+  lastDamageYaw: number;
+  context: string;
+  interactHeld: boolean;
 }
+type Snapshot = Omit<GameState, 'level' | 'checkpoint' | 'runTime' | 'retries'>;
 
-export interface RayHit {
-  distance: number; // Euclidean distance along the ray to the wall face
-  wallType: number; // 0 when nothing was hit within maxDist
-  side: 0 | 1; // 0 = x-facing wall, 1 = y-facing wall
-  hitX: number;
-  hitY: number;
-  u: number; // fractional coordinate along the wall face, for texture detail
-}
-
-export interface FireResult {
-  fired: boolean;
-  hitId: number | null;
-  killed: boolean;
-}
-
-export const TUNING = {
-  fov: Math.PI / 3, // 60° horizontal field of view
-  playerRadius: 0.22,
-  moveSpeed: 3.1,
-  strafeSpeed: 2.5,
-  turnSpeed: 2.7, // rad/s keyboard turn
-  maxHealth: 100,
-  startAmmo: 24,
-  maxAmmo: 40,
-  fireCooldown: 0.28,
-  fireRange: 14,
-  hitCone: 0.1, // rad half-angle (desktop precision)
-  assistCone: 0.19, // rad half-angle (touch aim assist)
-  enemyRadius: 0.3,
-  aggroRange: 8,
-  attackRange: 0.85,
-  attackDamage: 12,
-  attackInterval: 1.0,
-  pickupRadius: 0.55,
-  ammoPerPickup: 8,
-  healthPerPickup: 20,
-  dropChance: 0.35,
-  intermission: 1.6,
-  maxRayDistance: 32,
-} as const;
-
-const ENEMY_POINTS: Record<EnemyKind, number> = {
-  substitution: 10,
-  insertion: 15,
-  deletion: 25,
-};
-
-const ENEMY_HP: Record<EnemyKind, number> = {
-  substitution: 1,
-  insertion: 2,
-  deletion: 3,
-};
-
-const ENEMY_BASE_SPEED: Record<EnemyKind, number> = {
-  substitution: 1.4,
-  insertion: 1.1,
-  deletion: 0.9,
-};
-
-/** Deterministic RNG returning a float in [0, 1). Same seed → same sequence. */
-export type RNG = () => number;
-
-export function mulberry32(seed: number): RNG {
+export function mulberry32(seed: number) {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) | 0;
@@ -205,1024 +208,943 @@ export function mulberry32(seed: number): RNG {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-
-/** In-state RNG (mulberry32 recurrence over `rngState`) so a full state is reproducible. */
-function random(state: GameState): number {
-  state.rngState = (state.rngState + 0x6d2b79f5) | 0;
-  let t = Math.imul(state.rngState ^ (state.rngState >>> 15), 1 | state.rngState);
+function random(s: GameState) {
+  s.rngState = (s.rngState + 0x6d2b79f5) | 0;
+  let t = Math.imul(s.rngState ^ (s.rngState >>> 15), 1 | s.rngState);
   t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 }
-
-/** Wrap an angle to (−π, π]. */
-export function normalizeAngle(a: number): number {
-  const twoPi = Math.PI * 2;
-  let r = (((a + Math.PI) % twoPi) + twoPi) % twoPi;
-  return r - Math.PI;
+export const normalizeAngle = (a: number) =>
+  ((((a + Math.PI) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)) - Math.PI;
+export const eye = (s: GameState) => add(s.player.position, v3(0, TUNING.eyeHeight, 0));
+export const enemyCenter = (e: Enemy) =>
+  add(e.position, v3(0, e.kind === 'guardian' ? 1.7 : e.kind === 'flyer' ? 0.35 : 0.8, 0));
+const radius = (e: Enemy) =>
+  e.kind === 'guardian' ? 1.3 : e.kind === 'charger' ? 0.6 : e.kind === 'flyer' ? 0.55 : 0.45;
+const maxHp: Record<EnemyKind, number> = {
+  scout: 36,
+  charger: 90,
+  sentry: 108,
+  flyer: 54,
+  guardian: 180,
+};
+function emit(s: GameState, event: string) {
+  s.lastEvent = event;
+  if (s.events.length < 32) s.events.push(event);
 }
-
-/** 4-connected flood fill of open cells (value 0) from (sx, sy); returns the reachable mask. */
-function reachableFrom(grid: number[][], sx: number, sy: number): boolean[][] {
-  const h = grid.length;
-  const w = grid[0].length;
-  const seen: boolean[][] = Array.from({ length: h }, () => Array.from({ length: w }, () => false));
-  if (grid[sy][sx] !== 0) return seen;
-  const stack: Array<[number, number]> = [[sx, sy]];
-  seen[sy][sx] = true;
-  const dirs: Array<[number, number]> = [
-    [1, 0],
-    [-1, 0],
-    [0, 1],
-    [0, -1],
-  ];
-  while (stack.length) {
-    const [x, y] = stack.pop() as [number, number];
-    for (const [dx, dy] of dirs) {
-      const nx = x + dx;
-      const ny = y + dy;
-      if (nx >= 0 && ny >= 0 && nx < w && ny < h && grid[ny][nx] === 0 && !seen[ny][nx]) {
-        seen[ny][nx] = true;
-        stack.push([nx, ny]);
-      }
-    }
-  }
-  return seen;
+function effect(
+  s: GameState,
+  kind: ProofEffect['kind'],
+  position: Vec3,
+  end = position,
+  hostile = false
+) {
+  const duration = kind === 'blast' ? 0.5 : kind === 'tracer' ? 0.085 : 0.25;
+  if (s.effects.length >= TUNING.maxEffects) s.effects.shift();
+  s.effects.push({
+    id: s.nextId++,
+    kind,
+    position: { ...position },
+    end: { ...end },
+    duration,
+    life: duration,
+    hostile,
+  });
 }
-
-/**
- * Carve 2–3 rectangular chambers into the maze so the space is not uniform corridors.
- * Each room is linked back to the spawn by an interior L-corridor, so it is reachable by
- * construction. Returns the room centres (used as guaranteed cover-post sites).
- */
-function carveRooms(grid: number[][], rng: RNG, w: number, h: number): Array<[number, number]> {
-  const centers: Array<[number, number]> = [];
-  const count = 2 + Math.floor(rng() * 2); // 2–3
-  for (let i = 0; i < count; i++) {
-    const rw = 3 + Math.floor(rng() * 3); // 3–5
-    const rh = 3 + Math.floor(rng() * 3);
-    const rx = 1 + Math.floor(rng() * Math.max(1, w - 2 - rw));
-    const ry = 1 + Math.floor(rng() * Math.max(1, h - 2 - rh));
-    for (let y = ry; y < ry + rh && y < h - 1; y++) {
-      for (let x = rx; x < rx + rw && x < w - 1; x++) grid[y][x] = 0;
-    }
-    const cx = Math.min(w - 2, rx + (rw >> 1));
-    const cy = Math.min(h - 2, ry + (rh >> 1));
-    // L-path (interior only) from the room centre to the spawn corner.
-    for (let x = Math.min(cx, 1); x <= Math.max(cx, 1); x++) grid[cy][x] = 0;
-    for (let y = Math.min(cy, 1); y <= Math.max(cy, 1); y++) grid[y][1] = 0;
-    centers.push([cx, cy]);
-  }
-  return centers;
-}
-
-/**
- * Drop a few single-cell cover posts into open areas (room centres first, then random),
- * reverting any placement that would isolate part of the map.
- */
-function addPillars(
-  grid: number[][],
-  rng: RNG,
-  w: number,
-  h: number,
-  centers: Array<[number, number]>
-): void {
-  const tryPlace = (x: number, y: number): boolean => {
-    if (x <= 2 && y <= 2) return false; // keep the spawn room clear
-    if (grid[y][x] !== 0) return false;
-    // Only where all four orthogonal neighbours are open (interior of a room/arena).
-    if (
-      grid[y - 1][x] !== 0 ||
-      grid[y + 1][x] !== 0 ||
-      grid[y][x - 1] !== 0 ||
-      grid[y][x + 1] !== 0
-    )
-      return false;
-    grid[y][x] = 1; // tentative post
-    const seen = reachableFrom(grid, 1, 1);
-    for (let yy = 1; yy < h - 1; yy++) {
-      for (let xx = 1; xx < w - 1; xx++) {
-        if (grid[yy][xx] === 0 && !seen[yy][xx]) {
-          grid[y][x] = 0; // would isolate a cell — revert
-          return false;
-        }
-      }
-    }
-    return true;
+export function createGame(seed = 1, options?: Partial<RunOptions>, level?: ProofLevel): GameState {
+  const run: RunOptions = {
+    mode: 'campaign',
+    stage: 1,
+    difficulty: 'standard',
+    seed: seed >>> 0,
+    ...options,
   };
-  const target = 2 + Math.floor(rng() * 3); // 2–4
-  let placed = 0;
-  for (const [cx, cy] of centers) {
-    if (placed >= target) break;
-    if (tryPlace(cx, cy)) placed++;
-  }
-  let attempts = 0;
-  while (placed < target && attempts < 200) {
-    attempts++;
-    const x = 2 + Math.floor(rng() * (w - 4));
-    const y = 2 + Math.floor(rng() * (h - 4));
-    if (tryPlace(x, y)) placed++;
-  }
-}
-
-/** Refill any open cell not reachable from the spawn, so no isolated pockets can exist. */
-function repairConnectivity(grid: number[][], w: number, h: number): void {
-  const seen = reachableFrom(grid, 1, 1);
-  for (let y = 1; y < h - 1; y++) {
-    for (let x = 1; x < w - 1; x++) {
-      if (grid[y][x] === 0 && !seen[y][x]) grid[y][x] = 1;
-    }
-  }
-}
-
-/** Coherent, role-legible wall style (1–4): border membrane, cover post, or zoned interior. */
-function wallStyle(grid: number[][], x: number, y: number, w: number, h: number): number {
-  if (x === 0 || y === 0 || x === w - 1 || y === h - 1) return 4; // outer membrane ring
-  const isPillar =
-    grid[y - 1][x] === 0 && grid[y + 1][x] === 0 && grid[y][x - 1] === 0 && grid[y][x + 1] === 0;
-  if (isPillar) return 3; // free-standing cover post
-  return y < h / 2 ? 1 : 2; // two coherent interior zones (top / bottom)
-}
-
-/**
- * Procedural maze-arena. A recursive-backtracker maze on the odd lattice, then ~22% of
- * interior walls between two open cells are removed for FPS sightlines, then a few rooms
- * and cover pillars are added for layout variety. The 2×2 spawn room is force-carved,
- * connectivity is guaranteed, the border ring is solid, and every wall gets a coherent
- * style 1–4 (border / pillar / zoned interior).
- */
-export function generateMap(rng: RNG, cols = 17, rows = 17): number[][] {
-  const w = cols % 2 === 0 ? cols + 1 : cols;
-  const h = rows % 2 === 0 ? rows + 1 : rows;
-  const grid: number[][] = Array.from({ length: h }, () => Array.from({ length: w }, () => 1));
-
-  // Carve corridors with an explicit-stack recursive backtracker.
-  grid[1][1] = 0;
-  const stack: Array<[number, number]> = [[1, 1]];
-  const dirs: Array<[number, number]> = [
-    [2, 0],
-    [-2, 0],
-    [0, 2],
-    [0, -2],
-  ];
-  while (stack.length) {
-    const [cx, cy] = stack[stack.length - 1];
-    const options: Array<[number, number]> = [];
-    for (const [dx, dy] of dirs) {
-      const nx = cx + dx;
-      const ny = cy + dy;
-      if (nx > 0 && nx < w - 1 && ny > 0 && ny < h - 1 && grid[ny][nx] === 1) {
-        options.push([dx, dy]);
-      }
-    }
-    if (options.length === 0) {
-      stack.pop();
-      continue;
-    }
-    const [dx, dy] = options[Math.floor(rng() * options.length)];
-    grid[cy + dy / 2][cx + dx / 2] = 0; // knock down the wall between cells
-    grid[cy + dy][cx + dx] = 0; // carve the neighbour
-    stack.push([cx + dx, cy + dy]);
-  }
-
-  // Arena-ify: open interior walls that separate two open cells (never creates a pocket).
-  for (let y = 1; y < h - 1; y++) {
-    for (let x = 1; x < w - 1; x++) {
-      if (grid[y][x] !== 1) continue;
-      const horiz = grid[y][x - 1] === 0 && grid[y][x + 1] === 0;
-      const vert = grid[y - 1][x] === 0 && grid[y + 1][x] === 0;
-      if ((horiz || vert) && rng() < 0.22) grid[y][x] = 0;
-    }
-  }
-
-  const roomCenters = carveRooms(grid, rng, w, h);
-  addPillars(grid, rng, w, h, roomCenters);
-
-  // Force-carve the 2×2 spawn room so the player never starts boxed in.
-  grid[1][1] = 0;
-  grid[1][2] = 0;
-  grid[2][1] = 0;
-  grid[2][2] = 0;
-
-  repairConnectivity(grid, w, h);
-
-  // Solid border ring, then assign coherent wall styles.
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const border = x === 0 || y === 0 || x === w - 1 || y === h - 1;
-      if (border) {
-        grid[y][x] = 4;
-      } else if (grid[y][x] !== 0) {
-        grid[y][x] = wallStyle(grid, x, y, w, h);
-      }
-    }
-  }
-  return grid;
-}
-
-/** Authored cover geometry; all corridors connect to the open perimeter. */
-export function campaignMap(stage: number): number[][] {
-  const grid: number[][] = Array.from({ length: 17 }, (_, y) =>
-    Array.from({ length: 17 }, (_, x) => (x === 0 || y === 0 || x === 16 || y === 16 ? 4 : 0))
-  );
-  const walls: Array<[number, number]> = [];
-  if (stage === 1) walls.push([6, 6], [10, 6], [6, 10], [10, 10]);
-  if (stage === 2 || stage === 4) {
-    for (const y of [5, 11])
-      for (let x = 4; x <= 12; x++) if (![5, 8, 11].includes(x)) walls.push([x, y]);
-    for (const x of [5, 11]) walls.push([x, 8]);
-  }
-  if (stage === 3 || stage === 5) {
-    for (const y of [4, 8, 12]) for (const x of [4, 8, 12]) walls.push([x, y], [x + 1, y]);
-  }
-  if (stage === 6)
-    for (const x of [5, 11]) for (const y of [4, 5, 6, 10, 11, 12]) walls.push([x, y]);
-  for (const [x, y] of walls) grid[y][x] = 3;
-  return grid;
-}
-
-export function createGame(seed: number, cols = 17, rows = 17, options?: RunOptions): GameState {
-  const run: RunOptions = options
-    ? { ...options }
-    : { mode: 'classic', stage: 1, difficulty: 'standard', seed: seed >>> 0 };
-  const staged = run.mode === 'campaign' || run.mode === 'practice';
-  if (staged) seed = CAMPAIGNS.proofreader[run.stage - 1].seed;
-  const rng = mulberry32(seed);
-  const map = staged ? campaignMap(run.stage) : generateMap(rng, cols, rows);
+  const world = level ?? createLevel(run.mode === 'classic' ? (seed % 6) + 1 : run.stage);
+  const position = { ...world.spawn };
+  const magazines = {
+    carbine: WEAPONS.carbine.capacity,
+    scatter: WEAPONS.scatter.capacity,
+    pulse: WEAPONS.pulse.capacity,
+  };
+  const reserves = {
+    carbine: WEAPONS.carbine.reserve,
+    scatter: WEAPONS.scatter.reserve,
+    pulse: WEAPONS.pulse.reserve,
+  };
+  compileWorld(world);
   return {
     status: 'ready',
-    seed: seed >>> 0,
-    rngState: seed | 0,
-    time: 0,
-    map,
-    cols: map[0].length,
-    rows: map.length,
-    player: { x: 1.5, y: 1.5, angle: 0, health: TUNING.maxHealth, ammo: TUNING.startAmmo },
-    aimAssist: false,
-    enemies: [],
-    pickups: [],
-    wave: 0,
-    intermission: 0,
-    kills: 0,
-    score: 0,
-    sequence: [],
-    fireCooldown: 0,
-    muzzleFor: 0,
-    damageFor: 0,
-    nextId: 1,
-    lastEvent: 'none',
-    events: [],
     run,
+    level: world,
+    seed: run.seed,
+    rngState: run.seed | 0,
+    time: 0,
+    runTime: 0,
+    player: {
+      position,
+      previous: { ...position },
+      velocity: v3(),
+      yaw: 0,
+      pitch: 0,
+      health: 100,
+      grounded: false,
+      coyote: 0,
+      jumpBuffer: 0,
+      jumpHeld: false,
+      weapon: 'carbine',
+      magazines,
+      reserves,
+      reloading: 0,
+      cooldown: 0,
+    },
+    enemies: [],
     projectiles: [],
+    pickups: [],
+    effects: [],
+    mission: {
+      triggered: [],
+      objectives: [],
+      checkpoints: [],
+      crates: world.crates.map((_, i) => ({ id: i, hp: 36 })),
+      holdout: 0,
+      holdoutSpawned: false,
+      holdoutWaves: 0,
+      exitOpen: false,
+      objectiveTimes: {},
+    },
+    score: 0,
+    kills: 0,
     shots: 0,
     hits: 0,
     damageTaken: 0,
-    pulseCooldown: 0,
-    lastDamageAngle: 0,
-    relays:
-      staged && run.stage >= 4 && run.stage <= 5
-        ? Array.from({ length: run.stage - 2 }, (_, i) => ({
-            x: [3.5, 13.5, 8.5][i],
-            y: [13.5, 3.5, 14.5][i],
-            active: false,
-          }))
-        : [],
-    exit: { x: map[0].length - 1.5, y: map.length - 1.5, open: false },
-    navigation: undefined,
+    wave: 0,
+    aimAssist: false,
+    events: [],
+    lastEvent: 'none',
+    nextId: 1,
+    muzzleFor: 0,
+    hitFor: 0,
+    damageFor: 0,
+    retries: 0,
+    checkpoint: null,
+    notice: 'All three tools are ready. Find the first encounter.',
+    intermission: 0,
+    lastDamageYaw: 0,
+    context: '',
+    interactHeld: false,
   };
 }
-
-export function reset(state: GameState, seed: number): GameState {
-  Object.assign(state, createGame(seed, state.cols, state.rows, { ...state.run, seed }));
-  return state;
-}
-
-export function start(state: GameState): void {
-  if (state.status === 'ready' || state.status === 'paused') {
-    state.status = 'playing';
-    if (state.wave === 0) startWave(state);
+export function start(s: GameState) {
+  if (s.status !== 'ready' && s.status !== 'paused') return;
+  const fresh = s.status === 'ready';
+  s.status = 'playing';
+  if (fresh) {
+    saveCheckpoint(s, 'Mission entry');
+    if (s.run.mode === 'classic') spawnWave(s);
   }
 }
-
-export function pause(state: GameState): void {
-  if (state.status === 'playing') state.status = 'paused';
+export function pause(s: GameState) {
+  if (s.status === 'playing') s.status = 'paused';
 }
-
-export function setAimAssist(state: GameState, on: boolean): void {
-  state.aimAssist = on;
+export function turnBy(s: GameState, yaw: number, pitch = 0) {
+  if (s.status !== 'playing') return;
+  if (Number.isFinite(yaw))
+    s.player.yaw = normalizeAngle(s.player.yaw + Math.max(-Math.PI, Math.min(Math.PI, yaw)));
+  if (Number.isFinite(pitch))
+    s.player.pitch = Math.max(-1.38, Math.min(1.38, s.player.pitch + pitch));
 }
-
-export function turnBy(state: GameState, delta: number): void {
-  state.player.angle = normalizeAngle(state.player.angle + delta);
+export function setAimAssist(s: GameState, on: boolean) {
+  s.aimAssist = Boolean(on);
 }
-
-/** True if a circle of radius `r` centred at (x, y) overlaps any solid or out-of-bounds cell. */
-export function collides(map: number[][], x: number, y: number, r: number): boolean {
-  const rows = map.length;
-  const cols = map[0].length;
-  const minX = Math.floor(x - r);
-  const maxX = Math.floor(x + r);
-  const minY = Math.floor(y - r);
-  const maxY = Math.floor(y + r);
-  for (let cy = minY; cy <= maxY; cy++) {
-    for (let cx = minX; cx <= maxX; cx++) {
-      if (cx < 0 || cy < 0 || cx >= cols || cy >= rows) return true;
-      if (map[cy][cx] > 0) return true;
-    }
+export function dynamicBoxes(s: GameState): DynamicBox[] {
+  return [
+    ...s.level.doors
+      .map((d, i) => ({ d, i, fraction: doorOpenFraction(s, i) }))
+      .filter(({ fraction }) => fraction < 1)
+      .map(({ d, i, fraction }) => ({
+        id: -i - 1,
+        position: add(d.position, v3(0, (d.size.y + 0.4) * fraction, 0)),
+        size: d.size,
+      })),
+    ...s.mission.crates
+      .filter((c) => c.hp > 0)
+      .map((c) => ({
+        id: c.id,
+        position: add(s.level.crates[c.id], v3(0, 0.55, 0)),
+        size: v3(1.1, 1.1, 1.1),
+      })),
+  ];
+}
+export function doorOpenFraction(s: GameState, index: number): number {
+  const relay = s.level.doors[index].relay;
+  if (!s.mission.objectives.includes(relay)) return 0;
+  const time = s.mission.objectiveTimes[relay];
+  if (time === undefined) return 1;
+  const t = Math.max(0, Math.min(1, (s.time - time) / 0.6));
+  return t * t * (3 - 2 * t);
+}
+export function pathTo(s: GameState, to: Vec3, from = s.player.position): Vec3[] {
+  return findWorldPath(compileWorld(s.level), from, to, dynamicBoxes(s));
+}
+export function hasLineOfSight(s: GameState, a: Vec3, b: Vec3) {
+  return visible(compileWorld(s.level), a, b, dynamicBoxes(s));
+}
+export function switchWeapon(s: GameState, id: WeaponId) {
+  if (s.status !== 'playing' || !WEAPON_IDS.includes(id) || s.player.weapon === id) return;
+  s.player.weapon = id;
+  s.player.reloading = 0;
+  s.player.cooldown = Math.max(s.player.cooldown, 0.18);
+  emit(s, 'switch');
+}
+export function reload(s: GameState) {
+  const p = s.player,
+    w = WEAPONS[p.weapon];
+  if (
+    s.status !== 'playing' ||
+    p.reloading > 0 ||
+    p.magazines[p.weapon] >= w.capacity ||
+    p.reserves[p.weapon] <= 0
+  )
+    return false;
+  p.reloading = w.reload;
+  emit(s, 'reload');
+  return true;
+}
+function refill(s: GameState) {
+  for (const id of WEAPON_IDS) {
+    s.player.magazines[id] = WEAPONS[id].capacity;
+    s.player.reserves[id] = WEAPONS[id].reserve;
   }
-  return false;
 }
-
-/** Axis-separated move so a circle slides along walls instead of sticking. */
-function moveCircle(
-  map: number[][],
-  x: number,
-  y: number,
-  dx: number,
-  dy: number,
-  r: number
-): { x: number; y: number } {
-  let nx = x;
-  let ny = y;
-  if (!collides(map, x + dx, y, r)) nx = x + dx;
-  if (!collides(map, nx, y + dy, r)) ny = y + dy;
-  return { x: nx, y: ny };
+function sphereRay(origin: Vec3, dir: Vec3, center: Vec3, r: number): number {
+  const delta = subtract(center, origin),
+    along = delta.x * dir.x + delta.y * dir.y + delta.z * dir.z;
+  const d2 = delta.x ** 2 + delta.y ** 2 + delta.z ** 2 - along ** 2;
+  if (d2 > r * r || along < 0) return Infinity;
+  return Math.max(0, along - Math.sqrt(Math.max(0, r * r - d2)));
 }
-
-export function movePlayer(state: GameState, forward: number, strafe: number, dt: number): void {
-  let f = forward;
-  let s = strafe;
-  const mag = Math.hypot(f, s);
-  if (mag > 1) {
-    f /= mag;
-    s /= mag;
+function hurtEnemy(s: GameState, e: Enemy, damage: number) {
+  if (!e.alive) return false;
+  if (e.kind === 'guardian' && !s.mission.objectives.includes(e.phase + 1)) return false;
+  if (e.kind === 'sentry') {
+    const toward = unit(subtract(s.player.position, e.position)),
+      facing = direction(e.yaw);
+    if (toward.x * facing.x + toward.z * facing.z > 0.8 && e.windup <= 0) damage *= 0.45;
   }
-  const a = state.player.angle;
-  const cosA = Math.cos(a);
-  const sinA = Math.sin(a);
-  // Strafe axis is the view direction rotated +90° (cos(a+π/2) = −sin a, sin(a+π/2) = cos a).
-  const dx = (cosA * f * TUNING.moveSpeed - sinA * s * TUNING.strafeSpeed) * dt;
-  const dy = (sinA * f * TUNING.moveSpeed + cosA * s * TUNING.strafeSpeed) * dt;
-  const moved = moveCircle(state.map, state.player.x, state.player.y, dx, dy, TUNING.playerRadius);
-  state.player.x = moved.x;
-  state.player.y = moved.y;
-}
-
-/** Cast a ray through the grid (DDA) and return the first wall it hits. */
-export function castRay(
-  map: number[][],
-  ox: number,
-  oy: number,
-  angle: number,
-  maxDist: number = TUNING.maxRayDistance
-): RayHit {
-  const rows = map.length;
-  const cols = map[0].length;
-  const dirX = Math.cos(angle);
-  const dirY = Math.sin(angle);
-  let mapX = Math.floor(ox);
-  let mapY = Math.floor(oy);
-  const deltaDistX = dirX === 0 ? Infinity : Math.abs(1 / dirX);
-  const deltaDistY = dirY === 0 ? Infinity : Math.abs(1 / dirY);
-  let stepX: number;
-  let stepY: number;
-  let sideDistX: number;
-  let sideDistY: number;
-  if (dirX < 0) {
-    stepX = -1;
-    sideDistX = (ox - mapX) * deltaDistX;
+  e.hp -= damage;
+  e.hurtFor = 0.16;
+  s.hitFor = 0.13;
+  emit(s, 'hit');
+  if (e.hp > 0) return true;
+  if (e.kind === 'guardian' && e.phase < 2) {
+    e.phase++;
+    e.hp = e.maxHp;
+    e.attacking = false;
+    e.windup = 0;
+    e.attackIn = 2;
+    s.score += 100;
+    s.notice = `Guardian phase ${e.phase + 1}: reach shield relay ${e.phase + 1}.`;
+    emit(s, 'wave');
   } else {
-    stepX = 1;
-    sideDistX = (mapX + 1 - ox) * deltaDistX;
-  }
-  if (dirY < 0) {
-    stepY = -1;
-    sideDistY = (oy - mapY) * deltaDistY;
-  } else {
-    stepY = 1;
-    sideDistY = (mapY + 1 - oy) * deltaDistY;
-  }
-
-  const noHit = (): RayHit => ({
-    distance: maxDist,
-    wallType: 0,
-    side: 0,
-    hitX: ox + dirX * maxDist,
-    hitY: oy + dirY * maxDist,
-    u: 0,
-  });
-
-  let side: 0 | 1 = 0;
-  for (let guard = 0; guard < 512; guard++) {
-    if (sideDistX < sideDistY) {
-      sideDistX += deltaDistX;
-      mapX += stepX;
-      side = 0;
-    } else {
-      sideDistY += deltaDistY;
-      mapY += stepY;
-      side = 1;
-    }
-    const distance = side === 0 ? sideDistX - deltaDistX : sideDistY - deltaDistY;
-    if (distance > maxDist) return noHit();
-    if (mapX < 0 || mapY < 0 || mapX >= cols || mapY >= rows) return noHit();
-    const cell = map[mapY][mapX];
-    if (cell > 0) {
-      const hitX = ox + dirX * distance;
-      const hitY = oy + dirY * distance;
-      const u = side === 0 ? hitY - Math.floor(hitY) : hitX - Math.floor(hitX);
-      return { distance, wallType: cell, side, hitX, hitY, u };
-    }
-  }
-  return noHit();
-}
-
-/** True if no wall lies between the two points (walls block shots and enemy chases). */
-export function hasLineOfSight(
-  map: number[][],
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number
-): boolean {
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const dist = Math.hypot(dx, dy);
-  if (dist < 1e-6) return true;
-  const hit = castRay(map, x1, y1, Math.atan2(dy, dx), dist);
-  return hit.distance > dist - 1e-4;
-}
-
-/**
- * Fire the proofreading pulse: a hitscan shot at the nearest visible enemy within an
- * angular cone. The cone widens for close enemies (their angular radius) and further
- * with aim assist, so touch aiming feels forgiving while staying skill-based on desktop.
- */
-export function fire(state: GameState): FireResult {
-  const miss: FireResult = { fired: false, hitId: null, killed: false };
-  if (state.status !== 'playing') return miss;
-  if (state.fireCooldown > 0) return miss;
-  if (state.player.ammo <= 0) {
-    emit(state, 'empty');
-    return miss;
-  }
-  state.player.ammo -= 1;
-  if (state.run.mode === 'practice') state.player.ammo = TUNING.maxAmmo;
-  state.shots++;
-  state.fireCooldown = TUNING.fireCooldown;
-  state.muzzleFor = 0.09;
-  emit(state, 'fire');
-
-  const { x: px, y: py, angle } = state.player;
-  const cone = state.aimAssist ? TUNING.assistCone : TUNING.hitCone;
-  let target: Enemy | null = null;
-  let targetDist = Infinity;
-  for (const e of state.enemies) {
-    if (!e.alive) continue;
-    const dx = e.x - px;
-    const dy = e.y - py;
-    const dist = Math.hypot(dx, dy);
-    if (dist > TUNING.fireRange || dist >= targetDist) continue;
-    const angDiff = Math.abs(normalizeAngle(Math.atan2(dy, dx) - angle));
-    const angularRadius = Math.asin(Math.min(1, TUNING.enemyRadius / Math.max(dist, 1e-4)));
-    if (angDiff > cone + angularRadius) continue;
-    if (!hasLineOfSight(state.map, px, py, e.x, e.y)) continue;
-    target = e;
-    targetDist = dist;
-  }
-
-  if (!target) return { fired: true, hitId: null, killed: false };
-
-  if (target.boss && !bossExposed(state)) return { fired: true, hitId: null, killed: false };
-  state.hits++;
-
-  target.hp -= 1;
-  target.hurtFor = 0.15;
-  if (target.hp > 0) {
-    emit(state, 'hit');
-    return { fired: true, hitId: target.id, killed: false };
-  }
-
-  target.alive = false;
-  state.kills += 1;
-  state.score += target.boss ? 500 : ENEMY_POINTS[target.kind];
-  emit(state, 'kill');
-  if (random(state) < TUNING.dropChance) {
-    state.pickups.push({
-      id: state.nextId++,
-      kind: random(state) < 0.5 ? 'ammo' : 'health',
-      base: BASES[Math.floor(random(state) * BASES.length)],
-      x: target.x,
-      y: target.y,
-      taken: false,
-    });
-  }
-  if (!state.enemies.some((e) => e.alive) && state.intermission <= 0) {
-    state.score += 25 * state.wave;
-    state.intermission = TUNING.intermission;
-  }
-  return { fired: true, hitId: target.id, killed: true };
-}
-
-function emit(state: GameState, event: GameEvent) {
-  state.lastEvent = event;
-  if (state.events.length < 32) state.events.push(event);
-}
-
-export function bossExposed(state: GameState): boolean {
-  return state.time % 6 >= 3.5;
-}
-
-/** Three-charge, two-damage piercing pulse; targets behind cover remain safe. */
-export function firePulse(state: GameState): boolean {
-  if (state.status !== 'playing' || state.pulseCooldown > 0 || state.player.ammo < 3) return false;
-  state.player.ammo -= 3;
-  if (state.run.mode === 'practice') state.player.ammo = TUNING.maxAmmo;
-  state.shots++;
-  state.pulseCooldown = 1.2;
-  state.muzzleFor = 0.16;
-  emit(state, 'fire');
-  let connected = false;
-  for (const enemy of state.enemies) {
-    if (!enemy.alive || (enemy.boss && !bossExposed(state))) continue;
-    const distance = Math.hypot(enemy.x - state.player.x, enemy.y - state.player.y);
-    if (
-      distance > 10 ||
-      Math.abs(
-        normalizeAngle(
-          Math.atan2(enemy.y - state.player.y, enemy.x - state.player.x) - state.player.angle
-        )
-      ) > 0.14 ||
-      !hasLineOfSight(state.map, state.player.x, state.player.y, enemy.x, enemy.y)
-    )
-      continue;
-    connected = true;
-    enemy.hp -= 2;
-    enemy.hurtFor = 0.18;
-    emit(state, 'hit');
-    if (enemy.hp <= 0) {
-      enemy.alive = false;
-      state.kills++;
-      state.score += enemy.boss ? 500 : ENEMY_POINTS[enemy.kind];
-      emit(state, 'kill');
-    }
-  }
-  if (connected) state.hits++;
-  if (!state.enemies.some((e) => e.alive) && state.intermission <= 0) {
-    state.score += 25 * state.wave;
-    state.intermission = TUNING.intermission;
+    e.alive = false;
+    s.kills++;
+    s.score += e.kind === 'guardian' ? 500 : e.kind === 'scout' ? 30 : 50;
+    emit(s, 'kill');
+    effect(s, 'blast', enemyCenter(e));
+    if (s.pickups.length < TUNING.maxPickups && e.kind !== 'flyer' && e.kind !== 'guardian')
+      s.pickups.push({
+        id: s.nextId++,
+        position: { ...e.position },
+        kind: random(s) < 0.3 ? 'health' : 'ammo',
+        taken: false,
+      });
   }
   return true;
 }
-
-function emptyCells(state: GameState): Array<[number, number]> {
-  const cells: Array<[number, number]> = [];
-  for (let y = 0; y < state.rows; y++) {
-    for (let x = 0; x < state.cols; x++) {
-      if (state.map[y][x] === 0) cells.push([x, y]);
+function damageCrate(s: GameState, id: number, damage: number) {
+  const crate = s.mission.crates.find((c) => c.id === id);
+  if (!crate || crate.hp <= 0) return;
+  crate.hp -= damage;
+  if (crate.hp <= 0) {
+    if (s.pickups.length < TUNING.maxPickups)
+      s.pickups.push({
+        id: s.nextId++,
+        position: { ...s.level.crates[id] },
+        kind: 'ammo',
+        taken: false,
+      });
+    effect(s, 'blast', add(s.level.crates[id], v3(0, 0.5, 0)));
+    emit(s, 'pickup');
+  }
+}
+export function fire(s: GameState): boolean {
+  const p = s.player,
+    w = WEAPONS[p.weapon];
+  if (s.status !== 'playing' || p.cooldown > 0 || p.reloading > 0) return false;
+  if (p.magazines[p.weapon] <= 0) {
+    if (!reload(s)) {
+      p.cooldown = 0.25;
+      emit(s, 'empty');
     }
+    return false;
   }
-  return cells;
-}
-
-function shuffle<T>(arr: T[], state: GameState): T[] {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(random(state) * (i + 1));
-    const tmp = arr[i];
-    arr[i] = arr[j];
-    arr[j] = tmp;
+  if (s.run.mode !== 'practice') p.magazines[p.weapon]--;
+  p.cooldown = w.cooldown;
+  s.muzzleFor = 0.08;
+  s.shots++;
+  emit(s, p.weapon === 'pulse' ? 'pulse' : p.weapon === 'scatter' ? 'scatter' : 'fire');
+  const origin = eye(s),
+    world = compileWorld(s.level),
+    boxes = dynamicBoxes(s);
+  let central = direction(p.yaw, p.pitch);
+  if (s.aimAssist) {
+    const targets = s.enemies
+      .filter(
+        (e) =>
+          e.alive &&
+          distance(origin, enemyCenter(e)) < w.range &&
+          hasLineOfSight(s, origin, enemyCenter(e))
+      )
+      .map((e) => ({ e, d: unit(subtract(enemyCenter(e), origin)) }))
+      .filter(({ d }) => d.x * central.x + d.y * central.y + d.z * central.z > Math.cos(0.075))
+      .sort((a, b) => distance(origin, enemyCenter(a.e)) - distance(origin, enemyCenter(b.e)));
+    if (targets[0]) central = targets[0].d;
   }
-  return arr;
-}
-
-function startWave(state: GameState): void {
-  state.enemies = state.enemies.filter((e) => e.alive);
-  state.wave += 1;
-  const wave = state.wave;
-  const staged = state.run.mode === 'campaign' || state.run.mode === 'practice';
-  const stage = state.run.stage;
-  const count = staged
-    ? stage === 6
-      ? 1
-      : stage === 4
-        ? 4
-        : stage === 5
-          ? 5
-          : CAMPAIGNS.proofreader[stage - 1].goal
-    : Math.min(3 + wave, 12);
-  const speedScale =
-    Math.min(1 + 0.04 * (wave - 1), 1.5) * (state.run.difficulty === 'expert' ? 1.2 : 1);
-  const kinds: EnemyKind[] = ['substitution'];
-  if ((staged ? stage : wave) >= 2) kinds.push('insertion');
-  if ((staged ? stage : wave) >= 3) kinds.push('deletion');
-
-  const px = state.player.x;
-  const py = state.player.y;
-  const far = shuffle(
-    emptyCells(state).filter(([x, y]) => Math.hypot(x + 0.5 - px, y + 0.5 - py) >= 6),
-    state
-  );
-  const pool = far.length >= count ? far : far.concat(shuffle(emptyCells(state), state));
-  for (let i = 0; i < count; i++) {
-    const [cx, cy] = staged && stage === 6 ? [13, 8] : pool[i % pool.length];
-    const kind = staged && stage === 6 ? 'deletion' : kinds[i % kinds.length];
-    state.enemies.push({
-      id: state.nextId++,
-      kind,
-      x: cx + 0.5,
-      y: cy + 0.5,
-      hp: staged && stage === 6 ? 18 : ENEMY_HP[kind],
-      speed: ENEMY_BASE_SPEED[kind] * speedScale,
-      heading: random(state) * Math.PI * 2 - Math.PI,
-      retargetIn: random(state),
-      attackIn: 0,
-      hurtFor: 0,
-      alive: true,
-      boss: staged && stage === 6,
-      bossPhase: 0,
-    });
+  if (p.weapon === 'pulse') {
+    if (s.projectiles.length < TUNING.maxProjectiles)
+      s.projectiles.push({
+        id: s.nextId++,
+        position: { ...origin },
+        previous: { ...origin },
+        velocity: scale(central, 19),
+        life: 2.5,
+        hostile: false,
+        damage: w.damage,
+        radius: 0.16,
+        shot: s.shots,
+      });
+    return true;
   }
-
-  // Scatter two ammo pickups so a long wave is survivable.
-  const spots = shuffle(emptyCells(state), state);
-  const near = spots.findIndex(([x, y]) => {
-    const distance = Math.hypot(x + 0.5 - px, y + 0.5 - py);
-    return distance >= 1.2 && distance <= 3 && hasLineOfSight(state.map, px, py, x + 0.5, y + 0.5);
-  });
-  if (near > 0) [spots[0], spots[near]] = [spots[near], spots[0]];
-  for (let i = 0; i < 2 && i < spots.length; i++) {
-    const [cx, cy] = spots[i];
-    state.pickups.push({
-      id: state.nextId++,
-      kind: 'ammo',
-      base: BASES[Math.floor(random(state) * BASES.length)],
-      x: cx + 0.5,
-      y: cy + 0.5,
-      taken: false,
-    });
-  }
-  if (staged) {
-    // Guaranteed resupply, not a random drop dependency; the open perimeter reaches it.
-    state.pickups.push({
-      id: state.nextId++,
-      kind: 'ammo',
-      base: 'G',
-      x: 2.5,
-      y: 1.5,
-      taken: false,
-    });
-    state.pickups.push({
-      id: state.nextId++,
-      kind: 'health',
-      base: 'C',
-      x: 1.5,
-      y: 3.5,
-      taken: false,
-    });
-  }
-  emit(state, 'wave');
-}
-
-/** One bounded flood-fill per player-cell change/half second, shared by all enemies. */
-function navigationField(state: GameState): number[][] {
-  const x = Math.floor(state.player.x);
-  const y = Math.floor(state.player.y);
-  const playerCell = y * state.cols + x;
-  if (state.navigation?.playerCell === playerCell && state.navigation.expires > state.time)
-    return state.navigation.distance;
-  const distance = state.map.map((row) => row.map(() => -1));
-  const queue: Array<[number, number]> = [[x, y]];
-  distance[y][x] = 0;
-  for (let i = 0; i < queue.length; i++) {
-    const [cx, cy] = queue[i];
-    for (const [dx, dy] of [
-      [-1, 0],
-      [1, 0],
-      [0, -1],
-      [0, 1],
-    ]) {
-      const nx = cx + dx;
-      const ny = cy + dy;
-      if (state.map[ny]?.[nx] !== 0 || distance[ny][nx] !== -1) continue;
-      distance[ny][nx] = distance[cy][cx] + 1;
-      queue.push([nx, ny]);
-    }
-  }
-  state.navigation = { playerCell, expires: state.time + 0.5, distance };
-  return distance;
-}
-
-function stepEnemies(state: GameState, dt: number): void {
-  const px = state.player.x;
-  const py = state.player.y;
-  const navigation = navigationField(state);
-  for (const e of state.enemies) {
-    if (!e.alive) continue;
-    e.hurtFor = Math.max(0, e.hurtFor - dt);
-    e.attackIn = Math.max(0, e.attackIn - dt);
-    e.retargetIn = Math.max(0, e.retargetIn - dt);
-
-    const dx = px - e.x;
-    const dy = py - e.y;
-    const dist = Math.hypot(dx, dy);
-    const tactical = state.run.mode !== 'classic';
-    if (
-      tactical &&
-      e.kind === 'insertion' &&
-      ((e.chargeFor ?? 0) > 0 ||
-        (dist > 1.3 && dist < 5 && e.attackIn <= 0 && hasLineOfSight(state.map, e.x, e.y, px, py)))
-    ) {
-      if ((e.chargeFor ?? 0) <= 0) {
-        e.attackWindup = (e.attackWindup ?? 0.7) - dt;
-        if (e.attackWindup > 0) continue;
-        e.chargeFor = 0.6;
-        e.chargeHeading = Math.atan2(dy, dx);
-        e.attackWindup = undefined;
-        e.attackIn = 2;
+  let connected = false;
+  for (let i = 0; i < w.pellets; i++) {
+    const dir =
+      w.pellets === 1
+        ? central
+        : unit(
+            add(
+              central,
+              v3(
+                (random(s) - 0.5) * w.spread * 2,
+                (random(s) - 0.5) * w.spread * 2,
+                (random(s) - 0.5) * w.spread * 2
+              )
+            )
+          );
+    let limit = rayDistance(world, origin, dir, w.range, boxes),
+      target: Enemy | null = null,
+      crateId: number | null = null;
+    for (const box of boxes)
+      if (box.id >= 0 && Math.abs(rayBox(origin, dir, box, w.range) - limit) < 0.001)
+        crateId = box.id;
+    for (const enemy of s.enemies) {
+      if (!enemy.alive) continue;
+      const d = sphereRay(origin, dir, enemyCenter(enemy), radius(enemy));
+      if (d < limit) {
+        limit = d;
+        target = enemy;
+        crateId = null;
       }
-      const heading = e.chargeHeading ?? e.heading;
-      const dash = moveCircle(
-        state.map,
-        e.x,
-        e.y,
-        Math.cos(heading) * 4 * dt,
-        Math.sin(heading) * 4 * dt,
-        TUNING.enemyRadius
-      );
-      const stopped = Math.hypot(dash.x - e.x, dash.y - e.y) < 0.001;
-      e.x = dash.x;
-      e.y = dash.y;
-      e.chargeFor = stopped ? 0 : Math.max(0, (e.chargeFor ?? 0) - dt);
-      if (Math.hypot(e.x - px, e.y - py) <= 0.75 && hasLineOfSight(state.map, e.x, e.y, px, py)) {
-        hurtPlayer(state, TUNING.attackDamage, Math.atan2(e.y - py, e.x - px));
+    }
+    const end = add(origin, scale(dir, limit));
+    if (i < 3) effect(s, 'tracer', origin, end);
+    effect(s, 'impact', end);
+    if (target) connected = hurtEnemy(s, target, w.damage) || connected;
+    else if (crateId !== null) damageCrate(s, crateId, w.damage);
+  }
+  if (connected) s.hits++;
+  return true;
+}
+function hurtPlayer(s: GameState, damage: number, source: Vec3) {
+  if (s.run.mode === 'practice' || s.status !== 'playing') return;
+  const amount = damage * (s.run.difficulty === 'expert' ? 1.4 : 1),
+    announce = s.damageFor <= 0;
+  s.player.health = Math.max(0, s.player.health - amount);
+  s.damageTaken += amount;
+  s.damageFor = 0.35;
+  s.lastDamageYaw = Math.atan2(source.x - s.player.position.x, -(source.z - s.player.position.z));
+  if (announce) emit(s, 'hurt');
+  if (s.player.health <= 0) {
+    s.status = 'over';
+    s.notice = 'Integrity depleted. Retry your checkpoint or restart for mastery.';
+    emit(s, 'over');
+  }
+}
+function spawn(s: GameState, kind: EnemyKind, position: Vec3) {
+  if (s.enemies.filter((e) => e.alive).length >= TUNING.maxEnemies) return;
+  const resolved =
+    kind === 'flyer'
+      ? position
+      : resolveBody(
+          compileWorld(s.level),
+          position,
+          v3(),
+          kind === 'guardian' ? 3.4 : 1.6,
+          kind === 'guardian' ? 1.1 : 0.4,
+          dynamicBoxes(s)
+        ).position;
+  s.enemies.push({
+    id: s.nextId++,
+    kind,
+    position: { ...resolved },
+    previous: { ...resolved },
+    velocity: v3(),
+    hp: maxHp[kind],
+    maxHp: maxHp[kind],
+    alive: true,
+    yaw: 0,
+    attackIn: 1.3,
+    windup: 0,
+    attacking: false,
+    charge: null,
+    chargeFor: 0,
+    hurtFor: 0,
+    path: [],
+    pathIn: 0,
+    phase: 0,
+  });
+}
+function spawnWave(s: GameState) {
+  s.wave++;
+  const nodes = compileWorld(s.level).nodes.filter((n) => distance(n, s.player.position) > 10);
+  for (let i = 0; i < Math.min(12, 3 + s.wave); i++) {
+    const node = nodes[Math.floor(random(s) * nodes.length)];
+    const kind = (['scout', 'charger', 'sentry', 'flyer'] as const)[i % Math.min(4, 1 + s.wave)];
+    if (node) spawn(s, kind, v3(node.x, node.y + (kind === 'flyer' ? 1 : 0), node.z));
+  }
+  s.intermission = 0;
+  emit(s, 'wave');
+}
+function hostileShot(s: GameState, e: Enemy, dir: Vec3, offset = 0) {
+  if (s.projectiles.length >= TUNING.maxProjectiles) return;
+  const heading = direction(Math.atan2(dir.x, -dir.z) + offset, Math.asin(dir.y));
+  const origin = add(enemyCenter(e), scale(heading, radius(e) + 0.15));
+  s.projectiles.push({
+    id: s.nextId++,
+    position: origin,
+    previous: { ...origin },
+    velocity: scale(heading, e.kind === 'guardian' ? 9 : 8),
+    life: 5,
+    hostile: true,
+    damage: e.kind === 'guardian' ? 15 : 10,
+    radius: 0.16,
+    shot: 0,
+  });
+}
+function updateEnemies(s: GameState, dt: number) {
+  const world = compileWorld(s.level),
+    boxes = dynamicBoxes(s),
+    expert = s.run.difficulty === 'expert' ? 1.15 : 1;
+  for (const e of s.enemies) {
+    if (!e.alive) continue;
+    e.previous = { ...e.position };
+    e.hurtFor = Math.max(0, e.hurtFor - dt);
+    e.attackIn -= dt;
+    e.pathIn -= dt;
+    const center = enemyCenter(e),
+      delta = subtract(eye(s), center),
+      d = distance(center, eye(s));
+    const canSee = visible(world, center, eye(s), boxes);
+    e.yaw = Math.atan2(delta.x, -delta.z);
+    if (e.chargeFor > 0 && e.charge) {
+      e.chargeFor -= dt;
+      const next = add(e.position, scale(e.charge, 7 * dt));
+      const support = rayDistance(world, add(next, v3(0, 0.5, 0)), v3(0, -1, 0), 1.2);
+      if (support >= 1.2) e.chargeFor = 0;
+      else e.position = resolveBody(world, next, e.velocity, 1.6, 0.4, boxes).position;
+      if (distance(e.position, s.player.position) < 1.1 && canSee) {
+        hurtPlayer(s, 20, e.position);
         e.chargeFor = 0;
       }
       continue;
     }
-    if (
-      tactical &&
-      e.kind === 'deletion' &&
-      dist < 10 &&
-      dist > 1.2 &&
-      hasLineOfSight(state.map, e.x, e.y, px, py)
-    ) {
-      e.attackIn = Math.max(0, e.attackIn);
-      if (e.attackIn <= 0) {
-        e.attackWindup = (e.attackWindup ?? 0.9) - dt;
-        if (e.attackWindup <= 0) {
-          const angle = Math.atan2(dy, dx);
-          const speed = e.boss ? 3.5 : 2.7;
-          if (state.projectiles.length < 24)
-            state.projectiles.push({
-              id: state.nextId++,
-              x: e.x,
-              y: e.y,
-              vx: Math.cos(angle) * speed,
-              vy: Math.sin(angle) * speed,
-              life: 6,
-            });
-          e.attackIn = e.boss ? 1.4 : 2.4;
-          e.attackWindup = undefined;
-        }
-      }
-      if (e.boss) {
-        const phase = Math.min(2, Math.floor((18 - e.hp) / 6));
-        if (phase > (e.bossPhase ?? 0)) {
-          e.bossPhase = phase;
-          for (let i = 0; i < 2 && state.enemies.filter((n) => n.alive).length < 5; i++) {
-            const sx = i ? 3.5 : 13.5;
-            state.enemies.push({
-              id: state.nextId++,
-              kind: 'substitution',
-              x: sx,
-              y: 14.5,
-              hp: 1,
-              speed: 1.2,
-              heading: 0,
-              retargetIn: 0,
-              attackIn: 1,
-              hurtFor: 0,
-              alive: true,
-            });
+    if (e.attacking) {
+      e.windup -= dt;
+      if (e.windup <= 0) {
+        e.attacking = false;
+        e.attackIn = e.kind === 'guardian' ? 1.8 : 2.2;
+        if (e.kind === 'charger') {
+          e.charge ??= unit(v3(delta.x, 0, delta.z));
+          e.chargeFor = 0.7;
+        } else if (canSee) {
+          hostileShot(s, e, unit(delta));
+          if (e.kind === 'guardian' && e.phase > 0) {
+            hostileShot(s, e, unit(delta), -0.18);
+            hostileShot(s, e, unit(delta), 0.18);
           }
         }
       }
       continue;
     }
-    let speed: number;
-    if (dist <= TUNING.aggroRange && hasLineOfSight(state.map, e.x, e.y, px, py)) {
-      e.heading = Math.atan2(dy, dx);
-      speed = e.speed * (tactical && e.kind === 'insertion' && (e.chargeFor ?? 0) > 0 ? 2 : 1);
-    } else if (dist <= TUNING.aggroRange) {
-      const cx = Math.floor(e.x);
-      const cy = Math.floor(e.y);
-      let best = navigation[cy]?.[cx] >= 0 ? navigation[cy][cx] : Infinity;
-      let targetX = cx + 0.5;
-      let targetY = cy + 0.5;
-      for (const [ox, oy] of [
-        [-1, 0],
-        [1, 0],
-        [0, -1],
-        [0, 1],
-      ]) {
-        const raw = navigation[cy + oy]?.[cx + ox];
-        const value = raw >= 0 ? raw : Infinity;
-        if (value < best) {
-          best = value;
-          targetX = cx + ox + 0.5;
-          targetY = cy + oy + 0.5;
-        }
+    if (e.attackIn <= 0 && canSee && d < (e.kind === 'charger' ? 7 : 30)) {
+      e.attacking = true;
+      if (e.kind === 'charger') e.charge = unit(v3(delta.x, 0, delta.z));
+      e.windup = e.kind === 'guardian' ? 1.2 : e.kind === 'charger' ? 0.85 : 0.7;
+      continue;
+    }
+    if (e.kind === 'guardian') continue;
+    if (e.kind === 'flyer') {
+      const desired = add(
+        s.player.position,
+        v3(Math.sin(s.time * 0.65 + e.id) * 5, 2.5, Math.cos(s.time * 0.65 + e.id) * 5)
+      );
+      const next = add(e.position, scale(unit(subtract(desired, e.position)), 1.7 * expert * dt));
+      e.position = resolveBody(world, next, e.velocity, 0.7, 0.35, boxes).position;
+      continue;
+    }
+    if (d < 1.2 && canSee) {
+      if (e.attackIn <= 0) {
+        hurtPlayer(s, 8, e.position);
+        e.attackIn = 1;
       }
-      e.heading = Math.atan2(targetY - e.y, targetX - e.x);
-      speed = e.speed;
+      continue;
+    }
+    if (canSee && d < (e.kind === 'sentry' ? 9 : 4) && d > 2.2) continue;
+    if (e.pathIn <= 0) {
+      e.path = findWorldPath(world, e.position, s.player.position, boxes);
+      e.pathIn = 0.8 + (e.id % 5) * 0.08;
+    }
+    while (
+      e.path.length &&
+      Math.hypot(e.path[0].x - e.position.x, e.path[0].z - e.position.z) < 0.5
+    )
+      e.path.shift();
+    const target = e.path[0];
+    if (target) {
+      const heading = unit(v3(target.x - e.position.x, 0, target.z - e.position.z)),
+        speed = (e.kind === 'charger' ? 2.1 : e.kind === 'sentry' ? 1.1 : 1.8) * expert;
+      e.velocity.x = heading.x * speed;
+      e.velocity.z = heading.z * speed;
     } else {
-      if (e.retargetIn <= 0) {
-        e.heading = random(state) * Math.PI * 2 - Math.PI;
-        e.retargetIn = 0.6 + random(state) * 1.2;
+      e.velocity.x = 0;
+      e.velocity.z = 0;
+    }
+    e.velocity.y -= TUNING.gravity * dt;
+    e.position = resolveBody(
+      world,
+      add(e.position, scale(e.velocity, dt)),
+      e.velocity,
+      1.6,
+      0.4,
+      boxes
+    ).position;
+  }
+  for (let i = 0; i < s.enemies.length; i++)
+    for (let j = i + 1; j < s.enemies.length; j++) {
+      const a = s.enemies[i],
+        b = s.enemies[j];
+      if (
+        !a.alive ||
+        !b.alive ||
+        a.kind === 'guardian' ||
+        b.kind === 'guardian' ||
+        Math.abs(a.position.y - b.position.y) > 0.8
+      )
+        continue;
+      const d = Math.hypot(a.position.x - b.position.x, a.position.z - b.position.z);
+      if (d >= 0.8 || d < 0.001) continue;
+      const correction = scale(
+        unit(v3(a.position.x - b.position.x, 0, a.position.z - b.position.z)),
+        Math.min(0.02, (0.8 - d) * 0.2)
+      );
+      a.position = resolveBody(
+        world,
+        add(a.position, correction),
+        a.velocity,
+        1.6,
+        0.4,
+        boxes
+      ).position;
+      b.position = resolveBody(
+        world,
+        subtract(b.position, correction),
+        b.velocity,
+        1.6,
+        0.4,
+        boxes
+      ).position;
+    }
+}
+function updateProjectiles(s: GameState, dt: number) {
+  const world = compileWorld(s.level),
+    boxes = dynamicBoxes(s);
+  for (const p of s.projectiles) {
+    p.previous = { ...p.position };
+    p.life -= dt;
+    if (p.life <= 0) continue;
+    const delta = scale(p.velocity, dt),
+      length = Math.hypot(delta.x, delta.y, delta.z),
+      dir = unit(delta);
+    let travel = rayDistance(world, p.position, dir, length + p.radius, boxes) - p.radius;
+    let target: Enemy | null = null;
+    if (p.hostile) {
+      const hit = sphereRay(
+        p.position,
+        dir,
+        add(s.player.position, v3(0, 0.9, 0)),
+        0.65 + p.radius
+      );
+      if (hit <= Math.min(length, travel)) {
+        p.position = add(p.position, scale(dir, Math.max(0, hit)));
+        hurtPlayer(s, p.damage, p.previous);
+        p.life = 0;
+        effect(s, 'impact', p.position, p.position, true);
+        continue;
       }
-      speed = e.speed * 0.5;
-    }
-
-    const beforeX = e.x;
-    const beforeY = e.y;
-    const moved = moveCircle(
-      state.map,
-      e.x,
-      e.y,
-      Math.cos(e.heading) * (dist < 0.6 ? 0 : speed) * dt,
-      Math.sin(e.heading) * (dist < 0.6 ? 0 : speed) * dt,
-      TUNING.enemyRadius
-    );
-    e.x = moved.x;
-    e.y = moved.y;
-    if (e.chargeFor) e.chargeFor = Math.max(0, e.chargeFor - dt);
-    if (Math.abs(e.x - beforeX) < 1e-4 && Math.abs(e.y - beforeY) < 1e-4) {
-      e.retargetIn = 0; // blocked → pick a fresh heading next tick
-    }
-
+    } else
+      for (const e of s.enemies)
+        if (e.alive) {
+          const hit = sphereRay(p.position, dir, enemyCenter(e), radius(e) + p.radius);
+          if (hit < Math.min(length, travel)) {
+            travel = hit;
+            target = e;
+          }
+        }
+    if (travel < length) {
+      p.position = add(p.position, scale(dir, Math.max(0, travel)));
+      p.life = 0;
+      effect(s, p.hostile ? 'impact' : 'blast', p.position, p.position, p.hostile);
+      if (!p.hostile) {
+        let connected = false;
+        for (const e of s.enemies)
+          if (e.alive) {
+            const center = enemyCenter(e),
+              d = distance(p.position, center);
+            if (
+              (e === target || d < 3) &&
+              visible(world, add(p.position, scale(dir, -0.06)), center, boxes)
+            )
+              connected = hurtEnemy(s, e, p.damage * Math.max(0.3, 1 - d / 4)) || connected;
+          }
+        if (connected) s.hits++;
+        for (const box of boxes)
+          if (
+            box.id >= 0 &&
+            distance(box.position, p.position) < 3 &&
+            visible(
+              world,
+              p.position,
+              box.position,
+              boxes.filter((b) => b.id !== box.id)
+            )
+          )
+            damageCrate(s, box.id, p.damage);
+      }
+    } else p.position = add(p.position, delta);
+  }
+  s.projectiles = s.projectiles.filter((p) => p.life > 0);
+}
+export function hazardPhase(s: GameState, index: number): 'safe' | 'warning' | 'active' {
+  const h = s.level.hazards[index],
+    t = (s.time + h.offset) % h.period;
+  return t < h.period - 2 ? 'safe' : t < h.period - 0.9 ? 'warning' : 'active';
+}
+function interactable(
+  s: GameState
+): { kind: 'terminal' | 'objective'; id: number; label: string } | null {
+  for (let i = 0; i < s.level.terminals.length; i++) {
+    const p = s.level.terminals[i];
+    if (distance(s.player.position, p) < 2.2 && hasLineOfSight(s, eye(s), add(p, v3(0, 1.1, 0))))
+      return { kind: 'terminal', id: i, label: 'Refill all ammunition' };
+  }
+  for (const objective of s.level.objectives) {
+    if (s.mission.objectives.includes(objective.id)) continue;
     if (
-      dist <= TUNING.attackRange &&
-      e.attackIn <= 0 &&
-      hasLineOfSight(state.map, e.x, e.y, px, py)
-    ) {
-      if (e.attackWindup === undefined)
-        e.attackWindup =
-          (e.kind === 'substitution' ? 0.35 : e.kind === 'insertion' ? 0.5 : 0.65) *
-          (state.run.difficulty === 'expert' ? 0.8 : 1);
-      e.attackWindup -= dt;
-      if (e.attackWindup <= 0) {
-        hurtPlayer(state, TUNING.attackDamage, Math.atan2(e.y - py, e.x - px));
-        e.attackIn = TUNING.attackInterval;
-        e.attackWindup = undefined;
-      }
-    } else e.attackWindup = undefined;
+      distance(s.player.position, objective.position) > 2.3 ||
+      !hasLineOfSight(s, eye(s), add(objective.position, v3(0, 1.1, 0)))
+    )
+      continue;
+    return { kind: 'objective', id: objective.id, label: objective.label };
   }
-  // Small, bounded separation pass prevents unreadable enemy stacks.
-  for (let i = 0; i < state.enemies.length; i++)
-    for (let j = i + 1; j < state.enemies.length; j++) {
-      const a = state.enemies[i];
-      const b = state.enemies[j];
-      if (!a.alive || !b.alive) continue;
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const distance = Math.hypot(dx, dy);
-      if (distance > 0.01 && distance < 0.55) {
-        const amount = Math.min(0.05, (0.55 - distance) / 2);
-        const moved = moveCircle(
-          state.map,
-          b.x,
-          b.y,
-          (dx / distance) * amount,
-          (dy / distance) * amount,
-          TUNING.enemyRadius
-        );
-        b.x = moved.x;
-        b.y = moved.y;
-      }
+  return null;
+}
+export function interact(s: GameState): boolean {
+  if (s.status !== 'playing') return false;
+  const item = interactable(s);
+  if (!item) return false;
+  if (item.kind === 'terminal') {
+    refill(s);
+    s.notice = 'All three weapons resupplied. Terminals never award points.';
+    emit(s, 'pickup');
+    return true;
+  }
+  const objective = s.level.objectives.find((o) => o.id === item.id)!;
+  if (objective.requires && !s.mission.objectives.includes(objective.requires)) {
+    s.notice = 'Restore bridge power at relay 1 first.';
+    return false;
+  }
+  if (objective.kind === 'shield') {
+    const boss = s.enemies.find((e) => e.alive && e.kind === 'guardian');
+    if (!boss || boss.phase + 1 !== objective.id) {
+      s.notice = 'This shield relay belongs to a later guardian phase.';
+      return false;
     }
+  } else if (s.enemies.some((e) => e.alive && distance(e.position, s.player.position) < 6)) {
+    s.notice = 'Clear nearby threats before using the console.';
+    return false;
+  }
+  s.mission.objectives.push(item.id);
+  s.mission.objectiveTimes[item.id] = s.time;
+  s.score += 100;
+  emit(s, 'relay');
+  effect(s, 'pickup', objective.position);
+  s.notice =
+    objective.kind === 'shield'
+      ? 'Guardian core exposed. Choose your firing position.'
+      : `${objective.label} secured. Follow the next objective marker.`;
+  return true;
 }
-
-function hurtPlayer(state: GameState, amount: number, angle = state.player.angle) {
-  if (state.run.mode === 'practice') return;
-  const damage = amount * (state.run.difficulty === 'expert' ? 1.5 : 1);
-  state.player.health -= damage;
-  state.damageTaken += damage;
-  state.lastDamageAngle = angle;
-  state.damageFor = 0.4;
-  emit(state, 'hurt');
+function saveCheckpoint(s: GameState, label: string) {
+  const { level: _level, checkpoint: _checkpoint, runTime: _time, retries: _retries, ...data } = s;
+  s.checkpoint = { label, data: structuredClone(data) };
+  emit(s, 'checkpoint');
 }
-
-function stepProjectiles(state: GameState, dt: number) {
-  for (const shot of state.projectiles) {
-    const steps = Math.max(1, Math.ceil((Math.hypot(shot.vx, shot.vy) * dt) / 0.1));
-    for (let i = 0; i < steps && shot.life > 0; i++) {
-      shot.x += (shot.vx * dt) / steps;
-      shot.y += (shot.vy * dt) / steps;
-      if (collides(state.map, shot.x, shot.y, 0.08)) shot.life = 0;
-      else if (Math.hypot(shot.x - state.player.x, shot.y - state.player.y) < 0.3) {
-        shot.life = 0;
-        hurtPlayer(state, 10, Math.atan2(-shot.vy, -shot.vx));
-      }
+export function retryCheckpoint(s: GameState): boolean {
+  if (s.status !== 'over' || !s.checkpoint || s.run.mode === 'classic') return false;
+  const checkpoint = s.checkpoint,
+    time = s.runTime,
+    retries = s.retries + 1;
+  Object.assign(s, structuredClone(checkpoint.data));
+  s.checkpoint = checkpoint;
+  s.runTime = time;
+  s.retries = retries;
+  s.status = 'paused';
+  s.player.previous = { ...s.player.position };
+  s.player.velocity = v3();
+  s.player.jumpHeld = false;
+  s.player.jumpBuffer = 0;
+  s.interactHeld = false;
+  s.effects = [];
+  s.events = [];
+  s.notice = 'Checkpoint restored · completion unlocks the next sector, but this run is unranked.';
+  return true;
+}
+function updateMission(s: GameState, dt: number) {
+  if (s.run.mode === 'classic') {
+    if (!s.enemies.some((e) => e.alive)) {
+      s.intermission += dt;
+      if (s.intermission >= 2.5) spawnWave(s);
     }
-    shot.life -= dt;
+    return;
   }
-  state.projectiles = state.projectiles.filter((p) => p.life > 0);
-}
-
-function collectPickups(state: GameState): void {
-  let collected = false;
-  for (const p of state.pickups) {
-    if (p.taken) continue;
-    if (Math.hypot(p.x - state.player.x, p.y - state.player.y) <= TUNING.pickupRadius) {
-      p.taken = true;
-      collected = true;
-      if (p.kind === 'ammo') {
-        state.player.ammo = Math.min(TUNING.maxAmmo, state.player.ammo + TUNING.ammoPerPickup);
-      } else {
-        state.player.health = Math.min(
-          TUNING.maxHealth,
-          state.player.health + TUNING.healthPerPickup
-        );
-      }
-      state.sequence.push(p.base);
-      if (state.sequence.length > 60) state.sequence.shift();
-      state.score += 5;
+  for (const encounter of s.level.encounters) {
+    if (
+      s.mission.triggered.includes(encounter.id) ||
+      distance(s.player.position, encounter.trigger) > encounter.radius
+    )
+      continue;
+    s.mission.triggered.push(encounter.id);
+    s.wave = s.mission.triggered.length;
+    for (const e of encounter.enemies) spawn(s, e.kind, e.position);
+    emit(s, 'wave');
+    s.notice = `Encounter ${encounter.id}: use cover and watch the attack indicators.`;
+  }
+  const alive = s.enemies.some(
+    (e) =>
+      e.alive &&
+      distance(e.position, s.player.position) < 12 &&
+      hasLineOfSight(s, eye(s), enemyCenter(e))
+  );
+  for (let i = 0; i < s.level.checkpoints.length; i++) {
+    if (
+      s.mission.checkpoints.includes(i) ||
+      distance(s.player.position, s.level.checkpoints[i]) > 1.6 ||
+      alive ||
+      s.projectiles.some((p) => p.hostile && distance(p.position, s.player.position) < 10)
+    )
+      continue;
+    s.mission.checkpoints.push(i);
+    s.player.health = 100;
+    refill(s);
+    saveCheckpoint(s, `Safe sector ${i + 1}`);
+    s.notice = `Checkpoint ${i + 1} saved · integrity and ammunition restored.`;
+  }
+  const objectivesDone = s.mission.objectives.length === s.level.objectives.length;
+  if (s.level.id === 5 && objectivesDone && distance(s.player.position, v3(0, 0, 6)) < 8.5) {
+    const wavesDue = s.mission.holdout >= 34 ? 3 : s.mission.holdout >= 18 ? 2 : 1;
+    if (s.mission.holdoutWaves < wavesDue) {
+      s.mission.holdoutSpawned = true;
+      s.mission.holdoutWaves++;
+      for (const p of [v3(-8, 0, 12), v3(8, 0, 12), v3(0, 5, -10)])
+        spawn(s, p.y > 0 ? 'flyer' : 'scout', p);
+      emit(s, 'wave');
     }
+    s.mission.holdout = Math.min(45, s.mission.holdout + dt);
   }
-  if (collected) {
-    emit(state, 'pickup');
-    state.pickups = state.pickups.filter((p) => !p.taken);
+  s.mission.exitOpen =
+    objectivesDone &&
+    s.mission.triggered.length === s.level.encounters.length &&
+    !s.enemies.some((e) => e.alive) &&
+    (s.level.id !== 5 || s.mission.holdout >= 45);
+  if (s.mission.exitOpen && distance(s.player.position, s.level.exit) < 1.5) {
+    s.status = 'won';
+    s.score += 300;
+    emit(s, 'won');
   }
 }
-
-/** Advance the world by `dt` seconds. Mutates and returns `state`. No-op unless playing. */
-export function step(state: GameState, dt: number, input: StepInput): GameState {
-  if (state.status !== 'playing') return state;
-  state.lastEvent = 'none';
-  state.events = [];
-  state.enemies = state.enemies.filter((e) => e.alive);
-  state.time += dt;
-  state.fireCooldown = Math.max(0, state.fireCooldown - dt);
-  state.muzzleFor = Math.max(0, state.muzzleFor - dt);
-  state.damageFor = Math.max(0, state.damageFor - dt);
-  state.pulseCooldown = Math.max(0, state.pulseCooldown - dt);
-
-  if (input.turn) turnBy(state, input.turn * TUNING.turnSpeed * dt);
-  movePlayer(state, input.forward, input.strafe, dt);
-  if (input.fire) fire(state);
-  if (input.pulse) firePulse(state);
-  stepEnemies(state, dt);
-  stepProjectiles(state, dt);
-  collectPickups(state);
-
-  const staged = state.run.mode === 'campaign' || state.run.mode === 'practice';
-  for (const relay of state.relays)
-    if (!relay.active && Math.hypot(relay.x - state.player.x, relay.y - state.player.y) < 0.75) {
-      relay.active = true;
-      state.score += 50;
-      state.player.ammo = Math.min(TUNING.maxAmmo, state.player.ammo + 12);
-      emit(state, 'relay');
-    }
-
-  if (state.intermission > 0) {
-    state.intermission = Math.max(0, state.intermission - dt);
-    const limit = state.run.stage === 4 ? 2 : state.run.stage === 5 ? 3 : 1;
-    if (state.intermission === 0 && (!staged || state.wave < limit)) startWave(state);
-  }
-
-  if (
-    staged &&
-    state.wave > 0 &&
-    !state.enemies.some((e) => e.alive) &&
-    state.intermission <= 0 &&
-    state.relays.every((r) => r.active)
-  )
-    state.exit.open = true;
-  if (
-    staged &&
-    state.exit.open &&
-    Math.hypot(state.exit.x - state.player.x, state.exit.y - state.player.y) < 0.7
-  ) {
-    state.status = 'won';
-    state.score += 100;
-    emit(state, 'won');
-  }
-
-  if (state.player.health <= 0) {
-    state.player.health = 0;
-    state.status = 'over';
-    emit(state, 'over');
-  }
-  return state;
-}
-
-export function proofResult(state: GameState): RunResult {
-  const accuracy = state.shots ? state.hits / state.shots : 0;
-  const won = state.status === 'won';
+export function objectiveTarget(s: GameState): { position: Vec3; label: string } {
+  if (s.run.mode === 'classic')
+    return {
+      position: s.level.terminals[0],
+      label: `Survive wave ${s.wave} · ammunition terminal`,
+    };
+  if (s.mission.exitOpen)
+    return {
+      position: s.level.exit,
+      label: s.level.id === 4 ? 'Deliver packets to the recovery dock' : 'Exit airlock is open',
+    };
+  const encounter = s.level.encounters.find((e) => !s.mission.triggered.includes(e.id));
+  const boss = s.enemies.find((e) => e.alive && e.kind === 'guardian');
+  const objective = s.level.objectives.find(
+    (o) =>
+      !s.mission.objectives.includes(o.id) &&
+      (!o.requires || s.mission.objectives.includes(o.requires)) &&
+      (o.kind !== 'shield' || boss?.phase === o.id - 1)
+  );
+  const enemy = s.enemies
+    .filter((e) => e.alive)
+    .sort(
+      (a, b) => distance(a.position, s.player.position) - distance(b.position, s.player.position)
+    )[0];
+  if (boss && objective && !s.mission.objectives.includes(boss.phase + 1))
+    return { position: objective.position, label: `Disable ${objective.label.toLowerCase()}` };
+  if (enemy)
+    return {
+      position: enemy.position,
+      label: enemy.kind === 'guardian' ? 'Guardian core exposed' : 'Clear the active encounter',
+    };
+  if (objective) return { position: objective.position, label: objective.label };
+  if (encounter)
+    return { position: encounter.trigger, label: `Investigate encounter ${encounter.id}` };
   return {
-    score: state.score,
-    seconds: state.time,
+    position: s.level.id === 5 ? v3(0, 0, 6) : s.level.exit,
+    label:
+      s.level.id === 5
+        ? `${distance(s.player.position, v3(0, 0, 6)) >= 8.5 ? 'Reach control zone' : 'Defend control zone'} · ${Math.ceil(45 - s.mission.holdout)} s`
+        : 'Return to the airlock',
+  };
+}
+export function step(s: GameState, elapsed: number, input: StepInput = IDLE_INPUT) {
+  if (s.status !== 'playing' || !Number.isFinite(elapsed) || elapsed <= 0) return;
+  const dt = Math.min(elapsed, 1 / 30);
+  s.events = [];
+  s.time += dt;
+  s.runTime += dt;
+  s.effects = s.effects.filter((e) => (e.life -= dt) > 0);
+  s.muzzleFor = Math.max(0, s.muzzleFor - dt);
+  s.hitFor = Math.max(0, s.hitFor - dt);
+  s.damageFor = Math.max(0, s.damageFor - dt);
+  const p = s.player;
+  p.previous = { ...p.position };
+  p.cooldown = Math.max(0, p.cooldown - dt);
+  if (p.reloading > 0) {
+    p.reloading = Math.max(0, p.reloading - dt);
+    if (!p.reloading) {
+      const n = Math.min(WEAPONS[p.weapon].capacity - p.magazines[p.weapon], p.reserves[p.weapon]);
+      p.magazines[p.weapon] += n;
+      p.reserves[p.weapon] -= n;
+    }
+  }
+  turnBy(
+    s,
+    (Number.isFinite(input.turn) ? input.turn : 0) * TUNING.turnSpeed * dt,
+    (Number.isFinite(input.look) ? input.look! : 0) * TUNING.turnSpeed * dt
+  );
+  if (input.weapon) switchWeapon(s, input.weapon);
+  if (input.reload) reload(s);
+  const forward = Math.max(-1, Math.min(1, Number.isFinite(input.forward) ? input.forward : 0)),
+    strafe = Math.max(-1, Math.min(1, Number.isFinite(input.strafe) ? input.strafe : 0));
+  const n = Math.max(1, Math.hypot(forward, strafe)),
+    speed = input.sprint ? TUNING.sprintSpeed : TUNING.moveSpeed;
+  const f = direction(p.yaw),
+    side = direction(p.yaw + Math.PI / 2),
+    blend = 1 - Math.exp(-(p.grounded ? 18 : 5) * dt);
+  p.velocity.x += (((f.x * forward + side.x * strafe) / n) * speed - p.velocity.x) * blend;
+  p.velocity.z += (((f.z * forward + side.z * strafe) / n) * speed - p.velocity.z) * blend;
+  p.coyote = p.grounded ? 0.1 : Math.max(0, p.coyote - dt);
+  p.jumpBuffer = Math.max(0, p.jumpBuffer - dt);
+  if (input.jump && !p.jumpHeld) p.jumpBuffer = 0.12;
+  p.jumpHeld = Boolean(input.jump);
+  if (p.jumpBuffer > 0 && p.coyote > 0) {
+    p.velocity.y = TUNING.jumpSpeed;
+    p.grounded = false;
+    p.coyote = 0;
+    p.jumpBuffer = 0;
+    emit(s, 'jump');
+  }
+  p.velocity.y -= TUNING.gravity * dt;
+  const resolved = moveBody(
+    compileWorld(s.level),
+    p.position,
+    p.velocity,
+    dt,
+    p.grounded,
+    dynamicBoxes(s)
+  );
+  p.position = resolved.position;
+  p.grounded = resolved.grounded;
+  if (p.position.y < -5) {
+    hurtPlayer(s, 25, p.position);
+    p.position = { ...s.level.spawn };
+    p.previous = { ...p.position };
+    p.velocity = v3();
+  }
+  if (input.fire) fire(s);
+  updateEnemies(s, dt);
+  updateProjectiles(s, dt);
+  for (let i = 0; i < s.level.hazards.length; i++) {
+    const h = s.level.hazards[i],
+      pos = p.position;
+    if (
+      hazardPhase(s, i) === 'active' &&
+      Math.abs(pos.x - h.position.x) < h.size.x / 2 + 0.25 &&
+      Math.abs(pos.z - h.position.z) < h.size.z / 2 + 0.25 &&
+      Math.abs(pos.y - h.position.y) < 1.5
+    )
+      hurtPlayer(s, 16 * dt, h.position);
+  }
+  for (const item of s.pickups)
+    if (!item.taken && distance(item.position, p.position) < 1) {
+      item.taken = true;
+      if (item.kind === 'health') p.health = Math.min(100, p.health + 25);
+      else
+        for (const id of WEAPON_IDS)
+          p.reserves[id] = Math.min(
+            WEAPONS[id].reserve,
+            p.reserves[id] + Math.ceil(WEAPONS[id].capacity * 0.75)
+          );
+      emit(s, 'pickup');
+      effect(s, 'pickup', item.position);
+    }
+  s.pickups = s.pickups.filter((p) => !p.taken);
+  s.enemies = s.enemies.filter((e) => e.alive);
+  s.context = interactable(s)?.label ?? '';
+  if (input.interact && !s.interactHeld) interact(s);
+  s.interactHeld = Boolean(input.interact);
+  if (s.status === 'playing') updateMission(s, dt);
+}
+export function proofResult(s: GameState): RunResult {
+  const won = s.status === 'won',
+    eligible = s.retries === 0;
+  return {
+    score: Math.floor(s.score),
+    seconds: s.runTime,
     won,
-    medals: [won, won && accuracy >= 0.7, won && state.damageTaken === 0],
-    detail: `${state.kills} cleared · ${Math.round(accuracy * 100)}% accuracy · ${Math.round(state.damageTaken)} integrity lost`,
+    recordEligible: eligible,
+    medals: [
+      won && eligible,
+      won && eligible && s.shots > 0 && s.hits / s.shots >= 0.7,
+      won && eligible && s.damageTaken === 0,
+    ],
+    detail: `${won ? 'Sector complete' : 'Run ended'} · ${s.kills} threats · ${s.shots ? Math.round((s.hits / s.shots) * 100) : 0}% accuracy · ${s.runTime.toFixed(1)} s${eligible ? '' : ` · ${s.retries} checkpoint retries · unranked`}`,
   };
 }
