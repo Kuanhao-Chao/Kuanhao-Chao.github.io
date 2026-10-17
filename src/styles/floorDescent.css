@@ -1,0 +1,793 @@
+/* All selectors stay game-local. The cave has its own readable art palette;
+   surrounding controls inherit the site's six themes. */
+.descent {
+  max-width: 950px;
+  margin-inline: auto;
+  color: var(--color-ink);
+  --descent-gold: #d5a35b;
+  --descent-teal: #438f88;
+}
+.descent [hidden] {
+  display: none !important;
+}
+.descent .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.descent button,
+.descent select,
+.descent input[type='text'] {
+  font: inherit;
+  min-height: 44px;
+  color: var(--color-ink);
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: 9px;
+  box-sizing: border-box;
+}
+.descent button {
+  padding: 10px 14px;
+  cursor: pointer;
+  line-height: 1.25;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition:
+    background 0.16s,
+    border-color 0.16s;
+}
+.descent button:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+}
+.descent button:focus-visible,
+.descent select:focus-visible,
+.descent input:focus-visible,
+.descent canvas:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 3px;
+}
+.descent button:disabled {
+  opacity: 0.48;
+  cursor: default;
+}
+.descent select {
+  /* Safari's native select ignores min-height; a painted arrow keeps the
+     affordance while making the entire 44px field a reliable touch target. */
+  appearance: none;
+  -webkit-appearance: none;
+  height: 44px;
+  padding-right: 28px !important;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--color-muted) 50%),
+    linear-gradient(135deg, var(--color-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 10px) 50%;
+  background-size: 4px 4px;
+  background-repeat: no-repeat;
+}
+.descent-heading {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+.descent-heading h2 {
+  font: 600 clamp(1.5rem, 4vw, 2rem)/1.15 var(--font-display);
+  margin: 4px 0;
+  letter-spacing: -0.025em;
+}
+.descent-heading p {
+  margin: 0;
+  font-size: 0.87rem;
+  color: var(--color-muted);
+}
+.descent .descent-eyebrow {
+  font: 600 0.65rem/1.4 var(--font-body);
+  letter-spacing: 0.13em;
+  color: var(--color-accent);
+  text-transform: uppercase;
+}
+.descent-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.descent-toolbar .game-tools {
+  margin: 0;
+  flex: 1;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.descent-language select {
+  padding: 8px;
+  max-width: 112px;
+  font-size: 0.8rem;
+}
+.descent-setup {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 16px 0 20px;
+  border-top: 1px solid var(--color-rule);
+}
+.descent-setup label,
+.descent-settings label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.75rem;
+  color: var(--color-muted);
+}
+.descent-setup select,
+.descent-setup input {
+  padding: 8px 11px;
+  max-width: 100%;
+  font-size: 0.85rem;
+}
+.descent-setup input {
+  width: 140px;
+  font-family: var(--font-mono);
+}
+.descent-setup select {
+  min-width: 150px;
+}
+.descent-setup [data-descent-checkpoint] {
+  min-width: 75px;
+}
+.descent-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 420px) minmax(0, 270px);
+  gap: clamp(20px, 4vw, 44px);
+  justify-content: center;
+  align-items: start;
+}
+.descent-play {
+  min-width: 0;
+  width: 100%;
+}
+.descent-hud {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr;
+  align-items: start;
+  gap: 10px;
+  padding: 12px 0;
+}
+.descent-hud > div > span {
+  display: block;
+  font-size: 0.65rem;
+  color: var(--color-muted);
+  margin-bottom: 3px;
+}
+.descent-hud strong {
+  font: 600 1.2rem/1.4 var(--font-mono);
+  letter-spacing: -0.035em;
+  white-space: nowrap;
+}
+.descent-health {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.descent-hud .descent-health strong {
+  font-size: 0.68rem;
+  letter-spacing: 0;
+}
+[data-descent-pips] {
+  display: flex;
+  gap: 3px;
+  flex-wrap: nowrap;
+}
+[data-descent-pips] i {
+  display: block;
+  width: 7px;
+  height: 12px;
+  border-radius: 3px;
+  background: #b98035;
+}
+[data-descent-pips] i.empty {
+  background: color-mix(in srgb, var(--color-muted) 18%, var(--color-surface));
+}
+[data-descent-pips].low i:not(.empty) {
+  background: #c65b50;
+}
+.descent-board {
+  position: relative;
+  border-radius: 20px;
+  background: #142630;
+  overflow: hidden;
+  box-shadow:
+    0 18px 45px #0a252021,
+    0 0 0 1px #ffffff10;
+  isolation: isolate;
+}
+.descent-board canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 7/10;
+  max-height: none !important;
+  border: 0;
+  border-radius: 0;
+  touch-action: none;
+  image-rendering: auto;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.descent-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background: linear-gradient(0deg, #0c192b80, #0c192b22);
+}
+.descent-overlay-card {
+  width: 100%;
+  max-width: 330px;
+  text-align: center;
+  color: #f4f0e6;
+  background: #102731eb;
+  border: 1px solid #d0e6df32;
+  box-shadow: 0 12px 45px #0005;
+  backdrop-filter: blur(12px);
+  border-radius: 18px;
+  padding: 24px 22px;
+  box-sizing: border-box;
+}
+.descent-overlay-card h3 {
+  margin: 10px 0;
+  font: 600 clamp(1.05rem, 3vw, 1.4rem)/1.25 var(--font-display);
+  color: inherit;
+}
+.descent-overlay-card p {
+  font-size: 0.83rem;
+  line-height: 1.6;
+  color: #c2d5d3;
+  margin: 8px 0 18px;
+}
+.descent-compass {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #e7b76c55;
+  border-radius: 50%;
+  font-size: 1.5rem;
+  color: #f0c480;
+}
+.descent .descent-primary {
+  min-height: 52px;
+  width: 100%;
+  border: 0;
+  border-radius: 10px;
+  background: #eac180;
+  color: #172e35;
+  font-size: 0.9rem;
+}
+.descent .descent-primary:hover {
+  background: #ffe0a7 !important;
+  color: #172e35 !important;
+}
+.descent .descent-result {
+  font: 600 1.05rem/1.4 var(--font-mono);
+  color: #f0ca91;
+}
+.descent-effects {
+  position: absolute;
+  inset: 18px 14px auto auto;
+  display: flex;
+  gap: 8px;
+  color: #b6e7e0;
+  pointer-events: none;
+  font-size: 1.5rem;
+}
+.descent-touch {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+.descent-touch button {
+  flex: 1;
+  min-width: 56px;
+  min-height: 56px;
+  padding: 8px;
+  border-radius: 14px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.descent-touch [data-descent-left],
+.descent-touch [data-descent-right] {
+  font-size: 1.5rem;
+  font-weight: 400;
+  background: color-mix(in srgb, var(--color-accent) 7%, var(--color-surface));
+}
+.descent-touch button.is-held {
+  background: var(--color-accent) !important;
+  color: var(--color-on-accent);
+}
+.descent-touch [data-descent-dash] {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  overflow: hidden;
+  background: color-mix(in srgb, #d3a66a 13%, var(--color-surface));
+}
+[data-descent-cooldown] {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: var(--color-accent);
+  width: 100%;
+  transform-origin: left;
+}
+.descent-input-hint {
+  font-size: 0.68rem;
+  color: var(--color-muted);
+  text-align: center;
+  margin: 10px 0 0;
+  line-height: 1.6;
+}
+.descent-sidebar {
+  padding-top: 12px;
+  min-width: 0;
+}
+.descent-mode-card {
+  border-bottom: 1px solid var(--color-rule);
+  padding-bottom: 20px;
+}
+.descent-mode-card > p {
+  font-size: 0.92rem;
+  line-height: 1.7;
+  margin: 10px 0 22px;
+}
+.descent-best-label {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--color-muted);
+  margin-bottom: 4px;
+}
+.descent-best {
+  display: block;
+  font: 500 1.1rem/1.5 var(--font-mono);
+}
+.descent-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+.descent-actions button {
+  flex: 1;
+  font-size: 0.75rem;
+}
+.descent-map {
+  list-style: none;
+  padding: 0;
+  margin: 22px 0;
+  display: grid;
+  gap: 5px;
+}
+.descent-map li {
+  --region-color: #c3a16b;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  opacity: 0.57;
+  transition: opacity 0.3s;
+}
+.descent-map li:nth-child(2) {
+  --region-color: #7d9e63;
+}
+.descent-map li:nth-child(3) {
+  --region-color: #7a9dd3;
+}
+.descent-map li:nth-child(4) {
+  --region-color: #b89564;
+}
+.descent-map li:nth-child(5) {
+  --region-color: #cb8b7d;
+}
+.descent-map li.active {
+  opacity: 1;
+}
+.descent-map li.active .descent-map-gem {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--region-color) 14%, transparent);
+}
+.descent-map-gem {
+  display: grid;
+  place-items: center;
+  flex: 0 0 32px;
+  height: 32px;
+  border: 1px solid var(--region-color);
+  border-radius: 10px;
+  transform: rotate(-6deg);
+  color: var(--color-ink);
+  font: 500 0.65rem var(--font-mono);
+}
+.descent-map li div > span {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.descent-map small {
+  display: block;
+  font: 400 0.65rem var(--font-mono);
+  color: var(--color-muted);
+  margin-top: 3px;
+}
+.descent-settings {
+  border-top: 1px solid var(--color-rule);
+  padding-top: 12px;
+}
+.descent details summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  min-height: 44px;
+  line-height: 1.4;
+  padding: 10px 2px;
+  box-sizing: border-box;
+}
+.descent-settings select {
+  width: 100%;
+  padding: 8px;
+  font-size: 0.73rem;
+  white-space: normal;
+}
+.descent-settings .descent-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  margin-top: 8px;
+}
+.descent-check input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--color-accent);
+}
+.descent-settings p {
+  font-size: 0.72rem;
+  line-height: 1.7;
+  color: var(--color-muted);
+}
+.descent-status {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+  margin: 22px 0 0;
+  min-height: 24px;
+  text-align: center;
+}
+.descent-notice {
+  padding: 12px;
+  border: 1px solid var(--color-rule);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  line-height: 1.7;
+  margin-top: 12px;
+}
+.descent-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.8rem;
+}
+.descent-copy input {
+  width: 100%;
+  padding: 8px;
+}
+.descent-guide {
+  margin-top: 56px;
+  border-top: 1px solid var(--color-rule);
+  padding-top: 36px;
+}
+.descent-guide-heading h3 {
+  font: 600 1.6rem var(--font-display);
+  margin: 6px 0 10px;
+}
+.descent-guide-heading > p:last-child {
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+.descent-legend {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px 20px;
+  margin: 32px 0;
+}
+.descent-legend article {
+  display: flex;
+  gap: 12px;
+  align-items: start;
+}
+.descent-legend h4,
+.descent-credits h4 {
+  margin: 0 0 5px;
+  font-size: 0.85rem;
+}
+.descent-legend p {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  line-height: 1.7;
+}
+.descent-platform-sample {
+  flex: 0 0 36px;
+  height: 9px;
+  margin-top: 7px;
+  border-radius: 3px;
+  background: #89a29a;
+  border-bottom: 4px solid #4a6466;
+}
+.descent-platform-sample-1 {
+  background: repeating-linear-gradient(120deg, #d4ad6d 0 9px, #735b42 10px 12px);
+  border-color: #ad8053;
+}
+.descent-platform-sample-2 {
+  border-radius: 40%;
+  background: #bbd8a5;
+  border-bottom: 5px double #789367;
+}
+.descent-platform-sample-3 {
+  height: 12px;
+  background: #d47b73;
+  clip-path: polygon(0 100%, 16% 0, 33% 100%, 50% 0, 67% 100%, 84% 0, 100% 100%);
+  border: 0;
+}
+.descent-platform-sample-4,
+.descent-platform-sample-5 {
+  background: repeating-linear-gradient(145deg, #b7d5dd 0 5px, #506f88 6px 9px);
+  border-color: #506f88;
+}
+.descent-platform-sample-5 {
+  transform: scaleX(-1);
+}
+.descent-guide-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 30px;
+}
+.descent-guide-grid details {
+  border-top: 1px solid var(--color-rule);
+  padding: 7px 0;
+}
+.descent-guide-grid p {
+  font-size: 0.84rem;
+  line-height: 1.8;
+  margin: 5px 0 18px;
+}
+.descent-credits {
+  margin-top: 32px;
+  color: var(--color-muted);
+  max-width: 75ch;
+}
+.descent-credits p,
+.descent-credits a {
+  font-size: 0.76rem;
+  line-height: 1.8;
+}
+.descent.game-focus-view,
+.descent:fullscreen {
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px;
+  box-sizing: border-box;
+}
+.descent.game-focus-view .descent-toolbar,
+.descent:fullscreen .descent-toolbar {
+  width: 100%;
+  max-width: 600px;
+  margin: 0;
+  min-height: 44px;
+}
+.descent.game-focus-view
+  :is(
+    .descent-heading,
+    .descent-setup,
+    .descent-sidebar,
+    .descent-status,
+    .descent-guide,
+    .descent-language,
+    [data-descent-sound],
+    .descent-notice,
+    .descent-copy
+  ),
+.descent:fullscreen
+  :is(
+    .descent-heading,
+    .descent-setup,
+    .descent-sidebar,
+    .descent-status,
+    .descent-guide,
+    .descent-language,
+    [data-descent-sound],
+    .descent-notice,
+    .descent-copy
+  ) {
+  display: none !important;
+}
+.descent.game-focus-view .descent-layout,
+.descent:fullscreen .descent-layout {
+  display: block;
+  width: min(100%, 420px, calc((100dvh - 210px) * 0.7));
+  margin: auto;
+}
+.descent.game-focus-view .descent-hud,
+.descent:fullscreen .descent-hud {
+  padding: 4px 0;
+}
+.descent.game-focus-view .descent-input-hint,
+.descent:fullscreen .descent-input-hint {
+  display: none;
+}
+.descent.game-focus-view .game-tools-label,
+.descent:fullscreen .game-tools-label {
+  display: none;
+}
+@media (max-width: 680px) {
+  .descent-heading {
+    gap: 10px;
+  }
+  .descent-heading svg {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+  }
+  .descent-toolbar {
+    gap: 6px;
+  }
+  .descent-toolbar .game-tools {
+    flex-basis: 100%;
+  }
+  .descent-toolbar > button {
+    flex: 1;
+  }
+  .descent-layout {
+    grid-template-columns: minmax(0, 420px);
+    gap: 20px;
+  }
+  .descent-setup {
+    gap: 10px;
+  }
+  .descent-setup label:first-child {
+    flex: 1;
+    min-width: 130px;
+  }
+  .descent-setup label:nth-child(2) {
+    flex: 1;
+    min-width: 100px;
+  }
+  .descent-setup label > input,
+  .descent-setup label > select {
+    width: 100%;
+    min-width: 0;
+  }
+  .descent-setup > button {
+    font-size: 0.75rem;
+  }
+  .descent-map {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 5px;
+    margin-block: 22px;
+  }
+  .descent-map li {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0;
+    text-align: center;
+  }
+  .descent-map li div > span {
+    font-size: 0.62rem;
+    line-height: 1.5;
+  }
+  .descent-map-gem {
+    flex-basis: auto;
+    width: 28px;
+    height: 28px;
+  }
+  .descent-map small {
+    font-size: 0.6rem;
+  }
+  .descent-legend {
+    grid-template-columns: 1fr 1fr;
+    gap: 20px 12px;
+  }
+  .descent-legend article {
+    gap: 8px;
+  }
+  .descent-platform-sample {
+    flex-basis: 26px;
+  }
+  .descent-guide-grid {
+    grid-template-columns: 1fr;
+  }
+  .descent-guide {
+    margin-top: 36px;
+  }
+  .descent.game-focus-view .descent-toolbar,
+  .descent:fullscreen .descent-toolbar {
+    flex-wrap: nowrap;
+  }
+  .descent.game-focus-view .game-tools,
+  .descent:fullscreen .game-tools {
+    flex-basis: auto;
+  }
+}
+@media (max-height: 560px) and (min-width: 600px) {
+  .descent:is(.game-focus-view, :fullscreen) .descent-overlay {
+    padding: 10px;
+  }
+  .descent:is(.game-focus-view, :fullscreen) .descent-overlay-card {
+    padding: 12px;
+  }
+  .descent:is(.game-focus-view, :fullscreen) .descent-compass {
+    display: none;
+  }
+  .descent:is(.game-focus-view, :fullscreen) .descent-overlay-card h3 {
+    font-size: 0.9rem;
+    margin: 0 0 8px;
+  }
+  .descent:is(.game-focus-view, :fullscreen) .descent-overlay-card p {
+    font-size: 0.68rem;
+    line-height: 1.4;
+    margin: 6px 0 10px;
+  }
+  .descent:is(.game-focus-view, :fullscreen) .descent-primary {
+    min-height: 44px;
+    padding: 8px;
+    font-size: 0.75rem;
+  }
+  .descent.game-focus-view .descent-layout,
+  .descent:fullscreen .descent-layout {
+    width: min(420px, calc((100dvh - 72px) * 0.7));
+  }
+  .descent.game-focus-view .descent-hud,
+  .descent:fullscreen .descent-hud {
+    position: fixed;
+    left: 20px;
+    top: 90px;
+    width: 140px;
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .descent.game-focus-view .descent-touch,
+  .descent:fullscreen .descent-touch {
+    position: fixed;
+    right: 20px;
+    bottom: 30px;
+    width: 150px;
+    flex-wrap: wrap;
+  }
+  .descent.game-focus-view [data-descent-dash],
+  .descent:fullscreen [data-descent-dash] {
+    order: 2;
+    flex-basis: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .descent * {
+    transition: none !important;
+  }
+}

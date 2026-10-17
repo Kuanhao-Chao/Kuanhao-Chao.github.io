@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { sideProjects } from './cv';
 
 describe('side-project catalog', () => {
-  it('keeps all fifteen games in their original order with unique destinations', () => {
+  it('preserves the original fifteen games and appends 100-Floor Descent as the sixteenth entry', () => {
     expect(sideProjects.map((game) => game.name)).toEqual([
       'Biobaby',
       'Tank Fire',
@@ -19,8 +19,9 @@ describe('side-project catalog', () => {
       'BayRoute',
       '2048',
       'Minesweeper',
+      '100-Floor Descent',
     ]);
-    expect(new Set(sideProjects.map((game) => game.url)).size).toBe(15);
+    expect(new Set(sideProjects.map((game) => game.url)).size).toBe(16);
     for (const [index, project] of sideProjects.entries()) {
       expect(project.url).toMatch(
         index < 3

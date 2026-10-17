@@ -81,6 +81,9 @@ const SAFE_SET_HTML_FILES = new Set([
   'src/pages/logo-options.astro',
   'src/pages/lab.astro',
   'src/pages/games/2048.astro',
+  // Inert VideoGame JSON-LD from build-time constants; '<' is Unicode-escaped.
+  // No seed, settings, record, URL query, or other visitor input reaches the sink.
+  'src/pages/games/100-floor-descent.astro',
   'src/pages/games/bay-route.astro',
   'src/pages/games/crispr-commander.astro',
   'src/pages/games/chinese-chess.astro',
