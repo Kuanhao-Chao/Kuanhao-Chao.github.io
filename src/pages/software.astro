@@ -21,6 +21,7 @@ import ChineseChessLogo from '../components/games/ChineseChessLogo.astro';
 import BayRouteLogo from '../components/games/BayRouteLogo.astro';
 import Game2048Logo from '../components/games/Game2048Logo.astro';
 import MinesweeperLogo from '../components/games/MinesweeperLogo.astro';
+import FloorDescentLogo from '../components/games/FloorDescentLogo.astro';
 
 // Resolve each tool's logo (src/assets/logos/software/<logo>.png) to an optimized asset.
 const logoFiles = import.meta.glob<{ default: ImageMetadata }>('../assets/logos/software/*.png', {
@@ -60,6 +61,7 @@ const gameLogos: Record<string, typeof BayRouteLogo> = {
   BayRoute: BayRouteLogo,
   '2048': Game2048Logo,
   Minesweeper: MinesweeperLogo,
+  '100-Floor Descent': FloorDescentLogo,
 };
 
 // Structured data: one SoftwareSourceCode node per tool, linked to the Person node.

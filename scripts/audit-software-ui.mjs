@@ -24,6 +24,7 @@ const expectedNames = [
   'BayRoute',
   '2048',
   'Minesweeper',
+  '100-Floor Descent',
 ];
 const expectedURLs = [
   'https://storage.googleapis.com/storage.khchao.com/biobaby/index.html',
@@ -41,6 +42,7 @@ const expectedURLs = [
   '/games/bay-route/',
   '/games/2048/',
   '/games/minesweeper/',
+  '/games/100-floor-descent/',
 ];
 const browserTypes = { chromium, webkit };
 const quick = process.argv.includes('--quick');
@@ -109,9 +111,9 @@ try {
         assert.deepEqual(
           await list.locator('h3 a').allTextContents(),
           expectedNames,
-          `${scope}: Original fifteen-game order`
+          `${scope}: Original fifteen-game order plus the new sixteenth entry`
         );
-        assert.equal(await list.locator(':scope > li').count(), 15);
+        assert.equal(await list.locator(':scope > li').count(), 16);
         const links = await list
           .locator('h3 a')
           .evaluateAll((elements) => elements.map((element) => element.getAttribute('href')));
@@ -130,10 +132,10 @@ try {
             definitions: element.querySelectorAll('[id], defs, filter').length,
           }))
         );
-        assert.equal(art.length, 15, `${scope}: Every game has an illustrated icon`);
+        assert.equal(art.length, 16, `${scope}: Every game has an illustrated icon`);
         assert.equal(
           new Set(art.map((icon) => icon.artwork)).size,
-          15,
+          16,
           `${scope}: Distinct artwork`
         );
         const size = profile.width < 620 ? 54 : 70;
@@ -156,7 +158,7 @@ try {
             height: element.getBoundingClientRect().height,
           }))
         );
-        assert.equal(actions.length, 15);
+        assert.equal(actions.length, 16);
         for (const [index, action] of actions.entries()) {
           assert.equal(action.href, expectedURLs[index]);
           assert.equal(action.label, index === 12 ? 'Explore' : 'Play');
@@ -204,7 +206,7 @@ try {
             .screenshot({ path: join(evidence, `${scope}-icons.png`) });
         }
 
-        // Caller sizes, accessibility, and reuse across all twelve in-house headers.
+        // Caller sizes, accessibility, and reuse across all thirteen in-house headers.
         if (
           !quick &&
           profile.width !== 320 &&
@@ -219,7 +221,9 @@ try {
             assert.equal(await icon.count(), 1);
             assert.equal(await icon.getAttribute('aria-label'), art[index].label);
             assert.equal(await icon.getAttribute('role'), 'img');
-            const expectedSize = index === 8 ? 40 : index === 11 ? 62 : index === 12 ? 54 : 58;
+            // The three existing campaign headers adopted 42px illustrations
+            // in the previous arcade redesign; keep this independent contract current.
+            const expectedSize = [6, 8, 10].includes(index) ? 42 : index === 11 ? 62 : index === 12 ? 54 : index === 15 ? 64 : 58;
             assert.equal(await icon.getAttribute('width'), String(expectedSize));
             await icon.screenshot({ path: join(evidence, `${scope}-header-${index}.png`) });
           }

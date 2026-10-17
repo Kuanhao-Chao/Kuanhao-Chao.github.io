@@ -37,6 +37,7 @@ function selectedBrowsers() {
 // Each in-house game shares one audit skeleton (see `auditGame`) and supplies its own
 // gameplay probe via `drive`. Filter with GAME_UI_AUDIT_GAMES=<slug,slug>.
 const games = [
+  { slug: '100-floor-descent', title: '100-Floor Descent', linkName: '100-Floor Descent', query: '?seed=42', global: '__floorDescent', instances: '__floorDescentInstances', canvas: '[data-descent-canvas]', controls: '[data-descent-primary], [data-descent-left], [data-descent-right], [data-descent-pause], [data-descent-retry], [data-descent-sound]', drive: driveFloorDescentUI },
   { slug: 'chinese-chess', title: 'Chinese Chess', linkName: 'Chinese Chess', query: '', global: '__chineseChess', instances: '__chineseChessInstances', canvas: '[data-cc-canvas]', controls: '[data-cc-undo], [data-cc-hint], [data-cc-flip], [data-cc-restart], [data-cc-sound]', drive: driveChineseChess },
   { slug: 'bay-route', title: 'BayRoute', linkName: 'BayRoute', query: '', global: '__bayRoute', instances: '__bayRouteInstances', canvas: '[data-br-canvas]', controls: '[data-br-run], [data-br-play], [data-br-step], [data-br-reset], [data-br-fit], [data-br-sound]', drive: driveBayRoute },
   { slug: 'minesweeper', title: 'Minesweeper', linkName: 'Minesweeper', query: '', global: '__minesweeper', instances: '__minesweeperInstances', surface: '[data-mine-board]', controls: '[data-mine-face], [data-mine-pause], [data-mine-hint], [data-mine-flag-toggle], [data-mine-sound]', drive: driveMinesweeper },
@@ -267,6 +268,26 @@ async function auditGame(page, scope, profile, game) {
   await expect(scope, () => page.evaluate((name) => window[name] === 1, game.instances), 'blur disturbed controller ownership');
 
   for (const error of browserErrors) fail(scope, error);
+}
+
+async function driveFloorDescentUI(page, scope, profile) {
+  await clickControl(page.locator('[data-descent-primary]'));
+  const before=await page.evaluate(()=>window.__floorDescent.state().player.x);
+  if(profile.touch) {
+    const button=page.locator('[data-descent-right]'),box=await button.boundingBox();
+    await button.dispatchEvent('pointerdown',{pointerId:21,pointerType:'touch',clientX:box.x+20,clientY:box.y+20});
+    await page.evaluate(()=>window.__floorDescent.tick(24));
+    await button.dispatchEvent('pointercancel',{pointerId:21,pointerType:'touch'});
+  } else {
+    await page.locator('[data-descent-canvas]').focus();
+    await page.keyboard.down('ArrowRight');await page.evaluate(()=>window.__floorDescent.tick(24));await page.keyboard.up('ArrowRight');
+  }
+  await expect(scope,()=>page.evaluate(x=>window.__floorDescent.state().player.x>x+20,before),'descent steering did not move the explorer');
+  await clickControl(page.locator('[data-descent-pause]'));
+  await expect(scope,()=>page.evaluate(()=>window.__floorDescent.state().status==='paused'),'descent did not pause');
+  const time=await page.evaluate(()=>window.__floorDescent.state().time);
+  await page.evaluate(()=>window.__floorDescent.tick(30));
+  await expect(scope,()=>page.evaluate(t=>window.__floorDescent.state().time===t,time),'paused descent advanced');
 }
 
 async function driveGenomeJumper(page, scope, profile) {
@@ -816,6 +837,7 @@ async function captureFailure(page, game, prefix) {
 
 async function auditRestrictedBrowser(browser, browserName, baseURL, selected) {
   const actions = {
+    '100-floor-descent': '[data-descent-primary]',
     'crispr-commander': '[data-crispr-start]', 'phage-defense': '[data-phage-next-wave]',
     'genome-jumper': '[data-jumper-canvas]', proofreader: '[data-arcade-primary]', snake: '[data-arcade-primary]', 'jetpack-joyride': '[data-arcade-primary]', 'dino-run': '[data-dino-jump]',
     'chinese-chess': '[data-cc-hint]', 'bay-route': '[data-br-run]', minesweeper: '[data-mine-face]', '2048': '[data-2048-restart]',

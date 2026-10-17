@@ -1,0 +1,36 @@
+---
+import GameIconFrame from './GameIconFrame.astro';
+interface Props {
+  size?: number;
+}
+const { size = 80 } = Astro.props;
+---
+
+<GameIconFrame size={size} label="100-Floor Descent" accent="#d2a35c">
+  <path d="M22 19 34 15 29 81 18 78Z M77 18 87 24 83 81 73 85Z" fill="var(--gi-mid)" opacity=".65"
+  ></path>
+  <path
+    d="M28 39h29v7H28z M51 61h27v7H51z M24 80h36v6H24z"
+    fill="#8bb4a9"
+    stroke="var(--gi-deep)"
+    stroke-width="2"
+    stroke-linejoin="round"></path>
+  <path
+    d="m64 26 0 16m-5-5 5 6 5-6"
+    fill="none"
+    stroke="#e8b963"
+    stroke-width="3"
+    stroke-linecap="round"
+    stroke-linejoin="round"></path>
+  <path
+    d="m43 52-5 7m10-6 6 6m-11 9-2 8m8-8 4 7"
+    stroke="#d7dfd6"
+    stroke-width="4"
+    stroke-linecap="round"></path>
+  <path d="M40 50q6-4 12 1l1 15q-7 5-14-1Z" fill="#3caaa1" stroke="#173d49" stroke-width="2"></path>
+  <circle cx="46" cy="44" r="7" fill="#eac493"></circle>
+  <path d="M37 43q0-13 10-12 9 1 9 12Z" fill="#f2bc61" stroke="#6d543b" stroke-width="1.5"></path>
+  <path d="M37 43h20" stroke="#fce0a4" stroke-width="3" stroke-linecap="round"></path>
+  <circle cx="49" cy="38" r="3.4" fill="#fff1bf"></circle>
+  <path d="m26 57 4 4-4 4" fill="none" stroke="#e8b963" stroke-width="2" opacity=".7"></path>
+</GameIconFrame>

@@ -1,0 +1,322 @@
+---
+import PageLayout from '../../layouts/PageLayout.astro';
+import GameTools from '../../components/games/GameTools.astro';
+import FloorDescentLogo from '../../components/games/FloorDescentLogo.astro';
+import { en as t } from '../../lib/floorDescentText';
+import { site } from '../../data/site';
+import '../../styles/floorDescent.css';
+const modes = ['classic', 'trial', 'remix', 'practice'] as const;
+const legends = [
+  ['normal', 'normalHelp'],
+  ['crumble', 'crumbleHelp'],
+  ['spring', 'springHelp'],
+  ['spikesPlatform', 'spikesHelp'],
+  ['leftPlatform', 'leftHelp'],
+  ['rightPlatform', 'rightHelp'],
+] as const;
+const guides = [
+  ['howTitle', 'howBody'],
+  ['healthTitle', 'healthBody'],
+  ['recoveryTitle', 'recoveryBody'],
+  ['remixTitle', 'remixBody'],
+  ['recordsTitle', 'recordsBody'],
+  ['accessTitle', 'accessBody'],
+] as const;
+const gameLd = {
+  '@context': 'https://schema.org',
+  '@type': 'VideoGame',
+  name: '100-Floor Descent — 百層下樓梯',
+  description:
+    'An original, free NS-Shaft-inspired cave descent with Classic, 100-floor Trial, Remix, and Practice; keyboard and touch controls; English and Traditional Chinese.',
+  url: `${site.url}/games/100-floor-descent/`,
+  author: { '@id': `${site.url}/#person` },
+  applicationCategory: 'Game',
+  gamePlatform: ['Web browser', 'Mobile web browser'],
+  genre: ['Arcade', 'Platformer'],
+  inLanguage: ['en', 'zh-Hant'],
+  isAccessibleForFree: true,
+};
+---
+
+<PageLayout
+  title="100-Floor Descent"
+  eyebrow="Side project"
+  lead="A little courage. A long way down. An original take on the classic left–right–gravity challenge, from lantern-lit stone to the sanctuary below."
+  description={gameLd.description}
+  width="wide"
+>
+  <script
+    type="application/ld+json"
+    is:inline
+    set:html={JSON.stringify(gameLd).replace(/</g, '\\u003c')}
+  />
+  <section
+    class="descent"
+    data-game-root
+    data-descent-root
+    lang="en"
+    aria-label="100-Floor Descent game"
+  >
+    <header class="descent-heading">
+      <FloorDescentLogo size={64} />
+      <div>
+        <p class="descent-eyebrow" data-descent-text="edition">{t.edition}</p><h2
+          data-descent-text="title"
+        >
+          {t.title}
+        </h2><p data-descent-text="subtitle">{t.subtitle}</p>
+      </div>
+    </header>
+    <div class="descent-toolbar">
+      <GameTools />
+      <button type="button" data-descent-pause disabled>{t.pause}</button>
+      <button type="button" data-descent-sound aria-pressed="false">{t.soundOff}</button>
+      <label class="descent-language"
+        ><span class="sr-only" data-descent-text="language">{t.language}</span><select
+          data-descent-language
+          aria-label={t.language}
+          ><option value="en">English</option><option value="zh-Hant">繁體中文</option></select
+        ></label
+      >
+    </div>
+    <div class="descent-setup">
+      <label
+        ><span data-descent-text="mode">{t.mode}</span><select data-descent-mode
+          >{
+            modes.map((m) => (
+              <option value={m} data-descent-text={m}>
+                {t[m]}
+              </option>
+            ))
+          }</select
+        ></label
+      >
+      <label
+        ><span data-descent-text="seed">{t.seed}</span><input
+          data-descent-seed
+          type="text"
+          inputmode="numeric"
+          pattern="[0-9]{1,10}"
+          maxlength="10"
+          value="2026"
+          autocomplete="off"
+        /></label
+      >
+      <label data-descent-checkpoint-field hidden
+        ><span data-descent-text="checkpoint">{t.checkpoint}</span><select data-descent-checkpoint
+          >{[0, 20, 40, 60, 80].map((f) => <option value={f}>{f}</option>)}</select
+        ></label
+      >
+      <button type="button" data-descent-new>{t.newSeed}</button>
+    </div>
+    <div class="descent-layout">
+      <div class="descent-play">
+        <div class="descent-hud" aria-label="Current expedition">
+          <div class="descent-vital">
+            <span data-descent-text="health">{t.health}</span><div class="descent-health">
+              <span data-descent-pips aria-hidden="true"
+                >{Array.from({ length: 10 }, () => <i />)}</span
+              ><strong data-descent-health>10/10</strong>
+            </div>
+          </div>
+          <div>
+            <span data-descent-text="floor">{t.floor}</span><strong data-descent-floor>00</strong>
+          </div>
+          <div>
+            <span data-descent-text="time">{t.time}</span><strong data-descent-time>0:00.0</strong>
+          </div>
+        </div>
+        <div class="descent-board">
+          <canvas
+            width="840"
+            height="1200"
+            data-descent-canvas
+            tabindex="0"
+            role="img"
+            aria-label={t.canvasLabel}
+            aria-describedby="descent-controls-hint"
+            >A current browser with Canvas support is required to play.</canvas
+          >
+          <div class="descent-overlay" data-descent-overlay>
+            <div class="descent-overlay-card">
+              <span class="descent-compass" aria-hidden="true">↓</span><h3
+                data-descent-overlay-title
+              >
+                {t.ready}
+              </h3><p data-descent-overlay-body>{t.readyBody}</p><p
+                class="descent-result"
+                data-descent-result
+                hidden
+              >
+              </p><button
+                type="button"
+                class="descent-primary"
+                data-descent-primary
+                data-descent-start>{t.start}</button
+              >
+            </div>
+          </div>
+          <div class="descent-effects" aria-hidden="true">
+            <span data-descent-shield hidden>◇</span><span data-descent-slow hidden>◷</span>
+          </div>
+        </div>
+        <div class="descent-touch">
+          <button type="button" data-descent-left data-descent-label="left" aria-label={t.left}
+            ><span aria-hidden="true">←</span></button
+          >
+          <button type="button" data-descent-dash hidden
+            ><span aria-hidden="true">↠</span><span data-descent-text="dash">{t.dash}</span><span
+              data-descent-cooldown
+              aria-hidden="true"></span></button
+          >
+          <button type="button" data-descent-right data-descent-label="right" aria-label={t.right}
+            ><span aria-hidden="true">→</span></button
+          >
+        </div>
+        <p class="descent-input-hint" id="descent-controls-hint" data-descent-text="controlsHint">
+          {t.controlsHint}
+        </p>
+      </div>
+      <aside class="descent-sidebar">
+        <div class="descent-mode-card">
+          <span class="descent-eyebrow" data-descent-current-mode>{t.classic}</span><p
+            data-descent-mode-description
+          >
+            {t.classicDescription}
+          </p><span class="descent-best-label" data-descent-text="best">{t.best}</span><strong
+            class="descent-best"
+            data-descent-best>{t.noRecord}</strong
+          >
+        </div>
+        <div class="descent-actions">
+          <button type="button" data-descent-retry>{t.retry}</button><button
+            type="button"
+            data-descent-share>{t.share}</button
+          >
+        </div>
+        <ol class="descent-map" aria-label={t.expeditionMap}>
+          {
+            [0, 1, 2, 3, 4].map((i) => (
+              <li data-descent-region={i}>
+                <>
+                  <span class="descent-map-gem" aria-hidden="true">
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <div>
+                    <>
+                      <span data-descent-text={`region${i}`}>
+                        {t[`region${i}` as keyof typeof t]}
+                      </span>
+                      <small>
+                        {String(i * 20).padStart(2, '0')}–{i === 4 ? '99+' : i * 20 + 19}
+                      </small>
+                    </>
+                  </div>
+                </>
+              </li>
+            ))
+          }
+        </ol>
+        <details class="descent-settings">
+          <summary data-descent-text="settings">{t.settings}</summary><label
+            ><span data-descent-text="touch">{t.touch}</span><select data-descent-touch-mode
+              ><option value="buttons" data-descent-text="buttons">{t.buttons}</option><option
+                value="halves"
+                data-descent-text="halves">{t.halves}</option
+              ></select
+            ></label
+          ><label class="descent-check"
+            ><input type="checkbox" data-descent-quiet /><span data-descent-text="quiet"
+              >{t.quiet}</span
+            ></label
+          ><p data-descent-text="quietHint">{t.quietHint}</p><p data-descent-text="touchHint">
+            {t.touchHint}
+          </p>
+        </details>
+      </aside>
+    </div>
+    <p class="descent-status" data-descent-status role="status" aria-live="polite">{t.readyBody}</p>
+    <p class="descent-notice" data-descent-notice hidden></p>
+    <label class="descent-copy" data-descent-copy hidden
+      ><span data-descent-text="shareFailed">{t.shareFailed}</span><input
+        type="text"
+        readonly
+        data-descent-copy-value
+        aria-label="Course link"
+      /></label
+    >
+    <noscript>This game needs JavaScript. The field guide below is available without it.</noscript>
+    <section class="descent-guide">
+      <div class="descent-guide-heading">
+        <p class="descent-eyebrow">LEFT · RIGHT · GRAVITY</p><h3 data-descent-text="guide">
+          {t.guide}
+        </h3><p data-descent-text="guideLead">{t.guideLead}</p>
+      </div>
+      <div class="descent-legend">
+        {
+          legends.map(([name, help], i) => (
+            <article>
+              <>
+                <span
+                  class={`descent-platform-sample descent-platform-sample-${i}`}
+                  aria-hidden="true"
+                />
+                <div>
+                  <>
+                    <h4 data-descent-text={name}>{t[name]}</h4>
+                    <p data-descent-text={help}>{t[help]}</p>
+                  </>
+                </div>
+              </>
+            </article>
+          ))
+        }
+      </div>
+      <div class="descent-guide-grid">
+        {
+          guides.map(([title, body]) => (
+            <details>
+              <>
+                <summary data-descent-text={title}>{t[title]}</summary>
+                <p data-descent-text={body}>{t[body]}</p>
+              </>
+            </details>
+          ))
+        }
+      </div>
+      <footer class="descent-credits">
+        <h4 data-descent-text="creditsTitle">{t.creditsTitle}</h4><p
+          data-descent-text="creditsBody"
+        >
+          {t.creditsBody}
+        </p><p>
+          <a
+            href="https://www.arealme.com/100-floor-challenge/zh/"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-descent-text="reference">{t.reference}</a
+          ><span aria-hidden="true"> · </span><a
+            href="https://www.nagi-p.com/v1/eng/nsshaft.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-descent-text="original">{t.original}</a
+          >
+        </p><a href="/software/" data-descent-text="back">{t.back}</a>
+      </footer>
+    </section>
+  </section>
+</PageLayout>
+<script>
+  import { initFloorDescent } from '../../scripts/floorDescent';
+  let controller: ReturnType<typeof initFloorDescent> | null = null;
+  function mount() {
+    if (!controller) controller = initFloorDescent(document);
+  }
+  function unmount() {
+    controller?.destroy();
+    controller = null;
+  }
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', unmount);
+  mount();
+</script>

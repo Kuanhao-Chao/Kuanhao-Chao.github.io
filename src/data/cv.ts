@@ -356,4 +356,10 @@ export const sideProjects: SideProject[] = [
       'Deduction workbench — safe opening zones, visible-clue practice hints, chord previews, keyboard navigation, adjustable cell sizes, and phone-scrollable Expert boards',
     url: '/games/minesweeper/',
   },
+  {
+    name: '100-Floor Descent',
+    detail:
+      'Original cave-descent arcade — explore five illustrated regions with Classic, 100-floor Trial, Remix, and unranked Practice, English/繁體中文, touch controls, and shared seeded courses',
+    url: '/games/100-floor-descent/',
+  },
 ];
