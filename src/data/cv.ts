@@ -279,28 +279,22 @@ export const sideProjects: SideProject[] = [
     url: 'https://storage.googleapis.com/storage.khchao.com/tanks_fire/index.html',
   },
   {
-    name: 'Flappy Penguin',
-    detail:
-      'Arctic flight side-scroller — flap past floating glacial columns, crystalline icebergs, and turbulent blizzard drafts in a high-precision arcade obstacle run',
-    url: 'https://storage.googleapis.com/storage.khchao.com/flappy_penguin/index.html',
-  },
-  {
-    name: 'CRISPR Commander',
-    detail:
-      'Science-inspired DNA slicing — learn canonical Cas9/Cas12a PAM compatibility in guided practice, then defend against mixed targets in endless mode',
-    url: '/games/crispr-commander/',
-  },
-  {
-    name: 'Phage Defense',
-    detail:
-      'Bacterial defense diorama — preview enzyme ranges, deploy and upgrade defenses, and intercept injected phage genomes across 15 tactical waves',
-    url: '/games/phage-defense/',
-  },
-  {
     name: 'Genome Jumper',
     detail:
       'RNA-themed platform adventure — climb four chromatin chapters, collect A · C · G · U ribonucleotides, build pickup streaks, and replay a shared seed',
     url: '/games/genome-jumper/',
+  },
+  {
+    name: '100-Floor Descent',
+    detail:
+      'Original cave-descent arcade — explore five illustrated regions with Classic, 100-floor Trial, Remix, and unranked Practice, English/繁體中文, touch controls, and shared seeded courses',
+    url: '/games/100-floor-descent/',
+  },
+  {
+    name: 'Flappy Penguin',
+    detail:
+      'Arctic flight side-scroller — flap past floating glacial columns, crystalline icebergs, and turbulent blizzard drafts in a high-precision arcade obstacle run',
+    url: 'https://storage.googleapis.com/storage.khchao.com/flappy_penguin/index.html',
   },
   {
     name: 'Proofreader',
@@ -327,22 +321,10 @@ export const sideProjects: SideProject[] = [
     url: '/games/tetris/',
   },
   {
-    name: 'Jetpack Joyride',
-    detail:
-      'Molecular-themed pixel flight arcade — master six authored routes with certified hazard patterns, readable warnings, shields, magnets, collection chains, and seeded endless challenges',
-    url: '/games/jetpack-joyride/',
-  },
-  {
     name: 'Chinese Chess',
     detail:
       'Xiangqi / 象棋 teaching board — lacquer pieces, keyboard navigation, four rule-study positions, cancellable Worker-based AI, and local two-player play',
     url: '/games/chinese-chess/',
-  },
-  {
-    name: 'BayRoute',
-    detail:
-      'Offline graph-search teaching lab — inspect weighted and directed examples, compare six search algorithms, and explore curated city graphs with optional basemaps',
-    url: '/games/bay-route/',
   },
   {
     name: '2048',
@@ -357,9 +339,27 @@ export const sideProjects: SideProject[] = [
     url: '/games/minesweeper/',
   },
   {
-    name: '100-Floor Descent',
+    name: 'CRISPR Commander',
     detail:
-      'Original cave-descent arcade — explore five illustrated regions with Classic, 100-floor Trial, Remix, and unranked Practice, English/繁體中文, touch controls, and shared seeded courses',
-    url: '/games/100-floor-descent/',
+      'Science-inspired DNA slicing — learn canonical Cas9/Cas12a PAM compatibility in guided practice, then defend against mixed targets in endless mode',
+    url: '/games/crispr-commander/',
+  },
+  {
+    name: 'Phage Defense',
+    detail:
+      'Bacterial defense diorama — preview enzyme ranges, deploy and upgrade defenses, and intercept injected phage genomes across 15 tactical waves',
+    url: '/games/phage-defense/',
+  },
+  {
+    name: 'Jetpack Joyride',
+    detail:
+      'Molecular-themed pixel flight arcade — master six authored routes with certified hazard patterns, readable warnings, shields, magnets, collection chains, and seeded endless challenges',
+    url: '/games/jetpack-joyride/',
+  },
+  {
+    name: 'BayRoute',
+    detail:
+      'Offline graph-search teaching lab — inspect weighted and directed examples, compare six search algorithms, and explore curated city graphs with optional basemaps',
+    url: '/games/bay-route/',
   },
 ];

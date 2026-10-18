@@ -15,7 +15,8 @@ const engines = (
   process.env.APPEARANCE_UI_BROWSERS || (quick ? 'chromium' : 'chromium,webkit')
 ).split(',');
 const widths =
-  process.env.APPEARANCE_UI_WIDTHS?.split(',').map(Number) || (quick ? [1440] : [1440, 390, 320]);
+  process.env.APPEARANCE_UI_WIDTHS?.split(',').map(Number) ||
+  (quick ? [1440] : logosOnly ? [1440, 768, 390, 320] : [1440, 390, 320]);
 const themes =
   process.env.APPEARANCE_UI_THEMES?.split(',') ||
   (quick ? ['light'] : ['light', 'dark', 'parchment', 'nord', 'monokai', 'cyberdeck']);
@@ -408,7 +409,7 @@ async function checkLogoReview(page, scope) {
   assert.match(await page.locator('meta[name="robots"]').getAttribute('content'), /noindex/);
   assert.deepEqual(
     await page.locator('[data-logo-featured] h2').allTextContents(),
-    ['Current branch', 'Connected KH', 'Cellular C', 'Regulatory Bridge'],
+    ['Current branch', 'Junction KC', 'Chromatin Fold', 'Inference Prism'],
     `${scope}: three distinct new directions alongside the live baseline`
   );
   const archive = page.locator('[data-logo-archive]');
@@ -417,8 +418,11 @@ async function checkLogoReview(page, scope) {
     null,
     `${scope}: earlier concepts are collapsed`
   );
-  assert.equal(await page.locator('.logo-card').count(), 22);
-  for (const id of [0, 19, 20, 21]) {
+  assert.equal(await page.locator('.logo-card').count(), 25);
+  assert.equal(await archive.locator('.logo-card').count(), 21);
+  assert.match(await archive.locator('summary').textContent(), /21 archived concepts/);
+  const artwork = [];
+  for (const id of [0, 22, 23, 24]) {
     const card = page.locator(`#option-${id}`);
     for (const selector of [
       '.preview-large svg',
@@ -435,27 +439,61 @@ async function checkLogoReview(page, scope) {
       `${scope}: font-independent vector artwork`
     );
     assert.match(await card.locator('.tradeoff').textContent(), /\S/);
+    const svg = card.locator('.preview-large svg');
+    assert.equal(await svg.getAttribute('viewBox'), '0 0 64 64');
+    assert.ok(await svg.getAttribute('aria-label'));
+    artwork.push(
+      await svg.evaluate((element) =>
+        Array.from(element.children, (child) =>
+          new XMLSerializer().serializeToString(child)
+        ).join('')
+      )
+    );
+    assert.equal(
+      await card.locator('svg script, svg foreignObject, svg [id], svg [href]').count(),
+      0,
+      `${scope}: self-contained vector artwork without global IDs or external resources`
+    );
     for (const size of [16, 32]) {
       const box = await card.locator(`.tiny--${size} svg`).boundingBox();
       assert.equal(box.width, size);
       assert.equal(box.height, size);
     }
   }
+  assert.equal(new Set(artwork).size, 4, `${scope}: distinct silhouettes`);
   assert.equal(
     await page.locator('header .wordmark-mark img').getAttribute('src'),
     '/favicon.svg',
     `${scope}: live logo is unchanged`
   );
   await page.screenshot({ path: join(artifacts, `${scope}-logo-review.png`) });
-  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
-  await page.evaluate(() => {
-    location.hash = 'option-8';
+  await page.locator('[data-logo-featured]').screenshot({
+    path: join(artifacts, `${scope}-logo-comparison.png`),
+    style: 'header { visibility: hidden !important; }',
   });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  for (const id of [8, 19, 20, 21]) {
+    await archive.evaluate((element) => {
+      element.open = false;
+    });
+    await page.evaluate((id) => {
+      location.hash = `option-${id}`;
+    }, id);
+    await page.waitForFunction(() => document.querySelector('[data-logo-archive]')?.open === true);
+    assert.equal(
+      await page.locator(`#option-${id}`).isVisible(),
+      true,
+      `${scope}: archived option ${id} still opens from its original anchor`
+    );
+  }
+  await page.goto('/logo-options/#option-19');
+  assert.ok((await page.reload())?.ok());
+  await waitForPageReady(page);
   await page.waitForFunction(() => document.querySelector('[data-logo-archive]')?.open === true);
   assert.equal(
-    await page.locator('#option-8').isVisible(),
+    await page.locator('#option-19').isVisible(),
     true,
-    `${scope}: archived anchors still work`
+    `${scope}: newly archived anchors also work on direct entry`
   );
 }
 
