@@ -43,8 +43,8 @@ const readingTime = "20 min read";
     <p class="paper-lead">
       Conventional variant callers are stacks of hand-built statistical models — GATK alone uses logistic
       regression for base errors, hidden Markov models for read likelihoods and naive Bayes for genotyping —
-      and each new sequencing technology needs the stack retuned by hand. <strong>DeepVariant</strong>
-      replaces the whole assortment with one convolutional network that reads <strong>pileup images</strong>
+      and each new sequencing technology needs the stack retuned by hand. <strong>DeepVariant</strong>{' '}
+      replaces the whole assortment with one convolutional network that reads <strong>pileup images</strong>{' '}
       and emits diploid genotype likelihoods. Trained on one human sample and evaluated on an unseen one, it
       reaches <strong>SNP F1 = 99.95% and indel F1 = 98.98%</strong>, won the <strong>"Highest SNP
       Performance" award at the FDA-sponsored precisionFDA Truth Challenge</strong>, and generalizes across
@@ -56,14 +56,14 @@ const readingTime = "20 min read";
         <Icon name="list" size={14} /> Table of Contents
       </div>
       <ol class="paper-toc-list">
-        <li><a href="#summary">1. The Retuning Problem</a></li>
-        <li><a href="#architecture">2. Architecture: Variant Calling as Image Classification</a></li>
-        <li><a href="#accuracy">3. Accuracy on Held-Out Human Samples</a></li>
-        <li><a href="#generalization">4. Generalization: Builds, Platforms, Species</a></li>
-        <li><a href="#technologies">5. Where the Candidate Callset Breaks Down</a></li>
-        <li><a href="#mathematical-formulation">6. Mathematical Formulation</a></li>
-        <li><a href="#honesty">7. The Paper's Own Statement of What It Got Wrong</a></li>
-        <li><a href="#failure-modes">8. Limitations & Reading This Summary</a></li>
+        <li><a href="#summary">The Retuning Problem</a></li>
+        <li><a href="#architecture">Architecture: Variant Calling as Image Classification</a></li>
+        <li><a href="#accuracy">Accuracy on Held-Out Human Samples</a></li>
+        <li><a href="#generalization">Generalization: Builds, Platforms, Species</a></li>
+        <li><a href="#technologies">Where the Candidate Callset Breaks Down</a></li>
+        <li><a href="#mathematical-formulation">Mathematical Formulation</a></li>
+        <li><a href="#honesty">The Paper's Own Statement of What It Got Wrong</a></li>
+        <li><a href="#failure-modes">Limitations & Reading This Summary</a></li>
       </ol>
     </div>
 
@@ -75,7 +75,7 @@ const readingTime = "20 min read";
         explicitly — and the model is specific to the instrument that produced the errors.
       </p>
       <p>
-        The paper names the consequence: generalizing these models to other sequencing technologies
+        The paper names the consequence: generalizing these models to other sequencing technologies{' '}
         <strong>has proven difficult due to the need for manual retuning or extending these statistical
         models</strong>, which it calls <strong>a major problem in an area with such rapid technological
         progress</strong>. Every new platform costs another round of expert modelling.
@@ -94,7 +94,7 @@ const readingTime = "20 min read";
 
       <h3>The pileup image</h3>
       <p>
-        Around each candidate variant, the reference and read data are rendered as a
+        Around each candidate variant, the reference and read data are rendered as a{' '}
         <strong>three-channel image</strong> of the read pileup. The network — <strong>Inception-v2</strong>,
         an off-the-shelf image classification architecture — <strong>emits probabilities for each of the three
         diploid genotypes</strong> at the locus.
@@ -124,12 +124,12 @@ const readingTime = "20 min read";
       </p>
       <p>
         The same dataset and evaluation methodology were then applied to a range of established tools —
-        <strong>GATK, FreeBayes, samtools, 16GT and Strelka</strong>. DeepVariant
+        <strong>GATK, FreeBayes, samtools, 16GT and Strelka</strong>. DeepVariant{' '}
         <strong>outperformed all other methods for calling both SNP and indel mutations</strong>, and did so
         without the per-tool tuning those methods normally require.
       </p>
       <p>
-        Independently, variant calls for the blinded sample NA24385 were submitted to the FDA-sponsored
+        Independently, variant calls for the blinded sample NA24385 were submitted to the FDA-sponsored{' '}
         <strong>Truth Challenge in May 2016</strong>, where DeepVariant won the
         <strong>"highest performance" award for SNPs</strong> — judged by an independent team using a
         different evaluation methodology, which is the strongest form the result could take.
@@ -147,7 +147,7 @@ const readingTime = "20 min read";
 
       <h3>Across species — the striking result</h3>
       <p>
-        A model learned from <strong>human reads and human ground-truth data</strong> achieves
+        A model learned from <strong>human reads and human ground-truth data</strong> achieves{' '}
         <strong>F1 = 98.29% on a mouse dataset</strong>, <strong>out-performing a model trained on the mouse
         data itself (F1 = 97.84%)</strong>.
       </p>
@@ -233,8 +233,8 @@ const readingTime = "20 min read";
       </p>
       <p>
         Second, on the software: the manuscript <strong>documents the work leading up to the precisionFDA
-        Truth Challenge in May 2016</strong>, and since then DeepVariant has been
-        <strong>entirely rewritten from scratch</strong> to be released as open-source software — so
+        Truth Challenge in May 2016</strong>, and since then DeepVariant has been{' '}
+        <strong>entirely rewritten from scratch</strong> to be released as open-source software — so{' '}
         <strong>several improvements to the method are not captured in the analyses presented here</strong>.
       </p>
 
@@ -268,7 +268,7 @@ const readingTime = "20 min read";
         </div>
         <p>
           The published Nature Biotechnology article is <strong>not open access</strong> — Unpaywall reports
-          no OA location and there is no PMC record — so this summary is written against the
+          no OA location and there is no PMC record — so this summary is written against the{' '}
           <strong>bioRxiv preprint, version 5, posted 9 January 2018</strong>, which is the fullest legally
           available text and carries the preprint title <em>"Creating a universal SNP and small indel variant
           caller with deep neural networks."</em> Figures quoted above are the preprint's. The published paper

@@ -78,7 +78,17 @@ select {
 input,
 textarea,
 select {
-  font-size: max(16px, 1rem);
+  /* A deliberate floor: local compact-toolbar styles must not make editable
+     text smaller. Keep browser zoom enabled, including on phones and iPads. */
+  font-size: max(16px, var(--fs-control)) !important;
+}
+
+/* Let ordinary form controls grow with enlarged text instead of clipping it.
+   Terminal prompts and full-screen scientific interfaces own their own rows. */
+body:not(:has(.main--bare)) select,
+body:not(:has(.main--bare)) textarea { min-height: 2.75rem; }
+body:not(:has(.main--bare)) input:not([type='range']):not([type='checkbox']):not([type='radio']):not(.term-input) {
+  min-height: 2rem;
 }
 
 a,
@@ -96,7 +106,7 @@ h3,
 h4 {
   font-family: var(--font-display);
   font-weight: var(--fw-light);
-  line-height: var(--lh-tight);
+  line-height: var(--lh-title);
   letter-spacing: var(--tracking-tight);
   text-wrap: balance;
 }
@@ -202,12 +212,19 @@ body:has(.main--bare) {
 
 .lead {
   font-size: var(--fs-lead);
-  line-height: var(--lh-snug);
+  line-height: var(--lh-lead);
   color: var(--color-ink);
 }
 
 .muted {
   color: var(--color-muted);
+}
+
+/* One sticky-header offset for prose, lessons, news and question deep links.
+   Fixed page-local offsets become wrong when the visitor enlarges their text.
+   Bare interfaces have their own chrome and retain their existing offsets. */
+body:not(:has(.main--bare)) main [id] {
+  scroll-margin-top: calc(var(--site-header-height) + 1rem) !important;
 }
 
 .visually-hidden {
@@ -385,6 +402,15 @@ article a {
   -webkit-overflow-scrolling: touch;
 }
 
+/* remark/rehype-generated inline math has no Katex.astro wrapper. Give it the
+   same local scrolling boundary instead of letting a formula widen the page. */
+main .katex:not(.katex-display > .katex):not(.katex-wrap--inline .katex) {
+  display: inline-block;
+  max-width: 100%;
+  overflow-x: auto;
+  vertical-align: middle;
+}
+
 .katex-wrap--display,
 .katex-display {
   display: block !important;
@@ -400,6 +426,16 @@ article a {
 }
 
 .katex-display > .katex {
-  font-size: clamp(0.92rem, 3.2vw, 1.18rem) !important;
+  font-size: clamp(1rem, 3.2vw, 1.18rem) !important;
   white-space: nowrap !important;
 }
+
+.reading-scroll-hint {
+  display: block;
+  margin: 0.35rem 0 0.75rem;
+  color: var(--color-muted);
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+}
+.reading-scroll-hint[hidden] { display: none; }
+@media print { .reading-scroll-hint { display: none !important; } }

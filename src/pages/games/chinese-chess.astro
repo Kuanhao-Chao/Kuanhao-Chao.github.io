@@ -266,6 +266,9 @@ const gameLd = {
 
   .cc-toolbar-group {
     display: flex;
+    flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
     align-items: center;
     gap: 8px;
   }
@@ -279,6 +282,8 @@ const gameLd = {
   }
 
   .cc-select {
+    min-width: 0;
+    max-width: 100%;
     padding: 6px 10px;
     font-size: 0.84rem;
     font-weight: 500;

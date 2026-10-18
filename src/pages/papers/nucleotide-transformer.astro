@@ -45,8 +45,8 @@ const readingTime = "24 min read";
     <p class="paper-lead">
       Protein language models showed that self-supervised pretraining on sequence alone yields
       representations that transfer. The <strong>Nucleotide Transformer</strong> asks whether the same holds
-      for DNA, and does so as a controlled study rather than a single model: transformers from
-      <strong>50 million to 2.5 billion parameters</strong>, pretrained on <strong>3,202 human genomes</strong>
+      for DNA, and does so as a controlled study rather than a single model: transformers from{' '}
+      <strong>50 million to 2.5 billion parameters</strong>, pretrained on <strong>3,202 human genomes</strong>{' '}
       and <strong>850 genomes from diverse species</strong>, evaluated by both <strong>probing and
       fine-tuning</strong> across <strong>18 genomic tasks</strong>. Its central finding is about data, not
       scale: the <strong>Multispecies 2.5B</strong> model <strong>outperforms or matches</strong> the
@@ -58,14 +58,14 @@ const readingTime = "24 min read";
         <Icon name="list" size={14} /> Table of Contents
       </div>
       <ol class="paper-toc-list">
-        <li><a href="#summary">1. The Question: Does Pretraining Transfer to DNA?</a></li>
-        <li><a href="#models">2. The Four Pretraining Corpora</a></li>
-        <li><a href="#tokenization">3. Six-Mer Tokenization and the 6 kb Ceiling</a></li>
-        <li><a href="#evaluation">4. Probing versus Fine-Tuning</a></li>
-        <li><a href="#results">5. The Multispecies Result</a></li>
-        <li><a href="#ntv2">6. NT-v2: What This Paper Actually Introduces Second</a></li>
-        <li><a href="#mathematical-formulation">7. Mathematical Formulation</a></li>
-        <li><a href="#failure-modes">8. Limitations & Where the Line Runs to NTv3</a></li>
+        <li><a href="#summary">The Question: Does Pretraining Transfer to DNA?</a></li>
+        <li><a href="#models">The Four Pretraining Corpora</a></li>
+        <li><a href="#tokenization">Six-Mer Tokenization and the 6 kb Ceiling</a></li>
+        <li><a href="#evaluation">Probing versus Fine-Tuning</a></li>
+        <li><a href="#results">The Multispecies Result</a></li>
+        <li><a href="#ntv2">NT-v2: What This Paper Actually Introduces Second</a></li>
+        <li><a href="#mathematical-formulation">Mathematical Formulation</a></li>
+        <li><a href="#failure-modes">Limitations & Where the Line Runs to NTv3</a></li>
       </ol>
     </div>
 
@@ -73,13 +73,13 @@ const readingTime = "24 min read";
       <h2>1. The Question: Does Pretraining Transfer to DNA?</h2>
       <p>
         Protein language models trained by masked-residue prediction on large sequence datasets compete with
-        and outperform earlier approaches on downstream tasks through transfer learning. DNA presents both
+        and outperform earlier approaches on downstream tasks through transfer learning. DNA presents both{' '}
         <strong>an opportunity and a challenge</strong>: intricate patterns of natural variability across
         species and populations are readily available, but the signal is sparse in a way protein sequence is
         not.
       </p>
       <p>
-        The paper's contribution is as much benchmark as model. It positions itself as a
+        The paper's contribution is as much benchmark as model. It positions itself as a{' '}
         <strong>benchmark of foundational genomics models</strong> that should <strong>serve as a reference
         for the development of further language models in genomics</strong> — which is why the ablation over
         pretraining corpora matters more than any single checkpoint.
@@ -127,7 +127,7 @@ const readingTime = "24 min read";
       </div>
 
       <p>
-        For scale context, the paper notes the largest model is <strong>20 times larger than DNABERT-2</strong>
+        For scale context, the paper notes the largest model is <strong>20 times larger than DNABERT-2</strong>{' '}
         and <strong>ten times larger than the Enformer backbone</strong>.
       </p>
     </section>
@@ -153,7 +153,7 @@ const readingTime = "24 min read";
       </div>
 
       <p>
-        The tokenization is also used as an analysis tool: the authors compute
+        The tokenization is also used as an analysis tool: the authors compute{' '}
         <strong>six-mer token probabilities, by masking each token in turn, for every 6-kb window in
         chromosome 22</strong>, and read the result as a metric of sequence constraint and importance learned
         by the model — a self-supervised analogue of evolutionary conservation.
@@ -163,7 +163,7 @@ const readingTime = "24 min read";
     <section id="evaluation" class="paper-section">
       <h2>4. Probing versus Fine-Tuning</h2>
       <p>
-        Models are evaluated through <strong>two different techniques: probing and fine-tuning</strong>.
+        Models are evaluated through <strong>two different techniques: probing and fine-tuning</strong>.{' '}
         <strong>Probing</strong> uses the frozen learned embeddings as input features to a small downstream
         model; <strong>fine-tuning</strong> updates the transformer's own weights on the task.
       </p>
@@ -174,8 +174,8 @@ const readingTime = "24 min read";
         happening.
       </p>
       <p>
-        The comparison baseline is strong by construction: the <strong>BPNet convolutional architecture</strong>
-        trained from scratch on each of the <strong>18 tasks</strong>, described as
+        The comparison baseline is strong by construction: the <strong>BPNet convolutional architecture</strong>{' '}
+        trained from scratch on each of the <strong>18 tasks</strong>, described as{' '}
         <strong>widely used in genomics and a very strong default architecture</strong> — not a weak
         baseline chosen to flatter the transformer.
       </p>
@@ -210,14 +210,14 @@ const readingTime = "24 min read";
           Both 2.5B models have the same capacity and the same objective. The only difference is the corpus,
           and the more <em>evolutionarily</em> diverse corpus wins on the target species. Choosing pretraining
           data by evolutionary breadth rather than by raw volume is a design principle that generalises well
-          past this paper — and the authors say as much, anticipating that
+          past this paper — and the authors say as much, anticipating that{' '}
           <strong>future studies may benefit</strong> from it.
         </p>
       </div>
 
       <p>
         The models also learned, <strong>despite no supervision, to focus attention on key genomic
-        elements</strong>, and their zero-shot scores can be used to
+        elements</strong>, and their zero-shot scores can be used to{' '}
         <strong>improve the prioritization of pathogenic variants</strong> — with the paper noting that
         prioritization based on multispecies sequences performed best, consistent with severely pathogenic
         variants tending to fall in regions conserved across species.

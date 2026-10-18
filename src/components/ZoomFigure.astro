@@ -63,10 +63,10 @@ const { src, alt, variant = 'landscape' } = Astro.props;
   }
   /* Dark mode: scientific figures are white/transparent PNGs with dark line-art, which
      glare or vanish on the dark surface. Back them with a light "mat" so they stay legible. */
-  :global([data-theme='dark']) .zfig-btn {
+  :global(:is([data-theme='dark'], [data-theme='nord'], [data-theme='monokai'], [data-theme='cyberdeck'])) .zfig-btn {
     background: var(--color-figure-mat);
   }
-  :global([data-theme='dark']) .zfig-dialog :global(img) {
+  :global(:is([data-theme='dark'], [data-theme='nord'], [data-theme='monokai'], [data-theme='cyberdeck'])) .zfig-dialog :global(img) {
     background: var(--color-figure-mat);
     padding: 0.5rem;
   }
@@ -86,6 +86,9 @@ const { src, alt, variant = 'landscape' } = Astro.props;
   .zfig-btn:hover .zfig-hint,
   .zfig-btn:focus-visible .zfig-hint {
     opacity: 1;
+  }
+  @media (hover: none) {
+    .zfig-hint { opacity: 1; }
   }
 
   .zfig-dialog {

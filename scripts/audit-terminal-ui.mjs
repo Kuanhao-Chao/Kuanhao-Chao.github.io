@@ -298,7 +298,7 @@ async function assertScrollBehavior(page, scope, profile, route) {
   await page.mouse.wheel(0, 140);
   await page.waitForTimeout(80);
   const boundaryDown = await readScrollState(page);
-  if (boundaryDown.pageY <= boundaryStart.pageY) fail(scope, 'homepage did not resume page scrolling at transcript bottom');
+  if (boundaryDown.pageY <= boundaryStart.pageY) fail(scope, `homepage did not resume page scrolling at transcript bottom: ${JSON.stringify({ before: boundaryStart, after: boundaryDown })}`);
 
   await page.evaluate(() => {
     const screen = document.querySelector('.term-screen');
@@ -337,8 +337,8 @@ async function readHomeShell(page) {
       directlyAfterName: Boolean(name) && name.nextElementSibling === slot,
       below: Boolean(rect(slot) && rect(name)) && rect(slot).top >= rect(name).bottom - 1,
       withinColumn: Boolean(rect(shell) && rect(slot)) && rect(shell).right <= rect(slot).right + 1,
-      actionsBelow: Boolean(rect(slot) && rect(document.querySelector('.hero-actions'))) &&
-        rect(document.querySelector('.hero-actions')).top >= rect(slot).bottom - 1,
+      actionsBeforeBio: Boolean(rect(document.querySelector('.hero-bio')) && rect(document.querySelector('.hero-actions'))) &&
+        rect(document.querySelector('.hero-actions')).bottom <= rect(document.querySelector('.hero-bio')).top + 1,
       // The hero clips its own overflow, so a card that is too wide never shows up as
       // document overflow: it is simply cut off at the viewport. Measure it directly.
       cardRight: rect(shell)?.right ?? 0,
@@ -376,7 +376,7 @@ async function assertHomeLifecycle(page, scope, profile, indexRequests) {
   if (!start.directlyAfterName) fail(s, 'the shell does not directly follow "About my name"');
   if (!start.below) fail(s, 'the shell is not below "About my name"');
   if (!start.withinColumn) fail(s, 'the card is wider than its hero column');
-  if (!start.actionsBelow) fail(s, 'the hero actions appear before the name and terminal');
+  if (!start.actionsBeforeBio) fail(s, 'Research/CV actions should precede the full biography');
   if (start.overflow > 1) fail(s, `document has ${start.overflow}px horizontal overflow while collapsed`);
   if (start.shellHeight - start.barHeight > 8) {
     fail(s, `collapsed card is ${start.shellHeight}px tall around a ${start.barHeight}px bar`);

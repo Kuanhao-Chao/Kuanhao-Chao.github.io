@@ -14,6 +14,17 @@ import portrait from '../assets/profile/portrait.jpg';
       <p class="eyebrow hero-eyebrow">{site.role}</p>
       <h1 class="hero-title">{site.name}</h1>
       <p class="hero-lead">{site.tagline}</p>
+      <div class="hero-actions">
+        <a class="btn btn--accent" href="/research/">
+          Explore the research <Icon name="arrow-right" size={18} />
+        </a>
+        <span class="hero-pair">
+          <a class="btn" href="/cv/">View CV</a>
+          <a class="btn hero-term" href="/terminal/" title="Open the shell">
+            <span aria-hidden="true">$</span> terminal
+          </a>
+        </span>
+      </div>
       <div class="hero-bio muted">
         {site.bioParagraphs.map((paragraph) => <p>{paragraph}</p>)}
       </div>
@@ -66,41 +77,14 @@ import portrait from '../assets/profile/portrait.jpg';
       <div class="hero-terminal">
         <HomeTerminal />
       </div>
-
-      {/*
-        Two rows: labelled actions, then one uniform strip of icon tiles.
-
-        `$ terminal` belongs with the actions, not the icons — it is a labelled
-        destination, and as an icon-row sibling its 31px chip never lined up with the
-        38px tiles. Photos goes the other way, into the socials list itself, so all
-        seven tiles share one wrap context, one gap and one baseline.
-
-        The two secondary actions are wrapped so they can be made exactly equal width
-        — 96px beside 106px read as a misalignment — and so they can split the row in
-        half on a phone. They differ from each other only in typeface.
-      */}
-      <div class="hero-actions">
-        <a class="btn btn--accent" href="/research/">
-          Explore the research
-          <Icon name="arrow-right" size={18} />
-        </a>
-        <span class="hero-pair">
-          <a class="btn" href="/cv/">View CV</a>
-          <a class="btn hero-term" href="/terminal/" title="Open the shell">
-            <span aria-hidden="true">$</span> terminal
+      {/* Contact links close the profile; keep native scroll chaining out of the inline shell. */}
+      <Socials class="hero-socials" keys={['scholar', 'github', 'linkedin', 'twitter', 'bluesky', 'email']}>
+        <li>
+          <a class="hero-photos" href="/photos/" aria-label="Photos" title="Photos">
+            <Icon name="image" size={20} />
           </a>
-        </span>
-        <Socials
-          class="hero-socials"
-          keys={['scholar', 'github', 'linkedin', 'twitter', 'bluesky', 'email']}
-        >
-          <li>
-            <a class="hero-photos" href="/photos/" aria-label="Photos" title="Photos">
-              <Icon name="image" size={20} />
-            </a>
-          </li>
-        </Socials>
-      </div>
+        </li>
+      </Socials>
     </div>
 
     <div class="hero-portrait">
@@ -134,6 +118,7 @@ import portrait from '../assets/profile/portrait.jpg';
   }
   .hero-title {
     font-size: var(--fs-hero);
+    line-height: var(--lh-tight);
     margin-bottom: 1.25rem;
   }
   .hero-lead {
@@ -253,6 +238,7 @@ import portrait from '../assets/profile/portrait.jpg';
     flex-wrap: wrap;
     align-items: center;
     gap: 0.75rem;
+    margin-bottom: 1.5rem;
   }
   /* The two secondary actions travel together and match each other exactly.
      Grid, not flex: this wrapper is shrink-to-fit, so a flex container would size
@@ -268,11 +254,9 @@ import portrait from '../assets/profile/portrait.jpg';
   .hero-pair .btn {
     justify-content: center;
   }
-  /* The icon strip always starts its own row, flush with the buttons above it, so the
-     two rows read as one block rather than a row with icons trailing off the end. */
-  .hero-actions :global(.hero-socials) {
-    flex-basis: 100%;
-    margin-top: 0.65rem;
+  /* Separate primary navigation from contact links, which close the full profile. */
+  .hero :global(.hero-socials) {
+    margin-top: 1rem;
   }
   /* Sized and coloured to match a socials tile exactly — it is one now. */
   .hero-photos {
@@ -392,12 +376,12 @@ import portrait from '../assets/profile/portrait.jpg';
       width: 100%;
       text-align: left;
       margin-top: 1rem;
-      margin-bottom: 1.5rem;
+      margin-bottom: 0;
     }
     .hero-actions {
       justify-content: center;
     }
-    .hero-actions :global(.hero-socials) {
+    .hero :global(.hero-socials) {
       justify-content: center;
     }
   }
@@ -421,7 +405,7 @@ import portrait from '../assets/profile/portrait.jpg';
      than the tiles: 44px is the tap-target floor and is not negotiable, but the space
      between them is. This keeps all seven on one line down to 360px. */
   @media (max-width: 385px) {
-    .hero-actions :global(.hero-socials) {
+    .hero :global(.hero-socials) {
       gap: 0.125rem;
     }
   }
@@ -430,7 +414,7 @@ import portrait from '../assets/profile/portrait.jpg';
      280px of container. Wrap deliberately — four, then three centred beneath — rather
      than six and an orphan. The subtracted 1.5px is the gap's share of each cell. */
   @media (max-width: 330px) {
-    .hero-actions :global(.hero-socials > li) {
+    .hero :global(.hero-socials > li) {
       flex: 0 0 calc(25% - 0.09375rem);
       display: flex;
       justify-content: center;

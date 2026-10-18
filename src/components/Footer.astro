@@ -1,7 +1,7 @@
 ---
 import Socials from './Socials.astro';
 import SequenceTrack from './SequenceTrack.astro';
-import ThemeSwitcher from './ThemeSwitcher.astro';
+import Icon from './Icon.astro';
 import { site, navPages, navLabs } from '../data/site';
 const year = new Date().getFullYear();
 ---
@@ -56,7 +56,16 @@ const year = new Date().getFullYear();
       </p>
     </div>
     <div class="footer-base-right">
-      <ThemeSwitcher />
+      <button
+        type="button"
+        class="footer-appearance"
+        data-open-appearance
+        aria-haspopup="dialog"
+        aria-controls="appearance-popover"
+        aria-expanded="false"
+      >
+        <Icon name="sun" size={17} /> Appearance
+      </button>
     </div>
   </div>
 </footer>
@@ -138,6 +147,23 @@ const year = new Date().getFullYear();
     display: flex;
     align-items: center;
     min-width: 0;
+  }
+  .footer-appearance {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 44px;
+    padding: 0.55rem 0.9rem;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-size: var(--fs-small);
+    cursor: pointer;
+  }
+  .footer-appearance:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
   }
   .footer-colophon {
     overflow-wrap: anywhere;

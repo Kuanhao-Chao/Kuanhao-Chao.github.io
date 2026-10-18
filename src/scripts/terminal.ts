@@ -35,6 +35,7 @@ import {
   type TermIndex,
 } from '../lib/terminal';
 import { askEndpoint } from '../data/site';
+import { terminalWheelHandoff } from '../lib/terminalScroll';
 
 export interface TerminalController {
   destroy: () => void;
@@ -619,13 +620,31 @@ export function initTerminal(
     latestBtn?.blur();
   }
 
-  /** Wheel/touch scrolling is native; wheel only counts as interaction with boot/demo. */
+  /** Native history scrolling; hand outward boundary gestures to the surrounding page. */
   function onShellWheel(event: WheelEvent) {
     if (event.ctrlKey || event.metaKey) return;
     if (booting) skipBoot?.();
     if (demoRunning) {
       if ((event.target as Element | null)?.closest('[data-terminal-bar]')) return;
       takeOver();
+    }
+    if (!shellEl!.classList.contains('term--inline') || document.fullscreenElement === shellEl ||
+      event.defaultPrevented || !event.cancelable || event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY) ||
+      !(event.target instanceof Node) || !screen!.contains(event.target)) return;
+    const distance = terminalWheelHandoff({
+      scrollTop: screen!.scrollTop,
+      scrollHeight: screen!.scrollHeight,
+      clientHeight: screen!.clientHeight,
+      deltaY: event.deltaY,
+      deltaMode: event.deltaMode,
+      lineHeight: parseFloat(getComputedStyle(screen!).lineHeight),
+      pageHeight: document.documentElement.clientHeight,
+    });
+    if (distance) {
+      // Chromium phone contexts can trap native chaining depending on the hero's
+      // layout. Cancel only this outward gesture, so the page moves exactly once.
+      event.preventDefault();
+      window.scrollBy({ top: distance, behavior: 'instant' });
     }
   }
 
@@ -1133,7 +1152,10 @@ export function initTerminal(
   clearBtn?.addEventListener('click', onClearClick);
   keybar?.addEventListener('click', onKeybarClick);
   shellEl.addEventListener('click', onShellClick);
-  shellEl.addEventListener('wheel', onShellWheel, { capture: true, passive: true });
+  shellEl.addEventListener('wheel', onShellWheel, {
+    capture: true,
+    passive: !shellEl.classList.contains('term--inline'),
+  });
   screen.addEventListener('scroll', onScreenScroll, { passive: true });
   latestBtn?.addEventListener('click', onLatestClick);
   window.addEventListener('resize', onViewportResize);

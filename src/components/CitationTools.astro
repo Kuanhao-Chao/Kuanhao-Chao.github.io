@@ -31,6 +31,16 @@ const { citation, bibtex, ris, compact = false } = Astro.props;
       </button>
     )
   }
+  {bibtex && (
+    <button type="button" class="citation-copy" data-download-text={encodeURIComponent(bibtex)} data-download-type="application/x-bibtex" data-download-name="citation.bib">
+      <Icon name="file" size={15} /> Download BibTeX
+    </button>
+  )}
+  {ris && (
+    <button type="button" class="citation-copy" data-download-text={encodeURIComponent(ris)} data-download-type="application/x-research-info-systems" data-download-name="citation.ris">
+      <Icon name="file" size={15} /> Download RIS
+    </button>
+  )}
 </div>
 
 <style>
@@ -62,27 +72,47 @@ const { citation, bibtex, ris, compact = false } = Astro.props;
     color: var(--color-accent);
     border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-rule));
   }
+  @media (pointer: coarse) {
+    .citation-copy { min-height: 44px; }
+  }
 </style>
 
 <script>
   function initCitationTools() {
+    for (const button of document.querySelectorAll<HTMLButtonElement>('[data-download-text]')) {
+      if (button.dataset.downloadBound === 'true') continue;
+      button.dataset.downloadBound = 'true';
+      button.addEventListener('click', () => {
+        const text = decodeURIComponent(button.dataset.downloadText ?? '');
+        const blob = new Blob([text], { type: `${button.dataset.downloadType};charset=utf-8` });
+        const href = URL.createObjectURL(blob);
+        const link = Object.assign(document.createElement('a'), {
+          href,
+          download: button.dataset.downloadName ?? 'citation.txt',
+        });
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(href), 1000);
+      });
+    }
     for (const button of document.querySelectorAll<HTMLButtonElement>('[data-copy-text]')) {
       if (button.dataset.copyBound === 'true') continue;
       button.dataset.copyBound = 'true';
+      const label = button.querySelector<HTMLElement>('[data-copy-label]');
+      const original = label?.textContent ?? 'Copy';
+      let resetTimer: ReturnType<typeof setTimeout> | undefined;
       button.addEventListener('click', async () => {
+        clearTimeout(resetTimer);
         const text = decodeURIComponent(button.dataset.copyText ?? '');
-        const label = button.querySelector<HTMLElement>('[data-copy-label]');
-        const original = label?.textContent ?? 'Copy';
         try {
           if (!navigator.clipboard?.writeText) throw new Error('Clipboard API unavailable');
           await navigator.clipboard.writeText(text);
           if (label) label.textContent = 'Copied';
-          window.setTimeout(() => {
+          resetTimer = setTimeout(() => {
             if (label) label.textContent = original;
           }, 1400);
         } catch {
           if (label) label.textContent = 'Copy unavailable';
-          window.setTimeout(() => {
+          resetTimer = setTimeout(() => {
             if (label) label.textContent = original;
           }, 1400);
         }

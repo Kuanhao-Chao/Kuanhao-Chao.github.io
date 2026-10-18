@@ -275,19 +275,22 @@ async function checkPreferences(page, scope) {
   assert.equal(await motion.inputValue(), 'paused');
   assert.match(await panel.locator('[data-crt-summary]').textContent(), /Amber · On/);
   await page.keyboard.press('Escape');
-  // Footer choices remain live and synchronize the header through the same owner.
-  await page.locator('footer [data-crt-choice="cyan"]').click();
+  // Footer now reuses the same compact panel and the same preference owner.
+  const footerAppearance = page.locator('footer [data-open-appearance]');
+  await footerAppearance.click();
+  await panel.locator('[data-retro-effects] summary').click();
+  await panel.locator('[data-crt-choice="cyan"]').click();
   assert.equal(await page.locator('html').getAttribute('data-crt-mode'), 'cyan');
-  await page.locator('footer [data-theme-choice="dark"]').click();
+  await panel.getByRole('radio', { name: 'Dark', exact: true }).click();
   assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
   assert.equal((await page.locator('html').getAttribute('data-crt-mode')) ?? 'off', 'off');
-  await openAppearance(page);
   assert.equal(
     await panel.getByRole('radio', { name: 'Dark', exact: true }).getAttribute('aria-checked'),
     'true'
   );
   // Real Astro navigation, not a full reload: preferences and listeners survive the swap.
   await page.keyboard.press('Escape');
+  assert.equal(await footerAppearance.evaluate(element => element === document.activeElement), true);
   await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
   if (page.viewportSize().width > 960)
     await page.locator('header a[href="/research/"]').first().click();

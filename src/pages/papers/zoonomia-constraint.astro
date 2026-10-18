@@ -40,10 +40,10 @@ const readingTime = "24 min read";
     <p class="paper-lead">
       This is the Zoonomia resource paper — <strong>the largest comparative genomics resource for mammals
       produced to date</strong>. By aligning genomes for <strong>240 species</strong>, it identifies bases
-      that, when mutated, are likely to <strong>affect fitness and alter disease risk</strong>. At least
+      that, when mutated, are likely to <strong>affect fitness and alter disease risk</strong>. At least{' '}
       <strong>332 million bases (~10.7%) of the human genome are unusually conserved</strong> relative to
       neutrally evolving repeats, and <strong>4,552 ultraconserved elements</strong> are nearly perfectly
-      conserved. The number that should reorganise how you read functional genomics: of
+      conserved. The number that should reorganise how you read functional genomics: of{' '}
       <strong>101 million significantly constrained single bases, 80% lie outside protein-coding exons and
       half have no functional annotation in ENCODE at all</strong>.
     </p>
@@ -53,14 +53,14 @@ const readingTime = "24 min read";
         <Icon name="list" size={14} /> Table of Contents
       </div>
       <ol class="paper-toc-list">
-        <li><a href="#summary">1. The Resource, and How It Compares</a></li>
-        <li><a href="#constraint">2. How Much of the Genome Is Constrained</a></li>
-        <li><a href="#annotation-gap">3. The Annotation Gap</a></li>
-        <li><a href="#ultraconserved">4. Ultraconserved Elements and Highly Constrained Positions</a></li>
-        <li><a href="#multi-reference">5. Measuring Constraint Against Five Reference Genomes</a></li>
-        <li><a href="#enrichment">6. Constraint Enrichment by Genomic Feature</a></li>
-        <li><a href="#mathematical-formulation">7. Mathematical Formulation</a></li>
-        <li><a href="#failure-modes">8. Limitations & Reconciling the Two Zoonomia Papers</a></li>
+        <li><a href="#summary">The Resource, and How It Compares</a></li>
+        <li><a href="#constraint">How Much of the Genome Is Constrained</a></li>
+        <li><a href="#annotation-gap">The Annotation Gap</a></li>
+        <li><a href="#ultraconserved">Ultraconserved Elements and Highly Constrained Positions</a></li>
+        <li><a href="#multi-reference">Measuring Constraint Against Five Reference Genomes</a></li>
+        <li><a href="#enrichment">Constraint Enrichment by Genomic Feature</a></li>
+        <li><a href="#mathematical-formulation">Mathematical Formulation</a></li>
+        <li><a href="#failure-modes">Limitations & Reconciling the Two Zoonomia Papers</a></li>
       </ol>
     </div>
 
@@ -99,7 +99,7 @@ const readingTime = "24 min read";
         species, relative to neutrally evolving repeats.</strong>
       </p>
       <p>
-        The comparison baseline matters as much as the figure. Constraint here is defined against
+        The comparison baseline matters as much as the figure. Constraint here is defined against{' '}
         <strong>neutrally evolving repeats</strong>, sequence assumed to be evolving without selection.
         Everything downstream inherits that assumption: if the repeat baseline is itself under weak selection,
         the constrained fraction is underestimated.
@@ -168,15 +168,15 @@ const readingTime = "24 min read";
     <section id="multi-reference" class="paper-section">
       <h2>5. Measuring Constraint Against Five Reference Genomes</h2>
       <p>
-        Constraint was measured across the <strong>human, chimpanzee, mouse, dog and little brown bat</strong>
+        Constraint was measured across the <strong>human, chimpanzee, mouse, dog and little brown bat</strong>{' '}
         reference genomes, by projecting the Cactus alignment onto each species and then measuring sequence
         constraint with <strong>phyloP</strong>.
       </p>
       <p>
-        Each projection answers a question the human-referenced one cannot. The
+        Each projection answers a question the human-referenced one cannot. The{' '}
         <strong>chimpanzee-referenced alignment supports investigation of bases deleted in only humans</strong>
         — sequence that is simply absent from a human-referenced view, and therefore invisible to any analysis
-        anchored there. <strong>Mouse, dog and little brown bat</strong> were chosen as
+        anchored there. <strong>Mouse, dog and little brown bat</strong> were chosen as{' '}
         <strong>well-annotated reference genomes</strong>, letting constraint be compared against independent
         annotation rather than only against human annotation.
       </p>
@@ -233,7 +233,7 @@ const readingTime = "24 min read";
           <Icon name="target" size={15} /> Why 10.7% here and 3.3% in the companion paper
         </div>
         <p>
-          <a href="/papers/zoonomia/" style="color: var(--color-accent);">Sullivan et al.</a> reports
+          <a href="/papers/zoonomia/" style="color: var(--color-accent);">Sullivan et al.</a> reports{' '}
           <strong>3.3%</strong> of the human genome as significantly constrained; this paper reports
           <strong>~10.7%</strong>. Both are correct and they are not the same quantity. Christmas et al.
           measures bases <em>unusually conserved relative to neutrally evolving repeats</em> across the

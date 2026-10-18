@@ -44,8 +44,8 @@ const readingTime = "22 min read";
       sequence-to-function models</strong> trained on functional genomics, and <strong>self-supervised DNA
       language models</strong>. Comparing them has been impossible because the field lacked consistently
       curated labels. <strong>TraitGym</strong> supplies them — causal or strong-candidate regulatory variants
-      across <strong>113 Mendelian and 83 complex traits</strong>, each paired with
-      <strong>nine carefully matched controls</strong> — and the answer is not a single winner:
+      across <strong>113 Mendelian and 83 complex traits</strong>, each paired with{' '}
+      <strong>nine carefully matched controls</strong> — and the answer is not a single winner:{' '}
       <strong>CADD and GPN-MSA lead on Mendelian and complex <em>disease</em> traits, while Enformer and
       Borzoi lead on complex <em>non-disease</em> traits</strong>.
     </p>
@@ -55,14 +55,14 @@ const readingTime = "22 min read";
         <Icon name="list" size={14} /> Table of Contents
       </div>
       <ol class="paper-toc-list">
-        <li><a href="#summary">1. Why the Field Needed This Benchmark</a></li>
-        <li><a href="#curation">2. Dataset Curation: Where the Positives Come From</a></li>
-        <li><a href="#matching">3. The Control Matching That Makes It Hard</a></li>
-        <li><a href="#evaluation">4. Evaluation: Leave-One-Chromosome-Out AUPRC</a></li>
-        <li><a href="#results">5. Results: No Single Winner</a></li>
-        <li><a href="#ensembles">6. Ensembles, and Where They Stop Helping</a></li>
-        <li><a href="#mathematical-formulation">7. Mathematical Formulation</a></li>
-        <li><a href="#failure-modes">8. Limitations & How to Read the Rankings</a></li>
+        <li><a href="#summary">Why the Field Needed This Benchmark</a></li>
+        <li><a href="#curation">Dataset Curation: Where the Positives Come From</a></li>
+        <li><a href="#matching">The Control Matching That Makes It Hard</a></li>
+        <li><a href="#evaluation">Evaluation: Leave-One-Chromosome-Out AUPRC</a></li>
+        <li><a href="#results">Results: No Single Winner</a></li>
+        <li><a href="#ensembles">Ensembles, and Where They Stop Helping</a></li>
+        <li><a href="#mathematical-formulation">Mathematical Formulation</a></li>
+        <li><a href="#failure-modes">Limitations & How to Read the Rankings</a></li>
       </ol>
     </div>
 
@@ -86,7 +86,7 @@ const readingTime = "22 min read";
 
       <h3>Mendelian traits</h3>
       <p>
-        Curated causal non-coding variants for <strong>113 Mendelian diseases</strong> were collected from
+        Curated causal non-coding variants for <strong>113 Mendelian diseases</strong> were collected from{' '}
         <strong>OMIM</strong>. For additional stringency, variants with <strong>minor allele frequency above
         0.1% in gnomAD</strong> were filtered out — a variant that common is unlikely to be the cause of a
         rare Mendelian disease, so its presence in the positive set would be a labelling error.
@@ -94,8 +94,8 @@ const readingTime = "22 min read";
 
       <h3>Complex traits</h3>
       <p>
-        For <strong>83 complex traits</strong>, positives are UK Biobank variants with statistical fine-mapping
-        <strong>posterior inclusion probability (PIP) above 0.9</strong>, and controls are variants with
+        For <strong>83 complex traits</strong>, positives are UK Biobank variants with statistical fine-mapping{' '}
+        <strong>posterior inclusion probability (PIP) above 0.9</strong>, and controls are variants with{' '}
         <strong>PIP below 0.01</strong>. These are "strong candidates" rather than known causal variants, and
         the paper says so — the label quality differs in kind between the two halves of the benchmark.
       </p>
@@ -215,7 +215,7 @@ const readingTime = "22 min read";
       <h3>Where Evo2 struggles</h3>
       <p>
         Evo2 <strong>struggles particularly with enhancer variants</strong>. The paper's explanation is
-        structural rather than incidental: a genome-wide self-supervised objective does not
+        structural rather than incidental: a genome-wide self-supervised objective does not{' '}
         <strong>give a special weight to enhancers, which are sparsely represented in genomes such as that of
         humans</strong>. A model trained to predict the next base spends its capacity in proportion to how
         much sequence there is, and enhancers are a small fraction of it.

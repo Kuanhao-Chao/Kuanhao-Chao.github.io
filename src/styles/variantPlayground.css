@@ -1154,12 +1154,12 @@ html[data-theme='dark'] .vp {
   margin: 0.9rem 0 0;
   padding: 0.5rem 0 0 0.75rem;
   border-left: 3px solid var(--color-accent, #2563eb);
-  font-size: var(--fs-meta);
-  line-height: 1.5;
+  font-size: var(--fs-small);
+  line-height: 1.65;
 }
 .vp-reading > strong:first-child {
   display: block;
-  font-size: 0.78em;
+  font-size: var(--fs-meta);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--color-muted);
@@ -1186,11 +1186,11 @@ html[data-theme='dark'] .vp {
 }
 .vp-frame__row { display: grid; grid-template-columns: 8.5rem 1fr; gap: 0.2rem 0.7rem; min-width: 0; }
 .vp-frame dt {
-  font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em;
+  font-size: var(--fs-meta); text-transform: uppercase; letter-spacing: 0.06em;
   color: var(--color-muted, #6b7280); font-weight: 600; padding-top: 0.06rem;
 }
 .vp-frame dd {
-  margin: 0; font-size: 0.82rem; line-height: 1.45;
+  margin: 0; font-size: var(--fs-small); line-height: 1.6;
   color: var(--color-ink, #1f2328); min-width: 0; overflow-wrap: anywhere;
 }
 @media (max-width: 640px) {

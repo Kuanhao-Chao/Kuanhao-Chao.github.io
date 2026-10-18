@@ -201,7 +201,10 @@
 
 .deep-dive-tag {
   font-family: var(--font-mono, monospace);
-  font-size: 0.72rem;
+  font-size: var(--fs-meta);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -214,7 +217,7 @@
 
 .deep-dive-level-badge,
 .deep-dive-time-badge {
-  font-size: 0.75rem;
+  font-size: var(--fs-meta);
   color: var(--color-muted);
   font-weight: 500;
   display: inline-flex;
@@ -402,7 +405,7 @@
 .deep-dive-title {
   font-family: var(--font-display);
   font-size: clamp(1.65rem, 4vw, 2.35rem);
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.22;
   margin: var(--space-2, 0.5rem) 0 var(--space-3, 0.75rem) 0;
   color: var(--color-ink);
@@ -462,6 +465,31 @@
   line-height: 1.75;
   color: var(--color-ink);
   overflow-wrap: break-word;
+}
+
+.dd-reading-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+  margin-bottom: var(--space-4);
+  font-size: var(--fs-small);
+  font-weight: var(--fw-medium);
+}
+.dd-reading-nav a { display: inline-flex; align-items: center; min-height: 44px; }
+.dd-preparation > summary {
+  min-height: 44px;
+  padding: 0.6rem 0;
+  font-size: var(--fs-small);
+  font-weight: var(--fw-semibold);
+  color: var(--color-accent);
+  cursor: pointer;
+}
+.dd-preparation[open] > summary { margin-bottom: -0.5rem; }
+@media (min-width: 641px) {
+  .dd-preparation[open] > summary { display: none; }
+}
+@media print {
+  .dd-reading-nav, .dd-preparation > summary { display: none; }
 }
 
 .deep-dive-article ul,
@@ -911,8 +939,8 @@
 
 @media (max-width: 640px) {
   .deep-dive-article {
-    padding-left: 1rem;
-    padding-right: 1rem;
+    padding-left: var(--gutter);
+    padding-right: var(--gutter);
     padding-bottom: var(--space-10, 2.5rem);
   }
 
@@ -1406,7 +1434,7 @@
   margin-top: var(--space-2, 0.5rem);
   font-size: var(--fs-small, 0.9375rem);
   color: var(--color-muted);
-  text-align: center;
+  text-align: left;
 }
 
 /* ── Citations & bibliography ─────────────────────────────────────────────── */

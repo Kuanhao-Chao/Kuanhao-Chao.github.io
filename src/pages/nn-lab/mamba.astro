@@ -765,7 +765,7 @@ const breadcrumbLd = buildBreadcrumbLd([
                 Mamba implements an optimized Triton/CUDA kernel that fuses discretization, causal 1D convolution, and parallel scan directly in on-chip SRAM:
               </p>
               <div class="nn-callout-text">
-                <strong>Memory-Bandwidth Optimization:</strong>
+                <strong>Memory-Bandwidth Optimization:</strong>{' '}
                 Input parameters <Katex tex="x, \Delta, B, C" /> are loaded once from HBM into SRAM.
                 Discretization <Katex tex="\bar{A}_t = \exp(\Delta_t A)" /> and the parallel scan are executed entirely in SRAM and registers.
                 Intermediate hidden states <Katex tex="h_t \in \mathbb{R}^{B \times L \times D \times N}" /> are never written to HBM; only final outputs <Katex tex="y \in \mathbb{R}^{B \times L \times D}" /> are written back,

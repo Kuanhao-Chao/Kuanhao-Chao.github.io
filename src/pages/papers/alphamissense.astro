@@ -41,14 +41,14 @@ const readingTime = "22 min read";
     </header>
 
     <p class="paper-lead">
-      Genome sequencing finds far more missense variants than anyone can interpret: more than
+      Genome sequencing finds far more missense variants than anyone can interpret: more than{' '}
       <strong>4 million</strong> have been observed in humans, and only a small fraction carry a clinical
-      annotation. <strong>AlphaMissense</strong> attacks the gap by fine-tuning AlphaFold on
+      annotation. <strong>AlphaMissense</strong> attacks the gap by fine-tuning AlphaFold on{' '}
       <strong>human and primate variant population frequency data</strong> — weak labels rather than
       human-curated ones — and predicting a pathogenicity probability for every possible substitution. It
       classifies <strong>89% of all missense variants</strong> as likely benign or likely pathogenic
       (<strong>32% pathogenic, 57% benign</strong>) at a cutoff calibrated to <strong>90% precision on
-      ClinVar</strong>, reaching an <strong>auROC of 0.940 on 18,924 held-out ClinVar variants</strong>
+      ClinVar</strong>, reaching an <strong>auROC of 0.940 on 18,924 held-out ClinVar variants</strong>{' '}
       against 0.911 for EVE.
     </p>
 
@@ -57,14 +57,14 @@ const readingTime = "22 min read";
         <Icon name="list" size={14} /> Table of Contents
       </div>
       <ol class="paper-toc-list">
-        <li><a href="#summary">1. The Variant Interpretation Gap</a></li>
-        <li><a href="#architecture">2. Architecture: AlphaFold as a Foundation</a></li>
-        <li><a href="#weak-labels">3. The Central Trick: Weak Labels from Population Frequency</a></li>
-        <li><a href="#benchmarks">4. Clinical and Experimental Benchmarks</a></li>
-        <li><a href="#proteome">5. Saturating the Proteome</a></li>
-        <li><a href="#emergent">6. Emergent Properties: Essentiality, Structure, Disorder</a></li>
-        <li><a href="#mathematical-formulation">7. Mathematical Formulation</a></li>
-        <li><a href="#failure-modes">8. Limitations & What the Score Does Not Mean</a></li>
+        <li><a href="#summary">The Variant Interpretation Gap</a></li>
+        <li><a href="#architecture">Architecture: AlphaFold as a Foundation</a></li>
+        <li><a href="#weak-labels">The Central Trick: Weak Labels from Population Frequency</a></li>
+        <li><a href="#benchmarks">Clinical and Experimental Benchmarks</a></li>
+        <li><a href="#proteome">Saturating the Proteome</a></li>
+        <li><a href="#emergent">Emergent Properties: Essentiality, Structure, Disorder</a></li>
+        <li><a href="#mathematical-formulation">Mathematical Formulation</a></li>
+        <li><a href="#failure-modes">Limitations & What the Score Does Not Mean</a></li>
       </ol>
     </div>
 
@@ -116,7 +116,7 @@ const readingTime = "22 min read";
       <h2>3. The Central Trick: Weak Labels from Population Frequency</h2>
       <p>
         Rather than fine-tuning on ClinVar, AlphaMissense fine-tunes on <strong>human and primate variant
-        population frequency data</strong>, described in the paper as <strong>weak labels</strong>, explicitly
+        population frequency data</strong>, described in the paper as <strong>weak labels</strong>, explicitly{' '}
         <strong>avoiding bias from human-curated annotations</strong>.
       </p>
       <p>
@@ -137,14 +137,14 @@ const readingTime = "22 min read";
 
       <h3>ClinVar, held out</h3>
       <p>
-        On <strong>18,924 held-out ClinVar test variants</strong>, AlphaMissense achieves an
+        On <strong>18,924 held-out ClinVar test variants</strong>, AlphaMissense achieves an{' '}
         <strong>auROC of 0.940</strong>, against <strong>0.911</strong> for the Evolutionary model of Variant
         Effect (EVE), a difference the paper reports at <strong>P = 0.001</strong>.
       </p>
 
       <h3>De novo variants in developmental disorders</h3>
       <p>
-        On the <strong>Deciphering Developmental Disorders (DDD)</strong> benchmark, AlphaMissense achieves an
+        On the <strong>Deciphering Developmental Disorders (DDD)</strong> benchmark, AlphaMissense achieves an{' '}
         <strong>auROC of 0.809</strong>. This is the harder and more honest test: DDD variants are <em>de
         novo</em>, so they cannot have been seen in the population-frequency data the model was fine-tuned on.
       </p>
@@ -195,7 +195,7 @@ const readingTime = "22 min read";
         AlphaMissense predicts the pathogenicity of all <strong>216 million possible single amino acid
         changes</strong> across <strong>19,233 canonical human proteins</strong>. That is the space of amino
         acid substitutions. The subset reachable by a single nucleotide change — the missense variants that
-        can actually occur — is <strong>71 million</strong>, and the paper describes this as
+        can actually occur — is <strong>71 million</strong>, and the paper describes this as{' '}
         <strong>saturating the human proteome</strong>.
       </p>
 
