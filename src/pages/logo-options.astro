@@ -470,27 +470,77 @@ const options: LogoOption[] = [
       <path d="M11.5 28C20 5 44 6 52 20M37 48h15V34" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" />
     </svg>`,
   },
+  {
+    id: '22',
+    name: 'Junction KC',
+    signal: 'Personal identity · splicing',
+    intent:
+      'A compact K meets an open C through a shared curved junction. Block-like terminals hint at exons without turning the initials into a literal gene diagram.',
+    tradeoff:
+      'The most personal of this round. The shared junction creates a distinctive signature, but the biological reference is intentionally subtle.',
+    svg: `<svg viewBox="0 0 64 64" role="img" aria-label="Junction KC monogram">
+      <g fill="none" stroke="currentColor" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 15v34M14 32l16-17M14 32l16 17" />
+        <path d="M52 17C41 8 29 17 29 32s12 24 23 15" />
+      </g>
+      <g fill="currentColor">
+        <rect x="7.5" y="10" width="9" height="12" rx="2.5" />
+        <rect x="7.5" y="42" width="9" height="12" rx="2.5" />
+      </g>
+    </svg>`,
+  },
+  {
+    id: '23',
+    name: 'Chromatin Fold',
+    signal: 'Genomics · structure from sequence',
+    intent:
+      'An asymmetric ribbon folds back through an open loop. A single separated crossing gives it depth while keeping the silhouette compact and quiet.',
+    tradeoff:
+      'The most organic and sculptural direction. It evokes folded biological structure rather than a particular molecule; it is a conceptual mark, not a chromatin structure model.',
+    svg: `<svg viewBox="0 0 64 64" role="img" aria-label="Chromatin fold ribbon mark">
+      <path d="M20 50C7 43 10 22 22 15C34 8 50 13 51 27C52 40 34 44 23 35C14 27 23 16 33 20C45 25 43 44 32 51" fill="none" stroke="currentColor" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="M39.453 25.969C42.109 31.156 41.578 38.219 38.484 43.906" fill="none" stroke="var(--logo-cut)" stroke-width="12.5" stroke-linecap="butt" />
+      <path d="M39.453 25.969C42.109 31.156 41.578 38.219 38.484 43.906" fill="none" stroke="currentColor" stroke-width="7.5" stroke-linecap="butt" />
+    </svg>`,
+  },
+  {
+    id: '24',
+    name: 'Inference Prism',
+    signal: 'AI · sequence to function',
+    intent:
+      'Three sequence-like inputs converge into an open diamond and one confident output. The hollow core suggests a learned representation, not an opaque black box.',
+    tradeoff:
+      'The clearest AI and modeling cue, with a strong favicon silhouette. It is more abstract and less personally identifiable than the KC monogram.',
+    svg: `<svg viewBox="0 0 64 64" role="img" aria-label="Inference prism mark">
+      <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8 18h7l9 10M8 32h16M8 46h7l9-10" stroke-width="5.5" />
+        <path d="m24 32 12-19 12 19-12 19Z" stroke-width="6.5" />
+        <path d="M48 32h9" stroke-width="7" />
+      </g>
+    </svg>`,
+  },
 ];
-const featured = options.filter((option) => option.baseline || Number(option.id) >= 19);
-const archive = options.filter((option) => !option.baseline && Number(option.id) < 19);
+const featuredIds = new Set(['0', '22', '23', '24']);
+const featured = options.filter((option) => featuredIds.has(option.id));
+const archive = options.filter((option) => !featuredIds.has(option.id));
 ---
 
 <BaseLayout
   title="Logo options"
-  description="Private logo exploration page for Kuan-Hao Chao."
+  description="Three fresh website logo concepts for Kuan-Hao Chao, compared with the current mark."
   noindex
 >
   <section class="logo-hero container">
-    <p class="eyebrow">Private design review</p>
+    <p class="eyebrow">Logo design review</p>
     <h1>Logo options</h1>
     <p class="lead">
-      Three new directions, compared with the current mark: a personal monogram, an organic cell,
-      and a sequence-to-function symbol. These are review concepts only. The live logo, favicons,
-      and social previews have not changed.
+      Three fresh directions, compared with the current mark: a junction-inspired KC monogram, a
+      folded biological ribbon, and an AI inference prism. These are review concepts only. The live
+      logo, favicons, and social previews have not changed.
     </p>
     <p class="review-note">
       Compare the silhouette first, then the 16px preview. Each concept is shown on light, dark, and
-      monochrome surfaces.
+      monochrome surfaces. This review is unlisted, but anyone with the link can view it.
     </p>
   </section>
 
@@ -561,9 +611,10 @@ const archive = options.filter((option) => !option.baseline && Number(option.id)
   </section>
 
   <details class="container logo-archive" data-logo-archive>
-    <summary
-      >Earlier explorations <span>18 archived concepts · original links preserved</span></summary
-    >
+    <summary>
+      Earlier explorations
+      <span>{archive.length} archived concepts · original links preserved</span>
+    </summary>
     <div class="logo-grid">
       {
         archive.map((option) => (
@@ -607,7 +658,7 @@ const archive = options.filter((option) => !option.baseline && Number(option.id)
 
 <script>
   function revealArchivedLogo() {
-    if (!/^#option-(?:[1-9]|1[0-8])$/.test(location.hash)) return;
+    if (!/^#option-\d+$/.test(location.hash)) return;
     const option = document.getElementById(location.hash.slice(1));
     const archive = option?.closest<HTMLDetailsElement>('[data-logo-archive]');
     if (!archive || !option) return;
@@ -750,7 +801,7 @@ const archive = options.filter((option) => !option.baseline && Number(option.id)
     border: 1px solid var(--color-rule);
     border-radius: var(--radius);
     color: var(--color-ink);
-    background: color-mix(in srgb, var(--color-bg) 84%, transparent);
+    background: var(--color-bg);
     font-family: var(--font-display);
     font-size: 0.94rem;
     line-height: 1;
@@ -774,7 +825,7 @@ const archive = options.filter((option) => !option.baseline && Number(option.id)
     display: grid;
     place-items: center;
     color: var(--color-accent);
-    --logo-cut: var(--color-bg);
+    --logo-cut: var(--color-surface);
   }
   .tiny--32 {
     width: 2rem;
@@ -803,14 +854,14 @@ const archive = options.filter((option) => !option.baseline && Number(option.id)
     line-height: 1.55;
   }
   .logo-grid--featured {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .logo-grid--featured .preview-row {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.35rem;
   }
   .logo-grid--featured .preview-row > div {
-    min-height: 5rem;
+    min-height: clamp(5.5rem, 12vw, 9rem);
   }
   .preview-art {
     display: grid;
@@ -823,11 +874,6 @@ const archive = options.filter((option) => !option.baseline && Number(option.id)
   }
   .logo-grid--featured .preview-row {
     align-self: start;
-  }
-  @media (max-width: 1180px) {
-    .logo-grid--featured {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
   }
   @media (max-width: 980px) {
     .logo-grid {

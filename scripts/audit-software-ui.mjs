@@ -11,45 +11,53 @@ import { waitForPageReady } from './lib/gameAuditUi.mjs';
 const expectedNames = [
   'Biobaby',
   'Tank Fire',
-  'Flappy Penguin',
-  'CRISPR Commander',
-  'Phage Defense',
   'Genome Jumper',
+  '100-Floor Descent',
+  'Flappy Penguin',
   'Proofreader',
   'Dino Run',
   'Snake',
   'Tetris',
-  'Jetpack Joyride',
   'Chinese Chess',
-  'BayRoute',
   '2048',
   'Minesweeper',
-  '100-Floor Descent',
+  'CRISPR Commander',
+  'Phage Defense',
+  'Jetpack Joyride',
+  'BayRoute',
 ];
 const expectedURLs = [
   'https://storage.googleapis.com/storage.khchao.com/biobaby/index.html',
   'https://storage.googleapis.com/storage.khchao.com/tanks_fire/index.html',
-  'https://storage.googleapis.com/storage.khchao.com/flappy_penguin/index.html',
-  '/games/crispr-commander/',
-  '/games/phage-defense/',
   '/games/genome-jumper/',
+  '/games/100-floor-descent/',
+  'https://storage.googleapis.com/storage.khchao.com/flappy_penguin/index.html',
   '/games/proofreader/',
   '/games/dino-run/',
   '/games/snake/',
   '/games/tetris/',
-  '/games/jetpack-joyride/',
   '/games/chinese-chess/',
-  '/games/bay-route/',
   '/games/2048/',
   '/games/minesweeper/',
-  '/games/100-floor-descent/',
+  '/games/crispr-commander/',
+  '/games/phage-defense/',
+  '/games/jetpack-joyride/',
+  '/games/bay-route/',
 ];
+const headerSizes = {
+  Proofreader: 42,
+  Snake: 42,
+  'Jetpack Joyride': 42,
+  'Chinese Chess': 62,
+  BayRoute: 54,
+  '100-Floor Descent': 64,
+};
 const browserTypes = { chromium, webkit };
 const quick = process.argv.includes('--quick');
 const browsers = (
   process.env.SOFTWARE_UI_BROWSERS || (quick ? 'chromium' : 'chromium,webkit')
 ).split(',');
-const profiles = [1440, 390, 320].flatMap((width) =>
+const profiles = [1440, 768, 390, 320].flatMap((width) =>
   ['light', 'dark'].map((theme) => ({ width, theme }))
 );
 profiles.push(
@@ -111,13 +119,25 @@ try {
         assert.deepEqual(
           await list.locator('h3 a').allTextContents(),
           expectedNames,
-          `${scope}: Original fifteen-game order plus the new sixteenth entry`
+          `${scope}: Requested sixteen-game order`
         );
         assert.equal(await list.locator(':scope > li').count(), 16);
         const links = await list
           .locator('h3 a')
           .evaluateAll((elements) => elements.map((element) => element.getAttribute('href')));
         assert.deepEqual(links, expectedURLs, `${scope}: Existing destinations preserved`);
+        if (profile.width === 1440 && profile.theme === 'light') {
+          const response = await context.request.get('/terminal.json');
+          assert.ok(response.ok(), `${scope}: terminal catalog loads`);
+          const payload = await response.json();
+          const terminalGames = payload.fs['/home/khc/.config/side-projects.txt'];
+          assert.ok(terminalGames, `${scope}: terminal retains the side-project catalog`);
+          assert.deepEqual(
+            terminalGames.body.split('\n').map((line) => line.slice(0, 18).trim()),
+            expectedNames,
+            `${scope}: terminal and Software share the requested game order`
+          );
+        }
         const art = await list.locator('li .game-icon').evaluateAll((elements) =>
           elements.map((element) => ({
             width: element.getBoundingClientRect().width,
@@ -161,10 +181,11 @@ try {
         assert.equal(actions.length, 16);
         for (const [index, action] of actions.entries()) {
           assert.equal(action.href, expectedURLs[index]);
-          assert.equal(action.label, index === 12 ? 'Explore' : 'Play');
+          const external = expectedURLs[index].startsWith('https://');
+          assert.equal(action.label, expectedNames[index] === 'BayRoute' ? 'Explore' : 'Play');
           assert.ok(action.height >= 44, `${scope}: Touch-friendly action`);
-          assert.equal(action.target, index < 3 ? '_blank' : null);
-          if (index < 3)
+          assert.equal(action.target, external ? '_blank' : null);
+          if (external)
             assert.ok(
               action.rel?.split(' ').includes('noopener') &&
                 action.rel?.split(' ').includes('noreferrer')
@@ -213,7 +234,7 @@ try {
           (profile.width === 1440 ? profile.theme === 'light' : profile.theme === 'dark')
         ) {
           for (const [index, url] of expectedURLs.entries()) {
-            if (index < 3) continue;
+            if (!url.startsWith('/games/')) continue;
             const response = await page.goto(url, { waitUntil: 'networkidle' });
             assert.ok(response?.ok(), `${scope}: ${expectedNames[index]} header loads`);
             await waitForPageReady(page);
@@ -223,7 +244,7 @@ try {
             assert.equal(await icon.getAttribute('role'), 'img');
             // The three existing campaign headers adopted 42px illustrations
             // in the previous arcade redesign; keep this independent contract current.
-            const expectedSize = [6, 8, 10].includes(index) ? 42 : index === 11 ? 62 : index === 12 ? 54 : index === 15 ? 64 : 58;
+            const expectedSize = headerSizes[expectedNames[index]] ?? 58;
             assert.equal(await icon.getAttribute('width'), String(expectedSize));
             await icon.screenshot({ path: join(evidence, `${scope}-header-${index}.png`) });
           }
