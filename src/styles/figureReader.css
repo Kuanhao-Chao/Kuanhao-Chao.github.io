@@ -1,0 +1,97 @@
+.dd-figure[data-figure-reader] {
+  --figure-cap: 54rem;
+  --figure-width: min(var(--figure-cap), calc(100vw - 2 * var(--gutter)));
+  width: var(--figure-width);
+  max-width: none;
+  margin-inline: calc((100% - var(--figure-width)) / 2);
+}
+.dd-figure--wide[data-figure-reader] { --figure-cap: 64rem; }
+.figure-reader-tools,
+.figure-reader-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+.figure-reader-tools { margin-bottom: 0.5rem; }
+.figure-reader-tools[hidden],
+.figure-reader-hint[hidden] { display: none; }
+.figure-reader-tools button,
+.figure-reader-controls button {
+  min-height: 44px;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: var(--fs-small);
+  line-height: 1.4;
+  cursor: pointer;
+}
+.figure-reader-tools button:hover,
+.figure-reader-controls button:hover { border-color: var(--color-accent); color: var(--color-accent); }
+.figure-reader-controls button:disabled { opacity: 0.45; cursor: default; }
+.dd-figure [data-figure-frame] {
+  max-height: min(65dvh, 36rem);
+  overflow: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+.dd-figure [data-figure-art] { width: 640px; max-width: none; }
+.dd-figure [data-figure-art] > svg {
+  width: 100%;
+  max-width: none;
+  height: auto;
+  display: block;
+}
+.deep-dive-article .figure-reader-hint {
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+  color: var(--color-muted);
+  margin: 0.5rem 0;
+}
+.dd-figure .dd-figure__caption {
+  max-width: var(--measure);
+  margin: 0.65rem auto 0;
+  text-align: left;
+  font-size: var(--fs-caption);
+  line-height: 1.65;
+}
+.figure-reader-dialog {
+  width: min(calc(100vw - 2rem), 90rem);
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100dvh - 2rem);
+  margin: auto;
+  padding: 1rem;
+  overflow: hidden;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+.figure-reader-dialog::backdrop { background: var(--color-dialog-backdrop); }
+.figure-reader-dialog[open] { display: flex; flex-direction: column; gap: 0.75rem; }
+.figure-reader-controls { justify-content: flex-start; }
+.figure-reader-controls output {
+  min-width: 3.5ch;
+  font-size: var(--fs-small);
+  font-variant-numeric: tabular-nums;
+}
+.figure-reader-controls [data-figure-close] { margin-left: auto; }
+.figure-reader-viewport {
+  height: min(65dvh, 45rem);
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius);
+  padding: 0.5rem;
+}
+@media print {
+  .figure-reader-tools, .figure-reader-hint, .figure-reader-dialog { display: none !important; }
+  .dd-figure[data-figure-reader] { width: 100%; margin-inline: 0; break-inside: avoid; }
+  .dd-figure [data-figure-frame] { max-height: none; overflow: visible; }
+  .dd-figure [data-figure-art], .dd-figure [data-figure-art] > svg { width: 100% !important; }
+}

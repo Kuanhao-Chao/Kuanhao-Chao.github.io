@@ -138,6 +138,11 @@ const {
     object-fit: contain;
     margin-bottom: 0.9rem;
   }
+  :global(html:is([data-theme='dark'], [data-theme='nord'], [data-theme='monokai'], [data-theme='cyberdeck'])) .entry-logo {
+    background: var(--color-figure-mat);
+    padding: 0.5rem;
+    border-radius: var(--radius-lg);
+  }
   h1 {
     margin-top: 0.6rem;
   }

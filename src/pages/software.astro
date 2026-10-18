@@ -98,7 +98,7 @@ const toolBlog = await Promise.all(tools.map((t) => resolveRelatedPosts(t.posts 
           const primary = t.docs ?? t.code;
           const logo = logoFor(t);
           return (
-            <li class="tool">
+            <li class="tool tool--research">
               <div class="tool-main">
                 <div class="tool-head">
                   <h3 class="tool-name">
@@ -226,6 +226,21 @@ const toolBlog = await Promise.all(tools.map((t) => resolveRelatedPosts(t.posts 
     flex: 1;
     min-width: 0;
   }
+  /* Keep the description and links full-width when a wordmark is long. The
+     ordinary grid remains on game rows, whose compact icons need no breakout. */
+  @media (max-width: 620px) {
+    .tool--research {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: start;
+    }
+    .tool--research .tool-main { display: contents; }
+    .tool--research .tool-head { grid-column: 1; grid-row: 1; }
+    .tool--research .tool-logo-frame { grid-column: 2; grid-row: 1; max-width: 8rem; }
+    .tool--research .tool-blurb,
+    .tool--research .row-links { grid-column: 1 / -1; margin-top: 0; }
+    .tool--research .tool-logo { max-width: 100%; }
+  }
   .tool-head {
     display: flex;
     flex-wrap: wrap;
@@ -244,23 +259,23 @@ const toolBlog = await Promise.all(tools.map((t) => resolveRelatedPosts(t.posts 
     max-width: 240px;
     object-fit: contain;
   }
-  :global(html[data-theme='dark']) .tool-logo-frame:not(.tool-logo-frame--game) {
+  :global(html:is([data-theme='dark'], [data-theme='nord'], [data-theme='monokai'], [data-theme='cyberdeck'])) .tool-logo-frame:not(.tool-logo-frame--game) {
     min-width: 4.75rem;
     min-height: 3.1rem;
     padding: 0.42rem 0.72rem;
     border: 1px solid color-mix(in srgb, var(--color-ink) 16%, transparent);
     border-radius: var(--radius-lg);
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 241, 233, 0.92));
+    background: var(--color-figure-mat);
     box-shadow:
       0 0.55rem 1.4rem rgba(0, 0, 0, 0.24),
       inset 0 1px 0 rgba(255, 255, 255, 0.72);
   }
-  :global(html[data-theme='dark']) .tool-logo-frame[data-logo='shorkie'],
-  :global(html[data-theme='dark']) .tool-logo-frame[data-logo='wgt'] {
+  :global(html:is([data-theme='dark'], [data-theme='nord'], [data-theme='monokai'], [data-theme='cyberdeck'])) .tool-logo-frame[data-logo='shorkie'],
+  :global(html:is([data-theme='dark'], [data-theme='nord'], [data-theme='monokai'], [data-theme='cyberdeck'])) .tool-logo-frame[data-logo='wgt'] {
     min-width: 3.4rem;
   }
   .tool-name {
-    font-size: 1.15rem;
+    font-size: var(--fs-item-title);
     font-weight: var(--fw-semibold);
   }
   .tool-name a {
@@ -321,13 +336,13 @@ const toolBlog = await Promise.all(tools.map((t) => resolveRelatedPosts(t.posts 
       width: 54px;
       height: 54px;
     }
-    :global(html[data-theme='dark']) .tool-logo-frame:not(.tool-logo-frame--game) {
+    :global(html:is([data-theme='dark'], [data-theme='nord'], [data-theme='monokai'], [data-theme='cyberdeck'])) .tool-logo-frame:not(.tool-logo-frame--game) {
       min-width: 3.55rem;
       min-height: 2.45rem;
       padding: 0.32rem 0.52rem;
     }
-    :global(html[data-theme='dark']) .tool-logo-frame[data-logo='shorkie'],
-    :global(html[data-theme='dark']) .tool-logo-frame[data-logo='wgt'] {
+    :global(html:is([data-theme='dark'], [data-theme='nord'], [data-theme='monokai'], [data-theme='cyberdeck'])) .tool-logo-frame[data-logo='shorkie'],
+    :global(html:is([data-theme='dark'], [data-theme='nord'], [data-theme='monokai'], [data-theme='cyberdeck'])) .tool-logo-frame[data-logo='wgt'] {
       min-width: 2.65rem;
     }
   }

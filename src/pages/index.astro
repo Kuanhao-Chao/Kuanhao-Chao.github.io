@@ -214,7 +214,7 @@ const posts = allPosts
 <style>
   .home-morph-window {
     display: none;
-    height: clamp(240px, 25vw, 312px);
+    height: clamp(192px, 20vw, 250px);
     pointer-events: none;
   }
   :global(html[data-background-scene='morph']) .home-morph-window {
@@ -222,7 +222,7 @@ const posts = allPosts
   }
   @media (max-width: 640px) {
     .home-morph-window {
-      height: 220px;
+      height: 176px;
     }
   }
   .home-research {
@@ -321,7 +321,7 @@ const posts = allPosts
      selector, so a bare `[data-theme='dark'] .home-tool-logo` compiles to a rule
      that also demands the scope attribute on <html> — and never matches. Without
      this the black-on-transparent wordmarks disappear on the dark page. */
-  :global(html[data-theme='dark']) .home-tool-logo {
+  :global(html:is([data-theme='dark'], [data-theme='nord'], [data-theme='monokai'], [data-theme='cyberdeck'])) .home-tool-logo {
     background: var(--color-figure-mat);
   }
   .home-tool-logo :global(img) {

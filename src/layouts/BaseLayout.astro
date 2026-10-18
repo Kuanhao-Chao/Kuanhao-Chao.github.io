@@ -72,6 +72,16 @@ const { title, description, image, type, noindex, scholarMeta, bare = false } = 
     {!bare && <CommandPalette />}
     {!bare && <a href="#main" class="skip-link">Skip to content</a>}
     {!bare && <Header />}
+    <script>
+      import { mountReadingDisclosures } from '../scripts/readingDisclosures';
+      import { mountReadingScroll } from '../scripts/readingScroll';
+      mountReadingDisclosures();
+      mountReadingScroll();
+      document.addEventListener('astro:page-load', () => {
+        mountReadingDisclosures();
+        mountReadingScroll();
+      });
+    </script>
     <script is:inline>
       (() => {
         const themeKey = 'khc-theme';

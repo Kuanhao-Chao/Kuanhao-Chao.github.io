@@ -170,7 +170,9 @@ const gameLd = {
 
   .tetris-board {
     flex: none;
-    height: min(64svh, 30rem);
+    width: min(32svh, 15rem);
+    max-width: calc(100% - 6.5rem - clamp(0.6rem, 2vw, 1.1rem));
+    height: auto;
     aspect-ratio: 1 / 2;
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-lg, 12px);

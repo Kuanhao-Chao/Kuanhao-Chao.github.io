@@ -43,7 +43,7 @@ const readingTime = "26 min read";
       The DNA foundation-model field had split into models that read long context, models that predict
       functional tracks, and models that generate sequence — each with its own architecture, tokenization and
       training regime. <strong>NTv3</strong> unifies <strong>representation learning, functional-track and
-      genome-annotation prediction, and controllable sequence generation within a common backbone</strong>. A
+      genome-annotation prediction, and controllable sequence generation within a common backbone</strong>. A{' '}
       <strong>U-Net-like architecture</strong> makes <strong>single-base tokenization</strong> affordable at
       contexts up to <strong>1 Mb</strong>; pretraining runs on <strong>9 trillion base pairs from
       OpenGenome2</strong>; and post-training adds supervision from <strong>~16,000 functional tracks and
@@ -55,14 +55,14 @@ const readingTime = "26 min read";
         <Icon name="list" size={14} /> Table of Contents
       </div>
       <ol class="paper-toc-list">
-        <li><a href="#summary">1. The Fragmentation NTv3 Is Answering</a></li>
-        <li><a href="#architecture">2. The U-Net Backbone and Single-Base Tokenization</a></li>
-        <li><a href="#pretraining">3. Pretraining: 9 Trillion Base Pairs</a></li>
-        <li><a href="#posttraining">4. Post-Training: The Joint Objective</a></li>
-        <li><a href="#results">5. Results Against Borzoi</a></li>
-        <li><a href="#context">6. Does 1 Mb Actually Help?</a></li>
-        <li><a href="#mathematical-formulation">7. Mathematical Formulation</a></li>
-        <li><a href="#failure-modes">8. Limitations & Relationship to NT v1/v2</a></li>
+        <li><a href="#summary">The Fragmentation NTv3 Is Answering</a></li>
+        <li><a href="#architecture">The U-Net Backbone and Single-Base Tokenization</a></li>
+        <li><a href="#pretraining">Pretraining: 9 Trillion Base Pairs</a></li>
+        <li><a href="#posttraining">Post-Training: The Joint Objective</a></li>
+        <li><a href="#results">Results Against Borzoi</a></li>
+        <li><a href="#context">Does 1 Mb Actually Help?</a></li>
+        <li><a href="#mathematical-formulation">Mathematical Formulation</a></li>
+        <li><a href="#failure-modes">Limitations & Relationship to NT v1/v2</a></li>
       </ol>
     </div>
 
@@ -87,7 +87,7 @@ const readingTime = "26 min read";
       <h3>Why single-base tokenization is the hard requirement</h3>
       <p>
         Its predecessor used six-mer tokens, which bound resolution: a model consuming six nucleotides per
-        token cannot cleanly express an event at a single base. NTv3 uses
+        token cannot cleanly express an event at a single base. NTv3 uses{' '}
         <strong>single-base tokenization</strong>, so every position is individually addressable.
       </p>
 
@@ -116,7 +116,7 @@ const readingTime = "26 min read";
     <section id="pretraining" class="paper-section">
       <h2>3. Pretraining: 9 Trillion Base Pairs</h2>
       <p>
-        NTv3 is pretrained on <strong>9 trillion base pairs from OpenGenome2</strong> using
+        NTv3 is pretrained on <strong>9 trillion base pairs from OpenGenome2</strong> using{' '}
         <strong>base-resolution masked language modeling</strong>.
       </p>
       <p>
@@ -175,7 +175,7 @@ const readingTime = "26 min read";
         foundation-model baselines.
       </p>
       <p>
-        The comparison the paper foregrounds is <strong>NTv3 650M (post) against Borzoi</strong>, described as
+        The comparison the paper foregrounds is <strong>NTv3 650M (post) against Borzoi</strong>, described as{' '}
         <strong>the leading sequence-to-function model</strong>. The choice of a 650M-parameter checkpoint for
         the headline comparison is itself informative: the argument is about architecture, corpus and training
         regime rather than about being the largest model in the room.

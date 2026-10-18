@@ -42,8 +42,8 @@ const readingTime = "26 min read";
       sequence, which leaves the mechanism unstated: the variant is associated with the trait, but nothing says
       which gene it acts on, in which tissue, or how. The <strong>v8 release of the Genotype-Tissue Expression
       (GTEx) project</strong> is the reference answer to that question at scale. Analysing <strong>15,201 RNA-seq
-      samples from 49 tissues of 838 post-mortem donors</strong>, GTEx v8 found <em>cis</em>-eQTLs for
-      <strong>18,262 protein-coding genes — 94.7% of those detected</strong> — mapped <em>cis</em>-sQTLs for
+      samples from 49 tissues of 838 post-mortem donors</strong>, GTEx v8 found <em>cis</em>-eQTLs for{' '}
+      <strong>18,262 protein-coding genes — 94.7% of those detected</strong> — mapped <em>cis</em>-sQTLs for{' '}
       <strong>12,828 protein-coding genes (66.5%)</strong> from intron-excision ratios, recovered cell-type
       interaction QTLs hidden inside bulk tissue, and connected all of it to <strong>87 complex traits</strong>.
     </p>
@@ -53,14 +53,14 @@ const readingTime = "26 min read";
         <Icon name="list" size={14} /> Table of Contents
       </div>
       <ol class="paper-toc-list">
-        <li><a href="#summary">1. The v8 Dataset: What Was Actually Measured</a></li>
-        <li><a href="#eqtl-discovery">2. cis- and trans-eQTL Discovery Across 49 Tissues</a></li>
-        <li><a href="#splicing-sqtls">3. Splicing QTLs from Intron Excision Ratios (LeafCutter)</a></li>
-        <li><a href="#fine-mapping">4. Fine-Mapping: From Association to Candidate Causal Variant</a></li>
-        <li><a href="#cell-type-deconvolution">5. Cell-Type Specificity & Interaction QTLs (ieQTLs)</a></li>
-        <li><a href="#gwas-colocalization">6. Integration with 87 GWAS: Enrichment and Mechanism</a></li>
-        <li><a href="#mathematical-formulation">7. Mathematical Formulation: The QTL and Interaction Models</a></li>
-        <li><a href="#failure-modes">8. Limitations, and Why They Matter Downstream</a></li>
+        <li><a href="#summary">The v8 Dataset: What Was Actually Measured</a></li>
+        <li><a href="#eqtl-discovery">cis- and trans-eQTL Discovery Across 49 Tissues</a></li>
+        <li><a href="#splicing-sqtls">Splicing QTLs from Intron Excision Ratios (LeafCutter)</a></li>
+        <li><a href="#fine-mapping">Fine-Mapping: From Association to Candidate Causal Variant</a></li>
+        <li><a href="#cell-type-deconvolution">Cell-Type Specificity & Interaction QTLs (ieQTLs)</a></li>
+        <li><a href="#gwas-colocalization">Integration with 87 GWAS: Enrichment and Mechanism</a></li>
+        <li><a href="#mathematical-formulation">Mathematical Formulation: The QTL and Interaction Models</a></li>
+        <li><a href="#failure-modes">Limitations, and Why They Matter Downstream</a></li>
       </ol>
     </div>
 
@@ -71,7 +71,7 @@ const readingTime = "26 min read";
       <p>
         Two sample counts appear in this paper and they are not interchangeable. After quality control the v8
         data set consists of <strong>838 donors and 17,382 samples from 52 tissues and two cell lines</strong>.
-        The QTL analyses use a subset: the <strong>49 tissues or cell lines with at least 70 individuals</strong>
+        The QTL analyses use a subset: the <strong>49 tissues or cell lines with at least 70 individuals</strong>{' '}
         having both RNA-seq and whole-genome genotype data, comprising <strong>15,201 samples</strong>. The
         ≥70-individual floor is what makes the per-tissue association tests comparable, and it is why three
         tissues drop out of the analysis entirely.
@@ -126,9 +126,9 @@ const readingTime = "26 min read";
       <h3>The cis catalogue</h3>
       <p>
         Genes carrying an eQTL or sQTL are called <em>eGenes</em> and <em>sGenes</em>; the significant variants
-        are <em>eVariants</em> and <em>sVariants</em>. Across all tissues, at 5% FDR per tissue, GTEx discovered
+        are <em>eVariants</em> and <em>sVariants</em>. Across all tissues, at 5% FDR per tissue, GTEx discovered{' '}
         <em>cis</em>-eQTLs for <strong>18,262 protein-coding and 5,006 lincRNA genes — 23,268 genes in total</strong>,
-        corresponding to <strong>94.7% of all protein-coding and 67.3% of all detected lincRNA genes</strong>
+        corresponding to <strong>94.7% of all protein-coding and 67.3% of all detected lincRNA genes</strong>{' '}
         found in at least one tissue. The catalogue contains <strong>4,278,636 significant variants</strong>, which
         is <strong>43% of all variants with MAF ≥ 0.01</strong>.
       </p>
@@ -138,11 +138,11 @@ const readingTime = "26 min read";
           <Icon name="sparkles" size={15} /> The saturation result, and what it means for bigger studies
         </div>
         <p>
-          <em>cis</em>-QTL discovery tracks sample size closely — Spearman's ρ = <strong>0.95 for
+          <em>cis</em>-QTL discovery tracks sample size closely — Spearman's ρ = <strong>0.95 for{' '}
           <em>cis</em>-eQTLs and 0.92 for <em>cis</em>-sQTLs</strong> against per-tissue sample size. But the
           gain from more samples is almost entirely in <em>small</em> effects: discovery of <em>cis</em>-eGenes
           with an over-two-fold effect <strong>saturates at roughly 1,500 genes in tissues with more than 200
-          samples</strong>. Measured as allelic fold change, an average of <strong>22% of <em>cis</em>-eQTLs</strong>
+          samples</strong>. Measured as allelic fold change, an average of <strong>22% of <em>cis</em>-eQTLs</strong>{' '}
           have an over-two-fold effect on expression. Sequencing more donors therefore buys statistical power,
           not new large-effect biology.
         </p>
@@ -153,8 +153,8 @@ const readingTime = "26 min read";
         Interchromosomal <em>trans</em>-eQTL mapping yielded <strong>143 <em>trans</em>-eGenes</strong> (121
         protein-coding and 22 lincRNA, at 5% FDR assessed per gene type) after controlling for false positives
         from read misalignment — the artefact that has historically inflated <em>trans</em> discovery. Effects
-        are larger where they exist: over-two-fold effects on <em>trans</em>-eGene expression were observed for
-        <strong>19% of <em>trans</em>-eQTLs</strong>. <em>trans</em>-sQTL mapping yielded <strong>29
+        are larger where they exist: over-two-fold effects on <em>trans</em>-eGene expression were observed for{' '}
+        <strong>19% of <em>trans</em>-eQTLs</strong>. <em>trans</em>-sQTL mapping yielded <strong>29{' '}
         <em>trans</em>-sGenes</strong>.
       </p>
     </section>
@@ -231,8 +231,8 @@ const readingTime = "26 min read";
           <Icon name="target" size={15} /> How far fine-mapping actually gets you
         </div>
         <p>
-          Using dap-g, the <strong>90% credible set contains a median of 6 variants</strong> per
-          <em>cis</em>-eQTL — narrow enough to inspect, far too wide to call a mechanism. Only
+          Using dap-g, the <strong>90% credible set contains a median of 6 variants</strong> per{' '}
+          <em>cis</em>-eQTL — narrow enough to inspect, far too wide to call a mechanism. Only{' '}
           <strong>9.3% of <em>cis</em>-eQTLs have a variant with posterior probability above 0.8</strong>,
           which is the fraction where a single likely causal variant can be named. The other ~91% remain sets,
           not answers.
@@ -243,7 +243,7 @@ const readingTime = "26 min read";
       <p>
         The paper's illustrative case is an eQTL for <em>CBX8</em> that colocalizes with breast cancer risk and
         with birth weight, at <strong>posterior probability 0.68 for both in lung</strong>. One of the three
-        variants in its confident set overlaps and disrupts the binding motif of the transcription factor
+        variants in its confident set overlaps and disrupts the binding motif of the transcription factor{' '}
         <strong>EGR1</strong>, and the role of EGR1 as the upstream driver is further supported by cross-tissue
         correlation. This is the shape of a complete mechanistic story — variant, motif, transcription factor,
         gene, trait — and the paper offers it as an example precisely because it is not the common case.
@@ -285,7 +285,7 @@ const readingTime = "26 min read";
     <section id="gwas-colocalization" class="paper-section">
       <h2>6. Integration with 87 GWAS: Enrichment and Mechanism</h2>
       <p>
-        For the trait analyses the consortium selected <strong>87 genome-wide association studies</strong>
+        For the trait analyses the consortium selected <strong>87 genome-wide association studies</strong>{' '}
         spanning binary and continuous complex traits with summary statistics in the public domain.
       </p>
 
@@ -293,14 +293,14 @@ const readingTime = "26 min read";
       <p>
         Blood cellularity traits are a trap here: they are GWAS traits whose biology <em>is</em> cell
         composition, so they would inflate any enrichment computed in a tissue like whole blood. Repeating the
-        enrichment analysis with those traits excluded gives <strong>5.21-fold enrichment for
+        enrichment analysis with those traits excluded gives <strong>5.21-fold enrichment for{' '}
         <em>trans</em>-eQTLs, 1.43-fold for <em>cis</em>-eQTLs and 1.81 for <em>cis</em>-sQTLs</strong>, largely
         preserving the pattern seen on the full trait set.
       </p>
       <p>
-        The ordering is the finding. <em>trans</em>-eQTLs are far more enriched for trait associations than
-        <em>cis</em>-eQTLs despite being ~160× rarer in the catalogue, which is what you would expect if
-        <em>trans</em> effects sit closer to the trait in the causal chain — and it is also why the small
+        The ordering is the finding. <em>trans</em>-eQTLs are far more enriched for trait associations than{' '}
+        <em>cis</em>-eQTLs despite being ~160× rarer in the catalogue, which is what you would expect if{' '}
+        <em>trans</em> effects sit closer to the trait in the causal chain — and it is also why the small{' '}
         <em>trans</em> catalogue is worth its cost.
       </p>
     </section>

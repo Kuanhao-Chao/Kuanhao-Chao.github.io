@@ -43,9 +43,9 @@ const readingTime = "24 min read";
       requires knowing which of hundreds of candidates at a locus is causal. Sullivan et al. supply a prior
       that is <strong>agnostic to cell type, tissue and developmental stage</strong>: evolutionary constraint,
       measured base by base across <strong>240 mammals</strong> spanning ~100 million years. Single-base
-      phyloP scores identify <strong>3.3% of the human genome as significantly constrained</strong> — including
+      phyloP scores identify <strong>3.3% of the human genome as significantly constrained</strong> — including{' '}
       <strong>57.6% of coding bases</strong>, though <strong>80.7% of constrained bases are noncoding</strong>
-      — and constrained regions carry <strong>7.8-fold enrichment of SNP-heritability</strong> across
+      — and constrained regions carry <strong>7.8-fold enrichment of SNP-heritability</strong> across{' '}
       <strong>63 independent GWAS</strong>, more than nonsynonymous coding variants do.
     </p>
 
@@ -54,21 +54,21 @@ const readingTime = "24 min read";
         <Icon name="list" size={14} /> Table of Contents
       </div>
       <ol class="paper-toc-list">
-        <li><a href="#summary">1. Constraint as a Function-Agnostic Annotation</a></li>
-        <li><a href="#alignment">2. The 240-Mammal Alignment and Single-Base phyloP</a></li>
-        <li><a href="#constrained-fraction">3. How Much of the Genome Is Constrained</a></li>
-        <li><a href="#selection">4. Constraint Is Visible in Present-Day Human Variation</a></li>
-        <li><a href="#heritability">5. The Headline Result: SNP-Heritability Enrichment</a></li>
-        <li><a href="#scales">6. Informative at Every Scale, from 100 kb to One Base</a></li>
-        <li><a href="#mathematical-formulation">7. Mathematical Formulation: phyloP and Heritability Partitioning</a></li>
-        <li><a href="#failure-modes">8. Limitations & What Constraint Cannot Tell You</a></li>
+        <li><a href="#summary">Constraint as a Function-Agnostic Annotation</a></li>
+        <li><a href="#alignment">The 240-Mammal Alignment and Single-Base phyloP</a></li>
+        <li><a href="#constrained-fraction">How Much of the Genome Is Constrained</a></li>
+        <li><a href="#selection">Constraint Is Visible in Present-Day Human Variation</a></li>
+        <li><a href="#heritability">The Headline Result: SNP-Heritability Enrichment</a></li>
+        <li><a href="#scales">Informative at Every Scale, from 100 kb to One Base</a></li>
+        <li><a href="#mathematical-formulation">Mathematical Formulation: phyloP and Heritability Partitioning</a></li>
+        <li><a href="#failure-modes">Limitations & What Constraint Cannot Tell You</a></li>
       </ol>
     </div>
 
     <section id="summary" class="paper-section">
       <h2>1. Constraint as a Function-Agnostic Annotation</h2>
       <p>
-        Every functional-genomics annotation answers a conditional question: this element is open in
+        Every functional-genomics annotation answers a conditional question: this element is open in{' '}
         <em>this</em> cell type, bound by <em>this</em> factor, expressed at <em>this</em> stage. Miss the
         condition and you miss the element. ENCODE and GTEx are indispensable and are, structurally, bounded
         by the assays and tissues actually run.
@@ -89,7 +89,7 @@ const readingTime = "24 min read";
       <p>
         The analysis rests on an alignment of <strong>240 mammal genomes spanning roughly 100 million years of
         evolution</strong>. The scale matters in a specific way: constraint is detected by comparing observed
-        substitutions against the neutral rate, so the statistical power to call a <em>single base</em>
+        substitutions against the neutral rate, so the statistical power to call a <em>single base</em>{' '}
         constrained scales with the total evolutionary branch length in the alignment. Fewer species, and
         constraint can only be called over windows.
       </p>
@@ -157,15 +157,15 @@ const readingTime = "24 min read";
       <h3>Depletion of segregating variation</h3>
       <p>
         If constrained bases are under purifying selection, human polymorphism should avoid them — and it
-        does. Common variants (allele frequency ≥ 5%) and low-frequency variants (0.5% ≤ AF &lt; 5%) are
-        <strong>depleted for constrained bases: 1.85% versus 3.26% expected by chance</strong>, at
+        does. Common variants (allele frequency ≥ 5%) and low-frequency variants (0.5% ≤ AF &lt; 5%) are{' '}
+        <strong>depleted for constrained bases: 1.85% versus 3.26% expected by chance</strong>, at{' '}
         <strong>P &lt; 2.2 × 10<sup>−308</sup></strong> — a p-value at the floor of double-precision
         representation, which is to say the depletion is not in doubt.
       </p>
 
       <h3>Clinical variants line up the same way</h3>
       <p>
-        <strong>Pathogenic ClinVar variants are more constrained than benign variants</strong>
+        <strong>Pathogenic ClinVar variants are more constrained than benign variants</strong>{' '}
         (<strong>P &lt; 2.2 × 10<sup>−16</sup></strong>). This is the external validation that matters: the
         constraint score was computed from mammalian alignments with no knowledge of human clinical
         annotation, and it separates the clinical classes anyway.
@@ -292,7 +292,7 @@ const readingTime = "24 min read";
           <Icon name="book" size={15} /> Source note
         </div>
         <p>
-          Written against the full text of the author manuscript deposited as PMC10259825. This page cites
+          Written against the full text of the author manuscript deposited as PMC10259825. This page cites{' '}
           <strong>240 mammals</strong>, which is the paper's own figure; an earlier version said 241. The
           companion resource paper — Christmas et al., <em>Evolutionary constraint and innovation across
           hundreds of placental mammals</em> — is summarised at

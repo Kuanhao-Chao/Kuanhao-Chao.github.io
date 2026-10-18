@@ -10,6 +10,8 @@
  * the standard way these go wrong, and it is invisible to everything except a human
  * looking at it.
  */
+import '../../styles/figureReader.css';
+
 interface Props {
   id?: string;
   caption: string;
@@ -22,9 +24,30 @@ interface Props {
 const { id, caption, alt, wide = false } = Astro.props;
 ---
 
-<figure class={`dd-figure${wide ? ' dd-figure--wide' : ''}`} id={id}>
-  <div class="dd-figure__frame" role="img" aria-label={alt}>
-    <slot />
+<figure class={`dd-figure${wide ? ' dd-figure--wide' : ''}`} id={id} data-figure-reader>
+  <div class="figure-reader-tools" data-figure-tools hidden>
+    <button type="button" data-figure-overview aria-pressed="false">Fit overview</button>
+    <button type="button" data-figure-open aria-haspopup="dialog">Expand diagram</button>
   </div>
+  <div class="dd-figure__frame" data-figure-frame role="region" tabindex="0" aria-label={`Scrollable diagram: ${alt}`}>
+    <div data-figure-art role="img" aria-label={alt}><slot /></div>
+  </div>
+  <p class="figure-reader-hint" data-figure-hint>Scroll sideways to read the diagram.</p>
   <figcaption class="dd-figure__caption">{caption}</figcaption>
+  <dialog class="figure-reader-dialog" data-figure-dialog aria-label={`Expanded diagram: ${alt}`}>
+    <div class="figure-reader-controls" aria-label="Diagram controls">
+      <button type="button" data-figure-zoom="out" aria-label="Zoom out">−</button>
+      <output data-figure-scale aria-live="polite">100%</output>
+      <button type="button" data-figure-zoom="in" aria-label="Zoom in">+</button>
+      <button type="button" data-figure-zoom="fit">Fit to window</button>
+      <button type="button" data-figure-close aria-label="Close figure">Close ✕</button>
+    </div>
+    <div class="figure-reader-viewport" data-figure-viewport role="region" tabindex="0" aria-label="Pan the expanded diagram"></div>
+  </dialog>
 </figure>
+
+<script>
+  import { mountFigureReaders } from '../../scripts/figureReader';
+  mountFigureReaders();
+  document.addEventListener('astro:page-load', () => mountFigureReaders());
+</script>

@@ -1,6 +1,8 @@
 ---
 import { month, monthYear } from '../lib/format';
 import { NEWS_LABELS } from '../lib/newsCategories';
+import { newsPreview } from '../lib/readingTypography';
+import Icon from './Icon.astro';
 import type { CollectionEntry } from 'astro:content';
 
 interface Props {
@@ -29,13 +31,23 @@ const searchText = `${d.title} ${entry.body ?? ''} ${d.location ?? ''}`.toLowerC
     <time datetime={d.date.toISOString()}>{dateLabel}</time>
     <span class:list={['news-tag', `news-tag--${d.category}`]}>{categoryLabel}</span>
   </div>
-  <div class="news-text">
-    <slot />
-  </div>
+  {variant === 'card' ? (
+    <>
+      <h3 class="news-title"><a href={`/news/#${entry.id}`}>{d.title}</a></h3>
+      <p class="news-text">{newsPreview(entry.body ?? '')}</p>
+      <a class="news-read-more" href={`/news/#${entry.id}`} aria-label={`Read update: ${d.title}`}>
+        Read update <Icon name="arrow-right" size={16} />
+      </a>
+    </>
+  ) : (
+    <div class="news-text"><slot /></div>
+  )}
 </article>
 
 <style>
   .news {
+    min-width: 0;
+    overflow-wrap: anywhere;
     border-bottom: 1px solid var(--color-rule);
     /* Offset for the fixed header when deep-linked from the RSS feed. */
     scroll-margin-top: 6rem;
@@ -61,7 +73,8 @@ const searchText = `${d.title} ${entry.body ?? ''} ${d.location ?? ''}`.toLowerC
     font-size: 0.95rem;
   }
   .news-tag {
-    font-size: 0.66rem;
+    max-width: 100%;
+    font-size: var(--fs-meta);
     text-transform: uppercase;
     letter-spacing: 0.1em;
     font-weight: var(--fw-semibold);
@@ -112,14 +125,30 @@ const searchText = `${d.title} ${entry.body ?? ''} ${d.location ?? ''}`.toLowerC
     flex-direction: row;
     align-items: center;
     gap: 0.6rem;
+    flex-wrap: wrap;
   }
   .news--card .news-text {
     font-size: var(--fs-small);
-    display: -webkit-box;
-    -webkit-line-clamp: 4;
-    line-clamp: 4;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+    color: var(--color-muted);
+    line-height: 1.6;
+  }
+  .news-title {
+    font-size: var(--fs-item-title);
+    font-weight: var(--fw-semibold);
+    line-height: 1.35;
+    letter-spacing: 0;
+  }
+  .news-title a { color: var(--color-ink); }
+  .news-title a:hover { color: var(--color-accent); }
+  .news-read-more {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    gap: 0.4rem;
+    min-height: 44px;
+    margin-top: auto;
+    font-size: var(--fs-small);
+    font-weight: var(--fw-medium);
   }
 
   @media (max-width: 600px) {
@@ -135,10 +164,6 @@ const searchText = `${d.title} ${entry.body ?? ''} ${d.location ?? ''}`.toLowerC
     .news--card {
       padding: 1rem 1.1rem;
       gap: 0.5rem;
-    }
-    .news--card .news-text {
-      -webkit-line-clamp: 3;
-      line-clamp: 3;
     }
     .news-meta time {
       font-size: 0.85rem;

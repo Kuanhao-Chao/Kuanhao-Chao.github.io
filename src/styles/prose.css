@@ -4,6 +4,7 @@
   font-size: var(--fs-body);
   line-height: var(--lh-normal);
   color: var(--color-ink);
+  overflow-wrap: anywhere;
 }
 
 .prose > * + * {
@@ -37,7 +38,7 @@
 
 /* Dark mode: back figures with a light mat so white/transparent, dark-line-art
    scientific images stay legible on the dark page (mirrors ZoomFigure). */
-[data-theme='dark'] .prose img {
+:is([data-theme='dark'], [data-theme='nord'], [data-theme='monokai'], [data-theme='cyberdeck']) .prose img {
   background: var(--color-figure-mat);
   padding: 0.75rem;
 }
@@ -47,10 +48,10 @@
 }
 
 .prose figcaption {
-  font-size: var(--fs-small);
+  font-size: var(--fs-caption);
   color: var(--color-muted);
   margin-top: 0.6em;
-  text-align: center;
+  text-align: left;
 }
 
 .prose blockquote {
@@ -76,17 +77,13 @@
   border-radius: 3px;
 }
 
-/* In-text links: a "splice-in" underline that draws from the left on hover. */
+/* Links in reading copy stay identifiable without hover or color perception. */
 .prose a {
-  background-image: linear-gradient(var(--color-accent), var(--color-accent));
-  background-repeat: no-repeat;
-  background-position: 0 100%;
-  background-size: 0% 1px;
-  transition: background-size 220ms ease, color var(--transition);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 55%, transparent);
 }
 .prose a:hover {
-  background-size: 100% 1px;
-  text-decoration: none;
+  text-decoration-color: currentColor;
 }
 
 .prose pre {
@@ -106,4 +103,17 @@
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   border-collapse: collapse;
+}
+
+.prose th,
+.prose td {
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--color-rule);
+  text-align: left;
+  vertical-align: top;
+  line-height: 1.55;
+}
+.prose th {
+  font-weight: var(--fw-semibold);
+  background: color-mix(in srgb, var(--color-accent) 5%, var(--color-surface));
 }

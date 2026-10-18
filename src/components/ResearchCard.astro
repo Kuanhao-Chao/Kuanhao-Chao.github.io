@@ -73,7 +73,7 @@ const blogLinks = showPosts ? await resolveRelatedPosts(d.relatedPosts.map((r) =
   }
   .rcard-title {
     color: var(--color-ink);
-    font-size: 1.12rem;
+    font-size: var(--fs-item-title);
     font-weight: var(--fw-semibold);
     line-height: 1.3;
     letter-spacing: 0;
@@ -81,6 +81,7 @@ const blogLinks = showPosts ? await resolveRelatedPosts(d.relatedPosts.map((r) =
 
   .rcard--home {
     background: var(--color-surface);
+    container: research-card / inline-size;
   }
   /* Sequence → Function lets the background art show through each card at the veil strength
      (--art-through in tokens.css, --veil-fill its complement). `data-veiled` on the card tells the
@@ -214,15 +215,31 @@ const blogLinks = showPosts ? await resolveRelatedPosts(d.relatedPosts.map((r) =
       padding-block: 0.85rem;
     }
     .rcard--index .rcard-title {
-      font-size: 1rem;
+      font-size: var(--fs-item-title);
     }
     .rcard--index .rcard-summary {
-      font-size: var(--fs-meta);
-      -webkit-line-clamp: 2;
-      line-clamp: 2;
+      font-size: var(--fs-small);
+      display: block;
+      overflow: visible;
     }
     .rcard--index .rcard-links {
-      display: none;
+      display: flex;
+      grid-column: 1 / -1;
+      margin-top: 0;
     }
+    .rcard--index .rcard-links a {
+      min-height: 44px;
+    }
+    .rcard--index {
+      grid-template-columns: min(4.5rem, 25%) minmax(0, 1fr);
+      align-items: start;
+    }
+  }
+  @container research-card (max-width: 18rem) {
+    .rcard-home-link {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .rcard-home-copy { min-width: 0; }
   }
 </style>

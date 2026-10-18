@@ -79,7 +79,7 @@ const searchText = `${d.title} ${d.description} ${d.tags.join(' ')}`.toLowerCase
 
   /* ---- Shared between the row and the compact teaser ---- */
   .post-title {
-    font-size: 1.15rem;
+    font-size: var(--fs-item-title);
     font-weight: var(--fw-semibold);
     line-height: 1.35;
   }
@@ -91,7 +91,7 @@ const searchText = `${d.title} ${d.description} ${d.tags.join(' ')}`.toLowerCase
     text-decoration: none;
   }
   .post-tag {
-    font-size: 0.66rem;
+    font-size: var(--fs-meta);
     text-transform: uppercase;
     letter-spacing: 0.1em;
     font-weight: var(--fw-semibold);
@@ -164,8 +164,8 @@ const searchText = `${d.title} ${d.description} ${d.tags.join(' ')}`.toLowerCase
       font-size: 0.95rem;
     }
     .post-title {
-      font-size: 1.02rem;
-      line-height: 1.3;
+      font-size: var(--fs-item-title);
+      line-height: 1.4;
     }
   }
 </style>
