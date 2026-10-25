@@ -3,8 +3,10 @@ import process from 'node:process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { isDeepStrictEqual } from 'node:util';
 import { chromium, webkit, firefox } from 'playwright';
+import { newAuditContext } from './lib/builtSiteBrowser.mjs';
 import { startPreview } from './lib/previewServer.mjs';
 import { driveProofreader3D } from './lib/proofreaderAgent.mjs';
+import { driveProofreaderClassic } from './lib/proofreaderClassicAgent.mjs';
 import { waitForPageReady, clickControl } from './lib/gameAuditUi.mjs';
 import { checkDinoPauseResume, checkPhagePlacement, checkGenomeKeyboardSteering } from './lib/gameAuditActions.mjs';
 
@@ -65,6 +67,17 @@ const games = [
     controls:
       '[data-proof-fire], [data-proof-share], [data-proof-pause], [data-proof-restart], [data-proof-sound]',
     drive: driveProofreader,
+  },
+  {
+    slug: 'proofreader-classic',
+    title: 'Proofreader Classic',
+    linkName: 'Proofreader Classic',
+    query: '?mode=campaign&stage=1',
+    global: '__proofreaderClassic',
+    instances: '__proofreaderClassicInstances',
+    canvas: '[data-proofclassic-canvas]',
+    controls: '[data-proofclassic-fire], [data-proofclassic-pulse], [data-proofclassic-share], [data-proofclassic-pause], [data-proofclassic-restart], [data-proofclassic-sound]',
+    drive: driveProofreaderClassicUI,
   },
   {
     slug: 'jetpack-joyride',
@@ -456,6 +469,76 @@ async function driveProofreader(page, scope, profile) {
   );
 }
 
+async function driveProofreaderClassicUI(page, scope, profile) {
+  const canvas = page.locator('[data-proofclassic-canvas]');
+  await page.evaluate(() => window.__proofreaderClassic.start());
+  const initial = await page.evaluate(() => window.__proofreaderClassic.state().player.x);
+  await canvas.focus();
+  if (profile.touch) {
+    const box = await canvas.boundingBox();
+    await canvas.dispatchEvent('pointerdown', {
+      pointerId: 5,
+      pointerType: 'touch',
+      clientX: box.x + box.width * 0.2,
+      clientY: box.y + box.height * 0.6,
+    });
+    await canvas.dispatchEvent('pointermove', {
+      pointerId: 5,
+      pointerType: 'touch',
+      clientX: box.x + box.width * 0.2,
+      clientY: box.y + box.height * 0.3,
+    });
+    await page.evaluate(() => window.__proofreaderClassic.tick(24));
+    await canvas.dispatchEvent('pointerup', { pointerId: 5, pointerType: 'touch' });
+  } else {
+    await page.keyboard.down('w');
+    await page.evaluate(() => window.__proofreaderClassic.tick(24));
+    await page.keyboard.up('w');
+  }
+  await expect(
+    scope,
+    () => page.evaluate((z) => window.__proofreaderClassic.state().player.x > z + 0.1, initial),
+    'forward movement did not advance in Classic'
+  );
+  await page.locator('[data-proofclassic-pause]').click();
+  await expect(
+    scope,
+    () => page.evaluate(() => window.__proofreaderClassic.state().status === 'paused'),
+    'Pause did not pause'
+  );
+  await page.locator('[data-proofclassic-pause]').click();
+  await expect(
+    scope,
+    () => page.evaluate(() => window.__proofreaderClassic.state().status === 'playing'),
+    'Resume did not resume'
+  );
+  const result = await page.evaluate(driveProofreaderClassic);
+  await expect(
+    scope,
+    async () => result.status === 'won',
+    `legal-input campaign failed: ${JSON.stringify(result)}`
+  );
+  await expect(
+    scope,
+    () =>
+      page.evaluate(() =>
+        Object.values(
+          JSON.parse(localStorage.getItem('khc-arcade-proofreader-classic-v2') || '{}').records || {}
+        ).some((r) => r.score > 0)
+      ),
+    'Classic v2 records were not saved'
+  );
+  await page.locator('[data-proofclassic-share]').click();
+  await page.waitForFunction(() =>
+    document.querySelector('[data-proofclassic-status]')?.textContent?.includes('shared')
+  );
+  await expect(
+    scope,
+    () => page.evaluate(() => Boolean(window.__gameAuditShared)),
+    'Web Share fallback was not invoked'
+  );
+}
+
 async function driveJetpackJoyride(page, scope, profile) {
   const canvas = page.locator('[data-jetpack-canvas]');
 
@@ -838,6 +921,7 @@ async function captureFailure(page, game, prefix) {
 async function auditRestrictedBrowser(browser, browserName, baseURL, selected) {
   const actions = {
     '100-floor-descent': '[data-descent-primary]',
+    'proofreader-classic': '[data-arcade-primary]',
     'crispr-commander': '[data-crispr-start]', 'phage-defense': '[data-phage-next-wave]',
     'genome-jumper': '[data-jumper-canvas]', proofreader: '[data-arcade-primary]', snake: '[data-arcade-primary]', 'jetpack-joyride': '[data-arcade-primary]', 'dino-run': '[data-dino-jump]',
     'chinese-chess': '[data-cc-hint]', 'bay-route': '[data-br-run]', minesweeper: '[data-mine-face]', '2048': '[data-2048-restart]',
@@ -845,7 +929,7 @@ async function auditRestrictedBrowser(browser, browserName, baseURL, selected) {
   for (const game of selected.filter(game => actions[game.slug])) {
     const scope = `${browserName}/reduced-motion-storage-denied/${game.slug}`;
     console.log(`[game-ui] ${scope}`);
-    const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, reducedMotion: 'reduce', hasTouch: true });
+    const context = await newAuditContext(browser, { baseURL, viewport: { width: 390, height: 844 }, reducedMotion: 'reduce', hasTouch: true });
     await context.addInitScript(() => {
       Object.defineProperty(window, 'localStorage', { configurable: true, get() { throw new DOMException('Storage denied for audit', 'SecurityError'); } });
     });
@@ -897,7 +981,7 @@ async function main() {
           for (const game of gamesToAudit) {
             const scope = `${browserName}/${profile.name}/${game.slug}`;
             console.log(`[game-ui] ${scope}`);
-            const context = await browser.newContext({
+            const context = await newAuditContext(browser, {
               baseURL,
               viewport: { width: profile.width, height: profile.height },
               colorScheme: profile.theme,

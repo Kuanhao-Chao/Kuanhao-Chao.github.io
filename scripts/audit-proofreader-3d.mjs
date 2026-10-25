@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium, webkit } from 'playwright';
 import { waitForPageReady, clickControl } from './lib/gameAuditUi.mjs';
+import { builtAuditOrigin, newAuditContext } from './lib/builtSiteBrowser.mjs';
 
-const baseURL = process.env.GAME_UI_AUDIT_BASE_URL ?? 'http://127.0.0.1:4321';
+const baseURL = process.env.GAME_UI_AUDIT_BASE_URL ??
+  (process.env.GAME_UI_AUDIT_OFFLINE === '1' ? builtAuditOrigin : 'http://127.0.0.1:4321');
 const evidence = process.env.PROOF_3D_EVIDENCE ?? '/tmp/khc-proofreader-3d';
 const engines = (process.env.PROOF_3D_BROWSERS ?? 'chromium,webkit').split(',');
 const measurements = [];
@@ -14,7 +16,7 @@ for (const engine of engines) {
   const browser = await { chromium, webkit }[engine].launch({ headless: true });
   try {
     for (const width of [1440, 390]) {
-      const context = await browser.newContext({
+      const context = await newAuditContext(browser, {
         viewport: { width, height: 1000 },
         hasTouch: width === 390,
         deviceScaleFactor: width === 390 ? 2 : 1,
@@ -202,7 +204,7 @@ for (const engine of engines) {
         await context.close();
       }
     }
-    const context = await browser.newContext({ baseURL });
+    const context = await newAuditContext(browser, { baseURL });
     const page = await context.newPage();
     try {
       await page.addInitScript(() => {
@@ -249,7 +251,8 @@ for (const engine of engines) {
     } finally {
       await context.close();
     }
-    const fallback = await browser.newPage({ baseURL });
+    const fallbackContext = await newAuditContext(browser, { baseURL });
+    const fallback = await fallbackContext.newPage();
     try {
       await fallback.addInitScript(() => {
         const original = HTMLCanvasElement.prototype.getContext;
@@ -272,7 +275,7 @@ for (const engine of engines) {
       );
       console.log(`PASS ${engine}: accessible WebGL2-unavailable fallback`);
     } finally {
-      await fallback.close();
+      await fallbackContext.close();
     }
   } finally {
     await browser.close();

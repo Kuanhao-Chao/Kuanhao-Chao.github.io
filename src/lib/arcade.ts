@@ -1,5 +1,5 @@
 /** Campaign identity, challenge links and browser-independent progress rules. */
-export type ArcadeGame = 'proofreader' | 'snake' | 'jetpack';
+export type ArcadeGame = 'proofreader' | 'proofreader-classic' | 'snake' | 'jetpack';
 export type ArcadeMode = 'campaign' | 'classic' | 'practice' | 'motif';
 export type Difficulty = 'standard' | 'expert';
 export type RunStatus = 'ready' | 'playing' | 'paused' | 'won' | 'over';
@@ -18,7 +18,55 @@ export interface CampaignStage {
 }
 export const RULES_VERSION = 2;
 export const rulesVersion = (game: ArcadeGame): 2 | 3 => (game === 'proofreader' ? 3 : 2);
+/** Shared controls and medals, not shared maps, rules, scores, or renderer. */
+export const isProofreader = (game: ArcadeGame): boolean =>
+  game === 'proofreader' || game === 'proofreader-classic';
 export const CAMPAIGNS: Record<ArcadeGame, readonly CampaignStage[]> = {
+  // Preserved v2 campaign, before the true-3D rewrite (de01fa48).
+  'proofreader-classic': [
+    {
+      name: 'Replication Fork',
+      lesson: 'Clear the sentries, collect supplies, then find the exit.',
+      goal: 4,
+      par: 100,
+      seed: 2101,
+    },
+    {
+      name: 'Cover Circuit',
+      lesson: 'Break line of sight before a charging insertion commits.',
+      goal: 6,
+      par: 120,
+      seed: 2102,
+    },
+    {
+      name: 'Gap Chamber',
+      lesson: 'Read deletion projectiles and use pillars as cover.',
+      goal: 7,
+      par: 140,
+      seed: 2103,
+    },
+    {
+      name: 'Supply Run',
+      lesson: 'Activate two supply relays and clear two waves.',
+      goal: 8,
+      par: 160,
+      seed: 2104,
+    },
+    {
+      name: 'Signal Lock',
+      lesson: 'Activate three relays while clearing three mixed waves.',
+      goal: 15,
+      par: 180,
+      seed: 2105,
+    },
+    {
+      name: 'Fidelity Core',
+      lesson: 'Break the guardian during each exposed phase; cover blocks its shots.',
+      goal: 1,
+      par: 210,
+      seed: 2106,
+    },
+  ],
   proofreader: [
     {
       name: 'Replication Fork',

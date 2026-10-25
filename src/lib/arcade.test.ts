@@ -7,6 +7,8 @@ import {
   parseRunOptions,
   recordKey,
   recordResult,
+  rulesVersion,
+  isProofreader,
   type RunOptions,
   type RunResult,
 } from './arcade';
@@ -46,6 +48,24 @@ describe('arcade campaigns and links', () => {
     const url = challengeUrl('/games/proofreader/', o);
     expect(url).toContain('rules=2');
     expect(parseRunOptions('proofreader', url.split('?')[1])).toEqual(o);
+  });
+  it('keeps historical Classic campaign parameters separate from the 3D campaign', () => {
+    expect(rulesVersion('proofreader-classic')).toBe(2);
+    expect(rulesVersion('proofreader')).toBe(3);
+    expect(isProofreader('proofreader-classic')).toBe(true);
+    expect(isProofreader('proofreader')).toBe(true);
+    expect(isProofreader('snake')).toBe(false);
+    expect(CAMPAIGNS['proofreader-classic'].map((s) => s.goal)).toEqual([4, 6, 7, 8, 15, 1]);
+    expect(CAMPAIGNS['proofreader-classic'].map((s) => s.par)).toEqual([100, 120, 140, 160, 180, 210]);
+    expect(CAMPAIGNS.proofreader[0].goal).toBe(6);
+    expect(CAMPAIGNS.proofreader[0].par).toBe(300);
+    const o: RunOptions = { ...options, mode: 'classic', difficulty: 'expert', seed: 2026 };
+    const url = challengeUrl('/games/proofreader-classic/', o, rulesVersion('proofreader-classic'));
+    expect(url).toContain('/games/proofreader-classic/?');
+    expect(url).toContain('rules=2');
+    expect(parseRunOptions('proofreader-classic', url.split('?')[1])).toEqual(o);
+    expect(parseRunOptions('proofreader-classic', '?mode=campaign&stage=6', 2).stage).toBe(2);
+    expect(parseRunOptions('proofreader-classic', '?mode=practice&stage=6').stage).toBe(6);
   });
 });
 

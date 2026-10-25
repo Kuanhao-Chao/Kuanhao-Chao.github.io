@@ -1,5 +1,7 @@
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { access } from 'node:fs/promises';
+import { builtAuditOrigin } from './builtSiteBrowser.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const entrypoint = fileURLToPath(new URL('../../node_modules/astro/bin/astro.mjs', import.meta.url));
@@ -7,6 +9,10 @@ const delay = milliseconds => new Promise(resolve => setTimeout(resolve, millise
 
 /** Owns the actual Astro process, including its pipes, on every exit path. */
 export async function startPreview({ port, route = '/', startupTimeoutMs = 30000 }) {
+  if (process.env.GAME_UI_AUDIT_OFFLINE === '1') {
+    await access(new URL('../../dist/index.html', import.meta.url));
+    return { baseURL: builtAuditOrigin, stop: async () => {}, logs: 'Offline built-site audit' };
+  }
   const baseURL = `http://127.0.0.1:${port}`;
   const child = spawn(process.execPath, [entrypoint, 'preview', '--host', '127.0.0.1', '--port', String(port)], {
     cwd: root,

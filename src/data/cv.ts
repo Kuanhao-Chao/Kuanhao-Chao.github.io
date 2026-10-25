@@ -303,6 +303,12 @@ export const sideProjects: SideProject[] = [
     url: '/games/proofreader/',
   },
   {
+    name: 'Proofreader Classic',
+    detail:
+      'Preserved pre-3D raycast FPS — six pixel-art sectors, tactical cover, a piercing pulse, endless survival and unranked practice, with keyboard or touch controls',
+    url: '/games/proofreader-classic/',
+  },
+  {
     name: 'Dino Run',
     detail:
       'Feathered dinosaur runner — read jump/duck cues, cross gene-themed obstacles, learn in unranked Practice, and share reproducible Classic challenges',

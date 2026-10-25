@@ -2,7 +2,7 @@
 import Socials from './Socials.astro';
 import SequenceTrack from './SequenceTrack.astro';
 import Icon from './Icon.astro';
-import { site, navPages, navLabs } from '../data/site';
+import { site, footerPages, footerLabs } from '../data/site';
 const year = new Date().getFullYear();
 ---
 <footer class="site-footer">
@@ -17,14 +17,14 @@ const year = new Date().getFullYear();
     <nav class="footer-col footer-pages" aria-label="Pages navigation">
       <p class="eyebrow">Pages</p>
       <ul class="footer-link-grid">
-        {navPages.map((item) => <li><a href={item.href}>{item.label}</a></li>)}
+        {footerPages.map((item) => <li><a href={item.href}>{item.label}</a></li>)}
       </ul>
     </nav>
 
     <nav class="footer-col footer-labs" aria-label="Interactive and labs">
       <p class="eyebrow">Labs & Tools</p>
       <ul class="footer-link-grid">
-        {navLabs.map((item) => <li><a href={item.href}>{item.label}</a></li>)}
+        {footerLabs.map((item) => <li><a href={item.href}>{item.label}</a></li>)}
       </ul>
     </nav>
 

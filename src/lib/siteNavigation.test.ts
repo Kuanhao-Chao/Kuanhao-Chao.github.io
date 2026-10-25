@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { labNavItems, navLabs } from '../data/site';
+import { footerLabs, footerPages, labNavItems, nav, navLabs } from '../data/site';
 
 describe('Labs navigation', () => {
-  it('keeps six header explorations and preserves the full footer directory', () => {
+  it('keeps six header explorations and preserves the full navigation registry', () => {
     expect(labNavItems.map((item) => item.id)).toEqual([
       'genome-browser',
       'algorithms',
@@ -16,5 +16,17 @@ describe('Labs navigation', () => {
     expect(navLabs.map((item) => item.label)).toContain('Fun Lab');
     expect(labNavItems.map((item) => item.href)).not.toContain('/fun-lab/');
     expect(labNavItems.find((item) => item.id === 'deep-dives')?.href).toBe('/deep_dives/');
+  });
+  it('hides only the requested links in the shared footer', () => {
+    expect(footerPages.map((item) => item.label)).toEqual([
+      'Research', 'Publications', 'Software', 'Talks', 'Teaching', 'Posts', 'News',
+    ]);
+    expect(footerLabs.map((item) => item.label)).toEqual([
+      'Algorithms', 'Cell Lab', 'Shorkie Lab', 'Terminal', 'Search',
+    ]);
+    const hidden = ['Deep Dives', 'Papers', 'NN Lab', 'Fun Lab', 'Photos', 'Projects', 'CV'];
+    expect(nav.filter((item) => item.footerHidden).map((item) => item.label).sort())
+      .toEqual([...hidden].sort());
+    for (const label of hidden) expect(nav.some((item) => item.label === label)).toBe(true);
   });
 });

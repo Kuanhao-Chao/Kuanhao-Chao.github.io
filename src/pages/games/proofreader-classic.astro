@@ -1,0 +1,92 @@
+---
+import ArcadeShell from '../../components/games/ArcadeShell.astro';
+import ProofreaderEditions from '../../components/games/ProofreaderEditions.astro';
+import ProofreaderClassicLogo from '../../components/games/ProofreaderClassicLogo.astro';
+---
+
+<ArcadeShell
+  game="proofreader-classic"
+  title="Proofreader Classic"
+  lead="The preserved pre-3D edition: a pixel-art, Canvas2D raycast expedition. Read enemy tells, work around cover, and master six tactical sectors—or survive an endless run."
+  controls="WASD moves · arrows turn · Space/click fires · F sends a piercing pulse · P pauses. Touch: left side moves, right side aims; use Fire and Pulse below."
+>
+  <ProofreaderEditions slot="editions" edition="classic" />
+  <ProofreaderClassicLogo slot="logo" size={42} />
+  <Fragment slot="hud">
+    <div class="arcade-stat">
+      <span>Integrity</span><strong data-proofclassic-health>100</strong>
+    </div>
+    <div class="arcade-stat">
+      <span>Charges</span><strong data-proofclassic-ammo>24 / 40</strong>
+    </div>
+    <div class="arcade-stat"><span>Wave</span><strong data-proofclassic-wave>0</strong></div>
+    <div class="arcade-stat"><span>Score</span><strong data-proofclassic-score>0</strong></div>
+    <div class="arcade-stat"><span>Best</span><strong data-proofclassic-best>0</strong></div>
+  </Fragment>
+  <Fragment slot="actions">
+    <button type="button" class="arcade-primary" data-proofclassic-fire>Fire</button>
+    <button type="button" data-proofclassic-pulse>Piercing pulse · 3</button>
+    <button type="button" data-proofclassic-lock>Lock mouse</button>
+  </Fragment>
+  <div slot="readout" class="arcade-ribbon">
+    <strong>Collected dNTP supplies · not a repair product</strong><span data-proofclassic-sequence
+      >—</span
+    ><span data-proofclassic-objective></span>
+  </div>
+  <Fragment slot="guide">
+    <p>
+      <strong>Read the encounter.</strong> Rounded sentries (Δ) take one hit; insertion crosses (+) take
+      two; deletion guards (−) take three. Warning bars precede attacks. Walls block both your fire and
+      hostile projectiles.
+    </p>
+    <p>
+      <strong>Manage charges.</strong> Hold Fire for repeated precision shots. The piercing pulse costs
+      three charges, damages aligned targets twice, and still cannot penetrate a wall. Collect supplies
+      and walk close to relays to activate them.
+    </p>
+    <p>
+      <strong>Find the exit.</strong> Finish the encounter and relay objectives, then reach the lit exit.
+      The radar marks enemies, relays, and your position. The guardian exposes its core between guarded
+      attack phases.
+    </p>
+    <p>
+      <strong>Mastery medals.</strong> Clear a stage, land at least 70% of your shots, and finish without
+      taking damage. A piercing shot counts as one accurate shot if it connects at least once. Practice
+      has unlimited charges and prevents damage, but creates no records.
+    </p>
+    <p>
+      <strong>What is real?</strong> In bacterial DNA polymerase III, the ε subunit removes a mispaired
+      nucleotide from the nascent DNA strand’s 3′ end using 3′→5′ exonuclease activity; the α subunit
+      resumes synthesis in the 5′→3′ direction. This arcade is a metaphor—not a simulation of shooting
+      established variants or repairing every kind of lesion. Not every variant is harmful.
+    </p>
+    <p>
+      <strong>Try the real sequence logic.</strong> Template: 3′ A G C 5′. Nascent DNA: 5′ T C X 3′. Remove
+      terminal X, then add complementary G to obtain 5′ T C G 3′. The A/C/G/T ribbon above records pickups,
+      not excised or synthesized DNA.
+    </p>
+    <p>
+      <a
+        href="https://pmc.ncbi.nlm.nih.gov/articles/PMC392229/"
+        target="_blank"
+        rel="noopener noreferrer">Original Pol III editing study</a
+      >
+    </p>
+  </Fragment>
+</ArcadeShell>
+<script>
+  import {
+    initProofreaderClassic,
+    type ProofreaderClassicController,
+  } from '../../scripts/proofreaderClassic';
+  let controller: ProofreaderClassicController | null = null;
+  const mount = () => {
+    controller ??= initProofreaderClassic(document);
+  };
+  document.addEventListener('astro:page-load', mount);
+  document.addEventListener('astro:before-swap', () => {
+    controller?.destroy();
+    controller = null;
+  });
+  mount();
+</script>

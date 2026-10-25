@@ -1,0 +1,53 @@
+---
+interface Props {
+  edition: '3d' | 'classic';
+}
+const { edition } = Astro.props;
+---
+
+<nav class="proofreader-editions" aria-label="Proofreader editions">
+  <span class="edition-label">Choose your edition</span>
+  <a href="/games/proofreader/" aria-current={edition === '3d' ? 'page' : undefined}>
+    Proofreader · 3D
+  </a>
+  <a href="/games/proofreader-classic/" aria-current={edition === 'classic' ? 'page' : undefined}>
+    Proofreader Classic · 2.5D
+  </a>
+</nav>
+
+<style>
+  .proofreader-editions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    margin-bottom: 1.25rem;
+    font-size: var(--fs-small);
+  }
+  .edition-label {
+    color: var(--color-muted);
+    margin-inline-end: 0.25rem;
+  }
+  a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0.5rem 0.85rem;
+    border: 1px solid var(--color-rule);
+    border-radius: 999px;
+    color: var(--color-ink);
+    text-decoration: none;
+  }
+  a[aria-current='page'] {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+  a:hover {
+    background: var(--color-surface);
+  }
+  @media (max-width: 480px) {
+    .edition-label {
+      flex-basis: 100%;
+    }
+  }
+</style>

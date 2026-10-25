@@ -2,6 +2,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:net';
 import { webkit } from 'playwright';
+import { builtAuditOrigin, newAuditContext } from './builtSiteBrowser.mjs';
 import { startPreview } from './previewServer.mjs';
 import { checkDinoPauseResume, checkPhagePlacement, checkGenomeKeyboardSteering } from './gameAuditActions.mjs';
 import { waitForPageReady, clickControl } from './gameAuditUi.mjs';
@@ -12,7 +13,8 @@ let baseURL;
 before(async () => {
   // CI owns a built preview. Locally an existing dev server can be reused when
   // there is not enough disk space for another dist build; it is never stopped.
-  baseURL = process.env.GAME_UI_TEST_BASE_URL;
+  baseURL = process.env.GAME_UI_TEST_BASE_URL ??
+    (process.env.GAME_UI_AUDIT_OFFLINE === '1' ? builtAuditOrigin : undefined);
   if (!baseURL) {
     const server = createServer();
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -28,7 +30,7 @@ after(async () => {
 });
 
 test('Genome Jumper keyboard start survives blur while acquiring game focus', { timeout: 20000 }, async () => {
-  const context = await browser.newContext({ baseURL, viewport: { width: 1440, height: 1000 } });
+  const context = await newAuditContext(browser, { baseURL, viewport: { width: 1440, height: 1000 } });
   const page = await context.newPage();
   page.setDefaultTimeout(8000);
   try {
@@ -50,7 +52,7 @@ test('Genome Jumper keyboard start survives blur while acquiring game focus', { 
 });
 
 test('Dino pause audit still exercises Pause after a legitimate blur auto-pause', { timeout: 20000 }, async () => {
-  const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const context = await newAuditContext(browser, { baseURL, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
   page.setDefaultTimeout(8000);
   try {
@@ -68,7 +70,7 @@ test('Dino pause audit still exercises Pause after a legitimate blur auto-pause'
 });
 
 test('Phage touch preview, confirmation, and inspection survive mobile layout changes', { timeout: 30000 }, async () => {
-  const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, colorScheme: 'dark' });
+  const context = await newAuditContext(browser, { baseURL, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, colorScheme: 'dark' });
   const page = await context.newPage();
   page.setDefaultTimeout(8000);
   try {
@@ -92,7 +94,7 @@ async function checkTowerInspectionAfterResize(page) {
 }
 
 test('a real gameplay control is not activated during its ancestor content fade', { timeout: 20000 }, async () => {
-  const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const context = await newAuditContext(browser, { baseURL, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
   page.setDefaultTimeout(8000);
   try {
@@ -119,7 +121,7 @@ test('a real gameplay control is not activated during its ancestor content fade'
 });
 
 test('Dino Pause and Resume survive a held press while animation frames refresh the HUD', { timeout: 20000 }, async () => {
-  const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const context = await newAuditContext(browser, { baseURL, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
   page.setDefaultTimeout(8000);
   try {
@@ -146,12 +148,13 @@ for (const game of [
   { slug: 'genome-jumper', api: '__genomeJumper', control: 'jumper' },
   { slug: 'snake', api: '__snake', control: 'snake' },
   { slug: 'proofreader', api: '__proofreader', control: 'proof' },
+  { slug: 'proofreader-classic', api: '__proofreaderClassic', control: 'proofclassic' },
   { slug: 'phage-defense', api: '__phageDefense', control: 'phage' },
   { slug: 'crispr-commander', api: '__crisprCommander', control: 'crispr' },
   { slug: 'tetris', api: '__tetris', control: 'tetris' },
 ]) {
   test(`${game.slug} Pause and Resume survive held presses during HUD refresh`, { timeout: 20000 }, async () => {
-    const context = await browser.newContext({ baseURL, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    const context = await newAuditContext(browser, { baseURL, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     const page = await context.newPage();
     page.setDefaultTimeout(8000);
     try {

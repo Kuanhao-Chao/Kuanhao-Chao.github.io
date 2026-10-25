@@ -1,0 +1,29 @@
+---
+import GameIconFrame from './GameIconFrame.astro';
+interface Props {
+  size?: number;
+  class?: string;
+}
+const { size = 64, class: className = '' } = Astro.props;
+---
+
+<GameIconFrame
+  size={size}
+  class={`proofreader-classic-logo ${className}`}
+  label="Proofreader Classic — a pixel-art proofreading tool and corrected DNA fork"
+  accent="#6c9b85"
+>
+  <g shape-rendering="crispEdges">
+    <path
+      d="M22 18H30V30H38V42H46V78H38V46H30V34H22ZM66 18H74V34H66V46H58V78H50V42H58V30H66Z"
+      fill="var(--gi-deep)"></path>
+    <path d="M30 24H36V36H42V42H36V38H30ZM60 24H66V36H60V42H54V36H60Z" fill="var(--gi-accent)"
+    ></path>
+    <path d="M42 48H54V54H42ZM42 62H54V68H42Z" fill="var(--gi-mid)"></path>
+    <path d="M24 50H42V74H24ZM18 56H48V68H18Z" fill="var(--gi-deep)"></path>
+    <path d="M24 56H42V68H24Z" fill="var(--gi-light)"></path>
+    <path d="M28 60H32V64H36V56H40V68H30V64H28Z" fill="#37775b"></path>
+    <path d="M62 50H72V76H62ZM58 76H76V84H58Z" fill="var(--gi-accent)"></path>
+    <path d="M64 54H68V68H64Z" fill="var(--gi-light)"></path>
+  </g>
+</GameIconFrame>

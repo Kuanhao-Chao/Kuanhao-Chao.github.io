@@ -126,6 +126,8 @@ export type NavItem = {
   label: string;
   href: string;
   footerOnly?: boolean;
+  /** Hide only in the shared footer; keep the page in the navigation registry. */
+  footerHidden?: boolean;
   group?: NavGroup;
 };
 
@@ -133,29 +135,31 @@ export const nav: NavItem[] = [
   // Pages & Academic Work
   { label: 'Research', href: '/research/', group: 'pages' },
   { label: 'Publications', href: '/publications/', group: 'pages' },
-  { label: 'Projects', href: '/projects/', footerOnly: true, group: 'pages' },
+  { label: 'Projects', href: '/projects/', footerOnly: true, footerHidden: true, group: 'pages' },
   { label: 'Software', href: '/software/', group: 'pages' },
   { label: 'Talks', href: '/talks/', group: 'pages' },
   { label: 'Teaching', href: '/teaching/', group: 'pages' },
-  { label: 'CV', href: '/cv/', footerOnly: true, group: 'pages' },
-  { label: 'Photos', href: '/photos/', footerOnly: true, group: 'pages' },
+  { label: 'CV', href: '/cv/', footerOnly: true, footerHidden: true, group: 'pages' },
+  { label: 'Photos', href: '/photos/', footerOnly: true, footerHidden: true, group: 'pages' },
   { label: 'Posts', href: '/posts/', group: 'pages' },
   { label: 'News', href: '/news/', group: 'pages' },
 
   // Interactive Labs & Explorations
   { label: 'Algorithms', href: '/algorithms/', footerOnly: true, group: 'labs' },
-  { label: 'Deep Dives', href: '/deep_dives/', footerOnly: true, group: 'labs' },
-  { label: 'Papers', href: '/papers/', footerOnly: true, group: 'labs' },
+  { label: 'Deep Dives', href: '/deep_dives/', footerOnly: true, footerHidden: true, group: 'labs' },
+  { label: 'Papers', href: '/papers/', footerOnly: true, footerHidden: true, group: 'labs' },
   { label: 'Cell Lab', href: '/lab', footerOnly: true, group: 'labs' },
   { label: 'Shorkie Lab', href: '/shorkie-lab/', footerOnly: true, group: 'labs' },
-  { label: 'NN Lab', href: '/nn-lab/', footerOnly: true, group: 'labs' },
-  { label: 'Fun Lab', href: '/fun-lab/', footerOnly: true, group: 'labs' },
+  { label: 'NN Lab', href: '/nn-lab/', footerOnly: true, footerHidden: true, group: 'labs' },
+  { label: 'Fun Lab', href: '/fun-lab/', footerOnly: true, footerHidden: true, group: 'labs' },
   { label: 'Terminal', href: '/terminal/', footerOnly: true, group: 'labs' },
   { label: 'Search', href: '/search/', footerOnly: true, group: 'labs' },
 ];
 
 export const navPages = nav.filter((item) => item.group === 'pages');
 export const navLabs = nav.filter((item) => item.group === 'labs');
+export const footerPages = navPages.filter((item) => !item.footerHidden);
+export const footerLabs = navLabs.filter((item) => !item.footerHidden);
 
 export interface LabNavItem {
   id: string;

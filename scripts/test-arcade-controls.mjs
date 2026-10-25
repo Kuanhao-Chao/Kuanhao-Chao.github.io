@@ -2,13 +2,16 @@
 import assert from 'node:assert/strict';
 import { chromium, webkit } from 'playwright';
 import { waitForPageReady } from './lib/gameAuditUi.mjs';
+import { builtAuditOrigin, newAuditContext } from './lib/builtSiteBrowser.mjs';
 
-const baseURL = process.env.GAME_UI_AUDIT_BASE_URL ?? 'http://127.0.0.1:4321';
+const baseURL = process.env.GAME_UI_AUDIT_BASE_URL ??
+  (process.env.GAME_UI_AUDIT_OFFLINE === '1' ? builtAuditOrigin : 'http://127.0.0.1:4321');
 const engines = (process.env.ARCADE_TEST_BROWSERS ?? 'chromium').split(',');
 const games = (process.env.ARCADE_TEST_GAMES ?? 'snake').split(',');
 const registry = {
   snake: ['__snake', 'snake'],
   proofreader: ['__proofreader', 'proof'],
+  'proofreader-classic': ['__proofreaderClassic', 'proofclassic'],
   'jetpack-joyride': ['__jetpackJoyride', 'jetpack'],
 };
 for (const engine of engines) {
@@ -16,7 +19,8 @@ for (const engine of engines) {
   try {
     for (const game of games) {
       const [api, prefix] = registry[game];
-      const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+      const context = await newAuditContext(browser, { viewport: { width: 1440, height: 1000 } });
+      const page = await context.newPage();
       try {
         await page.goto(`${baseURL}/games/${game}/?seed=2026`, { waitUntil: 'networkidle' });
         await page.waitForFunction((name) => Boolean(window[name]), api);
@@ -36,24 +40,24 @@ for (const engine of engines) {
           'playing',
           `${engine}/${game}: one Resume click must resume`
         );
-        if (game === 'proofreader') {
-          const surface = page.locator('[data-proof-canvas]');
+        if (game === 'proofreader' || game === 'proofreader-classic') {
+          const surface = page.locator(`[data-${prefix}-canvas]`);
           await surface.scrollIntoViewIfNeeded();
           const box = await surface.boundingBox();
           await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
           await page.mouse.down();
-          const before = await page.evaluate(() => window.__proofreader.state().shots);
+          const before = await page.evaluate((name) => window[name].state().shots, api);
           await page.keyboard.down('w');
-          await page.evaluate(() => window.__proofreader.tick(120));
-          const during = await page.evaluate(() => window.__proofreader.state().shots);
+          await page.evaluate((name) => window[name].tick(120), api);
+          const during = await page.evaluate((name) => window[name].state().shots, api);
           assert.ok(during >= before + 2, 'movement cancelled held mouse fire');
           await page.mouse.up();
           await page.keyboard.up('w');
           // The browser may render between the previous counter read and native release.
-          const released = await page.evaluate(() => window.__proofreader.state().shots);
-          await page.evaluate(() => window.__proofreader.tick(60));
+          const released = await page.evaluate((name) => window[name].state().shots, api);
+          await page.evaluate((name) => window[name].tick(60), api);
           assert.equal(
-            await page.evaluate(() => window.__proofreader.state().shots),
+            await page.evaluate((name) => window[name].state().shots, api),
             released,
             'mouse release left firing stuck'
           );
@@ -78,9 +82,11 @@ for (const engine of engines) {
         await page.evaluate((name) => window[name].resume(), api);
         await page
           .locator('[data-arcade-bindings]')
-          .evaluate((el) =>
-            el.closest('details').scrollIntoView({ block: 'start', behavior: 'instant' })
-          );
+          .evaluate((el) => {
+            // Expand the panel so short games/footers still have enough scroll range.
+            el.closest('details').open = true;
+            el.scrollIntoView({ block: 'start', behavior: 'instant' });
+          });
         assert.ok(
           await page.locator(`[data-${prefix}-canvas]`).evaluate((el) => {
             const r = el.getBoundingClientRect();
@@ -101,7 +107,7 @@ for (const engine of engines) {
         );
         console.log(`PASS ${engine}/${game}: pause/resume`);
       } finally {
-        await page.close();
+        await context.close();
       }
     }
   } finally {

@@ -1,7 +1,7 @@
 ---
 import PageLayout from '../../layouts/PageLayout.astro';
 import GameTools from './GameTools.astro';
-import { CAMPAIGNS, type ArcadeGame } from '../../lib/arcade';
+import { CAMPAIGNS, isProofreader, type ArcadeGame } from '../../lib/arcade';
 import { site } from '../../data/site';
 import '../../styles/arcade.css';
 interface Props {
@@ -11,7 +11,8 @@ interface Props {
   controls: string;
 }
 const { game, title, lead, controls } = Astro.props;
-const prefix = game === 'proofreader' ? 'proof' : game === 'jetpack' ? 'jetpack' : 'snake';
+const prefix = game === 'proofreader' ? 'proof'
+  : game === 'proofreader-classic' ? 'proofclassic' : game === 'jetpack' ? 'jetpack' : 'snake';
 const slug = game === 'jetpack' ? 'jetpack-joyride' : game;
 const attr = (suffix: string) => ({ [`data-${prefix}-${suffix}`]: true });
 const stages = CAMPAIGNS[game];
@@ -23,6 +24,8 @@ const stages = CAMPAIGNS[game];
   lead={lead}
   description={game === 'proofreader'
     ? `${title} — a true 3D biotech FPS with six vertical missions, three weapons, checkpoints, and keyboard or touch play.`
+    : game === 'proofreader-classic'
+    ? `${title} — the preserved pre-3D Canvas2D raycast FPS, with six pixel-art sectors, a piercing pulse, endless and practice modes, and keyboard or touch play.`
     : `${title} — six original pixel-art stages, keyboard and touch play, quick-play challenges and practice.`}
   compact
 >
@@ -42,6 +45,7 @@ const stages = CAMPAIGNS[game];
       isAccessibleForFree: true,
     })}
   />
+  <slot name="editions" />
   <section
     class={`arcade arcade--${game}`}
     data-game-root
@@ -62,6 +66,8 @@ const stages = CAMPAIGNS[game];
           {
             game === 'proofreader'
               ? 'Biotech expedition · true 3D · six sectors'
+              : game === 'proofreader-classic'
+              ? 'Preserved Canvas2D raycaster · six sectors'
               : 'Original pixel arcade · six-stage campaign'
           }
         </p><p class="arcade-run-label" data-arcade-run-label>Campaign · Standard</p>
@@ -193,14 +199,13 @@ const stages = CAMPAIGNS[game];
             /></label
           >
           {
-            game === 'proofreader' && (
+            isProofreader(game) && (
               <>
                 <label>
                   Aiming sensitivity
                   <input
                     type="range"
-                    data-arcade-sensitivity
-                    data-proof-sensitivity
+                    data-arcade-sensitivity {...attr('sensitivity')}
                     min=".5"
                     max="2"
                     step=".1"
@@ -211,8 +216,7 @@ const stages = CAMPAIGNS[game];
                   Thumbstick dead zone
                   <input
                     type="range"
-                    data-arcade-deadzone
-                    data-proof-deadzone
+                    data-arcade-deadzone {...attr('deadzone')}
                     min="4"
                     max="24"
                     step="1"
@@ -220,8 +224,14 @@ const stages = CAMPAIGNS[game];
                   />
                 </label>
                 <label class="arcade-check">
-                  <input type="checkbox" data-arcade-assist data-proof-assist /> Wider aim assist
+                  <input type="checkbox" data-arcade-assist {...attr('assist')} /> Wider aim assist
                 </label>
+              </>
+            )
+          }
+          {
+            game === 'proofreader' && (
+              <>
                 <label>
                   Graphics
                   <select data-arcade-graphics>
@@ -247,7 +257,7 @@ const stages = CAMPAIGNS[game];
             game !== 'snake' && (
               <label class="arcade-check">
                 <input type="checkbox" data-arcade-toggle /> Toggle{' '}
-                {game === 'proofreader' ? 'firing' : 'thrust'} instead of holding
+                {isProofreader(game) ? 'firing' : 'thrust'} instead of holding
               </label>
             )
           }

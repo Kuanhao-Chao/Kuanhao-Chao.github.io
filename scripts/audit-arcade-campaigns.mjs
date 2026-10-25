@@ -1,13 +1,16 @@
-/** Local/manual only: actual input witnesses for all eighteen campaign stages. */
+/** Local/manual only: actual input witnesses for all twenty-four campaign stages. */
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { chromium, webkit } from 'playwright';
+import { newAuditContext } from './lib/builtSiteBrowser.mjs';
 import { startPreview } from './lib/previewServer.mjs';
 import { clickControl, waitForPageReady } from './lib/gameAuditUi.mjs';
 import { driveProofreader3D } from './lib/proofreaderAgent.mjs';
+import { driveProofreaderClassic } from './lib/proofreaderClassicAgent.mjs';
 
 const registry = [
   { slug: 'proofreader', game: 'proofreader', api: '__proofreader', prefix: 'proof' },
+  { slug: 'proofreader-classic', game: 'proofreader-classic', api: '__proofreaderClassic', prefix: 'proofclassic' },
   { slug: 'snake', game: 'snake', api: '__snake', prefix: 'snake' },
   { slug: 'jetpack-joyride', game: 'jetpack', api: '__jetpackJoyride', prefix: 'jetpack' },
 ];
@@ -83,7 +86,7 @@ function campaignAgent({ game, api: name }) {
 }
 
 async function campaignCheck(browser, baseURL, engine, game) {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, baseURL });
+  const context = await newAuditContext(browser, { viewport: { width: 1440, height: 1000 }, baseURL });
   const page = await context.newPage();
   page.setDefaultTimeout(15000);
   const errors = [];
@@ -99,6 +102,8 @@ async function campaignCheck(browser, baseURL, engine, game) {
       const result =
         game.game === 'proofreader'
           ? await page.evaluate(driveProofreader3D)
+          : game.game === 'proofreader-classic'
+          ? await page.evaluate(driveProofreaderClassic)
           : await page.evaluate(campaignAgent, game);
       console.log(`[arcade] ${engine}/${game.slug}/stage-${stage}`, JSON.stringify(result));
       assert.equal(
@@ -143,8 +148,8 @@ async function campaignCheck(browser, baseURL, engine, game) {
 }
 
 async function presentationCheck(browser, baseURL, engine, game, quick) {
-  for (const width of quick ? [390] : [1440, 390, 320, 844]) {
-    const context = await browser.newContext({
+  for (const width of quick ? [390] : [1440, 768, 390, 320, 844]) {
+    const context = await newAuditContext(browser, {
       baseURL,
       viewport: { width, height: width === 844 ? 390 : width === 1440 ? 1000 : 844 },
       hasTouch: width !== 1440,
@@ -182,7 +187,7 @@ async function presentationCheck(browser, baseURL, engine, game, quick) {
         assert.equal(await page.evaluate(() => window.__snake.state().dir), 'up');
       } else {
         const control = page.locator(
-          game.game === 'jetpack' ? '[data-jetpack-thrust]' : '[data-proof-fire]'
+          game.game === 'jetpack' ? '[data-jetpack-thrust]' : `[data-${game.prefix}-fire]`
         );
         await control.scrollIntoViewIfNeeded();
         const box = await control.boundingBox();

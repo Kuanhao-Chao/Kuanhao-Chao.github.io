@@ -4,6 +4,7 @@ import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, webkit } from 'playwright';
+import { newAuditContext } from './lib/builtSiteBrowser.mjs';
 import { startPreview } from './lib/previewServer.mjs';
 import { waitForPageReady } from './lib/gameAuditUi.mjs';
 
@@ -15,6 +16,7 @@ const expectedNames = [
   '100-Floor Descent',
   'Flappy Penguin',
   'Proofreader',
+  'Proofreader Classic',
   'Dino Run',
   'Snake',
   'Tetris',
@@ -33,6 +35,7 @@ const expectedURLs = [
   '/games/100-floor-descent/',
   'https://storage.googleapis.com/storage.khchao.com/flappy_penguin/index.html',
   '/games/proofreader/',
+  '/games/proofreader-classic/',
   '/games/dino-run/',
   '/games/snake/',
   '/games/tetris/',
@@ -46,6 +49,7 @@ const expectedURLs = [
 ];
 const headerSizes = {
   Proofreader: 42,
+  'Proofreader Classic': 42,
   Snake: 42,
   'Jetpack Joyride': 42,
   'Chinese Chess': 62,
@@ -90,7 +94,7 @@ try {
     browser = await browserTypes[name].launch({ headless: true });
     for (const profile of quick ? profiles.slice(0, 1) : profiles) {
       const scope = `${name}-${profile.width}-${profile.theme}`;
-      const context = await browser.newContext({
+      const context = await newAuditContext(browser, {
         baseURL,
         viewport: { width: profile.width, height: 900 },
         hasTouch: profile.width < 620,
@@ -119,21 +123,25 @@ try {
         assert.deepEqual(
           await list.locator('h3 a').allTextContents(),
           expectedNames,
-          `${scope}: Requested sixteen-game order`
+          `${scope}: Requested seventeen-game order`
         );
-        assert.equal(await list.locator(':scope > li').count(), 16);
+        assert.equal(await list.locator(':scope > li').count(), 17);
         const links = await list
           .locator('h3 a')
           .evaluateAll((elements) => elements.map((element) => element.getAttribute('href')));
         assert.deepEqual(links, expectedURLs, `${scope}: Existing destinations preserved`);
         if (profile.width === 1440 && profile.theme === 'light') {
-          const response = await context.request.get('/terminal.json');
-          assert.ok(response.ok(), `${scope}: terminal catalog loads`);
-          const payload = await response.json();
+          // Browser fetch also works with the optional offline built-site transport.
+          const { ok, payload } = await page.evaluate(async () => {
+            const response = await fetch('/terminal.json');
+            return { ok: response.ok, payload: await response.json() };
+          });
+          assert.ok(ok, `${scope}: terminal catalog loads`);
           const terminalGames = payload.fs['/home/khc/.config/side-projects.txt'];
           assert.ok(terminalGames, `${scope}: terminal retains the side-project catalog`);
           assert.deepEqual(
-            terminalGames.body.split('\n').map((line) => line.slice(0, 18).trim()),
+            terminalGames.body.split('\n').map((line, i) =>
+              line.slice(0, Math.max(18, expectedNames[i].length)).trim()),
             expectedNames,
             `${scope}: terminal and Software share the requested game order`
           );
@@ -152,10 +160,10 @@ try {
             definitions: element.querySelectorAll('[id], defs, filter').length,
           }))
         );
-        assert.equal(art.length, 16, `${scope}: Every game has an illustrated icon`);
+        assert.equal(art.length, 17, `${scope}: Every game has an illustrated icon`);
         assert.equal(
           new Set(art.map((icon) => icon.artwork)).size,
-          16,
+          17,
           `${scope}: Distinct artwork`
         );
         const size = profile.width < 620 ? 54 : 70;
@@ -178,7 +186,7 @@ try {
             height: element.getBoundingClientRect().height,
           }))
         );
-        assert.equal(actions.length, 16);
+        assert.equal(actions.length, 17);
         for (const [index, action] of actions.entries()) {
           assert.equal(action.href, expectedURLs[index]);
           const external = expectedURLs[index].startsWith('https://');
@@ -227,7 +235,7 @@ try {
             .screenshot({ path: join(evidence, `${scope}-icons.png`) });
         }
 
-        // Caller sizes, accessibility, and reuse across all thirteen in-house headers.
+        // Caller sizes, accessibility, and reuse across all fourteen in-house headers.
         if (
           !quick &&
           profile.width !== 320 &&

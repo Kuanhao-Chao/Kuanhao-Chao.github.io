@@ -6,12 +6,14 @@ import {
   recordKey,
   recordResult,
   rulesVersion,
+  isProofreader,
   type ArcadeGame,
   type RunOptions,
   type RunResult,
   type RunStatus,
 } from '../lib/arcade';
 import { createGameClock } from '../lib/gameClock';
+import { arcadeStorageKeys, copyClassicSaves } from '../lib/arcadeStorage';
 import { setLabel } from '../lib/domLabel';
 
 export interface ArcadeSettings {
@@ -115,8 +117,9 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
   const q = <T extends HTMLElement = HTMLElement>(selector: string) =>
     root.querySelector<T>(selector);
   const version = rulesVersion(driver.game);
-  const progressKey = `khc-arcade-${driver.game}-v${version}`;
-  const settingsKey = `khc-arcade-${driver.game}-settings-v${version}`;
+  const proofreader = isProofreader(driver.game);
+  const { progress: progressKey, settings: settingsKey } = arcadeStorageKeys(driver.game);
+  const storageAvailable = driver.game !== 'proofreader-classic' || copyClassicSaves(read, write);
   let progress = decodeProgress(read(progressKey), version);
   let options = parseRunOptions(
     driver.game,
@@ -151,7 +154,7 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
     sound:
       stored.sound === true ||
       (stored.sound === undefined &&
-        driver.game === 'proofreader' &&
+        proofreader &&
         read('khc-proofreader-sound') === 'on'),
     volume: clamp(stored.volume, 0.25, 0, 1),
     palette: Math.floor(clamp(stored.palette, 0, 0, 3)),
@@ -159,7 +162,7 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
     assist:
       typeof stored.assist === 'boolean'
         ? stored.assist
-        : driver.game === 'proofreader' && matchMedia('(pointer: coarse)').matches,
+        : proofreader && matchMedia('(pointer: coarse)').matches,
     toggle: stored.toggle === true,
     sensitivity: clamp(stored.sensitivity, 1, 0.5, 2),
     deadZone: clamp(stored.deadZone, 8, 4, 24),
@@ -185,7 +188,8 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
   const clock = createGameClock(driver.stepSeconds, 12);
   const pressed = new Map<string, string>();
   const legacyKey =
-    driver.game === 'jetpack' ? 'khc-jetpack-joyride-best' : `khc-${driver.game}-best`;
+    driver.game === 'jetpack' ? 'khc-jetpack-joyride-best'
+      : proofreader ? 'khc-proofreader-best' : `khc-${driver.game}-best`;
   const previousEdition = version === 3 ? decodeProgress(read('khc-arcade-proofreader-v2')) : null;
   const oldScore = Math.max(
     Number(read(legacyKey)) || 0,
@@ -200,10 +204,12 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
   );
   const modeSelect = q<HTMLSelectElement>('[data-arcade-mode]')!;
   const linkVersion = new URLSearchParams(location.search).get('rules');
-  if (version === 3 && linkVersion && linkVersion !== '3') {
+  if (proofreader && linkVersion && linkVersion !== String(version)) {
     setLabel(
       q('[data-arcade-legacy]'),
-      'This challenge belongs to another edition. You are playing Proofreader 3D v3; old maps and scores are not comparable.'
+      version === 3
+        ? 'This challenge belongs to another edition. You are playing Proofreader 3D v3; old maps and scores are not comparable.'
+        : 'This challenge belongs to another edition. You are playing Proofreader Classic v2; 3D maps and scores are not comparable.'
     );
   }
   const stageSelect = q<HTMLSelectElement>('[data-arcade-stage]')!;
@@ -309,7 +315,7 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
   function saveSettings() {
     if (!write(settingsKey, JSON.stringify(settings))) storageNotice();
     driver.settings?.(settings);
-    assisted ||= settings.speed < 1 || (driver.game === 'proofreader' && settings.assist);
+    assisted ||= settings.speed < 1 || (proofreader && settings.assist);
   }
   function controls() {
     modeSelect.value = options.mode;
@@ -349,7 +355,7 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
     lastFrame = 0;
     recorded = false;
     message = '';
-    assisted = settings.speed < 1 || (driver.game === 'proofreader' && settings.assist);
+    assisted = settings.speed < 1 || (proofreader && settings.assist);
     driver.create(options);
     driver.settings?.(settings);
     controls();
@@ -479,7 +485,7 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
               .result()
               .medals.map(
                 (m, i) =>
-                  `${m ? '★' : '☆'} ${driver.game === 'snake' ? ['Clear', 'Par time', 'Bonus chip'][i] : driver.game === 'proofreader' ? ['Clear', '70% accuracy', 'No damage'][i] : ['Clear', 'Base quota', 'No shield lost'][i]}`
+                  `${m ? '★' : '☆'} ${driver.game === 'snake' ? ['Clear', 'Par time', 'Bonus chip'][i] : proofreader ? ['Clear', '70% accuracy', 'No damage'][i] : ['Clear', 'Base quota', 'No shield lost'][i]}`
               )
               .join(' · ')
         : ''
@@ -751,6 +757,7 @@ export function mountArcade(root: HTMLElement, driver: ArcadeDriver) {
   });
   visibility.observe(canvas);
   makeReady();
+  if (!storageAvailable) storageNotice();
   return {
     canvas,
     settings,
