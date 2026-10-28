@@ -43,6 +43,7 @@ const crew = [
         <article class="crew-card">
           <img src={`/apps/little-light-below/${member.id}-portrait.webp`} width="256" height="256" alt={`${member.name}, a painted little cave traveler`} loading="lazy" decoding="async" />
           <div><p class="role">{member.role}</p><h3>{member.name}</h3><p class="ability">{member.ability}</p><p>{member.detail}</p></div>
+          <details class="motion-study"><summary>Watch {member.name} move</summary><video controls playsinline preload="none" width="480" height="360" poster={`/apps/little-light-below/v160/${member.id}-motion.webp`} aria-label={`${member.name} running and turning in four views`}><source src={`/apps/little-light-below/v160/${member.id}-motion.mp4`} type="video/mp4" />Your browser does not support inline video.</video></details>
         </article>
       ))}
     </div>
@@ -55,6 +56,17 @@ const crew = [
       <article><span aria-hidden="true">01</span><h3>Find your next world</h3><p>Follow the expedition through eight painted worlds, or drop into Arcade for a seeded Trial, a Daily course or a gentler descent.</p></article>
       <article><span aria-hidden="true">02</span><h3>Make the tricky bit yours</h3><p>Landing Coach can turn a failed footing into a short practice course at 80% pace, then take you back to retry the original run.</p></article>
       <article><span aria-hidden="true">03</span><h3>Follow your own lantern</h3><p>Lantern Echo can replay your successful Trial or Daily route as a little light to race. It stays local, and you choose when to show it.</p></article>
+    </div>
+  </section>
+
+  <section class="chapter" aria-labelledby="preview-title">
+    <p class="kicker">A little look below · version 1.6.0</p>
+    <h2 id="preview-title">Catch the next little landing.</h2>
+    <p class="section-lead">A glimpse of the opening world, with softer steps, relaxed arms and gentle turns. Choose a traveler to watch a short gameplay preview.</p>
+    <div class="gameplay-grid">
+      {crew.map((member) => (
+        <figure><video controls playsinline preload="none" width="420" height="600" poster={`/apps/little-light-below/v160/${member.id}-gameplay.webp`} aria-label={`${member.name} gameplay preview`}><source src={`/apps/little-light-below/v160/${member.id}-gameplay.mp4`} type="video/mp4" />Your browser does not support inline video.</video><figcaption>{member.name} · Lantern Gate</figcaption></figure>
+      ))}
     </div>
   </section>
 
@@ -95,6 +107,14 @@ const crew = [
   .features article>span { font-size:.8rem; color:var(--color-muted); }
   .features h3 { margin:.8rem 0; font-size:1.1rem; }
   .features p,.field-note p { color:var(--color-muted); line-height:1.7; }
+  .motion-study { border-top:1px solid var(--color-rule); }
+  .motion-study summary { cursor:pointer; padding:.9rem 1.2rem; font-size:.8rem; }
+  .motion-study video { display:block; width:100%; height:auto; background:#142e37; }
+  .gameplay-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1.2rem; }
+  .gameplay-grid figure { min-width:0; margin:0; }
+  .gameplay-grid video { display:block; width:100%; height:auto; border-radius:1rem; background:#102b32; }
+  .gameplay-grid figcaption { font-size:.8rem; color:var(--color-muted); margin-top:.8rem; }
+  @media(max-width:800px) { .gameplay-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
   .field-note { display:flex; align-items:center; gap:3rem; border-top:1px solid var(--color-rule); padding:2.5rem 0 1rem; }
   .field-note>div { flex:1; max-width:42rem; }
   .field-note nav { display:grid; gap:1rem; flex-shrink:0; font-size:.9rem; }

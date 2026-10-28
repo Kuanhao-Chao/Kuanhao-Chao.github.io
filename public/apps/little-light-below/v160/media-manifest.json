@@ -1,0 +1,82 @@
+{
+  "version": "1.6.0 (9)",
+  "motionRuntimeSha256": "3fd5a37b64ab977ea934c3ae1f7d1d7e14f311e87b521c477b02d14b834631cd",
+  "sourceHashes": {
+    "src/render/actor.ts": "4256b4c24388ffacde27c92f35f6854de8670d71cbdf6bba0aa64cbb26f58458",
+    "src/render/actor-pose.ts": "917a285dce506c8168689ec7c65f94e1525fa225db8287fa19e958e4355c6d58",
+    "src/render/actor-motion.ts": "e02565bfe21019e381c78c42f51aaba397040f1dcb6cdccef5f263aada915743",
+    "src/render/character-data.ts": "e09dd1a790de0bf1a061a95713498fde0df45118854703f2449a37e6913b4b83",
+    "src/render/character-attachments.ts": "73a4bf0ce67af4cc279e6c1ef635e717aa2370e77883631241022071451ba3d5",
+    "src/render/character-assets.ts": "19db0febc0fb3965c3638323f65b0bef18c8299280ac63bc79c9b472525b6ded",
+    "src/game/engine.ts": "d4b5399d1c3ee203eeb477a24ec65a3b199b77bb4d8e5792d958fc74ccad5160",
+    "src/game/modes.ts": "423bf34b00db760a1c1935785cda6a1e7e150e543ee59db30b1bb01fb2e6cbab",
+    "package.json": "b55b4431ac13fb6e6d4b71e899f491ee579e191018ead6217e3d056dac73fc46"
+  },
+  "capture": "Production rig and game renderer, deterministic 60 Hz offscreen Skia capture; gameplay uses legal controls. Not physical-phone video or native performance certification.",
+  "assets": {
+    "explorer-gameplay.mp4": {
+      "bytes": 1658535,
+      "sha256": "e6cbd47c244e52ff2557c113734483d58157174b92f77954e0a6784ed71e0008"
+    },
+    "explorer-gameplay.webp": {
+      "bytes": 38094,
+      "sha256": "843d2ca2b44198f931d4e5635bab48465df9a0963e2a9a597223a7c1bcbcf9c1"
+    },
+    "explorer-motion.mp4": {
+      "bytes": 391123,
+      "sha256": "b1004a27a02b7fbacd12538bcf4848a7cfbd79ea6ae75602dfe376acaff99cba"
+    },
+    "explorer-motion.webp": {
+      "bytes": 14554,
+      "sha256": "547afee599990571b27c6a86dc2e6005cd545d0301d5d4b2c123d53704d12bd1"
+    },
+    "lumen-gameplay.mp4": {
+      "bytes": 1652577,
+      "sha256": "cacf119071a1b8729c87e6caabb430a8f2ba4aee3d5687470b6730affa7109bf"
+    },
+    "lumen-gameplay.webp": {
+      "bytes": 38504,
+      "sha256": "c3de2cbb1dc99bb45d50e0fd9c413d6a3c824971b214424cb9effd91318385ea"
+    },
+    "lumen-motion.mp4": {
+      "bytes": 380529,
+      "sha256": "44ced9ae31faa2316a84e0c7c98a836ae1d34fa75f6d9a9e9e20c88c4303fc00"
+    },
+    "lumen-motion.webp": {
+      "bytes": 14388,
+      "sha256": "d1c925a514c7092d8f60f5afdf8c85ad10e61fa6d2e52314c63d68e21877de96"
+    },
+    "mossling-gameplay.mp4": {
+      "bytes": 1646867,
+      "sha256": "0533ba2f973a5fcf3329d838feb1825cd100a4bcb7f41a19a88eb3fb2b05c86c"
+    },
+    "mossling-gameplay.webp": {
+      "bytes": 38016,
+      "sha256": "8cd1c67b07bd6ea2a82aabd5ede81bdb438330a94d6ec38705bfb46d4c57e5fb"
+    },
+    "mossling-motion.mp4": {
+      "bytes": 381702,
+      "sha256": "d4aa2e6ac9283f5dbde638b4eeb5956b61847f93a7ff998676ef2ff77089d953"
+    },
+    "mossling-motion.webp": {
+      "bytes": 14362,
+      "sha256": "dea35df48a1274f4da0bd2f225094918437e67a9f6160ee9fe08eb890229345e"
+    },
+    "tock-gameplay.mp4": {
+      "bytes": 1658072,
+      "sha256": "d43d07c7e16dc6baffe4a516329295cf815c7b221e945741d39bf12829f6b8bc"
+    },
+    "tock-gameplay.webp": {
+      "bytes": 37986,
+      "sha256": "c2569e7a2e716e7dc3032d002cc6b9ae177ed77122dcefe0c3ef429c24e86e11"
+    },
+    "tock-motion.mp4": {
+      "bytes": 400953,
+      "sha256": "b3218f56d7991651ba36d8d882cd90e50256dfc6dbe1735f37a7a31faa3f1034"
+    },
+    "tock-motion.webp": {
+      "bytes": 14702,
+      "sha256": "baa1148f40bcac4db5a093d3848e24eb29a250c9664564af3e3a7a09dc000b43"
+    }
+  }
+}
