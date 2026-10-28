@@ -1,0 +1,103 @@
+---
+import PageLayout from '../../../layouts/PageLayout.astro';
+const crew = [
+  { id: 'explorer', name: 'Explorer', role: 'A spark of courage', ability: 'Lantern Dash', detail: 'A quick burst in your facing direction. Find your footing before the next fall.' },
+  { id: 'mossling', name: 'Mossling', role: 'A softer way down', ability: 'Leaf Glide', detail: 'Unfurl little leaf wings to slow a fall, then fold them away on landing.' },
+  { id: 'tock', name: 'Tock', role: 'Small, steady, steadfast', ability: 'Iron Guard', detail: 'Brace against belts, wind and ice, and absorb one spike or vent hit.' },
+  { id: 'lumen', name: 'Lumen', role: 'Follow the little lights', ability: 'Lantern Lure', detail: 'Call nearby relics and fragments toward your lantern with a gentle glow.' },
+];
+---
+<PageLayout
+  title="Little Light Below"
+  eyebrow="KHC Originals · 光落深境"
+  lead="A little courage. A long way down."
+  description="Meet four little travelers in Little Light Below / 光落深境, a painted offline cave adventure in development for iOS and Android."
+  image="/apps/little-light-below/icon.png"
+  compact
+>
+  <section class="expedition" aria-label="Meet the expedition">
+    <div class="intro">
+      <img class="app-icon" src="/apps/little-light-below/icon.png" width="112" height="112" alt="A little lantern-lit explorer above a glowing cave" />
+      <p class="status">In development · iPhone testing</p>
+      <h2>Somewhere below,<br />a little light is waiting.</h2>
+      <p>Step into a hand-painted world of mossy bridges, crystal caverns and forgotten clockwork. Choose a small companion, catch your next landing, and discover what lies beyond the sanctuary.</p>
+      <p lang="zh-Hant">帶著一點勇氣，跟著微光向下探險。在八個洞窟世界裡，找到屬於你的小小旅伴。</p>
+      <div class="actions">
+        <a class="primary" href="#crew">Meet the crew <span aria-hidden="true">↓</span></a>
+        <a href="/games/100-floor-descent/">Play the original browser edition <span aria-hidden="true">↗</span></a>
+      </div>
+      <p class="availability">Being built for iOS and Android. Store downloads are not available yet. The original browser edition is a separate game.</p>
+    </div>
+    <figure class="phone">
+      <img src="/apps/little-light-below/home-v150.webp" width="945" height="2048" alt="The actual iPhone home screen: a lantern-lit underground city and the Continue expedition button" fetchpriority="high" />
+      <figcaption>On iPhone · version 1.5.0</figcaption>
+    </figure>
+  </section>
+
+  <section id="crew" class="chapter" aria-labelledby="crew-title">
+    <p class="kicker">Four travelers. Your little adventure.</p>
+    <h2 id="crew-title">Meet your company below.</h2>
+    <p class="section-lead">Every traveler is available from the start. Their abilities change how you approach a tricky landing; their outfits, lantern colors and footsteps are yours to choose.</p>
+    <div class="crew-grid">
+      {crew.map((member) => (
+        <article class="crew-card">
+          <img src={`/apps/little-light-below/${member.id}-portrait.webp`} width="256" height="256" alt={`${member.name}, a painted little cave traveler`} loading="lazy" decoding="async" />
+          <div><p class="role">{member.role}</p><h3>{member.name}</h3><p class="ability">{member.ability}</p><p>{member.detail}</p></div>
+        </article>
+      ))}
+    </div>
+  </section>
+
+  <section class="chapter" aria-labelledby="journey-title">
+    <p class="kicker">One more landing</p>
+    <h2 id="journey-title">A cave for every kind of day.</h2>
+    <div class="features">
+      <article><span aria-hidden="true">01</span><h3>Find your next world</h3><p>Follow the expedition through eight painted worlds, or drop into Arcade for a seeded Trial, a Daily course or a gentler descent.</p></article>
+      <article><span aria-hidden="true">02</span><h3>Make the tricky bit yours</h3><p>Landing Coach can turn a failed footing into a short practice course at 80% pace, then take you back to retry the original run.</p></article>
+      <article><span aria-hidden="true">03</span><h3>Follow your own lantern</h3><p>Lantern Echo can replay your successful Trial or Daily route as a little light to race. It stays local, and you choose when to show it.</p></article>
+    </div>
+  </section>
+
+  <aside class="field-note">
+    <div><p class="kicker">Made for a little escape</p><h2>Your expedition stays with you.</h2><p>Offline play, local progress, English and Traditional Chinese, optional sound and haptics, and reduced effects. No accounts, ads or in-app purchases.</p></div>
+    <nav aria-label="App information"><a href="/games/little-light-below/support/">Help &amp; support →</a><a href="/games/little-light-below/privacy/">Privacy policy →</a></nav>
+  </aside>
+</PageLayout>
+
+<style>
+  .expedition { display:grid; grid-template-columns:1.2fr .7fr; align-items:center; gap:clamp(2rem,6vw,6rem); padding:clamp(1.5rem,4vw,4rem); border-radius:1.8rem; background:linear-gradient(125deg,#102f35,#071e29); color:#eee5cf; overflow:hidden; }
+  .app-icon { border-radius:25%; box-shadow:0 12px 40px #0004; }
+  .status,.kicker,.role { font-size:.75rem; letter-spacing:.12em; text-transform:uppercase; font-weight:650; }
+  .status { color:#efc783; margin:1.6rem 0 1rem; }
+  .intro h2 { color:#f5ecd4; font-size:clamp(1.8rem,3.5vw,3.1rem); line-height:1.12; margin:0 0 1.4rem; letter-spacing:-.035em; }
+  .intro p { max-width:36rem; line-height:1.7; }
+  .intro p[lang] { color:#b3c8bf; font-size:.9rem; margin-top:1rem; }
+  .actions { display:flex; flex-wrap:wrap; gap:1rem 1.5rem; align-items:center; margin:1.8rem 0; }
+  .actions a { color:#f2cf91; font-size:.9rem; }
+  .actions .primary { background:#e4bb78; color:#102f35; padding:.8rem 1rem; border-radius:.65rem; text-decoration:none; font-weight:650; }
+  .intro .availability { color:#b3c8bf; font-size:.8rem; max-width:32rem; }
+  .phone { margin:0; justify-self:center; max-width:270px; }
+  .phone img { width:100%; height:auto; border-radius:1.6rem; box-shadow:0 24px 60px #0006; border:1px solid #dfbf7a55; }
+  .phone figcaption { color:#b3c8bf; text-align:center; font-size:.75rem; margin-top:.9rem; }
+  .chapter { margin:clamp(3rem,7vw,5.5rem) 0; scroll-margin-top:6rem; }
+  .kicker { color:var(--color-muted); margin-bottom:.8rem; }
+  .chapter h2,.field-note h2 { font-size:clamp(1.5rem,3vw,2.1rem); letter-spacing:-.025em; margin-bottom:1rem; }
+  .section-lead { max-width:44rem; color:var(--color-muted); line-height:1.7; margin-bottom:2rem; }
+  .crew-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1.2rem; }
+  .crew-card { min-width:0; border:1px solid var(--color-rule); border-radius:1rem; overflow:hidden; }
+  .crew-card img { display:block; width:100%; height:auto; background:#102b32; }
+  .crew-card>div { padding:1.2rem; }
+  .crew-card h3 { margin:.35rem 0 .5rem; font-size:1.35rem; }
+  .role { font-size:.6rem; color:var(--color-muted); }
+  .ability { font-size:.8rem; font-weight:650; margin-bottom:.6rem; }
+  .crew-card p:last-child { font-size:.85rem; line-height:1.65; color:var(--color-muted); }
+  .features { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:2rem; margin-top:2rem; }
+  .features article>span { font-size:.8rem; color:var(--color-muted); }
+  .features h3 { margin:.8rem 0; font-size:1.1rem; }
+  .features p,.field-note p { color:var(--color-muted); line-height:1.7; }
+  .field-note { display:flex; align-items:center; gap:3rem; border-top:1px solid var(--color-rule); padding:2.5rem 0 1rem; }
+  .field-note>div { flex:1; max-width:42rem; }
+  .field-note nav { display:grid; gap:1rem; flex-shrink:0; font-size:.9rem; }
+  @media(max-width:800px) { .crew-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .expedition { grid-template-columns:1fr .6fr; gap:1.5rem; } .field-note { align-items:flex-start; } }
+  @media(max-width:580px) { .expedition { grid-template-columns:1fr; } .phone { max-width:230px; margin-top:1rem; } .features { grid-template-columns:1fr; gap:1.6rem; } .field-note { flex-direction:column; gap:1.5rem; } .crew-grid { gap:.8rem; } .crew-card>div { padding:.9rem; } .role { letter-spacing:.04em; } }
+</style>

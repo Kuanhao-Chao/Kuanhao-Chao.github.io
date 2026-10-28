@@ -8,18 +8,19 @@ interface Props {
   eyebrow?: string;
   lead?: string;
   description?: string;
+  image?: string;
   width?: 'wide' | 'narrow';
   noindex?: boolean;
   compact?: boolean;
 }
-const { title, eyebrow, lead, description, width = 'wide', noindex = false, compact = false } = Astro.props;
+const { title, eyebrow, lead, description, image, width = 'wide', noindex = false, compact = false } = Astro.props;
 
 const breadcrumbLd =
   !noindex && Astro.url.pathname !== '/'
     ? buildBreadcrumbLd([{ name: title, path: Astro.url.pathname }])
     : null;
 ---
-<BaseLayout title={title} description={description ?? lead} noindex={noindex}>
+<BaseLayout title={title} description={description ?? lead} image={image} noindex={noindex}>
   {breadcrumbLd && (
     <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} />
   )}

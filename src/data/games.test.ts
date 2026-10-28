@@ -8,6 +8,7 @@ describe('side-project catalog', () => {
       'Tank Fire',
       'Genome Jumper',
       '100-Floor Descent',
+      'Little Light Below',
       'Flappy Penguin',
       'Proofreader',
       'Proofreader Classic',
@@ -22,7 +23,7 @@ describe('side-project catalog', () => {
       'Jetpack Joyride',
       'BayRoute',
     ]);
-    expect(new Set(sideProjects.map((game) => game.name)).size).toBe(17);
+    expect(new Set(sideProjects.map((game) => game.name)).size).toBe(18);
   });
   it('preserves every game destination independently of its listing position', () => {
     expect(Object.fromEntries(sideProjects.map((game) => [game.name, game.url]))).toEqual({
@@ -44,8 +45,9 @@ describe('side-project catalog', () => {
       '2048': '/games/2048/',
       Minesweeper: '/games/minesweeper/',
       '100-Floor Descent': '/games/100-floor-descent/',
+      'Little Light Below': '/games/little-light-below/',
     });
-    expect(new Set(sideProjects.map((game) => game.url)).size).toBe(17);
+    expect(new Set(sideProjects.map((game) => game.url)).size).toBe(18);
     for (const project of sideProjects) expect(project.detail.length).toBeGreaterThan(50);
   });
   it('presents BayRoute as a learning lab rather than a navigation service', () => {

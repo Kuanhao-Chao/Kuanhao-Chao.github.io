@@ -23,6 +23,7 @@ import BayRouteLogo from '../components/games/BayRouteLogo.astro';
 import Game2048Logo from '../components/games/Game2048Logo.astro';
 import MinesweeperLogo from '../components/games/MinesweeperLogo.astro';
 import FloorDescentLogo from '../components/games/FloorDescentLogo.astro';
+import LittleLightBelowLogo from '../components/games/LittleLightBelowLogo.astro';
 
 // Resolve each tool's logo (src/assets/logos/software/<logo>.png) to an optimized asset.
 const logoFiles = import.meta.glob<{ default: ImageMetadata }>('../assets/logos/software/*.png', {
@@ -64,6 +65,7 @@ const gameLogos: Record<string, typeof BayRouteLogo> = {
   '2048': Game2048Logo,
   Minesweeper: MinesweeperLogo,
   '100-Floor Descent': FloorDescentLogo,
+  'Little Light Below': LittleLightBelowLogo,
 };
 
 // Structured data: one SoftwareSourceCode node per tool, linked to the Person node.
@@ -156,7 +158,7 @@ const toolBlog = await Promise.all(tools.map((t) => resolveRelatedPosts(t.posts 
       {
         sideProjects.map((p) => {
           const Logo = gameLogos[p.name];
-          const action = p.name === 'BayRoute' ? 'Explore' : 'Play';
+          const action = p.name === 'BayRoute' ? 'Explore' : p.name === 'Little Light Below' ? 'View app' : 'Play';
           return (
             <li class="tool">
               <div class="tool-main">

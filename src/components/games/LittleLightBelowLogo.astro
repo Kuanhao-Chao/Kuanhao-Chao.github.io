@@ -1,0 +1,5 @@
+---
+interface Props { size?: number }
+const { size = 70 } = Astro.props;
+---
+<img src="/apps/little-light-below/icon.png" width={size} height={size} alt="" loading="lazy" decoding="async" style="border-radius:22%;object-fit:cover" />

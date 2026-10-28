@@ -291,6 +291,12 @@ export const sideProjects: SideProject[] = [
     url: '/games/100-floor-descent/',
   },
   {
+    name: 'Little Light Below',
+    detail:
+      'A painted mobile cave adventure — four little travelers, eight worlds, expressive abilities, local practice and personal-best lantern echoes. In development for iOS and Android',
+    url: '/games/little-light-below/',
+  },
+  {
     name: 'Flappy Penguin',
     detail:
       'Arctic flight side-scroller — flap past floating glacial columns, crystalline icebergs, and turbulent blizzard drafts in a high-precision arcade obstacle run',

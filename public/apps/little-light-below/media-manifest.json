@@ -1,0 +1,12 @@
+{
+  "version": "1.5.0 (8)",
+  "capture": "Actual installed iPhone home screenshot; original painted portraits and icon",
+  "assets": {
+    "icon.png": "15718327958123017511faae46cc568a2d62e151e6d1f949ca566946be98532d",
+    "home-v150.webp": "6a2430de6f7260303843c4068d2de12b62a8cbdfd9355fcfb8bce4497bb559d8",
+    "mossling-portrait.webp": "218dcd7eac2bd92cb4611999100962ba4b607048fcfbd3b40a045e242e129d51",
+    "tock-portrait.webp": "0113ce9d4471675ee7bd4aed8fadc8b3667bcf79ab11d053c21be14b4c1848cf",
+    "explorer-portrait.webp": "d0163c98fd56cb441503738fb675ad784bed9805620ab0f70569573a2c136ab6",
+    "lumen-portrait.webp": "5eb2801633c354437954c2e7e54eb8fc3a54a71282bf38a1abdfbe0e70c7101f"
+  }
+}

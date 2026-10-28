@@ -1,0 +1,41 @@
+---
+import PageLayout from '../../../layouts/PageLayout.astro';
+import { site } from '../../../data/site';
+---
+
+<PageLayout
+  title="Little Light Below — Support"
+  eyebrow="光落深境 · Help & Support"
+  lead="A little light. A long way down."
+  description="Controls, local saves, Landing Coach, Lantern Echo and support contact for Little Light Below / 光落深境."
+  width="narrow"
+>
+  <article class="prose">
+    <p>Little Light Below / 光落深境 is an offline cave adventure by Kuan-Hao Chao. Guide Explorer, Mossling, Tock or Lumen through eight painted worlds with left, right and each traveler’s ability. All travelers, outfits, lantern colors and footstep styles are available from the start.</p>
+
+    <h2>Start and controls</h2>
+    <p>Choose Begin on the home screen for the expedition, or Continue to return to an interrupted run. Hold the left or right control to steer; use the ability button when its cooldown is ready. Settings also offers optional cave-half steering. Open the Wardrobe to choose a traveler, inspect its ability and preview walking or running.</p>
+    <p>Settings includes English or Traditional Chinese, reduced effects, sound and haptic controls. Decorative artwork and ordinary text do not respond to a long press. The explicit seed and challenge editors remain available for entering a course.</p>
+
+    <h2>Landing Coach</h2>
+    <p>After a failed run, a short tip may offer “Practice this footing.” This opens a ten-floor Mechanic Lab at 80% pace with the same traveler and world. “Retry original run” starts that course again from the beginning. Practice does not award competitive records or chapter progress.</p>
+
+    <h2>Lantern Echo</h2>
+    <p>Winning a new best time in Trial or Daily can record a small local route. Choose “Race your lantern” to show a lantern following that route on the matching course, with the same traveler. Older records without a recorded route remain valid. Your Echo does not collide, change scores, or alter the course, and its display is optional.</p>
+
+    <h2>Progress, offline play and interruptions</h2>
+    <p>Gameplay does not need an internet connection or account. Progress stays in this app’s storage on the device; there is no automatic transfer between Apple and Android phones. Switching apps or taking an interruption pauses the run. Resume it explicitly when you return. Avoid removing the app if you want to retain its local progress.</p>
+    <p>If artwork cannot load, use the displayed Retry action. If the game remains unresponsive, close and reopen it. Include the app version, device model, operating system, mode, traveler and course seed or Daily date when reporting a problem. A screenshot or short recording can help; do not send passwords or signing credentials.</p>
+
+    <h2>Contact</h2>
+    <p>Email <a href={`mailto:${site.email}`}>{site.email}</a> for support. Read the <a href="/games/little-light-below/privacy/">Privacy Policy</a> for local storage and sharing details. The <a href="/games/100-floor-descent/">original browser edition</a> remains available separately.</p>
+
+    <section lang="zh-Hant" aria-label="繁體中文支援">
+      <h2>繁體中文支援</h2>
+      <p>在主畫面選擇開始探險，或按繼續返回中斷的旅程。長按左右按鈕控制方向，技能冷卻完成後可使用角色技能；也可在設定開啟洞窟左右半邊操作。衣櫥可選擇角色、服裝、燈火與足跡，並預覽行走及奔跑。</p>
+      <p>失敗後的「落點教練」提示可帶你進入 80% 速度的十層機關練習室，再重新挑戰原課程。「燈火回聲」可在同角色、同課程的百層挑戰或每日小徑中，重播你自己的最佳成功路線，顯示與否由你決定。</p>
+      <p>遊戲可離線進行，進度只儲存在本機，不會自動在 Apple 與 Android 之間同步。切換 App 時會暫停，回來後請自行繼續。移除 App 可能會失去本機進度。</p>
+      <p>需要協助時請寄信至 <a href={`mailto:${site.email}`}>{site.email}</a>，並附上遊戲版本、裝置型號、系統版本、模式、角色、課程種子或每日日期。請勿提供密碼或簽署憑證。</p>
+    </section>
+  </article>
+</PageLayout>
