@@ -1,0 +1,118 @@
+{
+  "version": "1.7.0",
+  "nativeBuild": "14",
+  "source": {
+    "mode": "production",
+    "version": "1.7.0",
+    "sourceSha256": "a0c5c273ee0ae6d255de6bfad4db39e241c02ccb2c03b0dd31c6c76ac78e540d"
+  },
+  "appBundleSha256": "14dbe48d09bc88752c3273454c7cbc20d38b228973cab302b1e110c7d1dfdd80",
+  "method": "Four-view Wardrobe studies and legal-input production-engine gameplay rendered offscreen. Home image comes from the ordinary production iPhone build after a read-only startup check. Camp pair uses the actual staged game paintings. No test fixture is presented as player progress.",
+  "files": [
+    {
+      "path": "camp-0.webp",
+      "bytes": 67386,
+      "sha256": "23e6de266c3ef523d54b942e07e9d3844bd2a3fffc19b0882b1067c581341aa5"
+    },
+    {
+      "path": "camp-8.webp",
+      "bytes": 87048,
+      "sha256": "3e179823fff24bee2b8326e0c628a79b30aa1a187c17198735a8b3fba3ae0392"
+    },
+    {
+      "path": "explorer-gameplay.mp4",
+      "bytes": 1493445,
+      "sha256": "5754d343335276a6b31a89e01537a0f41c2160019ea9dc630a71777412bfdc46"
+    },
+    {
+      "path": "explorer-gameplay.webp",
+      "bytes": 37792,
+      "sha256": "cc0efd0f333b9f09c1bdbca67d8e6fb870ed21dd9e15e75426291178a92caf3b"
+    },
+    {
+      "path": "explorer-motion.mp4",
+      "bytes": 426828,
+      "sha256": "37a8f182fac0f7584b1af22cf822a8d21d0a4af8f754efbc8fbee4eacb15e05d"
+    },
+    {
+      "path": "explorer-motion.webp",
+      "bytes": 15968,
+      "sha256": "6fc0724b546c33286bf47a89d9e86aad57c4225045aba8416c019f2e0e87b287"
+    },
+    {
+      "path": "heartwell.mp4",
+      "bytes": 1367276,
+      "sha256": "a02c8b94fa1dc5bf429b69678b94057187e33b37e9fb605f49e36247dd7ae181"
+    },
+    {
+      "path": "heartwell.webp",
+      "bytes": 38614,
+      "sha256": "e7b892f06905c5e422641d107b8d826459247446d02313397881aba164b47c44"
+    },
+    {
+      "path": "home.webp",
+      "bytes": 87194,
+      "sha256": "922e018f0aa959e9d48a28f27f1214357b8daea940e2112b5825acfc40f273e1"
+    },
+    {
+      "path": "lumen-gameplay.mp4",
+      "bytes": 1505610,
+      "sha256": "327de55a6e76d264dcdc194d04a99c464db0923d68ea8e5ff776159ad05daf37"
+    },
+    {
+      "path": "lumen-gameplay.webp",
+      "bytes": 38120,
+      "sha256": "b62f1c3557ddc509457c16c91e5d6e4653f2746d650b6785dc3fc4a60c5a8141"
+    },
+    {
+      "path": "lumen-motion.mp4",
+      "bytes": 459598,
+      "sha256": "d1905cc3aa0bb5f2f523028cc821f92320f69b2b1401016a3c15eefd960ad709"
+    },
+    {
+      "path": "lumen-motion.webp",
+      "bytes": 17628,
+      "sha256": "5e1ad54c2449dd655607d04a01c4fe92102f7621b1ec1ad5a1d502cb478c02db"
+    },
+    {
+      "path": "mossling-gameplay.mp4",
+      "bytes": 1484212,
+      "sha256": "928e489c9e18b77fe623569e77836efd782cc86dd583d56b033e13c36ef72f97"
+    },
+    {
+      "path": "mossling-gameplay.webp",
+      "bytes": 37676,
+      "sha256": "0b766d3e240400b145f69a635d3324b8caecb7325df2002b6fbcbb47efe2961d"
+    },
+    {
+      "path": "mossling-motion.mp4",
+      "bytes": 459351,
+      "sha256": "df80f5cb8e1b4ab2fe5aa36523d7bb4728aa0158bb502aa2a242fd15688e9673"
+    },
+    {
+      "path": "mossling-motion.webp",
+      "bytes": 16160,
+      "sha256": "8b58e19016c281594f3aadfaf77e9281cfae7668627f9b02e37c8ed5e991b162"
+    },
+    {
+      "path": "tock-gameplay.mp4",
+      "bytes": 1494611,
+      "sha256": "e18115431a541058d2e493ccb5c522a9e17e9692f20238f53f3b5d9fe0f773e8"
+    },
+    {
+      "path": "tock-gameplay.webp",
+      "bytes": 37704,
+      "sha256": "e8f326888787784a50254ce3fb4315107645c8b7aa494c54fcad7eaa7956f701"
+    },
+    {
+      "path": "tock-motion.mp4",
+      "bytes": 448925,
+      "sha256": "ed952106ab11f6abc3a899684cb49a2ff121d434ee6d4a072521d7e7dc5f31ce"
+    },
+    {
+      "path": "tock-motion.webp",
+      "bytes": 16420,
+      "sha256": "b3d8981b0838a7d4a2bb3df5a4c3e62a732fd9f2f3dd1b7201eff6e9186cdb1f"
+    }
+  ]
+}

@@ -19,9 +19,9 @@ const crew = [
     <div class="intro">
       <img class="app-icon" src="/apps/little-light-below/icon.png" width="112" height="112" alt="A little lantern-lit explorer above a glowing cave" />
       <p class="status">In development · iPhone testing</p>
-      <h2>Somewhere below,<br />a little light is waiting.</h2>
-      <p>Step into a hand-painted world of mossy bridges, crystal caverns and forgotten clockwork. Choose a small companion, catch your next landing, and discover what lies beyond the sanctuary.</p>
-      <p lang="zh-Hant">帶著一點勇氣，跟著微光向下探險。在八個洞窟世界裡，找到屬於你的小小旅伴。</p>
+      <h2>Eight little lights.<br />One way home.</h2>
+      <p>The Heart Lantern has gone quiet. Guide a little traveler through eight painted worlds, restore their beacons, and reconnect the light beneath the observatory. Bring warmth back to an underground home.</p>
+      <p lang="zh-Hant">重燃八盞引路燈，接通深處的心燈。在手繪洞窟裡找到旅伴，為大家點亮回家的路。</p>
       <div class="actions">
         <a class="primary" href="#crew">Meet the crew <span aria-hidden="true">↓</span></a>
         <a href="/games/100-floor-descent/">Play the original browser edition <span aria-hidden="true">↗</span></a>
@@ -29,8 +29,8 @@ const crew = [
       <p class="availability">Being built for iOS and Android. Store downloads are not available yet. The original browser edition is a separate game.</p>
     </div>
     <figure class="phone">
-      <img src="/apps/little-light-below/home-v150.webp" width="945" height="2048" alt="The actual iPhone home screen: a lantern-lit underground city and the Continue expedition button" fetchpriority="high" />
-      <figcaption>On iPhone · version 1.5.0</figcaption>
+      <img src="/apps/little-light-below/v170/home.webp" width="590" height="1278" alt="The actual iPhone home screen: a lantern-lit underground city and the expedition button" fetchpriority="high" />
+      <figcaption>On iPhone · version 1.7.0</figcaption>
     </figure>
   </section>
 
@@ -43,9 +43,24 @@ const crew = [
         <article class="crew-card">
           <img src={`/apps/little-light-below/${member.id}-portrait.webp`} width="256" height="256" alt={`${member.name}, a painted little cave traveler`} loading="lazy" decoding="async" />
           <div><p class="role">{member.role}</p><h3>{member.name}</h3><p class="ability">{member.ability}</p><p>{member.detail}</p></div>
-          <details class="motion-study"><summary>Watch {member.name} move</summary><video controls playsinline preload="none" width="480" height="360" poster={`/apps/little-light-below/v160/${member.id}-motion.webp`} aria-label={`${member.name} running and turning in four views`}><source src={`/apps/little-light-below/v160/${member.id}-motion.mp4`} type="video/mp4" />Your browser does not support inline video.</video></details>
+          <details class="motion-study"><summary>Watch {member.name} move &amp; cheer</summary><video controls playsinline preload="none" width="480" height="360" poster={`/apps/little-light-below/v170/${member.id}-motion.webp`} aria-label={`${member.name} walking, running and cheering in front, three-quarter, side and back views`}><source src={`/apps/little-light-below/v170/${member.id}-motion.mp4`} type="video/mp4" />Your browser does not support inline video.</video><p class="video-note">A Wardrobe study: gentle steps, bent elbows and a little wave.</p></details>
         </article>
       ))}
+    </div>
+  </section>
+
+  <section class="chapter" aria-labelledby="heart-title">
+    <p class="kicker">A home worth finding</p>
+    <h2 id="heart-title">Leave the refuge a little brighter.</h2>
+    <p class="section-lead">Each beacon brings something home: a garden, a workshop, a warm table, a little pool. Short relay trails lead to waiting wayfarers and optional memories. Reach the chapter beacon to keep your discoveries.</p>
+    <div class="camp-pair">
+      <figure><img src="/apps/little-light-below/v170/camp-0.webp" width="508" height="337" alt="The refuge before the guide lights return: a quiet stone terrace" loading="lazy" decoding="async" /><figcaption>A quiet beginning.</figcaption></figure>
+      <figure><img src="/apps/little-light-below/v170/camp-8.webp" width="508" height="337" alt="The restored refuge with a garden, workshop, hearth, pool, star window and four travelers sharing a table" loading="lazy" decoding="async" /><figcaption>Eight guide lights. A place for everyone.</figcaption></figure>
+    </div>
+    <p class="video-note">Illustrated camp stages from the game.</p>
+    <div class="heartwell-preview">
+      <div><h3>One final connection.</h3><p>Beyond floor 160, the Heartwell brings runes, moving water, glass and wind into a ten-floor light puzzle. Restore three circuits and awaken the Heart Lantern. Every traveler can finish; relics are optional.</p><p>Story difficulty offers resting lights along the way. Adventure and Expert ask for an uninterrupted chapter. Collecting all 24 memories adds a constellation epilogue after the main ending.</p><p lang="zh-Hant">八盞信標之後，還有最後十層的心燈井。接通三條迴路，讓心燈醒來。主線結局不需要收集遺物；二十四段記憶，則會點亮可選的星空後日談。</p></div>
+      <figure><video controls playsinline preload="none" width="420" height="600" poster="/apps/little-light-below/v170/heartwell.webp" aria-label="Heartwell gameplay excerpts: three light circuits and the Heart Lantern"><source src="/apps/little-light-below/v170/heartwell.mp4" type="video/mp4" />Your browser does not support inline video.</video><figcaption>Excerpts from a completed Heartwell route.</figcaption></figure>
     </div>
   </section>
 
@@ -60,12 +75,12 @@ const crew = [
   </section>
 
   <section class="chapter" aria-labelledby="preview-title">
-    <p class="kicker">A little look below · version 1.6.0</p>
+    <p class="kicker">A little look below · version 1.7.0</p>
     <h2 id="preview-title">Catch the next little landing.</h2>
-    <p class="section-lead">A glimpse of the opening world, with softer steps, relaxed arms and gentle turns. Choose a traveler to watch a short gameplay preview.</p>
+    <p class="section-lead">A glimpse of the opening world, with grounded steps, relaxed arm swings and gentle turns. Choose a traveler to watch a short gameplay preview.</p>
     <div class="gameplay-grid">
       {crew.map((member) => (
-        <figure><video controls playsinline preload="none" width="420" height="600" poster={`/apps/little-light-below/v160/${member.id}-gameplay.webp`} aria-label={`${member.name} gameplay preview`}><source src={`/apps/little-light-below/v160/${member.id}-gameplay.mp4`} type="video/mp4" />Your browser does not support inline video.</video><figcaption>{member.name} · Lantern Gate</figcaption></figure>
+        <figure><video controls playsinline preload="none" width="420" height="600" poster={`/apps/little-light-below/v170/${member.id}-gameplay.webp`} aria-label={`${member.name} gameplay preview`}><source src={`/apps/little-light-below/v170/${member.id}-gameplay.mp4`} type="video/mp4" />Your browser does not support inline video.</video><figcaption>{member.name} · Lantern Gate</figcaption></figure>
       ))}
     </div>
   </section>
@@ -110,6 +125,17 @@ const crew = [
   .motion-study { border-top:1px solid var(--color-rule); }
   .motion-study summary { cursor:pointer; padding:.9rem 1.2rem; font-size:.8rem; }
   .motion-study video { display:block; width:100%; height:auto; background:#142e37; }
+  .motion-study .joy-video { max-width:192px; margin:0 auto; }
+  .video-note { padding:.8rem 1rem; font-size:.75rem; color:var(--color-muted); }
+  .camp-pair { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1.2rem; }
+  .camp-pair figure,.heartwell-preview figure { margin:0; min-width:0; }
+  .camp-pair img { display:block; width:100%; height:auto; border-radius:1rem; }
+  .camp-pair figcaption,.heartwell-preview figcaption { color:var(--color-muted); font-size:.8rem; margin-top:.7rem; line-height:1.6; }
+  .heartwell-preview { display:grid; grid-template-columns:1.3fr .7fr; align-items:center; gap:clamp(1.5rem,5vw,4rem); margin-top:2rem; padding:clamp(1.2rem,4vw,3rem); border:1px solid var(--color-rule); border-radius:1.3rem; }
+  .heartwell-preview h3 { font-size:clamp(1.4rem,3vw,2rem); margin:0 0 1rem; }
+  .heartwell-preview p { color:var(--color-muted); line-height:1.8; margin:1rem 0; }
+  .heartwell-preview p[lang] { font-size:.9rem; }
+  .heartwell-preview video { display:block; width:100%; height:auto; border-radius:1rem; background:#102b32; }
   .gameplay-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1.2rem; }
   .gameplay-grid figure { min-width:0; margin:0; }
   .gameplay-grid video { display:block; width:100%; height:auto; border-radius:1rem; background:#102b32; }
@@ -119,5 +145,5 @@ const crew = [
   .field-note>div { flex:1; max-width:42rem; }
   .field-note nav { display:grid; gap:1rem; flex-shrink:0; font-size:.9rem; }
   @media(max-width:800px) { .crew-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .expedition { grid-template-columns:1fr .6fr; gap:1.5rem; } .field-note { align-items:flex-start; } }
-  @media(max-width:580px) { .expedition { grid-template-columns:1fr; } .phone { max-width:230px; margin-top:1rem; } .features { grid-template-columns:1fr; gap:1.6rem; } .field-note { flex-direction:column; gap:1.5rem; } .crew-grid { gap:.8rem; } .crew-card>div { padding:.9rem; } .role { letter-spacing:.04em; } }
+  @media(max-width:580px) { .expedition,.heartwell-preview { grid-template-columns:1fr; } .phone { max-width:230px; margin-top:1rem; } .features,.camp-pair { grid-template-columns:1fr; gap:1.6rem; } .heartwell-preview figure { max-width:280px; justify-self:center; } .field-note { flex-direction:column; gap:1.5rem; } .crew-grid { gap:.8rem; } .crew-card>div { padding:.9rem; } .role { letter-spacing:.04em; } }
 </style>
