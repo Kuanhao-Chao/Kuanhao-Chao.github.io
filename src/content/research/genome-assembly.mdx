@@ -1,9 +1,9 @@
 ---
 title: 'Building complete and diverse reference genomes'
 area: 'Genome assembly'
-summary: 'I study how complete and diverse reference genomes become biologically useful, from assembling and annotating Han1 to annotating haplotype-resolved diploid genomes.'
+summary: 'I assembled and annotated Han1, a gapless Southern Han Chinese genome, and contributed gene annotation to the complete diploid HG002 benchmark.'
 image: ../../assets/research/genome-assembly.png
-status: ongoing
+status: published
 advisors: ['Steven L. Salzberg', 'Mihaela Pertea']
 order: 4
 featured: true
@@ -28,38 +28,30 @@ references:
   - text: 'Hansen, N. F. et al. A complete diploid human genome benchmark for personalized genomics. Cell (2026).'
     doi: 'https://doi.org/10.1016/j.cell.2026.06.016'
 ---
-Genome assembly reconstructs chromosomes from sequencing reads, but the hardest regions are precisely where reads are difficult to place: long repeats, segmental duplications, centromeres, telomeres, ribosomal arrays, and structurally variable loci. An assembly can be highly contiguous while still collapsing two haplotypes, misjoining repeats, or omitting important sequence.
+Assembly reconstructs chromosomes from reads, and the regions that matter most are the hardest to place: segmental duplications, centromeres, ribosomal DNA arrays, and structurally variable loci. Accurate long reads and graph-based assemblers such as [hifiasm (Cheng et al., 2021)](https://doi.org/10.1038/s41592-020-01056-5) changed what is possible. The Telomere-to-Telomere Consortium completed a human genome end to end ([Nurk et al., 2022](https://doi.org/10.1126/science.abj6987)), and [Verkko (Rautiainen et al., 2023)](https://doi.org/10.1038/s41587-023-01662-6) automated telomere-to-telomere assembly of both haplotypes.
 
-Long-read sequencing changed what is possible. PacBio HiFi reads provide long, highly accurate observations; Oxford Nanopore reads can span even larger repeats; and graph-based assemblers such as [hifiasm (Cheng et al., 2021)](https://doi.org/10.1038/s41592-020-01056-5) preserve haplotype structure. The Telomere-to-Telomere Consortium showed that a human genome could be assembled through nearly all previously unresolved regions ([Nurk et al., 2022](https://doi.org/10.1126/science.abj6987)), while methods such as [Verkko (Rautiainen et al., 2023)](https://doi.org/10.1038/s41587-023-01662-6) pushed toward automated diploid telomere-to-telomere assembly.
+During my Ph.D., I worked on what comes after a complete assembly: turning it into a reference others can use. That takes provenance, annotation, and diversity as much as contiguity.
 
-Completeness is not the only goal. A useful reference also needs provenance, validation, annotation, and a clear account of which sequence came from the individual or from outside guidance. One person should not be treated as a population.
+## Questions that shaped this work
 
-## Questions that drive my work
+**What does “complete” mean?** A gapless assembly can still contain sequence that did not come from the individual. A useful reference says which bases were assembled from that person’s reads and which were borrowed.
 
-The first question is **what “complete” should mean**. A complete reference should distinguish sequence assembled from an individual’s reads from regions filled using another reference, and support difficult regions with independent evidence.
+**Whose genomes become references?** GRCh38 is a mosaic of several individuals, and T2T-CHM13 is one genome. Neither represents human diversity, which is why the [Human Pangenome Reference (Liao et al., 2023)](https://doi.org/10.1038/s41586-023-05896-x) assembles many haplotype-resolved genomes.
 
-The second is **how to represent diploidy**. Human genomes contain two homologous copies of each autosome. Collapsing them into one mosaic can hide heterozygous sequence and structural variation, while haplotype-resolved assembly preserves maternal and paternal chromosomes separately. I see diploid assembly as a promising direction because that additional resolution supports more precise comparisons, personalized annotation, and analysis of variation between haplotypes.
+**Why must sequence and annotation advance together?** Without genes, two assemblies are hard to compare biologically; with a careless annotation, assembly errors become apparent gene differences.
 
-The third is **whose genomes become references**. GRCh38 and T2T-CHM13 are indispensable, but neither represents human diversity. The [Human Pangenome Reference (Liao et al., 2023)](https://doi.org/10.1038/s41586-023-05896-x) instead connects diverse, haplotype-resolved assemblies into a broader representation.
+## What I built
 
-The fourth is **why sequence and annotation must advance together**. An assembly without genes is difficult to compare biologically, while annotation can turn assembly errors into apparent gene differences.
+### Han1: a complete Southern Han Chinese genome
 
-## Directions I have explored
+**Han1** ([Chao et al., 2023](https://doi.org/10.1093/g3journal/jkac321)) was my first Ph.D. project. After T2T-CHM13, Steven Salzberg proposed completing a genome from another ancestry, and I chose HG00621, a Southern Han Chinese individual with deep HiFi and ultralong Nanopore data. We built a hifiasm backbone, scaffolded it to chromosomes, closed gaps with HiFi and Nanopore contigs, resolved the last gaps by hand, and polished the result. Han1 is 3.1 Gb in 25 sequences, every chromosome a single gapless contig. About 120 Mb in the hardest repeat-rich regions was filled with T2T-CHM13 sequence, so Han1 is mostly, but not purely, HG00621.
 
-### A complete, annotated Southern Han Chinese genome
-
-My first Ph.D. project was **Han1** ([Chao et al., 2023](https://doi.org/10.1093/g3journal/jkac321)). Inspired by T2T-CHM13, Steven Salzberg proposed completing another individual genome from a different genetic background. I chose the Southern Han Chinese sample because it matched my ethnicity, broadened the ancestry represented, and had complementary HiFi and Nanopore data.
-
-The workflow combined de novo assembly, chromosome-scale scaffolding, reference-guided gap closing, manual review of difficult regions, polishing, and gene annotation. The resulting reference is gapless and chromosome-complete. One qualification belongs with that claim: roughly 120 Mb of the hardest sequence was filled using T2T-CHM13 guidance, so Han1 is not a purely de novo representation of every base in HG00621. The assembly records those guided regions rather than obscuring them.
-
-Annotation enabled gene-level comparison between Han1 and T2T-CHM13. Most genes remain similar and collinear, while a smaller set intersects structural, copy-number, or predicted coding differences. The value is not to replace one reference with another, but to make those differences inspectable.
+We lifted over 60,708 genes, 20,003 of them protein-coding, with a two-pass Liftoff workflow that handled ribosomal DNA arrays separately. Gene by gene, Han1 and T2T-CHM13 are largely collinear. Of 235 protein-coding genes with major predicted coding differences, 46 carried homozygous non-SNP coding changes once heterozygous calls were excluded; the two genomes also differ by a 4.1 Mb inversion over the chromosome 8 β-defensin cluster and by copy number in 94 near-identical gene clusters.
 
 ### Annotating a complete diploid genome
 
-The **complete diploid human genome benchmark** ([Hansen et al., 2026](https://doi.org/10.1016/j.cell.2026.06.016)) represents the maternal and paternal HG002 haplotypes separately. I joined this team effort on the annotation side. As described in my [genome annotation research](/research/genome-annotation/), I used LiftOn to help identify additional gene copies from translated MANE transcripts on the two haplotypes.
+The complete diploid HG002 benchmark ([Hansen et al., 2026](https://doi.org/10.1016/j.cell.2026.06.016)) represents the maternal and paternal haplotypes separately. I joined the annotation effort, whose pipeline extended the two-pass approach from Han1, and contributed an extra-copy search that recovered 51 gene copies across the two haplotypes. A diploid reference keeps differences that a single consensus erases: *GSTT1* appears only on the maternal haplotype and *GSTM1* only on the paternal.
 
-What interests me about the result is the direction it establishes. A complete diploid reference retains differences between homologous chromosomes instead of compressing them into one sequence. That resolution makes allele- and haplotype-specific gene content easier to represent and gives annotation a more faithful substrate for personalized genomics.
+## What remains open
 
-## Future directions
-
-No single genome is a reference for everyone. What is still unsettled is how to make a growing set of complete, haplotype-resolved genomes comparable to one another: each needs provenance precise enough to say which bases came from the individual and which came from elsewhere, and annotation carried across both haplotypes rather than one. Han1 and the HG002 benchmark are two points on that path, and connecting them is the work I care about.
+One genome is not a reference for everyone. The open problem is making many complete, haplotype-resolved genomes comparable, each with provenance precise enough to say where every base came from and each annotated on both haplotypes rather than one.
