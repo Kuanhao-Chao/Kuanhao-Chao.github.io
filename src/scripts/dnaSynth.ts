@@ -16,7 +16,7 @@ interface BaseNoteConfig {
 }
 
 const BASE_NOTES: Record<string, BaseNoteConfig> = {
-  a: { key: 'A', name: 'Adenine (Purine)', freq: 220.0, type: 'triangle', color: '#2e6e5e', formula: 'C5H5N5 · 135.1 Da' },
+  a: { key: 'A', name: 'Adenine (Purine)', freq: 220.0, type: 'triangle', color: '#1a753f', formula: 'C5H5N5 · 135.1 Da' },
   t: { key: 'T', name: 'Thymine (Pyrimidine)', freq: 329.63, type: 'sine', color: '#e11d48', formula: 'C5H6N2O2 · 126.1 Da' },
   g: { key: 'G', name: 'Guanine (Purine · 3 H-Bonds)', freq: 261.63, type: 'triangle', color: '#d97706', formula: 'C5H5N5O · 151.1 Da' },
   c: { key: 'C', name: 'Cytosine (Pyrimidine · 3 H-Bonds)', freq: 392.0, type: 'sine', color: '#2563eb', formula: 'C4H5N3O · 111.1 Da' },
@@ -100,7 +100,7 @@ export function playNucleotideNote(baseChar: string) {
   const keyBtn = document.querySelector<HTMLElement>(`[data-synth-key="${char}"]`);
   if (keyBtn) {
     keyBtn.style.transform = 'translateY(2px) scale(0.96)';
-    keyBtn.style.background = 'color-mix(in srgb, var(--color-accent, #2e6e5e) 25%, #ffffff)';
+    keyBtn.style.background = 'color-mix(in srgb, var(--color-accent, #1a753f) 25%, var(--color-surface, #ffffff))';
     setTimeout(() => {
       keyBtn.style.transform = '';
       keyBtn.style.background = '';
@@ -122,7 +122,7 @@ function drawOscilloscope() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   ctx.lineWidth = 2;
-  ctx.strokeStyle = 'var(--color-accent, #2e6e5e)';
+  ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-accent').trim() || '#1a753f';
   ctx.beginPath();
 
   const sliceWidth = canvas.width / bufferLength;

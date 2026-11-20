@@ -24,7 +24,7 @@ const PORTRAIT = join(ROOT, 'src/assets/profile/portrait.jpg');
 const C = {
   bg: '#fafaf8',
   ink: '#141414',
-  accent: '#2e6e5e',
+  accent: '#1a753f',
   muted: '#5d5d5d',
   white: '#fafaf8',
 };

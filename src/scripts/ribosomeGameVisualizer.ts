@@ -80,7 +80,7 @@ function renderGameUi(modal: HTMLElement, state: RibosomeGameState) {
   const energyBar = content.querySelector<HTMLElement>('#rib-energy-fill');
   if (energyBar) {
     energyBar.style.width = `${Math.max(0, state.energy)}%`;
-    energyBar.style.background = state.energy > 40 ? 'var(--color-accent, #2e6e5e)' : '#e11d48';
+    energyBar.style.background = state.energy > 40 ? 'var(--color-accent, #1a753f)' : '#e11d48';
   }
 
   const comboBadge = content.querySelector('#rib-combo');
@@ -114,8 +114,8 @@ function renderGameUi(modal: HTMLElement, state: RibosomeGameState) {
       codonBox.style.fontFamily = 'monospace';
       codonBox.style.fontSize = idx === 0 ? '16px' : '13px';
       codonBox.style.fontWeight = 'bold';
-      codonBox.style.border = idx === 0 ? '2px solid var(--color-accent, #2e6e5e)' : '1px solid var(--color-rule, rgba(0,0,0,0.15))';
-      codonBox.style.background = idx === 0 ? 'color-mix(in srgb, var(--color-accent, #2e6e5e) 15%, var(--color-surface, #fff))' : 'var(--color-bg, #fafaf8)';
+      codonBox.style.border = idx === 0 ? '2px solid var(--color-accent, #1a753f)' : '1px solid var(--color-rule, rgba(0,0,0,0.15))';
+      codonBox.style.background = idx === 0 ? 'color-mix(in srgb, var(--color-accent, #1a753f) 15%, var(--color-surface, #fff))' : 'var(--color-bg, #fafaf8)';
       codonBox.style.transform = idx === 0 ? 'scale(1.08)' : 'scale(1)';
       codonBox.style.transition = 'all 0.15s ease';
 
@@ -156,8 +156,8 @@ function renderGameUi(modal: HTMLElement, state: RibosomeGameState) {
       startBtn.style.padding = '10px 24px';
       startBtn.style.fontSize = '15px';
       startBtn.style.fontWeight = 'bold';
-      startBtn.style.background = 'var(--color-accent, #2e6e5e)';
-      startBtn.style.color = '#ffffff';
+      startBtn.style.background = 'var(--color-accent, #1a753f)';
+      startBtn.style.color = 'var(--color-on-accent, #ffffff)';
       startBtn.style.border = 'none';
       startBtn.style.borderRadius = '999px';
       startBtn.style.cursor = 'pointer';
@@ -175,8 +175,8 @@ function renderGameUi(modal: HTMLElement, state: RibosomeGameState) {
       restartBtn.style.padding = '8px 20px';
       restartBtn.style.fontSize = '14px';
       restartBtn.style.fontWeight = 'bold';
-      restartBtn.style.background = 'var(--color-accent, #2e6e5e)';
-      restartBtn.style.color = '#ffffff';
+      restartBtn.style.background = 'var(--color-accent, #1a753f)';
+      restartBtn.style.color = 'var(--color-on-accent, #ffffff)';
       restartBtn.style.border = 'none';
       restartBtn.style.borderRadius = '999px';
       restartBtn.style.cursor = 'pointer';
@@ -407,7 +407,7 @@ export function openRibosomeGame() {
   scoreBox.textContent = 'SCORE: ';
   const scoreVal = document.createElement('span');
   scoreVal.id = 'rib-score';
-  scoreVal.style.color = 'var(--color-accent, #2e6e5e)';
+  scoreVal.style.color = 'var(--color-accent, #1a753f)';
   scoreVal.style.fontFamily = 'monospace';
   scoreVal.style.fontSize = '15px';
   scoreVal.textContent = '0';
@@ -460,7 +460,7 @@ export function openRibosomeGame() {
   energyFill.id = 'rib-energy-fill';
   energyFill.style.height = '100%';
   energyFill.style.width = '100%';
-  energyFill.style.background = 'var(--color-accent, #2e6e5e)';
+  energyFill.style.background = 'var(--color-accent, #1a753f)';
   energyFill.style.transition = 'width 0.2s ease';
   energyTrack.appendChild(energyFill);
   energyWrap.appendChild(energyTrack);
@@ -487,7 +487,7 @@ export function openRibosomeGame() {
   peptideChain.style.fontFamily = 'monospace';
   peptideChain.style.fontSize = '13px';
   peptideChain.style.fontWeight = 'bold';
-  peptideChain.style.color = 'var(--color-accent, #2e6e5e)';
+  peptideChain.style.color = 'var(--color-accent, #1a753f)';
   peptideChain.style.overflowX = 'auto';
   peptideChain.style.whiteSpace = 'nowrap';
   peptideChain.style.paddingBottom = '2px';

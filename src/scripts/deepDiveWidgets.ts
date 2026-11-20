@@ -110,7 +110,7 @@ const H = 320;
 const PAD = { top: 22, right: 22, bottom: 46, left: 62 };
 const PLOT = { w: W - PAD.left - PAD.right, h: H - PAD.top - PAD.bottom };
 
-const ACCENT = 'var(--color-accent, #2e6e5e)';
+const ACCENT = 'var(--color-accent, #1a753f)';
 
 // ── SVG helpers ───────────────────────────────────────────────────────────────
 

@@ -174,7 +174,7 @@ export function createMorphRenderer(
     }
     return path;
   });
-  const motifInks = ['#38795d', '#487b9c', '#a27a3c', '#a45e70'];
+  const motifInks = ['#237d47', '#487b9c', '#a27a3c', '#a45e70'];
   const motifCaption: readonly Caption[] = [
     { label: '1', x: motifX(0), y: 0.5, side: 'below' },
     { label: '12', x: motifX(11), y: 0.5, side: 'below' },
@@ -213,7 +213,7 @@ export function createMorphRenderer(
     scale = 1;
   const chapterHeights = new Float64Array(7);
   let chapterHeight = 240,
-    accent = '#2e6e5e',
+    accent = '#1a753f',
     highlight = accent,
     ink = '#141414',
     surface = '#fafaf8';
@@ -1482,7 +1482,7 @@ export function createMorphRenderer(
   }
   function refreshPalette() {
     const style = getComputedStyle(document.documentElement);
-    accent = style.getPropertyValue('--color-accent').trim() || '#2e6e5e';
+    accent = style.getPropertyValue('--color-accent').trim() || '#1a753f';
     ink = style.getPropertyValue('--color-ink').trim() || '#141414';
     surface = style.getPropertyValue('--color-surface').trim() || '#fafaf8';
     const theme = document.documentElement.dataset.theme;
@@ -1495,7 +1495,7 @@ export function createMorphRenderer(
     const dark = !!theme && !['light', 'parchment'].includes(theme);
     const colors = dark
       ? ['#8abb9e', '#8bb8d0', '#d6b56e', '#d59cad']
-      : ['#38795d', '#487b9c', '#a27a3c', '#a45e70'];
+      : ['#237d47', '#487b9c', '#a27a3c', '#a45e70'];
     for (let i = 0; i < 4; i++) motifInks[i] = crt && crt !== 'off' ? accent : colors[i];
     darkLight = (!!crt && crt !== 'off') || (!!theme && !['light', 'parchment'].includes(theme));
     for (let i = 0; i < lights.length; i++) {

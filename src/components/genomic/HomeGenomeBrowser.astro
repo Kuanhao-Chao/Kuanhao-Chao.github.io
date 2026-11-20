@@ -201,8 +201,8 @@ const PRESET_LOCI = [
   .home-gb-tab.is-active {
     border-color: var(--color-accent);
     background: var(--color-accent);
-    color: #ffffff;
-    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+    color: var(--color-on-accent);
+    box-shadow: 0 2px 6px rgba(var(--rgb-accent), 0.25);
   }
 
   .home-gb-controls {
@@ -230,7 +230,7 @@ const PRESET_LOCI = [
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #10b981;
+    background: var(--color-accent);
   }
 
   .home-gb-readout-sub {
@@ -340,17 +340,17 @@ const PRESET_LOCI = [
     padding: 0.35rem 0.85rem;
     border-radius: 999px;
     background: var(--color-accent);
-    color: #ffffff !important;
+    color: var(--color-on-accent) !important;
     font-size: 0.78125rem;
     font-weight: 650;
     text-decoration: none;
-    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+    box-shadow: 0 2px 8px rgba(var(--rgb-accent), 0.25);
     transition: all 0.15s ease;
   }
 
   .home-gb-cta-btn:hover {
     transform: translateX(2px);
-    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+    box-shadow: 0 4px 14px rgba(var(--rgb-accent), 0.35);
   }
 
   /* Tooltip & Motif styles */

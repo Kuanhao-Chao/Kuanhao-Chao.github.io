@@ -18,7 +18,7 @@ Two rules the whole set obeys:
 import math
 import re
 
-ACCENT = 'var(--color-accent, #2e6e5e)'
+ACCENT = 'var(--color-accent, #1a753f)'
 ON_ACCENT = 'var(--color-on-accent, #fff)'
 BG = 'var(--color-bg, #fff)'
 

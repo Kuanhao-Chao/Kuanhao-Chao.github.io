@@ -64,14 +64,14 @@ function createZeroGHud(): HTMLElement {
 
   const label = document.createElement('span');
   label.style.fontWeight = '600';
-  label.style.color = 'var(--color-accent, #2e6e5e)';
+  label.style.color = 'var(--color-accent, #1a753f)';
   label.textContent = '🌌 Zero-Gravity Physics Active · Drag or Throw Anything!';
   hud.appendChild(label);
 
   const restoreBtn = document.createElement('button');
   restoreBtn.type = 'button';
-  restoreBtn.style.background = 'var(--color-accent, #2e6e5e)';
-  restoreBtn.style.color = '#ffffff';
+  restoreBtn.style.background = 'var(--color-accent, #1a753f)';
+  restoreBtn.style.color = 'var(--color-on-accent, #ffffff)';
   restoreBtn.style.border = 'none';
   restoreBtn.style.borderRadius = '999px';
   restoreBtn.style.padding = '5px 14px';

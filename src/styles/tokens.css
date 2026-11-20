@@ -11,8 +11,8 @@
   --color-surface: #ffffff;     /* cards / raised surfaces */
   --color-figure-mat: transparent; /* light: figures need no mat; see dark override */
   --color-ink: #141414;         /* near-black text */
-  --color-accent: #2e6e5e;      /* muted teal */
-  --color-accent-dark: #245546; /* hover / pressed */
+  --color-accent: #1a753f;      /* Calico botanical emerald (HSL 144°, WCAG AA) */
+  --color-accent-dark: #13582f; /* hover / pressed (WCAG AAA) */
   --color-muted: #6b6b6b;       /* secondary text */
   --color-rule: #e5e4df;        /* hairline dividers */
   --color-link: var(--color-accent);
@@ -26,7 +26,7 @@
   --color-dialog-control-bg-hover: rgba(255, 255, 255, 0.25);
   --color-dialog-control-ink: #ffffff;
   --rgb-ink: 20, 20, 20;
-  --rgb-accent: 46, 110, 94;
+  --rgb-accent: 26, 117, 63;
 
   /* Typography */
   --font-display: 'Hanken Grotesk Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;

@@ -237,13 +237,13 @@
 
 .crispr-enzyme-btn.active {
   border-color: var(--color-accent);
-  background: rgba(46, 110, 94, 0.12);
+  background: rgba(var(--rgb-accent), 0.12);
   color: var(--color-accent);
 }
 
 :root:not([data-theme='light']):not([data-theme='parchment']) .crispr-enzyme-btn.active {
-  background: rgba(117, 199, 175, 0.18);
-  color: #75c7af;
+  background: rgba(var(--rgb-accent), 0.18);
+  color: var(--color-accent);
 }
 
 .crispr-powerups-group {

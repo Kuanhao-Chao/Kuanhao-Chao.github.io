@@ -104,19 +104,19 @@ function createTargetOverlay(): HTMLElement {
   overlay.style.position = 'fixed';
   overlay.style.pointerEvents = 'none';
   overlay.style.zIndex = '999990';
-  overlay.style.border = '1.5px dashed var(--color-accent, #2e6e5e)';
+  overlay.style.border = '1.5px dashed var(--color-accent, #1a753f)';
   overlay.style.borderRadius = '6px';
   overlay.style.transition = 'all 0.08s ease-out';
   overlay.style.display = 'none';
-  overlay.style.boxShadow = '0 0 12px color-mix(in srgb, var(--color-accent, #2e6e5e) 40%, transparent)';
+  overlay.style.boxShadow = '0 0 12px color-mix(in srgb, var(--color-accent, #1a753f) 40%, transparent)';
 
   const tag = document.createElement('div');
   tag.id = 'crispr-pam-tag';
   tag.style.position = 'absolute';
   tag.style.top = '-20px';
   tag.style.right = '0';
-  tag.style.background = 'var(--color-accent, #2e6e5e)';
-  tag.style.color = '#ffffff';
+  tag.style.background = 'var(--color-accent, #1a753f)';
+  tag.style.color = 'var(--color-on-accent, #ffffff)';
   tag.style.fontFamily = 'monospace';
   tag.style.fontSize = '10px';
   tag.style.fontWeight = 'bold';
@@ -154,14 +154,14 @@ function createHud(): HTMLElement {
   const countBadge = document.createElement('span');
   countBadge.id = 'crispr-count-badge';
   countBadge.style.fontWeight = '600';
-  countBadge.style.color = 'var(--color-accent, #2e6e5e)';
+  countBadge.style.color = 'var(--color-accent, #1a753f)';
   countBadge.textContent = '✂️ CRISPR Cas9 Active (0 DSBs)';
   hud.appendChild(countBadge);
 
   const ligaseBtn = document.createElement('button');
   ligaseBtn.type = 'button';
-  ligaseBtn.style.background = 'var(--color-accent, #2e6e5e)';
-  ligaseBtn.style.color = '#ffffff';
+  ligaseBtn.style.background = 'var(--color-accent, #1a753f)';
+  ligaseBtn.style.color = 'var(--color-on-accent, #ffffff)';
   ligaseBtn.style.border = 'none';
   ligaseBtn.style.borderRadius = '999px';
   ligaseBtn.style.padding = '4px 12px';
@@ -244,7 +244,7 @@ function onClick(e: MouseEvent) {
   el.style.transition = 'transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), clip-path 0.4s ease';
   el.style.clipPath = 'polygon(0 0, 100% 0, 100% 48%, 0 52%)';
   el.style.transform = `translate(${shiftX}px, ${shiftY}px) rotate(${rot}deg)`;
-  el.style.filter = 'drop-shadow(0 4px 12px rgba(46,110,94,0.3))';
+  el.style.filter = 'drop-shadow(0 4px 12px rgba(var(--rgb-accent), 0.3))';
 
   // Update HUD
   const countBadge = document.getElementById('crispr-count-badge');
@@ -286,7 +286,7 @@ export function repairAllCuts() {
     el.style.transition = 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)';
     el.style.clipPath = orig.originalClip || 'none';
     el.style.transform = orig.originalTransform || 'none';
-    el.style.filter = 'drop-shadow(0 0 16px var(--color-accent, #2e6e5e))';
+    el.style.filter = 'drop-shadow(0 0 16px var(--color-accent, #1a753f))';
 
     setTimeout(() => {
       el.style.transition = orig.originalTransition;

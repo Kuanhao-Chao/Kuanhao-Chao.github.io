@@ -19,18 +19,18 @@
   /* Light: a real light terminal — macOS Terminal "Basic", not a bleached dark one.
      The screen sits a shade cooler than the page so the shell reads as its own
      surface rather than a hole in the layout. */
-  --term-bg: #f4f5f2;
-  --term-chrome: #e6e7e2;
-  --term-rule: #d5d7d0;
-  --term-ink: #24302b;
+  --term-bg: #f4f6f3;
+  --term-chrome: #e6eae5;
+  --term-rule: #d4dbd4;
+  --term-ink: #212e25;
   /* Dark enough to clear AA against the title-bar chrome too, not just the screen —
      the hint text sits on `--term-chrome`, which is the tightest pair in the palette. */
-  --term-dim: #566159;
-  --term-accent: #2e6e5e;
-  --term-head: #101614;
+  --term-dim: #536157;
+  --term-accent: #1a753f;
+  --term-head: #0f1712;
   --term-err: #a8341f;
-  --term-ok: #1f6b40;
-  --term-foot: #eceded;
+  --term-ok: #1a753f;
+  --term-foot: #ebeee9;
   --term-shadow: rgba(20, 20, 20, 0.1);
 
   /* Full-bleed: the page is the terminal, so no card, no radius, no shadow. */

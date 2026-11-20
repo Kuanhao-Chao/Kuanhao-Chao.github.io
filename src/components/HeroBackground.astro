@@ -66,7 +66,7 @@
     if (!canvas || !ctx || !host) return;
 
     let INK = [20, 20, 20];
-    let TEAL = [46, 110, 94];
+    let TEAL = [26, 117, 63];
     const paletteCanvas = document.createElement('canvas');
     paletteCanvas.width = paletteCanvas.height = 1;
     const paletteContext = paletteCanvas.getContext('2d', { willReadFrequently: true });
@@ -84,7 +84,7 @@
 
     function refreshPalette() {
       INK = cssRgb('--color-ink', [20, 20, 20]);
-      TEAL = cssRgb('--color-accent', [46, 110, 94]);
+      TEAL = cssRgb('--color-accent', [26, 117, 63]);
       rebuildGlyphAtlas();
       if (spine.length) draw(false);
     }

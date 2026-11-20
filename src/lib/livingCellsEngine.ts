@@ -540,9 +540,9 @@ export class LivingCellsEngine {
     eventBindings: 0,
   };
   private palette: Palette = {
-    accent: '46, 110, 94',
+    accent: '26, 117, 63',
     ink: '20, 20, 20',
-    glow: '60, 140, 120',
+    glow: '37, 189, 86',
     dark: false,
   };
   private visualScale = 1;
@@ -2258,9 +2258,9 @@ export class LivingCellsEngine {
     if (typeof document === 'undefined') return;
     const theme = document.documentElement.dataset.theme || 'light';
     const crt = document.documentElement.dataset.crtMode || 'off';
-    let accent = '46, 110, 94';
+    let accent = '26, 117, 63';
     let ink = '20, 20, 20';
-    let glow = '60, 140, 120';
+    let glow = '37, 189, 86';
     let dark = theme !== 'light' && theme !== 'parchment';
 
     if (crt === 'amber' || crt === 'green' || crt === 'cyan') {
