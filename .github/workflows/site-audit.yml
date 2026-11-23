@@ -44,7 +44,7 @@ jobs:
         run: npm run audit:games:ci
       - name: Upload game audit evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: game-ui-audit
           path: /tmp/khc-game-ui/
@@ -55,7 +55,7 @@ jobs:
         run: npm run audit:software
       - name: Upload software listing evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: software-ui-audit
           path: /tmp/khc-software-ui-*/
@@ -76,7 +76,7 @@ jobs:
         run: npm run audit:motif:ci
       - name: Upload motif finale evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: motif-finale-audit
           path: /tmp/khc-motif-finale-*/
@@ -84,7 +84,7 @@ jobs:
           retention-days: 7
       - name: Upload background animation evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: background-animation-audit
           path: /tmp/khc-background-*/
@@ -98,7 +98,7 @@ jobs:
         run: npm run audit:genome:ci -- --browsers firefox,webkit
       - name: Upload genome audit failure evidence
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: genome-browser-audit
           path: /tmp/genome-audit/
@@ -109,7 +109,7 @@ jobs:
         run: npm run audit:algorithms:ci
       - name: Upload algorithm lesson evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: algorithm-lesson-audit
           path: /tmp/khc-algorithms-*/
