@@ -2183,7 +2183,7 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '' },
       { text: 'DESCRIPTION', tone: 'accent' },
       { text: '    As part of Illumina’s BioInsight AI Lab team, Kuan-Hao Chao helped evaluate' },
-      { text: '    a large virtual cell foundation model for Arc Institute’s 2026 Virtual Cell' },
+      { text: '    large virtual cell foundation models for Arc Institute’s 2026 Virtual Cell' },
       { text: '    Challenge, where the lab took 1st place with CellularAI (Nov 2026).' },
       { text: '' },
       { text: 'LINKS', tone: 'accent' },
