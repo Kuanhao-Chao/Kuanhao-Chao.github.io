@@ -107,14 +107,7 @@ async function checkEssentials(page, width, scope) {
 }
 
 async function checkNavigation(page, width, scope) {
-  const expected = [
-    'Genome Browser',
-    'Algorithms',
-    'Deep Dives',
-    'Shorkie Lab',
-    'Cell Lab',
-    'Terminal',
-  ];
+  const expected = ['Genome Browser', 'Shorkie Lab', 'Algorithms', 'Terminal'];
   for (const selector of ['.nav-lab-title', '.mobile-lab-title'])
     assert.deepEqual(
       await page.locator(selector).allTextContents(),
@@ -127,7 +120,7 @@ async function checkNavigation(page, width, scope) {
     `${scope}: Labs is disclosure navigation`
   );
   assert.equal(await page.locator('header a[href="/fun-lab/"]').count(), 0);
-  for (const href of ['/fun-lab/', '/nn-lab/', '/deep_dives/'])
+  for (const href of ['/shorkie-lab/', '/terminal/', '/search/', '/rss.xml'])
     assert.ok(
       (await page.locator(`footer a[href="${href}"]`).count()) > 0,
       `${scope}: footer keeps ${href}`

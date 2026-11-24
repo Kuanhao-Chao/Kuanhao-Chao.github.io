@@ -9,6 +9,15 @@ const isActive = (href: string) =>
 
 const labPrefixes = labNavItems.map((item) => item.href.replace(/\/$/, ''));
 const isLabActive = labPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+const isLabItemActive = (href: string) => {
+  const norm = href.replace(/\/$/, '');
+  const matches = path === norm || path.startsWith(`${norm}/`);
+  if (!matches) return false;
+  // Prefer a more specific lab entry (e.g. /shorkie-lab/genome over /shorkie-lab).
+  return !labPrefixes.some(
+    (other) => other.length > norm.length && other.startsWith(`${norm}/`) && (path === other || path.startsWith(`${other}/`))
+  );
+};
 
 // Header (desktop + mobile) shows primary items only; footer keeps the full nav.
 const headerNav = nav.filter((item) => !item.footerOnly);
@@ -58,8 +67,8 @@ const colorThemes = [
 
           <div class="nav-labs-popover" id="nav-labs-popover" data-nav-labs-popover hidden>
             <div class="nav-labs-header">
-              <span class="eyebrow">Interactive Labs & Tools</span>
-              <span class="nav-labs-count">{labNavItems.length} Explorations</span>
+              <span class="eyebrow">Interactive Labs</span>
+              <span class="nav-labs-count">{labNavItems.length} Tools</span>
             </div>
             <ul class="nav-labs-grid">
               {
@@ -68,9 +77,7 @@ const colorThemes = [
                     <a
                       href={item.href}
                       class="nav-lab-card"
-                      aria-current={
-                        path.startsWith(item.href.replace(/\/$/, '')) ? 'page' : undefined
-                      }
+                      aria-current={isLabItemActive(item.href) ? 'page' : undefined}
                     >
                       <span class="nav-lab-icon" aria-hidden="true">
                         {item.icon}
@@ -321,7 +328,7 @@ const colorThemes = [
 
     <div class="mobile-labs-section">
       <div class="mobile-labs-header">
-        <span class="eyebrow">Interactive Labs & Tools</span>
+        <span class="eyebrow">Interactive Labs</span>
       </div>
       <div class="mobile-labs-grid">
         {
@@ -329,7 +336,7 @@ const colorThemes = [
             <a
               href={item.href}
               class="mobile-lab-card"
-              aria-current={path.startsWith(item.href.replace(/\/$/, '')) ? 'page' : undefined}
+              aria-current={isLabItemActive(item.href) ? 'page' : undefined}
             >
               <span class="mobile-lab-icon" aria-hidden="true">
                 {item.icon}
@@ -522,11 +529,11 @@ const colorThemes = [
     box-shadow:
       0 16px 40px rgba(0, 0, 0, 0.12),
       0 2px 8px rgba(0, 0, 0, 0.05);
-    padding: 1.1rem;
+    padding: 0.95rem;
     z-index: 120;
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.65rem;
     animation: labs-popover-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 

@@ -20,11 +20,22 @@
  */
 export type Tone = 'out' | 'dim' | 'accent' | 'err' | 'ok' | 'head' | 'art';
 
+export interface LineAction {
+  label: string;
+  cmd: string;
+}
+
 export interface Line {
   text: string;
   tone?: Tone;
   /** When set the line renders as a link. Internal paths route via ClientRouter. */
   href?: string;
+  /** When set (without href) clicking the line executes this command. */
+  cmd?: string;
+  /** Inline clickable command chips rendered cleanly via textContent buttons. */
+  actions?: LineAction[];
+  /** Render the active theme's color palette swatches (used by `neofetch`). */
+  swatches?: boolean;
   /** Rendered before `text` in the success colour — the boot log's `[  OK  ]`. */
   prefix?: string;
 }
@@ -42,6 +53,27 @@ export interface Chunk {
   href?: string;
   kind: string;
   text: string;
+}
+
+export interface TermPaper {
+  id: string;
+  shortTitle: string;
+  title: string;
+  venue: string;
+  year: number;
+  area: string;
+  tag: string;
+  summary: string;
+  href: string;
+}
+
+export interface TermNewsItem {
+  date: string;
+  category?: string;
+  title: string;
+  summary: string;
+  link?: string | null;
+  href: string;
 }
 
 export interface TermIndex {
@@ -62,6 +94,21 @@ export interface TermIndex {
     socials: { key: string; label: string; href: string }[];
   };
   stats: Record<string, string | number>;
+  latest?: {
+    news?: TermNewsItem | null;
+    publication?: {
+      date: string;
+      title: string;
+      venue: string;
+      slug?: string;
+      href?: string;
+    } | null;
+    post?: { date: string; title: string; href: string } | null;
+    report?: { date: string; title: string; href: string } | null;
+  };
+  recentNews?: TermNewsItem[];
+  awardNews?: TermNewsItem[];
+  papers?: TermPaper[];
   fs: Record<string, FsNode>;
   chunks: Chunk[];
   deepDives?: {
@@ -244,13 +291,13 @@ export function tokenize(text: string): string[] {
  * a genuine term match.
  */
 const EXPANSIONS: Record<string, string[]> = {
-  work: ['illumina', 'scientist', 'experience'],
-  works: ['illumina', 'scientist', 'experience'],
-  working: ['illumina', 'scientist', 'experience'],
-  job: ['illumina', 'scientist', 'experience'],
+  work: ['illumina', 'engineer', 'experience'],
+  works: ['illumina', 'engineer', 'experience'],
+  working: ['illumina', 'engineer', 'experience'],
+  job: ['illumina', 'engineer', 'experience'],
   employer: ['illumina', 'experience'],
   company: ['illumina', 'experience'],
-  role: ['illumina', 'scientist', 'experience'],
+  role: ['illumina', 'engineer', 'experience'],
   career: ['experience', 'education'],
   phd: ['hopkins', 'dissertation', 'education'],
   doctorate: ['hopkins', 'dissertation', 'education'],
@@ -262,9 +309,26 @@ const EXPANSIONS: Record<string, string[]> = {
   email: ['contact'],
   reach: ['contact', 'email'],
   hire: ['contact', 'experience'],
-  award: ['honors'],
-  awards: ['honors'],
-  prize: ['honors'],
+  award: ['honors', 'virtual', 'cell', 'challenge'],
+  awards: ['honors', 'virtual', 'cell', 'challenge'],
+  prize: ['honors', 'award'],
+  honor: ['honors', 'award'],
+  honors: ['honors', 'award'],
+  vcc: ['virtual', 'cell', 'challenge', 'cellularai', 'illumina'],
+  cellularai: ['virtual', 'cell', 'challenge', 'illumina', 'bioinsight'],
+  bioinsight: ['illumina', 'virtual', 'cell', 'cellularai'],
+  challenge: ['virtual', 'cell', 'cellularai', 'award'],
+  spliceai2: ['splice', 'openspliceai', 'publications'],
+  splicecov: ['splice', 'genes', 'publications'],
+  teaching: ['teaching', 'mentorship', 'course'],
+  course: ['teaching', 'mentorship'],
+  courses: ['teaching', 'mentorship'],
+  mentor: ['mentorship', 'teaching'],
+  report: ['report', 'openspliceai', 'spliceai', 'snv'],
+  reports: ['report', 'openspliceai', 'spliceai', 'snv'],
+  lab: ['shorkie', 'labs', 'genome'],
+  labs: ['shorkie', 'labs', 'genome'],
+  browser: ['genome', 'shorkie', 'labs'],
 };
 
 /** Query terms with their expansions, each carrying a weight. */
@@ -616,13 +680,16 @@ export function bootLines(narrow = false): Line[] {
 export function motd(index: TermIndex, now: Date, width: number | boolean = false): Line[] {
   const narrow = typeof width === 'number' ? width < 70 : width;
   const id = index.identity;
+  const latestNews = index.latest?.news;
   const side = [
     `khchao.com  ·  ${id.name} (${id.nameZh})`,
     id.role,
     `Ph.D. Computer Science, ${id.alumniOf[0]}`,
     '',
     'khcOS 1.0.0 (GNU/Linux 6.6.0-genome-amd64)',
-    'Reference: T2T-CHM13v2.0 · GRCh38.p14',
+    latestNews
+      ? `Latest: ${latestNews.date} · ${latestNews.title}`
+      : 'Reference: T2T-CHM13v2.0 · GRCh38.p14',
   ];
 
   const lines: Line[] = [
@@ -643,10 +710,24 @@ export function motd(index: TermIndex, now: Date, width: number | boolean = fals
   lines.push(
     { text: '' },
     {
-      text: ' Type `help` for the command list, `ask <question>` to talk to the bot,',
+      text: ' Type `help` for commands, `recent` for 2026 highlights, `ask <question>` for AI,',
       tone: 'dim',
     },
-    { text: ' `neofetch` for the system summary, or `theme` to change the lights.', tone: 'dim' },
+    { text: ' `neofetch` for the system summary, or `theme` to switch palettes.', tone: 'dim' },
+    {
+      text: ' Quick start: recent · pubs · software · labs · neofetch · git log · help',
+      tone: 'dim',
+      actions: [
+        { label: 'recent', cmd: 'recent' },
+        { label: 'pubs', cmd: 'publications' },
+        { label: 'software', cmd: 'software' },
+        { label: 'labs', cmd: 'labs' },
+        { label: 'neofetch', cmd: 'neofetch' },
+        { label: 'git log', cmd: 'git log' },
+        { label: 'ask', cmd: 'ask what do you work on?' },
+        { label: 'help', cmd: 'help' },
+      ],
+    },
     { text: '' }
   );
   return lines;
@@ -1797,6 +1878,39 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
   }
 
   if (t === 'deepdive' || t === 'deep_dive' || t === 'concepts' || t === 'foundations') {
+    const dynamicHubs: Line[] = [
+      { text: '    → /deep_dives/', tone: 'accent', href: '/deep_dives/' },
+      {
+        text: '    → /deep_dives/ml-dl-interview/ (Machine Learning & Deep Learning Interview Guide)',
+        tone: 'accent',
+        href: '/deep_dives/ml-dl-interview/',
+      },
+      {
+        text: '    → /deep_dives/statistical-genetics/ (Statistical Genetics: Quantitative Traits & Heritability)',
+        tone: 'accent',
+        href: '/deep_dives/statistical-genetics/',
+      },
+      {
+        text: '    → /deep_dives/gwas/ (Genome-Wide Association Studies: The Mathematical Engine)',
+        tone: 'accent',
+        href: '/deep_dives/gwas/',
+      },
+      {
+        text: '    → /deep_dives/genomic-data/ (Genomic Data Formats, Alignment & Pipelines)',
+        tone: 'accent',
+        href: '/deep_dives/genomic-data/',
+      },
+      {
+        text: '    → /deep_dives/single-cell/ (Single-Cell Genomics & Perturbation Modeling)',
+        tone: 'accent',
+        href: '/deep_dives/single-cell/',
+      },
+    ];
+    const lessonLines: Line[] = (index.deepDives ?? []).slice(0, 14).map((entry) => ({
+      text: `      · /deep_dives/${entry.slug}/ (${entry.title})`,
+      tone: 'accent',
+      href: entry.href,
+    }));
     return [
       {
         text: 'DEEPDIVE(1)          Technical Learning Curricula          DEEPDIVE(1)',
@@ -1817,118 +1931,9 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       },
       { text: '    Ambiguous topics print choices; an exact collection slug always wins.' },
       { text: '' },
-      { text: 'CATALOG & BLOG POSTS', tone: 'accent' },
-      { text: '    → /deep_dives/', tone: 'accent', href: '/deep_dives/' },
-      {
-        text: '    → /deep_dives/ml-dl-interview/ (Machine Learning & Deep Learning Interview Guide)',
-        tone: 'accent',
-        href: '/deep_dives/ml-dl-interview/',
-      },
-      {
-        text: '    → /deep_dives/statistical-genetics/ (Statistical Genetics: Quantitative Traits & Heritability)',
-        tone: 'accent',
-        href: '/deep_dives/statistical-genetics/',
-      },
-      {
-        text: '      · /deep_dives/statgen-population-infinitesimal/ (Part 1: Population Genetics & Infinitesimal Model)',
-        tone: 'accent',
-        href: '/deep_dives/statgen-population-infinitesimal/',
-      },
-      {
-        text: '      · /deep_dives/statgen-linkage-disequilibrium/ (Part 2: Linkage Disequilibrium & PRDM9)',
-        tone: 'accent',
-        href: '/deep_dives/statgen-linkage-disequilibrium/',
-      },
-      {
-        text: '      · /deep_dives/statgen-heritability-greml/ (Part 3: Heritability & GREML/GCTA)',
-        tone: 'accent',
-        href: '/deep_dives/statgen-heritability-greml/',
-      },
-      {
-        text: '      · /deep_dives/statgen-ldsc-sldsc/ (Part 4: LD Score Regression & S-LDSC)',
-        tone: 'accent',
-        href: '/deep_dives/statgen-ldsc-sldsc/',
-      },
-      {
-        text: '      · /deep_dives/statgen-association-linear-mixed-models/ (Part 5: Association Testing & LMMs)',
-        tone: 'accent',
-        href: '/deep_dives/statgen-association-linear-mixed-models/',
-      },
-      {
-        text: '      · /deep_dives/statgen-bayesian-fine-mapping/ (Part 6: Bayesian Fine-Mapping & SuSiE)',
-        tone: 'accent',
-        href: '/deep_dives/statgen-bayesian-fine-mapping/',
-      },
-      {
-        text: '      · /deep_dives/statgen-rare-variant-association/ (Part 7: Rare Variant Association & SKAT)',
-        tone: 'accent',
-        href: '/deep_dives/statgen-rare-variant-association/',
-      },
-      {
-        text: '      · /deep_dives/statgen-polygenic-risk-scores/ (Part 8: Polygenic Risk Scores & Portability)',
-        tone: 'accent',
-        href: '/deep_dives/statgen-polygenic-risk-scores/',
-      },
-      {
-        text: '      · /deep_dives/statgen-mendelian-randomization/ (Part 9: Mendelian Randomization & Causal IVs)',
-        tone: 'accent',
-        href: '/deep_dives/statgen-mendelian-randomization/',
-      },
-      {
-        text: '      · /deep_dives/statgen-deep-learning-synthesis/ (Part 10: The Modern Synthesis & AI Genomics)',
-        tone: 'accent',
-        href: '/deep_dives/statgen-deep-learning-synthesis/',
-      },
-      {
-        text: '    → /deep_dives/gwas/ (Genome-Wide Association Studies: The Mathematical Engine)',
-        tone: 'accent',
-        href: '/deep_dives/gwas/',
-      },
-      {
-        text: '      · /deep_dives/gwas-biological-variation-cdcv/ (Part 1: Biological Variation & CDCV)',
-        tone: 'accent',
-        href: '/deep_dives/gwas-biological-variation-cdcv/',
-      },
-      {
-        text: '      · /deep_dives/gwas-genotyping-imputation/ (Part 2: SNP Microarrays & HMM Imputation)',
-        tone: 'accent',
-        href: '/deep_dives/gwas-genotyping-imputation/',
-      },
-      {
-        text: '      · /deep_dives/gwas-quality-control/ (Part 3: Rigorous Sample & Variant QC)',
-        tone: 'accent',
-        href: '/deep_dives/gwas-quality-control/',
-      },
-      {
-        text: '      · /deep_dives/gwas-association-statistics/ (Part 4: OLS, Logistic, Wald & Power)',
-        tone: 'accent',
-        href: '/deep_dives/gwas-association-statistics/',
-      },
-      {
-        text: '      · /deep_dives/gwas-population-stratification/ (Part 5: Confounding, PCA & Mixed Models)',
-        tone: 'accent',
-        href: '/deep_dives/gwas-population-stratification/',
-      },
-      {
-        text: '      · /deep_dives/gwas-multiple-testing-manhattan/ (Part 6: Multiple Testing & Manhattan Plot)',
-        tone: 'accent',
-        href: '/deep_dives/gwas-multiple-testing-manhattan/',
-      },
-      {
-        text: '      · /deep_dives/gwas-linkage-disequilibrium-ldsc/ (Part 7: Linkage Disequilibrium & LDSC)',
-        tone: 'accent',
-        href: '/deep_dives/gwas-linkage-disequilibrium-ldsc/',
-      },
-      {
-        text: '      · /deep_dives/gwas-fine-mapping-functional-genomics/ (Part 8: Fine-Mapping, SuSiE & Epigenomics)',
-        tone: 'accent',
-        href: '/deep_dives/gwas-fine-mapping-functional-genomics/',
-      },
-      {
-        text: '      · /deep_dives/gwas-polygenic-risk-scores-prs/ (Part 9: Polygenic Risk Scores & Clinical Translation)',
-        tone: 'accent',
-        href: '/deep_dives/gwas-polygenic-risk-scores-prs/',
-      },
+      { text: 'HUBS & CURRICULA', tone: 'accent' },
+      ...dynamicHubs,
+      ...(lessonLines.length ? [{ text: '' }, { text: 'SAMPLE LESSONS', tone: 'accent' as Tone }, ...lessonLines] : []),
       { text: '' },
       { text: 'SEE ALSO', tone: 'accent' },
       { text: '    gwas(1), paper(1), minimap2(1), fmindex(1), wfa(1), wgt(1)' },
@@ -1936,6 +1941,23 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
   }
 
   if (t === 'papers' || t === 'paper' || t === 'summaries') {
+    const paperList = index.papers ?? [];
+    const catalogLines: Line[] = paperList.length
+      ? paperList.map((p) => ({
+          text: `    → ${p.href} (${p.shortTitle} — ${p.venue} ${p.year})`,
+          tone: 'accent',
+          href: p.href,
+        }))
+      : [
+          { text: '    → /papers/alphagenome/ (AlphaGenome / DeepMind — Nature 2026)', tone: 'accent', href: '/papers/alphagenome/' },
+          { text: '    → /papers/borzoi/ (Borzoi / Calico — Nature Genetics 2025)', tone: 'accent', href: '/papers/borzoi/' },
+          { text: '    → /papers/borzoi-prime/ (Borzoi Prime / Calico — bioRxiv 2025)', tone: 'accent', href: '/papers/borzoi-prime/' },
+          { text: '    → /papers/decima/ (Decima / Genentech — bioRxiv 2024)', tone: 'accent', href: '/papers/decima/' },
+          { text: '    → /papers/scooby/ (scooby / TUM & Broad — Nature Methods 2025)', tone: 'accent', href: '/papers/scooby/' },
+          { text: '    → /papers/gpnstar/ (GPN-Star / Song Lab — bioRxiv 2025)', tone: 'accent', href: '/papers/gpnstar/' },
+          { text: '    → /papers/borzoi-finemapped/ (Borzoi Fine-Mapping / Sniff — bioRxiv 2025)', tone: 'accent', href: '/papers/borzoi-finemapped/' },
+          { text: '    → /papers/borzoi-peft/ (Borzoi PEFT / Locon4 — bioRxiv 2025)', tone: 'accent', href: '/papers/borzoi-peft/' },
+        ];
     return [
       {
         text: 'PAPERS(1)               Literature Deconstructions               PAPERS(1)',
@@ -1949,57 +1971,18 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '' },
       { text: 'SYNOPSIS', tone: 'accent' },
       {
-        text: '    paper [borzoi | borzoi-prime | decima | scooby | alphagenome | gpnstar | borzoi-finemapped | borzoi-peft]',
+        text: '    paper [query | slug]    (e.g. `paper alphagenome`, `paper gears`, `paper borzoi`)',
       },
       { text: '' },
       { text: 'DESCRIPTION', tone: 'accent' },
       {
-        text: '    Detailed, clear, and mathematically rigorous literature deconstructions of breakthrough',
+        text: '    Detailed, clear, and mathematically rigorous literature deconstructions of landmark',
       },
-      { text: '    computational genomics, language models, and regulatory deep learning papers.' },
+      { text: '    computational genomics, foundation models, and regulatory deep learning papers.' },
       { text: '' },
-      { text: 'CATALOG & SUMMARIES', tone: 'accent' },
+      { text: `CATALOG (${paperList.length || catalogLines.length} SUMMARIES)`, tone: 'accent' },
       { text: '    → /papers/', tone: 'accent', href: '/papers/' },
-      {
-        text: '    → /papers/borzoi/ (Borzoi / Calico - Nature Genetics 2025)',
-        tone: 'accent',
-        href: '/papers/borzoi/',
-      },
-      {
-        text: '    → /papers/borzoi-prime/ (Borzoi Prime / Calico - bioRxiv 2025)',
-        tone: 'accent',
-        href: '/papers/borzoi-prime/',
-      },
-      {
-        text: '    → /papers/decima/ (Decima / Genentech - bioRxiv 2024)',
-        tone: 'accent',
-        href: '/papers/decima/',
-      },
-      {
-        text: '    → /papers/scooby/ (scooby / TUM & Broad - Nature Methods 2025)',
-        tone: 'accent',
-        href: '/papers/scooby/',
-      },
-      {
-        text: '    → /papers/alphagenome/ (AlphaGenome / DeepMind - Nature 2026)',
-        tone: 'accent',
-        href: '/papers/alphagenome/',
-      },
-      {
-        text: '    → /papers/gpnstar/ (GPN-Star / Song Lab - bioRxiv 2025)',
-        tone: 'accent',
-        href: '/papers/gpnstar/',
-      },
-      {
-        text: '    → /papers/borzoi-finemapped/ (Borzoi Fine-Mapping / Sniff - bioRxiv 2025)',
-        tone: 'accent',
-        href: '/papers/borzoi-finemapped/',
-      },
-      {
-        text: '    → /papers/borzoi-peft/ (Borzoi PEFT / Locon4 - bioRxiv 2025)',
-        tone: 'accent',
-        href: '/papers/borzoi-peft/',
-      },
+      ...catalogLines,
       { text: '' },
       { text: 'SEE ALSO', tone: 'accent' },
       { text: '    deepdive(1), gwas(1), ism(1), lifton(1), splam(1)' },
@@ -2015,7 +1998,7 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '' },
       { text: 'NAME', tone: 'accent' },
       {
-        text: '    lifton — accurate and fast gene annotation lift-over across chromosome assemblies',
+        text: '    lifton — accurate and fast gene annotation lift-over combining DNA and protein alignments',
       },
       { text: '' },
       { text: 'SYNOPSIS', tone: 'accent' },
@@ -2023,15 +2006,16 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '' },
       { text: 'DESCRIPTION', tone: 'accent' },
       {
-        text: '    LiftOn lifts gene annotations between reference and target assemblies with full',
+        text: '    LiftOn integrates DNA (Liftoff/minimap2) and protein (miniprot) alignments to lift',
       },
       {
-        text: '    ORF conservation, paralog resolution, and exon boundary splice-site correction.',
+        text: '    gene annotations across assemblies with ORF conservation and paralog resolution.',
       },
-      { text: '    Published in Nature Methods (2024).' },
+      { text: '    Published in Genome Research (2025) · doi:10.1101/gr.279620.124.' },
       { text: '' },
       { text: 'SOFTWARE & POST', tone: 'accent' },
-      { text: '    → /software/ and /posts/lifton/', tone: 'accent', href: '/posts/lifton/' },
+      { text: '    → /posts/lifton/', tone: 'accent', href: '/posts/lifton/' },
+      { text: '    → https://khchao.com/LiftOn/', tone: 'accent', href: 'https://khchao.com/LiftOn/' },
       { text: '' },
       { text: 'SEE ALSO', tone: 'accent' },
       { text: '    gffbase(1), splam(1), minimap2(1)' },
@@ -2053,18 +2037,19 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '' },
       { text: 'DESCRIPTION', tone: 'accent' },
       {
-        text: '    Ultra-fast residual convolutional neural network scoring donor (GT) and acceptor (AG)',
+        text: '    Residual CNN analyzing 800-nt flanking sequence around donor and acceptor splice',
       },
       {
-        text: '    splice junctions. Filters spurious spliced alignments to improve downstream assembly.',
+        text: '    junctions. Filters spurious spliced alignments to improve downstream transcript assembly.',
       },
-      { text: '    Published in Oxford Bioinformatics (2024).' },
+      { text: '    Published in Genome Biology (2024) · doi:10.1186/s13059-024-03379-4.' },
       { text: '' },
       { text: 'SOFTWARE & POST', tone: 'accent' },
-      { text: '    → /software/ and /posts/splam/', tone: 'accent', href: '/posts/splam/' },
+      { text: '    → /posts/splam/', tone: 'accent', href: '/posts/splam/' },
+      { text: '    → https://khchao.com/splam/', tone: 'accent', href: 'https://khchao.com/splam/' },
       { text: '' },
       { text: 'SEE ALSO', tone: 'accent' },
-      { text: '    openspliceai(1), lifton(1), ghmm(1)' },
+      { text: '    openspliceai(1), spliceai2(1), lifton(1), ghmm(1)' },
     ];
   }
 
@@ -2077,30 +2062,142 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       { text: '' },
       { text: 'NAME', tone: 'accent' },
       {
-        text: '    openspliceai — open-source, high-throughput deep learning splice variant predictor',
+        text: '    openspliceai — efficient, modular PyTorch splice-site prediction framework',
       },
       { text: '' },
       { text: 'SYNOPSIS', tone: 'accent' },
-      { text: '    openspliceai -I <input.vcf> -O <output.vcf> -R <genome.fa>' },
+      { text: '    openspliceai predict -i <input.fa> -o <out/>' },
       { text: '' },
       { text: 'DESCRIPTION', tone: 'accent' },
       {
-        text: '    32-layer deep residual neural network analyzing 10kb pre-mRNA sequence context',
+        text: '    Modular PyTorch implementation of SpliceAI supporting fast training, calibration,',
       },
       {
-        text: '    for splice donor/acceptor gain and loss. 24x faster than original implementations.',
+        text: '    variant scoring, and easy retraining across human and non-human genomes.',
       },
-      { text: '    Published in Genome Biology (2025).' },
+      { text: '    Published in eLife (2025) · doi:10.7554/eLife.107454.3.' },
       { text: '' },
-      { text: 'SOFTWARE & POST', tone: 'accent' },
+      { text: 'SOFTWARE, POST & TECHNICAL REPORT', tone: 'accent' },
+      { text: '    → /posts/openspliceai/', tone: 'accent', href: '/posts/openspliceai/' },
       {
-        text: '    → /software/ and /posts/openspliceai/',
+        text: '    → /reports/full-snv-scoring-technical-report/ (3.33B SNV comparison)',
         tone: 'accent',
-        href: '/posts/openspliceai/',
+        href: '/reports/full-snv-scoring-technical-report/',
+      },
+      {
+        text: '    → https://khchao.com/OpenSpliceAI/',
+        tone: 'accent',
+        href: 'https://khchao.com/OpenSpliceAI/',
       },
       { text: '' },
       { text: 'SEE ALSO', tone: 'accent' },
-      { text: '    splam(1), shorkie(1), shorkielab(1)' },
+      { text: '    spliceai2(1), splicecov(1), splam(1), shorkie(1)' },
+    ];
+  }
+
+  if (t === 'spliceai2') {
+    return [
+      { text: 'SPLICEAI2(1)               Genomics Preprint               SPLICEAI2(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    spliceai2 — next-generation sequence-to-splicing modeling (2026 preprint)' },
+      { text: '' },
+      { text: 'DESCRIPTION', tone: 'accent' },
+      { text: '    Advances deep learning splice-site and variant-effect prediction beyond the' },
+      { text: '    original SpliceAI architecture. See ~/publications/ for full citation and links.' },
+      { text: '' },
+      { text: 'PUBLICATIONS', tone: 'accent' },
+      { text: '    → /publications/', tone: 'accent', href: '/publications/' },
+      { text: '' },
+      { text: 'SEE ALSO', tone: 'accent' },
+      { text: '    openspliceai(1), splicecov(1), splam(1)' },
+    ];
+  }
+
+  if (t === 'splicecov') {
+    return [
+      { text: 'SPLICECOV(1)               Genomics Publication               SPLICECOV(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    splicecov — RNA splicing coverage & isoform analysis (Genes, Oct 2026)' },
+      { text: '' },
+      { text: 'DESCRIPTION', tone: 'accent' },
+      { text: '    Published in Genes (2026). Explores quantitative splicing coverage signals.' },
+      { text: '    See ~/publications/ for full metadata, authors, and DOI.' },
+      { text: '' },
+      { text: 'PUBLICATIONS', tone: 'accent' },
+      { text: '    → /publications/', tone: 'accent', href: '/publications/' },
+      { text: '' },
+      { text: 'SEE ALSO', tone: 'accent' },
+      { text: '    openspliceai(1), spliceai2(1), splam(1)' },
+    ];
+  }
+
+  if (t === 'gffbase') {
+    return [
+      { text: 'GFFBASE(1)                 Genomics Software                 GFFBASE(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    gffbase — SIMD Rust + DuckDB + PyArrow genomic-annotation engine' },
+      { text: '' },
+      { text: 'SYNOPSIS', tone: 'accent' },
+      { text: '    gffbase [info | query <region> | benchmark]' },
+      { text: '' },
+      { text: 'DESCRIPTION', tone: 'accent' },
+      { text: '    Drop-in high-performance genomic annotation database combining a SIMD Rust' },
+      { text: '    GFF3/GTF parser, DuckDB columnar storage, and zero-copy PyArrow handoff.' },
+      { text: '' },
+      { text: 'LINKS', tone: 'accent' },
+      { text: '    → https://khchao.com/gffbase/', tone: 'accent', href: 'https://khchao.com/gffbase/' },
+      { text: '    → https://github.com/Kuanhao-Chao/gffbase', tone: 'accent', href: 'https://github.com/Kuanhao-Chao/gffbase' },
+      { text: '' },
+      { text: 'SEE ALSO', tone: 'accent' },
+      { text: '    lifton(1), bedtools(1)' },
+    ];
+  }
+
+  if (t === 'sangeranalyser') {
+    return [
+      { text: 'SANGERANALYSER(1)          Bioconductor Software          SANGERANALYSER(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    sangeranalyseR — interactive R/Bioconductor suite for Sanger sequencing' },
+      { text: '' },
+      { text: 'DESCRIPTION', tone: 'accent' },
+      { text: '    Simple, reproducible quality trimming, contig assembly, and Shiny inspection' },
+      { text: '    for Sanger sequencing traces. Published in Genome Biology and Evolution (2021)' },
+      { text: '    and winner of the Best Poster Award at Bioconductor Conference (Bioc2021).' },
+      { text: '' },
+      { text: 'LINKS', tone: 'accent' },
+      { text: '    → /posts/sangeranalyser/', tone: 'accent', href: '/posts/sangeranalyser/' },
+      { text: '    → https://sangeranalyser.readthedocs.io/en/latest/', tone: 'accent', href: 'https://sangeranalyser.readthedocs.io/en/latest/' },
+    ];
+  }
+
+  if (t === 'cellularai' || t === 'vcc' || t === 'virtualcell' || t === 'virtual-cell') {
+    return [
+      { text: 'CELLULARAI(1)              2026 Virtual Cell Challenge              CELLULARAI(1)', tone: 'dim' },
+      { text: '' },
+      { text: 'NAME', tone: 'accent' },
+      { text: '    cellularai — 1st place in Arc Institute’s 2026 Virtual Cell Challenge' },
+      { text: '' },
+      { text: 'DESCRIPTION', tone: 'accent' },
+      { text: '    As part of Illumina’s BioInsight AI Lab team, Kuan-Hao Chao helped evaluate' },
+      { text: '    a large virtual cell foundation model for Arc Institute’s 2026 Virtual Cell' },
+      { text: '    Challenge, where the lab took 1st place with CellularAI (Nov 2026).' },
+      { text: '' },
+      { text: 'LINKS', tone: 'accent' },
+      { text: '    → /news/', tone: 'accent', href: '/news/' },
+      {
+        text: '    → Illumina press release',
+        tone: 'accent',
+        href: 'https://www.illumina.com/company/news-center/press-releases/press-release-details.html?newsid=29411',
+      },
+      {
+        text: '    → About CellularAI',
+        tone: 'accent',
+        href: 'https://www.illumina.com/science/genomics-research/articles/introducing-the-cellularai-algorithm--predicting-single-cell-res.html',
+      },
     ];
   }
 
@@ -2112,23 +2209,25 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       },
       { text: '' },
       { text: 'NAME', tone: 'accent' },
-      { text: '    shorkie — whole-genome sequence-to-function language model' },
+      { text: '    shorkie — yeast RNA-seq coverage predictor powered by a fungal DNA language model' },
       { text: '' },
       { text: 'SYNOPSIS', tone: 'accent' },
       { text: '    shorkie predict --seq <dna.fa>' },
       { text: '' },
       { text: 'DESCRIPTION', tone: 'accent' },
-      { text: '    Hybrid convolutional transformer predicting epigenetic profiles, chromatin' },
-      { text: '    accessibility, and gene expression directly from raw DNA sequences.' },
-      { text: '    13.7M-parameter trunk: 16,384 bp in → 896 bins × 5,215 tracks out.' },
+      { text: '    Hybrid Conv-Transformer fine-tuned from Shorkie_LM (pretrained across 165' },
+      { text: '    Saccharomycetales fungal genomes) to predict 5,215 yeast RNA-seq tracks.' },
+      { text: '    Reviewed preprint in eLife · doi:10.7554/eLife.112217.1.' },
       { text: '' },
-      { text: 'IN-BROWSER LAB', tone: 'accent' },
-      { text: '    → /shorkie-lab/ — live attributions, layer traceback, occlusion maps', tone: 'accent', href: '/shorkie-lab/' },
-      { text: '    → /shorkie-lab/shorkie/ — expression model playground', tone: 'accent', href: '/shorkie-lab/shorkie/' },
-      { text: '    → /shorkie-lab/shorkie_lm/ — masked DNA language model', tone: 'accent', href: '/shorkie-lab/shorkie_lm/' },
+      { text: 'IN-BROWSER LABS', tone: 'accent' },
+      { text: '    → /shorkie-lab/ — Shorkie Lab hub & model overview', tone: 'accent', href: '/shorkie-lab/' },
+      { text: '    → /shorkie-lab/genome/ — interactive yeast Genome Browser', tone: 'accent', href: '/shorkie-lab/genome/' },
+      { text: '    → /shorkie-lab/shorkie/ — expression model attribution & ISM', tone: 'accent', href: '/shorkie-lab/shorkie/' },
+      { text: '    → /shorkie-lab/shorkie_lm/ — masked fungal DNA language model', tone: 'accent', href: '/shorkie-lab/shorkie_lm/' },
+      { text: '    → /shorkie-lab/attention/ — multi-head Attention Studio', tone: 'accent', href: '/shorkie-lab/attention/' },
       { text: '' },
       { text: 'SOFTWARE & POST', tone: 'accent' },
-      { text: '    → /software/ and /posts/shorkie/', tone: 'accent', href: '/posts/shorkie/' },
+      { text: '    → /posts/shorkie/', tone: 'accent', href: '/posts/shorkie/' },
       { text: '' },
       { text: 'SEE ALSO', tone: 'accent' },
       { text: '    openspliceai(1), splam(1), shorkielab(1)' },
@@ -2143,22 +2242,24 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
       },
       { text: '' },
       { text: 'NAME', tone: 'accent' },
-      { text: '    shorkielab — in-browser neural interpretability for Shorkie' },
+      { text: '    shorkielab — in-browser neural interpretability & yeast genome browser for Shorkie' },
       { text: '' },
       { text: 'DESCRIPTION', tone: 'accent' },
-      { text: '    Run the published Shorkie and Shorkie_LM checkpoints directly in the browser.' },
-      { text: '    Expression model: 16,384 bp → 896 bins × 5,215 tracks, 14,253,567 parameters.' },
-      { text: '    Language model: masked DNA LM on 165 Saccharomycetales genomes.' },
+      { text: '    Run the published Shorkie and Shorkie_LM ONNX checkpoints directly in the browser.' },
+      { text: '    Expression model: 16,384 bp → 896 bins × 5,215 tracks.' },
+      { text: '    Language model: masked DNA LM trained on 165 Saccharomycetales genomes.' },
       { text: '' },
       { text: 'METHODS', tone: 'accent' },
       { text: '    Attribution: Saliency, Input × Gradient, SmoothGrad, Integrated Gradients, ISM' },
-      { text: '    Analysis:    Occlusion mapping, layer traceback, TF knockout assays' },
-      { text: '    Constraint:  Zero-shot information content & sequence constraint' },
+      { text: '    Analysis:    Occlusion mapping, layer traceback, TF knockout assays, attention maps' },
+      { text: '    Browser:     Whole-genome yeast explorer under Shorkie_LM constraint' },
       { text: '' },
       { text: 'LAUNCH', tone: 'accent' },
       { text: '    → /shorkie-lab/', tone: 'accent', href: '/shorkie-lab/' },
+      { text: '    → /shorkie-lab/genome/ (yeast genome browser)', tone: 'accent', href: '/shorkie-lab/genome/' },
       { text: '    → /shorkie-lab/shorkie/ (expression model)', tone: 'accent', href: '/shorkie-lab/shorkie/' },
       { text: '    → /shorkie-lab/shorkie_lm/ (language model)', tone: 'accent', href: '/shorkie-lab/shorkie_lm/' },
+      { text: '    → /shorkie-lab/attention/ (attention studio)', tone: 'accent', href: '/shorkie-lab/attention/' },
       { text: '' },
       { text: 'SEE ALSO', tone: 'accent' },
       { text: '    shorkie(1), openspliceai(1), ism(1)' },
@@ -2265,11 +2366,45 @@ function getSpecificManPage(topic: string, index: TermIndex): Line[] | null {
 
 export const COMMANDS: Record<string, Cmd> = {
   help: {
-    summary: 'list available commands',
-    run: () => {
+    summary: 'list available commands or inspect one (`help <cmd>`)',
+    usage: 'help [command]',
+    run: ({ args }) => {
+      if (args.length) {
+        const raw = args[0].toLowerCase();
+        const target = ALIASES[raw]?.split(/\s+/)[0] ?? raw;
+        const cmd = COMMANDS[target];
+        if (!cmd) return err(`help: no help topic matches '${args[0]}'`);
+        return [
+          { text: `${target}${raw !== target ? ` (alias: ${raw})` : ''}`, tone: 'head' },
+          { text: `  ${cmd.summary}` },
+          ...(cmd.usage ? [{ text: `  Usage: ${cmd.usage}`, tone: 'accent' as Tone }] : []),
+        ];
+      }
       const groups: [string, string[]][] = [
         [
-          'filesystem',
+          'profile & content',
+          [
+            'recent',
+            'about',
+            'publications',
+            'software',
+            'labs',
+            'reports',
+            'talks',
+            'teaching',
+            'posts',
+            'research',
+            'papers',
+            'honors',
+            'news',
+            'cv',
+            'projects',
+            'contact',
+            'socials',
+          ],
+        ],
+        [
+          'filesystem & search',
           [
             'ls',
             'cd',
@@ -2310,28 +2445,14 @@ export const COMMANDS: Record<string, Cmd> = {
             'bedtools',
             'blastn',
             'splice',
+            'deepdive',
           ],
         ],
         [
-          'content',
-          [
-            'about',
-            'publications',
-            'software',
-            'talks',
-            'posts',
-            'research',
-            'projects',
-            'news',
-            'cv',
-            'contact',
-            'socials',
-          ],
-        ],
-        [
-          'system',
+          'system & appearance',
           [
             'man',
+            'neofetch',
             'uname',
             'uptime',
             'top',
@@ -2339,7 +2460,6 @@ export const COMMANDS: Record<string, Cmd> = {
             'cal',
             'curl',
             'env',
-            'neofetch',
             'theme',
             'crt',
             'sound',
@@ -2348,9 +2468,8 @@ export const COMMANDS: Record<string, Cmd> = {
             'echo',
           ],
         ],
-        ['toys & games', ['cowsay', 'fortune', 'matrix', 'games', 'snake', 'tetris']],
-        ['navigate', ['open', 'exit']],
-        ['chatbot', ['ask', 'chat']],
+        ['toys & games', ['cowsay', 'fortune', 'matrix', 'games', 'snake', 'tetris', 'eggs']],
+        ['navigate & ai', ['open', 'ask', 'chat', 'exit']],
       ];
       const lines: Line[] = [
         { text: 'khcOS shell — a navigable CLI over everything on this site.', tone: 'head' },
@@ -2365,12 +2484,19 @@ export const COMMANDS: Record<string, Cmd> = {
       }
       lines.push(
         {
-          text: '  Tab completes, ↑/↓ history, pipes `|` chain filters (`grep`, `head`, `wc`, `sort`).',
+          text: '  Tab / → completes, ↑/↓ history, pipes `|` chain filters (`grep`, `head`, `wc`, `sort`).',
           tone: 'dim',
         },
         {
-          text: '  Try: `align ACGTAGCTA ACGTCGCTA` · `cat ~/news.txt | grep 2025` · `curl wttr.in` · `cal`',
+          text: '  Try: `recent` · `man cellularai` · `paper alphagenome` · `cat ~/news.txt | grep 2026`',
           tone: 'dim',
+          actions: [
+            { label: 'recent', cmd: 'recent' },
+            { label: 'man cellularai', cmd: 'man cellularai' },
+            { label: 'labs', cmd: 'labs' },
+            { label: 'reports', cmd: 'reports' },
+            { label: 'neofetch', cmd: 'neofetch' },
+          ],
         }
       );
       return lines;
@@ -2817,6 +2943,177 @@ export const COMMANDS: Record<string, Cmd> = {
     },
   },
 
+  recent: {
+    summary: 'latest 2026 highlights across news, papers, posts, and reports',
+    needsIndex: true,
+    run: ({ index }) => {
+      const id = index.identity;
+      const lines: Line[] = [
+        { text: `RECENT HIGHLIGHTS — ${id.name}`, tone: 'head' },
+        { text: `${id.role}`, tone: 'dim' },
+        { text: '' },
+      ];
+      const newsItems = index.recentNews ?? [];
+      if (newsItems.length) {
+        lines.push({ text: 'LATEST NEWS', tone: 'accent' });
+        for (const item of newsItems.slice(0, 4)) {
+          const cat = item.category ? `[${item.category}] ` : '';
+          lines.push({ text: `  ${item.date}  ${cat}${item.title}`, tone: 'head' });
+          if (item.summary) lines.push({ text: `    ${item.summary}`, tone: 'dim' });
+        }
+        lines.push({ text: '  → /news/', tone: 'accent', href: '/news/' }, { text: '' });
+      } else if (index.fs[`${HOME}/news.txt`]) {
+        lines.push(
+          { text: 'LATEST NEWS', tone: 'accent' },
+          ...bodyLines(index.fs[`${HOME}/news.txt`].body.split('\n').slice(0, 5).join('\n')),
+          { text: '  → /news/', tone: 'accent', href: '/news/' },
+          { text: '' }
+        );
+      }
+
+      const pubs = Object.entries(index.fs)
+        .filter(([p]) => p.startsWith(`${HOME}/publications/`))
+        .slice(0, 3);
+      if (pubs.length) {
+        lines.push({ text: 'RECENT PUBLICATIONS', tone: 'accent' });
+        for (const [, node] of pubs) {
+          const venueLine = node.body.split('\n').find((l) => l.startsWith('Venue:')) ?? '';
+          lines.push({ text: `  ${node.title}`, tone: 'head', href: node.href });
+          if (venueLine) lines.push({ text: `    ${venueLine.replace(/^Venue:\s*/, '')}`, tone: 'dim' });
+        }
+        lines.push({ text: '  → /publications/', tone: 'accent', href: '/publications/' }, { text: '' });
+      }
+
+      if (index.latest?.report) {
+        lines.push(
+          { text: 'PUBLIC TECHNICAL REPORT', tone: 'accent' },
+          { text: `  ${index.latest.report.date}  ${index.latest.report.title}`, href: index.latest.report.href },
+          { text: '' }
+        );
+      }
+
+      lines.push({
+        text: '  Explore more: pubs · software · labs · honors · git log · neofetch',
+        tone: 'dim',
+        actions: [
+          { label: 'publications', cmd: 'publications' },
+          { label: 'software', cmd: 'software' },
+          { label: 'labs', cmd: 'labs' },
+          { label: 'honors', cmd: 'honors' },
+          { label: 'git log', cmd: 'git log' },
+        ],
+      });
+      return lines;
+    },
+  },
+
+  labs: {
+    summary: 'list interactive labs, browsers, and tools',
+    needsIndex: true,
+    run: ({ index }) => {
+      const labNodes = Object.entries(index.fs)
+        .filter(([p]) => p.startsWith(`${HOME}/labs/`))
+        .map(([, node]) => node);
+      const lines: Line[] = [{ text: 'INTERACTIVE LABS & TOOLS', tone: 'head' }, { text: '' }];
+      if (labNodes.length) {
+        for (const node of labNodes) {
+          const sub = node.body.split('\n').find((l, i) => i > 0 && l.trim() && !l.startsWith('URL:')) ?? '';
+          lines.push({ text: node.title, tone: 'accent', href: node.href });
+          if (sub) lines.push({ text: `  ${sub}`, tone: 'dim' });
+          if (node.href) lines.push({ text: `  → ${node.href}`, tone: 'dim', href: node.href });
+          lines.push({ text: '' });
+        }
+      } else {
+        lines.push(
+          { text: 'Genome Browser — /shorkie-lab/genome/', tone: 'accent', href: '/shorkie-lab/genome/' },
+          { text: 'Shorkie Lab — /shorkie-lab/', tone: 'accent', href: '/shorkie-lab/' },
+          { text: 'Algorithms — /algorithms/', tone: 'accent', href: '/algorithms/' },
+          { text: 'Terminal — /terminal/', tone: 'accent', href: '/terminal/' }
+        );
+      }
+      return lines;
+    },
+  },
+
+  teaching: {
+    summary: 'list teaching experience and mentorship',
+    needsIndex: true,
+    run: ({ index }) => {
+      const courses = Object.entries(index.fs)
+        .filter(([p]) => p.startsWith(`${HOME}/teaching/`))
+        .map(([, node]) => node);
+      const lines: Line[] = [{ text: 'TEACHING & MENTORSHIP', tone: 'head' }, { text: '' }];
+      for (const course of courses) {
+        lines.push({ text: course.title, tone: 'accent' }, ...bodyLines(course.body, 'dim'), { text: '' });
+      }
+      const mentorNode = index.fs[`${HOME}/cv/mentorship.txt`];
+      if (mentorNode) {
+        lines.push({ text: 'MENTORSHIP', tone: 'accent' }, ...bodyLines(mentorNode.body), { text: '' });
+      }
+      lines.push({ text: '→ /teaching/', tone: 'accent', href: '/teaching/' });
+      return lines;
+    },
+  },
+
+  honors: {
+    summary: 'list honors, prizes, and competition awards',
+    needsIndex: true,
+    run: ({ index }) => {
+      const lines: Line[] = [{ text: 'HONORS & AWARDS', tone: 'head' }, { text: '' }];
+      const awardNews = index.awardNews ?? [];
+      if (awardNews.length) {
+        lines.push({ text: 'RECENT AWARD HIGHLIGHTS', tone: 'accent' });
+        for (const item of awardNews.slice(0, 5)) {
+          lines.push({ text: `  ${item.date}  ${item.title}`, tone: 'ok', href: item.link ?? item.href });
+          if (item.summary) lines.push({ text: `    ${item.summary}`, tone: 'dim' });
+        }
+        lines.push({ text: '' });
+      }
+      const honorsNode = index.fs[`${HOME}/cv/honors.txt`];
+      if (honorsNode) {
+        lines.push({ text: 'CV HONORS', tone: 'accent' }, ...bodyLines(honorsNode.body), { text: '' });
+      }
+      lines.push({ text: '→ /cv/ and /news/', tone: 'accent', href: '/cv/' });
+      return lines;
+    },
+  },
+
+  reports: {
+    summary: 'view public technical reports',
+    needsIndex: true,
+    run: ({ index }) => {
+      const repNodes = Object.entries(index.fs)
+        .filter(([p]) => p.startsWith(`${HOME}/reports/`))
+        .map(([, node]) => node);
+      const lines: Line[] = [{ text: 'PUBLIC TECHNICAL REPORTS', tone: 'head' }, { text: '' }];
+      if (repNodes.length) {
+        for (const rep of repNodes) {
+          lines.push({ text: rep.title, tone: 'accent', href: rep.href }, ...bodyLines(rep.body, 'dim'));
+          if (rep.href) lines.push({ text: `→ ${rep.href}`, tone: 'accent', href: rep.href });
+          lines.push({ text: '' });
+        }
+        return lines;
+      }
+      lines.push(
+        {
+          text: 'Genome-wide comparison of predicted splicing effects between OpenSpliceAI and SpliceAI (Sep 2026)',
+          tone: 'accent',
+          href: '/reports/full-snv-scoring-technical-report/',
+        },
+        {
+          text: '  Compares predicted variant effects across 3,334,708,099 matched genic SNV annotations.',
+          tone: 'dim',
+        },
+        {
+          text: '→ /reports/full-snv-scoring-technical-report/',
+          tone: 'accent',
+          href: '/reports/full-snv-scoring-technical-report/',
+        }
+      );
+      return lines;
+    },
+  },
+
   projects: {
     summary: 'list research and software projects',
     needsIndex: true,
@@ -2840,18 +3137,27 @@ export const COMMANDS: Record<string, Cmd> = {
   },
 
   cv: {
-    summary: 'experience, education, honors',
+    summary: 'experience, education, honors, mentorship, and peer review',
+    usage: 'cv [experience|education|honors|mentorship|reviewing]',
     needsIndex: true,
-    run: ({ index }) => {
+    run: ({ index, args }) => {
+      const allSections = ['experience', 'education', 'honors', 'mentorship', 'reviewing'];
+      const wanted = args[0]?.toLowerCase();
+      const sections = wanted
+        ? allSections.filter((s) => s.startsWith(wanted))
+        : allSections;
+      if (wanted && !sections.length) {
+        return err(`cv: unknown section '${args[0]}' (try: ${allSections.join(', ')})`);
+      }
       const lines: Line[] = [];
-      for (const name of ['experience', 'education', 'honors']) {
+      for (const name of sections) {
         const node = index.fs[`${HOME}/cv/${name}.txt`];
         if (!node) continue;
         lines.push({ text: node.title.toUpperCase(), tone: 'accent' }, ...bodyLines(node.body), {
           text: '',
         });
       }
-      lines.push({ text: '→ /cv/ for the full PDF', tone: 'accent', href: '/cv/' });
+      lines.push({ text: '→ /cv/ for the full CV & PDF', tone: 'accent', href: '/cv/' });
       return lines;
     },
   },
@@ -2971,30 +3277,47 @@ export const COMMANDS: Record<string, Cmd> = {
   clear: { summary: 'clear the screen', run: () => ({ lines: [], effect: { type: 'clear' } }) },
 
   neofetch: {
-    summary: 'system summary with the logo',
+    summary: 'system summary with the logo and palette swatches',
     needsIndex: true,
     run: ({ index, now, narrow }) => {
       const id = index.identity;
       const s = index.stats;
+      const days = Math.floor((now.getTime() - Date.parse(BOOT_ISO)) / 86_400_000);
+      const papersLine =
+        s.papers !== undefined
+          ? `Papers:     ${s.publications} (${s.papers} lit summaries)`
+          : `Papers:     ${s.publications}`;
+      const postsLine =
+        s.posts !== undefined
+          ? `Posts:      ${s.posts}${s.reports ? ` · ${s.reports} tech report` : ''}`
+          : null;
+      const newsLine = s.news !== undefined ? `News:       ${s.news} updates` : null;
+      const latestLine = index.latest?.news
+        ? `Latest:     ${index.latest.news.title} (${index.latest.news.date})`
+        : null;
       const info = [
         `${USER}@${HOST}`,
-        '─────────────────────────',
-        `OS:        khcOS 1.0.0 x86_64`,
-        `Host:      khchao.com`,
-        `Kernel:    6.6.0-genome-amd64`,
-        `Uptime:    ${Math.floor((now.getTime() - Date.parse(BOOT_ISO)) / 86_400_000)} days`,
-        `Shell:     ksh (khc shell)`,
-        `Role:      ${id.jobTitle}, ${id.worksFor}`,
-        `Papers:    ${s.publications}`,
-        `Talks:     ${s.talks}`,
-        `Software:  ${s.software}`,
-        `Reference: T2T-CHM13v2.0`,
+        '──────────────────────────────',
+        `OS:         khcOS 1.0.0 x86_64`,
+        `Host:       khchao.com`,
+        `Kernel:     6.6.0-genome-amd64`,
+        `Uptime:     ${days} days`,
+        `Shell:      ksh (khc shell)`,
+        `Role:       ${id.jobTitle}, ${id.worksFor}`,
+        papersLine,
+        `Talks:      ${s.talks}`,
+        `Software:   ${s.software}`,
+        ...(postsLine ? [postsLine] : []),
+        ...(newsLine ? [newsLine] : []),
+        ...(latestLine ? [latestLine] : []),
+        `Reference:  T2T-CHM13v2.0 · GRCh38.p14`,
       ];
       const lines: Line[] = [];
       if (narrow) {
         for (const art of LOGO) lines.push({ text: art, tone: 'art' });
         lines.push({ text: '' });
         for (const text of info) lines.push({ text });
+        lines.push({ text: '' }, { text: '████████████████', swatches: true });
         return lines;
       }
       const height = Math.max(LOGO.length, info.length);
@@ -3004,6 +3327,7 @@ export const COMMANDS: Record<string, Cmd> = {
           tone: i < LOGO.length ? 'art' : 'out',
         });
       }
+      lines.push({ text: `${' '.repeat(30)}████████████████`, swatches: true });
       return lines;
     },
   },
@@ -3185,31 +3509,32 @@ export const COMMANDS: Record<string, Cmd> = {
     summary: 'display cluster and node resource statistics',
     run: ({ now }) => {
       const time = now.toISOString().slice(11, 19);
+      const days = Math.max(1, Math.floor((now.getTime() - Date.parse(BOOT_ISO)) / 86_400_000));
       return [
-        { text: `top - ${time} up 280 days, 1 user, load average: 4.12, 3.85, 3.40`, tone: 'head' },
-        { text: 'Tasks: 142 total, 4 running, 138 sleeping, 0 stopped, 0 zombie' },
-        { text: '%Cpu(s): 78.4 us,  6.2 sy,  0.0 ni, 14.8 id,  0.4 wa,  0.2 hi' },
-        { text: 'MiB Mem : 524288 total, 412800 used, 111488 free,  32768 buff/cache' },
+        { text: `top - ${time} up ${days} days, 1 user, load average: 4.12, 3.85, 3.40`, tone: 'head' },
+        { text: 'Tasks: 148 total, 5 running, 143 sleeping, 0 stopped, 0 zombie' },
+        { text: '%Cpu(s): 81.2 us,  5.8 sy,  0.0 ni, 12.4 id,  0.4 wa,  0.2 hi' },
+        { text: 'MiB Mem : 524288 total, 428400 used,  95888 free,  32768 buff/cache' },
         {
-          text: 'GPU 0..3: 4x NVIDIA H100 80GB SXM5 [Util: 94% · VRAM: 72GB/80GB · Temp: 58°C]',
+          text: 'GPU 0..3: 4x NVIDIA H100 80GB SXM5 [Util: 96% · VRAM: 74GB/80GB · Temp: 59°C]',
           tone: 'ok',
         },
         { text: '' },
         { text: '  PID USER      PR  NI    VIRT    RES    SHR S  %CPU  %MEM     TIME+ COMMAND' },
         {
+          text: ' 1018 khc       20   0  196.8g  88.4g  16.0g R 392.0  16.8 618:42.10 cellularai_eval.py',
+        },
+        {
           text: ' 1042 khc       20   0  142.4g  64.2g  12.4g R 380.0  12.2 412:18.04 shorkie_train.py',
         },
         {
-          text: ' 1088 khc       20   0   84.2g  32.1g   8.2g R 190.5   6.1 128:44.12 openspliceai_infer',
+          text: ' 1088 khc       20   0   84.2g  32.1g   8.2g R 190.5   6.1 128:44.12 spliceai2_infer',
         },
         {
           text: ' 1120 khc       20   0   48.0g  24.0g   4.1g R 100.0   4.5  82:12.30 lifton_eval.py',
         },
         {
           text: ' 1144 khc       20   0   18.2g   8.4g   2.0g S  48.0   1.6  14:05.18 gffbase_ingest',
-        },
-        {
-          text: ' 1201 khc       20   0    2.4g   1.1g   0.4g S   2.0   0.2   0:14.22 duckdb_worker',
         },
       ];
     },
@@ -3549,16 +3874,22 @@ export const COMMANDS: Record<string, Cmd> = {
   snake: {
     summary: 'play Snake game',
     run: () => ({
-      lines: [{ text: 'Opening Snake game…', tone: 'ok' }],
-      effect: { type: 'navigate', href: '/software/' },
+      lines: [
+        { text: 'Opening Snake game…', tone: 'ok' },
+        { text: '→ /games/snake/', tone: 'accent', href: '/games/snake/' },
+      ],
+      effect: { type: 'navigate', href: '/games/snake/' },
     }),
   },
 
   tetris: {
     summary: 'play Tetris game',
     run: () => ({
-      lines: [{ text: 'Opening Tetris game…', tone: 'ok' }],
-      effect: { type: 'navigate', href: '/software/' },
+      lines: [
+        { text: 'Opening Tetris game…', tone: 'ok' },
+        { text: '→ /games/tetris/', tone: 'accent', href: '/games/tetris/' },
+      ],
+      effect: { type: 'navigate', href: '/games/tetris/' },
     }),
   },
 
@@ -4159,10 +4490,11 @@ export const COMMANDS: Record<string, Cmd> = {
         topic.includes('cdcv') ||
         topic.includes('variation') ||
         topic.includes('mendel') ||
-        topic.includes('hwe')
+        topic.includes('hwe') ||
+        topic.includes('design')
       ) {
-        href = '/deep_dives/gwas-biological-variation-cdcv/';
-        title = 'Biological Variation & CDCV Deep Dive Post';
+        href = '/deep_dives/gwas-study-design/';
+        title = 'GWAS Study Design & Genetic Architecture Deep Dive';
       } else if (
         topic.includes('imput') ||
         topic.includes('array') ||
@@ -4170,49 +4502,45 @@ export const COMMANDS: Record<string, Cmd> = {
         topic.includes('hmm') ||
         topic.includes('pbwt')
       ) {
-        href = '/deep_dives/gwas-genotyping-imputation/';
-        title = 'Genotyping & Imputation Deep Dive Post';
+        href = '/deep_dives/gwas-arrays-imputation/';
+        title = 'GWAS Arrays, QC & Imputation Deep Dive';
       } else if (
-        topic.includes('qc') ||
-        topic.includes('quality') ||
-        topic.includes('heterozyg') ||
-        topic.includes('inbreeding')
+        topic.includes('strat') ||
+        topic.includes('pca') ||
+        topic.includes('chopstick') ||
+        topic.includes('bolt') ||
+        topic.includes('structure')
       ) {
-        href = '/deep_dives/gwas-quality-control/';
-        title = 'GWAS Quality Control Deep Dive Post';
+        href = '/deep_dives/gwas-population-structure/';
+        title = 'GWAS Population Structure & Mixed Models Deep Dive';
       } else if (
         topic.includes('regress') ||
         topic.includes('ols') ||
         topic.includes('logistic') ||
         topic.includes('power') ||
-        topic.includes('wald')
+        topic.includes('wald') ||
+        topic.includes('scan')
       ) {
-        href = '/deep_dives/gwas-association-statistics/';
-        title = 'Association Statistics & Power Deep Dive Post';
-      } else if (
-        topic.includes('strat') ||
-        topic.includes('pca') ||
-        topic.includes('chopstick') ||
-        topic.includes('bolt')
-      ) {
-        href = '/deep_dives/gwas-population-stratification/';
-        title = 'Population Stratification & LMMs Deep Dive Post';
+        href = '/deep_dives/gwas-running-the-scan/';
+        title = 'Running the GWAS Scan Deep Dive';
       } else if (
         topic.includes('manhattan') ||
         topic.includes('multiple') ||
         topic.includes('bonferroni') ||
-        topic.includes('fdr')
+        topic.includes('fdr') ||
+        topic.includes('output')
       ) {
-        href = '/deep_dives/gwas-multiple-testing-manhattan/';
-        title = 'Multiple Testing & Manhattan Plot Deep Dive Post';
+        href = '/deep_dives/gwas-reading-the-output/';
+        title = 'Reading GWAS Output & Manhattan Plots Deep Dive';
       } else if (
         topic.includes('ldsc') ||
         topic.includes('linkage') ||
         topic.includes('disequilibrium') ||
-        topic.includes('recomb')
+        topic.includes('recomb') ||
+        topic.includes('panel')
       ) {
-        href = '/deep_dives/gwas-linkage-disequilibrium-ldsc/';
-        title = 'Linkage Disequilibrium & LDSC Deep Dive Post';
+        href = '/deep_dives/gwas-ld-reference-panels/';
+        title = 'LD Reference Panels & LDSC Deep Dive';
       } else if (
         topic.includes('fine') ||
         topic.includes('susie') ||
@@ -4220,16 +4548,22 @@ export const COMMANDS: Record<string, Cmd> = {
         topic.includes('credible') ||
         topic.includes('coloc')
       ) {
-        href = '/deep_dives/gwas-fine-mapping-functional-genomics/';
-        title = 'Fine-Mapping & Functional Biology Deep Dive Post';
+        href = '/deep_dives/gwas-fine-mapping-practice/';
+        title = 'GWAS Fine-Mapping in Practice Deep Dive';
       } else if (
         topic.includes('prs') ||
         topic.includes('polygenic') ||
         topic.includes('liability') ||
         topic.includes('falconer')
       ) {
-        href = '/deep_dives/gwas-polygenic-risk-scores-prs/';
-        title = 'Polygenic Risk Scores (PRS) Deep Dive Post';
+        href = '/deep_dives/gwas-prs-practice/';
+        title = 'Polygenic Risk Scores in Practice Deep Dive';
+      } else if (topic.includes('single') || topic.includes('scrna') || topic.includes('pertur')) {
+        href = '/deep_dives/single-cell/';
+        title = 'Single-Cell Genomics Hub';
+      } else if (topic.includes('bam') || topic.includes('vcf') || topic.includes('fastq') || topic.includes('data')) {
+        href = '/deep_dives/genomic-data/';
+        title = 'Genomic Data Formats & Pipelines Hub';
       } else if (topic === 'gwas') {
         href = '/deep_dives/gwas/';
         title = 'GWAS Master Guide';
@@ -4246,13 +4580,90 @@ export const COMMANDS: Record<string, Cmd> = {
 
   paper: {
     summary: 'read technical paper summaries and literature deconstructions',
-    usage:
-      'paper [borzoi | borzoi-prime | decima | scooby | alphagenome | gpnstar | borzoi-finemapped | borzoi-peft]',
-    run: ({ args }) => {
-      const topic = (args[0] || '').toLowerCase();
+    usage: 'paper [query | slug]   (e.g. `paper alphagenome`, `paper gears`, `paper borzoi`)',
+    run: ({ args, index }) => {
+      const topic = args.join(' ').trim().toLowerCase();
+      if (!topic) {
+        return {
+          lines: [
+            { text: 'Opening Computational Genomics Paper Summaries Hub…', tone: 'ok' },
+            { text: '→ /papers/', tone: 'accent', href: '/papers/' },
+          ],
+          effect: { type: 'navigate', href: '/papers/' },
+        };
+      }
+
+      // Dynamic resolution across all published summaries from `src/data/papers.ts`.
+      const catalog = index?.papers ?? [];
+      if (catalog.length) {
+        const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+        const needle = norm(topic);
+        const exact = catalog.filter(
+          (p) => norm(p.id) === needle || norm(p.shortTitle) === needle
+        );
+        const matches = exact.length
+          ? exact
+          : catalog.filter((p) =>
+              [p.id, p.shortTitle, p.title, p.tag, p.area, p.venue]
+                .map(norm)
+                .some((v) => v.includes(needle))
+            );
+        if (matches.length === 1) {
+          const hit = matches[0];
+          return {
+            lines: [
+              { text: `Opening ${hit.shortTitle} (${hit.venue} ${hit.year})…`, tone: 'ok' },
+              { text: `→ ${hit.href}`, tone: 'accent', href: hit.href },
+            ],
+            effect: { type: 'navigate', href: hit.href },
+          };
+        }
+        if (matches.length > 1) {
+          return [
+            { text: `paper: “${topic}” matches ${matches.length} summaries:`, tone: 'head' },
+            ...matches.map((p) => ({
+              text: `  ${p.id.padEnd(24)} ${p.shortTitle} (${p.venue} ${p.year})`,
+              tone: 'accent' as Tone,
+              href: p.href,
+            })),
+            { text: 'Use an exact id (e.g. `paper borzoi-prime`) to open directly.', tone: 'dim' },
+          ];
+        }
+      }
+
       let href = '/papers/';
       let title = 'Computational Genomics Paper Summaries Hub';
-      if (topic.includes('alpha') || topic.includes('genome') || topic.includes('deepmind')) {
+      if (topic.includes('missense')) {
+        href = '/papers/alphamissense/';
+        title = 'AlphaMissense (DeepMind) Summary';
+      } else if (topic.includes('deepvariant')) {
+        href = '/papers/deepvariant/';
+        title = 'DeepVariant (Google) Summary';
+      } else if (topic.includes('gears')) {
+        href = '/papers/gears/';
+        title = 'GEARS (Stanford) Summary';
+      } else if (topic.includes('traitgym')) {
+        href = '/papers/traitgym/';
+        title = 'TraitGym Summary';
+      } else if (topic.includes('ntv3') || topic.includes('v3')) {
+        href = '/papers/nucleotide-transformer-v3/';
+        title = 'Nucleotide Transformer v3 Summary';
+      } else if (topic.includes('nucleotide')) {
+        href = '/papers/nucleotide-transformer/';
+        title = 'Nucleotide Transformer Summary';
+      } else if (topic.includes('constraint')) {
+        href = '/papers/zoonomia-constraint/';
+        title = 'Zoonomia Constraint Resource Summary';
+      } else if (topic.includes('zoonomia')) {
+        href = '/papers/zoonomia/';
+        title = 'Zoonomia Summary';
+      } else if (topic.includes('encode')) {
+        href = '/papers/encode/';
+        title = 'ENCODE 4 Summary';
+      } else if (topic.includes('gtex')) {
+        href = '/papers/gtex/';
+        title = 'GTEx v8 Summary';
+      } else if (topic.includes('alpha') || topic.includes('deepmind')) {
         href = '/papers/alphagenome/';
         title = 'AlphaGenome (DeepMind) Summary';
       } else if (topic.includes('fine') || topic.includes('sniff')) {
@@ -4261,33 +4672,16 @@ export const COMMANDS: Record<string, Cmd> = {
       } else if (topic.includes('peft') || topic.includes('locon')) {
         href = '/papers/borzoi-peft/';
         title = 'Borzoi PEFT (Locon4) Summary';
-      } else if (
-        topic.includes('decima') ||
-        topic.includes('genentech') ||
-        topic.includes('disease-state')
-      ) {
+      } else if (topic.includes('decima') || topic.includes('genentech')) {
         href = '/papers/decima/';
         title = 'Decima (Genentech) Summary';
-      } else if (
-        topic.includes('scooby') ||
-        topic.includes('multimodal') ||
-        topic.includes('gagneur')
-      ) {
+      } else if (topic.includes('scooby') || topic.includes('gagneur')) {
         href = '/papers/scooby/';
         title = 'scooby (TUM & Broad) Summary';
-      } else if (
-        topic.includes('prime') ||
-        topic.includes('single-cell') ||
-        topic.includes('3-seq') ||
-        topic.includes("3'-seq")
-      ) {
+      } else if (topic.includes('prime')) {
         href = '/papers/borzoi-prime/';
         title = 'Borzoi Prime (Calico) Summary';
-      } else if (
-        topic.includes('borzoi') ||
-        topic.includes('calico') ||
-        topic.includes('rna-seq')
-      ) {
+      } else if (topic.includes('borzoi') || topic.includes('calico')) {
         href = '/papers/borzoi/';
         title = 'Borzoi (Calico) Summary';
       } else if (topic.includes('gpn') || topic.includes('star') || topic.includes('song')) {
@@ -4305,84 +4699,124 @@ export const COMMANDS: Record<string, Cmd> = {
   },
 
   papers: {
-    summary: 'browse all computational genomics paper summaries',
-    usage: 'papers',
-    run: () => ({
-      lines: [
-        { text: 'Opening Computational Genomics Paper Summaries Hub…', tone: 'ok' },
+    summary: 'list all computational genomics paper summaries',
+    usage: 'papers [--open]',
+    run: ({ index, argv }) => {
+      if (argv.includes('--open')) {
+        return {
+          lines: [
+            { text: 'Opening Computational Genomics Paper Summaries Hub…', tone: 'ok' },
+            { text: '→ /papers/', tone: 'accent', href: '/papers/' },
+          ],
+          effect: { type: 'navigate', href: '/papers/' },
+        };
+      }
+      const catalog = index?.papers ?? [];
+      if (!catalog.length) {
+        return {
+          lines: [
+            { text: 'Opening Computational Genomics Paper Summaries Hub…', tone: 'ok' },
+            { text: '→ /papers/', tone: 'accent', href: '/papers/' },
+          ],
+          effect: { type: 'navigate', href: '/papers/' },
+        };
+      }
+      return [
+        { text: `LITERATURE PAPER SUMMARIES (${catalog.length})`, tone: 'head' },
+        { text: '' },
+        ...catalog.map((p) => ({
+          text: `  ${p.year}  ${p.id.padEnd(26)} ${p.shortTitle} (${p.venue})`,
+          tone: 'accent' as Tone,
+          href: p.href,
+        })),
+        { text: '' },
+        { text: 'Tip: run `paper <id>` to jump straight to any summary.', tone: 'dim' },
         { text: '→ /papers/', tone: 'accent', href: '/papers/' },
-      ],
-      effect: { type: 'navigate', href: '/papers/' },
-    }),
+      ];
+    },
   },
 
   git: {
     summary: 'academic git version control & career commit graph',
     usage: 'git [log|tree|status|branch|diff]',
-    run: ({ args }) => {
+    run: ({ args, index }) => {
       const sub = args[0]?.toLowerCase() || 'log';
       if (sub === 'log' || sub === 'tree' || sub === 'graph') {
         return [
           {
-            text: '*   commit 7e9a2b (HEAD -> main, tag: v1.1.1) LiftOn Nature Methods publication & release',
+            text: '*   commit f94b1e (HEAD -> main, tag: v2026.11) 1st place — 2026 Virtual Cell Challenge (CellularAI, Illumina BioInsight AI Lab)',
             tone: 'head',
           },
-          { text: '|\\  Author: Kuan-Hao Chao <kuanhao.chao@gmail.com>', tone: 'dim' },
-          { text: '| * commit 3a1f8c OpenSpliceAI publication in Genome Biology', tone: 'accent' },
-          { text: '| | Author: Kuan-Hao Chao <kuanhao.chao@gmail.com>', tone: 'dim' },
-          { text: '* | commit 4b9d02 Splam publication in Oxford Bioinformatics', tone: 'ok' },
-          { text: '|/  Author: Kuan-Hao Chao <kuanhao.chao@gmail.com>', tone: 'dim' },
+          { text: '|\\  Author: Kuan-Hao Chao <kuanhao.chao@gmail.com> · Nov 2026', tone: 'dim' },
+          { text: '| * commit e72a04 SpliceAI2 preprint & SpliceCOV published in Genes (Oct 2026)', tone: 'accent' },
+          { text: '* | commit d48c91 Genome-wide OpenSpliceAI vs SpliceAI SNV technical report (Sep 2026)', tone: 'ok' },
+          { text: '|/  commit c31f6a T2T Q100 diploid HG002 benchmark published in Cell (Aug 2026)', tone: 'dim' },
           {
-            text: '* commit 5d3e1a Shorkie: DNA language model for whole-genome variant effect prediction',
+            text: '*   commit b19e52 Shorkie fungal DNA LM (eLife reviewed preprint) & Shorkie Lab',
             tone: 'head',
           },
           {
-            text: '* commit 2c8f04 WGT: Wheeler Graph Tools & Index recognition algorithm',
-            tone: 'accent',
-          },
-          {
-            text: '* commit 1a0b3e Joined Johns Hopkins University CS PhD program (advisor: Prof. Michael Schatz)',
+            text: '*   commit a05d77 Joined Illumina AI Lab as Senior Deep Learning/AI Engineer (Aug 2025)',
             tone: 'ok',
           },
           {
-            text: '* commit 0f9e8a Graduated BS in Computer Science & Life Science at National Taiwan University',
-            tone: 'dim',
+            text: '*   commit 9e8c3b Ph.D. in Computer Science, Johns Hopkins University (Salzberg & Pertea)',
+            tone: 'head',
           },
+          { text: '|\\  Center for Computational Biology · Sep 2021 – Aug 2025', tone: 'dim' },
+          { text: '| * commit 8d4a21 OpenSpliceAI published in eLife (Jun 2025)', tone: 'accent' },
+          { text: '* | commit 7c1b09 LiftOn published in Genome Research (Jan 2025)', tone: 'ok' },
+          { text: '|/  commit 6b0f14 Genomics ML Research Intern, Calico Life Sciences — Kelley Lab (2024)', tone: 'dim' },
+          { text: '*   commit 5a9e02 Splam published in Genome Biology & Mark O. Robbins Prize (2024)', tone: 'accent' },
+          { text: '*   commit 4f2d80 Wheeler Graph Toolkit published in iScience (2023)', tone: 'out' },
+          { text: '*   commit 2c8a11 sangeranalyseR published in GBE & Bioc2021 Best Poster (2021)', tone: 'out' },
+          { text: '*   commit 0a1b2c B.S. in Electrical Engineering, National Taiwan University (2021)', tone: 'dim' },
           { text: '' },
-          { text: '  Try: `git status` · `git branch` · `git diff`', tone: 'dim' },
+          {
+            text: '  Try: `git status` · `git branch` · `git diff`',
+            tone: 'dim',
+            actions: [
+              { label: 'git status', cmd: 'git status' },
+              { label: 'git branch', cmd: 'git branch' },
+              { label: 'git diff', cmd: 'git diff' },
+            ],
+          },
         ];
       }
       if (sub === 'status') {
+        const role = index?.identity?.role || 'Senior Deep Learning/AI Engineer, Illumina AI Lab';
         return [
           { text: 'On branch main', tone: 'ok' },
           { text: "Your branch is up to date with 'origin/main'." },
           { text: '' },
-          { text: 'Academic Status:', tone: 'accent' },
-          { text: '  Role: Ph.D. Candidate in Computer Science @ Johns Hopkins University' },
-          { text: '  Lab: Schatz Lab (Computational Genomics & AI)' },
-          { text: '  Active Projects: LiftOn, OpenSpliceAI, Splam, Shorkie, WGT' },
+          { text: 'Current Status:', tone: 'accent' },
+          { text: `  Role:    ${role}` },
+          { text: '  Degree:  Ph.D. in Computer Science, Johns Hopkins University (Salzberg & Pertea)' },
+          { text: '  Focus:   Sequence-to-function models, RNA splicing, DNA LMs, virtual cells, genome annotation' },
+          { text: '  Recent:  2026 Virtual Cell Challenge (1st place, CellularAI) · SpliceAI2 · SpliceCOV · Shorkie' },
           { text: '' },
-          { text: 'nothing to commit, working tree clean (actively publishing)', tone: 'dim' },
+          { text: 'nothing to commit, working tree clean (actively building & publishing)', tone: 'dim' },
         ];
       }
       if (sub === 'branch') {
         return [
           { text: '* main', tone: 'ok' },
-          { text: '  deep-learning-splice-prediction' },
-          { text: '  pangenome-graph-indexing' },
-          { text: '  long-read-annotation' },
+          { text: '  virtual-cell-foundation-models' },
+          { text: '  sequence-to-function-dna-lm' },
+          { text: '  rna-splicing-openspliceai-v2' },
+          { text: '  genome-annotation-lifton-gffbase' },
         ];
       }
       if (sub === 'diff') {
         return [
           { text: 'diff --git a/genomics/annotation.py b/genomics/annotation.py', tone: 'head' },
-          { text: 'index 3a1f8c..7e9a2b 100644', tone: 'dim' },
+          { text: 'index 8d4a21..f94b1e 100644', tone: 'dim' },
           { text: '--- a/genomics/annotation.py' },
           { text: '+++ b/genomics/annotation.py' },
           { text: '@@ -42,7 +42,7 @@ def predict_gene_structures(sequence):', tone: 'accent' },
           { text: '-    model = StandardHMM(states=EXON_INTRON)', tone: 'err' },
           {
-            text: '+    model = ResidualCNN_Transformer(context_window=10000, heads=8)',
+            text: '+    model = ResidualCNN_Transformer(context_window=16384, heads=8)',
             tone: 'ok',
           },
           { text: '     return model.annotate(sequence)' },
@@ -4453,8 +4887,20 @@ export const ALIASES: Record<string, string> = {
   cls: 'clear',
   q: 'exit',
   '?': 'help',
+  latest: 'recent',
+  highlights: 'recent',
   pubs: 'publications',
   blog: 'posts',
+  awards: 'honors',
+  teach: 'teaching',
+  report: 'reports',
+  lab: 'labs',
+  vcc: 'man cellularai',
+  cellularai: 'man cellularai',
+  shorkie: 'man shorkie',
+  lifton: 'man lifton',
+  splam: 'man splam',
+  openspliceai: 'man openspliceai',
   htop: 'top',
   links: 'socials',
   printenv: 'env',
@@ -4705,29 +5151,83 @@ export function exec(
 
 // ------------------------------------------------------------ completion ----
 
-/** Tab completion over command names, aliases, and, for later words, filesystem paths. */
+const MAN_TOPICS = [
+  'khc',
+  'cellularai',
+  'shorkie',
+  'shorkielab',
+  'openspliceai',
+  'spliceai2',
+  'splicecov',
+  'lifton',
+  'splam',
+  'gffbase',
+  'sangeranalyser',
+  'wgt',
+  'papers',
+  'deepdive',
+  'gwas',
+  'ism',
+  'duel',
+  'minimap2',
+  'pairwise',
+  'wfa',
+  'fmindex',
+  'debruijn',
+  'stringgraph',
+  'phmm',
+  'ghmm',
+  'git',
+  'tview',
+];
+
+/** Tab completion over command names, aliases, subcommands, and filesystem paths. */
 export function complete(state: ShellState, input: string): { value: string; options: string[] } {
   const trailingSpace = /\s$/.test(input);
   const argv = parseArgv(input);
   const word = trailingSpace ? '' : (argv[argv.length - 1] ?? '');
+  const argPos = trailingSpace ? argv.length : Math.max(0, argv.length - 1);
+  const cmdName = (argv[0] ?? '').toLowerCase();
 
   let options: string[];
   if (argv.length <= 1 && !trailingSpace) {
     const allNames = [...Object.keys(COMMANDS), ...Object.keys(ALIASES)];
     options = [...new Set(allNames)].filter((c) => c.startsWith(word)).sort();
-  } else if (argv.length === 2 && !trailingSpace && argv[0] === 'seqkit') {
+  } else if (argPos === 1 && cmdName === 'seqkit') {
     options = ['stats', 'rc', 'translate', 'gc'].filter((s) => s.startsWith(word)).sort();
-  } else if (argv.length === 2 && !trailingSpace && argv[0] === 'gffbase') {
+  } else if (argPos === 1 && cmdName === 'gffbase') {
     options = ['info', 'query', 'benchmark'].filter((s) => s.startsWith(word)).sort();
-  } else if (argv.length === 2 && !trailingSpace && argv[0] === 'bedtools') {
+  } else if (argPos === 1 && cmdName === 'bedtools') {
     options = ['intersect', 'merge'].filter((s) => s.startsWith(word)).sort();
-  } else if (argv.length === 2 && !trailingSpace && argv[0] === 'theme') {
+  } else if (argPos === 1 && cmdName === 'git') {
+    options = ['log', 'tree', 'status', 'branch', 'diff'].filter((s) => s.startsWith(word)).sort();
+  } else if (argPos === 1 && cmdName === 'cv') {
+    options = ['experience', 'education', 'honors', 'mentorship', 'reviewing']
+      .filter((s) => s.startsWith(word))
+      .sort();
+  } else if (argPos === 1 && cmdName === 'samtools') {
+    options = ['flagstat', 'tview'].filter((s) => s.startsWith(word)).sort();
+  } else if (argPos === 1 && cmdName === 'man') {
+    options = MAN_TOPICS.filter((s) => s.startsWith(word)).sort();
+  } else if (argPos === 1 && cmdName === 'help') {
+    options = Object.keys(COMMANDS).filter((s) => s.startsWith(word)).sort();
+  } else if (argPos === 1 && cmdName === 'paper' && state.index?.papers?.length) {
+    options = state.index.papers
+      .map((p) => p.id)
+      .filter((id) => id.startsWith(word))
+      .sort();
+  } else if (argPos === 1 && cmdName === 'deepdive' && state.index?.deepDives?.length) {
+    options = state.index.deepDives
+      .map((d) => d.slug)
+      .filter((slug) => slug.startsWith(word))
+      .sort();
+  } else if (argPos === 1 && cmdName === 'theme') {
     options = ['light', 'dark', 'nord', 'monokai', 'cyberdeck', 'parchment', 'toggle', 'crt']
       .filter((s) => s.startsWith(word))
       .sort();
-  } else if (argv.length === 2 && !trailingSpace && argv[0] === 'crt') {
+  } else if (argPos === 1 && cmdName === 'crt') {
     options = ['off', 'amber', 'green', 'cyan', 'toggle'].filter((s) => s.startsWith(word)).sort();
-  } else if (argv.length === 2 && !trailingSpace && argv[0] === 'sound') {
+  } else if (argPos === 1 && cmdName === 'sound') {
     options = ['on', 'off', 'bell', 'toggle'].filter((s) => s.startsWith(word)).sort();
   } else if (state.index) {
     const slash = word.lastIndexOf('/');
@@ -4754,6 +5254,30 @@ export function complete(state: ShellState, input: string): { value: string; opt
   const value =
     options.length === 1 && !common.endsWith('/') ? `${prefix}${common} ` : `${prefix}${common}`;
   return { value, options: options.length > 1 ? options : [] };
+}
+
+/**
+ * Fish/zsh-style inline ghost suggestion for the current draft.
+ * Checks recent history first, then falls back to deterministic completion.
+ */
+export function suggest(state: ShellState, input: string): string {
+  if (!input || state.chatMode || /\s$/.test(input)) return '';
+  // Prefer most recent matching history entry.
+  for (let i = state.history.length - 1; i >= 0; i--) {
+    const past = state.history[i];
+    if (past.startsWith(input) && past.length > input.length) return past;
+  }
+  const { value, options } = complete(state, input);
+  const trimmed = value.trimEnd();
+  if (trimmed.startsWith(input) && trimmed.length > input.length) return trimmed;
+  if (options.length > 0) {
+    const argv = parseArgv(input);
+    const word = argv[argv.length - 1] ?? '';
+    const prefix = input.slice(0, input.length - word.length);
+    const candidate = `${prefix}${options[0]}`;
+    if (candidate.startsWith(input) && candidate.length > input.length) return candidate;
+  }
+  return '';
 }
 
 /** ↑/↓ through history. Returns the line to place in the input. */

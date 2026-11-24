@@ -27,8 +27,10 @@ import {
   parseArgv,
   pipelineStages,
   prompt,
+  shortCwd,
   stageLine,
   stripThinking,
+  suggest,
   wrapText,
   type Line,
   type ShellState,
@@ -130,11 +132,17 @@ export function initTerminal(
   const screen = shellEl.querySelector<HTMLElement>('[data-terminal-screen]');
   const input = shellEl.querySelector<HTMLInputElement>('[data-terminal-input]');
   const promptEl = shellEl.querySelector<HTMLElement>('[data-terminal-prompt]');
+  const ghostEl = shellEl.querySelector<HTMLElement>('[data-terminal-ghost]');
+  const titleEl = shellEl.querySelector<HTMLElement>('[data-terminal-title]');
+  const modeEl = shellEl.querySelector<HTMLElement>('[data-terminal-mode]');
+  const cwdEl = shellEl.querySelector<HTMLElement>('[data-terminal-cwd]');
+  const indexStateEl = shellEl.querySelector<HTMLElement>('[data-terminal-index-state]');
   const keybar = shellEl.querySelector<HTMLElement>('[data-terminal-keybar]');
   const form = shellEl.querySelector<HTMLFormElement>('[data-terminal-form]');
   const latestBtn = shellEl.querySelector<HTMLButtonElement>('[data-terminal-scroll-end]');
   const clearBtn = shellEl.querySelector<HTMLButtonElement>('[data-terminal-input-clear]');
   if (!screen || !input || !promptEl) return null;
+  const isInline = shellEl.classList.contains('term--inline');
 
   const state: ShellState = createShell(null);
   let indexPromise: Promise<TermIndex | null> | null = null;
@@ -176,6 +184,34 @@ export function initTerminal(
 
   function lineEl(line: Line): HTMLElement {
     const el = document.createElement('div');
+    if (line.swatches) {
+      el.className = line.text.startsWith(' ')
+        ? 'term-line term-swatches term-swatches--indented'
+        : 'term-line term-swatches';
+      for (let i = 1; i <= 8; i++) {
+        const swatch = document.createElement('span');
+        swatch.className = `term-swatch term-swatch--${i}`;
+        swatch.setAttribute('aria-hidden', 'true');
+        el.appendChild(swatch);
+      }
+      return el;
+    }
+    if (line.actions?.length) {
+      el.className = 'term-line term-chips';
+      const label = document.createElement('span');
+      label.className = 'term-chips-label';
+      label.textContent = 'try:';
+      el.appendChild(label);
+      for (const action of line.actions) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'term-chip';
+        btn.dataset.terminalRun = action.cmd;
+        btn.textContent = action.label;
+        el.appendChild(btn);
+      }
+      return el;
+    }
     el.className = line.tone ? `term-line term-${line.tone}` : 'term-line';
     if (line.prefix) {
       const badge = document.createElement('span');
@@ -185,15 +221,26 @@ export function initTerminal(
       return el;
     }
     if (line.href) {
+      const match = line.text.match(/^(\s*)(.*)$/);
+      const lead = match?.[1] ?? '';
+      const label = match?.[2] ?? line.text;
+      if (lead) el.appendChild(document.createTextNode(lead));
       const a = document.createElement('a');
       a.className = 'term-link';
       a.href = line.href;
-      a.textContent = line.text;
+      a.textContent = label;
       if (/^https?:/i.test(line.href)) {
         a.target = '_blank';
         a.rel = 'noopener noreferrer';
       }
       el.appendChild(a);
+    } else if (line.cmd) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'term-chip';
+      btn.dataset.terminalRun = line.cmd;
+      btn.textContent = line.text;
+      el.appendChild(btn);
     } else {
       // A zero-width space keeps blank lines from collapsing to zero height.
       el.textContent = line.text === '' ? '​' : line.text;
@@ -210,9 +257,10 @@ export function initTerminal(
   function fitLines(lines: Line[]): Line[] {
     const width = measureColumns();
     return lines.flatMap((line) => {
-      // The logo and DNA frames are deliberately column-art; their narrow variants
-      // already fit the pane and must retain their spaces.
-      if (line.tone === 'art' || line.text.length <= width) return [line];
+      // Column art, interactive chip rows, and swatches manage their own layout.
+      if (line.tone === 'art' || line.actions?.length || line.swatches || line.text.length <= width) {
+        return [line];
+      }
       const wrapped = wrapText(line.text, width);
       return wrapped.map((text, index) => ({
         ...line,
@@ -258,21 +306,60 @@ export function initTerminal(
     syncScrollAffordance();
   }
 
+  let ghostSuggestion = '';
+
+  function syncGhost() {
+    if (!ghostEl) return;
+    const val = input!.value;
+    ghostSuggestion = busy || demoRunning || !val ? '' : suggest(state, val);
+    if (!ghostSuggestion || !ghostSuggestion.startsWith(val) || ghostSuggestion.length <= val.length) {
+      ghostSuggestion = '';
+      ghostEl.replaceChildren();
+      return;
+    }
+    const typed = document.createElement('span');
+    typed.className = 'term-ghost-typed';
+    typed.textContent = val;
+    const hint = document.createElement('span');
+    hint.className = 'term-ghost-hint';
+    hint.textContent = ghostSuggestion.slice(val.length);
+    ghostEl.replaceChildren(typed, hint);
+  }
+
+  function syncStatus() {
+    const cwdShort = shortCwd(state.cwd);
+    if (titleEl && !isInline) {
+      titleEl.textContent = `khc@genome: ${cwdShort} — ksh`;
+    }
+    if (cwdEl) cwdEl.textContent = cwdShort;
+    if (modeEl) modeEl.textContent = busy ? 'BUSY' : state.chatMode ? 'CHAT' : 'SHELL';
+    shellEl!.classList.toggle('is-chat', state.chatMode);
+    if (indexStateEl && state.index) {
+      const s = state.index.stats;
+      indexStateEl.textContent = `${s.publications} papers · ${s.software} tools · ready`;
+    }
+  }
+
   function setBusy(next: boolean) {
     busy = next;
     input!.disabled = next;
     shellEl!.classList.toggle('is-busy', next);
     screen!.setAttribute('aria-busy', String(next));
     screen!.setAttribute('aria-live', next ? 'off' : 'polite');
-    keybar?.querySelectorAll<HTMLButtonElement>('button').forEach((button) => {
-      button.disabled = next;
-    });
+    shellEl!
+      .querySelectorAll<HTMLButtonElement>('[data-terminal-keybar] button, [data-terminal-run]')
+      .forEach((button) => {
+        button.disabled = next;
+      });
+    syncStatus();
+    syncGhost();
     if (!next && !coarsePointer) input!.focus({ preventScroll: true });
   }
 
   const refreshPrompt = () => {
     measureColumns();
     promptEl!.textContent = displayPrompt();
+    syncStatus();
   };
 
   // ----------------------------------------------------------------- index --
@@ -284,6 +371,7 @@ export function initTerminal(
         .then((res) => (res.ok ? (res.json() as Promise<TermIndex>) : null))
         .then((data) => {
           state.index = data;
+          syncStatus();
           return data;
         })
         .catch(() => null);
@@ -551,6 +639,7 @@ export function initTerminal(
 
   function syncClearButton() {
     if (clearBtn) clearBtn.hidden = !input!.value;
+    syncGhost();
   }
 
   // ------------------------------------------------------------ submitting --
@@ -663,6 +752,21 @@ export function initTerminal(
       completeInput();
       return;
     }
+    if (
+      event.key === 'ArrowRight' &&
+      !event.shiftKey &&
+      !event.ctrlKey &&
+      !event.altKey &&
+      !event.metaKey &&
+      ghostSuggestion &&
+      input!.selectionStart === input!.value.length &&
+      input!.selectionEnd === input!.value.length
+    ) {
+      event.preventDefault();
+      input!.value = ghostSuggestion;
+      syncClearButton();
+      return;
+    }
     if (event.shiftKey && (event.key === 'PageUp' || event.key === 'PageDown')) {
       event.preventDefault();
       scrollHistoryBy(event.key === 'PageUp' ? -1 : 1);
@@ -737,9 +841,18 @@ export function initTerminal(
     }
   }
 
-  /** Clicking anywhere in the shell focuses the caret — unless text is selected. */
+  /** Clicking anywhere in the shell focuses the caret — or runs a clickable command chip. */
   function onShellClick(event: MouseEvent) {
     const target = event.target as HTMLElement;
+    const runBtn = target?.closest<HTMLButtonElement>('[data-terminal-run]');
+    if (runBtn) {
+      if (busy) return;
+      if (booting) skipBoot?.();
+      if (demoRunning) takeOver();
+      const cmd = runBtn.dataset.terminalRun ?? '';
+      if (cmd) void submit(cmd);
+      return;
+    }
     if (target?.closest('a, button, [data-terminal-bar]')) return;
     if (coarsePointer) return;
     if (window.getSelection()?.toString()) return;
@@ -829,6 +942,7 @@ export function initTerminal(
 
   function onViewportResize() {
     syncViewportHeight();
+    syncThemeButton();
     if (followOutput) {
       window.cancelAnimationFrame(viewportRaf);
       viewportRaf = window.requestAnimationFrame(() => scrollToEnd(false));
@@ -855,13 +969,25 @@ export function initTerminal(
     }
   }
 
+  const THEME_ICONS: Record<string, string> = {
+    light: '☀',
+    dark: '☾',
+    nord: '❄',
+    monokai: '◆',
+    cyberdeck: '◈',
+    parchment: '▤',
+  };
+
   function syncThemeButton() {
     if (!themeBtn) return;
-    const dark = document.documentElement.dataset.theme === 'dark';
-    themeBtn.textContent = dark ? '☀' : '☾';
-    const label = dark ? 'Switch to the light theme' : 'Switch to the dark theme';
+    const active = document.documentElement.dataset.theme || 'light';
+    const icon = THEME_ICONS[active] ?? '☾';
+    const compact = window.matchMedia?.('(max-width: 700px)').matches ?? false;
+    themeBtn.textContent = compact ? icon : `${icon} ${active}`;
+    const label =
+      active === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme';
     themeBtn.setAttribute('aria-label', label);
-    themeBtn.setAttribute('title', label);
+    themeBtn.setAttribute('title', `Theme: ${active} — click to toggle`);
   }
 
   const onThemeClick = () => applyTheme('toggle');

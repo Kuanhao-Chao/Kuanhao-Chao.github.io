@@ -1,7 +1,7 @@
 import { getCollection } from 'astro:content';
 import { pubSlug } from '../lib/slug.ts';
 import { publicationHref } from '../lib/publicationMetadata.ts';
-import { site, identity, socials } from '../data/site.ts';
+import { site, identity, socials, labNavItems } from '../data/site.ts';
 import {
   experience,
   education,
@@ -12,18 +12,19 @@ import {
   sideProjects,
 } from '../data/cv.ts';
 import { projects } from '../data/projects.ts';
+import { PAPERS } from '../data/papers.ts';
 import { plainMdx } from '../lib/plainContent.ts';
 
 /**
  * Knowledge payload for the /terminal/ shell: one fetch serves both the virtual
  * filesystem (`ls`/`cat`/`tree`) and the retrieval corpus (`grep`/`ask`).
  *
- * PRIVACY GATE — the two collections that can leak use *different* fields, so a
- * single generic filter would silently fail on one:
- *   - posts   → `draft: true`     (4 of 12 today)
- *   - reports → `unlisted: true`  (5 of 6 today; openspliceai is public)
- * Reports are therefore omitted wholesale rather than filtered: the collection
- * contributes nothing today and could only ever leak later. See CLAUDE.md.
+ * PRIVACY GATE — collections that can hold private/unpublished entries use distinct fields:
+ *   - posts     → `draft: true`
+ *   - news      → `draft: true`
+ *   - deepDives → `draft: true`
+ *   - reports   → `unlisted: true` (reports subtree is intentionally omitted wholesale from
+ *                 `terminal.json` so `audit:indexing` guarantees zero `/reports/` leakage).
  */
 
 const squash = (value = '') => value.replace(/\s+/g, ' ').trim();
@@ -45,16 +46,22 @@ export async function GET() {
       getCollection('deepDiveQuestionBanks'),
     ]);
 
-  const livePosts = posts.filter((entry) => !entry.data.draft);
+  const livePosts = posts
+    .filter((entry) => !entry.data.draft)
+    .sort((a, b) => b.data.date - a.data.date);
   const liveNews = news
     .filter((entry) => !entry.data.draft)
     .sort((a, b) => b.data.date - a.data.date);
   const pubsByDate = [...publications].sort((a, b) => b.data.date - a.data.date);
   const talksByDate = [...talks].sort((a, b) => (b.data.startDate ?? 0) - (a.data.startDate ?? 0));
+  const teachingByDate = [...teaching].sort(
+    (a, b) => (b.data.startDate ?? 0) - (a.data.startDate ?? 0)
+  );
   const liveDeepDives = deepDives
     .filter((entry) => !entry.data.draft)
     .sort((a, b) => a.data.hub.localeCompare(b.data.hub) || a.data.order - b.data.order);
   const deepDiveById = new Map(liveDeepDives.map((entry) => [entry.id, entry]));
+  const publishedPapers = PAPERS.filter((p) => p.status === 'published');
 
   /** path → node. Directories are derived from the paths at runtime. */
   const fs = {};
@@ -67,7 +74,7 @@ export async function GET() {
       title,
       href,
       kind,
-      text: squash(`${title} ${keywords} ${body}`).slice(0, 1600),
+      text: squash(`${title} ${keywords} ${body}`).slice(0, 1800),
     });
   };
 
@@ -75,23 +82,23 @@ export async function GET() {
   add('/home/khc/about.txt', {
     title: 'About',
     href: '/',
-    keywords: identity.alternateNames.join(' '),
+    keywords: `${identity.alternateNames.join(' ')} ${identity.jobTitle} ${identity.worksFor.name}`,
     body: [
       `${site.name} (${site.nameZh}) — ${site.role}`,
       '',
       site.bio,
       '',
-      `Tagline:    ${site.tagline}`,
-      `Philosophy: ${site.philosophy}`,
+      `Tagline:       ${site.tagline}`,
+      `Philosophy:    ${site.philosophy}`,
       `Also known as: ${identity.alternateNames.join(', ')}`,
-      `Works on: ${identity.knowsAbout.join(', ')}`,
+      `Works on:      ${identity.knowsAbout.join(', ')}`,
     ].join('\n'),
   });
 
   add('/home/khc/contact.txt', {
     title: 'Contact',
     href: '/',
-    keywords: 'email reach out hire collaborate coffee chat social links',
+    keywords: 'email reach out hire collaborate coffee chat social links calendly',
     body: [
       `Email: ${site.email}`,
       '',
@@ -106,7 +113,8 @@ export async function GET() {
   add('/home/khc/cv/experience.txt', {
     title: 'Experience',
     href: '/cv/',
-    keywords: 'job work employment position career illumina calico academia sinica',
+    keywords:
+      'job work employment position career engineer scientist illumina calico academia sinica anu ntu',
     body: experience
       .map((p) => `${p.period}\n  ${p.role}\n  ${p.org}${p.unit ? ` — ${p.unit}` : ''}`)
       .join('\n\n'),
@@ -115,7 +123,7 @@ export async function GET() {
   add('/home/khc/cv/education.txt', {
     title: 'Education',
     href: '/cv/',
-    keywords: 'degree phd masters bachelor school university advisor',
+    keywords: 'degree phd masters mse bachelor school university advisor salzberg pertea jhu ntu',
     body: education
       .map((p) => `${p.period}\n  ${p.role}\n  ${p.org}${p.unit ? ` — ${p.unit}` : ''}`)
       .join('\n\n'),
@@ -124,21 +132,21 @@ export async function GET() {
   add('/home/khc/cv/honors.txt', {
     title: 'Honors and awards',
     href: '/cv/',
-    keywords: 'award prize scholarship fellowship recognition',
+    keywords: 'award prize scholarship fellowship recognition virtual cell challenge cellularai',
     body: honors.map((h) => `${h.year}  ${h.title}`).join('\n'),
   });
 
   add('/home/khc/cv/mentorship.txt', {
     title: 'Mentorship',
-    href: '/cv/',
-    keywords: 'mentor student teaching advising study group',
+    href: '/teaching/',
+    keywords: 'mentor student teaching advising study group alan mao',
     body: mentorship.map((m) => `${m.name}\n  ${m.detail}`).join('\n\n'),
   });
 
   add('/home/khc/cv/reviewing.txt', {
     title: 'Peer review',
     href: '/cv/',
-    keywords: 'reviewer referee journal service',
+    keywords: 'reviewer referee journal service peer review',
     body: `Reviewer for ${reviewing.length} venues:\n${bullet(reviewing)}`,
   });
 
@@ -150,17 +158,28 @@ export async function GET() {
     const detail = [d.volume && `${d.volume}`, d.issue && `(${d.issue})`, d.pages]
       .filter(Boolean)
       .join('');
+    const bodyExcerpt = plainMdx(entry.body ?? '', 600);
     add(`/home/khc/publications/${slug}.txt`, {
       title: d.title,
       href: publicationHref(entry),
-      keywords: `${d.type} ${d.venue} paper publication ${year(d.date)}`,
+      keywords: `${d.type} ${d.venue} paper publication ${year(d.date)} ${d.authors}`,
       body: [
         d.title,
         '',
-        `Authors: ${d.authors}`,
-        `Venue:   ${d.venue}${detail ? `, ${detail}` : ''} (${year(d.date)})${status}`,
-        d.doi && `DOI:     ${d.doi}`,
-        d.code && `Code:    ${d.code}`,
+        `Authors:  ${d.authors}`,
+        `Venue:    ${d.venue}${detail ? `, ${detail}` : ''} (${year(d.date)})${status}`,
+        d.doi && `DOI:      ${d.doi}`,
+        d.preprint && `Preprint: ${d.preprint}`,
+        d.pdf && `PDF:      ${d.pdf}`,
+        d.code && `Code:     ${d.code}`,
+        d.docs && `Docs:     ${d.docs}`,
+        d.models && `Models:   ${d.models}`,
+        d.lab && `Lab:      ${d.lab}`,
+        d.data && `Data:     ${d.data}`,
+        d.news && `Press:    ${d.news}`,
+        d.externalUrl && !d.doi && `Link:     ${d.externalUrl}`,
+        d.abstract && `\nAbstract:\n${squash(d.abstract)}`,
+        !d.abstract && bodyExcerpt && `\n${bodyExcerpt}`,
       ]
         .filter(Boolean)
         .join('\n'),
@@ -187,7 +206,7 @@ export async function GET() {
   for (const tool of software) {
     add(`/home/khc/software/${tool.name.toLowerCase().replace(/\s+/g, '-')}.txt`, {
       title: tool.name,
-      href: tool.docs ?? tool.code,
+      href: tool.lab ?? tool.docs ?? tool.code,
       keywords: `software tool package release open source ${tool.license.name}`,
       body: [
         `${tool.name} — released ${tool.date}`,
@@ -197,7 +216,10 @@ export async function GET() {
         `License: ${tool.license.name}`,
         `Code:    ${tool.code}`,
         tool.docs && `Docs:    ${tool.docs}`,
+        tool.lab && `Lab:     ${tool.lab}`,
         tool.paper && `Paper:   ${tool.paper}`,
+        tool.poster && `Poster:  ${tool.poster}`,
+        tool.posts?.length && `Post:    ${tool.posts.map((p) => `/posts/${p}/`).join(', ')}`,
       ]
         .filter(Boolean)
         .join('\n'),
@@ -214,11 +236,15 @@ export async function GET() {
       body: [
         d.talkTitle ?? d.title,
         '',
+        `Type:     ${d.type}`,
         `Event:    ${d.title}`,
         `Venue:    ${d.venue}`,
         d.location && `Location: ${d.location}`,
         `Date:     ${iso(d.startDate)}`,
         d.link && `Link:     ${d.link}`,
+        d.slides && `Slides:   ${d.slides}`,
+        d.poster && `Poster:   ${d.poster}`,
+        d.video && `Video:    ${d.video}`,
       ]
         .filter(Boolean)
         .join('\n'),
@@ -231,17 +257,106 @@ export async function GET() {
       title: entry.data.title,
       href: `/posts/${entry.id}/`,
       keywords: `post article write-up ${(entry.data.tags ?? []).join(' ')}`,
-      body: [entry.data.title, '', entry.data.description, '', plainMdx(entry.body, 1400)].join('\n'),
+      body: [
+        entry.data.title,
+        `Published: ${iso(entry.data.date)}`,
+        '',
+        entry.data.description,
+        '',
+        plainMdx(entry.body, 1400),
+      ].join('\n'),
     });
   }
 
   // -------------------------------------------------------------- teaching
-  for (const entry of teaching) {
+  for (const entry of teachingByDate) {
+    const d = entry.data;
+    const period = [iso(d.startDate), iso(d.endDate)].filter(Boolean).join(' – ');
     add(`/home/khc/teaching/${entry.id}.txt`, {
-      title: entry.data.title,
+      title: d.title,
       href: '/teaching/',
-      keywords: 'teaching course ta lecture',
-      body: [entry.data.title, '', plainMdx(entry.body, 600)].filter(Boolean).join('\n'),
+      keywords: `teaching course ta lecture ${d.role ?? ''} ${d.venue ?? ''} ${d.location ?? ''}`,
+      body: [
+        d.title,
+        d.role && `Role:     ${d.role}`,
+        d.venue && `Venue:    ${d.venue}`,
+        d.location && `Location: ${d.location}`,
+        period && `Period:   ${period}`,
+        '',
+        plainMdx(entry.body, 600),
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    });
+  }
+
+  // ------------------------------------------------------------------ labs
+  const labEntries = [
+    ...labNavItems.map((item) => ({
+      id: item.id,
+      title: item.title,
+      href: item.href,
+      sub: item.sub,
+      keywords: `lab interactive tool ${item.title} ${item.sub}`,
+    })),
+    {
+      id: 'shorkie-attention',
+      title: 'Shorkie Attention Studio',
+      href: '/shorkie-lab/attention/',
+      sub: 'Multi-head self-attention maps across yeast regulatory loci',
+      keywords: 'lab interactive shorkie attention heads transformer yeast',
+    },
+    {
+      id: 'papers',
+      title: 'Paper Summaries',
+      href: '/papers/',
+      sub: `${publishedPapers.length} technical deconstructions of landmark genomics & AI papers`,
+      keywords: 'papers summaries literature alphagenome borzoi alphamissense gears gpnstar',
+    },
+    {
+      id: 'deep-dives',
+      title: 'Deep Dives',
+      href: '/deep_dives/',
+      sub: `${liveDeepDives.length} step-by-step computational genomics & ML curricula`,
+      keywords: 'deep dives guides statistical genetics gwas single-cell ml interview',
+    },
+    {
+      id: 'cell-lab',
+      title: 'Cell Lab',
+      href: '/lab',
+      sub: 'In silico cellular microcosm simulation',
+      keywords: 'cell lab simulation artificial life microcosm',
+    },
+  ];
+  for (const lab of labEntries) {
+    add(`/home/khc/labs/${lab.id}.txt`, {
+      title: lab.title,
+      href: lab.href,
+      kind: 'lab',
+      keywords: lab.keywords,
+      body: [`${lab.title}`, '', lab.sub, '', `URL: ${lab.href}`].join('\n'),
+    });
+  }
+
+  // ---------------------------------------------------------------- papers
+  add('/home/khc/papers.txt', {
+    title: 'Literature Paper Summaries',
+    href: '/papers/',
+    kind: 'papers',
+    keywords: publishedPapers.map((p) => `${p.id} ${p.shortTitle} ${p.area}`).join(' '),
+    body: publishedPapers
+      .map((p) => `${String(p.year)}  ${p.shortTitle.padEnd(32)} ${p.venue} — ${p.href}`)
+      .join('\n'),
+  });
+  for (const paper of publishedPapers) {
+    chunks.push({
+      path: '/home/khc/papers.txt',
+      title: paper.shortTitle,
+      href: paper.href,
+      kind: 'paper-summary',
+      text: squash(
+        `${paper.shortTitle} ${paper.title} ${paper.venue} ${paper.year} ${paper.area} ${paper.summary}`
+      ).slice(0, 1200),
     });
   }
 
@@ -275,23 +390,30 @@ export async function GET() {
   }
 
   // ------------------------------------------------------------------ news
-  // 51 files would drown `ls`, so news is one digest file plus per-item chunks.
+  // Keep `ls` clean with one digest file plus full per-item retrieval chunks.
   add('/home/khc/news.txt', {
     title: 'Recent news',
     href: '/news/',
-    keywords: 'news updates latest recent announcements',
+    keywords: 'news updates latest recent announcements virtual cell challenge cellularai award',
     body: liveNews
-      .slice(0, 12)
-      .map((entry) => `${iso(entry.data.date)}  ${entry.data.title}`)
+      .slice(0, 15)
+      .map(
+        (entry) =>
+          `${iso(entry.data.date)}  [${entry.data.category.padEnd(7)}]  ${entry.data.title}`
+      )
       .join('\n'),
   });
   for (const entry of liveNews) {
+    const summary = plainMdx(entry.body ?? '', 800);
     chunks.push({
       path: '/home/khc/news.txt',
-      title: entry.data.title,
+      title: `${iso(entry.data.date)} — ${entry.data.title}`,
       href: '/news/',
       kind: 'news',
-      text: squash(`${entry.data.title} ${entry.body ?? ''} ${entry.data.category}`).slice(0, 800),
+      text: squash(`${iso(entry.data.date)} ${entry.data.title} ${summary} ${entry.data.category}`).slice(
+        0,
+        1000
+      ),
     });
   }
 
@@ -309,6 +431,10 @@ export async function GET() {
     keywords: 'games fun side projects browser',
     body: sideProjects.map((p) => `${p.name.padEnd(18)} ${p.detail}`).join('\n'),
   });
+
+  const latestNews = liveNews[0];
+  const latestPub = pubsByDate[0];
+  const latestPost = livePosts[0];
 
   const payload = {
     generatedAt: new Date().toISOString(),
@@ -333,6 +459,8 @@ export async function GET() {
       software: software.length,
       research: research.length,
       posts: livePosts.length,
+      teaching: teaching.length,
+      papers: publishedPapers.length,
       deepDives: liveDeepDives.length,
       interviewQuestions: interviewQuestionCount,
       news: liveNews.length,
@@ -340,6 +468,61 @@ export async function GET() {
       reviewing: reviewing.length,
       built: iso(new Date()),
     },
+    latest: {
+      news: latestNews
+        ? {
+            date: iso(latestNews.data.date),
+            title: latestNews.data.title,
+            category: latestNews.data.category,
+            summary: plainMdx(latestNews.body ?? '', 260),
+            href: '/news/',
+          }
+        : null,
+      publication: latestPub
+        ? {
+            date: iso(latestPub.data.date),
+            title: latestPub.data.title,
+            venue: latestPub.data.venue,
+            slug: pubSlug(latestPub.id),
+            href: publicationHref(latestPub),
+          }
+        : null,
+      post: latestPost
+        ? {
+            date: iso(latestPost.data.date),
+            title: latestPost.data.title,
+            href: `/posts/${latestPost.id}/`,
+          }
+        : null,
+    },
+    recentNews: liveNews.slice(0, 10).map((entry) => ({
+      date: iso(entry.data.date),
+      category: entry.data.category,
+      title: entry.data.title,
+      summary: plainMdx(entry.body ?? '', 260),
+      link: entry.data.link ?? null,
+      href: '/news/',
+    })),
+    awardNews: liveNews
+      .filter((entry) => entry.data.category === 'award')
+      .map((entry) => ({
+        date: iso(entry.data.date),
+        title: entry.data.title,
+        summary: plainMdx(entry.body ?? '', 260),
+        link: entry.data.link ?? null,
+        href: '/news/',
+      })),
+    papers: publishedPapers.map((p) => ({
+      id: p.id,
+      shortTitle: p.shortTitle,
+      title: p.title,
+      venue: p.venue,
+      year: p.year,
+      area: p.area,
+      tag: p.tag,
+      summary: p.summary,
+      href: p.href,
+    })),
     fs,
     chunks,
     deepDives: liveDeepDives.map((entry) => ({

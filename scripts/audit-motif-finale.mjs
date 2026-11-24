@@ -117,15 +117,15 @@ try {
         try {
           await page.goto('/');
           await settle(page);
-          assert.equal(await page.locator('.nav-lab-card').count(), 6);
-          assert.equal(await page.locator('.mobile-lab-card').count(), 6);
-          assert.equal(await page.locator('.nav-labs-count').textContent(), '6 Explorations');
-          for (const href of ['/nn-lab/', '/fun-lab/']) {
+          assert.equal(await page.locator('.nav-lab-card').count(), 4);
+          assert.equal(await page.locator('.mobile-lab-card').count(), 4);
+          assert.equal(await page.locator('.nav-labs-count').textContent(), '4 Tools');
+          for (const href of ['/nn-lab/', '/fun-lab/', '/deep_dives/']) {
             assert.equal(await page.locator(`header a[href="${href}"]`).count(), 0);
+          }
+          for (const href of ['/shorkie-lab/', '/terminal/', '/search/', '/rss.xml']) {
             assert.equal(await page.locator(`footer a[href="${href}"]`).count(), 1);
           }
-          assert.equal(await page.locator('header a[href="/deep_dives/"]').count(), 2);
-          assert.equal(await page.locator('footer a[href="/deep_dives/"]').count(), 1);
           await finaleWindow(page);
           const state = await page.locator(selector).evaluate((c) => ({ ...c.dataset }));
           assert.equal(state.bgArcs, '3');

@@ -3,12 +3,14 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
 import { site, identity } from '../data/site';
 import { software, honors, reviewing } from '../data/cv';
+import { PAPERS } from '../data/papers';
+import { plainMdx } from '../lib/plainContent';
 import TerminalKeybar from '../components/TerminalKeybar.astro';
 import { buildBreadcrumbLd } from '../lib/breadcrumbs';
 import '../styles/terminal.css';
 
-// The banner's identity and counts are inlined into the page so it paints on the
-// first frame; the full knowledge index (`/terminal.json`) loads lazily behind it.
+// The banner's identity, counts, and latest highlight are inlined into the page so it
+// paints on the first frame; the full knowledge index (`/terminal.json`) loads behind it.
 const [publications, research, talks, posts, news] = await Promise.all([
   getCollection('publications'),
   getCollection('research'),
@@ -16,6 +18,15 @@ const [publications, research, talks, posts, news] = await Promise.all([
   getCollection('posts'),
   getCollection('news'),
 ]);
+
+const livePosts = posts
+  .filter((p) => !p.data.draft)
+  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+const liveNews = news
+  .filter((n) => !n.data.draft)
+  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+const newestNews = liveNews[0];
+const newestPub = [...publications].sort((a, b) => b.data.date.getTime() - a.data.date.getTime())[0];
 
 const boot = {
   identity: {
@@ -33,16 +44,36 @@ const boot = {
     publications: publications.length,
     research: research.length,
     talks: talks.length,
-    posts: posts.filter((p) => !p.data.draft).length,
-    news: news.filter((n) => !n.data.draft).length,
+    posts: livePosts.length,
+    papers: PAPERS.filter((p) => p.status === 'published').length,
+    news: liveNews.length,
     software: software.length,
     honors: honors.length,
     reviewing: reviewing.length,
   },
+  latest: {
+    news: newestNews
+      ? {
+          date: newestNews.data.date.toISOString().slice(0, 10),
+          title: newestNews.data.title,
+          category: newestNews.data.category,
+          summary: plainMdx(newestNews.body ?? '', 180),
+          href: '/news/',
+        }
+      : null,
+    publication: newestPub
+      ? {
+          date: newestPub.data.date.toISOString().slice(0, 10),
+          title: newestPub.data.title,
+          venue: newestPub.data.venue,
+        }
+      : null,
+  },
 };
 
-const title = "Terminal";
-const description = "An interactive UNIX terminal for khchao.com — browse Kuan-Hao Chao's publications, software, research, and talks from a command line, or ask the built-in bot a question.";
+const title = 'Terminal';
+const description =
+  "An interactive UNIX terminal for khchao.com — browse Kuan-Hao Chao's publications, software, research, labs, and talks from a command line, or ask the built-in AI assistant.";
 
 const webAppLd = {
   '@context': 'https://schema.org',
@@ -56,15 +87,9 @@ const webAppLd = {
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
 };
 
-const breadcrumbLd = buildBreadcrumbLd([
-  { name: 'Terminal', path: '/terminal/' },
-]);
+const breadcrumbLd = buildBreadcrumbLd([{ name: 'Terminal', path: '/terminal/' }]);
 ---
-<BaseLayout
-  bare
-  title={title}
-  description={description}
->
+<BaseLayout bare title={title} description={description}>
   <script type="application/ld+json" is:inline set:html={JSON.stringify(webAppLd)} />
   <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbLd)} />
   {/*
@@ -81,22 +106,29 @@ const breadcrumbLd = buildBreadcrumbLd([
       attribute; the controller wires only what carries one.
     */}
     <div class="term-bar" data-terminal-bar>
-      <a class="term-dot term-dot--close" href="/" aria-label="Close the shell and return to khchao.com" title="Back to khchao.com"></a>
+      <a
+        class="term-dot term-dot--close"
+        href="/"
+        aria-label="Close the shell and return to khchao.com"
+        title="Back to khchao.com"
+      ></a>
       <button
         class="term-dot term-dot--min"
         type="button"
         data-terminal-min
         aria-expanded="true"
         aria-label="Minimise the terminal"
-        title="Minimise the terminal"></button>
+        title="Minimise the terminal"
+      ></button>
       <button
         class="term-dot term-dot--zoom"
         type="button"
         data-terminal-zoom
         aria-label="Fill the screen"
-        title="Fill the screen"></button>
-      <span class="term-bar-title" aria-hidden="true">khc@genome: ~ — ksh</span>
-      <span class="term-bar-hint" aria-hidden="true">tab · ↑↓ · ctrl-l · `exit`</span>
+        title="Fill the screen"
+      ></button>
+      <span class="term-bar-title" data-terminal-title aria-hidden="true">khc@genome: ~ — ksh</span>
+      <span class="term-bar-hint" aria-hidden="true">tab · → · ↑↓ · ctrl-l</span>
       {/*
         This page renders through BaseLayout's `bare` mode, which drops the header
         and with it the site theme toggle. Without this control (and the `theme`
@@ -108,7 +140,8 @@ const breadcrumbLd = buildBreadcrumbLd([
         type="button"
         data-terminal-theme
         aria-label="Switch theme"
-        title="Switch theme">☾</button>
+        title="Switch theme"
+      >☾</button>
     </div>
 
     <div class="term-screen-wrap">
@@ -137,6 +170,7 @@ const breadcrumbLd = buildBreadcrumbLd([
       <label class="visually-hidden" for="term-input">Terminal command</label>
       <span class="term-prompt" data-terminal-prompt>khc@genome:~$</span>
       <div class="term-input-wrap">
+        <div class="term-ghost" data-terminal-ghost aria-hidden="true"></div>
         <input
           class="term-input"
           id="term-input"
@@ -146,7 +180,7 @@ const breadcrumbLd = buildBreadcrumbLd([
           autocapitalize="off"
           autocorrect="off"
           spellcheck="false"
-          placeholder="type `help` to begin"
+          placeholder="try `recent`, `help`, or `ask`"
           aria-describedby="term-help"
           enterkeyhint="go"
         />
@@ -167,9 +201,29 @@ const breadcrumbLd = buildBreadcrumbLd([
         title="Run command"
       >↵</button>
       <span id="term-help" class="visually-hidden">
-        Scroll the output with a mouse wheel, trackpad, or swipe. Press Shift-PageUp or Shift-PageDown to move through history. Press Tab for completion, use the arrow keys for command history, and press Control-L to clear the screen.
+        Scroll the output with a mouse wheel, trackpad, or swipe. Press Shift-PageUp or Shift-PageDown to move through history. Press Tab or Right Arrow for completion, use the arrow keys for command history, and press Control-L to clear the screen.
       </span>
     </form>
+
+    <div class="term-status" data-terminal-status aria-label="Terminal status and shortcuts">
+      <div class="term-status-left">
+        <span class="term-status-mode" data-terminal-mode>SHELL</span>
+        <span class="term-status-cwd" data-terminal-cwd>~</span>
+        <span class="term-status-meta" data-terminal-index-state>
+          {publications.length} papers · {software.length} tools
+        </span>
+      </div>
+      <div class="term-status-actions">
+        <button type="button" class="term-status-btn" data-terminal-run="recent">recent</button>
+        <button type="button" class="term-status-btn" data-terminal-run="publications">pubs</button>
+        <button type="button" class="term-status-btn" data-terminal-run="software">software</button>
+        <button type="button" class="term-status-btn" data-terminal-run="labs">labs</button>
+        <button type="button" class="term-status-btn" data-terminal-run="neofetch">neofetch</button>
+        <button type="button" class="term-status-btn" data-terminal-run="git log">git</button>
+        <button type="button" class="term-status-btn" data-terminal-run="help">help</button>
+        <a class="term-status-home" href="/">khchao.com ↗</a>
+      </div>
+    </div>
   </section>
 </BaseLayout>
 

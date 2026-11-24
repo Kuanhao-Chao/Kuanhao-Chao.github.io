@@ -3,37 +3,36 @@
  * `wgi.css` precedent of a sub-palette that lives with its feature.
  *
  * The shell follows the site theme. `BaseLayout` stamps `data-theme` on <html> in a
- * head script before first paint and it is always exactly `light` or `dark`, so the
- * light palette can be the bare default with one dark override below — no
- * `prefers-color-scheme` block is needed and there is nothing to flash.
+ * head script before first paint, so the light palette is the default with explicit
+ * theme overrides below — nothing flashes.
  *
  * This file is imported as plain CSS, not scoped by Astro, so `html[data-theme=…] .term`
- * matches normally here. (Inside a component's `<style>` Astro would scope *both*
- * halves of that selector and it would silently never match.)
- *
- * Every colour goes through a token. A hardcoded value here reads fine in whichever
- * theme it was written for and strands in the other one.
+ * matches normally here. Every colour goes through a token.
  */
 
 .term {
-  /* Light: a real light terminal — macOS Terminal "Basic", not a bleached dark one.
-     The screen sits a shade cooler than the page so the shell reads as its own
-     surface rather than a hole in the layout. */
-  --term-bg: #f4f6f3;
-  --term-chrome: #e6eae5;
-  --term-rule: #d4dbd4;
-  --term-ink: #212e25;
-  /* Dark enough to clear AA against the title-bar chrome too, not just the screen —
-     the hint text sits on `--term-chrome`, which is the tightest pair in the palette. */
-  --term-dim: #536157;
+  /* Light: editorial macOS Terminal "Basic" tuned to Calico sage-paper tones. */
+  --term-bg: #f5f7f4;
+  --term-chrome: #e7ece6;
+  --term-rule: #d2dbd3;
+  --term-ink: #1e2c23;
+  --term-dim: #4e5e53;
   --term-accent: #1a753f;
-  --term-head: #0f1712;
+  --term-head: #0e1711;
   --term-err: #a8341f;
   --term-ok: #1a753f;
-  --term-foot: #ebeee9;
-  --term-shadow: rgba(20, 20, 20, 0.1);
+  --term-foot: #eaefe9;
+  --term-shadow: rgba(20, 28, 22, 0.11);
+  --term-glow: rgba(26, 117, 63, 0.055);
+  --term-swatch-1: #1e2c23;
+  --term-swatch-2: #a8341f;
+  --term-swatch-3: #1a753f;
+  --term-swatch-4: #b57c16;
+  --term-swatch-5: #23648a;
+  --term-swatch-6: #7c4d8a;
+  --term-swatch-7: #1f7a73;
+  --term-swatch-8: #536157;
 
-  /* Full-bleed: the page is the terminal, so no card, no radius, no shadow. */
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -46,17 +45,26 @@
 }
 
 html[data-theme='dark'] .term {
-  --term-bg: #0d1211;
-  --term-chrome: #161e1b;
-  --term-rule: #24322c;
-  --term-ink: #d9e7e0;
-  --term-dim: #7e9088;
+  --term-bg: #0c1110;
+  --term-chrome: #141d1a;
+  --term-rule: #23332c;
+  --term-ink: #dbe9e2;
+  --term-dim: #81948b;
   --term-accent: #75c7af;
   --term-head: #f2f0ea;
   --term-err: #e8836f;
   --term-ok: #8fd694;
-  --term-foot: #111917;
-  --term-shadow: rgba(0, 0, 0, 0.2);
+  --term-foot: #101815;
+  --term-shadow: rgba(0, 0, 0, 0.28);
+  --term-glow: rgba(117, 199, 175, 0.065);
+  --term-swatch-1: #23332c;
+  --term-swatch-2: #e8836f;
+  --term-swatch-3: #8fd694;
+  --term-swatch-4: #e5c07b;
+  --term-swatch-5: #75c7af;
+  --term-swatch-6: #c698d8;
+  --term-swatch-7: #56b6c2;
+  --term-swatch-8: #dbe9e2;
 }
 
 html[data-theme='nord'] .term {
@@ -71,6 +79,15 @@ html[data-theme='nord'] .term {
   --term-ok: #a3be8c;
   --term-foot: #1f232b;
   --term-shadow: rgba(0, 0, 0, 0.35);
+  --term-glow: rgba(136, 192, 208, 0.07);
+  --term-swatch-1: #3b4252;
+  --term-swatch-2: #bf616a;
+  --term-swatch-3: #a3be8c;
+  --term-swatch-4: #ebcb8b;
+  --term-swatch-5: #81a1c1;
+  --term-swatch-6: #b48ead;
+  --term-swatch-7: #88c0d0;
+  --term-swatch-8: #eceff4;
 }
 
 html[data-theme='monokai'] .term {
@@ -85,6 +102,15 @@ html[data-theme='monokai'] .term {
   --term-ok: #a9dc76;
   --term-foot: #19181a;
   --term-shadow: rgba(0, 0, 0, 0.4);
+  --term-glow: rgba(255, 216, 102, 0.06);
+  --term-swatch-1: #3e3d32;
+  --term-swatch-2: #ff6188;
+  --term-swatch-3: #a9dc76;
+  --term-swatch-4: #ffd866;
+  --term-swatch-5: #78dce8;
+  --term-swatch-6: #ab9df2;
+  --term-swatch-7: #fc9867;
+  --term-swatch-8: #fcfcfa;
 }
 
 html[data-theme='cyberdeck'] .term {
@@ -99,6 +125,15 @@ html[data-theme='cyberdeck'] .term {
   --term-ok: #10b981;
   --term-foot: #04080c;
   --term-shadow: rgba(0, 229, 255, 0.18);
+  --term-glow: rgba(34, 211, 238, 0.09);
+  --term-swatch-1: #162a3f;
+  --term-swatch-2: #f43f5e;
+  --term-swatch-3: #10b981;
+  --term-swatch-4: #f59e0b;
+  --term-swatch-5: #22d3ee;
+  --term-swatch-6: #a855f7;
+  --term-swatch-7: #38fdf8;
+  --term-swatch-8: #e2f6fd;
 }
 
 html[data-theme='parchment'] .term {
@@ -113,6 +148,15 @@ html[data-theme='parchment'] .term {
   --term-ok: #15803d;
   --term-foot: #ede4ce;
   --term-shadow: rgba(46, 36, 30, 0.15);
+  --term-glow: rgba(194, 65, 12, 0.055);
+  --term-swatch-1: #2e241e;
+  --term-swatch-2: #b91c1c;
+  --term-swatch-3: #15803d;
+  --term-swatch-4: #b45309;
+  --term-swatch-5: #1d4ed8;
+  --term-swatch-6: #7e22ce;
+  --term-swatch-7: #0f766e;
+  --term-swatch-8: #6e5c4e;
 }
 
 /* ---------------------------------------------------------------- chrome -- */
@@ -120,23 +164,19 @@ html[data-theme='parchment'] .term {
 .term-bar {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
   flex: none;
   min-width: 0;
   padding: 0.3rem max(0.9rem, env(safe-area-inset-left)) 0.3rem
     max(0.9rem, env(safe-area-inset-right));
   background: var(--term-chrome);
   border-bottom: 1px solid var(--term-rule);
+  box-shadow: inset 0 2px 0 color-mix(in srgb, var(--term-accent) 42%, transparent);
 }
-/* The traffic lights keep their macOS colours in both themes — they are a
-   convention, not part of the palette. `button` needs the reset because these are
-   real controls now, not decorative spans.
-   `background: transparent` is load-bearing: `appearance: none` strips the native
-   look but not the UA button face, so the two <button> dots (close, minimise) drew a
-   grey disc behind their 0.72rem dot (rgb(239,239,239) light, rgb(107,107,107) dark in
-   Chromium) while the zoom dot, an <a>, drew none, and only two of the three looked
-   highlighted. There is no hover or focus-visible highlight on purpose either: the dot
-   stays as drawn, and a keyboard user gets the outline below. */
+
+/* The traffic lights keep their macOS colours in every theme.
+   `background: transparent` is load-bearing so UA button faces never paint a disc
+   behind the 0.72rem dot; keyboard focus gets a crisp 2px outline. */
 .term-dot {
   position: relative;
   display: grid;
@@ -147,6 +187,7 @@ html[data-theme='parchment'] .term {
   border: 0;
   border-radius: 50%;
   background: transparent;
+  box-shadow: none;
   flex: none;
   appearance: none;
   cursor: pointer;
@@ -166,52 +207,57 @@ a.term-dot:focus-visible {
   outline: 2px solid var(--term-accent);
   outline-offset: 2px;
 }
-/* Colour on the base class, not the element type: each dot is an anchor on one
-   mounting and a button on the other. The target is large enough for touch while
-   the pseudo-element keeps the familiar macOS-sized traffic light. */
 .term-dot--close { --term-dot-color: #e5695b; }
 .term-dot--min { --term-dot-color: #e0b451; }
 .term-dot--zoom { --term-dot-color: #6cc06c; }
+
 .term-bar-title {
   min-width: 0;
   flex: 1;
   overflow: hidden;
   text-align: center;
   color: var(--term-dim);
-  font-size: 0.92em;
+  font-size: 0.9em;
+  letter-spacing: 0.01em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .term-bar-hint {
   flex: none;
   color: var(--term-dim);
-  font-size: 0.82em;
-  opacity: 0.75;
+  font-size: 0.8em;
+  opacity: 0.78;
 }
 @media (max-width: 700px), (max-height: 600px) and (pointer: coarse) {
   .term-bar-hint { display: none; }
 }
 
-/* The theme switch, present only on /terminal/ — the homepage card sits under the
-   site header, which already carries one. */
+/* The theme switch on /terminal/ (bare mode drops the site header). */
 .term-theme {
-  display: grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-width: 2rem;
+  height: 1.85rem;
   flex: none;
-  margin-left: 0.75rem;
-  padding: 0;
-  border: 0;
-  background: none;
+  margin-left: 0.5rem;
+  padding: 0 0.55rem;
+  border: 1px solid var(--term-rule);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--term-bg) 55%, transparent);
   appearance: none;
   cursor: pointer;
   color: var(--term-dim);
   font: inherit;
+  font-size: 0.8em;
   line-height: 1;
-  transition: color var(--transition);
+  transition: color var(--transition), border-color var(--transition), background-color var(--transition);
 }
-.term-theme:hover { color: var(--term-accent); }
+.term-theme:hover {
+  color: var(--term-accent);
+  border-color: color-mix(in srgb, var(--term-accent) 45%, var(--term-rule));
+}
 .term-theme:focus-visible {
   outline: 2px solid var(--term-accent);
   outline-offset: 2px;
@@ -219,8 +265,6 @@ a.term-dot:focus-visible {
 
 /* ------------------------------------------------- minimised / closed ----- */
 
-/* Minimised: the title bar survives and is itself the restore target, so a
-   collapsed window is never a dead end. */
 .term--min {
   flex: none;
 }
@@ -228,17 +272,14 @@ a.term-dot:focus-visible {
 .term--min .term-screen,
 .term--min .term-form,
 .term--min .term-keybar,
-.term--min .term-foot {
+.term--min .term-foot,
+.term--min .term-status {
   display: none;
 }
 .term--min .term-bar {
   cursor: pointer;
   border-bottom-color: transparent;
 }
-/* A collapsed card is a disclosure and should read as one: a chevron ahead of the title, the
-   title lit on hover, and a lighter shadow — the deep drop shadow of the open card under a
-   single title bar looks like a window that failed to open. The title is aria-hidden, so the
-   chevron is decoration; the yellow dot is the labelled control. */
 .term--min .term-bar-title::before {
   content: '▸ ';
   color: var(--term-accent);
@@ -254,8 +295,6 @@ a.term-dot:focus-visible {
   display: none;
 }
 
-/* True browser fullscreen on /terminal/. The backdrop is the page behind the
-   element, so paint it or the letterboxing shows through as white. */
 .term--full {
   background: var(--term-bg);
 }
@@ -287,15 +326,10 @@ a.term-dot:focus-visible {
 
 /* ---------------------------------------------------------------- inline -- */
 
-/* Holds the inline window and its reopen chip. The chip has to be a sibling of the
-   window, since closing hides the window itself. */
 .term-shell {
   display: block;
 }
 
-/* The homepage mounting: the same shell as /terminal/, wearing a card. Everything
-   the full-bleed version deliberately drops — border, radius, shadow, a bounded
-   screen — comes back here, so both share one stylesheet and one controller. */
 .term--inline {
   flex: none;
   height: auto;
@@ -303,7 +337,7 @@ a.term-dot:focus-visible {
   border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: 0 0.9rem 2.4rem var(--term-shadow);
-  transition: border-color var(--transition);
+  transition: border-color var(--transition), box-shadow var(--transition);
 }
 .term--inline:focus-within {
   border-color: color-mix(in srgb, var(--term-accent) 55%, var(--term-rule));
@@ -318,14 +352,14 @@ a.term-dot:focus-visible {
 }
 .term--inline .term-screen-wrap {
   flex: none;
-  height: 15em;
+  height: 15.5em;
 }
 
 .term-bar-open,
 .term-foot-open {
   flex: none;
   color: var(--term-accent);
-  font-size: 0.88em;
+  font-size: 0.86em;
   text-decoration: none;
 }
 .term-bar-open:hover,
@@ -338,25 +372,42 @@ a.term-dot:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem;
   flex: none;
-  padding: 0.5rem 0.9rem;
+  padding: 0.45rem 0.9rem;
   border-top: 1px solid var(--term-rule);
   background: var(--term-foot);
-  font-size: 0.9em;
+  font-size: 0.86em;
   color: var(--term-dim);
 }
-.term-foot-try code {
-  font-family: inherit;
-  color: var(--term-ink);
-  padding: 0.05em 0.35em;
+.term-foot-try {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  min-width: 0;
+}
+.term-foot-cmd {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.08em 0.45em;
   border: 1px solid var(--term-rule);
-  border-radius: 3px;
-  margin-right: 0.1em;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--term-bg) 65%, transparent);
+  color: var(--term-ink);
+  font: inherit;
+  cursor: pointer;
+  transition: color var(--transition), border-color var(--transition), background-color var(--transition);
+}
+.term-foot-cmd:hover,
+.term-foot-cmd:focus-visible {
+  color: var(--term-accent);
+  border-color: var(--term-accent);
+  background: color-mix(in srgb, var(--term-accent) 9%, var(--term-bg));
 }
 @media (max-width: 560px) {
   .term-bar-open { display: none; }
-  .term-foot-try code:nth-of-type(n + 4) { display: none; }
+  .term-foot-cmd:nth-of-type(n + 4) { display: none; }
 }
 
 /* ---------------------------------------------------------------- screen -- */
@@ -367,10 +418,11 @@ a.term-dot:focus-visible {
   min-width: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 0.9rem 1rem 0.2rem;
+  padding: 0.95rem 1.15rem 0.35rem;
+  background:
+    radial-gradient(ellipse 85% 40% at 50% 0%, var(--term-glow), transparent 72%),
+    var(--term-bg);
   color: var(--term-ink);
-  /* A terminal wraps at its right edge. The old `pre` + horizontal scroller made
-     long `cat`, `ls -l`, and search output unusable on phones. */
   overflow-wrap: anywhere;
   overscroll-behavior-x: none;
   overscroll-behavior-y: contain;
@@ -434,7 +486,6 @@ a.term-dot:focus-visible {
   color: var(--term-accent);
   font: inherit;
   line-height: 1.5;
-  /* Reserve the column so the log never shifts as the helix rotates. */
   width: 11ch;
   white-space: pre;
 }
@@ -447,7 +498,6 @@ a.term-dot:focus-visible {
   min-height: 1.5em;
   max-width: 100%;
 }
-/* Block-glyph art only forms solid letters when the rows touch. */
 .term-art {
   line-height: 1;
   min-height: 1em;
@@ -458,12 +508,19 @@ a.term-dot:focus-visible {
 }
 .term-dim { color: var(--term-dim); }
 .term-accent { color: var(--term-accent); }
-.term-head { color: var(--term-head); }
+.term-head { color: var(--term-head); font-weight: 600; }
 .term-err { color: var(--term-err); }
 .term-ok { color: var(--term-ok); }
-.term-echo { color: var(--term-head); }
-.term-ps1 { color: var(--term-accent); }
-.term-ok { color: var(--term-ok); }
+.term-echo {
+  color: var(--term-head);
+  padding-left: 0.55rem;
+  border-left: 2px solid color-mix(in srgb, var(--term-accent) 45%, transparent);
+  margin-top: 0.15rem;
+}
+.term-ps1 {
+  color: var(--term-accent);
+  font-weight: 600;
+}
 
 .term-link {
   color: var(--term-accent);
@@ -472,6 +529,72 @@ a.term-dot:focus-visible {
 }
 .term-link:hover { color: var(--term-head); }
 
+/* Clickable command chips embedded inside output (motd, recent, help, git log). */
+.term-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding-block: 0.25rem;
+  white-space: normal;
+}
+.term-chips-label {
+  color: var(--term-dim);
+  font-size: 0.88em;
+  margin-right: 0.15rem;
+}
+.term-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.52rem;
+  border: 1px solid color-mix(in srgb, var(--term-accent) 30%, var(--term-rule));
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--term-accent) 7%, var(--term-chrome));
+  color: var(--term-accent);
+  font: inherit;
+  font-size: 0.86em;
+  line-height: 1.35;
+  cursor: pointer;
+  transition: color var(--transition), border-color var(--transition), background-color var(--transition);
+}
+.term-chip:hover,
+.term-chip:focus-visible {
+  color: var(--term-head);
+  border-color: var(--term-accent);
+  background: color-mix(in srgb, var(--term-accent) 16%, var(--term-chrome));
+}
+.term-chip:focus-visible {
+  outline: 2px solid var(--term-accent);
+  outline-offset: 1px;
+}
+
+/* Neofetch theme color palette swatches. */
+.term-swatches {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding-top: 0.35rem;
+  white-space: normal;
+}
+.term-swatches--indented {
+  padding-left: 30ch;
+}
+.term-swatch {
+  display: inline-block;
+  width: 1.25rem;
+  height: 0.72rem;
+  border-radius: 3px;
+  border: 1px solid color-mix(in srgb, var(--term-ink) 12%, transparent);
+}
+.term-swatch--1 { background: var(--term-swatch-1); }
+.term-swatch--2 { background: var(--term-swatch-2); }
+.term-swatch--3 { background: var(--term-swatch-3); }
+.term-swatch--4 { background: var(--term-swatch-4); }
+.term-swatch--5 { background: var(--term-swatch-5); }
+.term-swatch--6 { background: var(--term-swatch-6); }
+.term-swatch--7 { background: var(--term-swatch-7); }
+.term-swatch--8 { background: var(--term-swatch-8); }
+
 /* ----------------------------------------------------------------- input -- */
 
 .term-form {
@@ -479,12 +602,16 @@ a.term-dot:focus-visible {
   align-items: center;
   gap: 0.5ch;
   min-width: 0;
-  padding: 0.35rem 1rem 0.9rem;
+  padding: 0.5rem 1.15rem 0.65rem;
+  border-top: 1px solid color-mix(in srgb, var(--term-rule) 72%, transparent);
+  background: color-mix(in srgb, var(--term-chrome) 28%, var(--term-bg));
+  transition: background-color var(--transition), border-color var(--transition);
 }
 .term-prompt {
   min-width: 0;
   max-width: 100%;
   color: var(--term-accent);
+  font-weight: 600;
   flex: none;
   overflow-wrap: anywhere;
   white-space: pre;
@@ -495,8 +622,31 @@ a.term-dot:focus-visible {
   align-items: center;
   flex: 1;
   min-width: 0;
+  overflow: hidden;
+}
+.term-ghost {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  line-height: 1.4;
+  white-space: pre;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+.term-ghost-typed {
+  color: transparent;
+}
+.term-ghost-hint {
+  color: var(--term-dim);
+  opacity: 0.5;
 }
 .term-input {
+  position: relative;
+  z-index: 1;
   flex: 1;
   min-width: 0;
   width: 100%;
@@ -511,10 +661,12 @@ a.term-dot:focus-visible {
   touch-action: manipulation;
 }
 .term-input:focus { outline: none; }
-.term-input::placeholder { color: var(--term-dim); }
+.term-input::placeholder { color: var(--term-dim); opacity: 0.72; }
 .term-input:disabled { opacity: 0.6; }
 
 .term-input-clear {
+  position: relative;
+  z-index: 2;
   display: grid;
   place-items: center;
   width: 1.6rem;
@@ -545,7 +697,98 @@ a.term-dot:focus-visible {
 }
 
 .term:focus-within .term-form {
-  background: color-mix(in srgb, var(--term-accent) 3%, var(--term-bg));
+  border-top-color: color-mix(in srgb, var(--term-accent) 42%, var(--term-rule));
+  background: color-mix(in srgb, var(--term-accent) 4%, var(--term-bg));
+}
+
+/* ----------------------------------------------------------- status bar -- */
+
+.term-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex: none;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0.28rem max(1rem, env(safe-area-inset-left)) 0.28rem
+    max(1rem, env(safe-area-inset-right));
+  border-top: 1px solid var(--term-rule);
+  background: var(--term-foot);
+  color: var(--term-dim);
+  font-size: 0.78em;
+  line-height: 1.3;
+}
+.term-status-left,
+.term-status-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.term-status-mode {
+  flex: none;
+  padding: 0.08rem 0.45rem;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--term-accent) 16%, transparent);
+  color: var(--term-accent);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+.term.is-chat .term-status-mode {
+  background: color-mix(in srgb, var(--term-ok) 22%, transparent);
+  color: var(--term-ok);
+}
+.term.is-busy .term-status-mode {
+  opacity: 0.75;
+}
+.term-status-cwd {
+  color: var(--term-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.term-status-meta {
+  color: var(--term-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.term-status-btn {
+  flex: none;
+  padding: 0.1rem 0.42rem;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--term-dim);
+  font: inherit;
+  cursor: pointer;
+  transition: color var(--transition), border-color var(--transition), background-color var(--transition);
+}
+.term-status-btn:hover,
+.term-status-btn:focus-visible {
+  color: var(--term-accent);
+  border-color: color-mix(in srgb, var(--term-accent) 35%, var(--term-rule));
+  background: color-mix(in srgb, var(--term-accent) 8%, transparent);
+}
+.term-status-home {
+  flex: none;
+  margin-left: 0.25rem;
+  padding-left: 0.55rem;
+  border-left: 1px solid var(--term-rule);
+  color: var(--term-accent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.term-status-home:hover {
+  color: var(--term-head);
+  text-decoration: underline;
+}
+
+@media (max-width: 960px) {
+  .term-status-meta {
+    display: none;
+  }
 }
 
 /* ---------------------------------------------------------- phone controls -- */
@@ -577,6 +820,8 @@ a.term-dot:focus-visible {
     place-items: center;
     margin-left: 0.1rem;
     padding: 0;
+    border: 0;
+    background: none;
   }
   .term-screen {
     padding: 0.75rem max(0.7rem, env(safe-area-inset-left)) 0.3rem
@@ -589,11 +834,17 @@ a.term-dot:focus-visible {
     width: auto;
     margin-bottom: 0.45rem;
   }
+  .term-swatches--indented {
+    padding-left: 0;
+  }
   .term-form {
     gap: 0.35rem;
     align-items: center;
-    padding: 0.35rem max(0.7rem, env(safe-area-inset-left))
-      max(0.8rem, env(safe-area-inset-bottom)) max(0.7rem, env(safe-area-inset-right));
+    padding: 0.4rem max(0.7rem, env(safe-area-inset-left))
+      max(0.75rem, env(safe-area-inset-bottom)) max(0.7rem, env(safe-area-inset-right));
+  }
+  .term-status {
+    display: none;
   }
   .term-input {
     font-size: 16px;
@@ -726,4 +977,3 @@ a.term-dot:focus-visible {
 .term--crt .term-dim {
   color: #3b7a5a;
 }
-

@@ -26,6 +26,7 @@ import {
   search,
   shortCwd,
   stageLine,
+  suggest,
   tokenize,
   type TermIndex,
 } from './terminal';
@@ -1084,10 +1085,10 @@ describe('unix utilities and content navigation commands', () => {
 
   it('games, snake, and tetris trigger navigation effects', () => {
     const snake = exec(shell(), 'snake');
-    expect(snake.effect).toEqual({ type: 'navigate', href: '/software/' });
+    expect(snake.effect).toEqual({ type: 'navigate', href: '/games/snake/' });
 
     const tetris = exec(shell(), 'tetris');
-    expect(tetris.effect).toEqual({ type: 'navigate', href: '/software/' });
+    expect(tetris.effect).toEqual({ type: 'navigate', href: '/games/tetris/' });
   });
 
   it('aliases expand correctly', () => {
@@ -1205,21 +1206,35 @@ describe('unix utilities and content navigation commands', () => {
     expect(pipeSortUniq.lines.length).toBeGreaterThan(0);
   });
 
-  it('git command renders academic commit log, status, branch, and diff', () => {
+  it('git command renders accurate academic commit log, status, branch, and diff', () => {
     const state = shell();
     const gitLog = exec(state, 'git log');
-    expect(joined(gitLog.lines)).toContain('LiftOn');
-    expect(joined(gitLog.lines)).toContain('Johns Hopkins University');
+    const logText = joined(gitLog.lines);
+    expect(logText).toContain('2026 Virtual Cell Challenge');
+    expect(logText).toContain('CellularAI');
+    expect(logText).toContain('Illumina AI Lab');
+    expect(logText).toContain('Salzberg & Pertea');
+    expect(logText).toContain('LiftOn published in Genome Research');
+    expect(logText).toContain('OpenSpliceAI published in eLife');
+    expect(logText).toContain('Splam published in Genome Biology');
+    expect(logText).toContain('Electrical Engineering');
+    expect(logText).toContain('Johns Hopkins University');
+    expect(logText).not.toContain('Michael Schatz');
+    expect(logText).not.toContain('Nature Methods');
 
     const gitTree = exec(state, 'git tree');
     expect(joined(gitTree.lines)).toContain('commit');
 
     const gitStatus = exec(state, 'git status');
-    expect(joined(gitStatus.lines)).toContain('On branch main');
-    expect(joined(gitStatus.lines)).toContain('Ph.D. Candidate');
+    const statusText = joined(gitStatus.lines);
+    expect(statusText).toContain('On branch main');
+    expect(statusText).toContain('Senior Deep Learning/AI Engineer');
+    expect(statusText).toContain('Illumina');
+    expect(statusText).not.toContain('Ph.D. Candidate');
 
     const gitBranch = exec(state, 'git branch');
     expect(joined(gitBranch.lines)).toContain('* main');
+    expect(joined(gitBranch.lines)).toContain('virtual-cell-foundation-models');
 
     const gitDiff = exec(state, 'git diff');
     expect(joined(gitDiff.lines)).toContain('ResidualCNN_Transformer');
@@ -1270,11 +1285,24 @@ describe('unix utilities and content navigation commands', () => {
 
     const manLifton = exec(state, 'man lifton');
     expect(joined(manLifton.lines)).toContain('LIFTON(1)');
-    expect(joined(manLifton.lines)).toContain('Nature Methods');
+    expect(joined(manLifton.lines)).toContain('Genome Research (2025)');
 
     const manSplam = exec(state, 'man splam');
     expect(joined(manSplam.lines)).toContain('SPLAM(1)');
-    expect(joined(manSplam.lines)).toContain('Oxford Bioinformatics');
+    expect(joined(manSplam.lines)).toContain('Genome Biology (2024)');
+
+    const manOpenSplice = exec(state, 'man openspliceai');
+    expect(joined(manOpenSplice.lines)).toContain('OPENSPLICEAI(1)');
+    expect(joined(manOpenSplice.lines)).toContain('eLife (2025)');
+    expect(joined(manOpenSplice.lines)).toContain('/reports/full-snv-scoring-technical-report/');
+
+    const manShorkie = exec(state, 'man shorkie');
+    expect(joined(manShorkie.lines)).toContain('/shorkie-lab/genome/');
+    expect(joined(manShorkie.lines)).toContain('/shorkie-lab/attention/');
+
+    const manCellular = exec(state, 'man cellularai');
+    expect(joined(manCellular.lines)).toContain('CELLULARAI(1)');
+    expect(joined(manCellular.lines)).toContain('2026 Virtual Cell Challenge');
 
     const manGit = exec(state, 'man git');
     expect(joined(manGit.lines)).toContain('GIT(1)');
@@ -1286,6 +1314,82 @@ describe('unix utilities and content navigation commands', () => {
     const manIsm = exec(state, 'man ism');
     expect(joined(manIsm.lines)).toContain('ISM(1)');
     expect(joined(manIsm.lines)).toContain('In Silico Mutagenesis');
+  });
+
+  it('supports new 2026 commands, dynamic paper lookup, and ghost suggestions', () => {
+    const idx = fixture();
+    idx.recentNews = [
+      {
+        date: '2026-11-19',
+        category: 'award',
+        title: '2026 Virtual Cell Challenge',
+        summary: 'First place with CellularAI.',
+        href: '/news/',
+      },
+    ];
+    idx.awardNews = idx.recentNews;
+    idx.papers = [
+      {
+        id: 'alphagenome',
+        shortTitle: 'AlphaGenome (DeepMind)',
+        title: 'Advancing Regulatory Variant Effect Prediction with AlphaGenome',
+        venue: 'Nature',
+        year: 2026,
+        area: 'Deep Learning',
+        tag: 'Google DeepMind · Nature 2026',
+        summary: '1 Mb context at 1 bp resolution.',
+        href: '/papers/alphagenome/',
+      },
+      {
+        id: 'gears',
+        shortTitle: 'GEARS (Stanford)',
+        title: 'Predicting transcriptional outcomes of novel multigene perturbations',
+        venue: 'Nature Biotechnology',
+        year: 2024,
+        area: 'Single-Cell Perturbation',
+        tag: 'Stanford · Nature Biotechnology 2024',
+        summary: 'Perturbation graph neural network.',
+        href: '/papers/gears/',
+      },
+    ];
+    idx.fs[`${HOME}/reports/full-snv-scoring-technical-report.txt`] = {
+      title: 'Genome-wide comparison of predicted splicing effects',
+      body: '3.33B matched variant-gene annotations.',
+      href: '/reports/full-snv-scoring-technical-report/',
+      kind: 'report',
+    };
+    idx.fs[`${HOME}/labs/shorkie-lab.txt`] = {
+      title: 'Shorkie Lab',
+      body: 'Shorkie Lab\n\nIn-browser DNA LM inference & ISM\n\nURL: /shorkie-lab/',
+      href: '/shorkie-lab/',
+      kind: 'lab',
+    };
+    idx.fs[`${HOME}/teaching/jhu-ta.txt`] = {
+      title: 'Computational Genomics',
+      body: 'Role: Teaching Assistant',
+      href: '/teaching/',
+      kind: 'file',
+    };
+    const st = createShell(idx);
+
+    expect(joined(exec(st, 'recent').lines)).toContain('2026 Virtual Cell Challenge');
+    expect(joined(exec(st, 'honors').lines)).toContain('2026 Virtual Cell Challenge');
+    expect(joined(exec(st, 'labs').lines)).toContain('Shorkie Lab');
+    expect(joined(exec(st, 'teaching').lines)).toContain('Computational Genomics');
+    expect(joined(exec(st, 'reports').lines)).toContain('3.33B');
+    expect(joined(exec(st, 'help recent').lines)).toContain('2026 highlights');
+
+    const papersOut = exec(st, 'papers');
+    expect(joined(papersOut.lines)).toContain('LITERATURE PAPER SUMMARIES (2)');
+    expect(exec(st, 'paper gears').effect).toEqual({ type: 'navigate', href: '/papers/gears/' });
+
+    expect(complete(st, 'git s').value).toBe('git status ');
+    expect(complete(st, 'man cell').value).toBe('man cellularai ');
+    expect(complete(st, 'paper gea').value).toBe('paper gears ');
+
+    expect(suggest(st, 'neof')).toBe('neofetch');
+    expect(suggest(st, 'git s')).toBe('git status');
+    expect(exec(st, 'vcc').lines[0].text).toContain('CELLULARAI(1)');
   });
 
   it('duel command navigates to the algorithm duel arena', () => {
